@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, xy } from "@synnaxlabs/x";
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 
 import { Cursor } from "@/cursor";
 import { useSyncedRef } from "@/hooks";

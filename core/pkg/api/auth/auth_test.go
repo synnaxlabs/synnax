@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -102,7 +105,7 @@ var _ = Describe("NewService", func() {
 })
 
 var _ = Describe("HeldTables", func() {
-	It("Should name the tables of the API keys, password, and sessions of a user", func(
+	It("Should name the tables of the records that a user holds", func(
 		ctx SpecContext,
 	) {
 		tx := DeferClose(db.OpenTx())
@@ -113,6 +116,16 @@ var _ = Describe("HeldTables", func() {
 		passwords := passwordSvc.NewWriter(tx)
 		Expect(passwords.Set(ctx, root.ResourceID(), creds.Username, h)).To(Succeed())
 		MustSucceed2(authSvc.NewWriter(tx).Open(ctx, root.ResourceID(), k.Key))
+		MustSucceed(oidcSvc.NewWriter(tx).Create(
+			ctx,
+			root.Key,
+			oidc.Account{
+				Provider: "idp",
+				Issuer:   provider.Issuer(),
+				ID:       uuid.New().String(),
+			},
+		),
+		)
 		tables := lo.Map(gorp.ChangesOf(tx), func(c gorp.Change, _ int) string {
 			return c.Record.Table
 		})
@@ -147,6 +160,101 @@ var _ = Describe("Login", func() {
 			apiSvc.Login(requestCtx(ctx), request("nobody", creds.Password)),
 		).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
+	})
+})
+
+var _ = Describe("Methods", func() {
+	It("Should list the methods the Core accepts", func(ctx SpecContext) {
+		Eventually(func() (apiauth.MethodsResponse, error) {
+			return apiSvc.Methods(ctx, struct{}{})
+		}).Should(Equal(apiauth.MethodsResponse{
+			Methods: []auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodOIDC,
+				auth.MethodPassword,
+			},
+			Providers: []apiauth.OIDCLogin{{
+				Provider:              "idp",
+				AuthorizationEndpoint: provider.Issuer() + "/authorize",
+				ClientID:              testutil.ClientID,
+			}},
+		}))
+	})
+})
+
+var _ = Describe("Disabled methods", func() {
+	var own auth.Credentials
+	disabled := func(ctx SpecContext, method auth.Method) *apiauth.Service {
+		GinkgoHelper()
+		authenticators := map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: passwordSvc,
+			auth.MethodAPIKey:   apiKeySvc,
+			auth.MethodOIDC:     oidcSvc,
+		}
+		delete(authenticators, method)
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB:             other,
+			Authenticators: authenticators,
+		}))
+		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+			DB:       db,
+			Auth:     svc,
+			Password: passwordSvc,
+			APIKey:   apiKeySvc,
+			OIDC:     oidcSvc,
+			User:     userSvc,
+			RBAC:     rbacSvc,
+			Identity: node.Identity,
+		}))
+	}
+	BeforeEach(func(ctx SpecContext) {
+		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
+		createUser(ctx, own.Username, own.Password)
+	})
+	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
+			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOIDC}))
+	})
+	It("Should list no providers while oidc is off", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOIDC).Methods(ctx, struct{}{})).
+			To(HaveField("Providers", BeEmpty()))
+	})
+	It("Should refuse to link a provider account", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOIDC).PrepareLinkOIDC(
+			requestCtx(ctx),
+			apiauth.OIDCLinkRequest{},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
+	It("Should refuse a password login and keep the password", func(ctx SpecContext) {
+		proof := passwordProof(own.Username, own.Password)
+		Expect(disabled(ctx, auth.MethodPassword).CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: proof},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, proof))
+	})
+	It("Should refuse a password change and keep the password", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).PrepareChangePassword(
+			requestCtx(ctx),
+			apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse to set a password and keep the old one", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).PrepareSetPassword(
+			requestCtx(ctx),
+			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "old"},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse a new API key", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
+			requestCtx(ctx),
+			nil,
+			apiauth.KeyCreateRequest{Name: "ci"},
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 })
 

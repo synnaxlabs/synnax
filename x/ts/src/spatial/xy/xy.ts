@@ -22,9 +22,9 @@ import {
   xyZ,
 } from "@/spatial/base";
 import { direction as dir, type direction } from "@/spatial/direction";
-import { type location } from "@/spatial/location";
+import type { location } from "@/spatial/location";
 
-export { type ClientXY as Client, NumberCouple as Couple, type XY, xyZ };
+export { type ClientXY as Client, type NumberCouple as Couple, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -239,34 +239,27 @@ export const average = (...coordinates: Crude[]): XY => {
  * @param path - The path to calculate the miters for.
  * @param offset - The magnitude of the miter vectors.
  * @returns The miter vectors for the given path.
+ * @throws if the path has exactly one point.
  */
 export const calculateMiters = (path: XY[], offset: number): XY[] => {
   const miters: XY[] = [];
-  for (let i = 0; i < path.length; i++) {
-    const currPoint = path[i];
-    let normalPrev: XY;
-    let normalNext: XY;
+  for (const [i, currPoint] of path.entries()) {
+    const prevPoint = path[i - 1];
+    const nextPoint = path[i + 1];
     let miterNormal: XY;
     let miterLength: number;
-    if (i === 0) {
-      const nextPoint = path[i + 1];
-      const dirNext = sub(nextPoint, currPoint);
-      normalNext = normal(dirNext);
-      miterNormal = normalNext;
-      miterLength = offset;
-    } else if (i === path.length - 1) {
-      const prevPoint = path[i - 1];
-      const dirPrev = sub(currPoint, prevPoint);
-      normalPrev = normal(dirPrev);
-      miterNormal = normalPrev;
+    if (prevPoint == null || nextPoint == null) {
+      let dir: XY;
+      if (nextPoint != null) dir = sub(nextPoint, currPoint);
+      else if (prevPoint != null) dir = sub(currPoint, prevPoint);
+      else throw new Error("a path needs at least two points to calculate miters");
+      miterNormal = normal(dir);
       miterLength = offset;
     } else {
-      const prevPoint = path[i - 1];
-      const nextPoint = path[i + 1];
       const dirPrev = sub(currPoint, prevPoint);
       const dirNext = sub(nextPoint, currPoint);
-      normalPrev = normal(dirPrev);
-      normalNext = normal(dirNext);
+      const normalPrev = normal(dirPrev);
+      const normalNext = normal(dirNext);
       const angle = Math.acos(
         (dirPrev.x * dirNext.x + dirPrev.y * dirNext.y) /
           (Math.hypot(dirPrev.x, dirPrev.y) * Math.hypot(dirNext.x, dirNext.y)),

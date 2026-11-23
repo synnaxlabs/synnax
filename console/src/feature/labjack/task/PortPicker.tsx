@@ -12,8 +12,8 @@ import "@/feature/labjack/task/PortPicker.css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import {
   type Model,
@@ -23,7 +23,7 @@ import {
 } from "@/feature/labjack/device/types";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims, terminal } from "@/feature/labjack/task/ports";
-import { type Channel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 

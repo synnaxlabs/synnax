@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export interface ItemLabelProps extends Pick<Text.TextProps, "color" | "variant"> {
   /** What sort of item it is: a channel type, an HTTP method. Shown as a tag. */

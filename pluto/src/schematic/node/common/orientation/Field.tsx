@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { location } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type Label } from "@/schematic/node/common/label";
+import type { Label } from "@/schematic/node/common/label";
 import { Select } from "@/schematic/node/common/orientation/select";
 
 interface SymbolOrientation {

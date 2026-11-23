@@ -14,14 +14,14 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Log, Panel as PPanel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 

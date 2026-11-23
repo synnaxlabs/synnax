@@ -7,6 +7,7 @@
       {
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "Reading",
+        "cycle_time": 100000000,
         "payload": {
           "format": "text",
           "delimiter": ",",
@@ -28,7 +29,8 @@
               "offset": 0,
               "units": "",
               "encoding": "delimited",
-              "position": 2
+              "position": 2,
+              "default": 0.5
             }
           ]
         }

@@ -15,7 +15,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { entryHash, versionOf } from "@/cli/hash";
-import { type Entry } from "@/manifest";
+import type { Entry } from "@/manifest";
 
 describe("cli.hash", () => {
   let root: string;

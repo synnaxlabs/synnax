@@ -9,8 +9,8 @@
 
 import { and, eq, gt, lte } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import { handoff } from "@/server/db/schema";
+import { schema } from "@/server/db";
+import type { Store } from "@/server/db/db";
 import { badRequest } from "@/server/errors";
 import { hashSecret } from "@/server/license/desktop";
 
@@ -41,11 +41,11 @@ export const offer = async (
   { code, key, now }: OfferArgs,
 ): Promise<void> => {
   const expiresAt = new Date(now.getTime() + TTL_MS);
-  await store.query.delete(handoff).where(lte(handoff.expiresAt, now));
+  await store.query.delete(schema.handoff).where(lte(schema.handoff.expiresAt, now));
   await store.query
-    .insert(handoff)
+    .insert(schema.handoff)
     .values({ codeHash: hashSecret(code), key, expiresAt })
-    .onConflictDoUpdate({ target: handoff.codeHash, set: { key, expiresAt } });
+    .onConflictDoUpdate({ target: schema.handoff.codeHash, set: { key, expiresAt } });
 };
 
 export interface TakeArgs {
@@ -62,8 +62,13 @@ export const take = async (
   { code, now }: TakeArgs,
 ): Promise<string | null> => {
   const [row] = await store.query
-    .delete(handoff)
-    .where(and(eq(handoff.codeHash, hashSecret(code)), gt(handoff.expiresAt, now)))
-    .returning({ key: handoff.key });
+    .delete(schema.handoff)
+    .where(
+      and(
+        eq(schema.handoff.codeHash, hashSecret(code)),
+        gt(schema.handoff.expiresAt, now),
+      ),
+    )
+    .returning({ key: schema.handoff.key });
   return row?.key ?? null;
 };

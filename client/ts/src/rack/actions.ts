@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type patch, zod } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -18,7 +18,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/rack/actions.gen";
-import { type Payload } from "@/rack/types.gen";
+import type { Payload } from "@/rack/types.gen";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.
 const documentZ = z.object({
