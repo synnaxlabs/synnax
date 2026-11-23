@@ -636,7 +636,10 @@ var _ = Describe("ParseLine", func() {
 })
 
 var _ = Describe("Long lines", func() {
-	It("Should keep reading after a line longer than the scan buffer", func() {
+	const maxLineSize = 64 * 1024
+	const prefix = "I [mock] [opc] "
+
+	It("Should keep reading after a line longer than the read buffer", func() {
 		r, w := io.Pipe()
 		buffer := &bytes.Buffer{}
 		core := zapcore.NewCore(
@@ -654,16 +657,41 @@ var _ = Describe("Long lines", func() {
 		}()
 		written := make(chan struct{})
 		go func() {
+			defer GinkgoRecover()
 			defer close(written)
-			_, _ = w.Write(
-				[]byte("I [mock] [opc] " + strings.Repeat("x", 200_000) + "\n"),
-			)
-			_, _ = w.Write([]byte("I [mock] [opc] after\n"))
-			_ = w.Close()
+			MustSucceed(w.Write(
+				[]byte(prefix + strings.Repeat("x", 200_000) + "\n"),
+			))
+			MustSucceed(w.Write([]byte(prefix + "after\n")))
+			Expect(w.Close()).To(Succeed())
 		}()
 		Eventually(written).Should(BeClosed())
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).To(ContainSubstring(`"M":"after"`))
+	})
+
+	It("Should keep only the first maxLineSize bytes of a long line", func() {
+		entries := pipeAndCollect(nil, nil, nil,
+			prefix+strings.Repeat("x", 200_000)+"\n"+prefix+"after\n",
+		)
+		Expect(entries).To(HaveLen(2))
+		Expect(entries[0]["M"]).To(HaveLen(maxLineSize - len(prefix)))
+		Expect(entries[1]).To(HaveKeyWithValue("M", "after"))
+	})
+
+	It("Should log a long line with no trailing newline", func() {
+		entries := pipeAndCollect(nil, nil, nil,
+			prefix+strings.Repeat("x", 200_000),
+		)
+		Expect(entries).To(HaveLen(1))
+		Expect(entries[0]["M"]).To(HaveLen(maxLineSize - len(prefix)))
+	})
+
+	It("Should not cut a line of exactly maxLineSize bytes", func() {
+		msg := strings.Repeat("x", maxLineSize-len(prefix))
+		entries := pipeAndCollect(nil, nil, nil, prefix+msg+"\n")
+		Expect(entries).To(HaveLen(1))
+		Expect(entries[0]).To(HaveKeyWithValue("M", msg))
 	})
 })
 

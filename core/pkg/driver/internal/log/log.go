@@ -138,8 +138,8 @@ func PipeToLogger(
 const maxLineSize = 64 * 1024
 
 // readLine reads the next line, without its newline, up to maxLineSize bytes. It
-// returns
-// the final unterminated line before the error that ends the stream.
+// returns the final unterminated line before the error that ends the stream. The
+// result is valid only until the next read.
 func readLine(r *bufio.Reader) ([]byte, error) {
 	var line []byte
 	for {
@@ -149,6 +149,9 @@ func readLine(r *bufio.Reader) ([]byte, error) {
 				return line, nil
 			}
 			return nil, err
+		}
+		if line == nil && !isPrefix {
+			return chunk, nil
 		}
 		if room := maxLineSize - len(line); room > 0 {
 			line = append(line, chunk[:min(room, len(chunk))]...)
@@ -179,7 +182,7 @@ type forwarder struct {
 	crashLines []string
 }
 
-// forward handles one line of the stream. b is valid only until the next scan.
+// forward handles one line of the stream. b is valid only until the next read.
 func (f *forwarder) forward(b []byte) {
 	if len(b) == 0 {
 		if f.crashLines == nil {
@@ -196,8 +199,8 @@ func (f *forwarder) forward(b []byte) {
 		f.lastErr = strings.Clone(strings.TrimSpace(line))
 	}
 	if f.crashLines != nil {
-		// strings.Clone is required: the scanner reuses its buffer across
-		// iterations, so line must be copied to survive until the flush.
+		// strings.Clone is required: the reader reuses its buffer across
+		// reads, so line must be copied to survive until the flush.
 		f.crashLines = append(f.crashLines, strings.Clone(line))
 		return
 	}
