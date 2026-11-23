@@ -57,6 +57,8 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
   value: Look[F] | undefined;
+  /** inherited is what a look on the whole drawing gives the part. */
+  inherited: Look[F] | undefined;
   onChange: (value: Look[F] | undefined) => void;
 }
 
@@ -72,6 +74,11 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...inspector,
     ...field,
     value: Spec.effective({ looks }, part, field.field, at) as Look[F] | undefined,
+    inherited:
+      part == null
+        ? undefined
+        : (Spec.effective({ looks }, undefined, field.field, at) as
+            Look[F] | undefined),
     onChange: (v) =>
       set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
   };
@@ -170,12 +177,15 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, onChange, label, at } = useScope<"hidden">("VisibleControl");
+  const { value, inherited, onChange, label, at } =
+    useScope<"hidden">("VisibleControl");
   return (
     <Input.Checkbox
       aria-label={label}
       value={value !== true}
-      onChange={(shown) => onChange(shown ? (at == null ? undefined : false) : true)}
+      onChange={(shown) =>
+        onChange(shown ? (at == null && inherited !== true ? undefined : false) : true)
+      }
     />
   );
 };
@@ -183,12 +193,19 @@ const VisibleControl = (): ReactElement => {
 const BLINK: schematic.symbol.Blink = { period: TimeSpan.SECOND.nanoseconds };
 
 const BlinkControl = (): ReactElement => {
-  const { value, onChange, label } = useScope<"blink">("BlinkControl");
+  const { value, inherited, onChange, label } = useScope<"blink">("BlinkControl");
+  // The whole drawing blinks as one shape, so a part cannot stop it.
   return (
     <Input.Checkbox
       aria-label={label}
       value={value != null}
       onChange={(on) => onChange(on ? BLINK : undefined)}
+      disabled={inherited != null}
+      tooltip={
+        inherited != null
+          ? "The whole drawing blinks, and this part with it."
+          : undefined
+      }
     />
   );
 };
@@ -226,7 +243,7 @@ const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "
 const RATE_BOUNDS: bounds.Bounds = { lower: 0, upper: Infinity };
 
 const MotionControl = (): ReactElement => {
-  const { value, onChange, label } = useScope<"motion">("MotionControl");
+  const { value, inherited, onChange, label } = useScope<"motion">("MotionControl");
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
   const handleKindChange = (kind: Loop | "none") => {
     if (kind === "none") return onChange(undefined);
@@ -244,7 +261,16 @@ const MotionControl = (): ReactElement => {
         size="small"
         align="center"
       >
-        <Select.Item itemKey="none" size="small">
+        <Select.Item
+          itemKey="none"
+          size="small"
+          disabled={inherited != null}
+          tooltip={
+            inherited != null
+              ? "The whole drawing moves, and this part with it."
+              : undefined
+          }
+        >
           None
         </Select.Item>
         {MOTIONS.map(({ name, kinds }) => {
