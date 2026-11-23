@@ -56,6 +56,8 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
+  /** shown is the value whose looks the control shows. */
+  shown: number;
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -74,21 +76,20 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
   const shown = at ?? preview;
+  const f = field.field as F;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, shown) as Look[F] | undefined,
+    shown,
+    value: Spec.effective({ looks }, part, f, shown),
     inherited:
-      part == null
-        ? undefined
-        : (Spec.effective({ looks }, undefined, field.field, shown) as
-            Look[F] | undefined),
+      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
     own: Spec.effective(
       { looks: looks.filter((l) => l.part === part) },
       part,
-      field.field,
+      f,
       shown,
-    ) as Look[F] | undefined,
+    ),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -97,7 +98,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static"
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, field.field, v, at));
+      set(path.data, Spec.setOwn(from, part, f, v, at));
     },
   };
 };
@@ -128,10 +129,15 @@ const Property = ({
   if (split && !several) setSplit(false);
   const varies = several && (split || Spec.variesByValue({ looks }, part, field));
   const handleVariesChange = (next: boolean) => {
-    const keys = values.values.map((v) => v.value);
     set(
       path.data,
-      Spec.setVariesByValue(get(path.data).value, part, field, keys, next),
+      Spec.setVariesByValue(
+        get(path.data).value,
+        part,
+        field,
+        values.values.map((v) => v.value),
+        next,
+      ),
     );
     setSplit(next);
   };
@@ -193,7 +199,7 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, inherited, own, onChange, label, at, preview, values } = useScope<
+  const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
   return (
@@ -205,7 +211,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(at ?? preview)}
+      entryColor={values.entryColor(shown)}
     />
   );
 };
