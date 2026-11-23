@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ni, task } from "@synnaxlabs/client";
+import { type ni, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
 import {
@@ -617,12 +617,6 @@ describe("AnalogRead ports", () => {
       "Minimum value",
     ],
     [
-      "the minimum of a reversed voltage outside every range",
-      { minVal: 20, maxVal: 5 },
-      "ai_voltage",
-      "Minimum value",
-    ],
-    [
       "the maximum of a current outside every range",
       { minVal: 0, maxVal: 0.5 },
       "ai_current",
@@ -689,6 +683,126 @@ describe("AnalogRead ports", () => {
     ]);
     fireEvent.click(await findChannelListItem("chan_ranged"));
     await waitFor(() => expect(fieldInvalid(label)).toBe(true));
+  });
+
+  it("should hold a reversed range unsaved until the range is valid again", async () => {
+    const dev = await createDevice();
+    const { draft } = await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 5,
+      }),
+    ]);
+    // A second client reads the Core, not the cache the form writes to.
+    const reader = createTestClient();
+    const savedRange = async () => {
+      const saved = await reader.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      const [c] = saved.config.channels;
+      assert("minVal" in c);
+      return [c.minVal, c.maxVal];
+    };
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    fireEvent.pointerEnter(screen.getByLabelText("Minimum value"));
+    expect(
+      await screen.findByText("Minimum value must be less than maximum value"),
+    ).toBeTruthy();
+    await sleep.sleep(TimeSpan.milliseconds(500));
+    expect(await savedRange()).toEqual([0, 5]);
+
+    commitFieldInput(screen.getByLabelText("Maximum value"), "9");
+    await waitFor(async () => expect(await savedRange()).toEqual([8, 9]));
+    expect(fieldInvalid("Minimum value")).toBe(false);
+  });
+
+  it("should keep a device range error on the minimum when a hold ends", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 5,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "-20");
+    fireEvent.pointerEnter(screen.getByLabelText("Minimum value"));
+    expect(
+      await screen.findByText("The device has no range from -20 to 5 V"),
+    ).toBeTruthy();
+    expect(fieldInvalid("Minimum value")).toBe(true);
+  });
+
+  it("should not deploy while it holds a reversed range", async () => {
+    const dev = await createDevice();
+    const { container } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    const execute = vi.spyOn(client.tasks, "executeCommand");
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    await clickDeploy(container);
+    await sleep.sleep(TimeSpan.milliseconds(500));
+    expect(execute).not.toHaveBeenCalled();
+    execute.mockRestore();
+  });
+
+  it("should drop a held range when the user leaves the channel", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 5,
+      }),
+      createChannel("ai_voltage", 1, { device: dev.key, name: "chan_other" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    fireEvent.click(await findChannelListItem("chan_other"));
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(false));
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+  });
+
+  it("should drop a held range when another client changes the range", async () => {
+    const dev = await createDevice();
+    const channel = createChannel("ai_voltage", 0, {
+      device: dev.key,
+      name: "chan_ranged",
+      minVal: 0,
+      maxVal: 5,
+    });
+    const { draft } = await renderWith([channel]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    const other = createTestClient();
+    await other.tasks.retrieve({ key: draft.key });
+    await other.tasks.dispatch(
+      draft.key,
+      task.set({
+        path: ["config", "channels", channel.key],
+        value: { ...channel, minVal: 1, maxVal: 6 },
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("1"),
+    );
+    expect(fieldInvalid("Minimum value")).toBe(false);
   });
 
   it("should name the values that fit in no range", async () => {

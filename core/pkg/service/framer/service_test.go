@@ -217,7 +217,7 @@ var _ = Describe("Service", func() {
 		It("Should iterate over previously written data", func(ctx SpecContext) {
 			idxCh, dataCh := createIndexed(ctx)
 			write(ctx, idxCh, dataCh)
-			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
@@ -225,6 +225,7 @@ var _ = Describe("Service", func() {
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 			Expect(iter.Value().Get(idxCh.Key()).Series[0]).
 				To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
+			Expect(iter.Close()).To(Succeed())
 		})
 	})
 
@@ -301,11 +302,12 @@ var _ = Describe("Service", func() {
 				channel.Keys{idxCh.Key(), dataCh.Key()},
 				telem.TimeRangeMax,
 			)).To(Succeed())
-			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
 			Expect(iter.SeekFirst()).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
 		})
 	})
 })

@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot as lineplotClient } from "@synnaxlabs/client";
+import {
+  type channel,
+  DataType,
+  lineplot as lineplotClient,
+  type ranger,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import {
   bounds,
   box,
@@ -28,6 +34,7 @@ import {
   fireEvent,
   render,
   renderHook,
+  type RenderResult,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -37,16 +44,19 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  Suspense,
   useState,
 } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
+import { Channel } from "@/channel";
 import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
+import { Ranger } from "@/ranger";
 import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 import type { Viewport } from "@/viewport";
@@ -97,6 +107,42 @@ const all = (c: aether.Component): aether.Component[] => [
   c,
   ...(c instanceof aether.Composite ? c.children.flatMap(all) : []),
 ];
+
+interface SourceProps {
+  items: Haul.Item[];
+  onSuccessfulDrop: (props: Haul.OnSuccessfulDropProps) => void;
+}
+
+const Source = ({ items, onSuccessfulDrop }: SourceProps): ReactElement => {
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
+  return (
+    <div
+      draggable
+      data-testid="source"
+      onDragStart={(event) =>
+        startDrag({ event, items, preview: null, onSuccessfulDrop })
+      }
+      onDragEnd={onDragEnd}
+    />
+  );
+};
+
+const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
+  const { channels } = LinePlot.useYAxis({ key: plotKey, axisKey: "y1" });
+  const ranges = LinePlot.useRanges({ key: plotKey });
+  const x1 = LinePlot.useXAxisChannel({ key: plotKey, axisKey: "x1" });
+  const { undo } = LinePlot.useUndo({ key: plotKey });
+  return (
+    <>
+      <button onClick={undo}>Undo</button>
+      <div data-testid="x1">{x1}</div>
+      <div data-testid="y1">{channels.join(",")}</div>
+      <div data-testid="ranges">
+        {ranges.map((r) => (r.variant === "key" ? r.key : "")).join(",")}
+      </div>
+    </>
+  );
+};
 
 describe("LinePlot", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -1139,6 +1185,314 @@ describe("LinePlot", () => {
         });
         const { result } = await renderFrame();
         expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
+      });
+    });
+  });
+
+  describe("drop", () => {
+    let projectKey: string;
+    let channels: channel.Channel[];
+    let rng: ranger.Range;
+    beforeAll(async () => {
+      const start = TimeStamp.now();
+      rng = await client.ranges.create({
+        name: id.create(),
+        timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
+      });
+      projectKey = (await client.projects.create({ name: id.create() })).key;
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      channels = await client.channels.create([
+        { name: id.create(), dataType: DataType.FLOAT32, index: index.key },
+        { name: id.create(), dataType: DataType.FLOAT32, index: index.key },
+      ]);
+    });
+
+    const renderPlot = async (items: Haul.Item[], editable = true) => {
+      const onSuccessfulDrop = vi.fn();
+      const plot = await client.lineplots.create({
+        project: projectKey,
+        name: id.create(),
+      });
+      let result!: RenderResult;
+      await act(async () => {
+        result = render(
+          <Haul.Provider>
+            <Source items={items} onSuccessfulDrop={onSuccessfulDrop} />
+            <Suspense fallback={null}>
+              <LinePlot.Suspended linePlotKey={plot.key}>
+                <LinePlot.LinePlot aetherKey="plot" editable={editable} />
+                <Probe plotKey={plot.key} />
+              </LinePlot.Suspended>
+            </Suspense>
+          </Haul.Provider>,
+          { wrapper },
+        );
+      });
+      const viewport = await waitFor(() => {
+        const el = result.container.querySelector(".pluto-line-plot__viewport");
+        if (el == null) throw new Error("the plot area did not render");
+        return el;
+      });
+      const find = (selector: string): Element => {
+        const el = result.container.querySelector(selector);
+        if (el == null) throw new Error(`${selector} did not render`);
+        return el;
+      };
+      const xAxis = await waitFor(() => find(".pluto-x-axis"));
+      const yAxis = await waitFor(() => find(".pluto-y-axis"));
+      const drop = async (target: Element = viewport): Promise<void> => {
+        await act(async () => {
+          fireEvent.dragStart(result.getByTestId("source"));
+          fireEvent.dragOver(target);
+          fireEvent.drop(target);
+        });
+      };
+      const lastDropped = (): Haul.Item["key"][] =>
+        onSuccessfulDrop.mock.lastCall?.[0].dropped.map(({ key }: Haul.Item) => key);
+      return { ...result, drop, xAxis, yAxis, viewport, lastDropped };
+    };
+
+    describe("drag over", () => {
+      const startDrag = async (): Promise<void> => {
+        await act(async () => {
+          fireEvent.dragStart(screen.getByTestId("source"));
+        });
+      };
+      const droppable = (el: Element): boolean => el.hasAttribute("data-droppable");
+      const dragOver = (el: Element): boolean => el.hasAttribute("data-drag-over");
+
+      it("should mark every target that can take a channel drag", async () => {
+        const [first] = channels;
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        expect(droppable(viewport)).toBe(false);
+        await startDrag();
+        expect(droppable(viewport)).toBe(true);
+        expect(droppable(xAxis)).toBe(true);
+        expect(droppable(yAxis)).toBe(true);
+      });
+
+      it("should not mark a Y axis for a range drag", async () => {
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await startDrag();
+        expect(droppable(viewport)).toBe(true);
+        expect(droppable(xAxis)).toBe(true);
+        expect(droppable(yAxis)).toBe(false);
+        fireEvent.dragEnter(yAxis);
+        expect(dragOver(yAxis)).toBe(false);
+      });
+
+      it("should mark only the target under the cursor as dragged over", async () => {
+        const [first] = channels;
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await startDrag();
+        expect([viewport, xAxis, yAxis].some(dragOver)).toBe(false);
+        fireEvent.dragEnter(viewport);
+        expect(dragOver(viewport)).toBe(true);
+        expect(dragOver(xAxis)).toBe(false);
+        fireEvent.dragLeave(viewport, { relatedTarget: xAxis });
+        fireEvent.dragEnter(xAxis);
+        expect(dragOver(viewport)).toBe(false);
+        expect(dragOver(xAxis)).toBe(true);
+        expect(droppable(viewport)).toBe(true);
+        fireEvent.dragLeave(xAxis);
+        expect(dragOver(xAxis)).toBe(false);
+      });
+
+      it("should clear both marks when the drag ends", async () => {
+        const [first] = channels;
+        const { viewport, xAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await startDrag();
+        fireEvent.dragEnter(viewport);
+        await act(async () => {
+          fireEvent.drop(viewport);
+        });
+        expect(dragOver(viewport)).toBe(false);
+        expect(droppable(viewport)).toBe(false);
+        expect(droppable(xAxis)).toBe(false);
+      });
+    });
+
+    describe("range", () => {
+      it("should add a range dropped on the plot area to the plot", async () => {
+        const { drop, getByTestId } = await renderPlot([
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop();
+        await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
+      });
+
+      it("should add a range dropped on an X axis to the plot", async () => {
+        const { drop, xAxis, getByTestId } = await renderPlot([
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop(xAxis);
+        await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
+      });
+
+      it("should set the X channel and add the ranges of one drop on an X axis", async () => {
+        const [first, second] = channels;
+        const { drop, xAxis, getByTestId, lastDropped } = await renderPlot([
+          Channel.createHaulItem(first.key),
+          Channel.createHaulItem(second.key),
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop(xAxis);
+        await waitFor(() => {
+          expect(getByTestId("x1").textContent).toBe(String(first.key));
+          expect(getByTestId("ranges").textContent).toBe(rng.key);
+        });
+        expect(getByTestId("y1").textContent).toBe("");
+        expect(lastDropped()).toEqual([first.key, rng.key]);
+      });
+
+      it("should add the channels and the ranges of one drop", async () => {
+        const [first] = channels;
+        const { drop, getByTestId } = await renderPlot([
+          Channel.createHaulItem(first.key),
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop();
+        await waitFor(() => {
+          expect(getByTestId("y1").textContent).toBe(String(first.key));
+          expect(getByTestId("ranges").textContent).toBe(rng.key);
+        });
+      });
+
+      it("should undo the channels and the ranges of one drop in one step", async () => {
+        const [first] = channels;
+        const { drop, getByTestId, getByText } = await renderPlot([
+          Channel.createHaulItem(first.key),
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop();
+        await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
+        fireEvent.click(getByText("Undo"));
+        await waitFor(() => {
+          expect(getByTestId("y1").textContent).toBe("");
+          expect(getByTestId("ranges").textContent).toBe("");
+        });
+      });
+
+      it("should report no dropped range that the plot already has", async () => {
+        const { drop, getByTestId, lastDropped } = await renderPlot([
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await drop();
+        await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
+        expect(lastDropped()).toEqual([rng.key]);
+        await drop();
+        expect(lastDropped()).toEqual([]);
+      });
+
+      it("should not add a range when the plot is not editable", async () => {
+        const { drop, getByTestId, lastDropped } = await renderPlot(
+          [Ranger.createHaulItem(rng.payload)],
+          false,
+        );
+        await drop();
+        expect(lastDropped()).toEqual([]);
+        await expect(
+          waitFor(() => expect(getByTestId("ranges").textContent).not.toBe(""), {
+            timeout: 300,
+          }),
+        ).rejects.toThrow();
+      });
+    });
+
+    describe("channel", () => {
+      it("should add a channel dropped on a Y axis to that axis", async () => {
+        const [first] = channels;
+        const { drop, yAxis, getByTestId, lastDropped } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await drop(yAxis);
+        await waitFor(() =>
+          expect(getByTestId("y1").textContent).toBe(String(first.key)),
+        );
+        expect(lastDropped()).toEqual([first.key]);
+        await drop(yAxis);
+        expect(lastDropped()).toEqual([]);
+      });
+
+      it("should set the first channel dropped on an X axis as its channel", async () => {
+        const [first, second] = channels;
+        const { drop, xAxis, getByTestId, lastDropped } = await renderPlot([
+          Channel.createHaulItem(first.key),
+          Channel.createHaulItem(second.key),
+        ]);
+        await drop(xAxis);
+        await waitFor(() =>
+          expect(getByTestId("x1").textContent).toBe(String(first.key)),
+        );
+        expect(getByTestId("y1").textContent).toBe("");
+        expect(lastDropped()).toEqual([first.key]);
+      });
+
+      it("should not set the channel of an X axis when the plot is not editable", async () => {
+        const [first] = channels;
+        const { drop, xAxis, getByTestId, lastDropped } = await renderPlot(
+          [Channel.createHaulItem(first.key)],
+          false,
+        );
+        await drop(xAxis);
+        expect(lastDropped()).toEqual([]);
+        expect(getByTestId("x1").textContent).toBe("0");
+      });
+
+      it("should add a dropped channel to the first Y axis", async () => {
+        const keys = channels.map(({ key }) => key);
+        const { drop, getByTestId, lastDropped } = await renderPlot(
+          keys.map(Channel.createHaulItem),
+        );
+        await drop();
+        await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
+        expect(lastDropped()).toEqual(keys);
+      });
+
+      it("should not add a channel the first Y axis already has", async () => {
+        const [first] = channels;
+        const { drop, getByTestId, lastDropped } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await drop();
+        await waitFor(() =>
+          expect(getByTestId("y1").textContent).toBe(String(first.key)),
+        );
+        await drop();
+        expect(lastDropped()).toEqual([]);
+        await expect(
+          waitFor(
+            () => expect(getByTestId("y1").textContent).not.toBe(String(first.key)),
+            { timeout: 300 },
+          ),
+        ).rejects.toThrow();
+      });
+
+      it("should not add a channel when the plot is not editable", async () => {
+        const [first] = channels;
+        const { drop, getByTestId, lastDropped } = await renderPlot(
+          [Channel.createHaulItem(first.key)],
+          false,
+        );
+        await drop();
+        expect(lastDropped()).toEqual([]);
+        await expect(
+          waitFor(() => expect(getByTestId("y1").textContent).not.toBe(""), {
+            timeout: 300,
+          }),
+        ).rejects.toThrow();
       });
     });
   });

@@ -83,13 +83,16 @@ std::pair<Chassis, x::errors::Error> Client::retrieve(
     return {std::move(chassis[0]), x::errors::NIL};
 }
 
-x::errors::Error Client::update(const Key &key, const Update &update) const {
+std::pair<Chassis, x::errors::Error>
+Client::update(const Key &key, const Update &update) const {
     grpc::ni_chassis::UpdateRequest req;
     req.set_key(key.to_string());
     auto [pb, err] = to_proto(update);
-    if (err) return err;
+    if (err) return {Chassis{}, err};
     *req.mutable_update() = pb;
-    return this->update_client->send("/ni/chassis/update", req).second;
+    auto [res, send_err] = this->update_client->send("/ni/chassis/update", req);
+    if (send_err) return {Chassis{}, send_err};
+    return Chassis::from_proto(res.chassis());
 }
 
 x::errors::Error Client::del(const std::vector<Key> &keys) const {
