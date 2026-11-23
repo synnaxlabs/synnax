@@ -25,8 +25,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Reader } from "@/server/db/db";
+import { type Reader, schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { EXPIRING, type Status } from "@/server/license/status";
 
@@ -124,16 +123,17 @@ const matches = ({ search = "", status }: Query, now: Date): SQL | undefined => 
       : STATUS_WHERE[status](now, new Date(now.getTime() + EXPIRING)),
     needle === ""
       ? undefined
-      : sql`strpos(lower(${schema.license.label} || ' ' || ${schema.organization.name} || ' ' ||
-          ${schema.license.key}::text), lower(${needle})) > 0`,
+      : sql`strpos(lower(${schema.license.label} || ' ' ||
+          ${schema.organization.name} || ' ' || ${schema.license.key}::text),
+          lower(${needle})) > 0`,
   );
 };
 
 const after = (cursor: Cursor | undefined, soonest: boolean): SQL | undefined => {
   if (cursor == null) return undefined;
   if (!soonest)
-    return sql`(${schema.license.issuedAt}, ${schema.license.key}) < (select c.issued_at, c.key
-      from ${schema.license} c where c.key = ${cursor.key})`;
+    return sql`(${schema.license.issuedAt}, ${schema.license.key}) <
+      (select c.issued_at, c.key from ${schema.license} c where c.key = ${cursor.key})`;
   if (cursor.expiresAt == null)
     throw new Error("A cursor in the expiring order needs an expiry");
   return sql`(${schema.license.expiresAt}, ${schema.license.key}) >

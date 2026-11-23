@@ -1499,12 +1499,13 @@ Node union on variant {
 
 	Describe("Length rules", func() {
 		DescribeTable(
-			"Should reject a length rule on a field that is not a string",
+			"Should reject a length rule on a field that is not a string or bytes",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
-					"test.Entry.value has a length rule, but its type is not a string",
+					"test.Entry.value has a length rule, " +
+						"but its type is not a string or bytes",
 				))
 			},
 			Entry("a uuid with max_length", `
@@ -1527,6 +1528,11 @@ Node union on variant {
 					value string[] { @validate max_length 64 }
 				}
 			`),
+			Entry("an array of bytes", `
+				Entry struct {
+					value bytes[] { @validate min_length 1 }
+				}
+			`),
 			Entry("an alias of uuid", `
 				Key = uuid
 				Entry struct {
@@ -1544,7 +1550,7 @@ Node union on variant {
 		)
 
 		DescribeTable(
-			"Should accept a length rule on a string field",
+			"Should accept a length rule on a string or bytes field",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -1563,6 +1569,22 @@ Node union on variant {
 				Name = string
 				Entry struct {
 					value Name { @validate max_length 64 }
+				}
+			`),
+			Entry("bytes", `
+				Entry struct {
+					value bytes {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`),
+			Entry("an alias of bytes", `
+				Data = bytes
+				Entry struct {
+					value Data { @validate min_length 1 }
 				}
 			`),
 			Entry("an override of an inherited string field", `

@@ -13,8 +13,8 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Schematic } from "@/feature/schematic/Schematic";
-import { client, renderSchematic } from "@/feature/schematic/testutil";
+import { Schematic } from "@/feature/schematic";
+import { client, preloadTab, renderSchematic } from "@/feature/schematic/testutil";
 import { Vis } from "@/platform/vis";
 import { createTestClientWithGrants, type Grants, installMissingGPU } from "@/testutil";
 
@@ -52,8 +52,10 @@ const EDIT: Grants = {
   update: [schematic.TYPE_RESOURCE_ID],
 };
 
+const { Content } = Schematic.TABS[schematic.TYPE_RESOURCE_ID.type];
+
 const openMenu = async (grants: Grants): Promise<void> => {
-  await renderSchematic(Schematic, {
+  await renderSchematic(Content, {
     as: await createTestClientWithGrants(client, grants),
     additionalRegistry: REGISTRY,
     sessionState: { editable: false },
@@ -64,14 +66,16 @@ const openMenu = async (grants: Grants): Promise<void> => {
   await screen.findByText("Enable editing");
 };
 
-describe("schematic/Schematic", () => {
+preloadTab();
+
+describe("Schematic tab content", () => {
   describe("when the canvas has no GPU", () => {
     installMissingGPU();
 
     it("shows a placeholder in place of the schematic", async () => {
       const InCanvas = () => (
         <Vis.Canvas>
-          <Schematic />
+          <Content />
         </Vis.Canvas>
       );
       await renderSchematic(InCanvas, { additionalRegistry: canvas.REGISTRY });

@@ -9,8 +9,7 @@
 
 import { and, eq, gt, lte } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 import { badRequest } from "@/server/errors";
 import { hashSecret } from "@/server/license/desktop";
 

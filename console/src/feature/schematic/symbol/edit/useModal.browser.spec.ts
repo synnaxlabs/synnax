@@ -171,6 +171,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
       expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
+      expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Node color"));
       fireEvent.change(findNameInput(), {
         target: { value: uniqueName("node_colored_symbol") },
@@ -544,6 +545,36 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ]);
       });
+    });
+
+    it("saves a contrast paint on the state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState(enumeration.key)],
+      });
+      fireEvent.click(screen.getByLabelText("Fill"));
+      fireEvent.click(await screen.findByText("Contrast"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            fill: { type: "contrast", state: "active" },
+          },
+        ]),
+      );
     });
 
     it("shows the paint that the whole drawing gives a part with none", async () => {
