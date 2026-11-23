@@ -212,16 +212,31 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
     info->FileNameLength = static_cast<DWORD>(name_size);
     std::memcpy(info->FileName, target.data(), name_size);
     auto err = x::errors::NIL;
-    if (!SetFileInformationByHandle(
+    if (SetFileInformationByHandle(
             h,
             FileRenameInfoEx,
             info,
             static_cast<DWORD>(buf.size())
-        ))
-        err = last_error("failed to rename " + from.string());
-    else if (!FlushFileBuffers(h))
-        err = last_error("failed to sync " + to.string());
+        )) {
+        if (!FlushFileBuffers(h)) err = last_error("failed to sync " + to.string());
+        CloseHandle(h);
+        return err;
+    }
+    const auto code = GetLastError();
     CloseHandle(h);
-    return err;
+    // FAT volumes and some network shares have no POSIX rename. There a replace fails
+    // while another handle holds the target open.
+    if (code != ERROR_INVALID_PARAMETER && code != ERROR_NOT_SUPPORTED &&
+        code != ERROR_INVALID_FUNCTION) {
+        SetLastError(code);
+        return last_error("failed to rename " + from.string());
+    }
+    if (!MoveFileExW(
+            from.c_str(),
+            to.c_str(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+        ))
+        return last_error("failed to rename " + from.string());
+    return x::errors::NIL;
 }
 }

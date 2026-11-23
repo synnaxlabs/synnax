@@ -80,7 +80,8 @@ public:
 x::errors::Error sync_dir(const std::filesystem::path &dir);
 
 /// @brief renames from to to, and replaces a file at to, also one that other handles
-/// hold open. On Windows, returns after the rename is on the disk.
+/// hold open. On Windows, returns after the rename is on the disk, and on a volume with
+/// no POSIX rename, such as FAT, fails while another handle holds to open.
 x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to);
 
