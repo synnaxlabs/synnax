@@ -514,7 +514,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 				Data: v5.Spec{
-					Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+					Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 					Parts:           []v5.Part{},
 					Handles:         []v5.Handle{},
 					States:          []v5.State{},
@@ -1872,7 +1872,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 			Data: v5.Spec{
-				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+				Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 				Parts:           []v5.Part{},
 				Handles:         []v5.Handle{},
 				States:          []v5.State{},
