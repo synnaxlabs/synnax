@@ -13,12 +13,12 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { HOLD_TRIGGER } from "@/feature/lineplot/Controls";
 import { Session } from "@/session";
 
-export interface UseTriggerHoldProps {
+export interface UseTriggerProps {
   key: lineplot.Key;
   enabled: Triggers.Condition;
 }
 
-export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
+export const useTrigger = ({ key, enabled }: UseTriggerProps): void => {
   const dispatch = Session.useDispatch();
   Triggers.use({
     triggers: HOLD_TRIGGER,

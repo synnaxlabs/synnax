@@ -28,7 +28,7 @@ export interface DownloadLine {
   channels: { x?: channel.Key; y: channel.Key };
 }
 
-export interface DownloadAsCSVParams {
+export interface DownloadParams {
   timeRanges: TimeRange[];
   lines: DownloadLine[];
   name: string;
@@ -71,7 +71,7 @@ const readEdge = async (
     : ends.reduce((a, b) => TimeStamp.max(a, b));
 };
 
-export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
+export const useDownload = (): ((params: DownloadParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
   return ({ timeRanges, lines, name }) =>
     openDownloadCSVModal({
@@ -82,10 +82,10 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
     });
 };
 
-export const useDownloadPlotAsCSV = (key: string): (() => void) => {
+export const useDownloadPlot = (key: string): (() => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const downloadAsCSV = useDownloadAsCSV();
+  const downloadAsCSV = useDownload();
   const derived = LinePlot.useLines({ key });
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });

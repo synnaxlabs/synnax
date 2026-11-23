@@ -11,25 +11,25 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useSetT0Modal } from "@/feature/lineplot/useSetT0Modal";
+import { T0 } from "@/feature/lineplot/t0";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 
 const RANGE = new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200));
-const T0 = Number(RANGE.start.add(TimeSpan.seconds(5)).valueOf());
+const VALUE = Number(RANGE.start.add(TimeSpan.seconds(5)).valueOf());
 
 const openSetT0 = async () => {
-  const handle = await renderModalOpener(useSetT0Modal, [
-    { name: "Test 1", timeRange: RANGE, value: T0 },
+  const handle = await renderModalOpener(T0.useSetModal, [
+    { name: "Test 1", timeRange: RANGE, value: VALUE },
   ]);
   await screen.findByText("Set T0 of Test 1");
   return handle;
 };
 
-describe("lineplot useSetT0Modal", () => {
+describe("T0.useSetModal", () => {
   it("should return the T0 on save", async () => {
     const { result } = await openSetT0();
     fireEvent.click(findButton("Save"));
-    await expect(result()).resolves.toBe(T0);
+    await expect(result()).resolves.toBe(VALUE);
   });
 
   it("should return nothing on cancel", async () => {
