@@ -11,14 +11,13 @@ import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import type Synnax from "@/client";
-import { AuthError } from "@/errors";
+import { AuthError, type Synnax } from "@/index";
 import {
   createRequestHold,
   createTestClient,
   holdRequests,
   rejectRequests,
-} from "@/testutil/client";
+} from "@/testutil";
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {

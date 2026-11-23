@@ -20,9 +20,8 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import { NotFoundError } from "@/index";
+import { NotFoundError, UnauthorizedError, ValidationError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,

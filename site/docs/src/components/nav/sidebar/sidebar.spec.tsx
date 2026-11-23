@@ -11,7 +11,7 @@ import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Nav } from "@/components/nav";
-import { start } from "@/components/nav/sidebar";
+import { sidebar } from "@/components/nav/sidebar";
 
 const NODES: Nav.PageNavNode[] = [
   {
@@ -96,7 +96,7 @@ const swap = (path: string): void => {
 };
 
 describe("sidebar", () => {
-  beforeAll(() => start());
+  beforeAll(() => sidebar.start());
 
   describe("server render", () => {
     it("should expand the sections and the current page's ancestors", () => {
@@ -281,6 +281,6 @@ describe("sidebar", () => {
     document.body.innerHTML = `<nav class="page-nav">${renderToString(
       <Nav.Page nodes={NODES} currentPage="/reference/channels" />,
     )}</nav>`;
-    expect(() => start()).not.toThrow();
+    expect(() => sidebar.start()).not.toThrow();
   });
 });

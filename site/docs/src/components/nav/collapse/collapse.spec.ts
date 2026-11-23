@@ -9,7 +9,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { start, STORAGE_KEY } from "@/components/nav/collapse";
+import { collapse } from "@/components/nav/collapse";
 
 // Mirrors the markup of Page.astro.
 const PAGE = `
@@ -72,10 +72,10 @@ const press = (init: KeyboardEventInit, target: Element = document.body): boolea
 
 const SHORTCUT: KeyboardEventInit = { key: "b", code: "KeyB", metaKey: true };
 
-const collapse = (): void => toggle().click();
+const clickToggle = (): void => toggle().click();
 
 describe("collapse", () => {
-  beforeAll(() => start());
+  beforeAll(() => collapse.start());
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -97,26 +97,26 @@ describe("collapse", () => {
 
   describe("toggle", () => {
     it("should collapse the sidebar and remember it", () => {
-      collapse();
+      clickToggle();
       expect(isCollapsed()).toBe(true);
       expect(toggle().getAttribute("aria-label")).toBe("Expand sidebar");
       expect(toggle().getAttribute("aria-expanded")).toBe("false");
-      expect(localStorage.getItem(STORAGE_KEY)).toBe("true");
+      expect(localStorage.getItem(collapse.STORAGE_KEY)).toBe("true");
     });
 
     it("should expand a collapsed sidebar and remember it", () => {
-      collapse();
+      clickToggle();
       toggle().click();
       expect(isCollapsed()).toBe(false);
       expect(toggle().getAttribute("aria-label")).toBe("Collapse sidebar");
       expect(toggle().getAttribute("aria-expanded")).toBe("true");
-      expect(localStorage.getItem(STORAGE_KEY)).toBe("false");
+      expect(localStorage.getItem(collapse.STORAGE_KEY)).toBe("false");
     });
   });
 
   describe("page swap", () => {
     const swapTo = (collapsedBefore: boolean, page = PAGE): Document => {
-      if (collapsedBefore) collapse();
+      if (collapsedBefore) clickToggle();
       const next = document.implementation.createHTMLDocument();
       next.body.innerHTML = page;
       document.dispatchEvent(
@@ -177,14 +177,14 @@ describe("collapse", () => {
   describe("section icons", () => {
     it("should take focus only while collapsed", () => {
       expect(sections().map((s) => s.tabIndex)).toEqual([-1, -1]);
-      collapse();
+      clickToggle();
       expect(sections().map((s) => s.tabIndex)).toEqual([0, 0]);
     });
 
     it("should open the first page of the section when collapsed", () => {
       const open = vi.fn((e: Event) => e.preventDefault());
       links()[1].addEventListener("click", open);
-      collapse();
+      clickToggle();
       sections()[1].click();
       expect(open).toHaveBeenCalledOnce();
     });
@@ -192,7 +192,7 @@ describe("collapse", () => {
     it("should open the first page on Enter", () => {
       const open = vi.fn((e: Event) => e.preventDefault());
       links()[0].addEventListener("click", open);
-      collapse();
+      clickToggle();
       press({ key: "Enter" }, sections()[0]);
       expect(open).toHaveBeenCalledOnce();
     });
@@ -218,7 +218,7 @@ describe("collapse", () => {
     });
 
     it("should name a collapsed section without the shortcut", () => {
-      collapse();
+      clickToggle();
       cross(article(), sections()[1]);
       vi.advanceTimersByTime(700);
       expect(tooltipLabel()).toBe("Ranges");
@@ -248,7 +248,7 @@ describe("collapse", () => {
     });
 
     it("should move between icons without a delay", () => {
-      collapse();
+      clickToggle();
       cross(article(), sections()[0]);
       vi.advanceTimersByTime(700);
       cross(sections()[0], sections()[1]);

@@ -11,7 +11,7 @@ import { renderToString } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Media } from "@/components/media";
-import { start } from "@/components/media/video";
+import { playback } from "@/components/media/playback";
 import videos from "@/components/media/videos.json";
 
 const [ID, OTHER_ID] = Object.keys(videos);
@@ -80,7 +80,7 @@ describe("video", () => {
     ) {
       load(this);
     });
-    start();
+    playback.start();
   });
 
   afterAll(() => {

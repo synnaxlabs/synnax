@@ -11,9 +11,8 @@ import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Picker } from "@/components/tabs/Picker";
-import { CHANGE_EVENT, type Query, start } from "@/components/tabs/sync";
-import { Tabs } from "@/components/tabs/Tabs";
+import { Tabs } from "@/components/tabs";
+import { sync } from "@/components/tabs/sync";
 
 const TABS = [
   { tabKey: "python", name: "Python" },
@@ -26,7 +25,7 @@ const panels = <p>py</p>;
 
 let stored: string | null;
 const changes = vi.fn();
-const client: Query = { initial: () => stored, onChange: changes };
+const client: sync.Query = { initial: () => stored, onChange: changes };
 
 // The page arrives as server HTML, and the tabs script re-reads it after each swap.
 const show = (page: ReactElement): void => {
@@ -52,7 +51,7 @@ const visiblePanels = (frame: Element): string[] =>
     .map((panel) => panel.textContent ?? "");
 
 describe("tabs sync", () => {
-  beforeAll(() => start({ client, context: {} }));
+  beforeAll(() => sync.start({ client, context: {} }));
 
   beforeEach(() => {
     stored = null;
@@ -62,7 +61,14 @@ describe("tabs sync", () => {
 
   describe("on load", () => {
     it("should show the first tab when nothing picks another", () => {
-      show(<Tabs tabs={TABS} queryParamKey="client" python={panels} typescript="ts" />);
+      show(
+        <Tabs.Tabs
+          tabs={TABS}
+          queryParamKey="client"
+          python={panels}
+          typescript="ts"
+        />,
+      );
       expect(selected(frames()[0])).toEqual(["python"]);
       expect(visiblePanels(frames()[0])).toEqual(["py"]);
       expect(window.location.search).toBe("");
@@ -70,7 +76,14 @@ describe("tabs sync", () => {
 
     it("should show the choice the query remembers and put it in the URL", () => {
       stored = "typescript";
-      show(<Tabs tabs={TABS} queryParamKey="client" python={panels} typescript="ts" />);
+      show(
+        <Tabs.Tabs
+          tabs={TABS}
+          queryParamKey="client"
+          python={panels}
+          typescript="ts"
+        />,
+      );
       expect(selected(frames()[0])).toEqual(["typescript"]);
       expect(visiblePanels(frames()[0])).toEqual(["ts"]);
       expect(window.location.search).toBe("?client=typescript");
@@ -80,15 +93,29 @@ describe("tabs sync", () => {
     it("should prefer the URL over the remembered choice", () => {
       stored = "python";
       window.history.replaceState(null, "", "/reference/page?client=typescript");
-      show(<Tabs tabs={TABS} queryParamKey="client" python={panels} typescript="ts" />);
+      show(
+        <Tabs.Tabs
+          tabs={TABS}
+          queryParamKey="client"
+          python={panels}
+          typescript="ts"
+        />,
+      );
       expect(selected(frames()[0])).toEqual(["typescript"]);
     });
 
     it("should announce the change so the outline can follow", () => {
       const listener = vi.fn();
-      document.addEventListener(CHANGE_EVENT, listener);
-      show(<Tabs tabs={TABS} queryParamKey="client" python={panels} typescript="ts" />);
-      document.removeEventListener(CHANGE_EVENT, listener);
+      document.addEventListener(sync.CHANGE_EVENT, listener);
+      show(
+        <Tabs.Tabs
+          tabs={TABS}
+          queryParamKey="client"
+          python={panels}
+          typescript="ts"
+        />,
+      );
+      document.removeEventListener(sync.CHANGE_EVENT, listener);
       expect(listener).toHaveBeenCalled();
     });
   });
@@ -97,8 +124,8 @@ describe("tabs sync", () => {
     it("should select the tab in every block sharing the key", () => {
       show(
         <>
-          <Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
-          <Tabs tabs={TABS} queryParamKey="client" python="c" typescript="d" />
+          <Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
+          <Tabs.Tabs tabs={TABS} queryParamKey="client" python="c" typescript="d" />
         </>,
       );
       tab(frames()[1], "typescript").click();
@@ -108,7 +135,7 @@ describe("tabs sync", () => {
     });
 
     it("should put the choice in the URL without a new history entry", () => {
-      show(<Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
+      show(<Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
       const length = window.history.length;
       tab(frames()[0], "typescript").click();
       expect(window.location.search).toBe("?client=typescript");
@@ -118,8 +145,8 @@ describe("tabs sync", () => {
     it("should leave a block without the chosen tab on its own tab", () => {
       show(
         <>
-          <Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
-          <Tabs tabs={TABS.slice(0, 1)} queryParamKey="client" python="c" />
+          <Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
+          <Tabs.Tabs tabs={TABS.slice(0, 1)} queryParamKey="client" python="c" />
         </>,
       );
       tab(frames()[0], "typescript").click();
@@ -129,8 +156,8 @@ describe("tabs sync", () => {
     it("should switch a block without a key alone", () => {
       show(
         <>
-          <Tabs tabs={TABS} python="a" typescript="b" />
-          <Tabs tabs={TABS} python="c" typescript="d" />
+          <Tabs.Tabs tabs={TABS} python="a" typescript="b" />
+          <Tabs.Tabs tabs={TABS} python="c" typescript="d" />
         </>,
       );
       tab(frames()[0], "typescript").click();
@@ -139,7 +166,7 @@ describe("tabs sync", () => {
     });
 
     it("should keep the clicked block in place while blocks above it resize", () => {
-      show(<Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
+      show(<Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
       const frame = frames()[0];
       const tops = [100, 160];
       vi.spyOn(frame, "getBoundingClientRect").mockImplementation(
@@ -155,7 +182,7 @@ describe("tabs sync", () => {
 
   describe("on key press", () => {
     it("should select the tab under focus on Enter", () => {
-      show(<Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
+      show(<Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
       const target = tab(frames()[0], "typescript");
       target.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
@@ -164,7 +191,7 @@ describe("tabs sync", () => {
     });
 
     it("should move to the next tab with an arrow key, wrapping at the end", () => {
-      show(<Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
+      show(<Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />);
       const target = tab(frames()[0], "python");
       target.dispatchEvent(
         new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
@@ -179,8 +206,8 @@ describe("tabs sync", () => {
       stored = "typescript";
       show(
         <>
-          <Picker query="client" options={OPTIONS} />
-          <Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
+          <Tabs.Picker query="client" options={OPTIONS} />
+          <Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
         </>,
       );
       const value = document.querySelector("[data-tabs-value]");
@@ -190,8 +217,8 @@ describe("tabs sync", () => {
     it("should select the chosen option in every block", () => {
       show(
         <>
-          <Picker query="client" options={OPTIONS} />
-          <Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
+          <Tabs.Picker query="client" options={OPTIONS} />
+          <Tabs.Tabs tabs={TABS} queryParamKey="client" python="a" typescript="b" />
         </>,
       );
       const hide = vi.fn();
@@ -213,8 +240,8 @@ describe("tabs sync", () => {
   // Runs last: the failed start leaves its listeners on the document.
   it("should throw for an element whose key has no query", () => {
     document.body.innerHTML = renderToString(
-      <Tabs tabs={TABS} queryParamKey="platform" python="a" typescript="b" />,
+      <Tabs.Tabs tabs={TABS} queryParamKey="platform" python="a" typescript="b" />,
     );
-    expect(() => start({})).toThrow("no tab query for key platform");
+    expect(() => sync.start({})).toThrow("no tab query for key platform");
   });
 });

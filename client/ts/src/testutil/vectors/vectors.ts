@@ -16,7 +16,7 @@ import type z from "zod";
 // The case table is shared with the Go interpreter, so that the Core and the client
 // cache agree on every filter.
 const VECTORS_URL = new URL(
-  "../../../../core/testdata/filter/vectors.json",
+  "../../../../../core/testdata/filter/vectors.json",
   import.meta.url,
 );
 
@@ -29,7 +29,7 @@ export interface Case<W> {
 }
 
 /** The parsed records, keyed by alias, and the cases of one entity. */
-export interface Vectors<R, W> {
+export interface Table<R, W> {
   records: [alias: string, record: R][];
   cases: Case<W>[];
 }
@@ -43,11 +43,11 @@ interface RawVectors {
  * Reads the filter vectors of the entity, such as "ranges", and parses its records and
  * wheres with the given schemas.
  */
-export const readVectors = <R, W>(
+export const read = <R, W>(
   entity: string,
   recordZ: z.ZodType<R>,
   whereZ: z.ZodType<W>,
-): Vectors<R, W> => {
+): Table<R, W> => {
   const all = caseconv.snakeToCamel(
     JSON.parse(readFileSync(VECTORS_URL, "utf-8")),
   ) as Record<string, RawVectors>;
@@ -62,8 +62,8 @@ export const readVectors = <R, W>(
  * Adds a spec for each case: the client matches the case, or a case the vectors mark as
  * server-computed is one the client leaves to the Core.
  */
-export const itMatchesVectors = <R, W>(
-  { records, cases }: Vectors<R, W>,
+export const itMatches = <R, W>(
+  { records, cases }: Table<R, W>,
   matches: (record: R, where: W) => boolean,
   serverComputed: (where: W) => boolean,
 ): void =>

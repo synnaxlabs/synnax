@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // The Tabs barrel would bundle React into the script that every page loads.
-import { CHANGE_EVENT } from "@/components/tabs/sync";
+import { sync } from "@/components/tabs/sync";
 
 const ACTIVE_CLASS = "active";
 // Marks an outline menu; the value selects the headings its entries link to.
@@ -84,7 +84,7 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   };
 
   hideTabbedAway();
-  document.addEventListener(CHANGE_EVENT, hideTabbedAway, { signal });
+  document.addEventListener(sync.CHANGE_EVENT, hideTabbedAway, { signal });
   window.addEventListener("scroll", () => activate(findReading(headings)), {
     passive: true,
     signal,
