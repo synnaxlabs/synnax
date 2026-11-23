@@ -19,7 +19,8 @@ def login() -> bool:
     """Logs the user into a Core, creates an API key, and saves the key and the
     connection parameters. Returns whether the login succeeded.
     """
-    # getpass reads the terminal, and on Windows the console, even when stdin is a
-    # pipe. Piped input would then wait for keys that never come.
-    read_secret = getpass.getpass if sys.stdin.isatty() else input
+    # The standard getpass reads the terminal, and on Windows the console, even when
+    # stdin is a pipe. A frontend such as Jupyter replaces it with a masked prompt.
+    masked = sys.stdin.isatty() or getpass.getpass.__module__ != "getpass"
+    read_secret = getpass.getpass if masked else input
     return connect.login(Prompt(read_secret=read_secret), config.default_clusters())

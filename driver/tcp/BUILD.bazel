@@ -1,0 +1,49 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "tcp",
+    srcs = ["client.cpp"] + select({
+        "@platforms//os:linux": ["keepalive_linux.cpp"],
+        "@platforms//os:macos": ["keepalive_macos.cpp"],
+        "@platforms//os:windows": ["keepalive_windows.cpp"],
+    }),
+    hdrs = [
+        "client.h",
+        "keepalive.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_test(
+    name = "tcp_test",
+    srcs = ["client_test.cpp"],
+    deps = [
+        ":tcp",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
