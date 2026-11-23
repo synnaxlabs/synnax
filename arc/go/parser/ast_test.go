@@ -10,6 +10,8 @@
 package parser_test
 
 import (
+	"testing"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,18 @@ import (
 var _ = Describe("AST Utilities", func() {
 	parseExpr := func(code string) parser.IExpressionContext {
 		return MustSucceed(parser.ParseExpression(code))
+	}
+
+	// holdText stores the text of each token under t in the token, so a read of the
+	// text does not allocate.
+	var holdText func(t antlr.Tree)
+	holdText = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			term.GetSymbol().SetText(term.GetText())
+		}
+		for i := range t.GetChildCount() {
+			holdText(t.GetChild(i))
+		}
 	}
 
 	Describe("SoleOperand", func() {
