@@ -407,6 +407,16 @@ describe("symbol editor spec", () => {
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
     });
 
+    it("should not count a clip-path of none", () => {
+      const spec = createSpec({
+        drawing: drawn(
+          '<rect id="body" clip-path="none" style="clip-path: none; fill: red"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
     it("should return a part with a level motion and more than one shape", () => {
       const spec = createSpec({
         drawing: drawn('<rect id="body"/>'),
