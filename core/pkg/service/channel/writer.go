@@ -43,23 +43,13 @@ type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
 	dispatcher actions.Dispatcher[Key, Action]
-	// fill is the fill of each channel that a create is given. A calculation always has
-	// an expression, so a fill without one fills nothing.
-	fill Fill
 }
 
 // Announce attaches acts to the transaction of w for the channel with key without
-// applying them. They carry fields the channel no longer stores to the clients that
-// read them from it.
-func (w Writer) Announce(key Key, acts ...Action) {
-	w.dispatcher.Attach(w.tx, key, acts...)
-}
-
-// WithFill returns a copy of the writer that gives the create action of each channel
-// that a create is given the fill of the calculation in flight that writes it.
-func (w Writer) WithFill(fill Fill) Writer {
-	w.fill = fill
-	return w
+// applying them, as one batch, and returns the number of the batch. They carry fields
+// that the channel does not store to the clients that read them from it.
+func (w Writer) Announce(key Key, acts ...Action) uint64 {
+	return w.dispatcher.Attach(w.tx, key, acts...)
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -399,7 +389,6 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
-	given := len(channels)
 	if err := w.validateCreate(ctx, channels); err != nil {
 		return err
 	}
@@ -443,13 +432,13 @@ func (w Writer) create(
 		}
 	}
 	*_channels = channels
-	var linkedFills map[Key]Fill
-	if len(linked) > 0 && w.svc.cfg.Fills != nil {
-		if linkedFills, err = w.svc.cfg.Fills(ctx, w.tx, linked...); err != nil {
-			return err
-		}
+	if err = w.attachCreates(ctx, lo.Uniq(written)); err != nil {
+		return err
 	}
-	return w.attachCreates(ctx, lo.Uniq(written), channels[:given], linkedFills)
+	if len(linked) == 0 || w.svc.cfg.AnnounceLinked == nil {
+		return nil
+	}
+	return w.svc.cfg.AnnounceLinked(ctx, w.tx, w, linked...)
 }
 
 // validateCreate validates each channel and its group. checkCreatedNames checks the
@@ -763,14 +752,8 @@ func sameGroup(a, b *group.Key) bool {
 	return *a == *b
 }
 
-// attachCreates attaches a create action that holds the stored channel for each key:
-// with the fill of w for a given channel, and with its fill in linked for the rest.
-func (w Writer) attachCreates(
-	ctx context.Context,
-	keys Keys,
-	given []Channel,
-	linked map[Key]Fill,
-) error {
+// attachCreates attaches a create action that holds the stored channel for each key.
+func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -782,16 +765,8 @@ func (w Writer) attachCreates(
 		return err
 	}
 	for _, c := range stored {
-		fill := linked[c.Key()]
-		if w.fill.Expression != "" && isGiven(given, c.Key()) {
-			fill = w.fill
-		}
 		w.dispatcher.Attach(w.tx, c.Key(), NewCreateAction(CreatePayload{
-			Channel: Created{
-				Channel:    c,
-				Expression: fill.Expression,
-				Operations: fill.Operations,
-			},
+			Channel: Created{Channel: c},
 		}))
 	}
 	return nil
@@ -1093,14 +1068,4 @@ func positions[T comparable](vals []T) map[T][]int {
 		pos[v] = append(pos[v], i)
 	}
 	return pos
-}
-
-// isGiven reports whether a channel in given has key.
-func isGiven(given []Channel, key Key) bool {
-	for _, ch := range given {
-		if ch.Key() == key {
-			return true
-		}
-	}
-	return false
 }

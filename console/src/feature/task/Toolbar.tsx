@@ -27,12 +27,9 @@ import pluralize from "pluralize";
 import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
+import { DataSaving } from "@/feature/task/dataSaving";
 import { useOpenSelector } from "@/feature/task/Selector";
 import { ownedChannelsOf } from "@/feature/task/types";
-import {
-  type SetDataSavingParams,
-  useSetDataSaving,
-} from "@/feature/task/useSetDataSaving";
 import { Analytics } from "@/platform/analytics";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
@@ -218,7 +215,7 @@ const Content = () => {
   };
   const handleStart = (keys: string[]) => handleCommand(keys, "start");
   const handleStop = (keys: string[]) => handleCommand(keys, "stop");
-  const { update: setDataSaving } = useSetDataSaving();
+  const { update: setDataSaving } = DataSaving.useSet();
   const handleEnableDataSaving = (keys: task.Key[]) =>
     keys.forEach((key) => setDataSaving({ key, dataSaving: true }));
   const handleDisableDataSaving = (keys: task.Key[]) =>
@@ -359,7 +356,7 @@ const ListItem = ({
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
   onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
-  onSetDataSaving: (params: SetDataSavingParams) => void;
+  onSetDataSaving: (params: DataSaving.SetParams) => void;
   onRename: (params: { key: task.Key; name: string }) => void;
   onEdit: (key: task.Key) => void;
 }

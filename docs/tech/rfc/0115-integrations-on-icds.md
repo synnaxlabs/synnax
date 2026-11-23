@@ -28,8 +28,9 @@ place until then.
 - **Message**: One payload layout in an ICD: binary, text, or JSON, with its fields.
 - **Field**: One value in a message, with its location, kind (`payload.Kind`), enum
   values, default, scale, offset, and units.
-- **Binding**: A task's link from one field to one channel, with the data type of a new
-  channel. A write binding can hold a fixed value instead of a channel.
+- **Binding**: A task's link from one field to the source of its value. A read binding,
+  or a write channel binding, names a channel and the data type of a new channel. A
+  write value binding holds a fixed value instead.
 - **Codec**: The code that turns payload bytes into field values and back.
 
 ## 2 Principles
@@ -81,8 +82,9 @@ This RFC changes the ICD in these ways:
 ### 3.1 Tasks
 
 A task entry names one ICD and lists messages. Each message lists bindings (`field`,
-`channel`, `data_type`, and on a write binding an optional `value`) and an optional
-index field. An unbound field is not read. The ICD key sits on each entry, because one
+`channel`, and `data_type`) and an optional index field. A write binding is a union on
+`type`: the `channel` variant holds these keys, and the `value` variant holds `field`
+and `value`. An unbound field is not read. The ICD key sits on each entry, because one
 entry is one publishing device. The task holds all timing, because the rig chooses it:
 the poll rate of a queried message, and the `period` of a message a bus write task sends
 on a cycle. The form fills `period` from the message's `cycle_time` when a write task
@@ -93,21 +95,20 @@ that arrive in one frame share one message. A polled serial, TCP, or UDP entry h
 holds its request.
 
 A write task binds each field to a channel or to a fixed `value` that the task picks,
-such as a unit ID. Two tasks on one ICD can then send different values. A field with
-neither takes its ICD `default` (a constant or a generator). The Core refuses to save a
-write task that leaves a field with no channel, no value, and no default, or a binding
-with a value and a channel or `data_type`. It also refuses a value that does not fit its
-field's kind or enum values. When a write task is configured, the form creates a command
-channel for each binding with no channel and no value, from the binding's `data_type`,
-as read forms do.
+such as a unit ID. Two tasks on one ICD can then send different values. A field with no
+binding takes its ICD `default` (a constant or a generator). The Core refuses to save a
+write task that leaves a field with no binding and no default, that binds one field more
+than once in a message, or that holds a value that does not fit its field's kind or enum
+values. When a write task is configured, the form creates a command channel for each
+channel binding with no channel, from its `data_type`, as read forms do.
 
-An ICD edit can break a saved write task: a field with no channel, no value, and no
-default, a value that no longer fits its field, a binding to a deleted field, or a
-target whose message was deleted. The task keeps the message it was configured with
-until Redeploy. On Redeploy and at each Core start, the configure fails with the status
-"Failed to configure task" and a description that names the field and the fix, and the
-task sends nothing. The ICD shows no warning, because the Redeploy prompt is the signal.
-Every write integration follows this rule.
+An ICD edit can break a saved write task: a field with no binding and no default, a
+value that no longer fits its field, a binding to a deleted field, or a target whose
+message was deleted. The task keeps the message it was configured with until Redeploy.
+On Redeploy and at each Core start, the configure fails with the status "Failed to
+configure task" and a description that names the field and the fix, and the task sends
+nothing. The ICD shows no warning, because the Redeploy prompt is the signal. Every
+write integration follows this rule.
 
 The task service hashes each record a task references (`HashReferences` and
 `HashedTables` in `core/pkg/service/task/config/config.go`). An ICD write changes the
@@ -178,7 +179,10 @@ until 0.63.0. Each carries a migration from the version that shipped:
 - HTTP v5 migrates each v4 endpoint into one ICD message. An ICD default cannot be NaN,
   so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
   no `fill_value`. A missing required float field in such a task then writes NaN with a
-  warning, where v4 skipped the endpoint's group.
+  warning, where v4 skipped the endpoint's group. A message has one index field, so a v4
+  endpoint with two fields bound to index channels keeps both fields but fails to
+  configure. Its status names the field to move, and the user splits the endpoint into
+  two, each with one index field.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
@@ -273,10 +277,14 @@ real adapter (§6.16).
     values and generators that RFC 0103 put on typed write fields. A value that one site
     picks goes on the write binding instead (2026-11-22). A channel for each site's
     constant was rejected: the operator would have to command it each time the task
-    starts. #5346, #5363, and #5366 close, and their work moves to Phases 19 to 21 and
-    25 to 27 (2026-11-18). 0.62.0 shipped with MQTT v2 and ICD v0 only (2026-11-19), so
-    MQTT writes move in v3 with a migration, and Kafka v1 and HTTP v5 take writes before
-    0.63.0 freezes them.
+    starts. The write binding is a union of a channel binding and a value binding
+    (2026-11-22), as RFC 0103 §1 splits `Binding` by what each case holds. Its channel
+    variant keeps `channel` and `data_type` together, as the read binding does. An
+    optional `value` with a save rule that refuses it next to a channel was rejected: a
+    new client forgets a rule, but cannot forget a shape. #5346, #5363, and #5366 close,
+    and their work moves to Phases 19 to 21 and 25 to 27 (2026-11-18). 0.62.0 shipped
+    with MQTT v2 and ICD v0 only (2026-11-19), so MQTT writes move in v3 with a
+    migration, and Kafka v1 and HTTP v5 take writes before 0.63.0 freezes them.
 16. **A CAN backend ships visible only after real hardware**: Its read and write tasks
     must pass on a real adapter. A backend with no adapter stays hidden (2026-11-18).
 17. **A query lives on the task, a cycle time on the ICD**: Principle 1 sorts each
@@ -299,3 +307,10 @@ real adapter (§6.16).
     Desktop-first rule in `CONTRIBUTING.md` that the release owner ruled. A Desktop-only
     release first was rejected, so ICDs and the bus integrations reach the Console in
     0.63.0, not 0.64.0.
+20. **An HTTP endpoint with two index fields fails to configure**: The user splits it
+    into two endpoints (2026-11-22). In v4, an index field is any field bound to an
+    index channel. The Console form holds one per endpoint, so only a script or the API
+    can make two. Keeping only the first was rejected: the channels of the other would
+    take the arrival time with no warning. Several index fields per message was
+    rejected: it changes a read rule that MQTT and Kafka share, for a case that may not
+    exist.

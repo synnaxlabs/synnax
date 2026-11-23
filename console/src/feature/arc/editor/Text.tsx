@@ -9,7 +9,7 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { TaskControls } from "@/feature/arc/editor/controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Session } from "@/session";
 
@@ -25,7 +25,7 @@ export const Text = () => {
         autoFocus={getTabIsFocused()}
         extraMenuItems={EXTRA_MENU_ITEMS}
       />
-      <TaskControls />
+      <TaskControls.TaskControls />
     </>
   );
 };

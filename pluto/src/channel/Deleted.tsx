@@ -10,7 +10,7 @@
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useResult } from "@/channel/queries";
 import { Flux } from "@/flux";
@@ -30,9 +30,14 @@ export const useDeleted = (key: channel.Key): boolean => {
   return NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error);
 };
 
+export interface DeletedProps {
+  /** color tints the text, as a stale value's color does. */
+  color?: Text.TextProps["color"];
+}
+
 /** Says that the Core deleted the channel, in a view of its value. */
-export const Deleted = (): ReactElement => (
-  <Text.Text level="small" color={9} overflow="fade">
+export const Deleted = ({ color = 9 }: DeletedProps): ReactElement => (
+  <Text.Text level="small" color={color} overflow="fade">
     {DELETED_TEXT}
   </Text.Text>
 );

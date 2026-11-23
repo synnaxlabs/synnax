@@ -260,28 +260,20 @@ func (s *Service) applyCalculation(
 			"only a calculated channel can change its expression or operations",
 		)
 	}
-	doc := calculationDocument{
-		Expression: c.Expression,
-		Operations: calculation.ToChannelOperations(c.Operations),
-	}
-	for _, a := range acts {
-		if doc, err = editDocument(doc, a); err != nil {
-			return nil, err
-		}
-	}
-	ops, err := calculation.FromChannelOperations(doc.Operations)
+	doc, ops, err := edited(c, acts)
 	if err != nil {
-		return nil, validate.PathedError(err, "operations")
+		return nil, err
 	}
 	before, err := s.channelOf(ctx, tx, key)
 	if err != nil {
 		return nil, err
 	}
-	// The reads that Apply adds belong to the calculation, which the old API does not
+	w := s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey)
+	// The reads that ApplyTo adds belong to the calculation, which the old API does not
 	// show.
-	if _, err = s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(
+	next, _, err := w.ApplyTo(
 		ctx,
-		c.Key,
+		c,
 		calculation.NewSetAction(calculation.SetPayload{
 			Path:  []string{"expression"},
 			Value: doc.Expression,
@@ -290,12 +282,13 @@ func (s *Service) applyCalculation(
 			Path:  []string{"operations"},
 			Value: ops,
 		}),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
-	if edits := recordEdits(acts, doc.Expression, ops); len(edits) > 0 {
-		s.internal.NewWriter(tx).WithDispatchKey(dispatchKey).Announce(key, edits...)
-	}
+	// A subject whom the edit lets read the calculation holds none of its fields yet,
+	// so the announce carries all of them.
+	w.Announce(next)
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
 		return nil, err
@@ -307,37 +300,27 @@ func (s *Service) applyCalculation(
 	return &set, nil
 }
 
-// recordEdits returns a channel set action for each of the expression and the
-// operations that acts edit, with the value that the calculation holds after them, so a
-// client that reads them from the channel sees what a retrieve returns.
-func recordEdits(
+// edited returns the document of c after acts, and its operations as the calculation
+// holds them.
+func edited(
+	c calculation.Calculation,
 	acts []channel.Action,
-	expression string,
-	ops []calculation.Operation,
-) []channel.Action {
-	var setsExpression, setsOperations bool
+) (calculationDocument, []calculation.Operation, error) {
+	doc := calculationDocument{
+		Expression: c.Expression,
+		Operations: calculation.ToChannelOperations(c.Operations),
+	}
+	var err error
 	for _, a := range acts {
-		switch actionPath(a)[0] {
-		case "expression":
-			setsExpression = true
-		case "operations":
-			setsOperations = true
+		if doc, err = editDocument(doc, a); err != nil {
+			return doc, nil, err
 		}
 	}
-	var edits []channel.Action
-	if setsExpression {
-		edits = append(edits, channel.NewSetAction(channel.SetPayload{
-			Path:  []string{"expression"},
-			Value: expression,
-		}))
+	ops, err := calculation.FromChannelOperations(doc.Operations)
+	if err != nil {
+		return doc, nil, validate.PathedError(err, "operations")
 	}
-	if setsOperations {
-		edits = append(edits, channel.NewSetAction(channel.SetPayload{
-			Path:  []string{"operations"},
-			Value: calculation.ToChannelOperations(ops),
-		}))
-	}
-	return edits
+	return doc, ops, nil
 }
 
 func (s *Service) channelOf(

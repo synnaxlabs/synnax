@@ -12,9 +12,12 @@
 package v0
 
 import (
+	"strconv"
+
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
@@ -52,4 +55,17 @@ type Graph struct {
 	Edges ir.Edges `json:"edges" msgpack:"edges"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (g Graph) Validate() error {
+	v := validate.New("Graph")
+	for i := range g.Functions {
+		v.Exec(func() error { return validate.PathedError(g.Functions[i].Validate(), "functions", strconv.Itoa(i)) })
+	}
+	for i := range g.Edges {
+		v.Exec(func() error { return validate.PathedError(g.Edges[i].Validate(), "edges", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

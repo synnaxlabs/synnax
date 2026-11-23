@@ -115,9 +115,9 @@ var _ = Describe("Actions", func() {
 				Resource: testResource[uuid.UUID],
 				BatchChecks: func(
 					gorp.Commit,
-				) func(uuid.UUID, uint64) (signals.Check, bool) {
+				) func(uuid.UUID, uint64) (func(func(resource.ID) bool) bool, bool) {
 					checks++
-					return func(uuid.UUID, uint64) (signals.Check, bool) {
+					return func(uuid.UUID, uint64) (func(func(resource.ID) bool) bool, bool) {
 						return func(allowed func(resource.ID) bool) bool {
 							return allowed(marker)
 						}, true
