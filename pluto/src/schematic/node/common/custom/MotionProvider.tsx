@@ -36,20 +36,12 @@ interface MotionContextValue {
 const Context = createContext<MotionContextValue | null>(null);
 Context.displayName = "Custom.MotionContext";
 
-export interface MotionProviderProps extends PropsWithChildren {
-  /** loop moves the parts of every drawing inside. The provider reads it once. */
-  loop?: Loop;
-}
-
 /**
  * MotionProvider moves the parts of every drawing inside it on one loop. Under the
  * operating system's Reduce motion setting, parts stop.
  */
-export const MotionProvider = ({
-  loop: loopProp,
-  children,
-}: MotionProviderProps): ReactElement => {
-  const [loop] = useState(() => loopProp ?? new Loop());
+export const MotionProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const [loop] = useState(() => new Loop());
   const reduced = useSyncExternalStore(subscribe, isReduced);
   return <Context value={{ loop, reduced }}>{children}</Context>;
 };
