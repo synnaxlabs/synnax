@@ -20,13 +20,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, unique, uuid } from "@synnaxlabs/x";
+import { deep, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -449,7 +450,7 @@ const Records: FC<RecordsProps> = ({
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
-  const handleError = Status.useErrorHandler();
+  const handleError = Status.useAsyncErrorHandler();
   const formats = ICD.useFormats();
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
@@ -640,19 +641,9 @@ const Records: FC<RecordsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  const handleAdd = useExclusiveCallback(
+    async () => await handleError(add, "Failed to add data"),
+  );
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);

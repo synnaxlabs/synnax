@@ -13,6 +13,7 @@ import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -21,7 +22,6 @@ import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
-  errors,
   map,
   type payload,
   primitive,
@@ -628,7 +628,7 @@ const Entries: FC<EntriesProps> = ({
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
-  const handleError = Status.useErrorHandler();
+  const handleError = Status.useAsyncErrorHandler();
   const discover = useDiscoverModal();
   const formats = ICD.useFormats();
   const { push } = PForm.useFieldList(root.config.entries);
@@ -673,8 +673,6 @@ const Entries: FC<EntriesProps> = ({
   const home = ICD.mostRead(entries.filter(isPlain));
   const format = home == null ? undefined : formats.get(home);
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
@@ -733,18 +731,10 @@ const Entries: FC<EntriesProps> = ({
     onSelect([firstKey]);
     tree.expand(firstKey);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const handleAdd = useExclusiveCallback(
+    async () => await handleError(add, "Failed to add data"),
+  );
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
