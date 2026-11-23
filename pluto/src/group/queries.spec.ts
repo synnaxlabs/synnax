@@ -9,7 +9,7 @@
 
 import { group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -285,12 +285,13 @@ describe("Group queries", () => {
           [leaf.key, mid.key, root.key].sort(),
         );
       });
+      const renamed = `renamed_${id.create()}`;
       await act(async () => {
-        await client.groups.rename(root.key, "renamed");
+        await client.groups.rename(root.key, renamed);
       });
       await waitFor(() =>
         expect(result.current.data).toContainEqual(
-          expect.objectContaining({ key: root.key, name: "renamed" }),
+          expect.objectContaining({ key: root.key, name: renamed }),
         ),
       );
       await act(async () => {
