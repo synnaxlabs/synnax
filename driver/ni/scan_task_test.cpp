@@ -318,7 +318,8 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     EXPECT_EQ(sink.count("skipping cRIO-9045 (022B5299)"), 1);
 }
 
-/// @brief a scan rate above 1 Hz should not wrap the session timeout.
+/// @brief it should open the session with a timeout of 1 second at a scan rate of
+/// 10 Hz.
 TEST(ScannerTest, testSessionTimeoutAtFastRate) {
     auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{});
     x::json::json j = {{"disabled", false}, {"rate", 10.0}};
@@ -330,7 +331,23 @@ TEST(ScannerTest, testSessionTimeoutAtFastRate) {
         synnax::task::Task{}
     );
     ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
-    EXPECT_LE(api->session_timeout_ms, 10000);
+    EXPECT_EQ(api->session_timeout_ms, 1000);
+}
+
+/// @brief it should open the session with a timeout of 1 second at a scan rate of
+/// 1 Hz.
+TEST(ScannerTest, testSessionTimeoutAtOneHz) {
+    auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{});
+    x::json::json j = {{"disabled", false}, {"rate", 1.0}};
+    auto p = x::json::Parser(j);
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
+    ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
+    EXPECT_EQ(api->session_timeout_ms, 1000);
 }
 
 /// @brief returns the devices found by one scan of the given resources.
