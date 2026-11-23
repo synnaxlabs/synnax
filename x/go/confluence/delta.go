@@ -21,7 +21,7 @@ import (
 // concrete segment.
 type Delta[I, O Value] struct {
 	UnarySink[I]
-	AbstractMultiSource[O]
+	abstractMultiSource[O]
 }
 
 // DeltaMultiplier reads a value from an of input stream and copies the value to
