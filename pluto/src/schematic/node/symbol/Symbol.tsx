@@ -62,7 +62,7 @@ const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Resol
 };
 
 interface DrawnProps extends Resolved, Pick<Config, "color" | "orientation" | "scale"> {
-  value: Custom.StateValue;
+  value: Custom.StateValues;
 }
 
 const Drawn = ({
@@ -142,7 +142,7 @@ export const Node = ({
   );
 };
 
-const NO_VALUES: Custom.StateValue = new Map();
+const NO_VALUES: Custom.StateValues = new Map();
 
 export const Preview = ({
   color,

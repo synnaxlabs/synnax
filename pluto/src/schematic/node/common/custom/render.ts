@@ -72,9 +72,11 @@ const setSymbolStroke = (el: SVGElement, symbolColor: color.Crude | undefined) =
 
 // An empty original fill marks a shape with no fill attribute of its own.
 const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
-  const original =
-    el.getAttribute(ORIGINAL_FILL_ATTRIBUTE) ?? el.getAttribute("fill") ?? "";
-  el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, original);
+  let original = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
+  if (original == null) {
+    original = el.getAttribute("fill") ?? "";
+    el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, original);
+  }
   const fill = fillColor == null ? original : color.hex(fillColor);
   if (fill === "") el.removeAttribute("fill");
   else el.setAttribute("fill", fill);
