@@ -397,7 +397,7 @@ describe("Channel", () => {
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
         { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
-      const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
+      const res = await client.channels.retrieve([a.name, `${prefix}_[ab]`]);
       expect(res.map((ch) => ch.key)).toEqual([a.key]);
     });
     test("retrieve virtual channels without calculated channels", async () => {
