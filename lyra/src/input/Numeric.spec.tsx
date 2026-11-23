@@ -81,6 +81,15 @@ describe("Input.Numeric", () => {
       expect(onChange).toHaveBeenLastCalledWith(0.1);
     });
 
+    it("should trim float noise from a fractional drag", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={0} onChange={onChange} dragScale={{ x: 0.1, y: 0.1 }} />,
+      );
+      dragTo(dragButtonOf(c), THRESHOLD + 3);
+      expect(onChange).toHaveBeenLastCalledWith(0.3);
+    });
+
     it("should round a drag when the input is an integer", () => {
       const onChange = vi.fn();
       const c = render(
