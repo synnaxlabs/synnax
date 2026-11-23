@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"encoding/json/v2"
+	"io"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -377,7 +378,8 @@ var _ = Describe("msgpack", func() {
 	DescribeTable("Should reject a variant whose fields have the wrong type",
 		func(target any, fields map[string]any) {
 			raw := MustSucceed(msgpack.Marshal(fields))
-			Expect(msgpack.Unmarshal(raw, target)).To(HaveOccurred())
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(ContainSubstring("msgpack: ")))
 		},
 		Entry("HTTPS", &v0.Scheme{}, map[string]any{
 			"type":                            "https",
@@ -407,7 +409,8 @@ var _ = Describe("msgpack", func() {
 
 	DescribeTable("Should reject truncated input",
 		func(target any) {
-			Expect(msgpack.Unmarshal([]byte{0x81}, target)).To(HaveOccurred())
+			Expect(msgpack.Unmarshal([]byte{0x81}, target)).
+				To(MatchError(io.EOF))
 		},
 		Entry("scheme", &v0.Scheme{}),
 		Entry("auth", &v0.Auth{}),

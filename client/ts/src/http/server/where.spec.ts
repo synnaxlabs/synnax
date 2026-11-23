@@ -11,11 +11,11 @@ import { describe } from "vitest";
 
 import { http } from "@/http";
 import { matches, serverComputed } from "@/http/server/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("httpServers", http.server.serverZ, http.server.whereZ),
+  vectors.itMatches(
+    vectors.read("httpServers", http.server.serverZ, http.server.whereZ),
     matches,
     serverComputed,
   );
