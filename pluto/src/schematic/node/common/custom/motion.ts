@@ -209,6 +209,12 @@ interface Entry<M> {
   speed?: (motion: M) => number;
   /** held keeps the last cycle drawn while the motion stops. Otherwise it draws 0. */
   held?: boolean;
+  /**
+   * inherited is true when an element takes the attribute from its parent unless it
+   * sets its own. SVG composes any other attribute of nested elements, so the motion
+   * moves only the outermost elements of its part.
+   */
+  inherited?: boolean;
   /** draw returns the offer of the motion at a cycle in [0, 1), or at a fraction. */
   draw: (motion: M, shape: Shape, value: number) => Offer;
 }
@@ -224,6 +230,7 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
     attribute: "stroke-dashoffset",
     speed: ({ rate }) => rate,
     held: true,
+    inherited: true,
     draw: (_, shape, cycles) => num(parse(shape.own, 0) - cycles * shape.dash),
   },
   blink: {
@@ -278,15 +285,51 @@ const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
 
 const MIDDLE: xy.XY = { x: 0.5, y: 0.5 };
 
-// center returns the center of the bounding box of elements, as fractions of the box,
-// or undefined while no element has a layout, as in a hidden tab.
+const SHAPES =
+  "svg, path, rect, circle, ellipse, line, polyline, polygon, text, use, image";
+// leaves never goes into a definition, or into a nested svg, which is one shape.
+const STOPS = "svg, defs, clipPath, mask, marker, pattern, symbol";
+
+// leaves returns the shapes that el draws. Motion never changes the box of a shape.
+const leaves = (el: SVGElement): SVGGraphicsElement[] =>
+  (el.matches(SHAPES) ? [el] : Array.from(el.querySelectorAll(SHAPES))).filter(
+    (leaf): leaf is SVGGraphicsElement =>
+      leaf instanceof SVGGraphicsElement &&
+      !el.contains(leaf.parentElement?.closest(STOPS) ?? null),
+  );
+
+// boxOf returns the box of a shape before its own transform. getBBox measures the
+// content of a nested svg in its viewBox, so its viewport is its box.
+const boxOf = (leaf: SVGGraphicsElement): xy.XY & dimensions.Dimensions =>
+  leaf instanceof SVGSVGElement
+    ? {
+        x: leaf.x.baseVal.value,
+        y: leaf.y.baseVal.value,
+        width: leaf.width.baseVal.value,
+        height: leaf.height.baseVal.value,
+      }
+    : leaf.getBBox();
+
+// center returns the center of the box around the shapes of elements at rest, as
+// fractions of the box, or undefined while the drawing has no layout, as in a hidden
+// tab.
 const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
-  const graphics = elements.filter((el) => el instanceof SVGGraphicsElement);
-  if (graphics.length === 0) return MIDDLE;
-  const xs: number[] = [];
-  const ys: number[] = [];
+  const { drawing } = space;
+  if ((drawing.ownerSVGElement ?? drawing).getClientRects().length === 0)
+    return undefined;
+  const graphics = elements.flatMap(leaves);
+  // A look hides an element with an inline display, and getBBox measures it as empty.
+  const hidden = new Set<SVGElement>();
+  for (const leaf of graphics)
+    for (let a: Element | null = leaf; a != null && a !== drawing.parentElement;) {
+      if (a instanceof SVGElement && a.style.display === "none") hidden.add(a);
+      a = a.parentElement;
+    }
+  for (const el of hidden) el.style.removeProperty("display");
+  const min = { x: Infinity, y: Infinity };
+  const max = { x: -Infinity, y: -Infinity };
   for (const el of graphics) {
-    const { x, y, width, height } = el.getBBox();
+    const { x, y, width, height } = boxOf(el);
     if (width === 0 && height === 0) continue;
     const m = toDrawing(el, space);
     const own = space.rest.get(el);
@@ -298,14 +341,17 @@ const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
       { x: x + width, y: y + height },
     ]) {
       const p = m.transformPoint(corner);
-      xs.push(p.x);
-      ys.push(p.y);
+      min.x = Math.min(min.x, p.x);
+      min.y = Math.min(min.y, p.y);
+      max.x = Math.max(max.x, p.x);
+      max.y = Math.max(max.y, p.y);
     }
   }
-  if (xs.length === 0) return undefined;
+  for (const el of hidden) el.style.setProperty("display", "none");
+  if (min.x === Infinity) return MIDDLE;
   return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2 / space.box.width,
-    y: (Math.min(...ys) + Math.max(...ys)) / 2 / space.box.height,
+    x: (min.x + max.x) / 2 / space.box.width,
+    y: (min.y + max.y) / 2 / space.box.height,
   };
 };
 
@@ -507,6 +553,7 @@ class Track {
 // kind of motion.
 class Part implements Mover {
   private readonly tracks = new Map<Kind, Track>();
+  private readonly outermost: SVGElement[];
   private center?: xy.XY;
 
   constructor(
@@ -514,15 +561,19 @@ class Part implements Mover {
     private readonly elements: SVGElement[],
     private readonly space: Space,
     private readonly shapeOf: (el: SVGElement, attribute: Attribute) => Shape,
-  ) {}
+  ) {
+    this.outermost = elements.filter(
+      (el) => !elements.some((other) => other !== el && other.contains(el)),
+    );
+  }
 
   get moving(): boolean {
     for (const track of this.tracks.values()) if (track.moving) return true;
     return false;
   }
 
-  // A part with no pivot turns about the center of its own box. A part with no layout
-  // yet measures again on the next frame.
+  // A part with no pivot turns about the center of its own box. A drawing with no
+  // layout yet measures again on the next frame.
   private readonly pivotOf = (): xy.XY =>
     this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 
@@ -536,11 +587,12 @@ class Part implements Mover {
     for (const [kind, effect] of effects.motions) {
       let track = this.tracks.get(kind);
       const fresh = track == null;
-      const { attribute } = MOTIONS[kind];
+      const { attribute, inherited } = MOTIONS[kind];
+      const elements = inherited === true ? this.elements : this.outermost;
       track ??= new Track(
         kind,
         effect.value,
-        this.elements.map((el) => this.shapeOf(el, attribute)),
+        elements.map((el) => this.shapeOf(el, attribute)),
         this.pivotOf,
       );
       track.set(effect, partCtx, fresh);
