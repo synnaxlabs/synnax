@@ -17,9 +17,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -56,14 +59,25 @@ var _ = Describe("Arc deploy check", func() {
 			return l.Arc.NewWriter(tx).Create(ctx, &a)
 		})).To(Succeed())
 		key := a.Base().Key
-		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			_, err := l.Arc.NewWriter(tx).UpdateTask(
+		var tsk *task.Task
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			tsk, err = l.Arc.NewWriter(tx).UpdateTask(
 				ctx,
 				key,
 				arc.TaskUpdate{Rack: new(core.Key)},
 			)
 			return err
 		})).To(Succeed())
+		// The Driver configures a task when a start command arrives.
+		cmd := l.Task.CommandChannelKey()
+		w := MustSucceed(l.Framer.OpenWriter(ctx, svcframer.WriterConfig{
+			Keys:  channel.Keys{cmd},
+			Start: telem.Now(),
+		}))
+		Expect(w.Write(frame.NewUnary(cmd, MustSucceed(telem.NewJSONSeriesV(
+			task.Command{Task: tsk.Key, Type: "start", Key: "dc_start"},
+		))))).To(BeTrue())
+		Expect(w.Close()).To(Succeed())
 		Eventually(func(g Gomega) {
 			rec, ok := MustSucceed(l.Arc.RetrieveDrift(ctx, n.DB, key))[key]
 			g.Expect(ok).To(BeTrue())
