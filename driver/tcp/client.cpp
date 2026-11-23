@@ -195,7 +195,6 @@ x::errors::Error Client::write(
     const x::telem::TimeSpan timeout
 ) {
     if (this->failure) return this->failure;
-    const auto context = "failed to write to " + this->address;
     const auto deadline = x::telem::TimeStamp::now() + timeout;
     for (std::size_t written = 0; written < data.size();) {
         const auto rest = data.subspan(written);
@@ -210,9 +209,11 @@ x::errors::Error Client::write(
             },
             [this] { cancel(this->socket); }
         );
-        if (done.timed_out())
-            return this->fail(context, std::make_error_code(std::errc::timed_out));
-        if (done.ec) return this->fail(context, done.ec);
+        if (done.timed_out() || done.ec)
+            return this->fail(
+                "failed to write to " + this->address,
+                done.timed_out() ? std::make_error_code(std::errc::timed_out) : done.ec
+            );
         written += done.size;
     }
     return x::errors::NIL;
