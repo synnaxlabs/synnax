@@ -58,13 +58,11 @@ protected:
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
     /// @brief backs off after a request to the Core fails with err. Waits with no
-    /// retry limit for a transient or interrupted error, since the retry opens a new
-    /// writer or streamer and sends no request twice.
+    /// retry limit for a transient error. An acquisition pipeline writes the failed
+    /// frame again after the wait, so an interrupted error stops the pipeline.
     /// @returns true if the pipeline should retry, false if it should stop.
     bool wait_for_core(const x::errors::Error &err) {
-        const auto kind = synnax::errors::classify(err);
-        return (kind == synnax::errors::Kind::TRANSIENT ||
-                kind == synnax::errors::Kind::INTERRUPTED) &&
+        return synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
                this->breaker.wait_unlimited(err);
     }
 

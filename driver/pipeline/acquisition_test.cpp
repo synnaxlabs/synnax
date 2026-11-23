@@ -1259,4 +1259,23 @@ TEST(AcquisitionPipeline, WaitsForLicensePastLimit) {
     ASSERT_EQ(factory->opens.load(), 3);
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
 }
+
+/// @brief it should stop on an interrupted error, since a write is unsafe to resend.
+TEST(AcquisitionPipeline, StopsOnInterruptedError) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        synnax::errors::INTERRUPTED,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_EQ(factory->opens.load(), 1);
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::INTERRUPTED);
+}
 }
