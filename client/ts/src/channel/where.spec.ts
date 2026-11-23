@@ -33,14 +33,13 @@ describe("Where", () => {
   it("should leave the internal line to the Core before the built-in keys arrive", () => {
     const unknown = createLines(() => null);
     expect(serverComputed(unknown, { internal: { eq: false } })).toBe(true);
-    expect(serverComputed(unknown, { virtual: true })).toBe(false);
   });
 });
 
 describe("Where with a Core", () => {
   const admin = createTestClient();
 
-  it("should agree with the Core that a hidden calculation's output is not virtual", async () => {
+  it("should leave a calculation's output out of virtual channels", async () => {
     const input = await admin.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,
@@ -58,17 +57,10 @@ describe("Where with a Core", () => {
       objects: [channel.resourceID(0)],
       actions: ["retrieve"],
     });
-    const lines = createLines(() => new Set());
     const where = channel.whereZ.parse({ key: { in: [output.key] }, virtual: true });
-    const agreement = async (c: Synnax) => {
-      const fromCore = await c.channels.retrieve({ where });
-      const seen = await c.channels.retrieve(output.key);
-      return {
-        core: fromCore.some(({ key }) => key === output.key),
-        client: matches(lines, seen.payload, where),
-      };
-    };
-    expect(await agreement(admin)).toEqual({ core: false, client: false });
-    expect(await agreement(reader)).toEqual({ core: false, client: false });
+    const virtualFor = async (c: Synnax) =>
+      (await c.channels.retrieve({ where })).some(({ key }) => key === output.key);
+    expect(await virtualFor(admin)).toBe(false);
+    expect(await virtualFor(reader)).toBe(false);
   });
 });

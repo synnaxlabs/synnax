@@ -60,9 +60,6 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   return result;
 };
 
-/** @returns whether a calculation writes the channel. */
-export const isCalculated = ({ calculated }: Payload): boolean => calculated;
-
 /**
  * Resolves channel params into a normalized array, reporting whether the caller named
  * one channel or many, and whether by key or by name.

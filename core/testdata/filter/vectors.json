@@ -1610,14 +1610,16 @@
         "where": {
           "virtual": true
         },
-        "expected": ["d"]
+        "expected": ["d"],
+        "server_computed": true
       },
       {
         "name": "not virtual keeps calculated channels",
         "where": {
           "virtual": false
         },
-        "expected": ["a", "b", "c", "e"]
+        "expected": ["a", "b", "c", "e"],
+        "server_computed": true
       },
       {
         "name": "and of data_type and virtual",
@@ -1633,7 +1635,8 @@
             }
           ]
         },
-        "expected": ["a", "c"]
+        "expected": ["a", "c"],
+        "server_computed": true
       },
       {
         "name": "or of name and internal",

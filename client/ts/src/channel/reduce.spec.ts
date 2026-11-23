@@ -11,7 +11,6 @@ import { control } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import type { Action, Stored } from "@/channel/actions";
-import { isCalculated } from "@/channel/payload";
 import { createOf } from "@/channel/reduce";
 
 const create = (stored: Partial<Stored>): Action => ({
@@ -36,12 +35,12 @@ describe("channel reduce", () => {
   describe("createOf", () => {
     it("should mark a created channel with an expression calculated", () => {
       const created = createOf(create({ expression: "return 1" }));
-      expect(created != null && isCalculated(created)).toBe(true);
+      expect(created?.calculated).toBe(true);
     });
 
     it("should not mark a created virtual channel with no expression calculated", () => {
       const created = createOf(create({}));
-      expect(created != null && isCalculated(created)).toBe(false);
+      expect(created?.calculated).toBe(false);
     });
   });
 });

@@ -218,10 +218,6 @@ export class Channel {
     );
   }
 
-  get isCalculated(): boolean {
-    return this.calculated;
-  }
-
   /** @returns the resource ID of the channel */
   get resourceID(): resource.ID {
     return resourceID(this.key);
