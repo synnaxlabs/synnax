@@ -7,31 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <optional>
-#include <sstream>
 #include <string>
-#include <string_view>
 #include <system_error>
-#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-#include "client/cpp/icd/json.gen.h"
-#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/extract.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/json/number.h"
-#include "x/cpp/json/pointer.h"
 #include "x/cpp/json/text.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -40,65 +29,18 @@
 
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
+#include "driver/codec/testutil/fixture.h"
 
 namespace driver::codec {
 namespace {
-namespace icd = synnax::icd;
+using testutil::error_data;
+using testutil::raw_at;
+using testutil::required_at;
+using testutil::string_at;
 
 /// @brief the Core's encode fixtures. Each holds one JSON message and either the error
 /// that creating an encoder for it returns, or the samples it encodes.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/encode";
-
-/// @brief the suffix of a Go validation error, which a C++ error keeps in its type.
-constexpr std::string_view VALIDATION_SUFFIX = ": validation error";
-
-/// @brief returns the text of the value at pointer in doc. The fixtures hold integers
-/// past the 53 bits of a double, so it reads them as text.
-std::optional<std::string> raw_at(const std::string &doc, const std::string &pointer) {
-    x::json::Extractor e({ASSERT_NIL_P(x::json::Pointer::parse(pointer))});
-    std::vector<std::optional<std::string_view>> values;
-    EXPECT_NIL(e.extract(doc, values));
-    const auto &value = values[0];
-    if (!value.has_value()) return std::nullopt;
-    return std::string(*value);
-}
-
-/// @brief returns the text of the value at pointer in doc, failing when there is none.
-std::string required_at(const std::string &doc, const std::string &pointer) {
-    auto raw = raw_at(doc, pointer);
-    if (!raw.has_value()) ADD_FAILURE() << "no value at " << pointer;
-    return std::move(raw).value_or("");
-}
-
-/// @brief returns the string at pointer in doc, or an empty string when there is none.
-std::string string_at(const std::string &doc, const std::string &pointer) {
-    const auto raw = raw_at(doc, pointer);
-    if (!raw.has_value()) return "";
-    std::string out;
-    EXPECT_NIL(x::json::unquote(*raw, out));
-    return out;
-}
-
-/// @brief returns the error text of a Go validation error without its suffix.
-std::string error_data(const std::string &go) {
-    EXPECT_TRUE(go.ends_with(VALIDATION_SUFFIX)) << go;
-    return go.substr(0, go.size() - VALIDATION_SUFFIX.size());
-}
-
-JSONMessage parse_message(const nlohmann::json &m) {
-    x::json::Parser parser(m["payload"]);
-    JSONMessage msg{
-        .name = m["name"].get<std::string>(),
-        .payload = icd::JSONPayload::parse(parser),
-    };
-    EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
-    for (const auto &b: m["bindings"])
-        msg.bindings.push_back({
-            .field = ASSERT_NIL_P(x::uuid::UUID::parse(b["field"].get<std::string>())),
-            .data_type = x::telem::DataType(b["data_type"].get<std::string>()),
-        });
-    return msg;
-}
 
 /// @brief returns the integer that raw, the text of a JSON integer, holds exactly.
 template<typename T>
@@ -185,12 +127,9 @@ void check_case(
 /// @brief checks that an encoder for the message of the fixture at path encodes the
 /// samples of its cases, or fails to create with its error.
 void check_fixture(const std::filesystem::path &path) {
-    std::ifstream file(path);
-    std::stringstream buf;
-    buf << file.rdbuf();
-    const auto doc = buf.str();
+    const auto doc = testutil::read_fixture(path);
     ASSERT_FALSE(string_at(doc, "/description").empty());
-    const auto message = parse_message(
+    const auto message = testutil::parse_message(
         nlohmann::json::parse(required_at(doc, "/message"))
     );
     auto [enc, err] = JSONEncoder::create(message);
@@ -211,10 +150,7 @@ void check_fixture(const std::filesystem::path &path) {
 /// @brief it should encode the samples of every encode fixture of the Core, or reject
 /// its message or samples with the same error.
 TEST(EncodeFixtures, MatchTheCore) {
-    std::vector<std::filesystem::path> paths;
-    for (const auto &e: std::filesystem::directory_iterator(FIXTURES))
-        if (e.path().extension() == ".json") paths.push_back(e.path());
-    std::ranges::sort(paths);
+    const auto paths = testutil::fixture_paths(FIXTURES);
     ASSERT_FALSE(paths.empty());
     for (const auto &path: paths) {
         SCOPED_TRACE(path.filename().string());
