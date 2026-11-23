@@ -114,7 +114,7 @@ const PartListItem = ({
             }}
             size="small"
             variant="text"
-            tooltip="Delete part"
+            tooltip="Remove part"
             reveal
           >
             <Icon.Close />
