@@ -323,6 +323,7 @@ const OVEN_SHAPE = {
   ],
   index: 0,
   count: 2,
+  present: -1,
 };
 
 /** The oven shape, with a pressure. */
@@ -457,6 +458,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 1,
+        present: -1,
       };
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOfTopic("plant", pump) },
@@ -725,6 +727,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(
         dev,
@@ -1031,6 +1034,41 @@ describe("Kafka read form", () => {
         });
     });
 
+    it("should read each record kind of a key in its own message of one record", async () => {
+      const { draft, dev } = await renderRead();
+      const kind = (pointer: string) => ({
+        sources: ["pump"],
+        fields: [
+          createInferredField("/time", "timestamp", "number", "unix_ms"),
+          createInferredField(pointer, "float64", "number"),
+        ],
+        index: 0,
+        count: 2,
+        present: 1,
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(kind("/rpm"), kind("/fault")),
+      });
+      await dialog.findByText("pump · 2 records with /rpm");
+      dialog.getByText("pump · 2 records with /fault");
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(records[0].icd);
+      expect(messages.map(({ payload }) => payload)).toMatchObject([
+        { match: { type: "present", pointer: "/rpm" } },
+        { match: { type: "present", pointer: "/fault" } },
+      ]);
+      expect(records[0]).toMatchObject({
+        recordKey: "pump",
+        messages: messages.map(({ key }) => ({ message: key })),
+      });
+    });
+
     it("should show the hint with the fields and count the picks", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
@@ -1066,6 +1104,7 @@ describe("Kafka read form", () => {
         ],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1095,6 +1134,7 @@ describe("Kafka read form", () => {
         ],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1137,6 +1177,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 1,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
       expect(
@@ -1167,6 +1208,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1508,6 +1550,7 @@ describe("Kafka read form", () => {
         ],
         index: 0,
         count: 1,
+        present: -1,
       };
       const scan = await createScanTask(dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {

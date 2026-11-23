@@ -147,7 +147,8 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
  * @returns a message for each shape with picks, holding the picked fields, the fields
  * that its keys carry, and the shape's timestamp. Its records read the keys of the
  * shape with no record of their own. A message takes the name of its first key, or
- * label for the empty key.
+ * label for the empty key, and matches the documents that hold the shape's present
+ * field.
  */
 export const createAdditions = (
   shapes: json.Shape[],
@@ -181,29 +182,43 @@ export const createAdditions = (
       indexField == null
         ? undefined
         : fields.find(({ pointer }) => pointer === indexField.pointer)?.key;
+    const present = shape.present == null ? undefined : shape.fields[shape.present];
     const message: icd.Message = {
       key: uuid.create(),
       name: uniqueName(label(recordKeys[0]), taken),
-      payload: { format: "json", fields },
+      payload: {
+        format: "json",
+        fields,
+        ...(present == null
+          ? {}
+          : { match: { type: "present", pointer: present.pointer } }),
+      },
     };
     taken.push(message);
     return [{ message, recordKeys, ...(index == null ? {} : { index }) }];
   });
 };
 
-/** @returns a record for each Kafka key of each addition, reading all of its fields. */
-export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecord[] =>
-  additions.flatMap(({ message, recordKeys, index }) => {
+/**
+ * @returns a record for each Kafka key of the additions, reading each message that adds
+ * the key, with all of its fields.
+ */
+export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecord[] => {
+  const reads = new Map<string, icd.ReadMessage[]>();
+  for (const { message, recordKeys, index } of additions) {
     const fields = message.payload.format === "json" ? message.payload.fields : [];
     const read = icd.readMessageZ.parse({
       message: message.key,
       index,
       bindings: fields.map(({ key }) => ({ field: key })),
     });
-    return recordKeys.map((recordKey) =>
-      kafka.readRecordZ.parse({ icd: icdKey, recordKey, messages: [read] }),
-    );
-  });
+    for (const recordKey of recordKeys)
+      reads.set(recordKey, [...(reads.get(recordKey) ?? []), read]);
+  }
+  return [...reads].map(([recordKey, messages]) =>
+    kafka.readRecordZ.parse({ icd: icdKey, recordKey, messages }),
+  );
+};
 
 /** Picks that a message gains, because records of the task read the message already. */
 export interface Extension {

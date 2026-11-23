@@ -48,7 +48,7 @@ export const inferredFieldZ = z.object({
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}
 
-/** The fields shared by documents from sources that hold the same set of fields. */
+/** The fields of one cluster of documents, from one or more sources. */
 export const shapeZ = z.object({
   /** sources name the sources of the documents, such as topics or record keys. */
   sources: z.array(z.string()),
@@ -58,6 +58,11 @@ export const shapeZ = z.object({
   index: z.number().transform((i) => (i < 0 ? undefined : i)),
   /** count is the number of documents. */
   count: z.number(),
+  /**
+   * present is the position in fields of the field that tells the documents apart from
+   * the other shapes of their sources.
+   */
+  present: z.number().transform((i) => (i < 0 ? undefined : i)),
 });
 
 export interface Shape extends z.infer<typeof shapeZ> {}

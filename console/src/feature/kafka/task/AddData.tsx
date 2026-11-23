@@ -254,8 +254,10 @@ const TopicValues = ({
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const keys = shape.sources.map(label).join(", ");
+    const records = pluralize("record", shape.count, true);
+    const present = shape.present == null ? undefined : shape.fields[shape.present];
     return {
-      title: `${keys} · ${pluralize("record", shape.count, true)}`,
+      title: `${keys} · ${records}${present == null ? "" : ` with ${present.pointer}`}`,
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [shapeKey(shape), f.pointer]);
