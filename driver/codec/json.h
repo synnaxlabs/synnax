@@ -221,10 +221,10 @@ class JSONEncoder {
         std::string name;
         std::string_view kind;
         /// @brief encoder writes the samples of every kind but JSON, whose samples are
-        /// JSON text.
+        /// JSON text. A converted field uses it only to find enum labels.
         x::json::Encoder encoder;
-        /// @brief converted is true when the number that encoder writes needs a scale,
-        /// a rounding, a range check, or a change to a boolean.
+        /// @brief converted is true when a numeric sample needs a scale, a rounding, or
+        /// a change to a boolean before it is written.
         bool converted = false;
         bool scaled = false;
         double scale = 1;

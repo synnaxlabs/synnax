@@ -137,6 +137,10 @@ public:
     /// or an enum label is not valid UTF-8.
     static std::pair<Encoder, errors::Error> create(Field field);
 
+    /// @brief returns the JSON text of the first enum label that v matches, or nullptr
+    /// when it matches none. v has the data type of the field, and a boolean is 0 or 1.
+    [[nodiscard]] const std::string *label(const telem::SampleValue &v) const;
+
     /// @brief appends JSON text to out: sample i of s, which holds the data type of the
     /// field.
     /// - A timestamp takes the time format of the field.
