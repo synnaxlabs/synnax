@@ -1039,6 +1039,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Part 1")).toBeNull();
     });
 
+    it("takes the group out of the part when a click lands inside it", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(findShape("c"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
     it("toggles the text of a span clicked", async () => {
       const symbol = await openPainted({
         drawing: {

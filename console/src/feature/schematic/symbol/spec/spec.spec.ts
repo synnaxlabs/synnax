@@ -457,6 +457,17 @@ describe("symbol editor spec", () => {
       expect(Spec.levelIssues(spec).size).toBe(0);
     });
 
+    it("should count only the outermost shapes of a part", () => {
+      const spec = createSpec({
+        drawing: drawn(
+          '<g id="body"><rect id="inner" clip-path="url(#c)"/><rect/></g>',
+        ),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#inner"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
     it("should return no part when the clipped part has no level motion", () => {
       const spec = createSpec({
         drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
@@ -553,9 +564,12 @@ describe("symbol editor spec", () => {
       ]);
     });
 
-    it("should keep the parts when the part holds a group around the shape", () => {
+    it("should take a group out of the part when a shape inside it is clicked", () => {
       const parts = Spec.toggleSelector(grouped, "body", "#g");
-      expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toBe(parts);
+      expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
     });
 
     it("should keep the parts when another part holds a group around the shape", () => {

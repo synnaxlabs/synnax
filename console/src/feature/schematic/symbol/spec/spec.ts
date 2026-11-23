@@ -210,9 +210,15 @@ export const levelIssues = (
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
   for (const p of spec.parts) {
     if (!levels.has(p.key)) continue;
-    const shapes = new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)]));
-    if (shapes.size > 1) issues.set(p.key, "shapes");
-    else if ([...shapes].some(clipped)) issues.set(p.key, "clip");
+    const matched = [
+      ...new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)])),
+    ];
+    // The renderer moves only the outermost elements of a part.
+    const shapes = matched.filter(
+      (el) => !matched.some((o) => o !== el && o.contains(el)),
+    );
+    if (shapes.length > 1) issues.set(p.key, "shapes");
+    else if (shapes.some(clipped)) issues.set(p.key, "clip");
   }
   return issues;
 };
@@ -231,16 +237,6 @@ export const removePart = (spec: Spec, part: string): Spec => ({
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
 });
-
-// holds returns whether every shape of inner sits inside a shape of outer.
-const holds = (doc: Document, outer: string, inner: string): boolean => {
-  const groups = [...doc.querySelectorAll(outer)];
-  const shapes = [...doc.querySelectorAll(inner)];
-  return (
-    shapes.length > 0 &&
-    shapes.every((s) => groups.some((g) => g !== s && g.contains(s)))
-  );
-};
 
 /**
  * @returns the part that holds the shape of selector, itself or through the nearest
@@ -261,11 +257,22 @@ export const owner = (
   return undefined;
 };
 
+// holds returns whether every shape of inner sits inside a shape of outer.
+const holds = (doc: Document, outer: string, inner: string): boolean => {
+  const groups = [...doc.querySelectorAll(outer)];
+  const shapes = [...doc.querySelectorAll(inner)];
+  return (
+    shapes.length > 0 &&
+    shapes.every((s) => groups.some((g) => g !== s && g.contains(s)))
+  );
+};
+
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
  * already did. A shape belongs to one part, so every part drops the selectors of shapes
  * inside the shape of selector, and the other parts drop selector. A shape inside a
- * group that a part holds stays in that part, so the parts stay the same.
+ * group that part holds takes the group out of part, and a shape inside a group that
+ * another part holds stays there, so the parts stay the same.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -280,6 +287,13 @@ export const toggleSelector = (
       selectors: p.selectors.filter((s) => s !== selector),
     }));
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const around = target.selectors.filter((s) => holds(doc, s, selector));
+  if (around.length > 0)
+    return spec.parts.map((p) =>
+      p.key === part
+        ? { ...p, selectors: p.selectors.filter((s) => !around.includes(s)) }
+        : p,
+    );
   if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
     return spec.parts;
   return spec.parts.map((p) => {
