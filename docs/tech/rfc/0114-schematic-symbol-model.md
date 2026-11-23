@@ -282,6 +282,16 @@ transition. While its state is stale, it keeps its last fraction. While it is un
 it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
 blink stays under three flashes per second.
 
+A part with no `pivot` turns as one, about the center of the box around all its
+elements. A `level` fills each element of a part by the element's own box. A part can
+select a group, such as a `<g>` by `#id`. Motion on a group composes with motion on the
+parts in it, because SVG composes the transforms of nested elements. A `level`,
+`rotate`, or `move` slides to each new fraction in 0.15 s, on the ease-in-out curve of
+Pluto's modal animation. A value that arrives during a slide does not start a new slide.
+The slide keeps its clock and continues from the drawn fraction to the new one, so the
+part gets to each value within 0.15 s of its arrival. A change of fill or stroke draws
+at once, with no fade.
+
 ### 4.3 Clicks and writes
 
 `next` lists two `fixed` commands on one state whose values differ after the symbol's
