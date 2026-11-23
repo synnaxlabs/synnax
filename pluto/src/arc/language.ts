@@ -11,7 +11,7 @@ import { grammarRaw, languageConfigurationRaw, tokens } from "@synnaxlabs/arc";
 import type { Synnax } from "@synnaxlabs/client";
 import { record } from "@synnaxlabs/x";
 
-import { EXTENSIONS } from "@/arc/text/placeholderSuggest";
+import { EXTENSIONS } from "@/arc/placeholderSuggest";
 import type { Code } from "@/code";
 
 /** NAME is the Arc language id used by Monaco models and the LSP document selector. */

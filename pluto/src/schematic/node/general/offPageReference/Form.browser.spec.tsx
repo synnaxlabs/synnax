@@ -16,8 +16,8 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
-import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { OffPageReference } from "@/schematic/node/general/offPageReference";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const path = deep.path<schematic.OffPageReferenceNodeConfig>();
 
@@ -41,7 +41,7 @@ describe("OffPageReferenceForm", () => {
   it("should render the form with label, page, and click mode fields", () => {
     const { getAllByText, getByText } = render(
       <FormWrapper>
-        <OffPageReferenceForm />
+        <OffPageReference.spec.Form />
       </FormWrapper>,
     );
     expect(getAllByText("Label")).toHaveLength(2);
@@ -52,7 +52,7 @@ describe("OffPageReferenceForm", () => {
   it("should render single and double click mode buttons", () => {
     const { getByText } = render(
       <FormWrapper>
-        <OffPageReferenceForm />
+        <OffPageReference.spec.Form />
       </FormWrapper>,
     );
     expect(getByText("Single")).toBeDefined();
@@ -62,7 +62,7 @@ describe("OffPageReferenceForm", () => {
   it("should render color control", () => {
     const { getByText } = render(
       <FormWrapper>
-        <OffPageReferenceForm />
+        <OffPageReference.spec.Form />
       </FormWrapper>,
     );
     expect(getByText("Fill")).toBeDefined();
@@ -71,7 +71,7 @@ describe("OffPageReferenceForm", () => {
   it("should render label size field when level is provided", () => {
     const { getByText } = render(
       <FormWrapper>
-        <OffPageReferenceForm />
+        <OffPageReference.spec.Form />
       </FormWrapper>,
     );
     expect(getByText("Size")).toBeDefined();
@@ -116,7 +116,7 @@ describe("OffPageReferenceForm", () => {
     };
     const rendered = render(
       <Wrapper>
-        <OffPageReferenceForm schematicKey={source.key} />
+        <OffPageReference.spec.Form schematicKey={source.key} />
       </Wrapper>,
     );
     const getMethods = (): Form.UseReturn<typeof CONFIG_Z> => {

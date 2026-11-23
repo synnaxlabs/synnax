@@ -12,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <utility>
 
 #include "client/cpp/icd/types.gen.h"
@@ -81,7 +82,23 @@ public:
     /// @brief returns the number of payload bytes that the field needs.
     [[nodiscard]] std::size_t end() const { return this->end_byte; }
 
+    /// @brief returns the number of bits in the field.
+    [[nodiscard]] std::uint8_t width() const { return this->length; }
+
     /// @brief reports whether both ranges read the same bits in the same order.
     bool operator==(const BitRange &) const = default;
 };
+
+/// @brief Encoding is how the raw bits of a binary field hold its value.
+enum class Encoding : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
+
+/// @brief returns how the raw bits of f hold its value.
+/// @returns CONFIG_ERROR when f is a float field that is not 32 or 64 bits.
+std::pair<Encoding, x::errors::Error> encoding_of(const synnax::icd::BinaryField &f);
+
+/// @brief returns the raw bits of the default of f, or nothing when f has none.
+/// @returns CONFIG_ERROR when f is a float field that is not 32 or 64 bits, or its
+/// default overflows float32 or is out of range for its bits.
+std::pair<std::optional<std::uint64_t>, x::errors::Error>
+default_raw(const synnax::icd::BinaryField &f);
 }
