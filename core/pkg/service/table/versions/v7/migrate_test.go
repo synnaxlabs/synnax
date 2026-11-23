@@ -104,8 +104,8 @@ var _ = Describe("Migration", func() {
 						Value: "Pressure", FillColor: c(1),
 					}}},
 					{Key: "value", Config: v6.CellConfig{Variant: v6.ValueCellConfig{
-						FillColor:      c(3),
-						TextColor:      c(4),
+						FillColor:        c(3),
+						TextColor:        c(4),
 						StalenessColor:   c(5),
 						StalenessTimeout: 2.5,
 						Redline: color.Scale{Bands: []color.Band{

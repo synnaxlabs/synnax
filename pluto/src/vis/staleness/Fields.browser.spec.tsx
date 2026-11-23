@@ -57,9 +57,7 @@ describe("Staleness.TimeoutField", () => {
   });
 
   it("should accept a timeout up to the longest that the Core stores", async () => {
-    await renderThemed(
-      <Host values={{ stalenessTimeout: THREE_SECONDS }} />,
-    );
+    await renderThemed(<Host values={{ stalenessTimeout: THREE_SECONDS }} />);
     await typeTimeout("104d");
     await expect
       .poll(() => value(path.stalenessTimeout))
@@ -67,9 +65,7 @@ describe("Staleness.TimeoutField", () => {
   });
 
   it("should reject a timeout longer than the Core stores", async () => {
-    await renderThemed(
-      <Host values={{ stalenessTimeout: THREE_SECONDS }} />,
-    );
+    await renderThemed(<Host values={{ stalenessTimeout: THREE_SECONDS }} />);
     await userEvent.fill(field(), "105d");
     await userEvent.keyboard("{Enter}");
     await expect

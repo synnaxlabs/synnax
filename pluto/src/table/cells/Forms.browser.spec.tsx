@@ -47,8 +47,8 @@ describe("ValueForm telemetry tab", () => {
     const input = page.getByLabelText("Timeout");
     await userEvent.fill(input, "7s");
     input.element().blur();
-    await expect.poll(() => methods.get(path.stalenessTimeout).value).toBe(
-      TimeSpan.seconds(7).nanoseconds,
-    );
+    await expect
+      .poll(() => methods.get(path.stalenessTimeout).value)
+      .toBe(TimeSpan.seconds(7).nanoseconds);
   });
 });
