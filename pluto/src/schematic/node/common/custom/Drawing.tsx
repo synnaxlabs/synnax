@@ -34,7 +34,7 @@ export interface DrawingProps extends Primitive.SVGBasedProps {
    * A state with no reading reads as a state with no source.
    */
   readings?: Record<string, Reading>;
-  /** motionDisabled stops spin, flow, and blink, and removes transitions. */
+  /** motionDisabled stops spin, flow, and blink. */
   motionDisabled?: boolean;
 }
 
