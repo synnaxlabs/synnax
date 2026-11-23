@@ -536,7 +536,11 @@ func resolveDotted(
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	return scope.ResolveMember(ctx, strings.Split(name, "."), symbol.WithoutUsageTracking)
+	return scope.ResolveMember(
+		ctx,
+		strings.Split(name, "."),
+		symbol.WithoutUsageTracking,
+	)
 }
 
 // variableTypeDetail renders a value variable's hover type, tagged by its kind.
