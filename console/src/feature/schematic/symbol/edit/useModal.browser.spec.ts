@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { group, schematic } from "@synnaxlabs/client";
+import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
@@ -27,6 +27,7 @@ import {
 } from "@/feature/schematic/testutil";
 import {
   findButton,
+  findLastButton,
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
@@ -331,6 +332,59 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(saved.data.drawing.markup).toContain(
           '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
         );
+      });
+    });
+
+    it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("vessel"));
+      payload.data.commands = [
+        { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("vent_cmd"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const project = await client.projects.create({ name: uniqueName("project") });
+      const used = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("plant"),
+        nodes: [
+          {
+            key: "vessel",
+            position: { x: 0, y: 0 },
+            zIndex: 0,
+            config: schematic.nodeConfigZ.parse({
+              variant: "symbol",
+              spec: { type: "custom", key: symbol.key },
+              label: { label: "Vessel 1" },
+              commands: [{ key: "vent", channel: ch.key }],
+            }),
+          },
+        ],
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText(used.name);
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      fireEvent.click(findLastButton("Save"));
+      await waitFor(async () => {
+        const stored = await createTestClient().schematics.retrieve(used.key);
+        const cfg = stored.nodes[0].config;
+        expect(cfg.variant === "symbol" && cfg.commands).toEqual([]);
       });
     });
 

@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type group, type schematic, status } from "@synnaxlabs/client";
+import { actions, type group, type schematic, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -29,6 +29,7 @@ import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
 import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
@@ -106,6 +107,25 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
+  const stored = Schematic.Symbol.useResult(
+    symbolKey == null ? null : { key: symbolKey, includeUses: true },
+  );
+  const confirmSave = useConfirmSave();
+  // A save that changes the spec of a symbol in use asks first, since it changes each
+  // schematic that draws the symbol.
+  const handleSave = async () => {
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const spec = form.get(path.data).value;
+      const next = { ...stored.data, data: spec };
+      const changed =
+        actions.diffFields(Schematic.Symbol.formSchema, stored.data, next, ["data"])
+          .length > 0;
+      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+        return;
+    }
+    save();
+  };
   const [selectedValue, setSelectedValue, selectedValueRef] =
     useCombinedStateAndRef<number>(0);
   const [selectedRegion, setSelectedRegion, selectedRegionRef] =
@@ -279,8 +299,13 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
+                status={
+                  !isCreate && stored.variant === "loading"
+                    ? "loading"
+                    : status.keepVariants(variant, "loading")
+                }
+                disabled={!isCreate && stored.variant === "error"}
+                onClick={() => void handleSave()}
                 trigger={Triggers.SAVE}
                 triggerIndicator
               >
