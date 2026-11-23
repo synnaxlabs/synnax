@@ -39,6 +39,7 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v2.KafkaSecureMigration,
 			v2.HTTPBlankHeaderMigration,
 			v2.NewUnknownStatusMigration(cfg.Status),
+			v2.NIHardwareMigration,
 		},
 	)
 }
