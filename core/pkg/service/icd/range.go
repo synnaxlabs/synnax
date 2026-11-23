@@ -24,16 +24,12 @@ const decodeRounding = 4 * 0x1p-52
 // CheckRange returns an error wrapping validate.ErrValidation when v, a value after the
 // scale and offset of b, is outside the min and max of b.
 func CheckRange(b BaseField, v float64) error {
-	return rangeError(outOfRange(b, v, v, 0))
+	return problemError(outOfRange(b, v, v, 0))
 }
 
-// CheckRawRange returns an error wrapping validate.ErrValidation when raw, a value
-// before the scale and offset of b, decodes outside the min and max of b. It allows the
-// float64 rounding of the decode, so a value at a limit passes.
-func CheckRawRange(b BaseField, raw float64) error {
-	return rangeError(outOfRawRange(b, raw))
-}
-
+// outOfRawRange returns how raw, a value before the scale and offset of b, decodes
+// outside the min and max of b, and false when it does not. It allows the float64
+// rounding of the decode, so a value at a limit passes.
 func outOfRawRange(b BaseField, raw float64) (string, bool) {
 	scaled := raw * b.Scale
 	return outOfRange(
@@ -67,8 +63,8 @@ func outOfRange(b BaseField, raw, decoded, slack float64) (string, bool) {
 	), true
 }
 
-func rangeError(message string, out bool) error {
-	if !out {
+func problemError(message string, found bool) error {
+	if !found {
 		return nil
 	}
 	return errors.Wrap(validate.ErrValidation, message)
