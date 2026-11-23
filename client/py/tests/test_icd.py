@@ -311,6 +311,58 @@ class TestICD:
                 {"identifier": {"type": "token", "prefix": "$"}}
             )
 
+    def test_parse_sync_framing(self) -> None:
+        """Should decode a base64 sync sequence and fill in the sync defaults."""
+        ic = sy.icd.ICD.model_validate(
+            {"name": "Rig", "framing": {"type": "sync", "sync": "qlU="}}
+        )
+        assert ic.framing == sy.icd.SyncFraming(
+            sync=b"\xaa\x55",
+            length_offset=0,
+            length_size="one",
+            byte_order="little_endian",
+            length_adjustment=0,
+            checksum=None,
+            max_length=65536,
+        )
+
+    @pytest.mark.parametrize(
+        ("framing", "expected"),
+        [
+            ({"type": "delimited"}, sy.icd.DelimitedFraming(delimiter="\n")),
+            ({"type": "fixed", "length": 12}, sy.icd.FixedFraming(length=12)),
+            (
+                {"type": "sync", "sync": "fg==", "checksum": {"algorithm": "crc32"}},
+                sy.icd.SyncFraming(
+                    sync=b"\x7e",
+                    checksum=sy.icd.Checksum(
+                        algorithm="crc32", byte_order="little_endian"
+                    ),
+                ),
+            ),
+            ({"type": "cobs"}, sy.icd.CobsFraming()),
+            ({"type": "slip"}, sy.icd.SlipFraming()),
+        ],
+    )
+    def test_parse_framing(
+        self, framing: dict[str, object], expected: sy.icd.Framing
+    ) -> None:
+        """Should parse each kind of framing by its type."""
+        ic = sy.icd.ICD.model_validate({"name": "Rig", "framing": framing})
+        assert ic.framing == expected
+
+    def test_parse_absent_framing(self) -> None:
+        """Should parse a null framing as no framing."""
+        ic = sy.icd.ICD.model_validate({"name": "Rig", "framing": None})
+        assert ic.framing is None
+
+    def test_reject_unknown_framing(self) -> None:
+        """Should not parse a framing of an unknown type."""
+        with pytest.raises(
+            ValidationError, match="Input tag 'stream' found using 'type'"
+        ):
+            sy.icd.ICD.model_validate({"name": "Rig", "framing": {"type": "stream"}})
+
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an ICD from keyword arguments."""
         ic = client.icds.create(

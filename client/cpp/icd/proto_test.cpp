@@ -183,6 +183,12 @@ void expect_request_round_trips(const x::json::json &j) {
 const std::string KEY_A = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea1";
 const std::string KEY_B = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea2";
 
+x::json::json with_framing(const x::json::json &framing) {
+    auto j = FULL_ICD;
+    j["framing"] = framing;
+    return j;
+}
+
 x::json::json with_match(const x::json::json &match) {
     auto j = FULL_ICD;
     j["messages"] = x::json::json::array({JSON_MESSAGE});
@@ -195,6 +201,53 @@ x::json::json with_match(const x::json::json &match) {
 /// protobuf.
 TEST(ICD, RoundTripsProto) {
     expect_round_trips(FULL_ICD);
+}
+
+/// @brief it should parse a base64 sync sequence and an absent checksum from JSON.
+TEST(Framing, ParsesBase64SyncWithoutChecksum) {
+    const auto ic = parse_icd(with_framing({
+        {"type", "sync"},
+        {"sync", "qlU="},
+        {"length_offset", 2},
+        {"length_size", "two"},
+        {"byte_order", "big_endian"},
+        {"length_adjustment", -1},
+        {"max_length", 256},
+    }));
+    ASSERT_TRUE(ic.framing.has_value());
+    const auto &sync = std::get<SyncFraming>(ic.framing.value());
+    EXPECT_EQ(sync.sync, (std::vector<std::uint8_t>{0xAA, 0x55}));
+    EXPECT_EQ(sync.length_offset, 2);
+    EXPECT_EQ(sync.length_size, LENGTH_SIZE_TWO);
+    EXPECT_EQ(sync.byte_order, BYTE_ORDER_BIG_ENDIAN);
+    EXPECT_EQ(sync.length_adjustment, -1);
+    EXPECT_EQ(sync.max_length, 256);
+    EXPECT_FALSE(sync.checksum.has_value());
+    EXPECT_EQ(ic.to_json()["framing"]["sync"], "qlU=");
+}
+
+/// @brief it should parse an ICD without framing as one with no framing.
+TEST(Framing, ParsesAbsentFraming) {
+    EXPECT_FALSE(parse_icd(FULL_ICD).framing.has_value());
+}
+
+/// @brief it should round trip each kind of framing through protobuf.
+TEST(Framing, RoundTripsEachKindProto) {
+    const std::vector<x::json::json> framings = {
+        {{"type", "delimited"}, {"delimiter", "\r\n"}},
+        {{"type", "fixed"}, {"length", 12}},
+        {{"type", "sync"},
+         {"sync", "qlU="},
+         {"length_size", "four"},
+         {"checksum", {{"algorithm", "crc16_modbus"}, {"byte_order", "big_endian"}}}},
+        {{"type", "sync"}, {"sync", "fg=="}},
+        {{"type", "cobs"}},
+        {{"type", "slip"}},
+    };
+    for (const auto &framing: framings) {
+        SCOPED_TRACE(framing.dump());
+        expect_round_trips(with_framing(framing));
+    }
 }
 
 /// @brief it should round trip a float match through protobuf.
