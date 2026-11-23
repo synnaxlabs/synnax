@@ -47,13 +47,6 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Announce attaches acts for output to the transaction of w on the channel stream as
-// one batch, which goes only to a subject who reads c. The acts carry calculation
-// fields that the channel no longer stores to the clients that read them from it.
-func (w Writer) Announce(output channel.Key, c Calculation, acts ...channel.Action) {
-	w.svc.announce(w.tx, w.channelWriter(), output, c, acts...)
-}
-
 func (w Writer) channelWriter() channel.Writer {
 	return w.channels.NewWriter(w.tx).WithDispatchKey(w.dispatchKey)
 }
@@ -88,7 +81,7 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 		return err
 	}
 	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
-	w.Announce(c.Output, *c, fieldsOf(*c, true)...)
+	w.svc.announce(w.tx, w.channelWriter(), c.Output, *c, fieldsOf(*c, true)...)
 	return nil
 }
 
@@ -96,7 +89,10 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 // from c as the batch leaves it.
 func (w Writer) attach(c Calculation, acts ...Action) {
 	seq := w.dispatcher.Attach(w.tx, c.Key, acts...)
-	w.svc.checks.Add(w.tx, batchCheck{key: c.Key, seq: seq, check: w.svc.Readable(c)})
+	w.svc.checks.Add(w.tx, batchCheck[Key]{
+		id:    batchID[Key]{key: c.Key, seq: seq},
+		check: w.svc.Readable(c),
+	})
 }
 
 // CreateOutput creates c with a new output: a virtual channel named name in the group
@@ -416,7 +412,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	// Who read a calculation before the delete learns that it no longer writes its
 	// output.
 	for _, c := range deleted {
-		w.Announce(c.Output, c, fieldsOf(c, false)...)
+		w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, false)...)
 	}
 	return nil
 }
