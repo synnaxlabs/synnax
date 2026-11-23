@@ -146,4 +146,40 @@ TEST_F(FileTest, CreateRemovesTempFileOnFailure) {
         1
     );
 }
+
+/// @brief it should read bytes at a position, and fewer at the end of the file.
+TEST_F(FileTest, ReadsAtPosition) {
+    const auto path = this->dir / "a";
+    ASSERT_NIL(create(path, "abcdef"));
+    const auto file = ASSERT_NIL_P(File::open_read(path));
+    std::string buf(4, '\0');
+    EXPECT_EQ(ASSERT_NIL_P(file->read(2, buf.data(), buf.size())), 4);
+    EXPECT_EQ(buf, "cdef");
+    EXPECT_EQ(ASSERT_NIL_P(file->read(4, buf.data(), buf.size())), 2);
+    EXPECT_EQ(ASSERT_NIL_P(file->stat()).size, 6);
+}
+
+/// @brief it should let other handles replace and remove a file open for reading.
+TEST_F(FileTest, ReadDoesNotBlockReplaceOrRemove) {
+    const auto path = this->dir / "a";
+    ASSERT_NIL(create(path, "old"));
+    const auto file = ASSERT_NIL_P(File::open_read(path));
+    ASSERT_NIL(create(path, "new"));
+    EXPECT_TRUE(ASSERT_NIL_P(file->stat()).removed);
+    const auto second = ASSERT_NIL_P(File::open_read(path));
+    std::filesystem::remove(path);
+    EXPECT_FALSE(std::filesystem::exists(path));
+}
+
+/// @brief it should remove only the temp files of the path.
+TEST_F(FileTest, RemovesTempFiles) {
+    const auto path = this->dir / "a";
+    ASSERT_NIL(create(path, "data"));
+    std::ofstream(this->dir / "a.tmp.1") << "x";
+    std::ofstream(this->dir / "b.tmp.1") << "x";
+    ASSERT_NIL(remove_temps(path));
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "a.tmp.1"));
+    EXPECT_TRUE(std::filesystem::exists(this->dir / "b.tmp.1"));
+    EXPECT_TRUE(std::filesystem::exists(path));
+}
 }

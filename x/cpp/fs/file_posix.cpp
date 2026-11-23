@@ -14,6 +14,7 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "x/cpp/fs/file.h"
@@ -53,6 +54,44 @@ File::open(const std::filesystem::path &path) {
     );
     if (fd < 0) return {nullptr, errno_error("failed to open " + path.string())};
     return {std::unique_ptr<File>(new File(fd)), x::errors::NIL};
+}
+
+std::pair<std::unique_ptr<File>, x::errors::Error>
+File::open_read(const std::filesystem::path &path) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return {nullptr, errno_error("failed to open " + path.string())};
+    return {std::unique_ptr<File>(new File(fd)), x::errors::NIL};
+}
+
+std::pair<std::size_t, x::errors::Error>
+File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
+    std::size_t done = 0;
+    while (done < size) {
+        const auto n = pread(
+            static_cast<int>(this->handle),
+            dst + done,
+            size - done,
+            static_cast<off_t>(pos + done)
+        );
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0) return {done, errno_error("failed to read")};
+        if (n == 0) break;
+        done += static_cast<std::size_t>(n);
+    }
+    return {done, x::errors::NIL};
+}
+
+std::pair<Info, x::errors::Error> File::stat() const {
+    struct stat st{};
+    if (fstat(static_cast<int>(this->handle), &st) != 0)
+        return {{}, errno_error("failed to stat")};
+    return {
+        Info{
+            .size = static_cast<std::uint64_t>(st.st_size),
+            .removed = st.st_nlink == 0
+        },
+        x::errors::NIL
+    };
 }
 
 x::errors::Error File::write(std::string_view data) const {

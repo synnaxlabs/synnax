@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <span>
 #include <system_error>
+#include <utility>
 
 #include "absl/crc/crc32c.h"
 
@@ -56,8 +57,13 @@ void encode_record(std::string &buf, const Record &record) {
     buf.append(record.payload);
 }
 
-x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
-    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
+/// @brief the byte size of the buffer a reader reads small records through.
+constexpr std::size_t READ_BUFFER_SIZE = 64 * 1024;
+
+x::errors::Error validate(const Magic &magic) {
+    if (std::ranges::all_of(magic, [](const char c) { return c == 0; }))
+        return x::errors::Error(BASE_ERROR, "magic is all zeros");
+    return x::errors::NIL;
 }
 }
 
@@ -65,6 +71,7 @@ Writer::Writer(WriterConfig cfg, std::unique_ptr<File> file, const std::uint64_t
     cfg(std::move(cfg)),
     file(std::move(file)),
     size(size),
+    synced(size),
     last_sync(this->cfg.now()) {}
 
 Writer::~Writer() {
@@ -72,25 +79,37 @@ Writer::~Writer() {
 }
 
 std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig cfg) {
-    auto [file, err] = File::open(cfg.path);
-    if (err) return {nullptr, err};
-    if (err = file->lock(); err) return {nullptr, err};
-    std::error_code ec;
-    const auto start = std::filesystem::file_size(cfg.path, ec);
-    if (ec) return {nullptr, fs_error("failed to stat " + cfg.path.string(), ec)};
-    // A file shorter than a file start is new, or a crash cut it before any record.
-    if (start < HEADER_SIZE) {
-        if (err = file->truncate(0); err) return {nullptr, err};
-        if (err = file->write(encode_header(cfg.magic, cfg.flags)); err)
+    if (auto err = validate(cfg.magic)) return {nullptr, err};
+    std::unique_ptr<File> file;
+    bool created = false;
+    std::uint64_t start_cut = 0;
+    while (file == nullptr) {
+        auto [f, err] = File::open(cfg.path);
+        if (err) return {nullptr, err};
+        if (err = f->lock(); err) return {nullptr, err};
+        auto [info, stat_err] = f->stat();
+        if (stat_err) return {nullptr, stat_err};
+        // Another writer replaced the file before this one took the lock.
+        if (info.removed) continue;
+        if (info.size >= HEADER_SIZE) {
+            file = std::move(f);
+            break;
+        }
+        // The file is new, or a crash cut it before its start was on the disk. A
+        // replace keeps a crash from leaving a start of zeros.
+        start_cut = info.size;
+        if (err = remove_temps(cfg.path); err) return {nullptr, err};
+        if (err = create(cfg.path, encode_header(cfg.magic, cfg.flags)); err)
             return {nullptr, err};
-        if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
-        const auto dir = cfg.path.parent_path();
-        if (err = sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
+        created = true;
     }
     auto [reader, r_err] = Reader::open({.path = cfg.path, .magic = cfg.magic});
     if (r_err) return {nullptr, r_err};
-    if (reader->header.version != VERSION)
-        return {nullptr, x::errors::Error(UNKNOWN_VERSION, "cannot append")};
+    if (reader->header.version < VERSION)
+        return {
+            nullptr,
+            x::errors::Error(OLD_VERSION, "cannot append to " + cfg.path.string())
+        };
     while (true) {
         auto [record, n_err] = reader->next_record();
         if (n_err) return {nullptr, n_err};
@@ -99,97 +118,127 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     const auto size = reader->pos();
     const auto cut = reader->cut();
     reader.reset();
-    if (cut > 0) {
-        if (err = file->truncate(size); err) return {nullptr, err};
-        if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
-    }
+    if (cut > 0)
+        if (auto err = file->truncate(size); err) return {nullptr, err};
+    // An earlier process can leave its writes only in the OS cache.
+    if (!created || cut > 0)
+        if (auto err = cfg.on_sync(file->sync()); err) return {nullptr, err};
     auto writer = std::unique_ptr<Writer>(
         new Writer(std::move(cfg), std::move(file), size)
     );
-    writer->cut_bytes = cut;
+    writer->cut_bytes = start_cut + cut;
     return {std::move(writer), x::errors::NIL};
 }
 
 x::errors::Error Writer::write(const Record &record) {
-    if (this->failed) return this->failed;
     if ((record.type & ~SKIPPABLE) == 0)
         return x::errors::Error(BASE_ERROR, "record type has no value");
     if (record.payload.size() > MAX_PAYLOAD)
         return x::errors::Error(BASE_ERROR, "record payload is too large");
     std::string buf;
     encode_record(buf, record);
-    if (auto err = this->file->write(buf)) {
-        this->failed = err;
-        return err;
+    {
+        std::lock_guard lock(this->mu);
+        if (this->failed) return this->failed;
+        if (auto err = this->file->write(buf)) {
+            this->failed = err;
+            return err;
+        }
+        this->size += buf.size();
+        this->unsynced += buf.size();
     }
-    this->size += buf.size();
-    this->unsynced += buf.size();
     return this->sync_if_due();
 }
 
 x::errors::Error Writer::sync_if_due() {
-    if (this->failed || this->unsynced == 0) return this->failed;
-    if (this->unsynced >= this->cfg.sync_bytes ||
-        this->cfg.now() - this->last_sync >= this->cfg.sync_interval)
-        return this->sync();
-    return x::errors::NIL;
+    {
+        std::lock_guard lock(this->mu);
+        if (this->failed || this->unsynced == 0) return this->failed;
+        if (this->unsynced < this->cfg.sync_bytes &&
+            this->cfg.now() - this->last_sync < this->cfg.sync_interval)
+            return x::errors::NIL;
+    }
+    return this->sync();
 }
 
 x::errors::Error Writer::sync() {
-    if (this->file == nullptr || this->sync_failed) return this->failed;
-    if (this->unsynced > 0) {
-        if (auto err = this->cfg.on_sync(this->file->sync())) {
-            this->sync_failed = err;
-            if (!this->failed) this->failed = err;
-            return err;
-        }
-        this->unsynced = 0;
-        this->last_sync = this->cfg.now();
+    std::lock_guard sync_lock(this->sync_mu);
+    std::uint64_t target = 0;
+    {
+        std::lock_guard lock(this->mu);
+        if (this->file == nullptr || this->sync_failed || this->unsynced == 0)
+            return this->failed;
+        target = this->size;
     }
+    const auto err = this->cfg.on_sync(this->file->sync());
+    std::lock_guard lock(this->mu);
+    if (err) {
+        this->sync_failed = err;
+        if (!this->failed) this->failed = err;
+        return err;
+    }
+    this->unsynced = this->size - target;
+    this->synced = target;
+    this->last_sync = this->cfg.now();
     return this->failed;
 }
 
 x::errors::Error Writer::close() {
     if (this->file == nullptr) return this->failed;
     const auto err = this->sync();
+    std::lock_guard lock(this->mu);
     this->file.reset();
     if (!this->failed) this->failed = x::errors::Error(BASE_ERROR, "writer is closed");
     return err;
 }
 
 std::uint64_t Writer::pos() const {
+    std::lock_guard lock(this->mu);
     return this->size;
 }
 
+std::uint64_t Writer::synced_pos() const {
+    std::lock_guard lock(this->mu);
+    return this->synced;
+}
+
 std::uint64_t Writer::cut() const {
+
     return this->cut_bytes;
 }
 
 Reader::Reader(ReaderConfig cfg): cfg(std::move(cfg)) {}
 
 std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig cfg) {
+    if (auto err = validate(cfg.magic)) return {nullptr, err};
     const auto path = cfg.path.string();
     auto reader = std::unique_ptr<Reader>(new Reader(std::move(cfg)));
-    std::error_code ec;
-    reader->size = std::filesystem::file_size(reader->cfg.path, ec);
-    if (ec) return {nullptr, fs_error("failed to stat " + path, ec)};
-    reader->file.open(reader->cfg.path, std::ios::binary);
-    if (!reader->file)
-        return {nullptr, x::errors::Error(BASE_ERROR, "failed to open " + path)};
+    auto [file, err] = File::open_read(reader->cfg.path);
+    if (err) return {nullptr, err};
+    reader->file = std::move(file);
+    auto [info, stat_err] = reader->file->stat();
+    if (stat_err) return {nullptr, stat_err};
+    reader->size = info.size;
+    if (const auto end = reader->cfg.end; end.has_value()) {
+        if (*end > reader->size)
+            return {nullptr, x::errors::Error(CORRUPT, "end is outside " + path)};
+        reader->size = *end;
+    }
     if (reader->size < HEADER_SIZE) {
         reader->cfg.pos = 0;
         reader->cut_bytes = reader->size;
         return {std::move(reader), x::errors::NIL};
     }
     std::array<char, HEADER_SIZE> buf{};
-    if (!reader->file.read(buf.data(), buf.size()))
-        return {nullptr, x::errors::Error(BASE_ERROR, "failed to read " + path)};
+    if (err = reader->read(0, buf.data(), buf.size()); err) return {nullptr, err};
     const auto &magic = reader->cfg.magic;
     if (!std::equal(magic.begin(), magic.end(), buf.begin()))
         return {nullptr, x::errors::Error(UNKNOWN_MAGIC, path)};
     reader->header.version = get<std::uint16_t>(buf.data() + magic.size());
     reader->header.flags = get<std::uint16_t>(buf.data() + magic.size() + 2);
-    if (reader->header.version == 0 || reader->header.version > VERSION)
+    if (reader->header.version == 0)
+        return {nullptr, x::errors::Error(CORRUPT, path + " has version 0")};
+    if (reader->header.version > VERSION)
         return {
             nullptr,
             x::errors::Error(
@@ -198,49 +247,124 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
             )
         };
     auto &pos = reader->cfg.pos;
+    reader->at_start = pos != 0;
     if (pos == 0) pos = HEADER_SIZE;
     if (pos < HEADER_SIZE || pos > reader->size)
         return {nullptr, x::errors::Error(CORRUPT, "position is outside " + path)};
-    reader->file.seekg(static_cast<std::streamoff>(pos));
     return {std::move(reader), x::errors::NIL};
 }
 
+x::errors::Error
+Reader::read(const std::uint64_t pos, char *dst, const std::size_t size) {
+    if (pos >= this->buf_pos && pos + size <= this->buf_pos + this->buf_len) {
+        std::copy_n(this->buf.get() + (pos - this->buf_pos), size, dst);
+        return x::errors::NIL;
+    }
+    auto *to = dst;
+    auto len = size;
+    if (size < READ_BUFFER_SIZE) {
+        if (this->buf == nullptr)
+            this->buf = std::make_unique_for_overwrite<char[]>(READ_BUFFER_SIZE);
+        to = this->buf.get();
+        len = std::max<std::size_t>(
+            size,
+            std::min<std::uint64_t>(READ_BUFFER_SIZE, this->size - pos)
+        );
+        this->buf_len = 0;
+    }
+    auto [n, err] = this->file->read(pos, to, len);
+    if (err) return err;
+    // The size at open says these bytes exist.
+    if (n < len)
+        return x::errors::Error(
+            BASE_ERROR,
+            this->cfg.path.string() + " is shorter than at open"
+        );
+    if (to != dst) {
+        this->buf_pos = pos;
+        this->buf_len = len;
+        std::copy_n(to, size, dst);
+    }
+    return x::errors::NIL;
+}
+
 std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
-    auto &pos = this->cfg.pos;
+    const auto pos = this->cfg.pos;
     if (this->cut_bytes > 0 || pos == this->size) return {std::nullopt, x::errors::NIL};
+    const auto at_start = std::exchange(this->at_start, false);
+    if (this->size - pos < RECORD_PREFIX_SIZE)
+        return this->damaged(at_start, this->size);
     std::array<char, RECORD_PREFIX_SIZE> prefix{};
-    bool valid = this->size - pos >= RECORD_PREFIX_SIZE &&
-                 this->file.read(prefix.data(), RECORD_PREFIX_SIZE);
+    if (auto err = this->read(pos, prefix.data(), prefix.size()))
+        return {std::nullopt, err};
     const auto len = get<std::uint32_t>(prefix.data());
     const auto end = pos + RECORD_PREFIX_SIZE + len;
+    if (len > MAX_PAYLOAD) return this->damaged(at_start, pos + RECORD_PREFIX_SIZE);
+    if (end > this->size) return this->damaged(at_start, this->size);
     Record record{.type = static_cast<std::uint8_t>(prefix[8])};
-    if (valid) valid = len <= MAX_PAYLOAD && end <= this->size;
-    if (valid) {
-        record.payload.resize(len);
-        valid = this->file.read(record.payload.data(), len) &&
-                checksum(prefix.data(), record.type, record.payload) ==
-                    get<std::uint32_t>(prefix.data() + 4);
-    }
-    if (!valid) {
-        this->cut_bytes = this->size - pos;
-        return {std::nullopt, x::errors::NIL};
-    }
+    x::errors::Error err;
+    record.payload.resize_and_overwrite(len, [&](char *data, const std::size_t n) {
+        err = this->read(pos + RECORD_PREFIX_SIZE, data, n);
+        return n;
+    });
+    if (err) return {std::nullopt, err};
+    if (checksum(prefix.data(), record.type, record.payload) !=
+        get<std::uint32_t>(prefix.data() + 4))
+        return this->damaged(at_start, end);
     if ((record.type & ~SKIPPABLE) == 0)
         return {std::nullopt, x::errors::Error(CORRUPT, "record type has no value")};
-    pos = end;
+    this->cfg.pos = end;
     return {std::move(record), x::errors::NIL};
+}
+
+std::pair<std::optional<Record>, x::errors::Error>
+Reader::damaged(const bool at_start, const std::uint64_t record_end) {
+    const auto pos = this->cfg.pos;
+    const auto path = this->cfg.path.string();
+    if (at_start)
+        return {
+            std::nullopt,
+            x::errors::Error(
+                CORRUPT,
+                "position " + std::to_string(pos) + " of " + path +
+                    " is not the start of a valid record"
+            )
+        };
+    // A crash or a power loss damages only the last record, and can leave zeros
+    // after it.
+    std::array<char, 4096> chunk{};
+    for (auto at = record_end; at < this->size; at += chunk.size()) {
+        const auto n = std::min<std::uint64_t>(chunk.size(), this->size - at);
+        if (auto err = this->read(at, chunk.data(), n)) return {std::nullopt, err};
+        if (std::any_of(chunk.begin(), chunk.begin() + n, [](const char c) {
+                return c != 0;
+            }))
+            return {
+                std::nullopt,
+                x::errors::Error(
+                    CORRUPT,
+                    "the record at " + std::to_string(pos) + " of " + path +
+                        " is damaged and has data after it"
+                )
+            };
+    }
+    this->cut_bytes = this->size - pos;
+    return {std::nullopt, x::errors::NIL};
 }
 
 std::pair<std::optional<Record>, x::errors::Error> Reader::next() {
     while (true) {
+        const auto start = this->cfg.pos;
         auto [record, err] = this->next_record();
         if (err || !record || this->cfg.types.contains(record->type))
             return {std::move(record), err};
-        if ((record->type & SKIPPABLE) == 0)
+        if ((record->type & SKIPPABLE) == 0) {
+            this->cfg.pos = start;
             return {
                 std::nullopt,
                 x::errors::Error(UNKNOWN_TYPE, std::to_string(record->type))
             };
+        }
     }
 }
 

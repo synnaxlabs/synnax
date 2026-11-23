@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "x/cpp/fs/file.h"
 
@@ -23,12 +24,14 @@ write_synced(const std::filesystem::path &path, std::string_view data) {
     if (err = file->write(data); err) return err;
     return file->sync();
 }
+
+const std::string TEMP_INFIX = ".tmp.";
 }
 
 x::errors::Error
 create(const std::filesystem::path &path, const std::string_view data) {
     auto tmp = path;
-    tmp += ".tmp." + std::to_string(std::random_device()());
+    tmp += TEMP_INFIX + std::to_string(std::random_device()());
     auto err = write_synced(tmp, data);
     if (!err) err = replace(tmp, path);
     if (err) {
@@ -38,5 +41,29 @@ create(const std::filesystem::path &path, const std::string_view data) {
     }
     const auto dir = path.parent_path();
     return sync_dir(dir.empty() ? "." : dir);
+}
+
+x::errors::Error remove_temps(const std::filesystem::path &path) {
+    const auto dir = path.parent_path().empty() ? std::filesystem::path(".")
+                                                : path.parent_path();
+    const auto prefix = path.filename().string() + TEMP_INFIX;
+    std::error_code ec;
+    std::vector<std::filesystem::path> temps;
+    std::filesystem::directory_iterator it(dir, ec);
+    for (; !ec && it != std::filesystem::directory_iterator(); it.increment(ec))
+        if (it->path().filename().string().starts_with(prefix))
+            temps.push_back(it->path());
+    if (ec)
+        return x::errors::Error(
+            BASE_ERROR,
+            "failed to list " + dir.string() + ": " + ec.message()
+        );
+    for (const auto &temp: temps)
+        if (std::filesystem::remove(temp, ec); ec)
+            return x::errors::Error(
+                BASE_ERROR,
+                "failed to remove " + temp.string() + ": " + ec.message()
+            );
+    return x::errors::NIL;
 }
 }

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -22,7 +23,15 @@ namespace x::fs {
 /// @brief another holder has the lock of a file.
 const x::errors::Error LOCKED = FS_ERROR.sub("locked");
 
-/// @brief a file opened for appending, which can sync to the disk.
+/// @brief the state of an open file.
+struct Info {
+    /// @brief the byte size of the file.
+    std::uint64_t size = 0;
+    /// @brief the file has no name, because a removal or a replace took it.
+    bool removed = false;
+};
+
+/// @brief a file opened for appending or for reading.
 class File {
     std::intptr_t handle;
     explicit File(std::intptr_t handle);
@@ -35,6 +44,21 @@ public:
     /// @brief opens or creates the file at path for appending.
     static std::pair<std::unique_ptr<File>, x::errors::Error>
     open(const std::filesystem::path &path);
+
+    /// @brief opens the file at path for reading. Other handles can rename, replace,
+    /// or remove the file while it is open.
+    static std::pair<std::unique_ptr<File>, x::errors::Error>
+    open_read(const std::filesystem::path &path);
+
+    /// @brief reads up to size bytes at pos into dst.
+    /// @returns the number of bytes read, which is less than size only at the end of
+    /// the file.
+    [[nodiscard]] std::pair<std::size_t, x::errors::Error>
+    read(std::uint64_t pos, char *dst, std::size_t size) const;
+
+    /// @returns the size of the file, and whether a removal or a replace took its
+    /// name.
+    [[nodiscard]] std::pair<Info, x::errors::Error> stat() const;
 
     /// @brief writes all of data at the end of the file.
     [[nodiscard]] x::errors::Error write(std::string_view data) const;
@@ -64,4 +88,8 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to);
 /// leaves the old file or the new one, and can leave a temp file named
 /// `<path>.tmp.<n>`. Returns after the new file is on the disk.
 x::errors::Error create(const std::filesystem::path &path, std::string_view data);
+
+/// @brief removes the temp files that a crash during create(path) left. Call it only
+/// while no create(path) runs.
+x::errors::Error remove_temps(const std::filesystem::path &path);
 }

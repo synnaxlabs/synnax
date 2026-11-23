@@ -56,7 +56,7 @@ File::open(const std::filesystem::path &path) {
     // FILE_SHARE_DELETE lets other handles rename or remove the file while it is open.
     const HANDLE h = CreateFileW(
         path.c_str(),
-        GENERIC_WRITE,
+        GENERIC_WRITE | FILE_READ_ATTRIBUTES,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         nullptr,
         OPEN_ALWAYS,
@@ -72,6 +72,65 @@ File::open(const std::filesystem::path &path) {
     }
     return {
         std::unique_ptr<File>(new File(reinterpret_cast<std::intptr_t>(h))),
+        x::errors::NIL
+    };
+}
+
+std::pair<std::unique_ptr<File>, x::errors::Error>
+File::open_read(const std::filesystem::path &path) {
+    const HANDLE h = CreateFileW(
+        path.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (h == INVALID_HANDLE_VALUE)
+        return {nullptr, last_error("failed to open " + path.string())};
+    return {
+        std::unique_ptr<File>(new File(reinterpret_cast<std::intptr_t>(h))),
+        x::errors::NIL
+    };
+}
+
+std::pair<std::size_t, x::errors::Error>
+File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
+    std::size_t done = 0;
+    while (done < size) {
+        OVERLAPPED overlapped{};
+        const auto at = pos + done;
+        overlapped.Offset = static_cast<DWORD>(at & 0xFFFFFFFF);
+        overlapped.OffsetHigh = static_cast<DWORD>(at >> 32);
+        const auto len = static_cast<DWORD>(
+            std::min<std::size_t>(size - done, MAXDWORD)
+        );
+        DWORD n = 0;
+        if (!ReadFile(to_handle(this->handle), dst + done, len, &n, &overlapped)) {
+            if (GetLastError() == ERROR_HANDLE_EOF) break;
+            return {done, last_error("failed to read")};
+        }
+        if (n == 0) break;
+        done += n;
+    }
+    return {done, x::errors::NIL};
+}
+
+std::pair<Info, x::errors::Error> File::stat() const {
+    FILE_STANDARD_INFO info{};
+    if (!GetFileInformationByHandleEx(
+            to_handle(this->handle),
+            FileStandardInfo,
+            &info,
+            sizeof(info)
+        ))
+        return {{}, last_error("failed to stat")};
+    return {
+        Info{
+            .size = static_cast<std::uint64_t>(info.EndOfFile.QuadPart),
+            .removed = info.NumberOfLinks == 0 || info.DeletePending != FALSE,
+        },
         x::errors::NIL
     };
 }
