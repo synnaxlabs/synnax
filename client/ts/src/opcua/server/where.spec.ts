@@ -11,11 +11,11 @@ import { describe } from "vitest";
 
 import { opcua } from "@/opcua";
 import { matches, serverComputed } from "@/opcua/server/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("opcuaServers", opcua.server.serverZ, opcua.server.whereZ),
+  vectors.itMatches(
+    vectors.read("opcuaServers", opcua.server.serverZ, opcua.server.whereZ),
     matches,
     serverComputed,
   );
