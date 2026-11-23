@@ -455,7 +455,7 @@ class TestNITask:
                     "units": "Hz",
                     "edge": "Rising",
                     "meas_method": "LowFreq1Ctr",
-                    "meas_time": 0.001,
+                    "meas_time": 1_000_000,
                     "divisor": 4,
                     "custom_scale": {"type": "none"},
                 }
@@ -681,7 +681,7 @@ class TestNITask:
                     units="Hz",
                     edge="Rising",
                     meas_method="LowFreq1Ctr",
-                    meas_time=0.001,
+                    meas_time=1 * sy.TimeSpan.MILLISECOND,
                     divisor=4,
                     custom_scale=sy.ni.NoneScale(type="none"),
                 )
