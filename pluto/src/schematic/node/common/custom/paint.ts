@@ -45,10 +45,20 @@ export interface PaintContext {
 
 type Field = "stroke" | "fill";
 
+// Band is how a drawing in a theme shows its paint.
+interface Band {
+  theme: theme.Theme;
+  builtIn: boolean;
+}
+
 // banded says whether a drawing shows a paint type on a field in the symbol band of the
-// theme, as built-in symbols draw.
-const banded = (field: Field, type: schematic.symbol.Paint["type"]): boolean =>
-  field === "stroke" || type === "entry" || type === "node";
+// theme. Every stroke bands. Only a built-in drawing bands its entry and node fills, as
+// the built-in CSS does, so a custom drawing keeps each fill as stored.
+const banded = (
+  field: Field,
+  type: schematic.symbol.Paint["type"],
+  builtIn: boolean,
+): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
 // A number state with no value reads fraction 0, at its lower bound.
 const valueOf = (state: schematic.symbol.State, value: StateValue): number => {
@@ -106,22 +116,23 @@ const baseColor = (
   }
 };
 
-// resolvePaint returns the color of paint on field as theme t shows it, or the color
-// before the band with no t.
+// resolvePaint returns the color of paint on field as band shows it, or the color
+// before the band with no band.
 const resolvePaint = (
   paint: schematic.symbol.Paint | undefined,
   field: Field,
   states: Map<string, schematic.symbol.State>,
   ctx: PaintContext,
-  t?: theme.Theme,
+  band?: Band,
 ): color.Color | undefined => {
   if (paint == null) return undefined;
   const c = baseColor(paint, states, ctx);
   if (c == null) return undefined;
-  const band = (x: color.Color) => (t == null ? x : theme.legible(x, t));
-  // Contrast reads on the entry color that the drawing shows.
-  if (paint.type === "contrast") return contrastColor(band(c));
-  return banded(field, paint.type) ? band(c) : c;
+  const show = (f: Field, type: schematic.symbol.Paint["type"]): color.Color =>
+    band != null && banded(f, type, band.builtIn) ? theme.legible(c, band.theme) : c;
+  // Contrast reads on the entry color as a fill of the drawing shows it.
+  if (paint.type === "contrast") return contrastColor(show("fill", "entry"));
+  return show(field, paint.type);
 };
 
 const applies = (
@@ -144,32 +155,34 @@ interface ResolvedLook {
 const resolveLooks = (
   spec: Pick<schematic.symbol.Spec, "states" | "looks">,
   ctx: PaintContext,
-  t?: theme.Theme,
+  band?: Band,
 ): ResolvedLook[] => {
   const states = new Map(spec.states.map((s) => [s.key, s]));
   return spec.looks
     .filter((look) => applies(look, states, ctx.value))
     .map((look) => ({
       part: look.part,
-      stroke: resolvePaint(look.stroke, "stroke", states, ctx, t),
-      fill: resolvePaint(look.fill, "fill", states, ctx, t),
+      stroke: resolvePaint(look.stroke, "stroke", states, ctx, band),
+      fill: resolvePaint(look.fill, "fill", states, ctx, band),
       hidden: look.hidden,
     }));
 };
 
-// resolvePaints returns the paints of spec at ctx.value in theme t, in the order that
-// they apply. When ctx.value is one number, a state override at that index replaces the
-// looks with its regions.
+// resolvePaints returns the paints of spec at ctx.value as band shows them, in the
+// order that they apply. When ctx.value is one number, a state override at that index
+// replaces the looks with its regions.
 const resolvePaints = (
   spec: schematic.symbol.Spec,
   overrides: schematic.symbol.StateOverride[] | undefined,
   ctx: PaintContext,
-  t: theme.Theme,
+  band: Band,
 ): Paint[] => {
   const override = typeof ctx.value === "number" ? overrides?.[ctx.value] : undefined;
   // An override color draws as a `color` paint does.
   const overridden = (field: Field, c: color.Color | undefined) =>
-    c != null && banded(field, "color") ? theme.legible(c, t) : c;
+    c != null && banded(field, "color", band.builtIn)
+      ? theme.legible(c, band.theme)
+      : c;
   if (override != null)
     return override.regions.map(({ selectors, strokeColor, fillColor }) => ({
       selectors,
@@ -177,7 +190,7 @@ const resolvePaints = (
       fill: overridden("fill", fillColor),
     }));
   const parts = new Map(spec.parts.map((p) => [p.key, p]));
-  return resolveLooks(spec, ctx, t).map(({ part, ...rest }) => ({
+  return resolveLooks(spec, ctx, band).map(({ part, ...rest }) => ({
     selectors: part == null ? undefined : (parts.get(part)?.selectors ?? []),
     ...rest,
   }));
@@ -273,28 +286,39 @@ export const useRegions = (
 
 const NO_PAINTS: Paint[] = [];
 
+export interface UsePaintsOptions {
+  /** overrides replace the looks at the value of their index. */
+  overrides?: schematic.symbol.StateOverride[];
+  /** nodeColor is the color that `node` paint draws. */
+  nodeColor?: color.Crude;
+  /**
+   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
+   * and an entry with no color draws the node color, else the default symbol color.
+   */
+  builtIn?: boolean;
+}
+
 /**
  * @returns the paints of spec at value as the theme shows them, kept equal across
- * renders until a color that they draw changes, or none while spec loads. An entry with
- * no color draws the node color, else the default symbol color of the theme. It loads
- * the enumerations of the states and the named colors.
+ * renders until a color that they draw changes, or none while spec loads. It loads the
+ * enumerations of the states and the named colors.
  */
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
   value: StateValue,
-  overrides?: schematic.symbol.StateOverride[],
-  nodeColor?: color.Crude,
+  { overrides, nodeColor, builtIn = false }: UsePaintsOptions = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
+  const symbolColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
       : resolvePaints(
           spec,
           overrides,
-          { ...ctx, value, symbolColor: ctx.nodeColor ?? t.colors.gray.l11 },
-          t,
+          { ...ctx, value, symbolColor },
+          { theme: t, builtIn },
         ),
   );
 };

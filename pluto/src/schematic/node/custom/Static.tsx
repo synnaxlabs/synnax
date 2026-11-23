@@ -36,7 +36,7 @@ export const Static = ({
 }: StaticProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const paints = Custom.usePaints(spec, 0, stateOverrides);
+  const paints = Custom.usePaints(spec, 0, { overrides: stateOverrides });
   const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
   if (missing || invalid)
     return (
