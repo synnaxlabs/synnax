@@ -55,10 +55,16 @@ const RegionListItem = ({
   const { get, set } = Form.useContext();
   const paint = Schematic.Node.Region.paint(svg, part?.selectors ?? []);
   if (part == null) return null;
-  const paintField = (field: Spec.Field, c?: color.Color) =>
+  const paintField = (field: "stroke" | "fill", c?: color.Color) =>
     set(
       path.data,
-      Spec.setColor(get(path.data).value, itemKey, selectedValue, field, c),
+      Spec.setOwn(
+        get(path.data).value,
+        itemKey,
+        field,
+        c == null ? undefined : { type: "color", value: { type: "fixed", value: c } },
+        selectedValue,
+      ),
     );
   return (
     <Select.Item

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { enumeration, schematic } from "@synnaxlabs/client";
-import { type color, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
@@ -16,8 +16,13 @@ type Look = schematic.symbol.Look;
 // STATE is the key of the one state that the editor edits.
 const STATE = "active";
 
-/** Field is a paint field of a look. */
-export type Field = "stroke" | "fill";
+/** Field is a field of a look that the editor sets. */
+export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
+
+const FIELDS: Field[] = ["fill", "stroke", "hidden", "blink", "motion"];
+
+/** Target is the key of a part, or undefined for the whole drawing. */
+export type Target = string | undefined;
 
 const BASE = 0;
 const ACTIVE = 1;
@@ -41,94 +46,117 @@ export const enumerationKey = (
   return state?.type === "enumeration" ? state.enumeration : undefined;
 };
 
-const only = (look: Look, part: string, value: number): boolean =>
-  look.part === part &&
+const only = (look: Look, target: Target, value: number): boolean =>
+  look.part === target &&
   look.when?.state === STATE &&
   look.when.values.length === 1 &&
   look.when.values[0] === value;
 
-const reaches = (look: Look, part: string, value: number): boolean =>
-  (look.part == null || look.part === part) &&
+// owns is true for a look of target at value alone, or at every value when value is
+// undefined.
+const owns = (look: Look, target: Target, value?: number): boolean =>
+  value == null ? look.part === target && look.when == null : only(look, target, value);
+
+const reaches = (look: Look, target: Target, value?: number): boolean =>
+  look.part === target &&
   (look.when == null ||
-    (look.when.state === STATE && look.when.values.includes(value)));
+    (value != null && look.when.state === STATE && look.when.values.includes(value)));
 
-type ConditionedLook = Look & { when: schematic.symbol.Condition };
+const setsNothing = (look: Look): boolean => FIELDS.every((f) => look[f] == null);
 
-const setsNothing = ({ fill, stroke, hidden, motion, blink }: Look): boolean =>
-  fill == null && stroke == null && hidden == null && motion == null && blink == null;
+// split copies onto value alone each look of target that sets field on value and other
+// values. An edit at value then leaves the other values as they are.
+const split = (looks: Look[], target: Target, field: Field, value: number): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.part !== target || l[field] == null || l.when == null) return [l];
+    const { values } = l.when;
+    if (l.when.state !== STATE || values.length < 2 || !values.includes(value))
+      return [l];
+    return [
+      { ...l, when: { ...l.when, values: values.filter((v) => v !== value) } },
+      { ...l, key: `look-${id.create()}`, when: { ...l.when, values: [value] } },
+    ];
+  });
 
-const clearColor = (spec: Spec, part: string, value: number, field: Field): Spec => {
-  const clears = (l: Look): l is ConditionedLook =>
-    l.part === part &&
-    l[field] != null &&
-    l.when?.state === STATE &&
-    l.when.values.includes(value);
-  if (!spec.looks.some(clears)) return spec;
-  return {
-    ...spec,
-    looks: spec.looks.flatMap((l): Look[] => {
-      if (!clears(l)) return [l];
-      const others = l.when.values.filter((v) => v !== value);
-      const cleared = {
-        ...l,
-        [field]: undefined,
-        when: { ...l.when, values: [value] },
-      };
-      if (others.length === 0) return setsNothing(cleared) ? [] : [cleared];
-      const narrowed = { ...l, when: { ...l.when, values: others } };
-      if (setsNothing(cleared)) return [narrowed];
-      return [narrowed, { ...cleared, key: `look-${id.create()}` }];
-    }),
-  };
+// rank orders the looks that the editor adds: a look on one value wins over a look on
+// every value, and a look on a part wins over a look on the whole drawing.
+const rank = (look: Look): number =>
+  (look.when == null ? 0 : 2) + (look.part == null ? 0 : 1);
+
+const insert = (looks: Look[], look: Look): Look[] => {
+  const i = looks.findIndex((l) => rank(l) > rank(look));
+  return i < 0 ? [...looks, look] : looks.toSpliced(i, 0, look);
 };
 
 const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns spec in which part shows c in field at value. It sets the field on the
- * part's look for value alone, or adds a look when that look is missing or a later look
- * sets the field, and adds the state when spec lacks it. With no c, it takes the field
- * off every look of the part at value, so the drawing colors the part there. A look on
- * more values keeps the field on the others. Looks that other parts or values read stay
- * as they are.
+ * @returns the field that the looks of target set at value alone, or at every value
+ * when value is undefined.
  */
-export const setColor = (
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  spec.looks.findLast((l) => owns(l, target, value) && l[field] != null)?.[field];
+
+/**
+ * @returns the field that target shows at value after its looks apply in order, or at
+ * every value when value is undefined. Looks of the whole drawing do not count for a
+ * part.
+ */
+export const effective = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
+
+/**
+ * @returns spec in which target owns v for field at value alone, or at every value when
+ * value is undefined. A new look on a value adds the state when spec lacks it. With no
+ * v, it takes field off the looks that target owns there, and a look on more values
+ * keeps field on the others.
+ */
+export const setOwn = <F extends Field>(
   spec: Spec,
-  part: string,
-  value: number,
-  field: Field,
-  c?: color.Color,
+  target: Target,
+  field: F,
+  v: Look[F] | undefined,
+  value?: number,
 ): Spec => {
-  if (c == null) return clearColor(spec, part, value, field);
-  const { looks } = spec;
-  const i = looks.findLastIndex((l) => only(l, part, value));
-  const paint: schematic.symbol.Paint = {
-    type: "color",
-    value: { type: "fixed", value: c },
-  };
-  const overridden = looks
-    .slice(i + 1)
-    .some((l) => reaches(l, part, value) && l[field] != null);
-  const states = withActive(spec.states);
-  if (i >= 0 && !overridden)
+  const looks = value == null ? spec.looks : split(spec.looks, target, field, value);
+  if (v == null) {
+    if (!looks.some((l) => owns(l, target, value) && l[field] != null)) return spec;
     return {
       ...spec,
-      states,
-      looks: looks.map((l, j) => (j === i ? { ...l, [field]: paint } : l)),
+      looks: looks.flatMap((l): Look[] => {
+        if (!owns(l, target, value)) return [l];
+        const cleared = { ...l, [field]: undefined };
+        return setsNothing(cleared) ? [] : [cleared];
+      }),
     };
+  }
+  const i = looks.findLastIndex((l) => owns(l, target, value));
+  const overridden =
+    i >= 0 &&
+    looks.slice(i + 1).some((l) => reaches(l, target, value) && l[field] != null);
+  if (i >= 0 && !overridden)
+    return { ...spec, looks: looks.with(i, { ...looks[i], [field]: v }) };
+  const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
+  if (value == null) return { ...spec, looks: insert(looks, look) };
+  const onValue: Look = {
+    ...look,
+    when: { type: "equals", state: STATE, values: [value] },
+  };
   return {
     ...spec,
-    states,
-    looks: [
-      ...looks,
-      {
-        key: `look-${id.create()}`,
-        part,
-        when: { type: "equals", state: STATE, values: [value] },
-        [field]: paint,
-      },
-    ],
+    states: withActive(spec.states),
+    looks: overridden ? [...looks, onValue] : insert(looks, onValue),
   };
 };
 
