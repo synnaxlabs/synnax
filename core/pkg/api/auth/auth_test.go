@@ -165,7 +165,9 @@ var _ = Describe("Login", func() {
 })
 
 var _ = Describe("Methods", func() {
-	It("Should list the methods the Core accepts", func(ctx SpecContext) {
+	It("Should list the methods the Core accepts and each provider's issuer", func(
+		ctx SpecContext,
+	) {
 		Eventually(func() (apiauth.MethodsResponse, error) {
 			return apiSvc.Methods(ctx, struct{}{})
 		}).Should(Equal(apiauth.MethodsResponse{
@@ -176,6 +178,7 @@ var _ = Describe("Methods", func() {
 			},
 			Providers: []apiauth.OIDCLogin{{
 				Provider:              "idp",
+				Issuer:                provider.Issuer(),
 				AuthorizationEndpoint: provider.Issuer() + "/authorize",
 				ClientID:              testutil.ClientID,
 			}},

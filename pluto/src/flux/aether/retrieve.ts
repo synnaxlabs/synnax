@@ -35,7 +35,7 @@ export interface Definition<Query extends query.Params, Data extends query.Data>
  * live list of the query, so a fetch and the cached reads share one window.
  */
 export const listReads = <Query extends query.Params, E extends query.Data>(
-  watch: (params: RetrieveParams<Query>) => query.List<E, unknown>,
+  watch: (params: RetrieveParams<Query>) => query.list.List<E, unknown>,
 ): Required<Omit<Definition<Query, E[]>, "name">> => ({
   retrieve: async (params) => (await watch(params).retrieve()).records,
   onChange: (params, handler) => watch(params).onChange((w) => handler(w?.records)),

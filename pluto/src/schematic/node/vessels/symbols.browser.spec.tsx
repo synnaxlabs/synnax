@@ -18,7 +18,7 @@ import {
   type EdgeProps,
   type EdgeTypes,
   Handle,
-  type Node,
+  type Node as RFNode,
   type NodeTypes,
   Position,
   ReactFlow,
@@ -28,7 +28,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
-import { createConfig, resolveSpec } from "@/schematic/node/registry";
+import { Node } from "@/schematic/node";
 
 const ORIENTATIONS: location.Outer[] = ["left", "right", "top", "bottom"];
 const SCALES = [1, 2];
@@ -91,15 +91,15 @@ interface RenderProps {
 
 const renderJunction = async ({ variant, orientation, scale, bars }: RenderProps) => {
   const { ends, edgeTypes } = createEdgeRecorder();
-  const Junction = resolveSpec(variant).Node;
-  const config = { ...createConfig({ variant }), orientation, scale };
+  const Junction = Node.resolveSpec(variant).Node;
+  const config = { ...Node.createConfig({ variant }), orientation, scale };
   const nodeTypes: NodeTypes = {
     symbol: ({ id }) => (
       <Junction nodeKey={id} selected={false} config={config} onConfigChange={NOOP} />
     ),
     target: Target,
   };
-  const nodes: Node[] = [
+  const nodes: RFNode[] = [
     { id: "symbol", type: "symbol", position: SYMBOL_POSITION, data: {} },
     { id: "target", type: "target", position: { x: 400, y: 400 }, data: {} },
   ];
