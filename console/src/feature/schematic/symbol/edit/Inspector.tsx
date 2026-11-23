@@ -171,13 +171,14 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, onChange, label, at, preview, values } = useScope<"fill" | "stroke">(
-    "PaintControl",
-  );
+  const { value, inherited, own, onChange, label, at, preview, values } = useScope<
+    "fill" | "stroke"
+  >("PaintControl");
   return (
     <Paint
       aria-label={label}
       value={value}
+      inherited={inherited != null && own == null}
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
