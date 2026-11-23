@@ -15,6 +15,7 @@ from synnax import mqtt
 from tests.driver.mqtt_task import (
     CORE_RACK_NAME,
     create_plain_entry,
+    create_plain_target,
     run_reader,
     write_until,
 )
@@ -137,11 +138,12 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
             name=f"{self.task_name} Command Sender",
             device=device.key,
             targets=[
-                mqtt.PlainWriteTarget(
+                create_plain_target(
+                    self.client,
                     topic=f"{MIRROR}/setpoint/set",
-                    channel=mqtt.ChannelField(
-                        pointer="", json_type="number", channel=set_ch.key
-                    ),
+                    bindings=[
+                        (sy.icd.FloatJSONField(name="setpoint", pointer=""), set_ch.key)
+                    ],
                 )
             ],
         )
