@@ -583,12 +583,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "spin":
 		var v SpinMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -606,12 +602,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 		mv.Variant = v
 	case "flow":
 		var v FlowMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()

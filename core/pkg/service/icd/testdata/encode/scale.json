@@ -1,0 +1,62 @@
+{
+  "description": "A field writes its sample before its scale and offset, and an integer field rounds it.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 0.5,
+          "offset": -10,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "count",
+          "scale": 0.1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/count",
+          "type": "unsigned"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "level",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/level",
+          "type": "integer"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [10, 1.26, -2.5],
+      "document": {
+        "temp": 40,
+        "count": 13,
+        "level": -3
+      }
+    }
+  ]
+}
