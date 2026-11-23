@@ -17,6 +17,7 @@ import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   clickDeploy,
@@ -457,6 +458,43 @@ describe("Read", () => {
     await waitFor(async () =>
       expect(await bindings()).toEqual([
         { field: temperature.key, channel: ch.key, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should keep the stored channel of a pointer when the message format changes", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const next = createField("temperature");
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: uniqueName("status"),
+      payload: { format: "json", fields: [next] },
+    };
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [message],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    await pickMessageFormat("GET /data", message.name, shared.name);
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages).toEqual([
+        {
+          message: message.key,
+          bindings: [{ field: next.key, channel: ch.key, dataType: "" }],
+        },
       ]),
     );
   });

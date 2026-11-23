@@ -527,9 +527,14 @@ const messagePrefix = (
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
 
-/** @returns the key of the device properties that store the channels of a message. */
-const storedKey = (path: string, message: icd.MessageKey): string =>
-  `${path}#${message}`;
+/** @returns where the device stores the channels of the messages of an endpoint. */
+const storedSource = ({
+  path,
+  messages,
+}: Pick<ICDEndpoint, "path" | "messages">): ICD.Stored.Source => ({
+  key: path,
+  messages,
+});
 
 /** @returns the channels that enabled endpoints bind. The Core skips disabled ones. */
 const writtenChannels = (endpoints: ReadEndpoint[]): Set<channel.Key> => {
@@ -765,7 +770,7 @@ const Endpoints: FC<EndpointsProps> = ({
   const { push } = PForm.useFieldList(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const stored = device.properties.read;
-  const { dataTypes, bindDisabled } = ICD.useStoredDataTypes(stored);
+  const { dataTypes, bindDisabled } = ICD.Stored.useDataTypes(stored);
   const {
     tree,
     handleSelect,
@@ -781,13 +786,18 @@ const Endpoints: FC<EndpointsProps> = ({
     pathOf: icdPath,
     SourceItem: EndpointItem,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled endpoint reads it, or it no longer exists or fits the field.
+    // unless an enabled endpoint reads it, or it no longer exists or fits the field. An
+    // endpoint that reads one message also reuses the channels of its earlier messages,
+    // so a new message format keeps its channels.
     bindDisabled,
     bindingOf: (key, read, field) => {
-      const { path, messages } = ctx.get(icdPath(key)).value;
-      const channels = stored[storedKey(path, messages[read].message)]?.channels ?? {};
+      const ep = ctx.get(icdPath(key)).value;
+      const channels =
+        ep.messages.length === 1
+          ? ICD.Stored.channels(stored, storedSource(ep), ep.messages[0].message)
+          : (ICD.Stored.of(stored, storedSource(ep), read)?.channels ?? {});
       const written = writtenChannels(ctx.get(root.config.endpoints).value);
-      return ICD.bindingsOf(channels, [field], written, dataTypes)[0];
+      return ICD.Stored.bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (key, held) =>
       messageName(ctx.get(root.config.endpoints[key]).value, held),
@@ -953,7 +963,7 @@ type BoundMessage = ICD.BoundMessage<ICDEndpoint>;
 
 /** @returns the key of the device properties that store the channels of a message. */
 const storedKeyOf = ({ source, read }: BoundMessage): string =>
-  storedKey(source.path, source.messages[read].message);
+  ICD.Stored.key(source.path, source.messages[read].message);
 
 /** @returns the prefix of the names of the channels that a message creates. */
 const prefixOf = (deviceName: string, { source, read, message }: BoundMessage) =>
