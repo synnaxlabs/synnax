@@ -631,7 +631,8 @@ class Client:
         self._creator.set_group(normalize(keys), group)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
-        sugared = [Channel.model_validate(c.model_dump()) for c in channels]
+        # A payload from the Core holds fields that __init__ does not take.
+        sugared = [Channel.model_construct(**dict(c)) for c in channels]
         for ch in sugared:
             ch._cached_frame_client = self._frame_client
         return sugared

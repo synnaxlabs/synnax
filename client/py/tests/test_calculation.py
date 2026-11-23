@@ -142,7 +142,7 @@ class TestCalculationClient:
         """Should keep the channel that resets the window of an operation."""
         src = _virtual(client)
         reset = client.channels.create(
-            name=f"reset_{uuid4().hex[:8]}", data_type=sy.DataType.UINT8, virtual=True
+            name=f"reset_{uuid4().hex[:8]}", data_type=sy.DataType.BOOLEAN, virtual=True
         )
         operation = calculation.MinOperation(reset=reset.key)
         created = client.calculations.create(
