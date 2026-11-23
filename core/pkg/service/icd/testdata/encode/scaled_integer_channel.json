@@ -1,0 +1,27 @@
+{
+  "description": "A scaled field needs a float channel.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "count",
+          "scale": 2,
+          "offset": 0,
+          "units": "",
+          "pointer": "/count",
+          "type": "integer"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "int64"
+      }
+    ]
+  },
+  "error": "message command: field count: a scaled field requires a float channel, not int64: validation error"
+}
