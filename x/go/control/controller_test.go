@@ -1462,7 +1462,8 @@ var _ = Describe("Control", func() {
 			Expect(t.Occurred()).To(BeFalse())
 			first.Release()
 			res, t := second.Release()
-			Expect(t.IsRelease()).To(BeTrue())
+			Expect(t.Occurred()).To(BeTrue())
+			Expect(t.To).To(BeNil())
 			Expect(res).To(Equal(testResource{value: 1}))
 		})
 
@@ -1487,7 +1488,7 @@ var _ = Describe("Control", func() {
 			Expect(count.Load()).To(Equal(int32(1)))
 			var last testResource
 			for _, g := range open {
-				if res, t := g.Release(); t.IsRelease() {
+				if res, t := g.Release(); t.Occurred() && t.To == nil {
 					last = res
 				}
 			}
