@@ -56,8 +56,6 @@ class Reader {
     /// @brief present is scratch space that marks the index groups of a read whose
     /// channels all have a sample.
     std::vector<bool> present;
-    /// @brief last is the message of the last read, or nothing when it returned none.
-    std::optional<std::size_t> last;
 
     /// @brief sets the channels, the index groups, and the index field of m from the
     /// bindings of rm, which reads msg, and returns the codec binding of each.
@@ -81,8 +79,6 @@ public:
     /// @param reads the messages to read and the channel of each field.
     /// @param ic the ICD that holds the messages of reads.
     /// @param channels the channels of the bindings of reads.
-    /// @param json changes how the decoder of a JSON format treats a value it cannot
-    /// decode.
     /// @returns CONFIGURATION_ERROR when ic has no message that a read names, two
     /// messages have different formats, a message binds no fields, channels has no
     /// channel that a binding names, the index field does not write to an index channel
@@ -93,8 +89,7 @@ public:
     static std::pair<Reader, x::errors::Error> create(
         const std::vector<synnax::icd::ReadMessage> &reads,
         const synnax::icd::ICD &ic,
-        const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
-        const codec::JSON::Options &json = {}
+        const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
     );
 
     /// @brief returns each channel that the reader writes, index channels last.
@@ -116,10 +111,5 @@ public:
         x::telem::Frame &fr,
         std::size_t cap = 1
     );
-
-    /// @brief returns the fields of the last read that took NaN, by position in the
-    /// bindings of the message that it returned. Empty after a read that returned no
-    /// message or an error, and for a format other than JSON.
-    [[nodiscard]] std::span<const codec::JSON::Fill> filled() const;
 };
 }

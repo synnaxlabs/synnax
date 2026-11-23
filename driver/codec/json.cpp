@@ -9,7 +9,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -272,7 +271,7 @@ x::errors::Error JSON::Field::append_float(double v, x::telem::Series &dst) cons
 }
 
 std::pair<JSON, x::errors::Error>
-JSON::create(const std::vector<JSONMessage> &messages, const Options &opts) {
+JSON::create(const std::vector<JSONMessage> &messages) {
     auto [router, router_err] = Router::create(messages);
     if (router_err) return {JSON{}, router_err};
     JSON j;
@@ -305,18 +304,11 @@ JSON::create(const std::vector<JSONMessage> &messages, const Options &opts) {
                             icd::base(*found->second).name
                     ),
                 };
-            if (opts.nan_filled && (b.data_type == x::telem::FLOAT32_T ||
-                                    b.data_type == x::telem::FLOAT64_T)) {
-                field.nan = one_sample(b.data_type);
-                field.nan->write(
-                    b.data_type.cast(std::numeric_limits<double>::quiet_NaN())
-                );
-            }
             pointers.push_back(field.pointer);
             msg.fields.push_back(std::move(field));
             msg.samples.push_back(one_sample(b.data_type));
         }
-        msg.filled.reserve(msg.fields.size());
+        msg.failures.reserve(msg.fields.size());
         j.messages.push_back(std::move(msg));
     }
     j.extractor = x::json::Extractor(std::move(pointers));
@@ -330,45 +322,40 @@ JSON::decode(const std::string_view doc) {
     auto [message, err] = this->router.find(this->values);
     if (err || !message.has_value()) return {std::nullopt, err};
     auto &m = this->messages[*message];
-    if (auto decode_err = m.decode(this->values)) {
-        if (this->messages.size() > 1)
-            decode_err = wrap(decode_err, "message " + m.name);
-        return {std::nullopt, decode_err};
-    }
+    m.decode(this->values);
+    if (this->messages.size() > 1)
+        for (auto &f: m.failures)
+            f.error = wrap(f.error, "message " + m.name);
     return {message, x::errors::NIL};
 }
 
-x::errors::Error
-JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values) {
-    this->filled.clear();
+void JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values) {
+    this->failures.clear();
     for (std::size_t i = 0; i < this->fields.size(); i++) {
         auto &f = this->fields[i];
         auto &dst = this->samples[i];
         dst.clear();
         const auto &raw = values[this->first_value + i];
-        if (raw.has_value() && !absent(*raw, f.data_type)) {
-            auto err = f.decode(*raw, dst);
-            if (!err) continue;
-            if (!f.nan.has_value()) return wrap(err, "field " + f.name);
-            dst.clear();
-            dst.write(*f.nan);
-            this->filled.push_back({.binding = i, .error = std::move(err)});
-        } else if (f.generate != nullptr)
+        x::errors::Error err;
+        const bool missing = !raw.has_value() || absent(*raw, f.data_type);
+        if (!missing)
+            err = f.decode(*raw, dst);
+        else if (f.generate != nullptr)
             f.generate(dst);
         else if (f.fallback.has_value())
             dst.write(*f.fallback);
-        else if (f.nan.has_value()) {
-            dst.write(*f.nan);
-            this->filled.push_back({.binding = i});
-        } else
-            return wrap(
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "no value at " + f.pointer.to_string()
-                ),
-                "field " + f.name
+        else
+            err = x::errors::Error(
+                x::errors::VALIDATION,
+                "no value at " + f.pointer.to_string()
             );
+        if (!err) continue;
+        dst.clear();
+        this->failures.push_back({
+            .binding = i,
+            .missing = missing,
+            .error = wrap(err, "field " + f.name),
+        });
     }
-    return x::errors::NIL;
 }
 }

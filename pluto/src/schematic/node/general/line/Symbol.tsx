@@ -16,7 +16,7 @@ import { type ReactElement, useRef } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
-import { Line } from "@/schematic/node/general/line/Primitive";
+import { Primitive } from "@/schematic/node/general/line/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 
 // Absolute endpoints when the drag began, and which one is moving.
@@ -73,7 +73,7 @@ export const Symbol = ({
 
   return (
     <>
-      <Line
+      <Primitive.Line
         className={Grid.DRAG_HANDLE_CLASS}
         strokeColor={resolve(strokeColor)}
         start={start}
@@ -103,5 +103,5 @@ export const Preview = ({
   ...rest
 }: schematic.LineNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
-  return <Line {...rest} strokeColor={resolve(strokeColor)} />;
+  return <Primitive.Line {...rest} strokeColor={resolve(strokeColor)} />;
 };
