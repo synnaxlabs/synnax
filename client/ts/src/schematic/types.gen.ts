@@ -144,8 +144,6 @@ export const stalenessConfigZ = z.object({
   stalenessTimeout: telem.numericTimeSpanZ
     .check(z.gte(1000000000), z.lte(9007199254740991))
     .default(5000000000),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: xcolor.colorZ.optional(),
 });
 export interface StalenessConfig extends z.infer<typeof stalenessConfigZ> {}
 

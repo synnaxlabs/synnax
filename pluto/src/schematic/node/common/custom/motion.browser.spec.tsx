@@ -455,4 +455,147 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".rotor", "opacity")).toBe("1");
     });
   });
+
+  describe("level", () => {
+    const level = (side: schematic.symbol.LevelMotion["side"] = "bottom") =>
+      createSpec([
+        {
+          key: "level",
+          part: "liquid",
+          motion: { type: "level", state: "speed", side },
+        },
+      ]);
+
+    it("should fill a part from its side to the fraction of its state", async () => {
+      const { pending, attr } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should fill from the top", async () => {
+      const { attr } = await setup({
+        spec: level("top"),
+        readings: { speed: reading(25) },
+      });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
+    });
+
+    it("should join the loop while it moves to a new fraction", async () => {
+      const { pending, frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      expect(pending()).toBe(1);
+      frame(0);
+      frame(100);
+      expect(attr(".liquid", "clip-path")).not.toBe("inset(25% 0 0 0)");
+      frame(200);
+      expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
+      expect(pending()).toBe(0);
+    });
+
+    it("should slide on the curve of the modal animation", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+    });
+
+    it("should land a value that arrives mid-slide when the slide ends", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      await rerender({ readings: { speed: reading(100) } });
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+      frame(150);
+      expect(attr(".liquid", "clip-path")).toBe("inset(0% 0 0 0)");
+    });
+
+    it("should jump to a new fraction on a node with motion disabled", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+        motionDisabled: true,
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
+    });
+
+    it("should draw an empty level while its state is unknown", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(NaN) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(100% 0 0 0)");
+    });
+
+    it("should keep its last fraction while its state is stale", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75, true) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should draw an edited look while its fraction holds", async () => {
+      const { attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ spec: level("top") });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
+    });
+  });
+
+  describe("rotate", () => {
+    it("should turn a part to the angle at the fraction of its state", async () => {
+      const look: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: -45, to: 45 },
+      };
+      const { attr } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(75) },
+      });
+      expect(attr(".rotor", "transform")).toBe("rotate(22.5 3 3) translate(1 1)");
+    });
+  });
+
+  describe("move", () => {
+    it("should move a part by fractions of the box", async () => {
+      const look: schematic.symbol.Look = {
+        key: "move",
+        part: "slider",
+        motion: {
+          type: "move",
+          state: "speed",
+          from: { x: 0, y: 0 },
+          to: { x: 0.5, y: 0 },
+        },
+      };
+      const { attr } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(100) },
+      });
+      expect(attr(".slider", "transform")).toBe("translate(2.5 0)");
+    });
+  });
 });
