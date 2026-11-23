@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <memory>
 #include <mutex>
 #include <variant>
@@ -115,9 +114,6 @@ class Task final : public task::Task {
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
-    /// @brief when the last calculation warning went out. Only the control thread
-    /// touches it.
-    std::chrono::steady_clock::time_point calc_warned_at;
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -316,10 +312,6 @@ public:
                 const ::arc::ir::Node &node,
                 const x::errors::Error &err
             ) {
-                // A failing calculation fails on every frame.
-                const auto now = std::chrono::steady_clock::now();
-                if (now - task_ptr->calc_warned_at < x::telem::SECOND.chrono()) return;
-                task_ptr->calc_warned_at = now;
                 std::lock_guard lock(task_ptr->state_mu);
                 task_ptr->state.send_warning(
                     "Failed to run calculation",

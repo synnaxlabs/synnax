@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -19,6 +20,7 @@
 #include "client/cpp/arc/arc.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/runtime.h"
 
@@ -70,7 +72,8 @@ public:
     /// @param calculations the compiled calculations, dependencies first.
     /// @param cfg the runtime config. Its program and factories are not used. Its
     /// retrieve_channels runs only here, so that reset needs no Core.
-    /// @param on_error receives the errors that the nodes of a calculation raise.
+    /// @param on_error receives the errors that the nodes of a calculation raise, at
+    /// most one a second, as a failing calculation fails on every frame.
     static std::pair<Calculator, x::errors::Error> load(
         const std::vector<synnax::arc::Calculation> &calculations,
         ::arc::runtime::Config cfg,
@@ -78,7 +81,16 @@ public:
     ) {
         Calculator calc;
         calc.calculations = calculations;
-        calc.on_error = std::move(on_error);
+        calc.on_error =
+            [on_error = std::move(on_error),
+             last = std::make_shared<std::chrono::steady_clock::time_point>(
+                 std::chrono::steady_clock::now() - x::telem::SECOND.chrono()
+             )](const ::arc::ir::Node &node, const x::errors::Error &err) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now - *last < x::telem::SECOND.chrono()) return;
+                *last = now;
+                on_error(node, err);
+            };
         cfg.factories.clear();
         cfg.rt_handle = nullptr;
         auto digests = std::make_shared<std::unordered_map<
