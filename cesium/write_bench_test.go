@@ -96,12 +96,15 @@ func BenchmarkCommit(b *testing.B) {
 	}
 }
 
-func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
+// openClockWriters opens one writer for each clock of keys, in which the keys of each
+// index start at the index.
+func openClockWriters(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	indexes, perIndex int,
+) []*cesium.Writer {
 	b.Helper()
-	perIndex := channels / indexes
-	db := openBenchDB(b, false)
-	keys := createIndexedChannels(b, db, indexes, perIndex)
-	// One writer per clock: the keys of each index start at the index.
 	writers := make([]*cesium.Writer, indexes)
 	for i := range writers {
 		group := keys[i*(perIndex+1) : (i+1)*(perIndex+1)]
@@ -115,6 +118,15 @@ func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
 		}
 		writers[i] = w
 	}
+	return writers
+}
+
+func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
+	b.Helper()
+	perIndex := channels / indexes
+	db := openBenchDB(b, false)
+	keys := createIndexedChannels(b, db, indexes, perIndex)
+	writers := openClockWriters(b, db, keys, indexes, perIndex)
 	data := telem.NewSeries(make([]float32, samples))
 	stamps := make([]telem.TimeStamp, samples)
 	start := telem.SecondTS
