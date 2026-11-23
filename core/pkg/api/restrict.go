@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// restrictMiddleware rewrites the error of a delete that a restrict reference refuses,
-// so it names the records involved instead of their tables and keys. A record that the
-// caller cannot retrieve shows only its type.
+// restrictMiddleware rewrites the error of a delete or change that a restrict reference
+// refuses, so it names the records involved instead of their tables and keys. It never
+// names a holder that the caller cannot retrieve.
 func restrictMiddleware(
 	db *gorp.DB,
 	res *resource.Service,
@@ -81,12 +81,11 @@ func describeRestrict(
 		}
 	}
 	var (
-		found   []resource.Resource
-		allowed func(resource.ID) bool
+		found  []resource.Resource
+		hidden bool
 	)
 	if rErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		var err error
-		allowed, err = rbacSvc.NewEnforcer(snap).Allowed(
+		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
 			ctx,
 			auth.GetSubject(ctx),
 			access.ActionRetrieve,
@@ -94,6 +93,7 @@ func describeRestrict(
 		if err != nil {
 			return err
 		}
+		hidden = !allowed(holder)
 		found, err = res.Retrieve(ctx, snap, lo.Filter(
 			[]resource.ID{target, holder},
 			func(id resource.ID, _ int) bool { return allowed(id) },
@@ -106,20 +106,28 @@ func describeRestrict(
 	for _, r := range found {
 		names[r.ID] = r.Name
 	}
-	// A record that the caller cannot retrieve shows only its type. One that a
-	// concurrent delete removes between the refusal and the lookup shows its key.
+	// A target that the caller cannot retrieve shows its key, and so does a record
+	// that a concurrent delete removes between the refusal and the lookup.
 	name := func(id resource.ID) string {
-		if !allowed(id) {
-			return "a hidden " + string(id.Type)
-		}
 		if n, ok := names[id]; ok {
-			return string(id.Type) + " " + n
+			return n
 		}
-		return string(id.Type) + " " + id.Key
+		return id.Key
 	}
-	msg := "cannot delete " + name(target) + " because " + name(holder) + " uses it"
+	change := "delete "
+	if restrict.Field != "" {
+		change = "change the " + restrict.Field + " of "
+	}
+	uses := "uses it"
 	if !ofTask {
-		msg += " as its " + restrict.Reference
+		uses += " as its " + restrict.Reference
+	}
+	msg := "cannot " + change + string(target.Type) + " " + name(target) + " because "
+	if hidden {
+		msg += "the " + string(holder.Type) + " that " + uses + " is not visible to " +
+			"you; ask someone who can see it to remove the use"
+	} else {
+		msg += string(holder.Type) + " " + name(holder) + " " + uses
 	}
 	return errors.Wrap(validate.ErrValidation, msg)
 }

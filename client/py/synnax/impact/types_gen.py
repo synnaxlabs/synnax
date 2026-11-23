@@ -54,7 +54,9 @@ class DeleteChannelsChange(BaseModel):
     """Deletes channels."""
 
     type: Literal["delete_channels"] = "delete_channels"
-    keys: list[channel.Key] = Field(default_factory=list)
+    keys: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 # Is a change to channels that a plan covers.

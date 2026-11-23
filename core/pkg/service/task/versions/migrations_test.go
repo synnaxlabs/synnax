@@ -83,6 +83,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
+				Rack:   secrettestutil.CoreRack,
 			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
-import { type Button } from "@/button";
+import type { Button } from "@/button";
 
 /**
  * The controlled-input contract. Every input in the library takes it, so a form field

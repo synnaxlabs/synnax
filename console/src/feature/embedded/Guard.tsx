@@ -23,7 +23,7 @@ import {
 
 import { ensure } from "@/feature/embedded/apiKey";
 import { useStatus } from "@/feature/embedded/Provider";
-import { type Status as SupervisorStatus } from "@/feature/embedded/supervisor";
+import type { Status as SupervisorStatus } from "@/feature/embedded/supervisor";
 import { NAME } from "@/feature/embedded/useConnParams";
 import { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";
 import { useRestart } from "@/feature/embedded/useRestart";

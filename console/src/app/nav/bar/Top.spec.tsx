@@ -22,7 +22,7 @@ await vi.hoisted(async () => {
 import { Bar } from "@/app/nav/bar";
 import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
-import { type TestStore } from "@/testutil";
+import type { TestStore } from "@/testutil";
 
 const bottom = (store: TestStore) =>
   store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom;

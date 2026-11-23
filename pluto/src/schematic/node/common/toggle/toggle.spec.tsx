@@ -12,13 +12,13 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, id, TimeSpan } from "@synnaxlabs/x";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";

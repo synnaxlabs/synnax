@@ -9,7 +9,7 @@
 
 import "@/components/edition/Badge.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { type Edition, NAMES } from "@/components/edition/edition";
 

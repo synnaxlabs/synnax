@@ -19,16 +19,16 @@ import {
   type RenderOptions,
   type RenderResult,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { wrapWithSink } from "@/platform/analytics/testutil";
-import { type Hardware } from "@/platform/device/integration";
+import type { Hardware } from "@/platform/device/integration";
 import { Modals } from "@/platform/modals";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderSuspended, type TestStore } from "@/testutil";

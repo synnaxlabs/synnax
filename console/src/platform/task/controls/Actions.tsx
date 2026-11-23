@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type MouseEvent, type ReactElement } from "react";
+import type { MouseEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

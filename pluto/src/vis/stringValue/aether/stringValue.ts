@@ -13,7 +13,7 @@ import { box, color, type destructor, scale, text, xy } from "@synnaxlabs/x";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -54,9 +54,9 @@ export class StringValue
   static readonly TYPE = "StringValue";
   static readonly z = stateZ;
 
-  schema = StringValue.z;
+  override schema = StringValue.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -74,7 +74,7 @@ export class StringValue
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();
