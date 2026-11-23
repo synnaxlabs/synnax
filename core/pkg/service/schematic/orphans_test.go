@@ -108,8 +108,11 @@ func removed(before orphanBindings, cfg schematic.SymbolNodeConfig) orphans {
 
 var _ = Describe("Orphan vectors", func() {
 	var v orphanVectors
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(orphanVectorsPath)), &v)).
-		To(Succeed())
+	Expect(json.Unmarshal(
+		MustSucceed(os.ReadFile(orphanVectorsPath)),
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
 	BeforeEach(func(ctx SpecContext) {
 		enums := lo.FilterMap(
 			v.Bindings.States,
