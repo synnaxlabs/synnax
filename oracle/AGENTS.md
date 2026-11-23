@@ -100,9 +100,10 @@ or generator logic and schemas disagree.
   check fills in each generic type with its type arguments (defaults included) through
   aliases, distinct types, and bases, then compares the filled-in shapes across pins:
   stored field names and order, field types, optionality, `@key`, defaults, and enum and
-  union members. A type may move to another file or chain or become an alias with the
-  same filled-in shape, and an enum or union may gain members. Docs, rules, codec
-  markers, and omit-transient types may change.
+  union members. A `create` or `now` boundary default does not count, unless it names an
+  enum member or union variant of the field's type. A type may move to another file or
+  chain or become an alias with the same filled-in shape, and an enum or union may gain
+  members. Docs, rules, codec markers, and omit-transient types may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
@@ -205,6 +206,13 @@ a declared enum already names the same set, borrow it:
 every language, the variant constants are the enum's members, and no `<Union>Type` is
 emitted. The enum must be a string enum whose values are exactly the variant names; the
 analyzer rejects a variant without a member and a member without a variant.
+
+## Integer enums
+
+An integer enum's underlying type is the smallest one that holds all its values:
+unsigned, or signed when a value is negative (`std::uint32_t` and `uint32` for baud
+rates up to 230400). A field may default to any member. When a member has the value 0,
+the default must be that member, because 0 is also the type's zero value.
 
 ## Union bases
 

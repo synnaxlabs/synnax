@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_, color, group as group_, project as project_
 from synnax.resource import ID
-from x import color as color_, filter, notation as notation_, text
+from x import color as color_, filter, notation as notation_, telem, text
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -89,7 +89,9 @@ class ValueCellConfig(BaseModel):
     level: text.Level = "h5"
     text_color: color.Ref | None = None
     units: str = ""
-    staleness_timeout: float = Field(default=5, ge=1, allow_inf_nan=False)
+    staleness_timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
+    )
     staleness_color: color.Ref | None = None
 
 
