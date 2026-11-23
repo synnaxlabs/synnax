@@ -68,3 +68,18 @@ export const values = (
     }
   return out;
 };
+
+/**
+ * @returns whether a state reads a channel that has no data yet, or whose newest value
+ * is NaN.
+ */
+export const dataMissing = (
+  bindings: Pick<schematic.StateBinding, "key" | "source">[],
+  readings: Record<string, symbolNode.Reading>,
+): boolean =>
+  bindings.some(
+    ({ key, source }) =>
+      source?.type === "channel" &&
+      source.key != null &&
+      (!Object.hasOwn(readings, key) || readings[key].value == null),
+  );

@@ -10,7 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { bindSpec, sources, values } from "@/schematic/node/symbol/bind";
+import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
 
 const SPEC: schematic.symbol.Spec = {
   drawing: { type: "svg", markup: "<svg></svg>" },
@@ -92,5 +92,28 @@ describe("values", () => {
     expect(values(bindings, { active: { value: null, stale: false } })).toEqual(
       new Map(),
     );
+  });
+});
+
+describe("dataMissing", () => {
+  const CHANNEL = { key: "active", source: { type: "channel" as const, key: 1 } };
+
+  it.each([
+    ["no reading", {}],
+    ["a reading with no value", { active: { value: null, stale: false } }],
+  ])("should be true for a channel with %s", (_, readings) => {
+    expect(dataMissing([CHANNEL], readings)).toBe(true);
+  });
+
+  it("should be false for a channel with a value", () => {
+    expect(dataMissing([CHANNEL], { active: { value: 0, stale: true } })).toBe(false);
+  });
+
+  it.each([
+    ["no source", { key: "active" }],
+    ["a channel source with no key", { key: "active", source: { type: "channel" } }],
+    ["a local source", { key: "active", source: { type: "local", value: 1 } }],
+  ] as const)("should be false for a state with %s", (_, binding) => {
+    expect(dataMissing([binding], {})).toBe(false);
   });
 });

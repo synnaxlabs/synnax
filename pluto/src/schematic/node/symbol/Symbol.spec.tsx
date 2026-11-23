@@ -160,6 +160,66 @@ describe("Symbol node", () => {
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 
+  it("should show the unknown indicator while a channel has no data", async () => {
+    const now = TimeStamp.now();
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          createBinding({
+            key: "active",
+            source: { type: "channel", key: reading.key },
+          }),
+        ],
+      },
+      createCoreWrapper(core),
+    );
+    await findByRole("img", { name: "Unknown" });
+  });
+
+  it("should show no unknown indicator for a state with no source", async () => {
+    const { container, queryByRole } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      color: COLOR,
+      states: [createBinding({ key: "active", default: 1 })],
+    });
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+    expect(queryByRole("img", { name: "Unknown" })).toBeNull();
+  });
+
+  it("should show the stale and unknown indicators in one row", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
+    const now = TimeStamp.now().sub(TimeSpan.minutes(1));
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        // No enumeration has this key, so no value finds an entry.
+        states: [
+          createBinding({
+            key: "active",
+            source: { type: "channel", key: reading.key },
+            enumeration: "00000000-0000-0000-0000-000000000000",
+          }),
+        ],
+      },
+      createCoreWrapper(core),
+    );
+    await act(
+      async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
+    );
+    await act(async () => core.advance(TimeSpan.seconds(1)));
+    const stale = await findByRole("img", { name: "Stale" });
+    const unknown = await findByRole("img", { name: "Unknown" });
+    expect(unknown.parentElement).toBe(stale.parentElement);
+    expect(stale.closest(".pluto-grid__item")?.classList).toContain(
+      "lyra--location-bottom",
+    );
+  });
+
   it.each([
     ["a built-in symbol that does not exist", { type: "builtin", name: "nope" }],
     ["a missing symbol", { type: "missing" }],

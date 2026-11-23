@@ -268,6 +268,25 @@ export const usePaintContext = (
 };
 
 /**
+ * @returns whether a state that has a value in value and an enumeration finds no entry
+ * of that enumeration after its match. It is false while the enumerations load.
+ */
+export const useUnmatched = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+  value: StateValue,
+): boolean => {
+  const ctx = usePaintContext(spec);
+  if (spec == null || ctx == null || typeof value === "number") return false;
+  return spec.states.some((state) => {
+    if (state.type !== "enumeration" || state.enumeration == null) return false;
+    if (!value.has(state.key)) return false;
+    const v = matched(state, value);
+    const entries = ctx.enumerations.get(state.enumeration)?.entries ?? [];
+    return !entries.some((e) => e.value === v);
+  });
+};
+
+/**
  * @returns a region for each part of spec, with the colors that its looks give it at
  * value, or undefined while spec or the enumerations of its states load.
  */
