@@ -9,7 +9,7 @@
 
 import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type payload, uuid } from "@synnaxlabs/x";
+import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -102,8 +102,11 @@ const createEndpoint = async ({
 };
 
 // The form body renders against a device only.
-const renderWithDevice = async (endpoints: HTTP.Task.ReadEndpoint[] = []) => {
-  const dev = await createHTTPDevice(client);
+const renderWithDevice = async (
+  endpoints: HTTP.Task.ReadEndpoint[] = [],
+  properties?: Partial<HTTP.Device.Properties>,
+) => {
+  const dev = await createHTTPDevice(client, { properties });
   const draft = await createDraft(client, createReadConfig(dev.key, endpoints));
   const rendered = await renderRead({ client, taskKey: draft.key });
   return { ...rendered, dev, draft };
@@ -278,6 +281,36 @@ describe("Read", () => {
     const tree = screen.getByRole("tree");
     for (const name of ["temperature", "pressure", "mode"])
       expect(within(tree).getByText(name)).toBeTruthy();
+  });
+
+  it("should read a field again with the channel that the device stores for it", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
+    const box = await screen.findByRole("checkbox", { name: "Read temperature" });
+    fireEvent.click(box);
+    await waitFor(async () => expect(await bindings()).toEqual([]));
+    fireEvent.click(box);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+      ]),
+    );
   });
 
   it("should create and bind the channel of each field on deploy", async () => {
