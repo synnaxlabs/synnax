@@ -11,4 +11,4 @@ export * from "@/enumeration/actions";
 export * from "@/enumeration/actions.gen";
 export * from "@/enumeration/client";
 export * from "@/enumeration/types.gen";
-export { type WhereInput } from "@/enumeration/where.gen";
+export type { WhereInput } from "@/enumeration/where.gen";

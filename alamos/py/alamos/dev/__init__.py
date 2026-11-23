@@ -16,7 +16,7 @@ try:
     from uptrace import configure_opentelemetry
 except ImportError as e:
     raise ImportError(
-        "alamos.dev requires uptrace. Install it with `pip install alamos[dev]`."
+        "alamos.dev requires uptrace. Install it with `pip install alamos[uptrace]`."
     ) from e
 
 DEV_DSN = "http://synnax_dev@localhost:14317/2"

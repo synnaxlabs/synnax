@@ -11,12 +11,16 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu as Base } from "@synnaxlabs/lyra/menu";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
+import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 import { replace } from "@/platform/view/filter/codec";
-import { type Properties, type Property } from "@/platform/view/filter/types";
+import type { Properties, Property } from "@/platform/view/filter/types";
 import { useConditions } from "@/platform/view/filter/useConditions";
+import { textShown } from "@/platform/view/tooltip";
+
+const NAME_CLASS = CSS.BE("view", "filter-name");
 
 interface PropertySubProps {
   itemKey: string;
@@ -62,11 +66,14 @@ export const Menu = <W extends { and?: W[] }>({
         size="medium"
         textColor={9}
         gap="small"
+        aria-label="Filter"
         tooltip="Filter"
         tooltipLocation={location.BOTTOM_RIGHT}
+        className={CSS.BE("view", "filter")}
+        hideTooltip={textShown(NAME_CLASS)}
       >
         <Icon.Filter />
-        Filter
+        <span className={NAME_CLASS}>Filter</span>
       </Dialog.Trigger>
       <Base.Dialog aria-label="Filter">
         <Base.Menu gap="small">

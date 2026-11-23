@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1109,6 +1110,126 @@ TEST(MathAvgTest, WorksWithI32) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 20);
 }
 
+/// @brief it should not drift on a running integer average.
+TEST(MathAvgTest, DoesNotDriftOnARunningIntegerAverage) {
+    TestSetup setup(types::Kind::I32, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    for (int32_t i = 1; i <= 100; i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {i}, {i * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
+}
+
+/// @brief it should clear the running sum when the count resets.
+TEST(MathAvgTest, ClearsTheRunningSumAfterACountReset) {
+    types::Param count_param;
+    count_param.name = "count";
+    count_param.type = types::Type{.kind = types::Kind::I64};
+    count_param.value = static_cast<int64_t>(3);
+
+    TestSetup setup(types::Kind::I32, "avg", {count_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    const std::vector<int32_t> values{5, 5, 5, 1, 2, 3};
+    for (size_t i = 0; i < values.size(); i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {values[i]}, {static_cast<int64_t>(i + 1) * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 2);
+}
+
+/// @brief it should clear the running sum when the node resets.
+TEST(MathAvgTest, ClearsTheRunningSumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto first = setup.make_source_node();
+    write_source_i32(first, {5, 5, 5}, {sec, 2 * sec, 3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    for (int32_t i = 1; i <= 3; i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {i}, {(i + 3) * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 2);
+}
+
+/// @brief it should drop the old minimum when the node resets.
+TEST(MathMinTest, DropsTheOldMinimumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "min");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {1, 2}, {sec, 2 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {50}, {3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
+}
+
+/// @brief it should drop the old maximum when the node resets.
+TEST(MathMaxTest, DropsTheOldMaximumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "max");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {90, 80}, {sec, 2 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {3}, {3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 3);
+}
+
 TEST(MathMaxTest, WorksWithI32) {
     TestSetup setup(types::Kind::I32, "max");
     Module module;
@@ -1459,6 +1580,69 @@ TEST(MathModTest, ModsI32ElementWise) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 1);
     EXPECT_EQ(checker.output(0)->at<int32_t>(1), 3);
     EXPECT_EQ(checker.output(0)->at<int32_t>(2), 3);
+}
+
+/// @brief it should report an error and emit nothing when an integer divisor is zero.
+TEST(MathDivideTest, ReportsAZeroIntegerDivisor) {
+    for (const auto *node_type: {"divide", "mod"}) {
+        SCOPED_TRACE(node_type);
+        BinaryTestSetup setup(types::Kind::I32, node_type);
+        Module module;
+        auto node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+        ));
+        const auto sec = x::telem::SECOND.nanoseconds();
+        auto lhs = setup.make_lhs_node();
+        auto rhs = setup.make_rhs_node();
+        write_lhs_i32(lhs, {20, 100}, {sec, 2 * sec});
+        write_rhs_i32(rhs, {4, 0}, {sec, 2 * sec});
+        std::vector<x::errors::Error> errors;
+        bool changed = false;
+        runtime::node::Context ctx{
+            .cycle =
+                {.elapsed = x::telem::TimeSpan(0),
+                 .reason = runtime::node::RunReason::TimerTick},
+            .mark_changed = [&](size_t) { changed = true; },
+            .report_error = [&](const x::errors::Error &e) { errors.push_back(e); },
+        };
+        ASSERT_NIL(node->next(ctx));
+        ASSERT_EQ(errors.size(), 1);
+        ASSERT_MATCHES(errors[0], runtime::errors::DIVIDE_BY_ZERO);
+        EXPECT_FALSE(changed);
+    }
+}
+
+template<typename T>
+void expect_min_by_negative_one(const types::Kind kind) {
+    for (const auto &[node_type, expected]:
+         {std::pair{"divide", std::numeric_limits<T>::min()}, std::pair{"mod", T{0}}}) {
+        SCOPED_TRACE(node_type);
+        BinaryTestSetup setup(kind, node_type);
+        Module module;
+        auto node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+        ));
+        const std::vector<int64_t> ts{x::telem::SECOND.nanoseconds()};
+        auto lhs = setup.make_lhs_node();
+        auto rhs = setup.make_rhs_node();
+        lhs.output(0) = x::mem::make_local_shared<x::telem::Series>(
+            std::vector<T>{std::numeric_limits<T>::min()}
+        );
+        lhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(ts);
+        lhs.mark_fresh(0);
+        rhs.output(0) = x::mem::make_local_shared<x::telem::Series>(std::vector<T>{-1});
+        rhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(ts);
+        rhs.mark_fresh(0);
+        auto ctx = make_context();
+        ASSERT_NIL(node->next(ctx));
+        EXPECT_EQ(setup.make_target_node().output(0)->at<T>(0), expected);
+    }
+}
+
+/// @brief it should wrap the minimum signed integer divided by -1 and give a zero mod.
+TEST(MathDivideTest, WrapsSignedMinimumByNegativeOne) {
+    expect_min_by_negative_one<int32_t>(types::Kind::I32);
+    expect_min_by_negative_one<int64_t>(types::Kind::I64);
 }
 
 // ───────────────── Neg ─────────────────

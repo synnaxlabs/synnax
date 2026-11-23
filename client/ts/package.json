@@ -45,9 +45,13 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
+    "undici": "catalog:node22",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
@@ -62,6 +66,7 @@
     "eslint": "catalog:",
     "playwright": "catalog:",
     "typescript": "catalog:",
+    "undici": "catalog:node22",
     "vite": "catalog:",
     "vitest": "catalog:",
     "ws": "catalog:"

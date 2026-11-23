@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";

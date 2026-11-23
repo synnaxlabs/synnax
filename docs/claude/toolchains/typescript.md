@@ -36,7 +36,8 @@ placeholders but does NOT pre-fill — actually type the values.
 - Prettier, 88-char lines. ESLint flat config.
 - Function components + hooks; TypeScript instead of prop-types.
 - Absolute imports: `@/components`, never `../../../components`.
-- Inline type imports: `import { type Foo } from "bar"`; simple-import-sort for
+- Type imports: `import type { Foo } from "bar"` when every name is a type, and
+  `import { type Foo, bar } from "baz"` when values are mixed in; simple-import-sort for
   import/export ordering.
 - JSX: no braces for string props, bare `true` boolean attributes, and `key` before
   spread props.

@@ -10,14 +10,14 @@
 import { arc, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Arc } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useSearch } from "@/feature/arc/toolbar/search";
 import { RootContextMenu } from "@/feature/arc/tree";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 

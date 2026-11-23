@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { box, deep } from "@synnaxlabs/x";
 import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -228,6 +228,46 @@ describe("LinePlot Slice", () => {
     });
   });
 
+  describe("storeBreaks", () => {
+    const SELECTION = box.construct({ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 });
+    const storeBreaks = () =>
+      store.dispatch(
+        LinePlot.storeBreaks({
+          key: KEY,
+          open: [5],
+          pan: { x: 0.2, y: 0 },
+          zoom: { width: 0.5, height: 1 },
+          selection: SELECTION,
+        }),
+      );
+
+    it("should default to no open breaks on a newly created plot", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      expect(docOf()?.breaks.open).toEqual([]);
+    });
+
+    it("should store the open breaks with the view and the selection", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        storeBreaks();
+      });
+      const doc = docOf();
+      expect(doc?.breaks.open).toEqual([5]);
+      expect(doc?.viewport.pan).toEqual({ x: 0.2, y: 0 });
+      expect(doc?.viewport.zoom).toEqual({ width: 0.5, height: 1 });
+      expect(doc?.selection.box).toEqual(SELECTION);
+    });
+
+    it("should close every break on setViewport", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        storeBreaks();
+        store.dispatch(LinePlot.setViewport({ key: KEY }));
+      });
+      expect(docOf()?.breaks.open).toEqual([]);
+    });
+  });
+
   describe("setSelectedRule", () => {
     it("should set the selected rules and switch to the annotations tab", () => {
       act(() => {
@@ -257,6 +297,50 @@ describe("LinePlot Slice", () => {
     });
   });
 
+  describe("setBreaksHidden", () => {
+    it("should default to shown on a newly created plot", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      expect(docOf()?.breaks.hidden).toBe(false);
+    });
+
+    it("should hide and re-show breaks", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      act(
+        () => void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: true })),
+      );
+      expect(docOf()?.breaks.hidden).toBe(true);
+      act(
+        () =>
+          void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: false })),
+      );
+      expect(docOf()?.breaks.hidden).toBe(false);
+    });
+
+    it("should reset the zoom and close the open breaks", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        store.dispatch(
+          LinePlot.storeBreaks({
+            key: KEY,
+            open: [5],
+            pan: { x: 0.2, y: 0 },
+            zoom: { width: 0.5, height: 1 },
+            selection: box.construct({ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 }),
+          }),
+        );
+      });
+      const before = docOf()?.viewport.renderTrigger ?? 0;
+      act(
+        () => void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: true })),
+      );
+      const doc = docOf();
+      expect(doc?.viewport.renderTrigger).toBe(before + 1);
+      expect(doc?.viewport.zoom).toEqual(LinePlot.ZERO_STATE.viewport.zoom);
+      expect(doc?.breaks.open).toEqual([]);
+      expect(box.areaIsZero(doc?.selection.box ?? box.ZERO)).toBe(true);
+    });
+  });
+
   describe("setRangeAnnotationsVisible", () => {
     it("should default to visible on a newly created plot", () => {
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
@@ -279,31 +363,6 @@ describe("LinePlot Slice", () => {
           ),
       );
       expect(docOf()?.annotations.visible).toBe(true);
-    });
-  });
-
-  describe("setLineVisible", () => {
-    it("should hide a line by adding it to hiddenLines", () => {
-      act(() => {
-        store.dispatch(LinePlot.create({ key: KEY }));
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
-        );
-      });
-      expect(docOf()?.hiddenLines).toEqual(["l1"]);
-    });
-
-    it("should show a hidden line by removing it from hiddenLines", () => {
-      act(() => {
-        store.dispatch(LinePlot.create({ key: KEY }));
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
-        );
-        store.dispatch(
-          LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: true }),
-        );
-      });
-      expect(docOf()?.hiddenLines).toEqual([]);
     });
   });
 

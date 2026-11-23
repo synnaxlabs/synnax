@@ -11,9 +11,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
 

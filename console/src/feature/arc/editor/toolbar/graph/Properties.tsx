@@ -18,12 +18,12 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Arc, Diagram } from "@synnaxlabs/pluto";
 import { box, type direction, location, xy } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-export const Properties = memo((): ReactElement | null => {
+export const Properties = (): ReactElement | null => {
   const selected = Session.Arc.useSelectSelected();
   const nodes = Arc.useNodes({ keys: selected });
   if (selected.length === 0 || nodes.length === 0)
@@ -34,7 +34,7 @@ export const Properties = memo((): ReactElement | null => {
     );
   if (selected.length > 1) return <MultiConfig nodes={nodes} />;
   return <IndividualConfig key={nodes[0].key} nodeKey={nodes[0].key} />;
-});
+};
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {

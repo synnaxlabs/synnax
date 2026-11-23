@@ -25,6 +25,27 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// hookErrs holds the errors that the hooks of the log owner get from the state.
+type hookErrs struct {
+	mu   sync.Mutex
+	errs []error
+}
+
+func (h *hookErrs) add(err error) {
+	if err == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.errs = append(h.errs, err)
+}
+
+func (h *hookErrs) err() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return errors.Join(h.errs...)
+}
+
 var _ = Describe("Check: a Reserve on a full log", func() {
 	It("Should keep the state when a Reserve fails on a full log and the Create that "+
 		"uses its value lands in the next log", func() {
@@ -35,9 +56,8 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			l     *log.Log
 			room  atomic.Bool
 			made  atomic.Int32
+			errs  hookErrs
 			goExe = func(f func()) { go f() }
-			// failed gathers the errors of the callbacks, the runs, and the closes.
-			failed errs
 		)
 		st := MustSucceed(state.Open(state.Config{
 			Versions:   set.New[uint16](1),
@@ -52,7 +72,7 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			FS:       fs,
 			Executor: goExe,
 			OnDurable: func(seq uint64, records []log.Record) {
-				failed.add(st.Durable(seq, records))
+				errs.add(st.Durable(seq, records))
 			},
 			// The disk has no room for the next log until room is set.
 			Prepare: func(next uint64) {
@@ -66,23 +86,23 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 				}()
 			},
 			OnRefused: func(records []log.Record, err error) {
-				failed.add(st.Refused(records, err))
+				errs.add(st.Refused(records, err))
 			},
-			Switched:   func(g uint64) { failed.add(st.Switch(g)) },
+			Switched:   func(g uint64) { errs.add(st.Switch(g)) },
 			DB:         7,
 			Generation: 1,
 			Sequence:   1,
 		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		wg.Go(func() { failed.add(st.Run(ctx)) })
-		wg.Go(func() { failed.add(l.Run(ctx)) })
+		wg.Go(func() { errs.add(errors.Skip(st.Run(ctx), context.Canceled)) })
+		wg.Go(func() { errs.add(errors.Skip(l.Run(ctx), context.Canceled)) })
 		DeferCleanup(func() {
-			failed.add(l.Close())
-			failed.add(st.Close())
+			Expect(l.Close()).To(Succeed())
+			Expect(st.Close()).To(Succeed())
 			cancel()
 			wg.Wait()
-			Expect(failed.get()).ToNot(HaveOccurred())
+			Expect(errs.err()).ToNot(HaveOccurred())
 		})
 
 		// Fill log 1 until not even an entry of one record fits.

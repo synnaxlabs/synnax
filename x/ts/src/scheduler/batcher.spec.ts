@@ -9,10 +9,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Batcher, type BatcherEntry } from "@/scheduler/batcher";
-import { TimeSpan } from "@/telem/telem";
+import { scheduler } from "@/scheduler";
+import { TimeSpan } from "@/telem";
+import { assertDefined } from "@/testutil";
 
-const resolveAll = (entries: Array<BatcherEntry<number, number>>): void =>
+const resolveAll = (entries: Array<scheduler.BatcherEntry<number, number>>): void =>
   entries.forEach(({ req, resolve }) => resolve(req * 2));
 
 describe("Batcher", () => {
@@ -26,7 +27,7 @@ describe("Batcher", () => {
 
   it("should coalesce enqueues within the window into one exec call", async () => {
     const exec = vi.fn(resolveAll);
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec,
     });
@@ -34,13 +35,13 @@ describe("Batcher", () => {
     expect(exec).toHaveBeenCalledTimes(0);
     await vi.advanceTimersByTimeAsync(100);
     expect(exec).toHaveBeenCalledTimes(1);
-    expect(exec.mock.calls[0][0].map(({ req }) => req)).toEqual([1, 2]);
+    expect(exec.mock.calls[0]?.[0].map(({ req }) => req)).toEqual([1, 2]);
     expect(await results).toEqual([2, 4]);
   });
 
   it("should not reset the window on later enqueues", async () => {
     const exec = vi.fn(resolveAll);
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec,
     });
@@ -54,7 +55,7 @@ describe("Batcher", () => {
 
   it("should open a new window after the previous one fires", async () => {
     const exec = vi.fn(resolveAll);
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec,
     });
@@ -67,10 +68,10 @@ describe("Batcher", () => {
   });
 
   it("should reject unsettled entries when exec throws", async () => {
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec: (entries) => {
-        entries[0].resolve(42);
+        entries[0]?.resolve(42);
         throw new Error("exec exploded");
       },
     });
@@ -82,7 +83,7 @@ describe("Batcher", () => {
   });
 
   it("should reject entries when an async exec rejects", async () => {
-    const batcher = new Batcher<number>({
+    const batcher = new scheduler.Batcher<number>({
       interval: TimeSpan.milliseconds(100),
       exec: async () => {
         throw new Error("fetch exploded");
@@ -95,7 +96,7 @@ describe("Batcher", () => {
 
   it("should reject queued entries on close and stay usable", async () => {
     const exec = vi.fn(resolveAll);
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec,
     });
@@ -111,7 +112,7 @@ describe("Batcher", () => {
 
   it("should reject the entries of a running batch on close", async () => {
     const fetched = Promise.withResolvers<void>();
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec: async (entries) => {
         await fetched.promise;
@@ -127,9 +128,11 @@ describe("Batcher", () => {
 
   it("should not reject the settled entries of a running batch on close", async () => {
     const fetched = Promise.withResolvers<void>();
-    const batcher = new Batcher<number, number>({
+    const batcher = new scheduler.Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec: async ([first, second]) => {
+        assertDefined(first);
+        assertDefined(second);
         first.resolve(first.req);
         await fetched.promise;
         second.resolve(second.req);

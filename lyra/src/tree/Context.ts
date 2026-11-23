@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@/context";
-import { type NodeShape } from "@/tree/base";
+import type { NodeShape } from "@/tree/base";
 
 export interface ContextValue {
   nodes: NodeShape[];
