@@ -107,26 +107,6 @@ var _ = Describe("State", func() {
 			})
 		})
 
-		Describe("IsRelease", func() {
-			It("Should return false when to is not nil", func() {
-				Expect(
-					control.Transfer[string]{From: &state1, To: &state2}.IsRelease(),
-				).To(BeFalse())
-			})
-
-			It("Should return false when both from and to are nil", func() {
-				Expect(
-					control.Transfer[string]{From: nil, To: nil}.IsRelease(),
-				).To(BeFalse())
-			})
-
-			It("Should return true when from is not nil and to is nil", func() {
-				Expect(
-					control.Transfer[string]{From: &state1, To: nil}.IsRelease(),
-				).To(BeTrue())
-			})
-		})
-
 		Describe("Occurred", func() {
 			It("Should return false when both to and from are nil", func() {
 				Expect(

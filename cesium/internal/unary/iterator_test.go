@@ -301,8 +301,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(
+						MustSucceed2(
+							w.WriteUnless(
 								telem.NewSeriesV[telem.TimeStamp](
 									10,
 									11,
@@ -312,6 +312,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									15,
 									16,
 								),
+								nil,
 							),
 						)
 						MustSucceed(w.Commit(ctx))
@@ -325,7 +326,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								},
 							),
 						)
-						MustSucceed(w.Write(telem.NewSeriesV[int64](17, 18)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesV[int64](17, 18), nil),
+						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
@@ -1751,8 +1754,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										Start: telem.SecondTS,
 									},
 								))
-								align := MustSucceed(iw.Write(
+								align, _ := MustSucceed2(iw.WriteUnless(
 									telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
+									nil,
 								))
 								MustSucceed(iw.Commit(ctx))
 								Expect(iw.Close()).To(Succeed())
@@ -1762,15 +1766,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										Start: telem.SecondTS,
 									},
 								))
-								MustSucceed(dw.WriteAt(
+								MustSucceed2(dw.WriteAtUnless(
 									telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 									align,
+									nil,
 								))
-								Expect(dw.CommitWithEnd(
+								MustSucceed(dw.CommitWithEndUnless(
 									ctx,
 									12*telem.SecondTS+1,
 									nil,
-								)).To(Succeed())
+									nil,
+								))
 								Expect(dw.Close()).To(Succeed())
 								iter := MustSucceed(
 									db.OpenIterator(unary.IteratorConfig{
@@ -2248,14 +2254,18 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									},
 								),
 							)
-							MustSucceed(
-								w.Write(
+							MustSucceed2(
+								w.WriteUnless(
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
+									nil,
 								),
 							)
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(
-								w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20)),
+							MustSucceed2(
+								w.WriteUnless(
+									telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20),
+									nil,
+								),
 							)
 							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
@@ -2343,14 +2353,15 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									},
 								),
 							)
-							MustSucceed(
-								w.Write(
+							MustSucceed2(
+								w.WriteUnless(
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
+									nil,
 								),
 							)
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(
-								w.Write(
+							MustSucceed2(
+								w.WriteUnless(
 									telem.NewSeriesSecondsTSV(
 										16,
 										17,
@@ -2361,6 +2372,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 										22,
 										23,
 									),
+									nil,
 								),
 							)
 							MustSucceed(w.Commit(ctx))
@@ -2593,9 +2605,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Start: 1 * telem.SecondTS,
 						},
 					))
-					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+					MustSucceed2(
+						indexW.WriteUnless(
+							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+							nil,
+						),
+					)
 					MustSucceed(indexW.Commit(ctx))
-					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(6, 7, 8)))
+					MustSucceed2(
+						indexW.WriteUnless(telem.NewSeriesSecondsTSV(6, 7, 8), nil),
+					)
 					MustSucceed(indexW.Commit(ctx))
 					Expect(indexW.Close()).To(Succeed())
 					Expect(
@@ -2608,10 +2627,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Start: 1 * telem.SecondTS,
 						},
 					))
-					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
+					MustSucceed2(
+						unaryW.WriteUnless(
+							telem.NewSeriesV[float32](1, 2, 3, 4, 5),
+							nil,
+						),
+					)
 					// Rollover 1
 					MustSucceed(unaryW.Commit(ctx))
-					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
+					MustSucceed2(
+						unaryW.WriteUnless(telem.NewSeriesV[float32](6, 7, 8), nil),
+					)
 					MustSucceed(unaryW.Commit(ctx))
 					Expect(unaryW.Close()).To(Succeed())
 					// Assert that we've rolled over the correct number of files
@@ -2699,13 +2725,23 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 					),
 					)
-					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+					MustSucceed2(
+						indexW.WriteUnless(
+							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+							nil,
+						),
+					)
 					// Rollover 1
 					MustSucceed(indexW.Commit(ctx))
-					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10)))
+					MustSucceed2(
+						indexW.WriteUnless(
+							telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
+							nil,
+						),
+					)
 					MustSucceed(indexW.Commit(ctx))
 					// Rollover 2
-					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(11)))
+					MustSucceed2(indexW.WriteUnless(telem.NewSeriesSecondsTSV(11), nil))
 					MustSucceed(indexW.Commit(ctx))
 
 					Expect(indexW.Close()).To(Succeed())
@@ -2723,18 +2759,19 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					),
 					)
 
-					MustSucceed(
-						unaryW.Write(
+					MustSucceed2(
+						unaryW.WriteUnless(
 							telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9),
+							nil,
 						),
 					)
 					// Rollover 1
 					MustSucceed(unaryW.Commit(ctx))
 					// Rollover 2
-					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](10)))
+					MustSucceed2(unaryW.WriteUnless(telem.NewSeriesV[float32](10), nil))
 					MustSucceed(unaryW.Commit(ctx))
 
-					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](11)))
+					MustSucceed2(unaryW.WriteUnless(telem.NewSeriesV[float32](11), nil))
 					MustSucceed(unaryW.Commit(ctx))
 
 					Expect(unaryW.Close()).To(Succeed())
@@ -2752,9 +2789,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					),
 					)
 
-					MustSucceed(
-						unaryW.Write(
+					MustSucceed2(
+						unaryW.WriteUnless(
 							telem.NewSeriesV[uint8](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
+							nil,
 						),
 					)
 					MustSucceed(unaryW.Commit(ctx))
