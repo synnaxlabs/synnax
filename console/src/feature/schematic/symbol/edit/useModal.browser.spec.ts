@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
@@ -466,6 +466,38 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(fill);
       await waitFor(() =>
         expect(findButton("Drawing").getAttribute("aria-disabled")).toBe("true"),
+      );
+    });
+
+    it("gives an overriding part the paint of the whole drawing back", async () => {
+      const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
+      const { symbol, fill } = await openPainted({
+        states: [createState()],
+        looks: [
+          node,
+          {
+            key: "red",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      fireEvent.click(fill);
+      const dialog = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(
+          ".console-schematic-paint-dialog",
+        );
+        assertDefined(el);
+        return el;
+      });
+      fireEvent.click(within(dialog).getByText("Whole drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([node]),
       );
     });
 
