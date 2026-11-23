@@ -1,0 +1,38 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { ComponentProps } from "astro/types";
+
+import Inline from "@/components/code/Inline.astro";
+import { type Product, train } from "@/util/releases";
+
+interface Version {
+    /** Such as `0.62.1`. */
+    version: string;
+    /** Such as `0.62`. */
+    train: string;
+}
+
+export interface Props {
+    lang: ComponentProps<typeof Inline>["lang"];
+    /** Builds the code from the documented release and the release before it. */
+    code: (versions: { current: Version; previous: Version }) => string;
+    /** Defaults to the Core. */
+    product?: Product;
+}
+
+const { lang, code, product = "core" } = Astro.props;
+const { releases } = Astro.locals;
+const describe = (version: string): Version => ({ version, train: train(version) });
+const current = describe(await releases.documented(product));
+const previous = describe(await releases.previous(product));
+---
+
+<Inline lang={lang} code={code({ current, previous })} theme="css-variables" />

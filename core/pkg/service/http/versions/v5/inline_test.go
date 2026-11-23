@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -33,6 +32,17 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+// channelsOf returns the lookup of channels in which found holds every channel.
+func channelsOf(found map[channel.Key]icdv0.Channel) icdv0.Channels {
+	return func(
+		context.Context,
+		gorp.Snapshot,
+		[]channel.Key,
+	) (map[channel.Key]icdv0.Channel, error) {
+		return found, nil
+	}
+}
+
 // resolve resolves cfg with found as the channels that exist. It returns the ICD, the
 // resolved config, and each path that a note named.
 func resolve(
@@ -42,15 +52,8 @@ func resolve(
 ) (icdv1.ICD, v5.ReadConfig, []string) {
 	GinkgoHelper()
 	var notes []string
-	channels := func(
-		context.Context,
-		gorp.Snapshot,
-		[]channel.Key,
-	) (map[channel.Key]icdv0.Channel, error) {
-		return found, nil
-	}
 	ic, ok := MustSucceed2(v5.ResolveReadConfig(
-		ctx, nil, channels, "Plant", &cfg,
+		ctx, nil, channelsOf(found), "Plant", &cfg,
 		func(path, _ string) { notes = append(notes, path) },
 	))
 	Expect(ok).To(BeTrue())
@@ -79,17 +82,31 @@ func as[T any](v any) T {
 }
 
 // check runs each read of cfg through the read check, against ic and found.
-func check(ic icdv1.ICD, cfg v5.ReadConfig, found map[channel.Key]icdv0.Channel) error {
-	c := read.NewChecker(lo.MapValues(
-		found,
-		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
-	))
+func check(
+	ctx context.Context,
+	ic icdv1.ICD,
+	cfg v5.ReadConfig,
+	found map[channel.Key]icdv0.Channel,
+) error {
+	GinkgoHelper()
+	// The Checker gets ic, so the Resolver retrieves no ICD.
+	resolver := read.NewResolver(nil, channelsOf(found))
+	var reads []read.Read
 	for i, ep := range cfg.Endpoints {
-		for j, rm := range ep.Messages {
-			path := []string{"endpoints", strconv.Itoa(i), "messages", strconv.Itoa(j)}
-			if err := c.Message(rm, ic, path); err != nil {
-				return err
-			}
+		if ep.ICD != nil {
+			reads = append(reads, read.Read{
+				Path:     []string{"endpoints", strconv.Itoa(i)},
+				ICD:      *ep.ICD,
+				Messages: ep.Messages,
+			})
+		}
+	}
+	c := MustSucceed(resolver.NewChecker(
+		ctx, nil, reads, map[icdv1.Key]icdv1.ICD{ic.Key: ic},
+	))
+	for _, rd := range reads {
+		if err := c.Read(rd); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -322,7 +339,7 @@ var _ = Describe("ResolveReadConfig", func() {
 		) (icdv1.ICD, v5.ReadConfig, []string) {
 			GinkgoHelper()
 			ic, cfg, notes := resolve(ctx, staged(ctx, endpoints...), found)
-			Expect(check(ic, cfg, found)).To(Succeed())
+			Expect(check(ctx, ic, cfg, found)).To(Succeed())
 			return ic, cfg, notes
 		}
 
@@ -417,7 +434,7 @@ var _ = Describe("ResolveReadConfig", func() {
 
 			It("Should lift a read that the read check refuses", func(ctx SpecContext) {
 				ic, cfg, _ := twoIndexes(ctx)
-				Expect(check(ic, cfg, found)).To(MatchError(SatisfyAll(
+				Expect(check(ctx, ic, cfg, found)).To(MatchError(SatisfyAll(
 					ContainSubstring("endpoints.0.messages.0.bindings.0.channel"),
 					ContainSubstring(
 						"field t cannot write to index channel time, because only the "+

@@ -109,9 +109,14 @@ export interface Floor {
 
 /**
  * Receives a span of a channel's history that changed, or of every channel's when the
- * channel is null.
+ * channel is null. missed is true when the stream missed frames, not when history
+ * changed.
  */
-export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
+export type InvalidateHandler = (
+  ch: channel.Key | null,
+  tr: TimeRange,
+  missed: boolean,
+) => void;
 
 /**
  * @returns true when a calculation writes the channel's samples. It writes a calculated
@@ -293,6 +298,21 @@ export class Store {
     );
   }
 
+  /** @returns true when the Core stores the channel's samples. */
+  stored(ch: channel.Key): boolean {
+    return this.leaseholders.has(ch);
+  }
+
+  /**
+   * Restarts the time from which history signals count as delivered, after the stream
+   * dropped frames that could hold them. A sealed block fetched before now then stays
+   * valid only until it is older than the stale threshold, and a held block until it
+   * is released.
+   */
+  restartSignals(): void {
+    if (this.signalsSince != null) this.signalsSince = this.now();
+  }
+
   /** @returns true when the channel is calculated. */
   isCalculated(ch: channel.Key): boolean {
     return this.calculated.has(ch);
@@ -334,16 +354,21 @@ export class Store {
 
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
-   * when the channel is null.
+   * when the channel is null. Set missed when the stream missed frames, not when
+   * history changed.
    */
-  invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
+  invalidate(
+    ch: channel.Key | null = null,
+    tr: TimeRange = TimeRange.MAX,
+    missed = false,
+  ): void {
     const touched = [...this.entries]
       .map(([key, { block }]) => [key, block] as const)
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
       if (!(block instanceof RawBlock)) this.delete(key);
       else if (block.expire()) this.set(key, block);
-    this.invalidateHandlers.forEach((h) => h(ch, tr));
+    this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
   }
 
   /** @returns the data type of the channel's cached samples. */
