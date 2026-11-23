@@ -36,9 +36,10 @@ type CommanderConfig struct {
 	// [REQUIRED]
 	Status *StatusHandler
 	// Exec runs a command and returns the data that answers it. The data answers the
-	// command even when the error is not nil. It returns ErrUnsupportedCommand for a
-	// command it does not know. The Commander runs one Exec at a time, and cancels ctx
-	// when it stops.
+	// command even when the error is not nil. A Failure gives the message and the
+	// description of the answer. The text of any other error is the description. It
+	// returns ErrUnsupportedCommand for a command it does not know. The Commander runs
+	// one Exec at a time, and cancels ctx when it stops.
 	//
 	// [REQUIRED]
 	Exec func(ctx context.Context, cmd task.Command) (msgpack.EncodedJSON, error)
@@ -155,7 +156,8 @@ func (c *Commander) answer(ctx context.Context, cmd task.Command) {
 	case errors.As(err, &f):
 		variant, message, description = status.VariantError, f.Message, f.Description
 	case err != nil:
-		variant, message = status.VariantError, err.Error()
+		variant = status.VariantError
+		message, description = failureMessage(cmd.Type), err.Error()
 	}
 	if rErr := c.cfg.Status.Reply(
 		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,

@@ -94,7 +94,7 @@ var _ = Describe("ExportGroup", func() {
 		GinkgoHelper()
 		sym := defaults.Fill(symbol.Symbol{
 			Name:  name,
-			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			Group: &g.Key,
 		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -306,7 +306,7 @@ var _ = Describe("ImportGroup", func() {
 		})
 		sym := defaults.Fill(symbol.Symbol{
 			Name:  "Inlet",
-			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			Group: &src.Key,
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
@@ -453,7 +453,8 @@ var _ = Describe("ImportGroup", func() {
 				}
 			}
 			Expect(imported.Data.Variant).To(Equal("static"))
-			Expect(imported.Data.SVG).To(HavePrefix("<svg"))
+			Expect(imported.Data.Drawing.Variant).
+				To(HaveField("Markup", HavePrefix("<svg")))
 			Expect(imported.Data.States).To(HaveLen(1))
 			Expect(imported.Data.PreviewViewport).ToNot(BeNil())
 			Expect(g.Name).To(Equal("custom symbols"))

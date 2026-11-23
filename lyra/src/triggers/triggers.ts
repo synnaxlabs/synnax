@@ -72,7 +72,7 @@ export const isAlphanumericKey = (key: Key): key is AlphanumericKey =>
 
 // The printable keys outside the alphanumeric set. Every other Key names an action
 // (Enter, Escape, the arrows) rather than a character.
-const PUNCTUATION_KEYS_SET = new Set<Key>(["Equal", "Minus", "Space"]);
+const PUNCTUATION_KEYS_SET = new Set<Key>(["Equal", "Minus", "Period", "Space"]);
 
 /** @returns whether pressing the key types a character. */
 export const isTextEntryKey = (key: Key): boolean =>
@@ -93,6 +93,7 @@ export const KEYS = [
   "Space",
   "Equal",
   "Minus",
+  "Period",
   "PageUp",
   "PageDown",
   "End",

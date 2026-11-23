@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, type timer, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -16,6 +16,7 @@ import { framer } from "@/framer";
 import {
   DisconnectedError,
   MultipleFoundError,
+  NotCachedError,
   NotFoundError,
   type Synnax,
   ValidationError,
@@ -55,6 +56,44 @@ const OTHER_ROUTING_KEY = await createRoutingKey();
 
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
+
+interface ManualTimer extends timer.Timer {
+  span: TimeSpan;
+  /** Expires the timer, unless it was cancelled. */
+  expire: () => void;
+}
+
+/** Starts timers that expire only when a spec expires them. */
+const createManualTimer = () => {
+  const timers: ManualTimer[] = [];
+  const pending: Array<() => void> = [];
+  const start: timer.Start = (span) => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    let cancelled = false;
+    timers.push({
+      span: new TimeSpan(span),
+      expired: promise,
+      cancel: () => {
+        cancelled = true;
+      },
+      expire: () => {
+        if (!cancelled) resolve();
+      },
+    });
+    pending.splice(0).forEach((notify) => notify());
+    return timers[timers.length - 1];
+  };
+  /** Resolves with the timer started at the index, once it starts. */
+  const started = async (index: number): Promise<ManualTimer> => {
+    while (timers.length <= index) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      pending.push(resolve);
+      await promise;
+    }
+    return timers[index];
+  };
+  return { start, started };
+};
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
@@ -232,7 +271,7 @@ describe("Task", async () => {
         }),
       ];
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.tasks.retrieve(key)),
@@ -633,7 +672,7 @@ describe("Task", async () => {
       ]);
     });
 
-    it("should return false without a send when the task is not cached", async () => {
+    it("should throw without a send when the task is not cached", async () => {
       const t = await testRack.createTask({
         name: `dispatch-uncached-${id.create()}`,
         config: { routingKey: ROUTING_KEY },
@@ -641,9 +680,9 @@ describe("Task", async () => {
       });
       const fresh = createTestClient();
       const send = spyOnSend(fresh);
-      expect(await fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY))).toBe(
-        false,
-      );
+      await expect(
+        fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY)),
+      ).rejects.toThrow(NotCachedError);
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -1306,6 +1345,18 @@ describe("Task", async () => {
       },
     );
 
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
+      await c.racks.create({
+        name: `running-${id.create()}`,
+        status: {
+          variant: "success",
+          message: "Driver running",
+          details: { running: true },
+        },
+      });
+
     const setReply = async (
       t: task.Task,
       cmd: task.Command,
@@ -1323,14 +1374,15 @@ describe("Task", async () => {
           running: variant === "success",
           cmd: cmd.key,
           configHash: "",
-          rack: testRack.key,
+          rack: t.rack,
           data: {},
         },
       });
     };
 
     it("should wait past the timeout for the final status after a loading reply", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `slow-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
@@ -1347,95 +1399,54 @@ describe("Task", async () => {
     });
 
     it("should give up two minutes after a loading reply with no final status", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `lost-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        timer: timers.start,
       });
-      let settled = false;
-      const markSettled = (): void => {
-        settled = true;
-      };
-      wait.then(markSettled, markSettled);
       const cmd = await readCommand(streamer, t.key);
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
       await setReply(t, cmd, "loading", "Starting task");
-      await expect
-        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-        .toBe("Starting task");
-      // The wait gets the reply at about the time the store does. Steps shorter than
-      // the 1 minute acknowledgment limit cover the gap.
-      await vi.waitFor(async () => {
-        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
-        expect(settled).toBe(true);
-      });
+      const final = await timers.started(1);
+      expect(final.span).toEqual(TimeSpan.minutes(2));
+      final.expire();
       await expect(wait).rejects.toThrow(
-        new Error(`Command to ${t.name} timed out after 2min`),
+        new Error(`Command to ${t.name} timed out after ${final.span.toString()}`),
       );
     });
 
     it("should restart the wait for the final status on each loading reply", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `long-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
-      const realSetTimeout = globalThis.setTimeout;
-      // Lets the wait read a reply that the store already holds.
-      const settle = async (): Promise<void> =>
-        await new Promise((resolve) => realSetTimeout(resolve, 200));
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
-      const loading = async (message: string): Promise<void> => {
-        await setReply(t, cmd, "loading", message);
-        await expect
-          .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-          .toBe(message);
-        await settle();
-      };
-      await loading("Starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
-      await loading("Still starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+      await setReply(t, cmd, "loading", "Starting task");
+      const first = await timers.started(1);
+      await setReply(t, cmd, "loading", "Still starting task");
+      await timers.started(2);
+      first.expire();
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
-
-    // The change stream can deliver a status written before the wait began, so each
-    // rack starts with the status of a running Driver.
-    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
-      await c.racks.create({
-        name: `running-${id.create()}`,
-        status: {
-          variant: "success",
-          message: "Driver running",
-          details: { running: true },
-        },
-      });
 
     describe.each([
       { replies: "the change stream", cache: true, streamers: 0 },

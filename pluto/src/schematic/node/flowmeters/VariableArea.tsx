@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
+
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { Props } from "@/schematic/node/flowmeters/props";
 import svg from "@/schematic/node/flowmeters/VariableArea.svg?raw";
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
@@ -36,7 +38,7 @@ export const VariableArea = ({
     className={CSS.cls(CSS.B("flowmeter-VariableArea"), className)}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

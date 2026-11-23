@@ -22,6 +22,24 @@ describe("CreateListItem", () => {
     expect(item.classList).toContain("lyra-create-list-item--small");
   });
 
+  it("should be a small button at the small size", () => {
+    const { getByRole } = render(
+      <Button.CreateListItem size="small">Add alert</Button.CreateListItem>,
+    );
+    const item = getByRole("button", { name: "Add alert" });
+    expect(item.classList).toContain("lyra--height-small");
+    expect(item.classList).toContain("lyra-text--small");
+  });
+
+  it("should keep medium text at the large size", () => {
+    const { getByRole } = render(
+      <Button.CreateListItem size="large">Add alert</Button.CreateListItem>,
+    );
+    expect(getByRole("button", { name: "Add alert" }).classList).toContain(
+      "lyra-text--p",
+    );
+  });
+
   it("should take the medium size by default", () => {
     const { getByRole } = render(
       <Button.CreateListItem>Add alert</Button.CreateListItem>,

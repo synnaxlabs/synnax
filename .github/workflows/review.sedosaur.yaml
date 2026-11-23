@@ -434,6 +434,7 @@ jobs:
     name: Restore the summary
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       checks: read
       pull-requests: read
     timeout-minutes: 10

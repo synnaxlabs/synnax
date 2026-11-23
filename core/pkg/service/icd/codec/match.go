@@ -20,20 +20,28 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// router finds the message that a document belongs to. Every match rule tests the value
-// at one pointer, so one lookup on that value finds the message.
+// router finds the message that a document belongs to. Every value rule tests the value
+// at one pointer, so one lookup on that value finds its message. Each present rule
+// tests a pointer of its own.
 type router struct {
-	// ruled is true when a message has a match rule.
+	names []string
+	// ruled is true when a message has a value rule.
 	ruled    bool
 	pointer  xjson.Pointer
 	strings  map[string]int
 	booleans map[bool]int
 	integers map[integer]int
 	floats   map[float64]int
+	present  []presentRule
 	// fallback is the message with no match rule, or -1 when every message has one.
 	fallback int
 	// text is scratch space for the text of a string value.
 	text []byte
+}
+
+type presentRule struct {
+	pointer xjson.Pointer
+	message int
 }
 
 // integer is the value of an integer or unsigned match rule.
@@ -61,6 +69,7 @@ func (k integer) String() string {
 
 func newRouter(messages []JSONMessage) (*router, error) {
 	r := &router{
+		names:    make([]string, len(messages)),
 		strings:  make(map[string]int),
 		booleans: make(map[bool]int),
 		integers: make(map[integer]int),
@@ -68,12 +77,13 @@ func newRouter(messages []JSONMessage) (*router, error) {
 		fallback: -1,
 	}
 	var (
-		// first is the first message with a match rule.
+		// first is the first message with a value rule.
 		first = -1
 		// rounded holds an integer rule for each float that one rounds to.
 		rounded = make(map[float64]integer)
 	)
 	for i, m := range messages {
+		r.names[i] = m.Name
 		if m.Payload.Match == nil {
 			if r.fallback >= 0 {
 				return nil, errors.Wrapf(
@@ -91,6 +101,10 @@ func newRouter(messages []JSONMessage) (*router, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "message %s: match", m.Name)
 		}
+		if _, ok := match.Variant.(icd.PresentJSONMatch); ok {
+			r.present = append(r.present, presentRule{pointer: pointer, message: i})
+			continue
+		}
 		if first < 0 {
 			first, r.pointer = i, pointer
 		} else if !slices.Equal(pointer, r.pointer) {
@@ -103,24 +117,84 @@ func newRouter(messages []JSONMessage) (*router, error) {
 				match.Base().Pointer,
 			)
 		}
-		taken, value, typed := r.claimMatch(match, i, rounded)
-		if !typed {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "message %s: match type is required", m.Name,
-			)
-		}
-		if taken >= 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"messages %s and %s match the same value %s",
-				messages[taken].Name,
-				m.Name,
-				value,
-			)
+		if err := r.claim(messages, i, rounded); err != nil {
+			return nil, err
 		}
 	}
 	r.ruled = first >= 0
+	if err := r.checkPresent(messages, first); err != nil {
+		return nil, err
+	}
 	return r, nil
+}
+
+// claim routes the value that the match rule of message i meets to it. It returns an
+// error when the rule has no type or another message already claimed the value.
+func (r *router) claim(
+	messages []JSONMessage, i int, rounded map[float64]integer,
+) error {
+	m := messages[i]
+	taken, value, typed := r.claimMatch(*m.Payload.Match, i, rounded)
+	if !typed {
+		return errors.Wrapf(
+			validate.ErrValidation, "message %s: match type is required", m.Name,
+		)
+	}
+	if taken >= 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"messages %s and %s match the same value %s",
+			messages[taken].Name,
+			m.Name,
+			value,
+		)
+	}
+	return nil
+}
+
+// checkPresent returns an error when a present rule sits at or above the pointer of
+// another rule, since it meets every document that the other rule meets. first is the
+// first message with a value rule.
+func (r *router) checkPresent(messages []JSONMessage, first int) error {
+	for k, p := range r.present {
+		other, at := -1, xjson.Pointer(nil)
+		if r.ruled && within(r.pointer, p.pointer) {
+			other, at = first, r.pointer
+		}
+		for j, q := range r.present {
+			if j != k && within(q.pointer, p.pointer) {
+				other, at = q.message, q.pointer
+			}
+		}
+		if other >= 0 {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"messages %s and %s both match a value at %q",
+				messages[min(other, p.message)].Name,
+				messages[max(other, p.message)].Name,
+				at.String(),
+			)
+		}
+	}
+	return nil
+}
+
+// within reports whether inner is outer or a pointer into the value at outer.
+func within(inner, outer xjson.Pointer) bool {
+	return len(outer) <= len(inner) && slices.Equal(outer, inner[:len(outer)])
+}
+
+// pointers returns the pointers that the rules test, in the order that find takes their
+// values.
+func (r *router) pointers() []xjson.Pointer {
+	var pointers []xjson.Pointer
+	if r.ruled {
+		pointers = append(pointers, r.pointer)
+	}
+	for _, p := range r.present {
+		pointers = append(pointers, p.pointer)
+	}
+	return pointers
 }
 
 // claimMatch maps the value of match to message. It returns the message that already
@@ -179,9 +253,39 @@ func claim[K comparable](m map[K]int, key K, message int) int {
 	return -1
 }
 
-// find returns the message of a document whose value at the match pointer is value,
-// which is nil when there is none. ok is false when the document belongs to no message.
-func (r *router) find(value jsontext.Value) (message int, ok bool, err error) {
+// find returns the message of a document whose values at the pointers of the router are
+// values. A value is nil when the document holds none. ok is false when the document
+// belongs to no message. find returns an error when the document meets two rules.
+func (r *router) find(values []jsontext.Value) (message int, ok bool, err error) {
+	if r.ruled {
+		if message, ok, err = r.findValue(values[0]); err != nil {
+			return 0, false, err
+		}
+		values = values[1:]
+	}
+	for i, p := range r.present {
+		if values[i] == nil || values[i].Kind() == 'n' {
+			continue
+		}
+		if ok {
+			return 0, false, errors.Wrapf(
+				validate.ErrValidation,
+				"document matches messages %s and %s",
+				r.names[min(message, p.message)],
+				r.names[max(message, p.message)],
+			)
+		}
+		message, ok = p.message, true
+	}
+	if !ok && r.fallback >= 0 {
+		return r.fallback, true, nil
+	}
+	return message, ok, nil
+}
+
+// findValue returns the message of the value rule that value meets. value is nil when
+// the document holds none.
+func (r *router) findValue(value jsontext.Value) (message int, ok bool, err error) {
 	switch value.Kind() {
 	case '"':
 		if r.text, err = jsontext.AppendUnquote(r.text[:0], value); err != nil {
@@ -205,9 +309,6 @@ func (r *router) find(value jsontext.Value) (message int, ok bool, err error) {
 		if !ok {
 			message, ok = r.floats[n.Float64()]
 		}
-	}
-	if !ok && r.fallback >= 0 {
-		return r.fallback, true, nil
 	}
 	return message, ok, nil
 }

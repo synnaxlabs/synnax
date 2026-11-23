@@ -128,17 +128,9 @@ func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelV
 	i := int(a.SampleIndex() - s.Alignment.SampleIndex())
 	switch s.DataType {
 	case telem.Float64T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{
-				Double: s.ValueAt[float64](i),
-			},
-		}
+		return doubleValue(s.ValueAt[float64](i))
 	case telem.Float32T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Float{
-				Float: s.ValueAt[float32](i),
-			},
-		}
+		return floatValue(s.ValueAt[float32](i))
 	case telem.Int8T:
 		return int32Value(int32(s.ValueAt[int8](i)))
 	case telem.Int16T:
@@ -156,31 +148,49 @@ func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelV
 	case telem.Uint32T:
 		return uint32Value(s.ValueAt[uint32](i))
 	case telem.Uint64T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Uint64{
-				Uint64: s.ValueAt[uint64](i),
-			},
-		}
+		return uint64Value(s.ValueAt[uint64](i))
 	case telem.BooleanT:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Bool{
-				Bool: s.ValueAt[uint8](i) != 0,
-			},
-		}
+		return boolValue(s.ValueAt[uint8](i) != 0)
 	case telem.UUIDT:
 		return stringValue(uuid.UUID(s.At(i)).String())
 	case telem.StringT, telem.JSONT:
 		return stringValue(string(c.variable[i]))
 	case telem.BytesT:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Bytes{
-				Bytes: c.variable[i],
-			},
-		}
+		return bytesValue(c.variable[i])
 	case telem.UnknownT:
 		return empty
 	default:
 		panic("unknown data type " + string(s.DataType))
+	}
+}
+
+func doubleValue(v float64) *ingestv1.IngestWithConfigDataChannelValue {
+	return &ingestv1.IngestWithConfigDataChannelValue{
+		Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: v},
+	}
+}
+
+func floatValue(v float32) *ingestv1.IngestWithConfigDataChannelValue {
+	return &ingestv1.IngestWithConfigDataChannelValue{
+		Type: &ingestv1.IngestWithConfigDataChannelValue_Float{Float: v},
+	}
+}
+
+func uint64Value(v uint64) *ingestv1.IngestWithConfigDataChannelValue {
+	return &ingestv1.IngestWithConfigDataChannelValue{
+		Type: &ingestv1.IngestWithConfigDataChannelValue_Uint64{Uint64: v},
+	}
+}
+
+func boolValue(v bool) *ingestv1.IngestWithConfigDataChannelValue {
+	return &ingestv1.IngestWithConfigDataChannelValue{
+		Type: &ingestv1.IngestWithConfigDataChannelValue_Bool{Bool: v},
+	}
+}
+
+func bytesValue(v []byte) *ingestv1.IngestWithConfigDataChannelValue {
+	return &ingestv1.IngestWithConfigDataChannelValue{
+		Type: &ingestv1.IngestWithConfigDataChannelValue_Bytes{Bytes: v},
 	}
 }
 

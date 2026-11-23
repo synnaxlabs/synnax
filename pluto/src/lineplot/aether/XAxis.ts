@@ -7,49 +7,113 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, bounds, box, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
+  align,
   type AxisRenderProps,
   BaseAxis,
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
+import { type Gap, join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
+import { axis } from "@/vis/axis";
 import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
+
+// The band over a seam ends this many pixels short of the mark on the axis.
+const BAND_GAP = 2;
+
+/** Where a click lands: a click on the plot finds only closed breaks. */
+const breakSourceZ = z.enum(["plot", "axis"]);
+export type BreakSource = z.infer<typeof breakSourceZ>;
+
+/**
+ * Opens or closes the break under a click, opens or closes every break, or sets the
+ * open breaks to the given gap starts.
+ */
+const breakActionZ = z.discriminatedUnion("variant", [
+  z.object({
+    variant: z.literal("toggle"),
+    /** The x of the click, in pixels from the left of the canvas. */
+    x: z.number(),
+    source: breakSourceZ,
+  }),
+  z.object({ variant: z.literal("all"), open: z.boolean() }),
+  z.object({ variant: z.literal("set"), open: z.array(z.number()) }),
+]);
+export type BreakAction = z.infer<typeof breakActionZ>;
+
+export const breaksRequestZ = z.object({
+  action: breakActionZ,
+  /** The viewport the action applies to. */
+  viewport: box.box,
+  /** Views the plot holds to return to, in the same space as the viewport. */
+  held: z.array(box.box),
+  /** The selection, in the same space as the viewport. */
+  selection: box.box,
+});
+export type BreaksRequest = z.infer<typeof breaksRequestZ>;
+
+/** The open breaks after a break action, and the boxes of its request mapped so each
+ * holds the same values. */
+export const breaksChangeZ = breaksRequestZ
+  .omit({ action: true })
+  .extend({ openBreaks: z.array(z.number()) });
+export type BreaksChange = z.infer<typeof breaksChangeZ>;
+
+// A click opens or closes a break within this many pixels of its mark.
+const BREAK_HIT_DISTANCE = axis.BREAK_WIDTH / 2 + 2;
+
+/** The plot state that lays out an x axis. */
+export type LayoutProps = Pick<
+  AxisRenderProps,
+  "hold" | "viewport" | "breaksHidden" | "openBreaks"
+>;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
   override schema = baseAxisStateZ;
 
-  render(props: AxisRenderProps): void {
-    if (this.deleted) return;
-    const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    this.renderAxis(props, dataToDecimal.reverse());
-    this.renderYAxes(props, dataToDecimal, xBounds);
-    this.renderRanges(props, dataToDecimal);
-    // Throw the error here to that the user still has a visible axis.
-    if (err != null) throw err;
+  /**
+   * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
+   * raised lines to raised, and each range strip adds the draw of its tooltip.
+   * @returns the layout of the draw, its gaps or the gaps that hidden breaks hide, and
+   * the first error it met, or null for a deleted axis. An error does not stop the
+   * draw, so the axis still shows.
+   */
+  render(
+    props: AxisRenderProps,
+    raised: Array<() => void>,
+  ): [Layout, readonly Gap[], Error | null] | null {
+    if (this.deleted) return null;
+    const [layout, traces, err] = this.iLayout(props);
+    const segments = layout.segments.map(({ position, scale }) => ({
+      position,
+      decimalToDataScale: scale.reverse(),
+    }));
+    const openBreaks = layout.gaps.filter((g) => g.open).map((g) => layout.mark(g));
+    this.renderAxis(props, segments[0].decimalToDataScale, segments, openBreaks);
+    let yErr: Error | null = null;
+    try {
+      this.renderYAxes({ ...props, layout }, raised);
+    } catch (e) {
+      yErr = e as Error;
+    }
+    this.renderRanges(props, layout, traces, raised);
+    this.renderBreaks(props, layout);
+    return [layout, this.gaps(layout, traces, props), err ?? yErr];
   }
 
   findByXDecimal(
     props: Omit<AxisRenderProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const [scale, , err] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    if (err != null) throw err;
-    return this.findByXValue(props, scale.reverse().pos(target));
+    return this.findByXValue(props, this.layout(props).reverse(target));
   }
 
   findByXValue(
@@ -69,29 +133,64 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     target: number,
   ): line.FindResult[] {
     const p = this.yAxisProps(props);
-    const value = p.xDataToDecimalScale.reverse().pos(target);
+    const value = p.layout.reverse(target);
     return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
+  }
+
+  /**
+   * @returns the open breaks after the action of req, and the boxes of req mapped so
+   * each holds the same values, or null when the action changes nothing.
+   * @param plot - the plot region, in pixels from the top left of the canvas.
+   */
+  breaks(props: LayoutProps, req: BreaksRequest, plot: box.Box): BreaksChange | null {
+    const { action, viewport } = req;
+    const before = this.layout({ ...props, viewport });
+    const shown = before.gaps.filter((g) => g.open).map((g) => g.bounds.lower);
+    let openBreaks: number[];
+    if (action.variant === "all")
+      openBreaks = action.open ? before.gaps.map((g) => g.bounds.lower) : [];
+    else if (action.variant === "set") openBreaks = action.open;
+    else {
+      const width = box.width(plot);
+      const position = (action.x - box.left(plot)) / width;
+      const hit = BREAK_HIT_DISTANCE / width;
+      const gap = before.gapAt(position, hit, action.source === "plot");
+      if (gap == null) return null;
+      const { lower } = gap.bounds;
+      openBreaks = gap.open ? shown.filter((l) => l !== lower) : [...shown, lower];
+    }
+    if (array.equalAsSets(openBreaks, props.openBreaks)) return null;
+    const after = this.layout({ ...props, openBreaks, viewport: box.DECIMAL });
+    const view = (b: box.Box) => remap(before, after, b, true);
+    return {
+      openBreaks,
+      viewport: view(viewport),
+      held: req.held.map(view),
+      selection: remap(before, after, req.selection, false),
+    };
+  }
+
+  /**
+   * @returns the values that the closed break of layout at a decimal position across
+   * the plot hides, or null.
+   */
+  static hiddenAt(
+    layout: Layout,
+    position: number,
+    plot: box.Box,
+  ): bounds.Bounds | null {
+    const hit = BREAK_HIT_DISTANCE / box.width(plot);
+    return layout.gapAt(position, hit, true)?.bounds ?? null;
   }
 
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {
-    const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    if (error != null) throw error;
-    return { ...props, xDataToDecimalScale, xBounds };
+    return { ...props, layout: this.layout(props) };
   }
 
-  private renderYAxes(
-    props: AxisRenderProps,
-    xDataToDecimalScale: scale.Scale,
-    xBounds: bounds.Bounds,
-  ): void {
-    const p = { ...props, xDataToDecimalScale, xBounds };
-    this.yAxes.forEach((el) => el.render(p));
+  private renderYAxes(props: YAxisProps, raised: Array<() => void>): void {
+    this.yAxes.forEach((el) => el.render(props, raised));
   }
 
   get yAxes(): readonly YAxis[] {
@@ -111,28 +210,134 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   bounds(hold: boolean): bounds.Bounds {
-    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    const [bound, err] = this.iBounds(hold, this.traces.bind(this));
     if (err != null) throw err;
     return bound;
   }
 
-  private renderRanges(props: AxisRenderProps, xDataToDecimalScale: scale.Scale): void {
-    const bound = this.bounds(props.hold);
-    const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
+  // gaps returns the gaps of layout, or the gaps that the breaks hide while hidden.
+  private gaps(
+    layout: Layout,
+    traces: Trace[],
+    { breaksHidden, openBreaks }: LayoutProps,
+  ): readonly Gap[] {
+    if (!breaksHidden || this.state.type !== "time") return layout.gaps;
+    return join(this.segments(traces, true), openBreaks).gaps;
+  }
+
+  /** @returns the layout of the axis for the viewport. */
+  layout(props: LayoutProps): Layout {
+    const [layout, , err] = this.iLayout(props);
+    if (err != null) throw err;
+    return layout;
+  }
+
+  // iLayout returns the layout and the traces with the error that the traces or the
+  // bounds met, so a render can draw the axis before it reports the error.
+  private iLayout({
+    hold,
+    viewport,
+    breaksHidden,
+    openBreaks,
+  }: LayoutProps): [Layout, Trace[], Error | null] {
+    const { type } = this.state;
+    const [traces, err] = this.iTraces();
+    const collapsed = !breaksHidden && type === "time";
+    const [pieces, boundsErr] = this.iSegments(hold, () => traces, collapsed);
+    const { segments, gaps } = join(pieces, openBreaks);
+    const s = spans(align(traces), type, segments);
+    return [new Layout(segments, viewport, s, gaps), traces, err ?? boundsErr];
+  }
+
+  // iTraces returns the traces, or none with the error that reading them met.
+  private iTraces(): [Trace[], Error | null] {
+    try {
+      return [this.traces(), null];
+    } catch (e) {
+      return [[], e as Error];
+    }
+  }
+
+  private renderRanges(
+    props: AxisRenderProps,
+    layout: Layout,
+    traces: Trace[],
+    raised: Array<() => void>,
+  ): void {
+    const clampedBounds = bounds.intersection([
+      layout.bounds,
+      TimeRange.MAX.numericBounds,
+    ]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
-    const newest = newestSample(this.dataBounds());
+    const newest = newestSample(traces);
     this.ranges.forEach((el) =>
       el.render({
-        dataToDecimalScale: xDataToDecimalScale,
+        layout,
         region: props.plot,
-        viewport: props.viewport,
         timeRange,
         newest: newest == null ? undefined : new TimeStamp(newest),
+        raised,
       }),
     );
   }
 
-  private dataBounds(): line.DataBounds[] {
-    return this.yAxes.flatMap((el) => el.xBounds());
+  // renderBreaks draws a band over each seam in view, through the plot and the range
+  // strip, so a line stops short of the seam on each side. The band ends short of the
+  // mark on the axis, which it would hide.
+  private renderBreaks({ plot, canvases }: AxisRenderProps, layout: Layout): void {
+    if (!canvases.includes("upper2d") || layout.segments.length < 2) return;
+    const { draw } = this.internal;
+    const { theme } = draw;
+    const strip = Math.max(
+      0,
+      ...this.ranges.filter((r) => r.state.visible).map((r) => r.state.height),
+    );
+    const clear = axis.BREAK_HEIGHT / 2 + BAND_GAP;
+    const atTop = this.state.location === "top";
+    const top = box.top(plot) - strip + (atTop ? clear : 0);
+    const bottom = box.bottom(plot) - (atTop ? 0 : clear);
+    layout.segments.slice(1).forEach(({ position }) => {
+      const x = box.left(plot) + position.lower * box.width(plot);
+      if (x <= box.left(plot) || x >= box.right(plot)) return;
+      const lower = x - axis.BREAK_WIDTH / 2;
+      const upper = x + axis.BREAK_WIDTH / 2;
+      draw.container({
+        region: box.construct({ x: lower, y: top }, { x: upper, y: bottom }),
+        backgroundColor: theme.colors.gray.l2,
+        bordered: false,
+        rounded: false,
+      });
+      [lower, upper].forEach((edge) => {
+        const crisp = Math.round(edge) + 0.5;
+        draw.line({
+          stroke: theme.colors.gray.l3,
+          lineWidth: 1,
+          lineDash: 3,
+          start: { x: crisp, y: top },
+          end: { x: crisp, y: bottom },
+        });
+      });
+    });
+  }
+
+  private traces(): Trace[] {
+    return this.yAxes.flatMap((el) => el.traces());
   }
 }
+
+// remap returns the box across the home view of after that holds the x values of b
+// across the home view of before. A view that falls inside a closed gap keeps its
+// width, centered on the seam.
+const remap = (before: Layout, after: Layout, b: box.Box, view: boolean): box.Box => {
+  const x = box.xBounds(b);
+  const values = before.reverseHomeBounds(x);
+  let lower = after.home(values.lower);
+  let upper = after.home(values.upper);
+  if (view && upper <= lower) {
+    const half = bounds.span(x) / 2;
+    lower -= half;
+    upper += half;
+  }
+  const { one, two, root } = box.construct(b);
+  return { root, one: { x: lower, y: one.y }, two: { x: upper, y: two.y } };
+};

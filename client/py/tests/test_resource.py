@@ -125,6 +125,11 @@ class TestID:
         original = sy.resource.ID(type="log", key=str(uuid4()))
         assert sy.resource.ID(str(original)) == original
 
+    def test_key_with_colons(self) -> None:
+        id = sy.resource.ID("device:opc.tcp://host:4840")
+        assert id.type == "device"
+        assert id.key == "opc.tcp://host:4840"
+
     def test_copy_constructor(self) -> None:
         original = sy.resource.ID(type="channel", key="12")
         assert sy.resource.ID(original) == original

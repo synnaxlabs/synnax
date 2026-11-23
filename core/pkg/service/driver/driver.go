@@ -84,15 +84,33 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	cleanup, ok := service.NewOpener(ctx, &d.closer)
 	defer func() { err = cleanup(err) }()
 
-	integrations := make([]string, len(cfg.Factories))
-	for i, f := range cfg.Factories {
-		integrations[i] = f.Name()
+	if err = d.registerRack(ctx); !ok(err, nil) {
+		return nil, err
 	}
 
-	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := cfg.Rack.NewWriter(tx).Apply(
+	if err = d.createInitialTasks(ctx); !ok(err, nil) {
+		return nil, err
+	}
+	d.startHeartbeat()
+	d.configureExistingTasks(ctx)
+	ok(nil, d.watchDeleted())
+	if err = d.startCommandStreaming(ctx); !ok(err, nil) {
+		return nil, err
+	}
+	return d, nil
+}
+
+// registerRack writes the driver's integrations and version to its rack and reads the
+// rack back.
+func (d *Driver) registerRack(ctx context.Context) error {
+	integrations := make([]string, len(d.cfg.Factories))
+	for i, f := range d.cfg.Factories {
+		integrations[i] = f.Name()
+	}
+	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := d.cfg.Rack.NewWriter(tx).Apply(
 			ctx,
-			cfg.RackKey,
+			d.cfg.RackKey,
 			rack.NewSetAction(rack.SetPayload{
 				Path:  []string{"integrations"},
 				Value: integrations,
@@ -104,23 +122,20 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		); err != nil {
 			return err
 		}
-		return cfg.Rack.NewRetrieve().
-			Where(rack.MatchKeys(cfg.RackKey)).
+		return d.cfg.Rack.NewRetrieve().
+			Where(rack.MatchKeys(d.cfg.RackKey)).
 			Entry(&d.rack).
 			Exec(ctx, tx)
-	}); !ok(err, nil) {
-		return nil, err
-	}
+	})
+}
 
-	if err = d.createInitialTasks(ctx); !ok(err, nil) {
-		return nil, err
-	}
-	d.startHeartbeat()
-	d.configureExistingTasks(ctx)
+// watchDeleted starts a goroutine that stops the instances of deleted tasks. Closing
+// the returned closer stops the goroutine and stops watching task changes.
+func (d *Driver) watchDeleted() io.MultiCloser {
 	// A reader of a commit must not wait for a task to stop, so it only marks the
 	// instances of deleted tasks, and a goroutine stops them.
 	wake := make(chan struct{}, 1)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	sCtx.Go(func(ctx context.Context) error {
 		for {
 			select {
@@ -131,8 +146,8 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 			d.stopDeleted()
 		}
 	}, signal.WithKey("stop_deleted"))
-	ok(nil, signal.NewHardShutdown(sCtx, cancel))
-	disconnect := cfg.Task.Observe().OnChange(func(
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
+	disconnect := d.cfg.Task.Observe().OnChange(func(
 		_ context.Context,
 		r gorp.TxReader[task.Key, task.Task],
 	) {
@@ -143,11 +158,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 			}
 		}
 	})
-	ok(nil, io.NoFailCloserFunc(disconnect))
-	if err = d.startCommandStreaming(ctx); !ok(err, nil) {
-		return nil, err
-	}
-	return d, nil
+	return io.MultiCloser{shutdown, io.NoFailCloserFunc(disconnect)}
 }
 
 func (d *Driver) createInitialTasks(ctx context.Context) error {
@@ -620,35 +631,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
-		// A factory can start the task, and a canceled Open stops no task.
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(ctx, t, cmdKey)
-			if errors.Is(err, ErrTaskNotHandled) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			// A commit that deleted the task during the deploy marked no instance. The
-			// lock orders this check before markDeleted of any later delete.
-			d.mu.Lock()
-			exists, err := d.cfg.Task.NewRetrieve().
-				Where(task.MatchKeys(t.Key)).
-				Exists(ctx, d.cfg.DB)
-			if exists {
-				d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
-			}
-			d.mu.Unlock()
-			if err != nil || !exists {
-				return errors.Combine(err, newTask.Stop(false))
-			}
-			d.cfg.L.Info("configured task", zap.Stringer("task", t))
-			return nil
-		}
-		return errors.Wrapf(ErrTaskNotHandled, "task type '%s'", t.Type)
+		return d.deploy(ctx, t, cmdKey)
 	}, signal.RecoverWithErrOnPanic())
 	err := sCtx.Wait()
 	if err != nil {
@@ -657,6 +640,39 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 		d.mu.Unlock()
 	}
 	return err
+}
+
+// deploy builds t with the first factory that handles it and stores the instance.
+func (d *Driver) deploy(ctx context.Context, t task.Task, cmdKey string) error {
+	// A factory can start the task, and a canceled Open stops no task.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	for _, f := range d.cfg.Factories {
+		newTask, err := f.ConfigureTask(ctx, t, cmdKey)
+		if errors.Is(err, ErrTaskNotHandled) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		// A commit that deleted the task during the deploy marked no instance. The lock
+		// orders this check before markDeleted of any later delete.
+		d.mu.Lock()
+		exists, err := d.cfg.Task.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Exists(ctx, d.cfg.DB)
+		if exists {
+			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+		}
+		d.mu.Unlock()
+		if err != nil || !exists {
+			return errors.Combine(err, newTask.Stop(false))
+		}
+		d.cfg.L.Info("configured task", zap.Stringer("task", t))
+		return nil
+	}
+	return errors.Wrapf(ErrTaskNotHandled, "task type '%s'", t.Type)
 }
 
 // markDeleted marks the instance of each task that r deletes and forgets a failed

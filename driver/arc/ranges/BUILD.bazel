@@ -19,6 +19,7 @@ cc_library(
         "//arc/cpp/stl",
         "//arc/cpp/types",
         "//client/cpp:synnax",
+        "//client/cpp/color",
         "//client/cpp/status",
         "//driver/arc:reporter",
         "//x/cpp/color",

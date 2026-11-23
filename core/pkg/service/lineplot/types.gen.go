@@ -130,6 +130,16 @@ const (
 	DetailHigh Detail = versions.DetailHigh
 )
 
+// TimeMode selects where an x axis draws the ranges of a line plot.
+type TimeMode = versions.TimeMode
+
+const (
+	// TimeModeAbsolute draws each range at its real time.
+	TimeModeAbsolute TimeMode = versions.TimeModeAbsolute
+	// TimeModeRelative draws each range from its zero, its start or a custom T0.
+	TimeModeRelative TimeMode = versions.TimeModeRelative
+)
+
 // Where is a filter that selects line plots.
 type Where struct {
 	// And matches when every child matches.

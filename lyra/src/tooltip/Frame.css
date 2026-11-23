@@ -13,7 +13,6 @@
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 11;
     pointer-events: none;
     background: var(--pluto-gray-l2);
     border: var(--pluto-border);
@@ -21,7 +20,11 @@
     border-radius: var(--pluto-border-radius-small);
     box-shadow: var(--pluto-shadow-overlay);
     padding: 1rem 1.5rem;
-    max-width: 70rem;
+
+    /* A fixed box shrinks to the room left at its position, so a move would resize
+       it. Its width depends on its content and the window alone. */
+    width: max-content;
+    max-width: min(70rem, 100vw);
     animation: lyra-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 

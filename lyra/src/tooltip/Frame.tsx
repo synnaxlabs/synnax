@@ -20,10 +20,16 @@ import {
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import {
+  useCombinedRefs,
+  usePopover,
+  useResize,
+  useSyncedRef,
+  useWindowResize,
+} from "@/hooks";
 import { Portal } from "@/portal";
 import { position } from "@/position";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 export interface FrameProps {
   /** The element the frame sits beside. */
@@ -48,7 +54,10 @@ const PREFERENCES: position.LocationPreference[] = [
 ];
 const OFFSET = 6;
 
-/** The positioned tooltip box, following its anchor and content through resizes. */
+/**
+ * The positioned tooltip box in the top layer, following its anchor and content through
+ * resizes.
+ */
 export const Frame = ({
   anchor,
   location: locationProp,
@@ -71,10 +80,6 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevPlacementRef.current != null)
       prefer = [prevPlacementRef.current, ...PREFERENCES];
-    // A fixed box near the right edge shrinks to the space left there, so it is
-    // measured at the origin, where the whole window is available.
-    el.style.left = "0px";
-    el.style.top = "0px";
     const { adjustedDialog, ...placement } = position.position({
       target,
       // offset* ignores the entrance animation's scale, unlike getBoundingClientRect.
@@ -91,6 +96,7 @@ export const Frame = ({
     el.style.top = CSS.px(box.top(rounded));
     el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
   };
+  usePopover(ref, true, portalTarget);
   useLayoutEffect(reposition);
   const observeAnchor = useResize(reposition);
   useEffect(() => observeAnchor(anchor), [anchor, observeAnchor]);
@@ -101,6 +107,7 @@ export const Frame = ({
     <div
       id={id}
       role="tooltip"
+      popover="manual"
       ref={combinedRef}
       className={CSS.cls(CSS.B("tooltip"), className)}
     >

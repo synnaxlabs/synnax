@@ -30,7 +30,8 @@ type FrameOmitted =
   | "virtual"
   | "itemHeight"
   | "overscan"
-  | "onFetchMore";
+  | "onFetchMore"
+  | "selectedFirst";
 
 interface BaseSimpleProps
   extends
@@ -69,10 +70,7 @@ export interface SingleSimpleProps<K extends record.Key>
 export interface MultipleSimpleProps<K extends record.Key>
   extends
     BaseSimpleProps,
-    Omit<
-      MultipleFrameProps<K, undefined>,
-      FrameOmitted | "replaceOnSingle" | "selectedFirst"
-    > {
+    Omit<MultipleFrameProps<K, undefined>, FrameOmitted | "replaceOnSingle"> {
   multiple: true;
   triggerProps?: MultipleTriggerProps<K, undefined>;
 }

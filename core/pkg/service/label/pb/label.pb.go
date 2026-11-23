@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/color/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/color/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -41,8 +41,9 @@ type Label struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the label.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// color is the display color for visual identification of the label.
-	Color         *pb.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// color is the display color for visual identification of the label, a named color or
+	// a fixed color.
+	Color         *pb.Ref `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -91,7 +92,7 @@ func (x *Label) GetName() string {
 	return ""
 }
 
-func (x *Label) GetColor() *pb.Color {
+func (x *Label) GetColor() *pb.Ref {
 	if x != nil {
 		return x.Color
 	}
@@ -102,11 +103,11 @@ var File_core_pkg_service_label_pb_label_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_label_pb_label_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/label/pb/label.proto\x12\x10service.label.pb\x1a\x19x/go/color/pb/color.proto\"V\n" +
+	"%core/pkg/service/label/pb/label.proto\x12\x10service.label.pb\x1a%core/pkg/service/color/pb/color.proto\"Z\n" +
 	"\x05Label\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05colorB\xb7\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x05color\x18\x03 \x01(\v2\x15.service.color.pb.RefR\x05colorB\xb7\x01\n" +
 	"\x14com.service.label.pbB\n" +
 	"LabelProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/label/pb\xa2\x02\x03SLP\xaa\x02\x10Service.Label.Pb\xca\x02\x10Service\\Label\\Pb\xe2\x02\x1cService\\Label\\Pb\\GPBMetadata\xea\x02\x12Service::Label::Pbb\x06proto3"
 
@@ -124,11 +125,11 @@ func file_core_pkg_service_label_pb_label_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_label_pb_label_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_label_pb_label_proto_goTypes = []any{
-	(*Label)(nil),    // 0: service.label.pb.Label
-	(*pb.Color)(nil), // 1: x.color.pb.Color
+	(*Label)(nil),  // 0: service.label.pb.Label
+	(*pb.Ref)(nil), // 1: service.color.pb.Ref
 }
 var file_core_pkg_service_label_pb_label_proto_depIdxs = []int32{
-	1, // 0: service.label.pb.Label.color:type_name -> x.color.pb.Color
+	1, // 0: service.label.pb.Label.color:type_name -> service.color.pb.Ref
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
@@ -18,6 +18,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Jumps } from "@/schematic/edge/common/jumps";
 import { Pipe } from "@/schematic/edge/pipe";
+import type { Node } from "@/schematic/node";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
@@ -34,11 +35,10 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
-import type { NodeProps } from "@/schematic/node/spec";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
 import { telemTest } from "@/telem/aether/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { button } from "@/vis/button/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { gauge } from "@/vis/gauge/aether";
@@ -141,7 +141,7 @@ type Field = [
 
 interface SymbolSpec<C extends object> {
   key: string;
-  Node: FC<NodeProps<C>>;
+  Node: FC<Node.NodeProps<C>>;
   Preview: FC<C>;
 }
 
@@ -277,7 +277,6 @@ describe("Schematic named colors", () => {
       additionalRegistry: REGISTRY,
       telemFactories: [new telemTest.TestFactory()],
     });
-    await waitForStreamLive(client.connection);
   });
 
   beforeEach(() => drawn.clear());

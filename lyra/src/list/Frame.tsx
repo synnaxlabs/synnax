@@ -18,6 +18,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -27,7 +28,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { memo } from "@/component/memo";
+import { Component } from "@/component";
 import { context } from "@/context";
 import { useCombinedRefs, useInitializerRef, useSyncedRef } from "@/hooks";
 import { type Elements, ElementsContext, ItemsContext } from "@/list/scope";
@@ -318,8 +319,19 @@ const useDataReader = <K extends record.Key>(
   };
 };
 
-const useElements = (pin: Elements["pin"]): Elements => {
-  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+// Returns the key of the mounted item that holds the focus, or null.
+const focusedKey = (elements: Map<record.Key, HTMLElement>): record.Key | null => {
+  const { activeElement } = document;
+  if (activeElement == null) return null;
+  for (const [key, element] of elements)
+    if (element.contains(activeElement)) return key;
+  return null;
+};
+
+const useElements = (
+  elementsRef: RefObject<Map<record.Key, HTMLElement>>,
+  pin: Elements["pin"],
+): Elements => {
   const setElement = (key: record.Key, element: HTMLElement | null) => {
     if (element == null) elementsRef.current.delete(key);
     else elementsRef.current.set(key, element);
@@ -383,6 +395,7 @@ const VirtualFrame = <
   const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
@@ -397,13 +410,17 @@ const VirtualFrame = <
         outside.add(index);
       };
       if (pinnedRef.current != null) addPinned(pinnedRef.current);
+      // The item that holds the focus stays mounted, so rows that land above it cannot
+      // push it out of the window before a scroll to it lands, such as during a rename.
+      const focused = focusedKey(elementsRef.current);
+      if (focused != null) addPinned(focused);
       pinned?.forEach(addPinned);
       if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
       pinnedOutsideRef.current = outside ?? NO_INDEXES;
       indexesRef.current = indexes;
       return indexes;
     },
-    [],
+    [elementsRef],
   );
   // The virtualizer extracts the range again only when an input changes, so a new
   // extractor mounts a pinned row that is out of view.
@@ -458,7 +475,7 @@ const VirtualFrame = <
     (index: number) => virtualizer.scrollToIndex(index),
     [virtualizer],
   );
-  const elements = useElements(pin);
+  const elements = useElements(elementsRef, pin);
   const { getData, subscribeData } = useDataReader(data);
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
@@ -536,7 +553,8 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   };
-  const elements = useElements(NO_PIN);
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+  const elements = useElements(elementsRef, NO_PIN);
   const { getData, subscribeData } = useDataReader(data);
 
   const initialFetchCallback = useFetchMoreRefCallback(onFetchMore, data.length === 0);
@@ -593,4 +611,4 @@ export const BaseFrame = <
  *   </List.Scroll>
  * </List.Frame>
  */
-export const Frame = memo(BaseFrame);
+export const Frame = Component.memo(BaseFrame);

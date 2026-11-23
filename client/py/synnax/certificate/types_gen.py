@@ -101,7 +101,7 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
     source: filter.Set[secret.Source] | None = None
-    racks: list[rack_.Key] | None = None
+    racks: list[Annotated[rack_.Key, Field(ge=0, le=4294967295)]] | None = None
 
     @field_validator("racks", mode="before")
     @classmethod

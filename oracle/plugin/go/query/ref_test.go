@@ -478,12 +478,84 @@ var _ = Describe("@ref", func() {
 		),
 	)
 
+	DescribeTable(
+		"Should retarget a top-level field",
+		func(field string, body []string) {
+			resp := MustGenerate(device(field), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").ToContain(body...)
+		},
+		Entry(
+			"a required key",
+			`rack rack.Key @ref on_delete restrict @ref kind use`,
+			[]string{
+				"Retarget: func(e *Device, from, to rack.Key) {",
+				"if e.Rack == from {",
+				"e.Rack = to",
+			},
+		),
+		Entry(
+			"a key with a zero default",
+			`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
+			[]string{"if e.Spare == from {", "e.Spare = to"},
+		),
+		Entry(
+			"an optional key",
+			`shelf rack.Key? @ref on_delete detach @ref kind use`,
+			[]string{"if e.Shelf != nil && *e.Shelf == from {", "*e.Shelf = to"},
+		),
+		Entry(
+			"an array of keys, dropping from when it holds to",
+			`labels label.Key[] @ref on_delete restrict @ref kind use`,
+			[]string{
+				`"slices"`,
+				"if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {",
+				"return k1 == to",
+				"e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {",
+				"return k1 == from",
+				"for i2 := range e.Labels {",
+				"if e.Labels[i2] == from {",
+				"e.Labels[i2] = to",
+			},
+		),
+		Entry(
+			"a required resource ID, changing only its key",
+			`holder resource.ID {
+				@ref {
+					on_delete cascade
+					kind      place
+					types     rack
+				}
+			}`,
+			[]string{
+				"if (gorp.Target{Table: string(e.Holder.Type), Key: e.Holder.Key}) " +
+					"== from {",
+				"e.Holder.Key = to.Key",
+			},
+		),
+		Entry(
+			"an optional resource ID, changing only its key",
+			`holder resource.ID? {
+				@ref {
+					on_delete detach
+					kind      use
+					types     rack
+				}
+			}`,
+			[]string{
+				"Retarget: func(e *Device, from, to gorp.Target) {",
+				"if e.Holder != nil && (gorp.Target{Table: string((*e.Holder).Type), " +
+					"Key: (*e.Holder).Key}) == from {",
+				"e.Holder.Key = to.Key",
+			},
+		),
+	)
+
 	It("Should always hold the target of a required field", func() {
 		resp := MustGenerate(device(`
 			rack rack.Key @ref on_delete cascade @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
-			ToNotContain("func MatchHasRack", "func setRack", "if e.Rack ==")
+			ToNotContain("func MatchHasRack", "func setRack", "if e.Rack == 0")
 	})
 
 	It(
@@ -1142,6 +1214,74 @@ var _ = Describe("@ref", func() {
 				).
 				ToNotContain("resourceTarget")
 		})
+
+		It("Should retarget a key in each element of an array", func() {
+			generate(`
+				Alert struct {
+					tag label.Key @ref on_delete detach @ref kind use
+				}
+			`, `
+				alerts Alert[]
+			`).
+				ToContain(
+					"Retarget: func(e *ReadConfig, from, to label.Key) {",
+					"for i3 := range e.Alerts {",
+					"if e.Alerts[i3].Tag == from {",
+					"e.Alerts[i3].Tag = to",
+				).
+				ToNotContain("slices.ContainsFunc")
+		})
+
+		It("Should retarget a key in every variant of a union", func() {
+			generate(`
+				Base struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+				Channel union on type extends Base {
+					coil {}
+					register {
+						address uint16
+					}
+				}
+			`, `
+				channels Channel[]
+			`).
+				ToContain(
+					"Retarget: func(e *ReadConfig, from, to channel.Key) {",
+					"switch v6 := e.Channels[i5].Variant.(type) {",
+					"if v6.Channel == from {",
+					"v6.Channel = to",
+					"e.Channels[i5].Variant = v6",
+				)
+		})
+
+		It(
+			"Should retarget a resource ID in a nested array of resource IDs",
+			func() {
+				generate(`
+				Entry struct {
+					owners resource.ID[] {
+						@ref {
+							on_delete detach
+							kind      use
+							types     rack
+						}
+					}
+				}
+			`, `
+				entries Entry[]
+				rack    rack.Key = 0 @ref on_delete restrict @ref kind use
+			`).
+					ToContain(
+						"Retarget: func(e *ReadConfig, from, to gorp.Target) {",
+						"if slices.ContainsFunc(e.Entries[i5].Owners, "+
+							"func(k6 resource.ID) bool {",
+						"return (gorp.Target{Table: string(k6.Type), Key: k6.Key}) "+
+							"== to",
+						"e.Entries[i5].Owners[i7].Key = to.Key",
+					)
+			},
+		)
 
 		It(
 			"Should leave out Detach when a required key has no array",

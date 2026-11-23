@@ -313,6 +313,23 @@ func (t *ScanTask) scan(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	results := t.check(ctx, devices)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	count, err := t.updateStatuses(ctx, devices, results)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		t.cfg.L.Debug("updated device statuses", zap.Int("count", count))
+	}
+	return nil
+}
+
+// check checks each device concurrently and returns the health of each, in the order of
+// devices.
+func (t *ScanTask) check(ctx context.Context, devices []device.Device) []health {
 	results := make([]health, len(devices))
 	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.CheckTimeout)
 	defer cancel()
@@ -335,9 +352,16 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		})
 	}
 	wg.Wait()
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	return results
+}
+
+// updateStatuses writes the status of each device whose stored health differs from its
+// result in results. It returns the number of statuses it wrote.
+func (t *ScanTask) updateStatuses(
+	ctx context.Context,
+	devices []device.Device,
+	results []health,
+) (int, error) {
 	var count int
 	if err := t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		stored, err := t.storedHealth(ctx, tx, devices)
@@ -374,12 +398,9 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		}
 		return t.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	}); err != nil {
-		return err
+		return 0, err
 	}
-	if count > 0 {
-		t.cfg.L.Debug("updated device statuses", zap.Int("count", count))
-	}
-	return nil
+	return count, nil
 }
 
 // storedHealth returns the health in the stored status of each device, by device ID. A

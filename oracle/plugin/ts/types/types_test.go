@@ -565,6 +565,30 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
 
+		It(
+			"Should keep wide integer enum values and a non-first default as numbers",
+			func() {
+				source := `
+				@ts output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+				resp := MustGenerate(source, "serial", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("baud_230400 = 230400,").
+					ToContain("export const baudRateZ = z.enum(BaudRate)").
+					ToContain("baudRate: baudRateZ.default(BaudRate.baud_19200)")
+			},
+		)
+
 		It("Should generate string enums", func() {
 			source := `
 				@ts output "out"
@@ -685,8 +709,21 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("float32", "float32", "z.number()"),
 				Entry("float64", "float64", "z.number()"),
 				Entry("record", "record", "record.unknownZ().default(() => ({}))"),
-				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
+				Entry("bytes", "bytes", "binary.bytesZ"),
 			)
+
+			It("Should import binary from X for a bytes field", func() {
+				source := `
+					@ts output "out"
+
+					Test struct {
+						field bytes
+					}
+				`
+				resp := MustGenerate(source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { binary } from "@synnaxlabs/x";`)
+			})
 		})
 
 		Context("@ts to_number directive", func() {

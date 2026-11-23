@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { Embedded } from "@/feature/embedded";
 import { Modals } from "@/platform/modals";
+import type { Portal } from "@/platform/portal";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -192,14 +193,20 @@ const SynnaxProvider = ({ children }: PropsWithChildren): ReactElement => (
 
 /**
  * Creates the provider stack of a Desktop window: the client follows the embedded Core,
- * exactly as the production Pluto context does, and a modal stack is mounted.
+ * exactly as the production Pluto context does, and a modal stack is mounted. The
+ * portal defaults to one that cannot be reached.
  */
-export const createDesktopWrapper = async (): Promise<{
+export const createDesktopWrapper = async (
+  portal?: Portal.Client,
+): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
   disableActEnvironment();
-  const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    client: null,
+    portal,
+  });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Embedded.Provider>
       <Console>

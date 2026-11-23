@@ -205,6 +205,42 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
+		It(
+			"Should reject a channel parameter that is not a channel key",
+			func(ctx SpecContext) {
+				nodes, inputs := buildNodes(
+					nodeSpec{
+						key: "first",
+						typ: "on",
+						cfg: map[string]any{"channel": "dog"},
+					},
+				)
+				g := arc.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "on",
+							Inputs: types.Params{
+								{Name: "channel", Type: types.Chan(types.F32())},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
+					},
+					Nodes:  nodes,
+					Inputs: inputs,
+				}
+				root := symbol.NewRoot(nil, stl.NewSymbols())
+				symbol.AutoImportModules(root)
+				g = MustSucceed(graph.Parse(g))
+				_, diagnostics := graph.Analyze(ctx, g, root)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"node 'first' parameter 'channel' is not a channel key",
+				))
+			},
+		)
+
 		It("Should type the same call in two bodies apart", func(ctx SpecContext) {
 			check := func(key string, t types.Type) ir.Function {
 				return ir.Function{
@@ -834,6 +870,32 @@ var _ = Describe("Graph", func() {
 					diagnostics.String(),
 				).To(ContainSubstring("edge target node 'nonexistent' not found"))
 			})
+
+			It(
+				"Should reject a node type qualified by a non-module head",
+				func(ctx SpecContext) {
+					nodes, inputs := buildNodes(
+						nodeSpec{key: "n", typ: "source.sink"},
+					)
+					g := MustSucceed(graph.Parse(graph.Graph{
+						Functions: []ir.Function{
+							{Key: "source"},
+							{
+								Key: "sink",
+								Inputs: types.Params{
+									{Name: ir.DefaultInputParam, Type: types.F32()},
+								},
+							},
+						},
+						Nodes:  nodes,
+						Inputs: inputs,
+					}))
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+					Expect(
+						diagnostics.String(),
+					).To(ContainSubstring("undefined symbol: source.sink"))
+				},
+			)
 
 			It(
 				"Should handle invalid parameter references in edges",

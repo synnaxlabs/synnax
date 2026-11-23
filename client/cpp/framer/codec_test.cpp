@@ -225,6 +225,22 @@ TEST(CodecTests, OnlyOneChannelPresent) {
     assert_frames_equal(frame, decoded_frame);
 }
 
+/// @brief it should round-trip a frame that repeats one key of a two-channel codec.
+TEST(CodecTests, RepeatedKeyFrame) {
+    const std::vector<channel::Key> channels = {1, 2};
+    const std::vector data_types = {x::telem::UINT8_T, x::telem::UINT8_T};
+    auto frame = x::telem::Frame(2);
+    frame.emplace(1, x::telem::Series(std::vector<uint8_t>{1, 2}));
+    frame.emplace(1, x::telem::Series(std::vector<uint8_t>{3, 4}));
+    std::vector<uint8_t> encoded;
+    Codec codec(channels, data_types);
+    ASSERT_NIL(codec.encode(frame, encoded));
+    const x::telem::Frame decoded = ASSERT_NIL_P(codec.decode(encoded));
+    ASSERT_EQ(decoded.size(), 2);
+    ASSERT_EQ(decoded.channels->at(0), 1);
+    ASSERT_EQ(decoded.channels->at(1), 1);
+}
+
 /// @brief it should correctly round-trip a BoolT series of one sample.
 TEST(CodecTests, BoolSingleSample) {
     const std::vector<channel::Key> channels = {1};

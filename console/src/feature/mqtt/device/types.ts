@@ -11,6 +11,8 @@ import { channel, type device } from "@synnaxlabs/client";
 import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Task } from "@/platform/task";
+
 export const MAKE = "mqtt";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
@@ -52,18 +54,6 @@ const sparkplugPropertiesZ = z.object({
     .default(() => []),
 });
 
-// Anything that is not a channel key reads as no index.
-const storedIndexZ = z.preprocess(
-  (v) => (channel.keyZ.safeParse(v).success ? v : 0),
-  channel.keyZ,
-);
-
-// Pointers and topics are values, not property names, so they keep their case.
-const readTopicPropsZ = z.object({
-  index: storedIndexZ,
-  channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
-});
-
 export const propertiesZ = z.object({
   secure: z.boolean().default(false),
   verificationSkipped: z.boolean().default(false),
@@ -88,7 +78,7 @@ export const propertiesZ = z.object({
   password: z.string().default(""),
   clientId: z.string().default(""),
   sparkplug: sparkplugPropertiesZ.prefault({}),
-  read: caseconv.preserveKeys(z.record(z.string(), readTopicPropsZ).default({})),
+  read: Task.readPropertiesZ,
   write: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),
   /** The command channels of edge node tags, by tag. */
   edge: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),

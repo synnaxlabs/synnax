@@ -14,14 +14,14 @@ package pb
 import (
 	"uuid"
 
+	colorpb "github.com/synnaxlabs/synnax/pkg/service/color/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/defaults"
 )
 
 // LabelToPB converts Label to Label.
 func LabelToPB(r label.Label) (*Label, error) {
-	colorVal, err := colorpb.ColorToPB(r.Color)
+	colorVal, err := colorpb.RefToPB(r.Color)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func LabelFromPB(pb *Label) (label.Label, error) {
 		return label.Label{}, err
 	}
 	if pb.Color != nil {
-		r.Color, err = colorpb.ColorFromPB(pb.Color)
+		r.Color, err = colorpb.RefFromPB(pb.Color)
 		if err != nil {
 			return label.Label{}, err
 		}

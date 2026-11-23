@@ -23,8 +23,10 @@ METHOD_PASSWORD: Literal["password"] = "password"
 
 METHOD_API_KEY: Literal["api_key"] = "api_key"
 
+METHOD_OIDC: Literal["oidc"] = "oidc"
 
-Method = Literal["password", "api_key"]
+
+Method = Literal["password", "api_key", "oidc"]
 
 SessionKey: TypeAlias = UUID
 
@@ -49,6 +51,23 @@ class APIKeyCredentials(BaseModel):
     """
 
     key: str = Field(min_length=1)
+
+
+class OIDCCredentials(BaseModel):
+    """Is an OpenID Connect authorization code presented at login. The Core exchanges it
+    with the provider.
+
+    Attributes:
+        provider: Is the name of the provider in the Core's settings.
+        code: Is the authorization code the provider returned.
+        verifier: Is the PKCE code verifier that matches the login request.
+        redirect_uri: Is the redirect URI the login request used.
+    """
+
+    provider: str = Field(min_length=1)
+    code: str = Field(min_length=1)
+    verifier: str = Field(min_length=1)
+    redirect_uri: str = Field(min_length=1)
 
 
 class Session(BaseModel):
@@ -87,9 +106,15 @@ class APIKeyProof(APIKeyCredentials):
     method: Literal["api_key"] = "api_key"
 
 
+class OIDCProof(OIDCCredentials):
+    """Proves an OpenID Connect provider account."""
+
+    method: Literal["oidc"] = "oidc"
+
+
 # Is what a subject presents to log in. The method selects the authenticator that
 # checks it.
 Proof = Annotated[
-    PasswordProof | APIKeyProof,
+    PasswordProof | APIKeyProof | OIDCProof,
     Field(discriminator="method"),
 ]

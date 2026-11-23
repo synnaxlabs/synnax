@@ -12,14 +12,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
-import type {
-  Activation,
-  Event,
-  License as LicenseRecord,
-  Organization,
-} from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
 import { statusOf } from "@/server/license/status";
@@ -28,7 +23,7 @@ import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import { type Clock, describeEvent, edition, machineName } from "@/ui/format";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
-import { StaffActions } from "@/ui/licenses/StaffActions";
+import { MAIL_PARAM, StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -36,22 +31,24 @@ import { useAction } from "@/ui/useAction";
 import { useClock } from "@/ui/useClock";
 
 export interface LicenseProps {
-  license: LicenseRecord;
-  organization: Organization;
-  activations: Activation[];
-  events: Event[];
+  license: schema.License;
+  organization: schema.Organization;
+  activations: schema.Activation[];
+  events: schema.Event[];
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
   /** admin is true for staff and the admins of the owning team. */
   admin: boolean;
   now: Date;
+  /** mailFailed is true when a revoke or restore saved but its email failed. */
+  mailFailed?: boolean;
 }
 
 const LABEL_ID = "license-label";
 
 interface Renamed {
-  event: (Omit<Event, "at"> & { at: string }) | null;
+  event: (Omit<schema.Event, "at"> & { at: string }) | null;
   actor: string;
 }
 
@@ -67,6 +64,7 @@ export const License = ({
   staff,
   admin,
   now,
+  mailFailed = false,
 }: LicenseProps): ReactElement => {
   const clock = useClock();
   const [label, setLabel] = useState(stored.label);
@@ -89,12 +87,20 @@ export const License = ({
       throw err as Error;
     }
   });
+  // A reload after the next change must not show the message again.
+  useEffect(() => {
+    if (!mailFailed) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete(MAIL_PARAM);
+    window.history.replaceState(window.history.state, "", url.href);
+  }, [mailFailed]);
   const startRenaming = (): void => {
     setRenaming(true);
     Text.asyncEdit(LABEL_ID)
       .catch(console.error)
       .finally(() => setRenaming(false));
   };
+  const changed = lic.revokedAt == null ? "restored" : "revoked";
   const status = statusOf(lic, now);
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
@@ -148,6 +154,13 @@ export const License = ({
         </>
       }
     >
+      {mailFailed && (
+        <Status.Summary
+          variant="error"
+          level="small"
+          message={`"${label}" is ${changed}, but the email about it failed.`}
+        />
+      )}
       {rename.error != null && (
         <Status.Summary variant="error" level="small" message={rename.error} />
       )}
@@ -235,7 +248,7 @@ const LicenseFacts = ({
   held,
   clock,
 }: {
-  license: LicenseRecord;
+  license: schema.License;
   held: number;
   clock: Clock;
 }): ReactElement => (

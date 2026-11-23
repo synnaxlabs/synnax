@@ -180,22 +180,47 @@ var _ = Describe("Emit", func() {
 
 	Describe("EmitSeriesComparison", func() {
 		DescribeTable("Should emit a compare_<op>_<type> series import",
-			func(ctx SpecContext, op, wantWASMName string) {
+			func(ctx SpecContext, op string, isScalar bool, wantWASMName string) {
 				Expect(
-					resolver.EmitSeriesComparison(writer, writerID, op, types.I64()),
+					resolver.EmitSeriesComparison(
+						writer,
+						writerID,
+						op,
+						types.I64(),
+						isScalar,
+					),
 				).To(Succeed())
 				resolver.Finalize(wasmModule)
 				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(wantWASMName))
 			},
-			Entry("> emits compare_gt_i64", ">", "compare_gt_i64"),
-			Entry("< emits compare_lt_i64", "<", "compare_lt_i64"),
-			Entry("== emits compare_eq_i64", "==", "compare_eq_i64"),
-			Entry("!= emits compare_ne_i64", "!=", "compare_ne_i64"),
+			Entry("> emits compare_gt_i64", ">", false, "compare_gt_i64"),
+			Entry("< emits compare_lt_i64", "<", false, "compare_lt_i64"),
+			Entry("== emits compare_eq_i64", "==", false, "compare_eq_i64"),
+			Entry("!= emits compare_ne_i64", "!=", false, "compare_ne_i64"),
+			Entry(
+				"> on a scalar emits compare_gt_scalar_i64",
+				">",
+				true,
+				"compare_gt_scalar_i64",
+			),
+			Entry(
+				"== on a scalar emits compare_eq_scalar_i64",
+				"==",
+				true,
+				"compare_eq_scalar_i64",
+			),
 		)
 
 		It("Should return an error for an unknown operator", func() {
-			Expect(resolver.EmitSeriesComparison(writer, writerID, "??", types.I64())).
-				To(MatchError(ContainSubstring("unknown comparison operator")))
+			Expect(
+				resolver.EmitSeriesComparison(
+					writer,
+					writerID,
+					"??",
+					types.I64(),
+					false,
+				),
+			).To(MatchError(ContainSubstring("unknown comparison operator")))
 		})
 	})
 

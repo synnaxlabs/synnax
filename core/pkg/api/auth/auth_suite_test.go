@@ -19,11 +19,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,10 +42,12 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db          *gorp.DB
-	node        testutil.Node
+	node        disttestutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
 	apiKeySvc   *apikey.Service
+	oidcSvc     *oidc.Service
+	provider    *testutil.Provider
 	rbacSvc     *rbac.Service
 	userSvc     *user.Service
 	rackSvc     *rack.Service
@@ -54,7 +58,8 @@ var (
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
 	]
-	createKey freighter.UnaryHandler[
+	createPassword freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
+	createKey      freighter.UnaryHandler[
 		apiauth.KeyCreateRequest,
 		apiauth.KeyCreateResponse,
 	]
@@ -68,13 +73,22 @@ var (
 		apiauth.SessionRetrieveRequest,
 		apiauth.SessionRetrieveResponse,
 	]
-	root  user.User
-	creds = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
+	linkOIDC freighter.UnaryHandler[
+		apiauth.OIDCLinkRequest,
+		apiauth.OIDCLinkResponse,
+	]
+	retrieveOIDCLinks freighter.UnaryHandler[
+		apiauth.OIDCRetrieveRequest,
+		apiauth.OIDCRetrieveResponse,
+	]
+	unlinkOIDC freighter.UnaryHandler[apiauth.OIDCUnlinkRequest, struct{}]
+	root       user.User
+	creds      = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = testutil.NewNode(ctx)
+	node = disttestutil.NewNode(ctx)
 	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
@@ -97,11 +111,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		access.RBAC.Builtin.OwnerKey,
 	))
 	rbacSvc, rackSvc = access.RBAC, access.Rack
+	provider = testutil.NewProvider()
+	DeferCleanup(provider.Close)
+	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
+		DB:          db,
+		User:        userSvc,
+		NewUserRole: rbacSvc.Builtin.ViewerKey,
+		Providers: []oidc.Provider{{
+			Name:     "idp",
+			Issuer:   provider.Issuer(),
+			ClientID: testutil.ClientID,
+		}},
+	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
+			auth.MethodOIDC:     oidcSvc,
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
@@ -109,6 +136,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:     authSvc,
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
+		OIDC:     oidcSvc,
 		User:     userSvc,
 		RBAC:     rbacSvc,
 		Identity: node.Identity,
@@ -128,6 +156,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		apiSvc.PrepareSetPassword,
 		apiSvc.SetPassword,
 	)
+	createPassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareCreatePassword,
+		apiSvc.CreatePassword,
+	)
 	createKey = bind.Write(binder, apiSvc.CreateKey)
 	retrieveKeys = bind.Read(binder, func(
 		ctx context.Context,
@@ -145,4 +178,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})
 	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
 	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
+	linkOIDC = bind.WritePrepared(binder, apiSvc.PrepareLinkOIDC, apiSvc.LinkOIDC)
+	retrieveOIDCLinks = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.OIDCRetrieveRequest,
+	) (apiauth.OIDCRetrieveResponse, error) {
+		return apiSvc.RetrieveOIDCLinks(ctx, snap, req)
+	})
+	unlinkOIDC = bind.Write(binder, apiSvc.UnlinkOIDC)
 })

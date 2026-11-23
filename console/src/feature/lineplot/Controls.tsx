@@ -16,17 +16,42 @@ import { LinePlot, Viewport } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
 
+const BreaksToggle = (): ReactElement => {
+  const key = LinePlot.useKey();
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const dispatch = Session.useDispatch();
+  const handleChange = (shown: boolean): void => {
+    dispatch(Session.LinePlot.setBreaksHidden({ key, hidden: !shown }));
+  };
+  return (
+    <Button.Toggle
+      value={!breaksHidden}
+      onChange={handleChange}
+      size="small"
+      tooltip={`${breaksHidden ? "Show" : "Hide"} breaks`}
+      tooltipLocation={location.BOTTOM_LEFT}
+    >
+      <Icon.SplitX />
+    </Button.Toggle>
+  );
+};
+
 export interface ControlsProps {
   hasAnnotations: boolean;
+  hasBreaks: boolean;
 }
 
-export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
+export const Controls = ({
+  hasAnnotations,
+  hasBreaks,
+}: ControlsProps): ReactElement => {
   const key = LinePlot.useKey();
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
@@ -110,6 +135,7 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
             <Icon.Range />
           </Button.Toggle>
         )}
+        {FLAGS.breaks && hasBreaks && <BreaksToggle />}
         <Button.Toggle
           value={clickMode != null}
           tooltip={`${clickMode != null ? "Close" : "Open"} measure tool`}

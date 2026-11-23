@@ -11,10 +11,25 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
+import { createHardware, createNIDevice } from "@/feature/ni/task/testutil";
 import { createTestDevice } from "@/platform/device/testutil";
 import { createWithHook } from "@/platform/task/testutil";
 
 const client = createTestClient();
+
+// A module whose inputs and outputs are on separate ports, as on the NI 9375.
+const createDIOModule = async (inputPort: number, outputPort: number) =>
+  await createNIDevice(client, {
+    properties: {
+      hardware: {
+        ...createHardware(),
+        digitalPorts: [
+          { port: inputPort, lines: 16, input: true, output: false },
+          { port: outputPort, lines: 16, input: false, output: true },
+        ],
+      },
+    },
+  });
 
 describe("NI.Task create", () => {
   it("should keep the channels of the given analog read config", async () => {
@@ -64,15 +79,15 @@ describe("NI.Task create", () => {
     expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
-  it("should create a digital read task on the given device", async () => {
-    const dev = await createTestDevice(client);
+  it("should start a digital read task on an input line", async () => {
+    const dev = await createDIOModule(1, 0);
     const tsk = await createWithHook(
       NI.Task.useCreateDigitalRead,
       NI.Task.DIGITAL_READ_SCHEMAS,
       { deviceKey: dev.key },
     );
     expect(tsk.config.device).toBe(dev.key);
-    expect(tsk.config.channels).toHaveLength(1);
+    expect(tsk.config.channels.map(({ port, line }) => [port, line])).toEqual([[1, 0]]);
   });
 
   it("should keep the channels of the given digital read config", async () => {
@@ -87,15 +102,15 @@ describe("NI.Task create", () => {
     expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
-  it("should create a digital write task on the given device", async () => {
-    const dev = await createTestDevice(client);
+  it("should start a digital write task on an output line", async () => {
+    const dev = await createDIOModule(0, 1);
     const tsk = await createWithHook(
       NI.Task.useCreateDigitalWrite,
       NI.Task.DIGITAL_WRITE_SCHEMAS,
       { deviceKey: dev.key },
     );
     expect(tsk.config.device).toBe(dev.key);
-    expect(tsk.config.channels).toHaveLength(1);
+    expect(tsk.config.channels.map(({ port, line }) => [port, line])).toEqual([[1, 0]]);
   });
 
   it("should keep the channels of the given digital write config", async () => {

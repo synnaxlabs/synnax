@@ -261,7 +261,7 @@ struct BaseAIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief device is the key of the device the channel belongs to.
     ::synnax::device::Key device = "";
 
@@ -280,7 +280,7 @@ struct BaseCIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical counter the channel uses.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief device is the key of the device the counter belongs to.
     ::synnax::device::Key device = "";
 
@@ -295,7 +295,7 @@ struct BaseAOChannel {
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief port is the physical port the channel writes to.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
 
     static BaseAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -312,7 +312,7 @@ struct DIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief line is the digital line within the port the channel reads from.
     std::uint8_t line = 0;
 
@@ -335,7 +335,7 @@ struct DOChannel {
     /// @brief state_channel_name is the human-readable name of the state channel.
     std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief line is the digital line within the port the channel writes to.
     std::uint8_t line = 0;
 
@@ -425,7 +425,7 @@ struct ConstValCJC {
 struct ChanCJC {
     std::string source = "chan";
     /// @brief port is the port of the channel that measures the reference.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
 
     static ChanCJC parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1297,9 +1297,8 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public Min
     std::string edge = CI_EDGE_RISING;
     /// @brief meas_method selects the measurement method.
     std::string meas_method = CI_MEAS_METHOD_DYNAMIC_AVG;
-    /// @brief meas_time is the averaging window for high-frequency measurement, in
-    /// seconds.
-    double meas_time = 0.000006;
+    /// @brief meas_time is the averaging window for high-frequency measurement.
+    ::x::telem::TimeSpan meas_time = ::x::telem::TimeSpan(6000);
     /// @brief divisor is the counter divisor for large-range measurement.
     std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
@@ -1339,9 +1338,8 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMax
     std::string starting_edge = CI_EDGE_RISING;
     /// @brief meas_method selects the measurement method.
     std::string meas_method = CI_MEAS_METHOD_DYNAMIC_AVG;
-    /// @brief meas_time is the averaging window for high-frequency measurement, in
-    /// seconds.
-    double meas_time = 0.001000;
+    /// @brief meas_time is the averaging window for high-frequency measurement.
+    ::x::telem::TimeSpan meas_time = ::x::telem::TimeSpan(1000000);
     /// @brief divisor is the counter divisor for large-range measurement.
     std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.

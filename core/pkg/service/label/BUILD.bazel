@@ -14,7 +14,7 @@ proto_library(
     name = "label_proto",
     srcs = ["pb/label.proto"],
     visibility = ["//visibility:public"],
-    deps = ["//x/go/color:color_proto"],
+    deps = ["//core/pkg/service/color:color_proto"],
 )
 
 cpp_grpc_library(
@@ -22,5 +22,5 @@ cpp_grpc_library(
     output_mode = "NO_PREFIX",
     protos = [":label_proto"],
     visibility = ["//visibility:public"],
-    deps = ["//x/go/color:color_grpc"],
+    deps = ["//core/pkg/service/color:color_grpc"],
 )

@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BASE_THEMES, type Language, registerLanguage } from "@/code/language";
+import { Code } from "@/code";
 
 const { registerExtensionMock, registerFileURLMock, updateMock } = vi.hoisted(() => ({
   registerExtensionMock: vi.fn(),
@@ -39,7 +39,7 @@ const readThemeManifest = (): ThemeManifest => {
   return JSON.parse(readFileSync(path, "utf-8")) as ThemeManifest;
 };
 
-const LANGUAGE: Language = {
+const LANGUAGE: Code.Language = {
   name: "arc",
   configuration: "{}",
   grammar: { scopeName: "source.arc", raw: "{}" },
@@ -65,22 +65,22 @@ describe("language", () => {
     // literally against the theme's settings id, so every language color was dropped.
     it("should name themes the installed VS Code theme extension contributes", () => {
       const ids = readThemeManifest().contributes.themes.map(({ id }) => id);
-      Object.values(BASE_THEMES).forEach((theme) => expect(ids).toContain(theme));
+      Object.values(Code.BASE_THEMES).forEach((theme) => expect(ids).toContain(theme));
     });
   });
 
   describe("registerLanguage", () => {
     it("should scope the token colors to the base themes the editor selects", async () => {
-      await registerLanguage(LANGUAGE);
+      await Code.registerLanguage(LANGUAGE);
       const scopes = updateMock.mock.calls.map(([, value]) => Object.keys(value));
       expect(scopes).toEqual([
-        [`[${BASE_THEMES.dark}]`, `[${BASE_THEMES.light}]`],
-        [`[${BASE_THEMES.dark}]`, `[${BASE_THEMES.light}]`],
+        [`[${Code.BASE_THEMES.dark}]`, `[${Code.BASE_THEMES.light}]`],
+        [`[${Code.BASE_THEMES.dark}]`, `[${Code.BASE_THEMES.light}]`],
       ]);
     });
 
     it("should register the grammar and configuration files", async () => {
-      await registerLanguage(LANGUAGE);
+      await Code.registerLanguage(LANGUAGE);
       const paths = registerFileURLMock.mock.calls.map(([path]) => path);
       expect(paths).toEqual([
         "./arc.tmLanguage.json",

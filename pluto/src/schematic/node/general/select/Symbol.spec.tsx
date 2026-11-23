@@ -10,17 +10,16 @@
 import { schematic } from "@synnaxlabs/client";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { act, render, type RenderResult, waitFor } from "@testing-library/react";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Select } from "@/schematic/node/general/select";
 import { telemTest } from "@/telem/aether/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 import { setpoint } from "@/vis/setpoint/aether";
-import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
@@ -79,10 +78,10 @@ const StaleWrapper = createSynnaxWrapper({
   renderContext: canvasTest.record(),
 });
 
-const renderStale = (badged: boolean) =>
-  render(
-    <StaleWrapper>
-      <Staleness.Provider badged={badged}>
+describe("Select.Symbol staleness", () => {
+  it("should show the stale indicator on the control chip", async () => {
+    const { findByRole } = render(
+      <StaleWrapper>
         <ReactFlowProvider>
           <Haul.Provider>
             <Select.spec.Node
@@ -96,29 +95,9 @@ const renderStale = (badged: boolean) =>
             />
           </Haul.Provider>
         </ReactFlowProvider>
-      </Staleness.Provider>
-    </StaleWrapper>,
-  );
-
-const readout = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(
-    `.${CSS.BE("symbol-field", "readout-value")}`,
-  );
-  if (el == null) throw new Error("expected a readout");
-  return el;
-};
-
-describe("Select.Symbol staleness", () => {
-  it("should show the stale indicator in place of the stale color", async () => {
-    const { container, findByRole } = renderStale(true);
+      </StaleWrapper>,
+    );
     const indicator = await findByRole("img", { name: "Stale" });
     expect(indicator.closest(".pluto-control-state")).not.toBeNull();
-    expect(readout(container).style.color).toBe("");
-  });
-
-  it("should paint the stale color with no indicator when not badged", async () => {
-    const { container, queryByRole } = renderStale(false);
-    await waitFor(() => expect(readout(container).style.color).not.toBe(""));
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -41,7 +40,7 @@ var _ = Describe("Dispatch", func() {
 		}))
 		nominal = label.Label{
 			Name:  "Nominal",
-			Color: MustSucceed(color.Parse("#00ff00")),
+			Color: fixed("#00ff00"),
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &nominal)
@@ -80,12 +79,12 @@ var _ = Describe("Dispatch", func() {
 	It("Should store the edited name and color", func(ctx SpecContext) {
 		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
 			set([]string{"name"}, "Anomaly"),
-			set([]string{"color"}, "#ff0000"),
+			set([]string{"color"}, map[string]any{"type": "fixed", "value": "#ff0000"}),
 		})).To(Succeed())
 		Expect(retrieve(ctx)).To(Equal(label.Label{
 			Key:   nominal.Key,
 			Name:  "Anomaly",
-			Color: MustSucceed(color.Parse("#ff0000")),
+			Color: fixed("#ff0000"),
 		}))
 	})
 
@@ -144,7 +143,7 @@ var _ = Describe("Dispatch", func() {
 			rec := record()
 			l := label.Label{
 				Name:  "Anomaly",
-				Color: MustSucceed(color.Parse("#ff0000")),
+				Color: fixed("#ff0000"),
 			}
 			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx).WithDispatchKey("dk-create")
@@ -165,7 +164,7 @@ var _ = Describe("Dispatch", func() {
 		It("Should not broadcast a create that never commits", func(ctx SpecContext) {
 			rec := record()
 			tx := db.OpenTx()
-			l := label.Label{Name: "Anomaly"}
+			l := label.Label{Name: "Anomaly", Color: fixed("#ff0000")}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 			Expect(rec.Snapshot()).To(BeEmpty())

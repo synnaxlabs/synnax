@@ -29,6 +29,7 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
+const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
 
 interface BrowserProjectProps {
@@ -36,19 +37,26 @@ interface BrowserProjectProps {
   include?: string[];
   exclude?: string[];
   desktop?: boolean;
+  webkit?: boolean;
 }
 
 /**
  * @returns a project that runs its specs in Chromium and WebKit. A desktop project
- * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix.
+ * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix. With
+ * `webkit` false, the project runs Chromium alone, as `<name>-chromium`.
  */
 const browserProject = ({
   name,
   include = [BROWSER_SPECS],
   exclude = [],
   desktop = false,
+  webkit = true,
 }: BrowserProjectProps): TestProjectInlineConfiguration => {
   const prefix = desktop ? "desktop-" : "";
+  // A CI runner has 4 CPUs. Parallel Chromium pages starve the jsdom workers that share
+  // them, so their timers fire seconds late and their specs time out. WebKit runs in a
+  // step of its own, with no jsdom workers beside it.
+  const pages = process.env.CI === "true" ? { maxWorkers: 1 } : {};
   return {
     extends: true,
     define: { DESKTOP: desktop },
@@ -79,10 +87,12 @@ const browserProject = ({
         headless: true,
         provider: playwright(),
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
-        instances: [
-          { browser: "chromium", name: `${prefix}chromium` },
-          { browser: "webkit", name: `${prefix}webkit` },
-        ],
+        instances: webkit
+          ? [
+              { browser: "chromium", name: `${prefix}chromium`, ...pages },
+              { browser: "webkit", name: `${prefix}webkit` },
+            ]
+          : [{ browser: "chromium", name: `${name}-chromium`, ...pages }],
       },
     },
   };
@@ -189,7 +199,7 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
-    // minified stack traces (see pluto/src/errors/resolveStack.ts).
+    // minified stack traces (see pluto/src/errors/stack/stack.ts).
     sourcemap: true,
     // The Console ships two ways: bundled into the Tauri desktop app (loaded from disk)
     // and embedded into the Synnax Core binary (served over HTTP to browsers via
@@ -212,6 +222,7 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 15_000,
+    hookTimeout: 15_000,
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
@@ -233,7 +244,16 @@ export default defineConfig({
       browserProject({
         name: "desktop-browser",
         include: [DESKTOP_BROWSER_SPECS],
+        exclude: [SAMPLE_SPEC],
         desktop: true,
+      }),
+      // The product creates the sample project with fixed keys, so two browsers on one
+      // Core collide. Its spec runs in Chromium alone.
+      browserProject({
+        name: "desktop-sample",
+        include: [SAMPLE_SPEC],
+        desktop: true,
+        webkit: false,
       }),
     ],
     coverage: {

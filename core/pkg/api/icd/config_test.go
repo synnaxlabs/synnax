@@ -14,12 +14,14 @@ import (
 	. "github.com/onsi/gomega"
 	apiicd "github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiicd.ServiceConfig {
 		return apiicd.ServiceConfig{
-			ICD: &icd.Service{},
+			ICD:    &icd.Service{},
+			Errors: errors.NewCodec(),
 		}
 	}
 
@@ -40,6 +42,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiicd.ServiceConfig) { c.ICD = nil },
 				"icd: must be non-nil",
 			),
+			Entry(
+				"errors",
+				func(c *apiicd.ServiceConfig) { c.Errors = nil },
+				"errors: must be non-nil",
+			),
 		)
 	})
 
@@ -48,12 +55,14 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apiicd.ServiceConfig{}.Override(cfg)
 			Expect(merged.ICD).To(BeIdenticalTo(cfg.ICD))
+			Expect(merged.Errors).To(BeIdenticalTo(cfg.Errors))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiicd.ServiceConfig{})
 			Expect(merged.ICD).To(BeIdenticalTo(cfg.ICD))
+			Expect(merged.Errors).To(BeIdenticalTo(cfg.Errors))
 		})
 	})
 })

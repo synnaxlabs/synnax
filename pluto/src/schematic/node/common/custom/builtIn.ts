@@ -13,8 +13,11 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface BuiltInParams
   extends
-    Pick<schematic.symbol.Spec, "svg" | "handles">,
-    Partial<Pick<schematic.symbol.Spec, "variant">> {}
+    Pick<schematic.symbol.Spec, "handles">,
+    Partial<Pick<schematic.symbol.Spec, "variant">> {
+  /** svg is the markup of the drawing. */
+  svg: string;
+}
 
 /**
  * @returns the spec of a built-in symbol, static unless variant says otherwise. Its
@@ -26,9 +29,13 @@ export const createBuiltIn = ({
   handles,
   variant = "static",
 }: BuiltInParams): schematic.symbol.Spec => ({
-  svg,
+  drawing: { type: "svg", markup: svg },
+  parts: [],
   handles,
   states: [],
+  commands: [],
+  looks: [],
+  interactions: [],
   variant,
   scale: Primitive.BASE_SCALE,
   strokeScaled: false,

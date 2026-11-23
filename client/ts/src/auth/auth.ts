@@ -15,6 +15,8 @@ import {
   type Credentials,
   type Method,
   methodZ,
+  type OIDCCredentials,
+  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
@@ -97,6 +99,56 @@ const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
+const oidcLinkKeyZ = z.uuid();
+export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
+
+const oidcLinkZ = z.object({
+  /** key is the unique identifier for this link. */
+  key: oidcLinkKeyZ,
+  /** user is the key of the user the provider account logs in as. */
+  user: user.keyZ,
+  /**
+   * issuer is the issuer URL of the provider that proved the account, its `iss` claim.
+   * With account, it identifies the provider account.
+   */
+  issuer: z.string(),
+  /** account is the provider's permanent ID for the account, its `sub` claim. */
+  account: z.string(),
+});
+/** OIDCLink links an OpenID Connect provider account to a user. */
+export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
+
+const oidcLoginZ = z.object({
+  /** provider is the name of the provider. */
+  provider: z.string(),
+  /** authorizationEndpoint is the provider's login address. */
+  authorizationEndpoint: z.string(),
+  /** clientId is the Core's client ID at the provider. */
+  clientId: z.string(),
+});
+/** OIDCLogin is where to send a person to log in through a provider. */
+export interface OIDCLogin extends z.infer<typeof oidcLoginZ> {}
+
+const oidcLinkReqZ = z.object({ credentials: oidcCredentialsZ });
+const oidcLinkResZ = z.object({ link: oidcLinkZ });
+const oidcRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
+const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
+const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
+export interface CreatePasswordParams {
+  /** The user to give the password. Defaults to the caller. */
+  subject?: resource.ID;
+  /** The username to log in with. */
+  username: string;
+  /** The password. */
+  password: string;
+}
+
+const passwordCreateReqZ = z.object({
+  subject: resource.idZ.optional(),
+  username: z.string(),
+  password: z.string(),
+});
+
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: resource.ID;
@@ -133,6 +185,10 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
+const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
+const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
+const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
@@ -142,7 +198,8 @@ const TOKENLESS_ENDPOINTS = [
   LEGACY_LOGIN_ENDPOINT,
 ];
 
-// a newer Core may accept methods this client does not know, so they are dropped
+// a newer Core may accept methods this client does not know, so they are dropped, and
+// a Core older than OpenID Connect sends no providers
 const methodsResZ = z.object({
   methods: z
     .unknown()
@@ -153,6 +210,7 @@ const methodsResZ = z.object({
         return r.success ? [r.data] : [];
       }),
     ),
+  providers: oidcLoginZ.array().default([]),
 });
 
 /** The address of a Core, for a request that needs no session. */
@@ -179,14 +237,51 @@ export const createTokenlessClient = ({
   return transport.unaryNoRetry;
 };
 
+const sendMethods = async (client: UnaryClient): Promise<z.infer<typeof methodsResZ>> =>
+  await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
+
 /**
  * Retrieves the login methods a Core accepts, without logging in.
  * @param client - A client from {@link createTokenlessClient}.
  * @throws {Unreachable} if the Core cannot be reached.
  */
-export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> => {
-  const res = await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
-  return res.methods;
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> =>
+  (await sendMethods(client)).methods;
+
+/**
+ * Retrieves where to log in through each OpenID Connect provider of a Core, without
+ * logging in. It is empty when the Core does not accept the oidc method.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveProviders = async (client: UnaryClient): Promise<OIDCLogin[]> =>
+  (await sendMethods(client)).providers;
+
+export interface CreateSessionResult {
+  /** The token of the new session. */
+  token: string;
+  /** The new session. */
+  session: Session;
+}
+
+/**
+ * Opens a session with a proof, without a logged-in client. For a caller that saves the
+ * token itself and hands it to clients to resume.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {AuthError} when the Core rejects the proof.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const createSession = async (
+  client: UnaryClient,
+  proof: Proof,
+): Promise<CreateSessionResult> => {
+  const { token, session } = await client.send(
+    SESSION_CREATE_ENDPOINT,
+    { proof },
+    createReqZ,
+    createResZ,
+  );
+  return { token, session };
 };
 
 const MAX_RETRIES = 3;
@@ -213,6 +308,11 @@ export interface Authority {
   credentials?: Credentials;
   /** An API key to log in with, in place of credentials. */
   apiKey?: string;
+  /**
+   * An OpenID Connect authorization code to log in with once, in place of credentials.
+   * A code works only once, so later logins resume the session it opened.
+   */
+  oidc?: OIDCCredentials;
   /** The token of an earlier login to resume. */
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
@@ -244,6 +344,7 @@ export class Client {
   private readonly client: UnaryClient;
   private credentials?: Credentials;
   private apiKey?: string;
+  private oidc?: OIDCCredentials;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -251,18 +352,22 @@ export class Client {
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private generation = 0;
-  // whether this client opened the session with credentials; a resumed session
+  // the key of the session this client opened with credentials; a resumed session
   // belongs to whoever saved its token or cookie
-  private ownsSession = false;
+  private ownedSession?: string;
 
-  /** @throws {Error} when the authority holds both credentials and an API key. */
+  /** @throws {Error} when the authority holds more than one proof. */
   constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
-    if (authority.credentials != null && authority.apiKey != null)
-      throw new Error("Give either an API key or a username and password, not both");
+    const proofs = [authority.credentials, authority.apiKey, authority.oidc];
+    if (proofs.filter((p) => p != null).length > 1)
+      throw new Error(
+        "Give one of a username and password, an API key, or an OpenID Connect code",
+      );
     this.client = client;
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
+    this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
@@ -273,6 +378,7 @@ export class Client {
   setCredentials({ username, password }: Credentials): void {
     this.credentials = { username, password };
     this.apiKey = undefined;
+    this.oidc = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -409,6 +515,65 @@ export class Client {
   }
 
   /**
+   * Links the OpenID Connect provider account that the credentials prove to the
+   * caller, so the account can log in as the caller.
+   * @throws {InvalidCredentialsError} when the provider rejects the credentials.
+   * @throws {ValidationError} when the account or the caller already has a link for
+   * the provider.
+   */
+  async linkOIDC(credentials: OIDCCredentials): Promise<OIDCLink> {
+    const res = await this.client.send(
+      OIDC_LINK_ENDPOINT,
+      { credentials },
+      oidcLinkReqZ,
+      oidcLinkResZ,
+    );
+    return res.link;
+  }
+
+  /**
+   * Lists OpenID Connect provider links: the caller's own by default, or those of the
+   * given users when the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another user's links.
+   */
+  async retrieveOIDCLinks(subjects?: resource.ID[]): Promise<OIDCLink[]> {
+    const res = await this.client.send(
+      OIDC_RETRIEVE_ENDPOINT,
+      { subjects },
+      oidcRetrieveReqZ,
+      oidcRetrieveResZ,
+    );
+    return res.links;
+  }
+
+  /**
+   * Removes OpenID Connect provider links and ends their sessions. Unknown keys are
+   * ignored.
+   * @throws {AccessDeniedError} when the caller may not remove another user's links.
+   */
+  async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
+    await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
+  }
+
+  /**
+   * Gives the caller, or another user when the caller may create and update that user,
+   * its first password.
+   * @throws {AuthError} when another user holds the username.
+   * @throws {AccessDeniedError} when the caller may not create and update the user.
+   * @throws {NotFoundError} when the user does not exist.
+   * @throws {ValidationError} when the username or password is empty, or the user
+   * already has a password.
+   */
+  async createPassword(params: CreatePasswordParams): Promise<void> {
+    await this.client.send(
+      PASSWORD_CREATE_ENDPOINT,
+      params,
+      passwordCreateReqZ,
+      emptyResZ,
+    );
+  }
+
+  /**
    * Sets the caller's password, or another user's when the caller may update that
    * user, and ends every session the old password opened. When that ends the client's
    * own session, the client switches to the session the Core opens in its place.
@@ -429,6 +594,8 @@ export class Client {
     const own = params.subject == null || params.subject.key === this.subject?.key;
     if (own && this.credentials != null) this.credentials.password = params.password;
     if (res.session == null) return;
+    if (this.ownedSession != null && this.session?.key === this.ownedSession)
+      this.ownedSession = res.session.key;
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
     this.observer.onSuccess?.(res.session.key);
@@ -450,6 +617,8 @@ export class Client {
       return;
     }
     const { key } = authState.session;
+    // a request that fails on the ended session must not log in again mid-delete
+    this.forget();
     try {
       await this.sendAs(
         authState.token,
@@ -461,13 +630,11 @@ export class Client {
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
-      this.resumeToken = undefined;
-      // a request that logged in again during the delete holds a session this logout
+      // new credentials set during the delete may have opened a session this logout
       // did not end
       if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
-        this.forget();
       }
     }
   }
@@ -475,6 +642,7 @@ export class Client {
   private forget(): void {
     this.credentials = undefined;
     this.apiKey = undefined;
+    this.oidc = undefined;
     this.resumeToken = undefined;
   }
 
@@ -487,7 +655,9 @@ export class Client {
   async release(): Promise<void> {
     // a login still in flight decides whether this client owns the session
     if (!this.authState.authenticated) await this.authenticating;
-    if (this.ownsSession && !this.persistent) return await this.logout();
+    const owned =
+      this.authState.authenticated && this.authState.session.key === this.ownedSession;
+    if (owned && !this.persistent) return await this.logout();
     this.authState = { authenticated: false };
     this.authenticating = undefined;
   }
@@ -506,9 +676,9 @@ export class Client {
   }
 
   /**
-   * Logs in with the credentials or API key, or resumes the session a token or cookie
-   * names. A token the Core rejects is forgotten, so the next attempt needs
-   * credentials; a Core that cannot be reached has not rejected it.
+   * Logs in with the credentials, API key, or OpenID Connect code, or resumes the
+   * session a token or cookie names. A token the Core rejects is forgotten, so the next
+   * attempt needs a proof; a Core that cannot be reached has not rejected it.
    */
   private async login(): Promise<Error | null> {
     // a login issued before a setCredentials is stale: its result must not touch the
@@ -516,8 +686,9 @@ export class Client {
     const generation = this.generation;
     try {
       let state: AuthState;
-      let owned: boolean;
+      let owned: string | undefined;
       let u: user.User | undefined;
+      let spentCode = false;
       const proof = this.proof();
       if (proof != null) {
         const res = await this.client.send(
@@ -526,9 +697,10 @@ export class Client {
           createReqZ,
           createResZ,
         );
+        spentCode = proof.method === "oidc";
         state = { authenticated: true, token: res.token, session: res.session };
         u = res.user;
-        owned = true;
+        owned = res.session.key;
       } else if (this.resumeToken != null || this.cookie) {
         // a cookie session has no token; the browser attaches the cookie
         const token = this.resumeToken ?? "";
@@ -541,14 +713,20 @@ export class Client {
         );
         state = { authenticated: true, token, session: res.session };
         u = res.user;
-        owned = false;
+        // the token a spent code left names the session this client opened
+        owned = res.session.key === this.ownedSession ? res.session.key : undefined;
       } else
         throw new MissingCredentialsError(
           "no credentials, API key, token, or cookie to log in with",
         );
       if (generation !== this.generation) return null;
+      // a code works once, so a later login resumes the session it opened
+      if (spentCode) {
+        this.oidc = undefined;
+        this.resumeToken = state.token;
+      }
       this.authState = state;
-      this.ownsSession = owned;
+      this.ownedSession = owned;
       this.observer.onUser?.(u);
       this.observer.onSuccess?.(state.session.key);
       return null;
@@ -557,6 +735,8 @@ export class Client {
       if (generation !== this.generation) return null;
       this.authState = { authenticated: false };
       if (AuthError.matches(parsed)) {
+        // the Core spent or refused the code; a Core that was not reached did neither
+        this.oidc = undefined;
         this.resumeToken = undefined;
         this.observer.onFailure?.(parsed);
       }
@@ -567,6 +747,7 @@ export class Client {
   private proof(): Proof | undefined {
     if (this.credentials != null) return { method: "password", ...this.credentials };
     if (this.apiKey != null) return { method: "api_key", key: this.apiKey };
+    if (this.oidc != null) return { method: "oidc", ...this.oidc };
     return undefined;
   }
 
@@ -585,7 +766,8 @@ export class Client {
         return await next(reqCtx);
       }
       const tokenless = TOKENLESS_ENDPOINTS.some((t) => reqCtx.target.endsWith(t));
-      if (!this.authenticated && !tokenless) {
+      // a login that a setCredentials made stale resolves without authenticating
+      while (!this.authenticated && !tokenless) {
         this.authenticating ??= this.login();
         const err = await this.authenticating;
         if (err != null) {

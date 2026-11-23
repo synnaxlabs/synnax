@@ -17,12 +17,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { loginURL, mintState } from "@/feature/account/handoff";
+import { mintState } from "@/feature/account/handoff";
 import { readMachineName } from "@/feature/account/machine";
 import { useUsageDataModal } from "@/feature/account/useUsageDataModal";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
 import { CSS } from "@/platform/css";
+import { Portal } from "@/platform/portal";
 import { Runtime } from "@/platform/runtime";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
@@ -66,6 +67,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+  const portal = Portal.use();
   const version = Session.Version.use();
   const online = useOnline();
   const openUsageData = useUsageDataModal();
@@ -80,7 +82,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
         state = mintState();
         dispatch(Session.Account.beginLogin(state));
       }
-      const url = loginURL({
+      const url = portal.loginURL({
         state,
         fingerprint,
         name: await readMachineName(),

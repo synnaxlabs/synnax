@@ -744,7 +744,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		if expr := typeCast.Expression(); expr != nil {
 			Analyze(ctx.Child(expr))
 			// Validate that the cast is allowed
-			sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
+			sourceType := types.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
 				// bool casting is not allowed. User should explicitly define their
 				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
@@ -894,6 +894,10 @@ func ResolveArgChannels(
 }
 
 func isValidCast(source, target basetypes.Type) bool {
+	if source.Kind == basetypes.KindSeries || target.Kind == basetypes.KindSeries ||
+		target.Kind == basetypes.KindChan {
+		return false
+	}
 	// Constraint unification will handle type variables
 	if source.Kind == basetypes.KindVariable || target.Kind == basetypes.KindVariable {
 		return true

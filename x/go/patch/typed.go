@@ -20,6 +20,7 @@ import (
 
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -408,7 +409,7 @@ func setExact[T any](dst *T, v any) bool {
 		return ok
 	case *float64:
 		f, ok := v.(float64)
-		if ok = ok && !math.IsInf(f, 0) && !math.IsNaN(f); ok {
+		if ok = ok && xmath.Finite(f); ok {
 			*d = f
 		}
 		return ok

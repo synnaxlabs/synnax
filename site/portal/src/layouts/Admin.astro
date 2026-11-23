@@ -12,14 +12,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 
 import Portal from "@/layouts/Portal.astro";
 import { ADMIN_LINKS, type AdminSection } from "@/shell";
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import type { Session } from "@/server/session";
 
 interface Props {
     title: string;
     session: Session;
-    organizations: Organization[];
-    scope: Organization;
+    organizations: schema.Organization[];
+    scope: schema.Organization;
     /**
      * section is the staff console section the page lists. A page about one record has
      * none, and links back to its list instead.

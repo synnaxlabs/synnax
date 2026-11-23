@@ -62,6 +62,11 @@ func newIndexes() indexes {
 				}
 				return []gorp.Target{resourceTarget(*e.Parent)}
 			},
+			Retarget: func(e *Group, from, to gorp.Target) {
+				if e.Parent != nil && (gorp.Target{Table: string((*e.Parent).Type), Key: (*e.Parent).Key}) == from {
+					e.Parent.Key = to.Key
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Group](
 			"search",

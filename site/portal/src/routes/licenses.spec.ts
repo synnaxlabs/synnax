@@ -21,14 +21,7 @@ import { POST as labelRoute } from "@/pages/api/licenses/[key]/label";
 import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
 import { POST as revokeRoute } from "@/pages/api/licenses/[key]/revoke";
 import { POST as issueRoute } from "@/pages/api/licenses/index";
-import {
-  activation,
-  event,
-  type License,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { MAX_LABEL_LENGTH } from "@/server/license/limits";
@@ -68,7 +61,7 @@ const seconds = (date: Date): number => Math.floor(date.getTime() / 1000);
 describe("license routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
+  let acme: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -99,15 +92,16 @@ describe("license routes", () => {
     res: Response,
     status: number,
     error: string,
+    code?: string,
   ): Promise<void> => {
     expect(res.status).toBe(status);
-    expect(await body(res)).toEqual({ error });
+    expect(await body(res)).toEqual(code == null ? { error } : { error, code });
   };
 
-  const licenses = async (): Promise<License[]> =>
-    await store.query.select().from(license);
+  const licenses = async (): Promise<schema.License[]> =>
+    await store.query.select().from(schema.license);
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
 
   describe("POST /api/licenses", () => {
     const post = async (form: Record<string, string>): Promise<Response> =>
@@ -331,8 +325,8 @@ describe("license routes", () => {
         await post({ ...SUBSCRIPTION, organization: "org_new" });
         const [org] = await store.query
           .select()
-          .from(organization)
-          .where(eq(organization.clerkOrgID, "org_new"));
+          .from(schema.organization)
+          .where(eq(schema.organization.clerkOrgID, "org_new"));
         expect(org).toMatchObject({ kind: "team", name: "Newco" });
         expect((await licenses())[0].organization).toBe(org.key);
       });
@@ -387,7 +381,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key });
@@ -479,9 +473,9 @@ describe("license routes", () => {
     it("should refuse to change a revoked license", async () => {
       h.signIn(STAFF);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: NOW })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await expectError(await post(TERMS), 400, "A revoked license cannot be changed");
     });
 
@@ -557,7 +551,7 @@ describe("license routes", () => {
 
   describe("POST /api/licenses/[key]/label", () => {
     const ADMIN = "user_admin";
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       addPerson(ADMIN, [ACME_ADMIN]);
@@ -685,7 +679,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]/activate", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key });
@@ -746,7 +740,7 @@ describe("license routes", () => {
       const answer = await body<{ key: string; activation: string; filename: string }>(
         res,
       );
-      const [act] = await store.query.select().from(activation);
+      const [act] = await store.query.select().from(schema.activation);
       expect(answer.activation).toBe(act.key);
       expect(answer.filename).toBe("Test-rig-Test-stand.lic");
       expect(readKey(answer.key)).toEqual({
@@ -767,7 +761,7 @@ describe("license routes", () => {
     it("should record the machine and the activation", async () => {
       h.signIn(MEMBER);
       await post({ ...MACHINE, fingerprint: `${HASH_A}, ${HASH_B}` });
-      const [act] = await store.query.select().from(activation);
+      const [act] = await store.query.select().from(schema.activation);
       expect(act).toMatchObject({
         license: lic.key,
         fingerprint: [HASH_A, HASH_B],
@@ -806,7 +800,7 @@ describe("license routes", () => {
         400,
         "The link from the Console is damaged. Open it again.",
       );
-      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
     });
 
     it("should let staff activate a license of any organization", async () => {
@@ -821,7 +815,7 @@ describe("license routes", () => {
         await post({ fingerprint: `${HASH_B} ${HASH_A}`, name: "Renamed" }),
       );
       expect(again.activation).toBe(first.activation);
-      const rows = await store.query.select().from(activation);
+      const rows = await store.query.select().from(schema.activation);
       expect(rows).toHaveLength(1);
       expect(rows[0].name).toBe("Renamed");
     });
@@ -829,9 +823,9 @@ describe("license routes", () => {
     it("should refuse a machine when every seat is taken", async () => {
       h.signIn(MEMBER);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ nodes: 1 })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await createActivation(store, { license: lic.key, fingerprint: [HASH_B] });
       await expectError(
         await post(MACHINE),
@@ -860,9 +854,9 @@ describe("license routes", () => {
       h.directory.people[STAFF].email = "em@synnaxlabs.com";
       h.signIn(STAFF);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: NOW })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       expect((await post(MACHINE)).status).toBe(400);
       expect(h.slack.posted).toEqual([]);
     });
@@ -870,24 +864,24 @@ describe("license routes", () => {
     it("should refuse a revoked license", async () => {
       h.signIn(MEMBER);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: NOW })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await expectError(await post(MACHINE), 400, "This license has been revoked.");
     });
 
     it("should refuse an expired subscription", async () => {
       h.signIn(MEMBER);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ expiresAt: new Date("2026-09-01T00:00:00Z") })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await expectError(await post(MACHINE), 400, "This license has expired.");
     });
 
     it("should rate limit a user who activates too often", async () => {
       h.signIn(MEMBER);
-      await store.query.insert(event).values(
+      await store.query.insert(schema.event).values(
         Array.from({ length: PER_ACTOR }, () => ({
           kind: "activate" as const,
           actor: MEMBER,
@@ -900,12 +894,12 @@ describe("license routes", () => {
         429,
         "Too many activations. Try again later.",
       );
-      expect(await store.query.select().from(activation)).toHaveLength(0);
+      expect(await store.query.select().from(schema.activation)).toHaveLength(0);
     });
 
     it("should rate limit an organization that activates too often", async () => {
       h.signIn(MEMBER);
-      await store.query.insert(event).values(
+      await store.query.insert(schema.event).values(
         Array.from({ length: PER_ORGANIZATION }, (_, i) => ({
           kind: "download" as const,
           actor: `user_${i}`,
@@ -972,7 +966,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]/floating", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key });
@@ -998,9 +992,9 @@ describe("license routes", () => {
     it("should refuse a revoked license", async () => {
       h.signIn(STAFF);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: NOW })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await expectError(await post(), 400, "This license has been revoked.");
     });
 
@@ -1019,7 +1013,7 @@ describe("license routes", () => {
     it("should record the download without taking a seat", async () => {
       h.signIn(STAFF);
       await post();
-      expect(await store.query.select().from(activation)).toHaveLength(0);
+      expect(await store.query.select().from(schema.activation)).toHaveLength(0);
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "download" as const,
@@ -1033,7 +1027,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]/revoke", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key });
@@ -1097,6 +1091,36 @@ describe("license routes", () => {
       expect(h.mail.sent).toEqual([]);
     });
 
+    it("should say the license is revoked when its mail fails", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.portal.mail = {
+        send: async () => {
+          throw new Error("mail: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(
+        await post(),
+        502,
+        `"${lic.label}" is revoked, but the email about it failed.`,
+        "mail_failed",
+      );
+      expect((await licenses())[0].revokedAt).toEqual(NOW);
+    });
+
+    it("should save nothing when the admin lookup fails", async () => {
+      h.portal.directory = {
+        ...h.portal.directory,
+        roster: async () => {
+          throw new Error("clerk: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(await post(), 500, "Internal error");
+      expect((await licenses())[0].revokedAt).toEqual(null);
+      expect(await events()).toEqual([]);
+    });
+
     it("should refuse a second revocation without mailing again", async () => {
       addPerson("user_admin", [ACME_ADMIN]);
       h.signIn(STAFF);
@@ -1107,7 +1131,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]/delete", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key });
@@ -1117,7 +1141,7 @@ describe("license routes", () => {
       await call(deleteRoute, { params: { key } });
 
     const createEvent = async (licenseKey: string, activationKey?: string) =>
-      await store.query.insert(event).values({
+      await store.query.insert(schema.event).values({
         at: NOW,
         kind: "activate",
         actor: MEMBER,
@@ -1150,7 +1174,7 @@ describe("license routes", () => {
       h.signIn(STAFF);
       expect((await post()).status).toBe(204);
       expect(await licenses()).toEqual([]);
-      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
       expect(await events()).toEqual([]);
     });
 
@@ -1161,9 +1185,9 @@ describe("license routes", () => {
       h.signIn(STAFF);
       await post();
       expect((await licenses()).map((l) => l.key)).toEqual([other.key]);
-      expect(await store.query.select().from(activation)).toHaveLength(1);
+      expect(await store.query.select().from(schema.activation)).toHaveLength(1);
       expect(await events()).toEqual([expect.objectContaining({ license: other.key })]);
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
 
     it("should mail nobody", async () => {
@@ -1175,7 +1199,7 @@ describe("license routes", () => {
   });
 
   describe("POST /api/licenses/[key]/restore", () => {
-    let lic: License;
+    let lic: schema.License;
 
     beforeEach(async () => {
       lic = await createLicense(store, { organization: acme.key, revokedAt: NOW });
@@ -1220,6 +1244,36 @@ describe("license routes", () => {
       expect(h.mail.sent).toEqual([
         { to: ["user_admin@example.com"], ...restored(lic, acme) },
       ]);
+    });
+
+    it("should say the license is restored when its mail fails", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.portal.mail = {
+        send: async () => {
+          throw new Error("mail: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(
+        await post(),
+        502,
+        `"${lic.label}" is restored, but the email about it failed.`,
+        "mail_failed",
+      );
+      expect((await licenses())[0].revokedAt).toEqual(null);
+    });
+
+    it("should save nothing when the admin lookup fails", async () => {
+      h.portal.directory = {
+        ...h.portal.directory,
+        roster: async () => {
+          throw new Error("clerk: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(await post(), 500, "Internal error");
+      expect((await licenses())[0].revokedAt).toEqual(NOW);
+      expect(await events()).toEqual([]);
     });
 
     it("should refuse a license that is not revoked without mailing", async () => {

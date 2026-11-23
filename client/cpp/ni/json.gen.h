@@ -222,7 +222,7 @@ inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::uint32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -265,7 +265,7 @@ inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::uint32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -285,7 +285,7 @@ inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
     return BaseAOChannel{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
-        .port = parser.field<std::uint32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
     };
 }
 
@@ -306,7 +306,7 @@ inline DIChannel DIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::uint32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .line = parser.field<std::uint8_t>("line", 0),
     };
 }
@@ -336,7 +336,7 @@ inline DOChannel DOChannel::parse(x::json::Parser parser) {
         ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
-        .port = parser.field<std::uint32_t>("port", 0),
+        .port = parser.field<std::uint16_t>("port", 0),
         .line = parser.field<std::uint8_t>("line", 0),
     };
 }
@@ -728,7 +728,7 @@ inline x::json::json ConstValCJC::to_json() const {
 
 inline ChanCJC ChanCJC::parse(x::json::Parser parser) {
     ChanCJC result;
-    result.port = parser.field<std::uint32_t>("port", 0);
+    result.port = parser.field<std::uint16_t>("port", 0);
     result.source = parser.field<std::string>("source");
     return result;
 }
@@ -1770,7 +1770,10 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     result.units = parser.field<std::string>("units", "Hz");
     result.edge = parser.field<std::string>("edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
-    result.meas_time = parser.field<double>("meas_time", 0.000006);
+    result.meas_time = parser.field<::x::telem::TimeSpan>(
+        "meas_time",
+        ::x::telem::TimeSpan(6000)
+    );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
@@ -1789,7 +1792,7 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     j["units"] = this->units;
     j["edge"] = this->edge;
     j["meas_method"] = this->meas_method;
-    j["meas_time"] = this->meas_time;
+    j["meas_time"] = this->meas_time.nanoseconds();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;
@@ -1829,7 +1832,10 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     result.units = parser.field<std::string>("units", "Seconds");
     result.starting_edge = parser.field<std::string>("starting_edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
-    result.meas_time = parser.field<double>("meas_time", 0.001000);
+    result.meas_time = parser.field<::x::telem::TimeSpan>(
+        "meas_time",
+        ::x::telem::TimeSpan(1000000)
+    );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
@@ -1848,7 +1854,7 @@ inline x::json::json CIPeriodChannel::to_json() const {
     j["units"] = this->units;
     j["starting_edge"] = this->starting_edge;
     j["meas_method"] = this->meas_method;
-    j["meas_time"] = this->meas_time;
+    j["meas_time"] = this->meas_time.nanoseconds();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;
@@ -2136,7 +2142,7 @@ inline AOFuncGenChannel AOFuncGenChannel::parse(x::json::Parser parser) {
     AOFuncGenChannel result;
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     result.wave_type = parser.field<std::string>("wave_type", "Sine");
-    result.frequency = parser.field<double>("frequency", 0);
+    result.frequency = parser.field<double>("frequency");
     result.amplitude = parser.field<double>("amplitude", 0);
     result.offset = parser.field<double>("offset", 0);
     result.type = parser.field<std::string>("type");

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -113,9 +114,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:              cfg.DB,
-			References:      analogReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+			DB:         cfg.DB,
+			References: analogReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogReadMigration,
+				v4.AnalogReadMigration,
+				v4.AnalogReadRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -124,6 +129,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*AnalogReadConfig).SetKey,
 			PatchEntry:      (*AnalogReadConfig).Patch,
 			HashEntry:       (*AnalogReadConfig).HashContent,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogReadConfig) error {
+				v4.OrderAIRanges(c.Channels)
+				return nil
+			},
 			ValidateEntry: func(c *AnalogReadConfig) error {
 				v := validate.New("ni.AnalogReadConfig")
 				v.Exec(c.Validate)
@@ -136,9 +145,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:              cfg.DB,
-			References:      analogWriteConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogWriteMigration},
+			DB:         cfg.DB,
+			References: analogWriteConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogWriteMigration,
+				v4.AnalogWriteMigration,
+				v4.AnalogWriteRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
 			LegacyVersion:   legacy.LastVersion,
@@ -147,16 +160,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*AnalogWriteConfig).SetKey,
 			PatchEntry:      (*AnalogWriteConfig).Patch,
 			HashEntry:       (*AnalogWriteConfig).HashContent,
-			ValidateEntry:   (*AnalogWriteConfig).Validate,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogWriteConfig) error {
+				v4.OrderAORanges(c.Channels)
+				return nil
+			},
+			ValidateEntry: (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
 		return nil, err
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:              cfg.DB,
-			References:      counterReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+			DB:         cfg.DB,
+			References: counterReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.CounterReadMigration,
+				v4.CounterReadMigration,
+				v4.CounterReadRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -165,6 +186,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*CounterReadConfig).SetKey,
 			PatchEntry:      (*CounterReadConfig).Patch,
 			HashEntry:       (*CounterReadConfig).HashContent,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *CounterReadConfig) error {
+				v4.OrderCIRanges(c.Channels)
+				return nil
+			},
 			ValidateEntry: func(c *CounterReadConfig) error {
 				v := validate.New("ni.CounterReadConfig")
 				v.Exec(c.Validate)
@@ -177,9 +202,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:              cfg.DB,
-			References:      digitalReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.DigitalReadMigration},
+			DB:         cfg.DB,
+			References: digitalReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.DigitalReadMigration,
+				v4.DigitalReadMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -200,9 +228,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:              cfg.DB,
-			References:      digitalWriteConfigReferences(),
-			Migrations:      []gorp.Migration{v3.DigitalWriteMigration},
+			DB:         cfg.DB,
+			References: digitalWriteConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.DigitalWriteMigration,
+				v4.DigitalWriteMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_write",
 			LegacyVersion:   legacy.LastVersion,

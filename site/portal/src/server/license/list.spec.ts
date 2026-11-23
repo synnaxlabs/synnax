@@ -11,12 +11,7 @@ import { compare, uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  type License,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
   type Cursor,
@@ -36,8 +31,8 @@ const PAGE_SIZE = 50;
 
 describe("list", () => {
   let store: Memory;
-  let acme: Organization;
-  let globex: Organization;
+  let acme: schema.Organization;
+  let globex: schema.Organization;
   beforeAll(async () => {
     store = await openMemory();
   });
@@ -97,9 +92,9 @@ describe("list", () => {
     const days = (n: number): Date => new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000);
 
     /** createMany saves `n` licenses of acme, all issued on the same day. */
-    const createMany = async (n: number, values: Partial<License> = {}) =>
+    const createMany = async (n: number, values: Partial<schema.License> = {}) =>
       await store.query
-        .insert(license)
+        .insert(schema.license)
         .values(
           Array.from({ length: n }, () => ({
             organization: acme.key,
@@ -113,8 +108,8 @@ describe("list", () => {
         )
         .returning();
 
-    const readAll = async (query: Query = {}): Promise<License[]> => {
-      const read: License[] = [];
+    const readAll = async (query: Query = {}): Promise<schema.License[]> => {
+      const read: schema.License[] = [];
       let after: Cursor | undefined;
       for (;;) {
         const page = await listPage(store.query, { ...query, after }, NOW);
@@ -190,9 +185,9 @@ describe("list", () => {
       const unfiltered = await listPage(store.query, {}, NOW);
       expect(unfiltered.entries.map((e) => e.license)).not.toContainEqual(needle);
       await store.query
-        .update(organization)
+        .update(schema.organization)
         .set({ name: "ÉQUIPE" })
-        .where(eq(organization.key, globex.key));
+        .where(eq(schema.organization.key, globex.key));
       for (const search of ["north BENCH", "équipe", needle.key.slice(9, 23)]) {
         const page = await listPage(store.query, { search: ` ${search} ` }, NOW);
         expect(page.entries.map((e) => e.license)).toEqual([needle]);
@@ -201,7 +196,7 @@ describe("list", () => {
     });
 
     it("should match each status exactly as statusOf reads it", async () => {
-      const shapes: Partial<License>[] = [
+      const shapes: Partial<schema.License>[] = [
         { revokedAt: NOW, expiresAt: days(90) },
         { revokedAt: NOW, expiresAt: days(-1) },
         { expiresAt: null },
@@ -215,7 +210,7 @@ describe("list", () => {
         { edition: "desktop", expiresAt: days(-1) },
         { edition: "desktop", expiresAt: null },
       ];
-      const created: License[] = [];
+      const created: schema.License[] = [];
       for (const s of shapes)
         created.push(await createLicense(store, { organization: acme.key, ...s }));
       for (const status of STATUSES) {
@@ -223,7 +218,7 @@ describe("list", () => {
         expect(want.length).toBeGreaterThan(0);
         const page = await listPage(store.query, { status }, NOW);
         expect(page.total).toBe(want.length);
-        const keys = (l: License[]): string[] => l.map((x) => x.key).sort();
+        const keys = (l: schema.License[]): string[] => l.map((x) => x.key).sort();
         expect(keys(page.entries.map((e) => e.license))).toEqual(keys(want));
       }
     });
@@ -260,9 +255,9 @@ describe("list", () => {
       const anchor = first.next?.key ?? "";
       expect(first.next?.expiresAt).toEqual(days(20));
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ expiresAt: null })
-        .where(eq(license.key, anchor));
+        .where(eq(schema.license.key, anchor));
       const second = await listPage(
         store.query,
         { status: "expiring", after: first.next ?? undefined },

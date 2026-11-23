@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Stream, WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -25,7 +25,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame, frameZ, seriesFromPayload } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 import { IteratorCommand, IteratorResponseVariant } from "@/framer/types.gen";
 
@@ -230,12 +230,21 @@ export class Iterator {
   }
 
   private async execute(request: IteratorRequest): Promise<boolean> {
-    await this.stream.send(request);
+    try {
+      await this.stream.send(request);
+    } catch (err) {
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(err)) throw errors.fromUnknown(err);
+    }
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === IteratorResponseVariant.Ack) return res.ack;
-      this.value.push(this.adapter.adapt(new Frame(res.frame)));
+      if (res.frame == null) continue;
+      const { keys, series } = res.frame;
+      this.value.push(
+        this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload))),
+      );
     }
   }
 }

@@ -21,6 +21,7 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -285,7 +286,7 @@ var _ = Describe("Service.Set access", func() {
 	}
 	createLabel := func(ctx SpecContext) label.Label {
 		GinkgoHelper()
-		l := label.Label{Name: "label"}
+		l := label.Label{Name: "label", Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return labelSvc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -989,3 +990,6 @@ var _ = Describe("Retrieve access", func() {
 		Expect(res.Statuses).To(HaveExactElements(HaveField("Key", granted.Key)))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

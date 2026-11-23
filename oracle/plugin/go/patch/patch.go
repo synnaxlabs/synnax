@@ -465,38 +465,11 @@ func shapeOf(ref resolution.TypeRef, table *resolution.Table) (shape, error) {
 		}
 		return shapeOf(target, table)
 	case resolution.DistinctForm:
-		base := resolution.SubstituteTypeRef(
-			form.Base,
-			resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
-		)
-		sh, err := shapeOf(base, table)
-		if err != nil {
-			return shape{}, err
-		}
-		if sh.kind == shapeNested {
-			return shape{}, errors.Newf(
-				"%s: a distinct struct type has no generated methods",
-				typ.QualifiedName,
-			)
-		}
-		sh.converted = true
-		return sh, nil
+		return distinctShape(typ, form, ref, table)
 	case resolution.EnumForm:
 		return shape{kind: shapeEnum, intEnum: form.IsIntEnum}, nil
 	case resolution.StructForm:
-		if form.IsGeneric() {
-			return shape{}, errors.Newf(
-				"%s: content hashing does not support a generic struct",
-				typ.QualifiedName,
-			)
-		}
-		if omit.IsSkipped(typ, "go") {
-			return shape{}, errors.Newf(
-				"%s: content hashing does not support a hand-written struct",
-				typ.QualifiedName,
-			)
-		}
-		return shape{kind: shapeNested, typ: typ}, nil
+		return structShape(typ, form)
 	case resolution.UnionForm:
 		return shape{kind: shapeNested, typ: typ}, nil
 	default:
@@ -506,6 +479,49 @@ func shapeOf(ref resolution.TypeRef, table *resolution.Table) (shape, error) {
 			form,
 		)
 	}
+}
+
+// distinctShape returns the shape of the Go value of ref, a reference to the distinct
+// type typ.
+func distinctShape(
+	typ resolution.Type,
+	form resolution.DistinctForm,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (shape, error) {
+	base := resolution.SubstituteTypeRef(
+		form.Base,
+		resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
+	)
+	sh, err := shapeOf(base, table)
+	if err != nil {
+		return shape{}, err
+	}
+	if sh.kind == shapeNested {
+		return shape{}, errors.Newf(
+			"%s: a distinct struct type has no generated methods",
+			typ.QualifiedName,
+		)
+	}
+	sh.converted = true
+	return sh, nil
+}
+
+// structShape returns the shape of the Go value of the struct typ.
+func structShape(typ resolution.Type, form resolution.StructForm) (shape, error) {
+	if form.IsGeneric() {
+		return shape{}, errors.Newf(
+			"%s: content hashing does not support a generic struct",
+			typ.QualifiedName,
+		)
+	}
+	if omit.IsSkipped(typ, "go") {
+		return shape{}, errors.Newf(
+			"%s: content hashing does not support a hand-written struct",
+			typ.QualifiedName,
+		)
+	}
+	return shape{kind: shapeNested, typ: typ}, nil
 }
 
 // hashable is the set of primitives that HashContent writes.
@@ -848,8 +864,8 @@ func defaulted(
 }
 
 // zeroDefault reports whether the default v of a field of type ref leaves the Go zero
-// value. An ident default other than a union variant or a string enum member, such as
-// create or an integer enum member, sets nothing.
+// value. An ident default that is not a union variant or an enum member, such as
+// create, sets nothing, and so does an integer enum member with the value 0.
 func zeroDefault(
 	v resolution.ExpressionValue,
 	ref resolution.TypeRef,
@@ -865,7 +881,7 @@ func zeroDefault(
 			return true
 		}
 		form, _ := ev.Type.Form.(resolution.EnumForm)
-		return form.IsIntEnum
+		return form.IsIntEnum && ev.Variant.IntValue() == 0
 	case resolution.ValueKindString:
 		return v.StringValue == ""
 	case resolution.ValueKindInt:

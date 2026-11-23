@@ -119,6 +119,34 @@ describe("auth guard", () => {
     expect(screen.queryByText("Log in")).toBeNull();
   });
 
+  it("should finish a browser login even when a Core is already selected", async () => {
+    sessionStorage.setItem(
+      "synnax-oidc-login",
+      JSON.stringify({
+        core: CORE_KEY,
+        provider: "company-sso",
+        verifier: "verifier",
+        state: "state",
+        redirectUri: "https://core.example.com/",
+      }),
+    );
+    window.history.replaceState(null, "", "/?code=abc&state=state");
+    onTestFinished(() => {
+      sessionStorage.clear();
+      window.history.replaceState(null, "", "/");
+    });
+    const store = await renderGuard(CORE_KEY);
+    await waitFor(() =>
+      expect(store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY].oidc).toEqual({
+        provider: "company-sso",
+        code: "abc",
+        verifier: "verifier",
+        redirectUri: "https://core.example.com/",
+      }),
+    );
+    expect(window.location.search).toBe("");
+  });
+
   it("should render the login screen when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
@@ -287,6 +315,7 @@ describe("connection guard permissions", () => {
       preloadedState: {
         [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
       },
+      skipPermissionLoad: true,
     });
     // A Core that stays unreachable fails the permissions load.
     await proxy.sever();

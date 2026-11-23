@@ -16,9 +16,16 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  getConfig,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { FC } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -102,13 +109,21 @@ const findNameInput = (): HTMLInputElement => {
   return input;
 };
 
+// Unique keys, since the Core keeps the devices of an earlier run.
+const DEVICES = {
+  dev: uniqueName("dev"),
+  valid: uniqueName("valid"),
+  filled: uniqueName("filled"),
+  remote: uniqueName("remote"),
+};
+
 describe("wrapForm", () => {
   // The Core refuses a config that names a device it does not hold.
   beforeAll(async () => {
     const client = createTestClient();
     const rack = await client.racks.create({ name: uniqueName("rack") });
     await client.devices.create(
-      ["dev", "valid", "filled", "remote"].map((key) => ({
+      Object.values(DEVICES).map((key) => ({
         key,
         name: key,
         rack: rack.key,
@@ -225,7 +240,7 @@ describe("wrapForm", () => {
       const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
-          onClick={() => onChange("dev")}
+          onClick={() => onChange(DEVICES.dev)}
         >{`device-status:${status.message}`}</button>
       );
     };
@@ -332,7 +347,7 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({
         ...INITIAL_VALUES,
-        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        config: { device: DEVICES.dev, channels: [{ key: "ch1", disabled: false }] },
         rack: 0,
       });
       const Renderer = createRenderer({
@@ -491,7 +506,9 @@ describe("wrapForm", () => {
         return (
           <>
             <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
-            <button onClick={() => set(path.config.device, "valid")}>valid</button>
+            <button onClick={() => set(path.config.device, DEVICES.valid)}>
+              valid
+            </button>
           </>
         );
       };
@@ -515,7 +532,7 @@ describe("wrapForm", () => {
       await act(async () => fireEvent.click(screen.getByText("valid")));
       await clickDeploy(container);
       await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
-      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
+      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: DEVICES.valid });
     });
 
     it("should keep a deploy error after an edit to another field", async () => {
@@ -693,7 +710,10 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
-        onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
+        onConfigure: async (_client, config) => [
+          { ...config, device: DEVICES.filled },
+          0,
+        ],
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       try {
@@ -704,7 +724,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "filled" });
+        expect(updated.config).toMatchObject({ device: DEVICES.filled });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
@@ -722,10 +742,10 @@ describe("wrapForm", () => {
           expect(
             await other.tasks.dispatch(
               draft.key,
-              task.set({ path: ["config", "device"], value: "remote" }),
+              task.set({ path: ["config", "device"], value: DEVICES.remote }),
             ),
           ).toBe(true);
-          await screen.findByText("device:remote");
+          await screen.findByText(`device:${DEVICES.remote}`);
           return [config, 0];
         },
       });
@@ -738,7 +758,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "remote" });
+        expect(updated.config).toMatchObject({ device: DEVICES.remote });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
@@ -790,7 +810,12 @@ describe("wrapForm", () => {
       expect(onConfigure).not.toHaveBeenCalled();
     });
 
-    it("should start again after a start that got no response", async () => {
+    it("should start again after a start that got no response", async ({ signal }) => {
+      // Vitest goes on to the next spec while a timed-out body keeps running, so the
+      // restore registers first and the body stops before it would fake the clock.
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       const client = createTestClient();
       const running = await client.racks.create({ name: uniqueName("rack") });
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: running.key });
@@ -805,32 +830,43 @@ describe("wrapForm", () => {
           details: { running: true },
         });
       await beat();
+      // Cleanup runs even when the test times out, so a hung test leaves no fake
+      // clock or heartbeat behind for the tests after it.
       const heartbeat = setInterval(() => void beat(), 1000);
+      onTestFinished(() => clearInterval(heartbeat));
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldAdvanceTime: true,
+      onTestFinished(() => streamer.close());
+      const { container } = await renderTaskFormTab(createRenderer(), {
+        client,
+        taskKey: draft.key,
       });
-      try {
-        const { container } = await renderTaskFormTab(createRenderer(), {
-          client,
-          taskKey: draft.key,
-        });
-        await clickDeploy(container);
-        await awaitCommand(streamer, draft.key);
-        await screen.findByText("Sending start command");
-        await act(
-          async () =>
-            await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds),
-        );
-        await screen.findByText("No response to the start command");
-        await clickDeploy(container);
-        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
-      } finally {
-        vi.useRealTimers();
-        clearInterval(heartbeat);
-        streamer.close();
-      }
+      const start = await waitFor(() => {
+        const b = within(container).getByRole("button", { name: "Start" });
+        if (b.getAttribute("aria-disabled") === "true")
+          throw new Error("start button is disabled");
+        return b;
+      });
+      if (signal.aborted) return;
+      // The command wait starts on real timers, so it still times out by itself.
+      const sent = awaitCommand(streamer, draft.key);
+      // Only the start's reply timer runs on the fake clock. vi.waitFor moves the
+      // clock with each check, so no wait depends on how fast a busy runner ticks.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      await act(async () => fireEvent.click(start));
+      await sent;
+      await vi.waitFor(() => screen.getByText("Sending start command"), {
+        timeout: getConfig().asyncUtilTimeout,
+      });
+      await act(
+        async () =>
+          await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds),
+      );
+      await vi.waitFor(() => screen.getByText("No response to the start command"), {
+        timeout: getConfig().asyncUtilTimeout,
+      });
+      vi.useRealTimers();
+      await clickDeploy(container);
+      expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
     });
 
     it("should start a task whose status fails its status data schema", async () => {

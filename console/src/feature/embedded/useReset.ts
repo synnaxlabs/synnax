@@ -11,8 +11,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan } from "@synnaxlabs/x";
 
 import { reset } from "@/feature/embedded/supervisor";
-import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
+import { Portal } from "@/platform/portal";
 import { Session } from "@/session";
 
 const HOLD_TO_CONFIRM = TimeSpan.seconds(1);
@@ -28,6 +28,7 @@ export const useReset = (): (() => void) => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const store = Session.useStore();
+  const portal = Portal.use();
   return () =>
     handleError(async () => {
       const confirmed = await confirm({
@@ -45,7 +46,7 @@ export const useReset = (): (() => void) => {
       // An erase works offline. A machine the hub never hears from leaves its account
       // when its license expires.
       const { link } = Session.Account.selectSliceState(store.getState());
-      if (link != null) await License.unlink(link.secret).catch(console.error);
+      if (link != null) await portal.unlink(link.secret).catch(console.error);
       store.dispatch(Session.Account.clear());
       // The restart drops any change still waiting on the debounce.
       await Session.Persist.flush(store.dispatch);

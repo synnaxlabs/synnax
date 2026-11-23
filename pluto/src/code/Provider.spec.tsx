@@ -12,7 +12,7 @@ import { act, cleanup, render, renderHook, waitFor } from "@testing-library/reac
 import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Language } from "@/code/language";
+import type { Code } from "@/code";
 
 const { initialize } = vi.hoisted(() => ({ initialize: vi.fn() }));
 
@@ -37,7 +37,7 @@ vi.mock("@codingame/monaco-vscode-theme-service-override", () => ({
 }));
 
 // The runtime starts once per module instance, so each spec loads a fresh one.
-const loadProvider = async () => await import("@/code/Provider");
+const loadProvider = async () => (await import("@/code")).Code;
 
 // Returns a function that makes the page go idle.
 const stubIdleCallbacks = (): (() => void) => {
@@ -108,14 +108,14 @@ describe("Code", () => {
     it("should connect a language server only once an editor opens", async () => {
       const goIdle = stubIdleCallbacks();
       const languageServer = vi.fn(() => new Promise<never>(() => {}));
-      const language: Language = {
+      const language: Code.Language = {
         name: "test",
         configuration: "{}",
         grammar: { scopeName: "source.test", raw: "{}" },
         languageServer,
       };
       // Loaded after the reset, so the provider reads the same Synnax context.
-      const { createSynnaxWrapper } = await import("@/testutil/Synnax");
+      const { createSynnaxWrapper } = await import("@/testutil");
       const { Provider, useMonaco, usePreload } = await loadProvider();
       const SynnaxWrapper = createSynnaxWrapper({ client: createTestClient() });
       const Preload = (): null => {

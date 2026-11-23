@@ -12,7 +12,7 @@ import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { AccessDeniedError, MissingCredentialsError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1712,6 +1712,36 @@ describe("Table", () => {
   });
 });
 
+describe("renotify", () => {
+  interface Counter extends record.Keyed<string> {
+    key: string;
+    n: number;
+  }
+
+  it("should send the shown value of the key as a set and count it as a change", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.set("a", { key: "a", n: 1 });
+    const listener = vi.fn();
+    table.subscribe(listener, "a");
+    const before = table.version();
+    table.renotify("a");
+    expect(setEvents(listener)).toEqual([
+      [{ variant: "set", key: "a", value: { key: "a", n: 1 } }],
+    ]);
+    expect(table.version()).toBeGreaterThan(before);
+  });
+
+  it("should send nothing for a key that the table does not hold", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    const listener = vi.fn();
+    table.subscribe(listener);
+    const before = table.version();
+    table.renotify("a");
+    expect(listener).not.toHaveBeenCalled();
+    expect(table.version()).toBe(before);
+  });
+});
+
 describe("intercept", () => {
   interface Counter extends record.Keyed<string> {
     key: string;
@@ -1728,6 +1758,7 @@ describe("intercept", () => {
         bases.set(key, value);
         return show(value);
       },
+      keys: () => bases.keys(),
     };
     return { bases, interceptor };
   };
@@ -1818,6 +1849,20 @@ describe("intercept", () => {
     },
   );
 
+  it("should list the keys that the interceptor shows over a base as overlaid", () => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+    table.set("a", counter(1));
+    expect([...table.overlaid()]).toEqual(["a"]);
+    bases.delete("a");
+    expect([...table.overlaid()]).toEqual([]);
+  });
+
+  it("should list no overlaid keys without an interceptor", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.set("a", counter(1));
+    expect([...table.overlaid()]).toEqual([]);
+  });
+
   it("should throw when the table already has an interceptor", () => {
     const { table } = newTable((b) => b);
     expect(() => table.intercept(createOverlay((b) => b).interceptor)).toThrow(
@@ -1876,10 +1921,13 @@ describe("delete rollback", () => {
       );
   });
 
-  it("should not report a fetch that cannot reach the Core", async () => {
+  it.each([
+    ["cannot reach the Core", () => new Unreachable()],
+    ["runs after a logout", () => new MissingCredentialsError()],
+  ])("should not report a fetch that %s", async (_, offline) => {
     const onError = vi.fn();
     const fetch = vi.fn(async (): Promise<Doc[]> => {
-      throw new Unreachable();
+      throw offline();
     });
     const table = newTable(fetch, onError);
     table.set("k1", doc("a"));
@@ -2588,5 +2636,75 @@ describe("drop", () => {
       table.ingest([{ key: "a", name: "old" }], { since });
     });
     expect(table.get("a")).toBeUndefined();
+  });
+});
+
+describe("written", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string, name = key): Doc => ({ key, name });
+  const held = () => {
+    const table = new query.Table<string, Doc>({ onError: noopError });
+    const written = vi.fn();
+    const release = table.hold({ held: () => [], written });
+    return { table, written, release };
+  };
+
+  it("should tell each holder of a set", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    table.set([doc("b"), doc("c")]);
+    expect(written.mock.calls).toEqual([["a"], ["b"], ["c"]]);
+  });
+
+  it("should tell each holder of a set that leaves the record as it was", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    written.mockClear();
+    table.set("a", doc("a"));
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should tell each holder of a stamped write", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    written.mockClear();
+    table.stampWrite("a");
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should tell each holder of a delete rollback that restores a record", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    const rollback = table.delete("a");
+    written.mockClear();
+    rollback();
+    expect(table.get("a")).toEqual(doc("a"));
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should not tell the holders of a key the table does not hold", () => {
+    const { table, written } = held();
+    table.stampWrite("missing");
+    table.set("a", () => undefined);
+    expect(written).not.toHaveBeenCalled();
+  });
+
+  it("should not tell a released holder", () => {
+    const { table, written, release } = held();
+    release();
+    table.set("a", doc("a"));
+    expect(written).not.toHaveBeenCalled();
+  });
+
+  it("should not tell the holders of an ingest", () => {
+    const { table, written } = held();
+    table.ingest([doc("a")]);
+    expect(written).not.toHaveBeenCalled();
   });
 });

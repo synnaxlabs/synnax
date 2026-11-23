@@ -14,8 +14,8 @@ import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { color as aetherColor } from "@/color/aether";
-import { Colors } from "@/telem/control/aether/colors";
-import { renderAether } from "@/testutil/renderAether";
+import { control } from "@/telem/control/aether";
+import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
 
@@ -67,7 +67,7 @@ const hold = async (ch: channel.Channel): Promise<Holder> => {
 };
 
 interface Setup {
-  colors: Colors;
+  colors: control.Colors;
   /** Replaces the series colors that Colors assigns from. */
   setSeries: (colors: color.Color[]) => void;
 }
@@ -77,7 +77,7 @@ const setup = async (
   channels: channel.Channel[],
   palette: color.Color[] = PALETTE,
 ): Promise<Setup> => {
-  const h = renderAether(Colors, {
+  const h = renderAether(control.Colors, {
     state: {},
     synnax: { props: testClientParams() },
     series: { colors: palette },
@@ -109,7 +109,10 @@ const setup = async (
 };
 
 /** Waits until the subject holds a color, and returns it. */
-const assigned = async (colors: Colors, subject: string): Promise<color.Color> => {
+const assigned = async (
+  colors: control.Colors,
+  subject: string,
+): Promise<color.Color> => {
   await expect
     .poll(() => color.equals(colors.get(subject), DEFAULT_COLOR), POLL)
     .toBe(false);

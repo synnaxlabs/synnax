@@ -10,12 +10,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  compareDeps,
-  useMemoArray,
-  useMemoCompare,
-  useMemoDeepEqual,
-} from "@/memo/useMemoCompare";
+import { compareDeps, useMemoArray, useMemoCompare, useMemoDeepEqual } from "@/memo";
 
 const setup = <T>(initial: T[]) =>
   renderHook(({ value }) => useMemoArray(value), {

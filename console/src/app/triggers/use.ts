@@ -15,7 +15,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { useRef } from "react";
 
 import { Palette } from "@/app/palette";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
+import { Vis } from "@/app/vis";
 import { Panel } from "@/feature/panel";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
@@ -70,7 +70,7 @@ export const use = (): void => {
   const { dispatch } = PPanel.useDispatch();
   const openWindow = Panel.useOpenWindow();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createTabEnabled = useSelectorVisible();
+  const createTabEnabled = Vis.useSelectorVisible();
   const canEditPanel = PlatformPanel.useCanEditActive();
   const openSelector = Selector.useOpenTab();
   Triggers.use({
@@ -107,13 +107,16 @@ export const use = (): void => {
       }
       const panelKey = getSelectedPanel();
       const focused = getFocusedTab();
-      if (canEditPanel && panelKey != null && focused != null) {
-        if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
-        dispatch({
-          key: panelKey,
-          actions: [panel.removeTab({ key: focused })],
-        });
-        return;
+      if (panelKey != null && focused != null) {
+        if (canEditPanel == null) return;
+        if (canEditPanel) {
+          if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
+          dispatch({
+            key: panelKey,
+            actions: [panel.removeTab({ key: focused })],
+          });
+          return;
+        }
       }
       // A page cannot close the tab that holds it.
       if (Session.Runtime.ENGINE !== "tauri") return;

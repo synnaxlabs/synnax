@@ -9,8 +9,6 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { License } from "@/platform/license";
-
 /** The URL scheme the hub hands a login back through. */
 const SCHEME = "synnax-desktop";
 
@@ -20,29 +18,6 @@ const INCORRECT_FORMAT_ERROR_MESSAGE = `Login links must be of the form ${SCHEME
 
 /** Mints the state a login carries out to the hub and back. */
 export const mintState = (): string => uuid.create();
-
-export interface LoginParams {
-  state: string;
-  fingerprint: string[];
-  /** The name this machine shows in the account. */
-  name: string;
-  version?: string;
-}
-
-/** The hub page that links this machine, with what it needs in the query. */
-export const loginURL = ({
-  state,
-  fingerprint,
-  name,
-  version,
-}: LoginParams): string => {
-  const url = new URL(License.LOGIN_URL);
-  url.searchParams.set("state", state);
-  url.searchParams.set("fp", License.joinFingerprint(fingerprint));
-  url.searchParams.set("name", name);
-  if (version != null) url.searchParams.set("v", version);
-  return url.toString();
-};
 
 /** What the hub hands back once the machine is linked. */
 export interface Linked {

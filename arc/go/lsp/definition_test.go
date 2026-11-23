@@ -134,6 +134,21 @@ func main() {
 			).To(Equal(uint32(1)))
 			// Line 1: count u32 $= 0
 		})
+
+		It("should jump to a dashed variable declaration", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:          func() *symbol.Symbol { return NewRoot(nil) },
+				AllowDashedNames: true,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, "func test() {\n"+
+				"    ox-pt-1 f64 := 1.0\n"+
+				"    y := ox-pt-1 + 1.0\n"+
+				"}")
+			locations := Definition(server, ctx, uri, 2, 13)
+			Expect(locations).To(HaveLen(1))
+			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1)))
+		})
 	})
 
 	Describe("Parameter Definitions", func() {

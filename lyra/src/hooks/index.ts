@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/hooks/clock";
 export * from "@/hooks/ref";
 export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useDebouncedCallback";
@@ -14,6 +15,7 @@ export * from "@/hooks/useDestructors";
 export * from "@/hooks/useEffectCompare";
 export * from "@/hooks/useHold";
 export * from "@/hooks/useNow";
+export * from "@/hooks/usePopover";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useUniqueKey";
 export * from "@/hooks/useWheelScrollX";

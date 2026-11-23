@@ -24,9 +24,13 @@ import type { z } from "zod";
 
 import type { DispatchPayload } from "@/actions/actions";
 import type { batch } from "@/batch";
-import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
-import type { query } from "@/query";
-import { keyedZ, Table } from "@/query/table";
+import {
+  AccessDeniedError,
+  isConnectionError,
+  NotCachedError,
+  NotFoundError,
+} from "@/errors";
+import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -105,6 +109,10 @@ export interface Reversal<Action> {
  * staged state and rethrows.
  */
 export interface Transaction<Action> {
+  /**
+   * @throws {NotCachedError} if the doc is no longer cached, after it aborts the
+   * transaction.
+   */
   add: (actions: Action | Action[]) => void;
   commit: () => Promise<boolean>;
   abort: () => void;
@@ -147,6 +155,7 @@ export interface Options<State, Action> {
 
 /** The action-dispatch surface a document domain client exposes. */
 export interface Domain<Key extends record.Key, State extends query.Data, Action> {
+  /** @throws {NotCachedError} if the document is not cached, before any change. */
   dispatch(
     key: Key,
     actions: Action | Action[],
@@ -157,6 +166,7 @@ export interface Domain<Key extends record.Key, State extends query.Data, Action
   hasUndo(key: Key): boolean;
   hasRedo(key: Key): boolean;
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
+  /** @throws {NotCachedError} if the document is not cached. */
   beginTransaction(key: Key, kind?: string): Transaction<Action>;
 }
 
@@ -181,7 +191,7 @@ export interface ControllerParams<
   Action,
 > {
   /** The table holding the documents this controller dispatches over. */
-  store: Table<Key, State>;
+  store: query.Table<Key, State>;
   /** Reports listener errors that have no caller to throw to. */
   onError: (error: Error) => void;
   /**
@@ -304,8 +314,8 @@ interface Prepared<Action> {
  * session-local and dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
-  private readonly docs: Table<Key, State>;
-  private readonly undos: Table<Key, UndoState<Action>>;
+  private readonly docs: query.Table<Key, State>;
+  private readonly undos: query.Table<Key, UndoState<Action>>;
   private readonly params: Required<
     Omit<
       ControllerParams<Key, State, Action>,
@@ -358,7 +368,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
     // be pure waste, so equality is disabled.
-    this.undos = new Table<Key, UndoState<Action>>({
+    this.undos = new query.Table<Key, UndoState<Action>>({
       onError: this.params.onError,
       equal: () => false,
     });
@@ -374,6 +384,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.intercept({
       base: (key) => (this.writing ? undefined : this.rebases.get(key)?.base),
       apply: (key, doc) => this.overlay(key, doc),
+      keys: () => this.rebases.keys(),
     });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
     opts.onStreamDown(() => {
@@ -653,6 +664,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (held) {
       this.markFetch(key);
       this.docs.stampWrite(key);
+      // A list that the Core answered before it applied the entry places the key again.
+      this.docs.renotify(key);
     } else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets: applied?.targets ?? [] };
@@ -910,15 +923,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Apply an action batch to the cached doc and send it to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * doc isn't cached. Removes the local apply and rethrows on send failure.
+   * Apply an action batch to the cached doc and send it to the server, recording an
+   * undoable entry. Removes the local apply and rethrows on send failure.
+   * @returns true.
+   * @throws {NotCachedError} if the doc isn't cached, before any change.
    */
   async dispatch(
     key: Key,
     actions: Action[],
     opts: Options<State, Action> = {},
   ): Promise<boolean> {
+    this.cached(key);
     if (actions.length === 0) return true;
     const { preprocess } = opts;
     const commitStack = this.stackRecorder(key);
@@ -929,6 +944,16 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       ),
       commitStack,
     }));
+  }
+
+  private cached(key: Key): State {
+    const doc = this.docs.get(key);
+    if (doc == null) throw this.notCached(key);
+    return doc;
+  }
+
+  private notCached(key: Key): NotCachedError {
+    return new NotCachedError(`Document ${key} is not cached`);
   }
 
   /** Encodes each action against the doc that the actions before it produce. */
@@ -1025,17 +1050,25 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   /**
    * Stage actions committed atomically as one undoable entry. Each add applies to the
    * cached doc at once, and the staged actions stay pending until the commit settles.
+   * @throws {NotCachedError} if the doc isn't cached.
    */
   transaction(key: Key, kind?: string): Transaction<Action> {
-    const initial = this.docs.get(key);
+    const initial = this.cached(key);
     const entry = this.createPending(id.create());
     let done = false;
+    const abort = (): void => {
+      if (done) return;
+      done = true;
+      this.discard(key, entry.dispatchKey);
+    };
     return {
       add: (actions) => {
         if (done) throw new Error("transaction finalized");
-        if (initial == null) return;
         const current = this.docs.get(key);
-        if (current == null) return;
+        if (current == null) {
+          abort();
+          throw this.notCached(key);
+        }
         const arr = this.encode(current, array.toArray(actions));
         const { next } = this.params.reduce(current, arr);
         entry.actions.push(...arr);
@@ -1044,7 +1077,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       commit: async () => {
         if (done) return false;
         done = true;
-        if (entry.actions.length === 0 || initial == null) return false;
+        if (entry.actions.length === 0) return false;
         // The batch that adopts the entry adds to its actions.
         const actions = [...entry.actions];
         // Inverse must be computed against the pre-transaction snapshot so
@@ -1061,11 +1094,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         );
         return true;
       },
-      abort: () => {
-        if (done) return;
-        done = true;
-        this.discard(key, entry.dispatchKey);
-      },
+      abort,
     };
   }
 
@@ -1243,7 +1272,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         );
       },
       onInvalid: (raw) => {
-        const keyed = keyedZ.safeParse(raw);
+        const keyed = query.keyedZ.safeParse(raw);
         if (keyed.success) this.refetch(keyed.data.key as Key);
       },
     };

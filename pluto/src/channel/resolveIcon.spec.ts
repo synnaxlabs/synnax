@@ -12,15 +12,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { resolveIcon } from "@/channel/resolveIcon";
+import { Channel } from "@/channel";
 
 describe("resolveIcon", () => {
   it("should return Icon.Channel when no channel is provided", () => {
-    expect(resolveIcon()).toBe(Icon.Channel);
+    expect(Channel.resolveIcon()).toBe(Icon.Channel);
   });
 
   it("should return Icon.Channel when channel is undefined", () => {
-    expect(resolveIcon(undefined)).toBe(Icon.Channel);
+    expect(Channel.resolveIcon(undefined)).toBe(Icon.Channel);
   });
 
   it("should return Icon.Calculation for a calculated channel", () => {
@@ -31,7 +31,7 @@ describe("resolveIcon", () => {
       expression: "x + 1",
       virtual: true,
     });
-    expect(resolveIcon(ch)).toBe(Icon.Calculation);
+    expect(Channel.resolveIcon(ch)).toBe(Icon.Calculation);
   });
 
   it("should return Icon.Decimal for a float channel", () => {
@@ -40,7 +40,7 @@ describe("resolveIcon", () => {
       name: "temp",
       dataType: DataType.FLOAT32,
     });
-    expect(resolveIcon(ch)).toBe(Icon.Decimal);
+    expect(Channel.resolveIcon(ch)).toBe(Icon.Decimal);
   });
 
   it("should return Icon.Binary for an integer channel", () => {
@@ -49,7 +49,7 @@ describe("resolveIcon", () => {
       name: "count",
       dataType: DataType.INT32,
     });
-    expect(resolveIcon(ch)).toBe(Icon.Binary);
+    expect(Channel.resolveIcon(ch)).toBe(Icon.Binary);
   });
 
   it("should return Icon.Time for a timestamp channel", () => {
@@ -59,6 +59,6 @@ describe("resolveIcon", () => {
       dataType: DataType.TIMESTAMP,
       isIndex: true,
     });
-    expect(resolveIcon(ch)).toBe(Icon.Time);
+    expect(Channel.resolveIcon(ch)).toBe(Icon.Time);
   });
 });

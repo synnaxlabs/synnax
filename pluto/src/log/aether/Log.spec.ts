@@ -12,15 +12,10 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
-import {
-  MockLogSource,
-  mockLogSourceSpec,
-  registerMockLogSource,
-} from "@/log/aether/telem/mock";
-import type { LogEntry } from "@/log/aether/telem/types";
+import { log, type LogEntry } from "@/log/aether";
+import { logTest } from "@/log/aether/testutil";
 import { telem } from "@/telem/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -47,8 +42,8 @@ const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
   return { x, y, width, height };
 };
 
-const selectedText = (log: Log): string =>
-  log
+const selectedText = (leaf: log.Log): string =>
+  leaf
     .selection()
     .lines.map(({ text }) => text)
     .join("\n");
@@ -65,7 +60,7 @@ const baseInput = (
   scrolling: false,
   empty: true,
   visible: true,
-  telem: mockLogSourceSpec(testId),
+  telem: logTest.mockSourceSpec(testId),
   ...overrides,
 });
 
@@ -79,24 +74,24 @@ const setup = (
   theme: theme.Theme = THEME,
 ) => {
   const testId = `log-test-${++testIdCounter}`;
-  const source = new MockLogSource();
-  registerMockLogSource(testId, source);
+  const source = new logTest.MockSource();
+  logTest.registerMockSource(testId, source);
   const recorder = canvasTest.record();
   const input = baseInput(testId, region, stateOverrides);
-  const h = renderAether(Log, {
-    state: logStateZ.parse(input),
+  const h = renderAether(log.Log, {
+    state: log.logStateZ.parse(input),
     theming: { theme, fontURLs: [] },
     render: recorder,
   });
   source.push(...entries);
-  h.setState(() => logStateZ.parse(input));
+  h.setState(() => log.logStateZ.parse(input));
   return {
     h,
-    log: h.component,
+    leaf: h.component,
     source,
     recorder,
     updateState: (overrides: Record<string, unknown>) =>
-      h.setState(() => logStateZ.parse(baseInput(testId, region, overrides))),
+      h.setState(() => log.logStateZ.parse(baseInput(testId, region, overrides))),
   };
 };
 
@@ -107,110 +102,110 @@ describe("log/aether/Log", () => {
 
   describe("lineHeight", () => {
     it("should calculate from theme typography and base size", () => {
-      const { log } = setup();
-      const expected = THEME.typography[log.state.font].size * THEME.sizes.base;
-      expect(log.lineHeight).toBe(expected);
-      expect(log.lineHeight).toBeGreaterThan(0);
+      const { leaf } = setup();
+      const expected = THEME.typography[leaf.state.font].size * THEME.sizes.base;
+      expect(leaf.lineHeight).toBe(expected);
+      expect(leaf.lineHeight).toBeGreaterThan(0);
     });
   });
 
   describe("visibleLineCount", () => {
     it("should calculate how many lines fit in the region", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
+      const { leaf } = setup(entries);
       const regionHeight = box.height(REGION_500);
       const expected = Math.min(
-        Math.floor((regionHeight - 12) / log.lineHeight),
+        Math.floor((regionHeight - 12) / leaf.lineHeight),
         entries.length,
       );
-      expect(log.visibleLineCount).toBe(expected);
+      expect(leaf.visibleLineCount).toBe(expected);
     });
 
     it("should be capped at entry count when fewer entries than viewport", () => {
       const entries = [makeEntry(0)];
-      const { log } = setup(entries);
-      expect(log.visibleLineCount).toBe(1);
+      const { leaf } = setup(entries);
+      expect(leaf.visibleLineCount).toBe(1);
     });
   });
 
   describe("totalHeight", () => {
     it("should be entries.length * lineHeight", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      expect(log.totalHeight).toBeCloseTo(entries.length * log.lineHeight);
+      const { leaf } = setup(entries);
+      expect(leaf.totalHeight).toBeCloseTo(entries.length * leaf.lineHeight);
     });
   });
 
   describe("empty state detection", () => {
     it("should set empty to false when entries arrive", () => {
       const entries = [makeEntry(0)];
-      const { log } = setup(entries);
-      expect(log.state.empty).toBe(false);
+      const { leaf } = setup(entries);
+      expect(leaf.state.empty).toBe(false);
     });
 
     it("should keep empty true when no entries", () => {
-      const { log } = setup([]);
-      expect(log.state.empty).toBe(true);
+      const { leaf } = setup([]);
+      expect(leaf.state.empty).toBe(true);
     });
 
     it("should set empty to false while the source loads", () => {
-      const { log, source } = setup([]);
+      const { leaf, source } = setup([]);
       source.status = telem.LOADING_STATUS;
       source.notify();
-      expect(log.state.empty).toBe(false);
+      expect(leaf.state.empty).toBe(false);
     });
 
     it("should be blank only while loading with no entries", () => {
-      const { log, source } = setup([]);
+      const { leaf, source } = setup([]);
       source.status = telem.LOADING_STATUS;
       source.notify();
-      expect(log.state.blank).toBe(true);
+      expect(leaf.state.blank).toBe(true);
       source.push(makeEntry(0));
       source.notify();
-      expect(log.state.blank).toBe(false);
-      expect(log.state.loading).toBe(true);
+      expect(leaf.state.blank).toBe(false);
+      expect(leaf.state.loading).toBe(true);
     });
 
     it("should set loading while the source loads", () => {
-      const { log, source } = setup([]);
-      expect(log.state.loading).toBe(false);
+      const { leaf, source } = setup([]);
+      expect(leaf.state.loading).toBe(false);
       source.status = telem.LOADING_STATUS;
       source.notify();
-      expect(log.state.loading).toBe(true);
+      expect(leaf.state.loading).toBe(true);
       source.status = telem.SUCCESS_STATUS;
       source.notify();
-      expect(log.state.loading).toBe(false);
+      expect(leaf.state.loading).toBe(false);
     });
 
     it("should set loading while it holds entries", () => {
-      const { log, source } = setup([makeEntry(0)]);
+      const { leaf, source } = setup([makeEntry(0)]);
       source.status = telem.LOADING_STATUS;
       source.notify();
-      expect(log.state.loading).toBe(true);
-      expect(log.state.empty).toBe(false);
+      expect(leaf.state.loading).toBe(true);
+      expect(leaf.state.empty).toBe(false);
     });
 
     it("should set empty to true when the source loads no entries", () => {
-      const { log, source } = setup([]);
+      const { leaf, source } = setup([]);
       source.status = telem.LOADING_STATUS;
       source.notify();
       source.status = telem.SUCCESS_STATUS;
       source.notify();
-      expect(log.state.empty).toBe(true);
+      expect(leaf.state.empty).toBe(true);
     });
   });
 
   describe("scrollback", () => {
     it("should initialize scrollState with zero values", () => {
-      const { log } = setup();
-      expect(log.scrollState.offset).toBe(0);
-      expect(log.scrollState.tail).toBe(0);
-      expect(log.scrollState.scrollRef).toBe(0);
+      const { leaf } = setup();
+      expect(leaf.scrollState.offset).toBe(0);
+      expect(leaf.scrollState.tail).toBe(0);
+      expect(leaf.scrollState.scrollRef).toBe(0);
     });
 
     it("should enter scrollback when scrolling transitions from false to true", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -228,17 +223,17 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      expect(log.scrollState.offset).toBe(entries.length);
-      expect(log.scrollState.tail).toBe(0);
-      expect(log.scrollState.scrollRef).toBe(100);
+      expect(leaf.scrollState.offset).toBe(entries.length);
+      expect(leaf.scrollState.tail).toBe(0);
+      expect(leaf.scrollState.scrollRef).toBe(100);
     });
 
     it("should not carry scrollback state into a later log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       // A log mounted already paused runs the scrollback branch on its first update.
       setup(entries, REGION_500, { scrolling: true, empty: false });
-      const { log } = setup(entries);
-      expect(log.scrollState).toEqual({
+      const { leaf } = setup(entries);
+      expect(leaf.scrollState).toEqual({
         offset: 0,
         tail: 0,
         scrollRef: 0,
@@ -249,33 +244,33 @@ describe("log/aether/Log", () => {
 
     it("should stay paused while new entries arrive after a pause at the newest entry", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false });
       source.push(...Array.from({ length: 20 }, (_, i) => makeEntry(100 + i)));
       updateState({ scrolling: true, empty: false });
-      expect(log.state.scrolling).toBe(true);
-      expect(log.scrollState.offset).toBe(100);
+      expect(leaf.state.scrolling).toBe(true);
+      expect(leaf.scrollState.offset).toBe(100);
     });
 
     it("should stay paused when the pause begins at the newest entry", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false });
       updateState({ scrolling: true, empty: false });
-      expect(log.state.scrolling).toBe(true);
+      expect(leaf.state.scrolling).toBe(true);
     });
 
     it("should resume once the viewport returns to the newest entry", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       updateState({ scrolling: true, empty: false, wheelPos: 300 });
-      expect(log.state.scrolling).toBe(true);
+      expect(leaf.state.scrolling).toBe(true);
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
-      expect(log.state.scrolling).toBe(false);
+      expect(leaf.state.scrolling).toBe(false);
     });
 
     it("should resume the source when it resumes on its own", () => {
@@ -291,7 +286,7 @@ describe("log/aether/Log", () => {
 
     it("should clear the loading state of a read that resuming cancels", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       updateState({ scrolling: true, empty: false, wheelPos: 300 });
@@ -301,34 +296,34 @@ describe("log/aether/Log", () => {
         source.status = status;
       };
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
-      expect(log.state.loading).toBe(false);
+      expect(leaf.state.loading).toBe(false);
     });
 
     it("should stamp resumedAt only when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       updateState({ scrolling: true, empty: false, wheelPos: 300 });
-      expect(log.state.resumedAt).toBe(0);
+      expect(leaf.state.resumedAt).toBe(0);
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
-      expect(log.state.resumedAt).toBeGreaterThan(0);
+      expect(leaf.state.resumedAt).toBeGreaterThan(0);
     });
   });
 
   describe("entries", () => {
     it("should store entries from telem source", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      expect(log.entries).toHaveLength(5);
-      expect(log.entries[0].value).toBe("0");
-      expect(log.entries[4].value).toBe("4");
+      const { leaf } = setup(entries);
+      expect(leaf.entries).toHaveLength(5);
+      expect(leaf.entries[0].value).toBe("0");
+      expect(leaf.entries[4].value).toBe("4");
     });
   });
 
-  describe("logStateZ schema", () => {
+  describe("log.logStateZ schema", () => {
     it("should provide defaults for new selection fields", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -341,7 +336,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should provide defaults for channel-related fields", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -355,7 +350,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should accept explicit channel config values", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -385,13 +380,13 @@ describe("log/aether/Log", () => {
 
   describe("timestampPrecision", () => {
     it("should default to 0 and produce 8-char timestamps", () => {
-      const { log } = setup();
-      expect(log.state.timestampPrecision).toBe(0);
+      const { leaf } = setup();
+      expect(leaf.state.timestampPrecision).toBe(0);
     });
 
     it("should accept precision values 0-3", () => {
-      const { log } = setup([], REGION_500, { timestampPrecision: 3 });
-      expect(log.state.timestampPrecision).toBe(3);
+      const { leaf } = setup([], REGION_500, { timestampPrecision: 3 });
+      expect(leaf.state.timestampPrecision).toBe(3);
     });
   });
 
@@ -416,13 +411,13 @@ describe("log/aether/Log", () => {
 
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
-      const { log } = setup([makeEntry(0)]);
-      expect(log.state.color).toBeUndefined();
+      const { leaf } = setup([makeEntry(0)]);
+      expect(leaf.state.color).toBeUndefined();
     });
 
     it("should accept a custom text color", () => {
-      const { log } = setup([], REGION_500, { color: "#ff0000" });
-      expect(log.state.color).toEqual(color.construct("#ff0000"));
+      const { leaf } = setup([], REGION_500, { color: "#ff0000" });
+      expect(leaf.state.color).toEqual(color.construct("#ff0000"));
     });
   });
 
@@ -478,7 +473,7 @@ describe("log/aether/Log", () => {
   describe("scrollback with continued scrolling", () => {
     it("should adjust offset based on wheel position delta", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -496,7 +491,7 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      const initialOffset = log.scrollState.offset;
+      const initialOffset = leaf.scrollState.offset;
       expect(initialOffset).toBe(entries.length);
 
       updateState({
@@ -507,13 +502,13 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      expect(log.scrollState.offset).toBeLessThanOrEqual(entries.length);
-      expect(log.scrollState.offset).toBeGreaterThan(0);
+      expect(leaf.scrollState.offset).toBeLessThanOrEqual(entries.length);
+      expect(leaf.scrollState.offset).toBeGreaterThan(0);
     });
 
     it("should exit scrollback when offset reaches entry count", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -539,14 +534,14 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      expect(log.state.scrolling).toBe(false);
+      expect(leaf.state.scrolling).toBe(false);
     });
   });
 
   describe("selection anchoring", () => {
     it("should adjust selection indices when entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -561,13 +556,13 @@ describe("log/aether/Log", () => {
       source.setEntries(entries.slice(3));
       source.notify();
 
-      expect(log.state.selectionStart).toBe(2);
-      expect(log.state.selectionEnd).toBe(7);
+      expect(leaf.state.selectionStart).toBe(2);
+      expect(leaf.state.selectionEnd).toBe(7);
     });
 
     it("should clear selection when all selected entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -582,14 +577,14 @@ describe("log/aether/Log", () => {
       source.setEntries(entries.slice(5));
       source.notify();
 
-      expect(log.state.selectionStart).toBe(-1);
-      expect(log.state.selectionEnd).toBe(-1);
-      expect(log.selection().lines).toEqual([]);
+      expect(leaf.state.selectionStart).toBe(-1);
+      expect(leaf.state.selectionEnd).toBe(-1);
+      expect(leaf.selection().lines).toEqual([]);
     });
 
     it("should not modify selection when no entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -603,13 +598,13 @@ describe("log/aether/Log", () => {
 
       source.notify();
 
-      expect(log.state.selectionStart).toBe(5);
-      expect(log.state.selectionEnd).toBe(10);
+      expect(leaf.state.selectionStart).toBe(5);
+      expect(leaf.state.selectionEnd).toBe(10);
     });
 
     it("should clamp selectionStart to 0 when partially evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -625,13 +620,13 @@ describe("log/aether/Log", () => {
       source.setEntries(entries.slice(4));
       source.notify();
 
-      expect(log.state.selectionStart).toBe(0);
-      expect(log.state.selectionEnd).toBe(4);
+      expect(leaf.state.selectionStart).toBe(0);
+      expect(leaf.state.selectionEnd).toBe(4);
     });
 
     it("should anchor a selection end past the last entry to the last entry", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -643,13 +638,13 @@ describe("log/aether/Log", () => {
       });
       source.setEntries(entries.slice(3));
       source.notify();
-      expect(log.state.selectionStart).toBe(2);
-      expect(log.state.selectionEnd).toBe(16);
+      expect(leaf.state.selectionStart).toBe(2);
+      expect(leaf.state.selectionEnd).toBe(16);
     });
 
     it("should keep select-all open while entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -657,28 +652,28 @@ describe("log/aether/Log", () => {
         empty: true,
         visible: true,
         selectionStart: 0,
-        selectionEnd: SELECT_ALL_END,
+        selectionEnd: log.SELECT_ALL_END,
       });
       source.setEntries([...entries.slice(3), makeEntry(20)]);
       source.notify();
-      expect(log.state.selectionStart).toBe(0);
-      expect(log.state.selectionEnd).toBe(SELECT_ALL_END);
+      expect(leaf.state.selectionStart).toBe(0);
+      expect(leaf.state.selectionEnd).toBe(log.SELECT_ALL_END);
     });
 
     it("should keep select-all on every entry when older entries land", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i + 5));
-      const { log, source, updateState } = setup(entries);
-      updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      const { leaf, source, updateState } = setup(entries);
+      updateState({ selectionStart: 0, selectionEnd: log.SELECT_ALL_END });
       const older = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       source.setEntries([...older, ...entries]);
       source.notify();
-      expect(log.state.selectionStart).toBe(0);
-      expect(log.selection().lines).toHaveLength(25);
+      expect(leaf.state.selectionStart).toBe(0);
+      expect(leaf.selection().lines).toHaveLength(25);
     });
 
     it("should follow the selected entries when an entry lands before them", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -691,15 +686,15 @@ describe("log/aether/Log", () => {
       const earlier = { ...makeEntry(2), value: "earlier" };
       source.setEntries([...entries.slice(0, 3), earlier, ...entries.slice(3)]);
       source.notify();
-      expect(log.state.selectionStart).toBe(6);
-      expect(log.state.selectionEnd).toBe(11);
+      expect(leaf.state.selectionStart).toBe(6);
+      expect(leaf.state.selectionEnd).toBe(11);
     });
   });
 
   describe("scrollback anchoring", () => {
     it("should reduce scroll offset when entries are evicted during scrollback", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -717,17 +712,17 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      const offsetBeforeEviction = log.scrollState.offset;
+      const offsetBeforeEviction = leaf.scrollState.offset;
 
       source.setEntries(entries.slice(10));
       source.notify();
 
-      expect(log.scrollState.offset).toBe(offsetBeforeEviction - 10);
+      expect(leaf.scrollState.offset).toBe(offsetBeforeEviction - 10);
     });
 
     it("should keep the paused view on its entries when an entry lands before them", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -742,11 +737,11 @@ describe("log/aether/Log", () => {
         empty: false,
         visible: true,
       });
-      const before = log.scrollState.offset;
+      const before = leaf.scrollState.offset;
       const earlier = { ...makeEntry(10), value: "earlier" };
       source.setEntries([...entries.slice(0, 11), earlier, ...entries.slice(11)]);
       source.notify();
-      expect(log.scrollState.offset).toBe(before + 1);
+      expect(leaf.scrollState.offset).toBe(before + 1);
     });
   });
 
@@ -779,14 +774,14 @@ describe("log/aether/Log", () => {
 
     it("should stay paused at the newest entry of a source that is not live", () => {
       const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
-      const { log, source, updateState } = setup(entries);
+      const { leaf, source, updateState } = setup(entries);
       source.live = false;
       const base = { region: REGION_500, empty: false, visible: true };
       updateState({ ...base, wheelPos: 0, scrolling: false });
       updateState({ ...base, wheelPos: 0, scrolling: true });
       updateState({ ...base, wheelPos: 200, scrolling: true });
       updateState({ ...base, wheelPos: 0, scrolling: true });
-      expect(log.state.scrolling).toBe(true);
+      expect(leaf.state.scrolling).toBe(true);
     });
 
     it("should resume the source when the log leaves its paused view", () => {
@@ -814,26 +809,26 @@ describe("log/aether/Log", () => {
       timestamp.valueOf().toString();
 
     it("should return a log that mounts paused to its position", () => {
-      const { log, source } = setup(entries, REGION_500, {
+      const { leaf, source } = setup(entries, REGION_500, {
         scrolling: true,
         position: positionOf(entries[120]),
       });
       source.notify();
-      expect(log.scrollState).toMatchObject({ offset: 121, tail: 0 });
+      expect(leaf.scrollState).toMatchObject({ offset: 121, tail: 0 });
     });
 
     it("should stay at the last entry of a time that entries share", () => {
       const shared = [...entries.slice(0, 121), makeEntry(120), ...entries.slice(121)];
-      const { log, source } = setup(shared, REGION_500, {
+      const { leaf, source } = setup(shared, REGION_500, {
         scrolling: true,
         position: positionOf(entries[120]),
       });
       source.notify();
-      expect(log.scrollState.offset).toBe(122);
+      expect(leaf.scrollState.offset).toBe(122);
     });
 
     it("should load older entries until they reach the position", () => {
-      const { log, source } = setup(entries.slice(50), REGION_500, {
+      const { leaf, source } = setup(entries.slice(50), REGION_500, {
         scrolling: true,
         position: positionOf(entries[100]),
       });
@@ -842,58 +837,58 @@ describe("log/aether/Log", () => {
       expect(source.loadOlderCalls).toBeGreaterThan(0);
       source.setEntries([...entries]);
       source.notify();
-      expect(log.scrollState.offset).toBe(101);
+      expect(leaf.scrollState.offset).toBe(101);
     });
 
     it("should show the oldest entries when no stored sample reaches back", () => {
-      const { log, source } = setup(entries.slice(150), REGION_500, {
+      const { leaf, source } = setup(entries.slice(150), REGION_500, {
         scrolling: true,
         position: positionOf(entries[100]),
       });
       source.exhausted = true;
       source.notify();
-      log.render();
-      const bottom = log.state.rowEntries.at(-1) ?? -1;
-      expect(log.state.position).toBe(positionOf(entries[150 + bottom]));
+      leaf.render();
+      const bottom = leaf.state.rowEntries.at(-1) ?? -1;
+      expect(leaf.state.position).toBe(positionOf(entries[150 + bottom]));
     });
 
     it("should leave the view to a wheel that moves while the log waits", () => {
-      const { h, log, source } = setup(entries.slice(150), REGION_500, {
+      const { h, leaf, source } = setup(entries.slice(150), REGION_500, {
         scrolling: true,
         position: positionOf(entries[100]),
       });
       source.notify();
-      h.setState((s) => ({ ...s, wheelPos: s.wheelPos - log.lineHeight }));
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos - leaf.lineHeight }));
       source.setEntries([...entries]);
       source.notify();
-      expect(log.scrollState.offset).not.toBe(101);
+      expect(leaf.scrollState.offset).not.toBe(101);
     });
 
     it("should ignore the position of a log that is not paused", () => {
-      const { log, source } = setup(entries, REGION_500, {
+      const { leaf, source } = setup(entries, REGION_500, {
         position: positionOf(entries[120]),
       });
       source.notify();
-      log.render();
-      expect(log.state.rowEntries.at(-1)).toBe(199);
-      expect(log.state.position).toBe("");
+      leaf.render();
+      expect(leaf.state.rowEntries.at(-1)).toBe(199);
+      expect(leaf.state.position).toBe("");
     });
 
     it("should report the entry at the bottom of a paused view", () => {
-      const { h, log } = setup(entries);
+      const { h, leaf } = setup(entries);
       h.setState((s) => ({ ...s, scrolling: true }));
-      h.setState((s) => ({ ...s, wheelPos: s.wheelPos + log.lineHeight * 3 }));
-      log.render();
-      expect(log.state.position).toBe(positionOf(entries[196]));
+      h.setState((s) => ({ ...s, wheelPos: s.wheelPos + leaf.lineHeight * 3 }));
+      leaf.render();
+      expect(leaf.state.position).toBe(positionOf(entries[196]));
     });
 
     it("should clear the position when the log resumes", () => {
-      const { h, log } = setup(entries);
+      const { h, leaf } = setup(entries);
       h.setState((s) => ({ ...s, scrolling: true }));
-      log.render();
+      leaf.render();
       h.setState((s) => ({ ...s, scrolling: false }));
-      log.render();
-      expect(log.state.position).toBe("");
+      leaf.render();
+      expect(leaf.state.position).toBe("");
     });
   });
 
@@ -921,64 +916,64 @@ describe("log/aether/Log", () => {
   describe("render", () => {
     it("should return undefined for zero-area region", () => {
       const zeroRegion = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
-      const { log } = setup([makeEntry(0)], zeroRegion);
-      const result = log.render();
+      const { leaf } = setup([makeEntry(0)], zeroRegion);
+      const result = leaf.render();
       expect(result).toBeUndefined();
     });
 
     it("should return a cleanup function when not visible", () => {
-      const { log } = setup([makeEntry(0)], REGION_500, {
+      const { leaf } = setup([makeEntry(0)], REGION_500, {
         visible: false,
       });
-      const result = log.render();
+      const result = leaf.render();
       expect(result).toBeTypeOf("function");
     });
 
     it("should return a cleanup function when visible with entries", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      const result = log.render();
+      const { leaf } = setup(entries);
+      const result = leaf.render();
       expect(result).toBeTypeOf("function");
     });
 
     it("should update visibleStart state during render", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      log.render();
-      const expectedStart = entries.length - log.visibleLineCount + 1;
-      expect(log.state.visibleStart).toBe(expectedStart);
+      const { leaf } = setup(entries);
+      leaf.render();
+      const expectedStart = entries.length - leaf.visibleLineCount + 1;
+      expect(leaf.state.visibleStart).toBe(expectedStart);
     });
 
     it("should update computedLineHeight state during render", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      log.render();
-      expect(log.state.computedLineHeight).toBe(log.lineHeight);
+      const { leaf } = setup(entries);
+      leaf.render();
+      expect(leaf.state.computedLineHeight).toBe(leaf.lineHeight);
     });
   });
 
   describe("render with scrollback", () => {
     it("should render a paused log whose new source has fewer entries", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, h, updateState } = setup(entries);
+      const { leaf, h, updateState } = setup(entries);
       updateState({ empty: false, wheelPos: 0 });
       updateState({ empty: false, wheelPos: 0, scrolling: true });
       const testId = `log-test-${++testIdCounter}`;
-      const source = new MockLogSource();
+      const source = new logTest.MockSource();
       source.push(makeEntry(0), makeEntry(1));
-      registerMockLogSource(testId, source);
+      logTest.registerMockSource(testId, source);
       h.setState(() =>
-        logStateZ.parse(
+        log.logStateZ.parse(
           baseInput(testId, REGION_500, { empty: false, wheelPos: 0, scrolling: true }),
         ),
       );
-      expect(log.render()).toBeTypeOf("function");
-      expect(log.state.rowEntries).toEqual([0, 0, 1]);
+      expect(leaf.render()).toBeTypeOf("function");
+      expect(leaf.state.rowEntries).toEqual([0, 0, 1]);
     });
 
     it("should render the correct slice when scrolled back", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { leaf, updateState } = setup(entries);
 
       updateState({
         region: REGION_500,
@@ -996,50 +991,50 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      const result = log.render();
+      const result = leaf.render();
       expect(result).toBeTypeOf("function");
-      expect(log.state.visibleStart).toBeLessThan(entries.length);
+      expect(leaf.state.visibleStart).toBeLessThan(entries.length);
     });
   });
 
   describe("channel configs and formatting", () => {
     it("should format entries with channel names when channelNamesHidden is false", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
         channelNames: { "1": "Sensor1" },
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log)).toContain("Sensor1");
+      leaf.render();
+      expect(selectedText(leaf)).toContain("Sensor1");
     });
 
     it("should format entries without channel names when channelNamesHidden is true", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: true,
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log)).not.toContain("Sensor1");
+      leaf.render();
+      expect(selectedText(leaf)).not.toContain("Sensor1");
     });
 
     it("should put two spaces after the time and three before the value", () => {
       const entries: LogEntry[] = [
         { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "v" },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
         channelNames: { "1": "log" },
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log)).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+      leaf.render();
+      expect(selectedText(leaf)).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
     describe("timestamp channels", () => {
@@ -1048,7 +1043,7 @@ describe("log/aether/Log", () => {
         const entries = [
           { channelKey: 1, timestamp: TimeStamp.seconds(1), value: String(NANOS) },
         ];
-        const { log } = setup(entries, REGION_500, {
+        const { leaf } = setup(entries, REGION_500, {
           channels,
           channelDataTypes: { "1": "timestamp" },
           timestampsHidden: true,
@@ -1056,8 +1051,8 @@ describe("log/aether/Log", () => {
           selectionStart: 0,
           selectionEnd: 0,
         });
-        log.render();
-        return log.selection().lines[0].text;
+        leaf.render();
+        return leaf.selection().lines[0].text;
       };
 
       it("should format the value with the channel's timestamp config", () => {
@@ -1081,7 +1076,7 @@ describe("log/aether/Log", () => {
           value: "3.14159265",
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channels: [
           clientLog.channelEntryZ.parse({
             channel: 1,
@@ -1092,8 +1087,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log)).toContain("3.14");
+      leaf.render();
+      expect(selectedText(leaf)).toContain("3.14");
     });
 
     it("should show the value as it arrives when the precision is absent", () => {
@@ -1104,13 +1099,13 @@ describe("log/aether/Log", () => {
           value: "3.14159265",
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log)).toContain("3.14159265");
+      leaf.render();
+      expect(selectedText(leaf)).toContain("3.14159265");
     });
 
     it("should apply scientific notation when configured", () => {
@@ -1121,7 +1116,7 @@ describe("log/aether/Log", () => {
           value: "12345",
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channels: [
           clientLog.channelEntryZ.parse({
             channel: 1,
@@ -1133,9 +1128,9 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
+      leaf.render();
       // Should contain scientific notation (uses unicode ᴇ)
-      expect(selectedText(log)).toMatch(/[eEᴇ]/);
+      expect(selectedText(leaf)).toMatch(/[eEᴇ]/);
     });
 
     it("should render continuation entries without name/timestamp but aligned to the value column", () => {
@@ -1149,7 +1144,7 @@ describe("log/aether/Log", () => {
         },
         { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
@@ -1157,8 +1152,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 2,
       });
-      log.render();
-      const lines = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const lines = leaf.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("hello");
       // Continuation: no name, but leading whitespace preserves value alignment.
@@ -1173,7 +1168,7 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
@@ -1181,8 +1176,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      const [line] = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const [line] = leaf.selection().lines.map((l) => l.text);
       expect(line).toContain("log");
     });
 
@@ -1202,7 +1197,7 @@ describe("log/aether/Log", () => {
           continuation: true,
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         timestampsHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
@@ -1210,8 +1205,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 2,
       });
-      log.render();
-      const lines = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const lines = leaf.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("sensor");
       expect(lines[0]).toContain("first");
       const valueCol = lines[0].indexOf("first");
@@ -1231,15 +1226,15 @@ describe("log/aether/Log", () => {
           continuation: true,
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: true,
         timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
         selectionStart: 0,
         selectionEnd: 1,
       });
-      log.render();
-      const lines = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const lines = leaf.selection().lines.map((l) => l.text);
       expect(lines[0]).toBe("line1");
       expect(lines[1]).toBe("line2");
     });
@@ -1261,7 +1256,7 @@ describe("log/aether/Log", () => {
           continuation: true,
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         timestampsHidden: true,
         channels: [
@@ -1272,8 +1267,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 3,
       });
-      log.render();
-      const lines = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const lines = leaf.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("chA");
       expect(lines[0]).toContain("a1");
       expect(lines[1]).not.toContain("chA");
@@ -1294,7 +1289,7 @@ describe("log/aether/Log", () => {
           continuation: true,
         },
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
@@ -1302,8 +1297,8 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 1,
       });
-      log.render();
-      const lines = log.selection().lines.map((l) => l.text);
+      leaf.render();
+      const lines = leaf.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("data");
       expect(lines[1]).not.toContain("log");
@@ -1319,7 +1314,7 @@ describe("log/aether/Log", () => {
       dataType: string | undefined,
       overrides: Partial<clientLog.ChannelEntry>,
     ): string => {
-      const { log, recorder } = setup(
+      const { leaf, recorder } = setup(
         [{ ...makeEntry(0), value }],
         box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 }),
         {
@@ -1335,7 +1330,7 @@ describe("log/aether/Log", () => {
         },
       );
       recorder.clear();
-      log.render();
+      leaf.render();
       return recorder.lower2d.calls
         .filter(({ op }) => op === "fillText")
         .map(({ args }) => String(args[0]))
@@ -1400,7 +1395,7 @@ describe("log/aether/Log", () => {
   describe("time-based scrollbar", () => {
     const paused = (wheelPos: number, region: box.Box = REGION_500) => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, source, updateState } = setup(entries, region);
+      const { leaf, recorder, source, updateState } = setup(entries, region);
       source.timeRange = new TimeRange(
         TimeStamp.milliseconds(-1_000_000),
         entries[199].timestamp,
@@ -1409,7 +1404,7 @@ describe("log/aether/Log", () => {
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       if (wheelPos !== 0) updateState({ scrolling: true, empty: false, wheelPos });
       recorder.clear();
-      log.render();
+      leaf.render();
       return findThumb(recorder);
     };
 
@@ -1432,12 +1427,12 @@ describe("log/aether/Log", () => {
         ...makeEntry(i),
         timestamp: TimeStamp.milliseconds(i === 199 ? 2_000 : 1_000),
       }));
-      const { log, recorder, source, updateState } = setup(entries);
+      const { leaf, recorder, source, updateState } = setup(entries);
       source.timeRange = new TimeRange(entries[0].timestamp, entries[199].timestamp);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       recorder.clear();
-      log.render();
+      leaf.render();
       expect(findThumb(recorder)).not.toBeNull();
     });
 
@@ -1451,17 +1446,17 @@ describe("log/aether/Log", () => {
 
   describe("wide characters", () => {
     const rowsOf = (value: string): number => {
-      const { log } = setup([{ ...makeEntry(0), value }]);
-      log.render();
-      return log.state.rowEntries.length;
+      const { leaf } = setup([{ ...makeEntry(0), value }]);
+      leaf.render();
+      return leaf.state.rowEntries.length;
     };
 
     it("should keep an empty value at every width", () => {
       for (let width = 20; width <= 160; width += 2) {
         const region = box.construct({ x: 0, y: 0 }, { width, height: 500 });
-        const { log } = setup([{ ...makeEntry(0), value: "" }], region);
-        log.render();
-        expect(log.state.rowEntries).toContain(0);
+        const { leaf } = setup([{ ...makeEntry(0), value: "" }], region);
+        leaf.render();
+        expect(leaf.state.rowEntries).toContain(0);
       }
     });
 
@@ -1473,9 +1468,9 @@ describe("log/aether/Log", () => {
 
     it("should keep every character of a wide value", () => {
       const value = "日本語a".repeat(60);
-      const { log, recorder } = setup([{ ...makeEntry(0), value }], REGION_500);
+      const { leaf, recorder } = setup([{ ...makeEntry(0), value }], REGION_500);
       recorder.clear();
-      log.render();
+      leaf.render();
       const drawn = recorder.lower2d.calls
         .filter(({ op }) => op === "fillText")
         .map(({ args }) => String(args[0]))
@@ -1489,15 +1484,15 @@ describe("log/aether/Log", () => {
     const LONG = Array.from({ length: 2_000 }, (_, i) => `w${i}`).join(" ");
     const pausedRows = (wheelPos: number) => {
       const entries = [makeEntry(0), { ...makeEntry(1), value: LONG }, makeEntry(2)];
-      const { log, recorder, updateState } = setup(entries);
+      const { leaf, recorder, updateState } = setup(entries);
       updateState({ empty: false, wheelPos: 0 });
       updateState({ empty: false, wheelPos: 0, scrolling: true });
-      for (let wheel = 0; wheel <= wheelPos; wheel += log.lineHeight)
+      for (let wheel = 0; wheel <= wheelPos; wheel += leaf.lineHeight)
         updateState({ empty: false, wheelPos: wheel, scrolling: true });
       recorder.clear();
-      log.render();
+      leaf.render();
       return {
-        log,
+        leaf,
         recorder,
         updateState,
         texts: recorder.lower2d.calls
@@ -1528,37 +1523,37 @@ describe("log/aether/Log", () => {
     });
 
     it("should keep scrolling after a resize shrinks the value", () => {
-      const { log, updateState } = pausedRows(100_000);
-      const { tail } = log.scrollState;
+      const { leaf, updateState } = pausedRows(100_000);
+      const { tail } = leaf.scrollState;
       expect(tail).toBeGreaterThan(0);
-      log.entries[1] = { ...log.entries[1], value: "short" };
+      leaf.entries[1] = { ...leaf.entries[1], value: "short" };
       updateState({
         empty: false,
-        wheelPos: 100_000 + log.lineHeight,
+        wheelPos: 100_000 + leaf.lineHeight,
         scrolling: true,
       });
-      expect(log.scrollState.tail).toBe(0);
+      expect(leaf.scrollState.tail).toBe(0);
     });
 
     it("should show the entries of a log mounted paused", () => {
-      const { log } = setup([makeEntry(0), makeEntry(1)], REGION_500, {
+      const { leaf } = setup([makeEntry(0), makeEntry(1)], REGION_500, {
         scrolling: true,
       });
-      log.render();
-      expect(log.state.rowEntries).toContain(1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(1);
     });
 
     it("should show entries that reach a log mounted paused", () => {
-      const { log, source } = setup([], REGION_500, { scrolling: true });
+      const { leaf, source } = setup([], REGION_500, { scrolling: true });
       source.setEntries([makeEntry(0), makeEntry(1)]);
       source.notify();
-      log.render();
-      expect(log.state.rowEntries).toContain(1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(1);
     });
 
     it("should reach the entry above the value", () => {
-      const { log } = pausedRows(100_000);
-      expect(log.state.rowEntries[0]).toBe(0);
+      const { leaf } = pausedRows(100_000);
+      expect(leaf.state.rowEntries[0]).toBe(0);
     });
   });
 
@@ -1574,15 +1569,15 @@ describe("log/aether/Log", () => {
         .map(({ args }) => String(args[0]));
 
     it("should name the day above the first entry", () => {
-      const { log, recorder } = setup([entry("2026-11-04T12:00:00")]);
-      log.render();
+      const { leaf, recorder } = setup([entry("2026-11-04T12:00:00")]);
+      leaf.render();
       expect(shown(recorder)).toContain("Wed, Nov 4, 2026");
     });
 
     it("should show a day row where the day changes", () => {
       const entries = [entry("2026-11-03T23:00:00"), entry("2026-11-04T01:00:00")];
-      const { log, recorder } = setup(entries);
-      log.render();
+      const { leaf, recorder } = setup(entries);
+      leaf.render();
       const texts = shown(recorder);
       expect(texts).toContain("Tue, Nov 3, 2026");
       expect(texts).toContain("Wed, Nov 4, 2026");
@@ -1590,16 +1585,16 @@ describe("log/aether/Log", () => {
 
     it("should show one day row for entries of one day", () => {
       const entries = [entry("2026-11-04T01:00:00"), entry("2026-11-04T23:00:00")];
-      const { log, recorder } = setup(entries);
-      log.render();
+      const { leaf, recorder } = setup(entries);
+      leaf.render();
       expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
     });
 
     describe("time zone", () => {
       it("should split day rows at midnight in UTC", () => {
         const entries = [entry("2026-11-03T23:00:00Z"), entry("2026-11-04T01:00:00Z")];
-        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
-        log.render();
+        const { leaf, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        leaf.render();
         const texts = shown(recorder);
         expect(texts).toContain("Tue, Nov 3, 2026");
         expect(texts).toContain("Wed, Nov 4, 2026");
@@ -1607,71 +1602,71 @@ describe("log/aether/Log", () => {
 
       it("should show one day row for entries of one UTC day", () => {
         const entries = [entry("2026-11-04T01:00:00Z"), entry("2026-11-04T23:00:00Z")];
-        const { log, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
-        log.render();
+        const { leaf, recorder } = setup(entries, REGION_500, { timeZone: "UTC" });
+        leaf.render();
         expect(shown(recorder).filter((t) => t.includes("2026"))).toEqual([
           "Wed, Nov 4, 2026",
         ]);
       });
 
       it("should show line times and copied dates in UTC", () => {
-        const { log } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
+        const { leaf } = setup([entry("2026-01-05T01:02:03Z")], REGION_500, {
           timeZone: "UTC",
           selectionStart: 0,
           selectionEnd: 0,
         });
-        log.render();
-        expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
+        leaf.render();
+        expect(leaf.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
 
       it("should default to local time", () => {
-        const { log } = setup([entry("2026-01-05T01:02:03")], REGION_500, {
+        const { leaf } = setup([entry("2026-01-05T01:02:03")], REGION_500, {
           selectionStart: 0,
           selectionEnd: 0,
         });
-        log.render();
-        expect(log.state.timeZone).toBe("local");
-        expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
+        leaf.render();
+        expect(leaf.state.timeZone).toBe("local");
+        expect(leaf.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
     });
 
     it("should show no day rows when timestamps are hidden", () => {
-      const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
+      const { leaf, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
         timestampsHidden: true,
       });
-      log.render();
+      leaf.render();
       expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(0);
     });
 
     it("should keep the date on copied lines", () => {
       const entries = [entry("2026-01-05T01:00:00"), entry("2026-01-05T23:00:00")];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 1,
       });
-      log.render();
-      expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:00:00/);
+      leaf.render();
+      expect(leaf.selection().lines[0].text).toMatch(/^2026-01-05 01:00:00/);
     });
 
     it("should keep dates off copied lines when timestamps are hidden", () => {
-      const { log } = setup([entry("2026-01-05T12:00:00")], REGION_500, {
+      const { leaf } = setup([entry("2026-01-05T12:00:00")], REGION_500, {
         timestampsHidden: true,
         channelNamesHidden: true,
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(log.selection().lines[0].text).toBe("v");
+      leaf.render();
+      expect(leaf.selection().lines[0].text).toBe("v");
     });
   });
 
   describe("per-frame selection cost", () => {
     it("should cover entries that arrive after a select-all", () => {
-      const { log, source, updateState } = setup([makeEntry(0)]);
-      updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      const { leaf, source, updateState } = setup([makeEntry(0)]);
+      updateState({ selectionStart: 0, selectionEnd: log.SELECT_ALL_END });
       source.push(makeEntry(1));
       source.notify();
-      expect(log.selection().lines).toHaveLength(2);
+      expect(leaf.selection().lines).toHaveLength(2);
     });
 
     const countReads = (count: number) => {
@@ -1691,12 +1686,12 @@ describe("log/aether/Log", () => {
       const small = countReads(1_000);
       const large = countReads(20_000);
       const frameReads = ({ reads, entries }: typeof small): number => {
-        const { log } = setup(entries, REGION_500, {
+        const { leaf } = setup(entries, REGION_500, {
           selectionStart: 0,
-          selectionEnd: SELECT_ALL_END,
+          selectionEnd: log.SELECT_ALL_END,
         });
         reads.count = 0;
-        log.render();
+        leaf.render();
         return reads.count;
       };
       expect(frameReads(large)).toBe(frameReads(small));
@@ -1706,131 +1701,131 @@ describe("log/aether/Log", () => {
   describe("selection", () => {
     it("should be empty when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: -1,
         selectionEnd: -1,
       });
-      log.render();
-      expect(selectedText(log)).toBe("");
-      expect(log.selection().lines).toEqual([]);
+      leaf.render();
+      expect(selectedText(leaf)).toBe("");
+      expect(leaf.selection().lines).toEqual([]);
     });
 
     it("should return a single selected entry", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(selectedText(log).length).toBeGreaterThan(0);
-      expect(log.selection().lines).toHaveLength(1);
+      leaf.render();
+      expect(selectedText(leaf).length).toBeGreaterThan(0);
+      expect(leaf.selection().lines).toHaveLength(1);
     });
 
     it("should return a range of selected entries", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 2,
         selectionEnd: 5,
       });
-      log.render();
-      expect(log.selection().lines).toHaveLength(4);
-      expect(selectedText(log)).toContain("\n");
+      leaf.render();
+      expect(leaf.selection().lines).toHaveLength(4);
+      expect(selectedText(leaf)).toContain("\n");
     });
 
     it("should clamp a select-to-end sentinel to all entries", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: Number.MAX_SAFE_INTEGER,
       });
-      log.render();
-      expect(log.selection().lines).toHaveLength(10);
+      leaf.render();
+      expect(leaf.selection().lines).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 5,
         selectionEnd: 2,
       });
-      log.render();
-      expect(log.selection().lines).toHaveLength(4);
+      leaf.render();
+      expect(leaf.selection().lines).toHaveLength(4);
     });
 
     it("should include the color of a channel with a custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
         channelColors: { 1: color.construct("#ff0000") },
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(log.selection().lines[0].color).not.toBe("");
+      leaf.render();
+      expect(leaf.selection().lines[0].color).not.toBe("");
     });
 
     it("should have an empty color when a channel has no custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      log.render();
-      expect(log.selection().lines[0].color).toBe("");
+      leaf.render();
+      expect(leaf.selection().lines[0].color).toBe("");
     });
   });
 
   describe("selection partial", () => {
     const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-    const SELECT_ALL = { selectionStart: 0, selectionEnd: SELECT_ALL_END };
+    const SELECT_ALL = { selectionStart: 0, selectionEnd: log.SELECT_ALL_END };
 
     it("should be true for a select-all when older values are stored", () => {
-      const { log } = setup(entries, REGION_500, SELECT_ALL);
-      expect(log.selection().partial).toBe(true);
+      const { leaf } = setup(entries, REGION_500, SELECT_ALL);
+      expect(leaf.selection().partial).toBe(true);
     });
 
     it("should be true for a select-all when newer values are stored", () => {
-      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      const { leaf, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
       source.exhausted = true;
       source.live = false;
       updateState(SELECT_ALL);
-      expect(log.selection().partial).toBe(true);
+      expect(leaf.selection().partial).toBe(true);
     });
 
     it("should be false for a select-all of a log that holds every value", () => {
-      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      const { leaf, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
       source.exhausted = true;
       updateState(SELECT_ALL);
-      expect(log.selection().partial).toBe(false);
+      expect(leaf.selection().partial).toBe(false);
     });
 
     it("should be false for a selection that is not a select-all", () => {
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 0,
         selectionEnd: 4,
       });
-      expect(log.selection().partial).toBe(false);
+      expect(leaf.selection().partial).toBe(false);
     });
   });
 
   describe("render with selection highlighting", () => {
     it("should not render selection when no selection is active", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: -1,
         selectionEnd: -1,
       });
-      const result = log.render();
+      const result = leaf.render();
       expect(result).toBeTypeOf("function");
     });
 
     it("should render selection highlight when selection is within visible range", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         selectionStart: 2,
         selectionEnd: 5,
       });
-      const result = log.render();
+      const result = leaf.render();
       expect(result).toBeTypeOf("function");
     });
   });
@@ -1852,55 +1847,55 @@ describe("log/aether/Log", () => {
 
     it("should not draw a thumb while the log is live", () => {
       const entries = Array.from({ length: 500 }, (_, i) => makeEntry(i));
-      const { log, recorder } = setup(entries);
-      log.render();
+      const { leaf, recorder } = setup(entries);
+      leaf.render();
       expect(findThumb(recorder)).toBeNull();
     });
 
     it("should not draw a thumb when the log has no entries", () => {
-      const { log, recorder, updateState } = setup([]);
+      const { leaf, recorder, updateState } = setup([]);
       updateState({ scrolling: true, empty: true });
       recorder.clear();
-      log.render();
+      leaf.render();
       expect(findThumb(recorder)).toBeNull();
     });
 
     it("should not draw a thumb when the content barely overflows", () => {
-      const { log, recorder, updateState } = setup(
+      const { leaf, recorder, updateState } = setup(
         Array.from({ length: 33 }, (_, i) => makeEntry(i)),
       );
       scrollTo(updateState, 0);
       recorder.clear();
-      log.render();
+      leaf.render();
       // 33 lines at a 15px line height is 495px against a 500px region.
-      expect(log.totalHeight).toBeLessThan(box.height(REGION_500));
+      expect(leaf.totalHeight).toBeLessThan(box.height(REGION_500));
       expect(findThumb(recorder)).toBeNull();
     });
 
     it("should size the thumb to the visible fraction of the content", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries);
+      const { leaf, recorder, updateState } = setup(entries);
       scrollTo(updateState, 0);
       recorder.clear();
-      log.render();
+      leaf.render();
       const regHeight = box.height(REGION_500);
       const thumb = findThumb(recorder);
       assert(thumb != null);
       // The day row takes one row of the view.
-      const shown = (log.visibleLineCount - 1) / log.visibleLineCount;
+      const shown = (leaf.visibleLineCount - 1) / leaf.visibleLineCount;
       expect(thumb.height).toBeCloseTo(
-        (regHeight / log.totalHeight) * regHeight * shown,
+        (regHeight / leaf.totalHeight) * regHeight * shown,
       );
     });
 
     it("should floor the thumb height when the content dwarfs the region", () => {
       const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries);
+      const { leaf, recorder, updateState } = setup(entries);
       scrollTo(updateState, 0);
       recorder.clear();
-      log.render();
+      leaf.render();
       const regHeight = box.height(REGION_500);
-      expect((regHeight / log.totalHeight) * regHeight).toBeLessThan(32);
+      expect((regHeight / leaf.totalHeight) * regHeight).toBeLessThan(32);
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.height).toBe(32);
@@ -1909,10 +1904,10 @@ describe("log/aether/Log", () => {
     it("should keep the thumb inside a region shorter than its minimum height", () => {
       const region = box.construct({ x: 0, y: 0 }, { width: 400, height: 30 });
       const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries, region);
+      const { leaf, recorder, updateState } = setup(entries, region);
       scrollTo(updateState, 0);
       recorder.clear();
-      log.render();
+      leaf.render();
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.height).toBeLessThanOrEqual(30);
@@ -1920,10 +1915,10 @@ describe("log/aether/Log", () => {
 
     it("should pin the thumb to the bottom of the region at the newest entry", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      const { leaf, recorder, updateState } = setup(entries, REGION_OFFSET);
       scrollTo(updateState, 0);
       recorder.clear();
-      log.render();
+      leaf.render();
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_OFFSET));
@@ -1932,11 +1927,11 @@ describe("log/aether/Log", () => {
 
     it("should pin the thumb to the top of the region at the oldest entry", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      const { leaf, recorder, updateState } = setup(entries, REGION_OFFSET);
       scrollTo(updateState, 100_000);
       recorder.clear();
-      log.render();
-      expect(log.scrollState.offset).toBe(log.visibleLineCount - 1);
+      leaf.render();
+      expect(leaf.scrollState.offset).toBe(leaf.visibleLineCount - 1);
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.y).toBeCloseTo(box.top(REGION_OFFSET));
@@ -1944,13 +1939,13 @@ describe("log/aether/Log", () => {
 
     it("should keep the thumb inside the region while scrolling up", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      const { leaf, recorder, updateState } = setup(entries, REGION_OFFSET);
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       for (let wheelPos = 100; wheelPos <= 5000; wheelPos += 100) {
         updateState({ scrolling: true, empty: false, wheelPos });
         recorder.clear();
-        log.render();
+        leaf.render();
         const thumb = findThumb(recorder);
         assert(thumb != null);
         expect(thumb.y).toBeGreaterThanOrEqual(box.top(REGION_OFFSET));
@@ -1967,7 +1962,7 @@ describe("log/aether/Log", () => {
         makeEntry(2, 1),
         makeEntry(3, 3),
       ];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channelNamesHidden: false,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1 }),
@@ -1978,16 +1973,16 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 3,
       });
-      log.render();
-      expect(log.selection().lines).toHaveLength(4);
-      expect(selectedText(log)).toContain("Temperature");
-      expect(selectedText(log)).toContain("Pressure");
-      expect(selectedText(log)).toContain("Humidity");
+      leaf.render();
+      expect(leaf.selection().lines).toHaveLength(4);
+      expect(selectedText(leaf)).toContain("Temperature");
+      expect(selectedText(leaf)).toContain("Pressure");
+      expect(selectedText(leaf)).toContain("Humidity");
     });
 
     it("should apply the resolved color of each channel", () => {
       const entries = [makeEntry(0, 1), makeEntry(1, 2)];
-      const { log } = setup(entries, REGION_500, {
+      const { leaf } = setup(entries, REGION_500, {
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1 }),
           clientLog.channelEntryZ.parse({ channel: 2 }),
@@ -1996,10 +1991,10 @@ describe("log/aether/Log", () => {
         selectionStart: 0,
         selectionEnd: 1,
       });
-      log.render();
-      expect(log.selection().lines[0].color).not.toBe("");
-      expect(log.selection().lines[1].color).not.toBe("");
-      expect(log.selection().lines[0].color).not.toBe(log.selection().lines[1].color);
+      leaf.render();
+      expect(leaf.selection().lines[0].color).not.toBe("");
+      expect(leaf.selection().lines[1].color).not.toBe("");
+      expect(leaf.selection().lines[0].color).not.toBe(leaf.selection().lines[1].color);
     });
   });
 
@@ -2007,9 +2002,9 @@ describe("log/aether/Log", () => {
     it("should work with light theme", () => {
       const lightTheme = theme.themeZ.parse(theme.SYNNAX_LIGHT);
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries, REGION_500, {}, lightTheme);
-      expect(log.lineHeight).toBeGreaterThan(0);
-      expect(log.entries).toHaveLength(5);
+      const { leaf } = setup(entries, REGION_500, {}, lightTheme);
+      expect(leaf.lineHeight).toBeGreaterThan(0);
+      expect(leaf.entries).toHaveLength(5);
     });
   });
 

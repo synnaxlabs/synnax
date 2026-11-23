@@ -31,8 +31,7 @@ describe("schematic_symbol", () => {
       const randomSymbol = await client.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -56,8 +55,7 @@ describe("schematic_symbol", () => {
       const randomSymbol = await client.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -81,8 +79,7 @@ describe("schematic_symbol", () => {
       await userClient.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -104,8 +101,7 @@ describe("schematic_symbol", () => {
         userClient.schematics.symbols.create({
           name: "test",
           data: {
-            svg: "<svg></svg>",
-            states: [],
+            drawing: { type: "svg", markup: "<svg></svg>" },
             handles: [],
             variant: "sensor",
           },
@@ -130,8 +126,7 @@ describe("schematic_symbol", () => {
       const randomSymbol = await client.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -156,8 +151,7 @@ describe("schematic_symbol", () => {
       const randomSymbol = await client.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -181,8 +175,7 @@ describe("schematic_symbol", () => {
       const randomSymbol = await client.schematics.symbols.create({
         name: "test",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },

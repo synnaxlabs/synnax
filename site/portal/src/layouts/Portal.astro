@@ -14,22 +14,22 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 import Root from "@/layouts/Root.astro";
 import { scoped, type Tab, tabs } from "@/shell";
 import { Shell } from "@/ui/shell";
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import type { Session } from "@/server/session";
 import "@/styles/portal.css";
 
 interface Props {
     title: string;
     session: Session;
-    organizations: Organization[];
+    organizations: schema.Organization[];
     /** scope is the organization the page acts for. */
-    scope: Organization;
+    scope: schema.Organization;
     /** tab is the active tab, or null for a page outside the tab row. */
     tab: Tab | null;
 }
 
 const { title, session, organizations, scope, tab } = Astro.props;
-const option = (o: Organization) => ({
+const option = (o: schema.Organization) => ({
     key: o.key,
     name: o.kind === "personal" ? session.name : o.name,
     kind: o.kind,

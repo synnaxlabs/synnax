@@ -165,7 +165,17 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 	}
 	r.resolving.Add(key)
 	defer r.resolving.Remove(key)
+	f, err := r.load(livePath, chain, n)
+	if err != nil {
+		return nil, err
+	}
+	r.files[key] = f
+	return f, nil
+}
 
+// load resolves version n of livePath's chain from its source file.
+func (r *Resolver) load(livePath string, chain Chain, n int) (*File, error) {
+	key := chain.FilePath(n)
 	source, filePath, err := r.loader.Load(key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load %s", key)
@@ -190,56 +200,13 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 		if k >= n {
 			break
 		}
-		sib, err := r.file(livePath, k)
-		if err != nil {
+		if err := b.seedSibling(livePath, k); err != nil {
 			return nil, err
-		}
-		rw, err := r.seedRewriter(livePath, sib)
-		if err != nil {
-			return nil, err
-		}
-		for _, t := range sib.Defined {
-			if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
-				return nil, errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
-			}
-		}
-		for name := range sib.Aliases {
-			alias := fmt.Sprintf("v%d.%s", k, name)
-			b.table.Redirect(alias, rw(alias))
-		}
-		for depLive, pv := range sib.Pins {
-			if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
-				return nil, err
-			}
 		}
 	}
-
-	// Direct pins register under the dependency's plain resource namespace
-	// (what the file's own references use) and its internal pinned namespace
-	// (what deep walks through copies use).
-	pins := make(map[string]int)
-	var live, livePaths []string
-	for _, imp := range ast.AllImportStmt() {
-		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		depLive, err := liveFromFilePath(p)
-		if err != nil {
-			live = append(live, resourceOf(p))
-			livePaths = append(livePaths, p)
-			// A live import resolves the dependency's current surface like any
-			// other import: the one shape of an unversioned resource, or the
-			// merged live projection of a versioned one — the home of every
-			// resolved (read-time) reference.
-			continue
-		}
-		_, pv, _ := paths.VersionFile(p)
-		pins[depLive] = pv
-		b.table.MarkImported(p)
-		if err := b.addSurface(depLive, pv, resourceOf(depLive)); err != nil {
-			return nil, err
-		}
-		if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
-			return nil, err
-		}
+	imports, err := b.addImports(ast)
+	if err != nil {
+		return nil, err
 	}
 
 	ns := fmt.Sprintf("v%d", n)
@@ -255,9 +222,9 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 		N:         n,
 		Table:     b.table,
 		Aliases:   declaredAliases(ast, n),
-		Pins:      pins,
-		Live:      live,
-		LivePaths: livePaths,
+		Pins:      imports.pins,
+		Live:      imports.live,
+		LivePaths: imports.livePaths,
 		Order:     declarationOrder(ast),
 	}
 	for _, t := range b.table.TypesInNamespace(ns) {
@@ -266,22 +233,98 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 		}
 		f.Defined = append(f.Defined, t)
 	}
-	if f.Tombstone() {
-		if n != chain.Current() {
-			return nil, errors.Newf(
-				"%s is empty, but the chain continues to v%d; only the last "+
-					"version file may be a tombstone", filePath, chain.Current(),
-			)
-		}
-		if n == chain.First() {
-			return nil, errors.Newf(
-				"%s is empty and the chain's only version; delete the chain "+
-					"directory instead of ending an empty chain", filePath,
-			)
+	if err := checkTombstone(f, filePath); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// checkTombstone fails when f is a tombstone that is not the last of several versions
+// in its chain.
+func checkTombstone(f *File, filePath string) error {
+	if !f.Tombstone() {
+		return nil
+	}
+	if f.N != f.Chain.Current() {
+		return errors.Newf(
+			"%s is empty, but the chain continues to v%d; only the last "+
+				"version file may be a tombstone", filePath, f.Chain.Current(),
+		)
+	}
+	if f.N == f.Chain.First() {
+		return errors.Newf(
+			"%s is empty and the chain's only version; delete the chain "+
+				"directory instead of ending an empty chain", filePath,
+		)
+	}
+	return nil
+}
+
+// seedSibling seeds the table with the declarations that version k of livePath defines,
+// redirects its aliases to their definers, and registers its pins.
+func (b *tableBuilder) seedSibling(livePath string, k int) error {
+	sib, err := b.r.file(livePath, k)
+	if err != nil {
+		return err
+	}
+	rw, err := b.r.seedRewriter(livePath, sib)
+	if err != nil {
+		return err
+	}
+	for _, t := range sib.Defined {
+		if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
+			return errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
 		}
 	}
-	r.files[key] = f
-	return f, nil
+	for name := range sib.Aliases {
+		alias := fmt.Sprintf("v%d.%s", k, name)
+		b.table.Redirect(alias, rw(alias))
+	}
+	for depLive, pv := range sib.Pins {
+		if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// versionImports are the imports of a version file.
+type versionImports struct {
+	// pins maps each pinned dependency's live path to its version.
+	pins      map[string]int
+	live      []string
+	livePaths []string
+}
+
+// addImports registers the pinned surfaces that a version file imports. Direct pins
+// register under the dependency's plain resource namespace (what the file's own
+// references use) and its internal pinned namespace (what deep walks through copies
+// use).
+func (b *tableBuilder) addImports(ast parser.ISchemaContext) (versionImports, error) {
+	imports := versionImports{pins: make(map[string]int)}
+	for _, imp := range ast.AllImportStmt() {
+		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
+		depLive, err := liveFromFilePath(p)
+		if err != nil {
+			imports.live = append(imports.live, resourceOf(p))
+			imports.livePaths = append(imports.livePaths, p)
+			// A live import resolves the dependency's current surface like any other
+			// import: the one shape of an unversioned resource, or the merged live
+			// projection of a versioned one — the home of every resolved (read-time)
+			// reference.
+			continue
+		}
+		_, pv, _ := paths.VersionFile(p)
+		imports.pins[depLive] = pv
+		b.table.MarkImported(p)
+		if err := b.addSurface(depLive, pv, resourceOf(depLive)); err != nil {
+			return versionImports{}, err
+		}
+		if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
+			return versionImports{}, err
+		}
+	}
+	return imports, nil
 }
 
 // Tombstone reports whether the file declares nothing: no types and no alias lines. An
@@ -545,39 +588,7 @@ func (b *tableBuilder) addSurface(
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		def := surf[name]
 		definers.Add(def.Version)
-		definer, err := b.r.file(livePath, def.Version)
-		if err != nil {
-			return err
-		}
-		rewrites, err := b.r.pinRewrites(definer)
-		if err != nil {
-			return err
-		}
-		ct := copyType(def.Type, ns, rewriter(ns, rewrites))
-		ct.Name = name
-		ct.QualifiedName = ns + "." + name
-		// A redeclaration without its own @doc inherits the chain-resolved doc,
-		// matching the live projection. The domain map is shared with the cached
-		// definer declaration, so clone before stamping.
-		if doc.Get(ct.Domains) == "" && def.Doc != "" {
-			domains := maps.Clone(ct.Domains)
-			if domains == nil {
-				domains = make(map[string]resolution.Domain, 1)
-			}
-			domains["doc"] = docDomain(def.Doc)
-			ct.Domains = domains
-		}
-		if err := b.table.Add(ct); err != nil {
-			return errors.Wrapf(
-				err, "failed to register %s v%d as %s", livePath, n, ns,
-			)
-		}
-		for depLive, pv := range definer.Pins {
-			if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
-				return err
-			}
-		}
-		if err := b.addLive(definer); err != nil {
+		if err := b.addMember(livePath, n, ns, name, def); err != nil {
 			return err
 		}
 	}
@@ -587,26 +598,73 @@ func (b *tableBuilder) addSurface(
 	slices.Sort(sortedDefiners)
 	slices.Reverse(sortedDefiners)
 	for _, v := range sortedDefiners {
-		definer, err := b.r.file(livePath, v)
-		if err != nil {
+		if err := b.addSynthetic(livePath, v, ns); err != nil {
 			return err
 		}
-		rewrites, err := b.r.pinRewrites(definer)
-		if err != nil {
+	}
+	return nil
+}
+
+// addMember registers one surface member of livePath at version n under namespace ns,
+// with the pinned and live surfaces its definer references.
+func (b *tableBuilder) addMember(
+	livePath string, n int, ns, name string, def Definition,
+) error {
+	definer, err := b.r.file(livePath, def.Version)
+	if err != nil {
+		return err
+	}
+	rewrites, err := b.r.pinRewrites(definer)
+	if err != nil {
+		return err
+	}
+	ct := copyType(def.Type, ns, rewriter(ns, rewrites))
+	ct.Name = name
+	ct.QualifiedName = ns + "." + name
+	// A redeclaration without its own @doc inherits the chain-resolved doc, matching
+	// the live projection. The domain map is shared with the cached definer
+	// declaration, so clone before stamping.
+	if doc.Get(ct.Domains) == "" && def.Doc != "" {
+		domains := maps.Clone(ct.Domains)
+		if domains == nil {
+			domains = make(map[string]resolution.Domain, 1)
+		}
+		domains["doc"] = docDomain(def.Doc)
+		ct.Domains = domains
+	}
+	if err := b.table.Add(ct); err != nil {
+		return errors.Wrapf(err, "failed to register %s v%d as %s", livePath, n, ns)
+	}
+	for depLive, pv := range definer.Pins {
+		if err := b.addSurface(depLive, pv, DepNS(depLive, pv)); err != nil {
 			return err
 		}
-		rw := rewriter(ns, rewrites)
-		for _, t := range definer.Defined {
-			if !t.Synthetic {
-				continue
-			}
-			ct := copyType(t, ns, rw)
-			if _, exists := b.table.Get(ct.QualifiedName); exists {
-				continue
-			}
-			if err := b.table.Add(ct); err != nil {
-				return err
-			}
+	}
+	return b.addLive(definer)
+}
+
+// addSynthetic copies the synthetic types that version v of livePath defines into
+// namespace ns, skipping names the table already holds.
+func (b *tableBuilder) addSynthetic(livePath string, v int, ns string) error {
+	definer, err := b.r.file(livePath, v)
+	if err != nil {
+		return err
+	}
+	rewrites, err := b.r.pinRewrites(definer)
+	if err != nil {
+		return err
+	}
+	rw := rewriter(ns, rewrites)
+	for _, t := range definer.Defined {
+		if !t.Synthetic {
+			continue
+		}
+		ct := copyType(t, ns, rw)
+		if _, exists := b.table.Get(ct.QualifiedName); exists {
+			continue
+		}
+		if err := b.table.Add(ct); err != nil {
+			return err
 		}
 	}
 	return nil

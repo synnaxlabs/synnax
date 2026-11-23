@@ -22,6 +22,7 @@ import (
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -51,7 +52,7 @@ func (r Renderer) Literal(
 	case resolution.ValueKindInt:
 		return r.wrapDistinct(typeRef, strconv.FormatInt(val.IntValue, 10))
 	case resolution.ValueKindFloat:
-		return r.wrapDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue))
+		return r.wrapDistinct(typeRef, literal.Float(val.FloatValue))
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:

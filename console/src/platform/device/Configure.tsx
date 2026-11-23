@@ -9,7 +9,7 @@
 
 import "@/platform/device/Configure.css";
 
-import { actions, device, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,13 +17,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device, Flux } from "@synnaxlabs/pluto";
-import { deep, type record, verbs } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import type { ComponentType, ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
+import type { Adapter, Configurable, SaveParams } from "@/platform/device/adapter";
 import type { Hardware } from "@/platform/device/integration";
 import { LocationBadge } from "@/platform/device/LocationBadge";
 import {
@@ -39,41 +39,23 @@ const path = deep.path<z.infer<ConfigurablePropertiesZ>>();
 
 interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
   icon: Icon.ReactElement;
-  device: device.Device;
-  initialProperties: record.Unknown;
-  suggestIdentifiers: (device: device.Device) => string[];
+  device: Configurable;
+  make: string;
+  save: (params: SaveParams) => Promise<boolean>;
+  variant: status.Variant;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
-interface SaveParams {
-  prev: device.Device;
-  next: device.Device;
-}
-
-const { useUpdate: useSave } = Flux.createUpdate<SaveParams>({
-  name: "device",
-  verbs: verbs.UPDATE,
-  update: async ({ client, data }) => {
-    const { prev, next } = data;
-    const edits = actions.diffFields(device.deviceZ(), prev, next, [
-      "name",
-      "configured",
-      "properties",
-    ]);
-    if (edits.length > 0) await client.devices.dispatch(prev.key, edits);
-    return data;
-  },
-});
-
 const Internal = ({
   device,
   device: { name },
+  make,
+  save: saveDevice,
+  variant,
   close,
   icon,
-  initialProperties,
-  suggestIdentifiers,
   onCreateReadTask,
   onBack,
 }: InternalProps) => {
@@ -83,27 +65,18 @@ const Internal = ({
   });
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
-  const { updateAsync, variant } = useSave();
   const busy = variant === "loading";
   Modals.useBusy(busy);
-  const suggestions = suggestIdentifiers({ ...device, name: currentName });
+  const suggestions = device.suggestIdentifiers(currentName);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
-    const saved = await updateAsync({
-      prev: device,
-      next: {
-        ...device,
-        configured: true,
-        name: methods.get(path.name).value,
-        properties: {
-          ...deep.copy(initialProperties),
-          ...device.properties,
-          identifier: methods.get(path.identifier).value,
-        },
-      },
+    const saved = await saveDevice({
+      key: device.key,
+      name: methods.get(path.name).value,
+      identifier: methods.get(path.identifier).value,
     });
     if (!saved) return;
-    capture("device_configured", { make: device.make });
+    capture("device_configured", { make });
     if (createTask) onCreateReadTask?.(device.key);
     close();
   };
@@ -186,29 +159,25 @@ const Internal = ({
 
 export interface CreateConfigureArgs {
   icon: Icon.ReactElement;
-  /** The properties a device starts with when the user configures it. */
-  zeroProperties: record.Unknown;
-  /**
-   * @returns the identifiers that the form suggests for the device, which holds the
-   * name that the user entered.
-   */
-  suggestIdentifiers: (device: device.Device) => string[];
+  adapter: Adapter;
 }
 
 /** Creates the form that names a found device and sets its identifier. */
 export const createConfigure = ({
   icon,
-  zeroProperties,
-  suggestIdentifiers,
+  adapter,
 }: CreateConfigureArgs): ComponentType<ConfigureProps> => {
+  const { use: useConfigurable, useSave, make } = adapter;
   const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
-    const device = Device.use({ key: deviceKey });
+    const device = useConfigurable(deviceKey);
+    const { updateAsync, variant } = useSave();
     return (
       <Internal
         device={device}
+        make={make}
+        save={updateAsync}
+        variant={variant}
         icon={icon}
-        initialProperties={zeroProperties}
-        suggestIdentifiers={suggestIdentifiers}
         {...rest}
       />
     );

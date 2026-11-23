@@ -8,9 +8,10 @@
 # included in the file licenses/APL.txt.
 
 # Compares each user-facing surface of a pull request between its merge base and its
-# head, and uploads the results for label.classify.yaml. This runs the pull request's
-# code, so it has no secrets and a read-only token. A surface whose inputs the pull
-# request does not touch cannot change, so its job reports same without a build.
+# head, and uploads the results as one artifact for label.classify.yaml. This runs the
+# pull request's code, so it has no secrets and a read-only token. A surface whose
+# inputs the pull request does not touch cannot change, so its job reports same without
+# a build.
 
 name: Check - Classify
 
@@ -201,10 +202,29 @@ jobs:
             out/surface-${{ matrix.surface }}/diff
           if-no-files-found: ignore
 
-  # Runs last, so Label - Classify finds every result.
+  # Label - Classify fetches the results from another run, and that request has no
+  # retry, so it gets one artifact. Each surface keeps its own directory in it. The
+  # originals stay, so a rerun of failed jobs merges every surface again. Artifact IDs
+  # do not follow upload order, so the name carries the attempt.
+  merge:
+    name: Merge the results
+    needs: surface
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Merge the results
+        uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: surfaces-${{ github.run_attempt }}
+          pattern: surface-*
+          separate-directories: true
+
+  # Runs last, so Label - Classify finds every result. It runs after a failed merge too:
+  # Label - Classify then finds no results and raises the pull request to review/human.
   relay:
     name: Relay the results
-    needs: surface
+    needs: merge
     if:
       ${{ !cancelled() && github.event.pull_request.head.repo.full_name ==
       github.repository && github.actor != 'dependabot[bot]' }}

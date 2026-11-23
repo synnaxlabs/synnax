@@ -212,6 +212,7 @@ class Synnax(framer.Client):
             api_key=api_key,
         )
         registry = exceptions.create_registry()
+        self._registry = registry
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -378,7 +379,7 @@ class Synnax(framer.Client):
 
     @_Lazy
     def icds(self) -> icd.Client:
-        return icd.Client(client=self._transport.unary)
+        return icd.Client(client=self._transport.unary, registry=self._registry)
 
     @_Lazy
     def imex(self) -> imex_.Client:

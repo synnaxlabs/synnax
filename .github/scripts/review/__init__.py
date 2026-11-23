@@ -24,12 +24,13 @@ from review.post import (
     gh,
     outside_findings,
     post,
+    replies,
     reviewed,
     summaries,
     threads,
     withdrawn,
 )
-from review.restore import Unrestorable, restore
+from review.restore import Outcome, Unrestorable, restore
 from review.run import (
     Claude,
     Config,
@@ -57,6 +58,7 @@ __all__ = [
     "Judgment",
     "Lens",
     "LoginRejected",
+    "Outcome",
     "Pass",
     "PullRequest",
     "Review",
@@ -78,6 +80,7 @@ __all__ = [
     "outside_findings",
     "parse",
     "post",
+    "replies",
     "restore",
     "reviewed",
     "rule",

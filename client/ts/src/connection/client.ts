@@ -24,17 +24,13 @@ import {
 import { z } from "zod";
 
 import { auth } from "@/auth";
+import { lifecycle } from "@/connection/lifecycle";
 import {
-  advance,
   awaitConnected,
   type Config,
-  createInitialStatus,
   DEFAULT_ESCALATE_AFTER,
-  type Event,
   type Handle,
   type Info,
-  isSelfHealing,
-  reduce,
   type Status,
 } from "@/connection/status";
 import {
@@ -103,13 +99,13 @@ export const check = async (params: CheckParams): Promise<Status> => {
     requiresStream: false,
     name,
   };
-  const initial = createInitialStatus(cfg);
+  const initial = lifecycle.createInitialStatus(cfg);
   try {
     const info = await sendCheck(transport.unaryNoRetry);
-    return reduce(initial, { type: "check.success", info }, cfg);
+    return lifecycle.reduce(initial, { type: "check.success", info }, cfg);
   } catch (err) {
     const error = errors.fromUnknown(err);
-    return reduce(initial, { type: "check.failure", error, attempt: 1 }, cfg);
+    return lifecycle.reduce(initial, { type: "check.failure", error, attempt: 1 }, cfg);
   }
 };
 
@@ -126,7 +122,7 @@ const modeFor = ({ variant, details }: Status): Mode => {
     case "disabled":
       return "idle";
     case "error":
-      return isSelfHealing(details.reason) ? "checking" : "idle";
+      return lifecycle.isSelfHealing(details.reason) ? "checking" : "idle";
     default:
       return "checking";
   }
@@ -147,7 +143,7 @@ const DEFAULT_RETRY: breaker.Config = {
  * (check results, retry scheduling) the client observes itself.
  */
 export type FactEvent = Extract<
-  Event,
+  lifecycle.Event,
   {
     type:
       | "auth.success"
@@ -238,6 +234,8 @@ export class Client implements Handle {
   private probeCountdown = 0;
   private brk: breaker.Breaker | null = null;
   private versionWarned = false;
+  // The Core this host last warned about clock skew with, or null when in sync.
+  private skewedCluster: string | null = null;
 
   constructor({
     unary,
@@ -269,7 +267,7 @@ export class Client implements Handle {
     this.deniedStreamProbeAfter = deniedStreamProbeAfter;
     this.stream = stream;
     this.onInternalError = onInternalError;
-    this.current = createInitialStatus(this.config);
+    this.current = lifecycle.createInitialStatus(this.config);
     this.loop = this.run().catch((err: unknown) =>
       this.onInternalError(new Error("connection check loop failed", { cause: err })),
     );
@@ -363,10 +361,10 @@ export class Client implements Handle {
    * Folds the event into the status, notifies observers, and applies the
    * transition's side effects.
    */
-  private dispatch(event: Event): void {
+  private dispatch(event: lifecycle.Event): void {
     if (this.closed) return;
     const prev = this.current;
-    const [next, changed] = advance(prev, event, this.config);
+    const [next, changed] = lifecycle.advance(prev, event, this.config);
     this.current = next;
     if (changed) this.observer.notify(next);
     // a new cluster at the connection's address voids everything learned from
@@ -518,19 +516,24 @@ export class Client implements Handle {
   }
 
   private warn({
+    clusterKey,
     clockSkew,
     clockSkewExceeded,
     clientServerCompatible,
     clientVersion,
     nodeVersion,
   }: Status["details"]): void {
-    if (clockSkewExceeded) {
+    if (clockSkewExceeded && this.skewedCluster !== clusterKey) {
+      this.skewedCluster = clusterKey;
       const direction = clockSkew.valueOf() > 0n ? "ahead of" : "behind";
       console.warn(
         `Measured excessive clock skew between this host and the Synnax Core. ` +
           `This host is ${direction} the Synnax Core by approximately ` +
           `${clockSkew.abs().toString()}.`,
       );
+    } else if (!clockSkewExceeded && this.skewedCluster != null) {
+      this.skewedCluster = null;
+      console.info("The clock of this host is back in sync with the Synnax Core.");
     }
     if (clientServerCompatible || this.versionWarned) return;
     this.versionWarned = true;

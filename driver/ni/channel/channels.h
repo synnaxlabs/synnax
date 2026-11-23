@@ -218,7 +218,7 @@ inline std::string format_cfg_path(const std::string &path) {
     return formatted;
 }
 
-inline std::string format_cjc_port(const std::string &path, const std::uint32_t port) {
+inline std::string format_cjc_port(const std::string &path, const std::uint16_t port) {
     const auto last_underscore = path.find_last_of('_');
     if (last_underscore == std::string::npos) return path;
     return path.substr(0, last_underscore) + "_" + std::to_string(port);
@@ -249,7 +249,7 @@ struct CJCArgs {
     /// @brief the reference temperature, used only when the source is a constant.
     double val = 0;
     /// @brief the reference channel's port, used only when the source is a channel.
-    uint32_t port = 0;
+    std::uint16_t port = 0;
 };
 
 inline CJCArgs parse_cjc(const ::synnax::ni::CJC &cjc) {
@@ -1624,7 +1624,7 @@ inline x::errors::Error apply(
     const auto edge = get_ci_edge(ch.edge);
     const auto max_val = ch.max_val;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
-    const auto meas_time = ch.meas_time;
+    const auto meas_time = ch.meas_time.seconds();
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
@@ -1806,7 +1806,7 @@ inline x::errors::Error apply(
     const auto edge = get_ci_edge(ch.starting_edge);
     const auto max_val = ch.max_val;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
-    const auto meas_time = ch.meas_time;
+    const auto meas_time = ch.meas_time.seconds();
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);

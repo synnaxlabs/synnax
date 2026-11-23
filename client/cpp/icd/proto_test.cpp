@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <variant>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/icd/json.gen.h"
@@ -47,7 +49,8 @@ const x::json::json BINARY_MESSAGE = {
          {"bit_length", 4},
          {"byte_order", "little_endian"},
          {"kind", "unsigned"},
-         {"multiplex_values", x::json::json::array()}},
+         {"multiplex_values", x::json::json::array()},
+         {"default", "1"}},
         {{"key", "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5e03"},
          {"name", "rpm"},
          {"scale", 0.25},
@@ -60,7 +63,8 @@ const x::json::json BINARY_MESSAGE = {
          {"byte_order", "big_endian"},
          {"kind", "integer"},
          {"multiplexor", "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5e02"},
-         {"multiplex_values", {1, 3}}}}}}},
+         {"multiplex_values", {1, 3}},
+         {"default", "-5"}}}}}},
 };
 
 const x::json::json TEXT_MESSAGE = {
@@ -77,7 +81,8 @@ const x::json::json TEXT_MESSAGE = {
          {"offset", 0},
          {"units", "m/s"},
          {"encoding", "delimited"},
-         {"position", 2}},
+         {"position", 2},
+         {"default", 0.5}},
         {{"key", "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5e06"},
          {"name", "heading"},
          {"scale", 1},
@@ -143,11 +148,12 @@ const x::json::json JSON_MESSAGE = {
         json_field(
             "06",
             "timestamp",
-            {{"time_format", "unix_ms"}, {"default", 1700000000000000000}}
+            {{"time_format", "unix_ms"},
+             {"default", {{"type", "constant"}, {"value", 1700000000000000000}}}}
         ),
-        json_field("07", "json"),
-        json_field("08", "uuid"),
-        json_field("09", "bytes")}}}},
+        json_field("07", "json", {{"default", R"({"id":9007199254740993})"}}),
+        json_field("08", "uuid", {{"default", {{"type", "random"}}}}),
+        json_field("09", "bytes", {{"default", "AQI="}})}}}},
 };
 
 const x::json::json FULL_ICD = {
@@ -179,7 +185,7 @@ const std::string KEY_B = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea2";
 
 x::json::json with_match(const x::json::json &match) {
     auto j = FULL_ICD;
-    j["messages"] = {JSON_MESSAGE};
+    j["messages"] = x::json::json::array({JSON_MESSAGE});
     j["messages"][0]["payload"]["match"] = match;
     return j;
 }
@@ -219,10 +225,15 @@ TEST(JSONMatch, RoundTripsBooleanProto) {
     );
 }
 
+/// @brief it should round trip a present match through protobuf.
+TEST(JSONMatch, RoundTripsPresentProto) {
+    expect_round_trips(with_match({{"type", "present"}, {"pointer", "/a"}}));
+}
+
 /// @brief it should round trip a field identifier through protobuf.
 TEST(Identifier, RoundTripsFieldVariantProto) {
     auto j = FULL_ICD;
-    j["messages"] = {BINARY_MESSAGE};
+    j["messages"] = x::json::json::array({BINARY_MESSAGE});
     j["messages"][0]["payload"]["identifier"] = {
         {"type", "field"},
         {"field", "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5e02"},
@@ -306,11 +317,11 @@ TEST(Cursor, RejectsInvalidKeyFromProto) {
 /// @brief it should reject a binary field with an unknown byte order.
 TEST(BinaryField, RejectsUnknownByteOrderToProto) {
     x::json::Parser parser(BINARY_MESSAGE["payload"]["fields"][0]);
-    auto f = BinaryField::parse(parser);
+    auto f = parse_binary_field(parser);
     ASSERT_NIL(parser.error());
-    f.byte_order = "diagonal";
+    std::get<UnsignedBinaryField>(f).byte_order = "diagonal";
     ASSERT_OCCURRED_AS_P(
-        f.to_proto(),
+        to_proto(f),
         x::errors::Error("unrecognized ByteOrder value: diagonal")
     );
 }

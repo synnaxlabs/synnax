@@ -192,6 +192,43 @@ describe("Cursor.useVirtualDrag", () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
+  it("should end the gesture on pointer cancel", () => {
+    const onEnd = vi.fn();
+    const onMove = vi.fn();
+    const { el } = renderTarget({ onEnd, onMove });
+    down(el, 0, 0);
+    fireEvent.pointerCancel(el, pointerInit(10, 0));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(el.hasPointerCapture(DEFAULT_POINTER.pointerId)).toBe(false);
+    move(el, 50, 0);
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("should end a canceled gesture at the last move", () => {
+    const onEnd = vi.fn();
+    const { el } = renderTarget({ onEnd });
+    down(el, 10, 5);
+    move(el, 30, 25);
+    fireEvent.pointerCancel(el, pointerInit(0, 0));
+    expect(onEnd).toHaveBeenCalledWith(
+      box.construct({ x: 10, y: 5 }, { x: 30, y: 25 }),
+      "MouseLeft",
+      expect.anything(),
+    );
+  });
+
+  it("should end a canceled gesture with no moves at the start", () => {
+    const onEnd = vi.fn();
+    const { el } = renderTarget({ onEnd });
+    down(el, 10, 5);
+    fireEvent.pointerCancel(el, pointerInit(0, 0));
+    expect(onEnd).toHaveBeenCalledWith(
+      box.construct({ x: 10, y: 5 }, { x: 10, y: 5 }),
+      "MouseLeft",
+      expect.anything(),
+    );
+  });
+
   it("should end the gesture only once", () => {
     const onEnd = vi.fn();
     const { el } = renderTarget({ onEnd });

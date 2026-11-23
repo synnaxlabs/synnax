@@ -10,12 +10,12 @@
 import type { device, Synnax } from "@synnaxlabs/client";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 
-import { MAKE, type Properties } from "@/feature/kafka/device/types";
+import { Device } from "@/feature/kafka/device";
 import { createTestDevice } from "@/platform/device/testutil";
 
 export interface CreateKafkaDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /** Creates a rack and a configured Kafka cluster device on the live Core. */
@@ -25,12 +25,12 @@ export const createKafkaDevice = async (
 ): Promise<device.Device> =>
   await createTestDevice(client, {
     name: uniqueName("kafka_cluster"),
-    make: MAKE,
+    make: Device.MAKE,
     model: "cluster",
     configured,
     properties: {
       brokers: ["localhost:9092"],
-      tls: false,
+      secure: false,
       sasl: { mechanism: "none" },
       ...properties,
     },

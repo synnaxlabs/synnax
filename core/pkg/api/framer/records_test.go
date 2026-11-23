@@ -111,7 +111,7 @@ var _ = Describe("Change channels", func() {
 		})).To(Succeed())
 	}
 	newLabel := func() label.Label {
-		return label.Label{Key: uuid.New(), Name: "change-channel"}
+		return label.Label{Key: uuid.New(), Name: "change-channel", Color: labelColor}
 	}
 	createColors := func(ctx SpecContext, named ...color.Named) {
 		GinkgoHelper()
@@ -479,3 +479,6 @@ var _ = Describe("Change channels", func() {
 		Expect(received()).To(Equal([]resource.ID{label.ResourceID(granted.Key)}))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = color.Ref{Variant: color.FixedRef{}}

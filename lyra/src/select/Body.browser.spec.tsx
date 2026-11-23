@@ -213,6 +213,25 @@ describe("Select.Single dialog body", () => {
       ).not.toContain("lyra--bordered");
     });
 
+    it("should keep the options mounted when the footer appears", () => {
+      const renderSelect = (footer?: ReactNode) => (
+        <Select.Single
+          visible
+          data={["a"]}
+          onChange={vi.fn()}
+          resourceName="result"
+          footer={footer}
+        >
+          {({ key }) => <div key={key}>{key}</div>}
+        </Select.Single>
+      );
+      const c = render(renderSelect());
+      const option = c.getByText("a");
+      c.rerender(renderSelect(<button type="button">Create</button>));
+      expect(c.getByText("Create")).toBeTruthy();
+      expect(c.getByText("a")).toBe(option);
+    });
+
     it("should leave the border on the list when there is no footer", () => {
       const c = renderDialog();
       expect(c.baseElement.querySelector(".lyra-select__body")).toBeNull();

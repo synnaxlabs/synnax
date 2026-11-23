@@ -34,8 +34,8 @@ import (
 // a burst of edits produces one rewrite instead of one per edit. A text edit moves the
 // Arc's last edit time only when the transaction commits.
 //
-// Apply returns a validation error when a rename or a move leaves a name that the
-// directory of the Arc cannot hold.
+// Apply returns a validation error when the reduced Arc fails Arc.Validate, or when a
+// rename or a move leaves a name that the directory of the Arc cannot hold.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var (
 		sweep       []Action
@@ -54,6 +54,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			a, err := Reduce(a, acts...)
 			if err != nil {
 				return a, err
+			}
+			if err = a.Validate(); err != nil {
+				return Arc{}, err
 			}
 			module = a.Type() == TypeModule
 			next := a.Base()
@@ -78,6 +81,14 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.attach(key, acts, sweep, module && pathChanged, module)
+	return nil
+}
+
+// attach registers the work that the commit of an Apply to key runs: the edit time, the
+// dispatch of acts and sweep, and the resyncs. moved is true when a module changed its
+// path.
+func (w Writer) attach(key Key, acts, sweep []Action, moved, module bool) {
 	// The edit time moves before the lock releases, so a later transaction cannot sweep
 	// the characters that this one deletes.
 	if containsTextEdit(acts) {
@@ -91,14 +102,13 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
 	w.resyncs.Add(w.tx, key)
-	if module && pathChanged {
+	if moved {
 		w.pathChanges.Add(w.tx, struct{}{})
-		return nil
+		return
 	}
 	if module && containsTextEdit(acts) {
 		w.editedModules.Add(w.tx, key)
 	}
-	return nil
 }
 
 // followCommit schedules the resyncs that c asked for, then drops the edit time and

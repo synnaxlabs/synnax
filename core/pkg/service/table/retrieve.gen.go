@@ -67,6 +67,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Table, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Table, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, project.Key]{
 			Name:     "project",
@@ -78,6 +83,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Table, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
 			},
 		}),
 		rowsCellsConfigFillColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, color.Key]{
@@ -127,6 +137,36 @@ func newIndexes() indexes {
 								}
 							}
 							e.Rows[i11].Cells[i12].Config.Variant = v13
+						}
+					}
+				}
+			},
+			Retarget: func(e *Table, from, to color.Key) {
+				for i16 := range e.Rows {
+					for i17 := range e.Rows[i16].Cells {
+						switch v18 := e.Rows[i16].Cells[i17].Config.Variant.(type) {
+						case TextCellConfig:
+							if v18.FillColor != nil {
+								switch v19 := v18.FillColor.Variant.(type) {
+								case color.NamedRef:
+									if v19.Key == from {
+										v19.Key = to
+									}
+									v18.FillColor.Variant = v19
+								}
+							}
+							e.Rows[i16].Cells[i17].Config.Variant = v18
+						case ValueCellConfig:
+							if v18.FillColor != nil {
+								switch v20 := v18.FillColor.Variant.(type) {
+								case color.NamedRef:
+									if v20.Key == from {
+										v20.Key = to
+									}
+									v18.FillColor.Variant = v20
+								}
+							}
+							e.Rows[i16].Cells[i17].Config.Variant = v18
 						}
 					}
 				}
@@ -218,6 +258,36 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Table, from, to color.Key) {
+				for i16 := range e.Rows {
+					for i17 := range e.Rows[i16].Cells {
+						switch v18 := e.Rows[i16].Cells[i17].Config.Variant.(type) {
+						case TextCellConfig:
+							if v18.TextColor != nil {
+								switch v19 := v18.TextColor.Variant.(type) {
+								case color.NamedRef:
+									if v19.Key == from {
+										v19.Key = to
+									}
+									v18.TextColor.Variant = v19
+								}
+							}
+							e.Rows[i16].Cells[i17].Config.Variant = v18
+						case ValueCellConfig:
+							if v18.TextColor != nil {
+								switch v20 := v18.TextColor.Variant.(type) {
+								case color.NamedRef:
+									if v20.Key == from {
+										v20.Key = to
+									}
+									v18.TextColor.Variant = v20
+								}
+							}
+							e.Rows[i16].Cells[i17].Config.Variant = v18
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,
@@ -287,6 +357,25 @@ func newIndexes() indexes {
 								}
 							}
 							e.Rows[i9].Cells[i10].Config.Variant = v11
+						}
+					}
+				}
+			},
+			Retarget: func(e *Table, from, to color.Key) {
+				for i13 := range e.Rows {
+					for i14 := range e.Rows[i13].Cells {
+						switch v15 := e.Rows[i13].Cells[i14].Config.Variant.(type) {
+						case ValueCellConfig:
+							if v15.StalenessColor != nil {
+								switch v16 := v15.StalenessColor.Variant.(type) {
+								case color.NamedRef:
+									if v16.Key == from {
+										v16.Key = to
+									}
+									v15.StalenessColor.Variant = v16
+								}
+							}
+							e.Rows[i13].Cells[i14].Config.Variant = v15
 						}
 					}
 				}

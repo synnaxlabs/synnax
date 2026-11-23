@@ -11,16 +11,16 @@ import "@/platform/icd/Options.css";
 
 import type { icd } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, type TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
+import { ValueField } from "@/platform/icd/ValueField";
 
 /** A JSON field of a kind with a default and an enum mapping. */
 type Mappable =
@@ -30,40 +30,61 @@ type Mappable =
   | icd.StringJSONField
   | icd.BooleanJSONField;
 
-type Kind = Mappable["type"];
+type Type = icd.JSONField["type"];
+
+const MAPPABLE: Record<Mappable["type"], true> = {
+  float: true,
+  integer: true,
+  unsigned: true,
+  string: true,
+  boolean: true,
+};
+
+const isMappable = (field: icd.JSONField): field is Mappable => field.type in MAPPABLE;
 
 const ZERO_DEFAULTS: {
-  [K in Kind]: NonNullable<Extract<Mappable, { type: K }>["default"]>;
+  [T in Type]: NonNullable<Extract<icd.JSONField, { type: T }>["default"]>;
 } = {
   float: 0,
   integer: "0",
   unsigned: "0",
   string: "",
   boolean: false,
+  timestamp: { type: "now" },
+  uuid: { type: "random" },
+  json: "null",
+  bytes: "",
 };
 
-const isMappable = (field: icd.JSONField): field is Mappable =>
-  field.type in ZERO_DEFAULTS;
+const TIMESTAMP_DEFAULTS: Record<icd.TimestampDefaultType, () => icd.TimestampDefault> =
+  {
+    now: () => ({ type: "now" }),
+    constant: () => ({
+      type: "constant",
+      value: TimeStamp.now().truncate(TimeSpan.SECOND),
+    }),
+  };
 
-/** A JSON field with a default that the Console shows. */
-type Defaulted = Mappable | icd.TimestampJSONField;
+const UUID_DEFAULTS: Record<icd.UUIDDefaultType, () => icd.UUIDDefault> = {
+  random: () => ({ type: "random" }),
+  constant: () => ({ type: "constant", value: uuid.create() }),
+};
 
-/**
- * @returns whether the Console shows the default of the field. A timestamp field shows
- * one only when it has one, which the Console can remove but not set.
- */
-export const showsDefault = (field: icd.JSONField): field is Defaulted =>
-  isMappable(field) || (field.type === "timestamp" && field.default != null);
-
-const formatDefault = (field: Defaulted): string | null => {
+/** @returns the default of the field as text, or null when it has none. */
+export const formatDefault = (field: icd.JSONField): string | null => {
   if (field.default == null) return null;
   switch (field.type) {
     case "string":
+    case "bytes":
       return JSON.stringify(field.default);
     case "boolean":
       return field.default ? "True" : "False";
     case "timestamp":
-      return field.default.toString("dateTime", "local");
+      return field.default.type === "now"
+        ? "Now"
+        : field.default.value.toString("dateTime", "local");
+    case "uuid":
+      return field.default.type === "random" ? "Random" : field.default.value;
     default:
       return String(field.default);
   }
@@ -71,7 +92,6 @@ const formatDefault = (field: Defaulted): string | null => {
 
 /** @returns what the field's options set, or null when they set nothing. */
 const summarize = (field: icd.JSONField): string | null => {
-  if (!showsDefault(field)) return null;
   const parts: string[] = [];
   const shown = formatDefault(field);
   if (shown != null) parts.push(`Default ${shown}`);
@@ -84,75 +104,93 @@ const OPTIONAL_INPUT_PROPS = {
   tooltip: "Write the default when the document has no value.",
 } as const;
 
-const BOOLEANS = { false: false, true: true } as const;
-
-type BooleanKey = keyof typeof BOOLEANS;
-
 interface DefaultProps {
   path: deep.Path<icd.JSONField>;
-  type: Defaulted["type"];
+  type: Type;
 }
+
+interface TimestampDefaultProps {
+  path: deep.Path<icd.TimestampDefault>;
+}
+
+/** Edits whether a timestamp default is now, and its time when it is constant. */
+const TimestampDefault = ({ path }: TimestampDefaultProps): ReactElement => {
+  const { type } = Form.useFieldValue(path);
+  return (
+    <>
+      <Form.Field<icd.TimestampDefault> path={path} label="Default" padHelpText={false}>
+        {({ value, onChange, preview }) => (
+          <Select.Buttons<icd.TimestampDefaultType>
+            value={value.type}
+            onChange={(next: icd.TimestampDefaultType) =>
+              onChange(TIMESTAMP_DEFAULTS[next]())
+            }
+            preview={preview}
+          >
+            <Select.Item<icd.TimestampDefaultType> itemKey="now">Now</Select.Item>
+            <Select.Item<icd.TimestampDefaultType> itemKey="constant">
+              Constant
+            </Select.Item>
+          </Select.Buttons>
+        )}
+      </Form.Field>
+      {type === "constant" && (
+        <ValueField type="timestamp" path={deep.variant(path, "type", type).value} />
+      )}
+    </>
+  );
+};
+
+interface UUIDDefaultProps {
+  path: deep.Path<icd.UUIDDefault>;
+}
+
+/** Edits whether a UUID default is random, and its UUID when it is constant. */
+const UUIDDefault = ({ path }: UUIDDefaultProps): ReactElement => {
+  const { type } = Form.useFieldValue(path);
+  return (
+    <>
+      <Form.Field<icd.UUIDDefault> path={path} label="Default" padHelpText={false}>
+        {({ value, onChange, preview }) => (
+          <Select.Buttons<icd.UUIDDefaultType>
+            value={value.type}
+            onChange={(next: icd.UUIDDefaultType) => onChange(UUID_DEFAULTS[next]())}
+            preview={preview}
+          >
+            <Select.Item<icd.UUIDDefaultType> itemKey="random">Random</Select.Item>
+            <Select.Item<icd.UUIDDefaultType> itemKey="constant">Constant</Select.Item>
+          </Select.Buttons>
+        )}
+      </Form.Field>
+      {type === "constant" && (
+        <ValueField type="uuid" path={deep.variant(path, "type", type).value} />
+      )}
+    </>
+  );
+};
 
 /** Edits the default of the field's kind. */
 const Default = ({ path, type }: DefaultProps): ReactElement => {
-  switch (type) {
-    case "float":
-      return (
-        <Form.NumericField
-          path={deep.variant(path, "type", type).default}
-          label="Default"
-          padHelpText={false}
-          emptiable={false}
-        />
-      );
-    case "integer":
-    case "unsigned":
-    case "string":
-      return (
-        <Form.TextField
-          path={deep.variant(path, "type", type).default}
-          label="Default"
-          padHelpText={false}
-          emptiable={false}
-        />
-      );
-    case "boolean":
-      return (
-        <Form.Field<boolean>
-          path={deep.present(deep.variant(path, "type", type).default)}
-          label="Default"
-          padHelpText={false}
-        >
-          {({ value, onChange, preview }) => (
-            <Select.Buttons<BooleanKey>
-              value={String(value) as BooleanKey}
-              onChange={(key: BooleanKey) => onChange(BOOLEANS[key])}
-              preview={preview}
-            >
-              <Select.Item<BooleanKey> itemKey="false">False</Select.Item>
-              <Select.Item<BooleanKey> itemKey="true">True</Select.Item>
-            </Select.Buttons>
-          )}
-        </Form.Field>
-      );
-    case "timestamp":
-      return (
-        <Form.Field<TimeStamp>
-          path={deep.present(deep.variant(path, "type", type).default)}
-          label="Default"
-          padHelpText={false}
-        >
-          {({ value }) => (
-            <Text.Text>{value.toString("preciseDate", "local")}</Text.Text>
-          )}
-        </Form.Field>
-      );
-  }
+  if (type === "timestamp")
+    return (
+      <TimestampDefault path={deep.present(deep.variant(path, "type", type).default)} />
+    );
+  if (type === "uuid")
+    return (
+      <UUIDDefault path={deep.present(deep.variant(path, "type", type).default)} />
+    );
+  return (
+    <ValueField
+      type={type}
+      path={deep.variant(path, "type", type).default}
+      label="Default"
+    />
+  );
 };
 
 export interface OptionalProps {
   path: deep.Path<icd.JSONField>;
-  field: Defaulted;
+  field: icd.JSONField;
 }
 
 /** Edits whether a field is optional, and its default when it is. */
@@ -160,9 +198,8 @@ export const Optional = ({ path, field }: OptionalProps): ReactElement => {
   const { set, remove, mode } = Form.useContext();
   const defaultPath = deep.variant(path, "type", field.type).default;
   const handleOptional = (optional: boolean) => {
-    if (!optional) remove(defaultPath);
-    else if (isMappable(field)) set(defaultPath, ZERO_DEFAULTS[field.type]);
-    else throw new Error(`The default of ${field.name} cannot be set`);
+    if (optional) set(defaultPath, ZERO_DEFAULTS[field.type]);
+    else remove(defaultPath);
   };
   return (
     <>
@@ -182,9 +219,7 @@ export const Optional = ({ path, field }: OptionalProps): ReactElement => {
 const OptionsForm = ({ path, field }: OptionalProps): ReactElement => (
   <Form.Sections>
     <Form.Section>
-      <Flex.Box x>
-        <Optional path={path} field={field} />
-      </Flex.Box>
+      <Optional path={path} field={field} />
       {isMappable(field) && <EnumValues path={path} label="Enum mapping" />}
     </Form.Section>
   </Form.Sections>
@@ -201,8 +236,8 @@ export interface OptionsProps extends Pick<
 
 /**
  * A grid cell that sums up the default and the enum mapping of a JSON field, and opens
- * a dialog that edits them. A field with no options shows "None" and opens nothing, as
- * does a read-only field that sets neither.
+ * a dialog that edits them. A read-only field that sets neither shows "None" and opens
+ * nothing.
  */
 export const Options = ({
   path,
@@ -212,7 +247,7 @@ export const Options = ({
   "aria-label": ariaLabel,
 }: OptionsProps): ReactElement => {
   const summary = summarize(field);
-  const opens = showsDefault(field) && (preview !== true || summary != null);
+  const opens = preview !== true || summary != null;
   return (
     <Dialog.Frame variant="floating">
       <Dialog.Trigger
@@ -232,11 +267,9 @@ export const Options = ({
           {summary ?? "None"}
         </Text.Text>
       </Dialog.Trigger>
-      {showsDefault(field) && (
-        <Dialog.Dialog className={CSS.BE("icd-options", "dialog")}>
-          <OptionsForm path={path} field={field} />
-        </Dialog.Dialog>
-      )}
+      <Dialog.Dialog className={CSS.BE("icd-options", "dialog")}>
+        <OptionsForm path={path} field={field} />
+      </Dialog.Dialog>
     </Dialog.Frame>
   );
 };

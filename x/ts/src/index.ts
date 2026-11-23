@@ -51,6 +51,7 @@ export * from "@/strings";
 export * from "@/sync";
 export * from "@/telem";
 export * from "@/text";
+export * from "@/timer";
 export * from "@/types";
 export * from "@/unique";
 export * from "@/url";

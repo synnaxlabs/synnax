@@ -39,14 +39,14 @@ describe("ConnectFooter", () => {
     const onBack = vi.fn();
     await renderModalOpener(useOpen, [{ variant: "loading", onBack }]);
     fireEvent.click(findButton("Back"));
-    pressEscape();
+    await pressEscape();
     expect(onBack).not.toHaveBeenCalled();
     expect(screen.queryByText("Back")).not.toBeNull();
   });
 
   it("should let Escape close the dialog when idle", async () => {
     await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn() }]);
-    pressEscape();
+    await pressEscape();
     expect(screen.queryByText("Back")).toBeNull();
   });
 });

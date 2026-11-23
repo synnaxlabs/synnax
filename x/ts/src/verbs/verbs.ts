@@ -38,6 +38,12 @@ export const CREATE: Verbs = {
   participle: "creating",
 };
 
+export const REPLACE: Verbs = {
+  present: "replace",
+  past: "replaced",
+  participle: "replacing",
+};
+
 export const COPY: Verbs = {
   present: "copy",
   past: "copied",

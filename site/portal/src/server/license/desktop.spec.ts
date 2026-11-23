@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { activation, event, license, organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
   expiryFrom,
@@ -102,18 +102,25 @@ describe("desktop ledger", () => {
     });
 
   const licenseRow = async (key: string) =>
-    (await store.query.select().from(license).where(eq(license.key, key)))[0];
+    (
+      await store.query.select().from(schema.license).where(eq(schema.license.key, key))
+    )[0];
 
   const activationRow = async (key: string) =>
-    (await store.query.select().from(activation).where(eq(activation.key, key)))[0];
+    (
+      await store.query
+        .select()
+        .from(schema.activation)
+        .where(eq(schema.activation.key, key))
+    )[0];
 
   const eventsOf = async (kind: string) =>
-    (await store.query.select().from(event)).filter((e) => e.kind === kind);
+    (await store.query.select().from(schema.event)).filter((e) => e.kind === kind);
 
   describe("link", () => {
     it("should issue a one-machine license to the personal organization", async () => {
       const linked = await linkMachine();
-      const [org] = await store.query.select().from(organization);
+      const [org] = await store.query.select().from(schema.organization);
       expect(org).toMatchObject({
         kind: "personal",
         name: "Ada Lovelace",
@@ -278,9 +285,9 @@ describe("desktop ledger", () => {
     it("should refuse a machine whose license was revoked", async () => {
       const linked = await linkMachine();
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: LATER })
-        .where(eq(license.key, linked.license.key));
+        .where(eq(schema.license.key, linked.license.key));
       await expect(resolve(store, linked.secret)).rejects.toMatchObject({
         status: 403,
         message: "This machine was logged out. Log in again.",
@@ -291,9 +298,9 @@ describe("desktop ledger", () => {
     it("should refuse a machine whose seat was released", async () => {
       const linked = await linkMachine();
       await store.query
-        .update(activation)
+        .update(schema.activation)
         .set({ releasedAt: LATER })
-        .where(eq(activation.key, linked.activation.key));
+        .where(eq(schema.activation.key, linked.activation.key));
       await expect(resolve(store, linked.secret)).rejects.toMatchObject({
         status: 403,
         message: "This machine was logged out. Log in again.",
@@ -393,9 +400,9 @@ describe("desktop ledger", () => {
     it("should give the license the channel cap set for the user", async () => {
       const linked = await linkMachine();
       await store.query
-        .update(organization)
+        .update(schema.organization)
         .set({ desktopChannels: 120 })
-        .where(eq(organization.key, linked.license.organization));
+        .where(eq(schema.organization.key, linked.license.organization));
       const machine = await resolve(store, linked.secret);
       const { key, license: lic } = await renew(store, signer(), {
         machine,
@@ -409,9 +416,9 @@ describe("desktop ledger", () => {
     it("should give the license the default cap when none is set", async () => {
       const linked = await linkMachine();
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ channels: 50 })
-        .where(eq(license.key, linked.license.key));
+        .where(eq(schema.license.key, linked.license.key));
       const machine = await resolve(store, linked.secret);
       const renewed = await renew(store, signer(), { machine, now: RENEWED });
       expect(renewed.license.channels).toBe(55);
@@ -513,9 +520,9 @@ describe("desktop ledger", () => {
     const capOf = async (org: string) =>
       (
         await store.query
-          .select({ desktopChannels: organization.desktopChannels })
-          .from(organization)
-          .where(eq(organization.key, org))
+          .select({ desktopChannels: schema.organization.desktopChannels })
+          .from(schema.organization)
+          .where(eq(schema.organization.key, org))
       )[0].desktopChannels;
 
     it("should store the cap and change each license that is not revoked", async () => {
@@ -572,9 +579,9 @@ describe("desktop ledger", () => {
     it("should bring a license to the cap when the cap does not change", async () => {
       const linked = await linkMachine();
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ channels: 50 })
-        .where(eq(license.key, linked.license.key));
+        .where(eq(schema.license.key, linked.license.key));
       await set(null);
       expect((await licenseRow(linked.license.key)).channels).toBe(55);
       expect(await eventsOf("change_desktop_channels")).toHaveLength(0);

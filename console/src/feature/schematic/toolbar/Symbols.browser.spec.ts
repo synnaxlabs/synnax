@@ -1,0 +1,434 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  channel,
+  group,
+  label,
+  NotFoundError,
+  panel,
+  project,
+  ranger,
+  type schematic,
+  schematic as schematicClient,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { List } from "@synnaxlabs/lyra/list";
+import { theming } from "@synnaxlabs/pluto/ether";
+import { color } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  client,
+  createSymbolPayload,
+  preloadTab,
+  renderSchematic,
+  SYMBOL_FILE_DROP_PROMPT,
+  TabToolbar,
+} from "@/feature/schematic/testutil";
+import { findButton } from "@/platform/modals/testutil";
+import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
+import {
+  captureBrowserDownloads,
+  countEditableText,
+  createTestClientWithGrants,
+  getIconButton,
+  getIconButtons,
+  type Grants,
+  HaulProvider,
+  removeSaveFilePicker,
+} from "@/testutil";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  removeSaveFilePicker();
+});
+
+const renderSymbolsToolbar = async (as?: Client) =>
+  await renderSchematic(TabToolbar, {
+    sessionState: { editable: true },
+    additionalRegistry: theming.REGISTRY,
+    as,
+  });
+
+const createRemoteSymbolGroup = async (
+  symbolNames: string[],
+): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
+  const grp = await client.groups.create({
+    scope: "schematic_symbol",
+    name: uniqueName("remote_grp"),
+  });
+  const symbols: schematic.symbol.Symbol[] = [];
+  for (const name of symbolNames)
+    symbols.push(
+      await client.schematics.symbols.create({
+        ...createSymbolPayload(name),
+        group: grp.key,
+      }),
+    );
+  return { grp, symbols };
+};
+
+preloadTab();
+
+describe("Schematic toolbar Symbols", () => {
+  it("adds a static symbol node to the schematic on click", async () => {
+    const { key } = await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText("Gauge"));
+    await waitFor(async () => {
+      const retrieved = await client.schematics.retrieve(key);
+      expect(retrieved.nodes).toHaveLength(1);
+      expect(retrieved.nodes[0].config).toMatchObject({ variant: "gauge" });
+    });
+  });
+
+  it("switches symbol groups and persists the selection", async () => {
+    const { key, store } = await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    fireEvent.click(screen.getByText("Valves"));
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe("valves"),
+    );
+    expect(await screen.findByText("Ball")).toBeDefined();
+  });
+
+  it("searches static symbols across groups", async () => {
+    await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    const search = screen.getByPlaceholderText("Search symbols...");
+    fireEvent.change(search, { target: { value: "tank" } });
+    expect(await screen.findByText("Tank")).toBeDefined();
+  });
+
+  it("lists remote symbols for a remote group and adds them with their spec key", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    const { key } = await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.click(await screen.findByText(name));
+    await waitFor(async () => {
+      const retrieved = await client.schematics.retrieve(key);
+      expect(retrieved.nodes).toHaveLength(1);
+      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
+    });
+  });
+
+  it("opens the symbol-create modal from an empty remote group", async () => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    await screen.findByText("No symbols found");
+    fireEvent.click(screen.getByText("Create symbol"));
+    expect(await screen.findByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
+  });
+
+  it("deletes a remote symbol through the context menu", async () => {
+    const name = uniqueName("del_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    fireEvent.click(await screen.findByText("Delete"));
+    await screen.findByText(`Are you sure you want to delete ${name}?`);
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => {
+      await expect(
+        client.schematics.symbols.retrieve(symbols[0].key),
+      ).rejects.toSatisfy((e) => NotFoundError.matches(e));
+    });
+  });
+
+  it("offers Reload Console from a remote symbol's context menu", async () => {
+    const name = uniqueName("reload_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
+  it("exports a remote symbol as JSON through its context menu", async () => {
+    const downloads = captureBrowserDownloads();
+    const name = uniqueName("exp_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    fireEvent.click(await screen.findByText("Export"));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${name}.json`);
+    const contents = JSON.parse(
+      new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
+    );
+    expect(contents).toMatchObject({ name, type: "schematic_symbol" });
+    expect(contents.data.drawing.markup).toBe(symbols[0].data.drawing.markup);
+  });
+
+  it("exports a remote group as a zip through its context menu", async () => {
+    const downloads = captureBrowserDownloads();
+    const names = [uniqueName("sym_a"), uniqueName("sym_b")];
+    const { grp } = await createRemoteSymbolGroup(names);
+    await renderSymbolsToolbar();
+    fireEvent.contextMenu(await screen.findByText(grp.name));
+    fireEvent.click(await screen.findByText("Export"));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${grp.name}.zip`);
+    // Zip entry names are stored uncompressed, so the archive names its own files.
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive.startsWith("PK")).toBe(true);
+    expect(archive).toContain("manifest.json");
+    names.forEach((name) => expect(archive).toContain(`${name}.json`));
+  });
+
+  it("renames a remote group in place through its context menu", async () => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar();
+    const name = await screen.findByText(grp.name);
+    fireEvent.contextMenu(name);
+    fireEvent.click(await screen.findByText("Rename"));
+    await waitFor(() => expect(name.getAttribute("contenteditable")).toBe("true"));
+    const renamed = uniqueName("renamed_grp");
+    name.innerText = renamed;
+    fireEvent.keyDown(name, { key: "Enter" });
+    await waitFor(async () => {
+      expect((await client.groups.retrieve({ key: grp.key })).name).toBe(renamed);
+    });
+  });
+
+  it("renames a remote symbol in place through its context menu", async () => {
+    const name = uniqueName("ren_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    const label = await screen.findByText(name);
+    fireEvent.contextMenu(label);
+    fireEvent.click(await screen.findByText("Rename"));
+    await waitFor(() => expect(label.getAttribute("contenteditable")).toBe("true"));
+    const renamed = uniqueName("renamed_sym");
+    label.innerText = renamed;
+    fireEvent.keyDown(label, { key: "Enter" });
+    await waitFor(async () =>
+      expect((await client.schematics.symbols.retrieve(symbols[0].key)).name).toBe(
+        renamed,
+      ),
+    );
+  });
+
+  it("offers no context menu for built-in symbol groups", async () => {
+    await renderSymbolsToolbar();
+    fireEvent.contextMenu(await screen.findByText("Valves"));
+    await act(async () => {});
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("creates a new symbol group through the actions bar and selects it", async () => {
+    const { key, result, store } = await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    const createGroup = await waitFor(() =>
+      getIconButton(result.container, "group-create"),
+    );
+    fireEvent.click(createGroup);
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
+    const name = uniqueName("new_grp");
+    fireEvent.change(input, { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const [created] = await waitFor(async () => {
+      const found = await client.groups.retrieve({ searchTerm: name });
+      if (found[0]?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
+    });
+    expect(created.scope).toBe("schematic_symbol");
+    expect(created.parent).toBeUndefined();
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe(created.key),
+    );
+    expect(await screen.findByText("No symbols found")).toBeDefined();
+    expect(
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+        .selectedSymbolGroup,
+    ).toBe(created.key);
+  });
+});
+
+const DraggableToolbar = (): ReactElement =>
+  createElement(HaulProvider, null, createElement(TabToolbar));
+
+const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
+
+describe("Schematic toolbar Symbols drag preview", () => {
+  it("should picture a symbol as its drawing with its corner on the pointer", async () => {
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    const dataTransfer = new DataTransfer();
+    const setDragImage = vi.spyOn(dataTransfer, "setDragImage");
+    fireEvent.dragStart(await screen.findByText("Polygon"), { dataTransfer });
+    const path = layer()?.querySelector(".pluto-polygon path");
+    expect(path?.getAttribute("fill")).toBe("var(--pluto-gray-l1)");
+    expect(layer()?.querySelector(".lyra-haul-preview")).toBeNull();
+    expect(setDragImage).toHaveBeenCalledWith(layer(), 18, 18);
+  });
+
+  it("should picture a remote symbol as its drawing", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(layer()?.querySelector(".pluto-custom-drawing")).toBeInstanceOf(Element);
+    expect(layer()?.textContent).toBe("");
+  });
+
+  it("should paint the looks of a remote symbol in its picture", async () => {
+    const grp = await client.groups.create({
+      scope: "schematic_symbol",
+      name: uniqueName("remote_grp"),
+    });
+    const name = uniqueName("painted_sym");
+    const payload = createSymbolPayload(name);
+    await client.schematics.symbols.create({
+      ...payload,
+      group: grp.key,
+      data: {
+        ...payload.data,
+        parts: [{ key: "body", name: "Body", selectors: ["#body"] }],
+        looks: [
+          {
+            key: "fill",
+            part: "body",
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      },
+    });
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText(grp.name));
+    await screen.findByText(name);
+    await waitFor(() =>
+      expect(
+        document.querySelector(".pluto-custom-drawing #body")?.getAttribute("fill"),
+      ).toBe("#ff0000"),
+    );
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    const body = layer()?.querySelector(".pluto-custom-drawing #body");
+    expect(body?.getAttribute("fill")).toBe("#ff0000");
+  });
+});
+
+describe("schematic/toolbar/Symbols permissions", () => {
+  const READS = [
+    schematicClient.TYPE_RESOURCE_ID,
+    schematicClient.symbol.TYPE_RESOURCE_ID,
+    group.TYPE_RESOURCE_ID,
+    project.TYPE_RESOURCE_ID,
+    panel.TYPE_RESOURCE_ID,
+    label.TYPE_RESOURCE_ID,
+    ranger.TYPE_RESOURCE_ID,
+    channel.TYPE_RESOURCE_ID,
+  ];
+
+  const createEditor = async (grants: Grants = {}) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: READS,
+      update: [schematicClient.TYPE_RESOURCE_ID],
+    });
+
+  it("should withhold the creation actions from an editor who cannot add symbols", async () => {
+    const { result } = await renderSymbolsToolbar(await createEditor());
+    await screen.findByText("Gauge");
+    await waitFor(() =>
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(0),
+    );
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(0);
+  });
+
+  it("should withhold symbol and group rename from an editor who cannot update them", async () => {
+    const name = uniqueName("gated_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar(await createEditor());
+    fireEvent.contextMenu(await screen.findByText(grp.name));
+    // Export is ungated, so its presence proves the menu resolved before the absences
+    // below are read.
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(countEditableText(List.itemNameID(grp.key))).toBe(0);
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Edit")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(countEditableText(List.itemNameID(symbols[0].key))).toBe(0);
+  });
+
+  it("should offer the creation actions to an editor who may add symbols", async () => {
+    const editor = await createEditor({
+      create: [group.TYPE_RESOURCE_ID, schematicClient.symbol.TYPE_RESOURCE_ID],
+    });
+    const { result } = await renderSymbolsToolbar(editor);
+    await screen.findByText("Gauge");
+    await waitFor(() =>
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(1),
+    );
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(1);
+  });
+
+  const openSymbolMenu = async (as: Client) => {
+    const name = uniqueName("perm_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar(as);
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+  };
+
+  const openGroupMenu = async (as: Client) => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar(as);
+    fireEvent.contextMenu(await screen.findByText(grp.name));
+  };
+
+  it("should withhold the delete item from an editor who cannot delete symbols", async () => {
+    await openSymbolMenu(await createEditor());
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should offer the delete item to an editor who may delete symbols", async () => {
+    await openSymbolMenu(
+      await createEditor({ delete: [schematicClient.symbol.TYPE_RESOURCE_ID] }),
+    );
+    expect(await screen.findByText("Delete")).toBeTruthy();
+  });
+
+  it("should withhold the delete item from an editor who cannot delete symbol groups", async () => {
+    await openGroupMenu(await createEditor());
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should offer the delete item to an editor who may delete symbol groups", async () => {
+    await openGroupMenu(await createEditor({ delete: [group.TYPE_RESOURCE_ID] }));
+    expect(await screen.findByText("Delete")).toBeTruthy();
+  });
+});

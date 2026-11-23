@@ -13,22 +13,44 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { XAxis } from "@/lineplot/aether/XAxis";
+import type { Gap, Layout } from "@/lineplot/aether/layout";
+import {
+  type BreaksChange,
+  breaksChangeZ,
+  type BreaksRequest,
+  breaksRequestZ,
+  type LayoutProps,
+  XAxis,
+} from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { measure } from "@/lineplot/measure/aether";
 import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
+
+const breakCountsZ = z.object({ open: z.number(), closed: z.number() });
+export type BreakCounts = z.infer<typeof breakCountsZ>;
+
+const numericBoundsZ = z.object({ lower: z.number(), upper: z.number() });
 
 export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().default(false),
+  /** Set when x1 shows its gaps at their true width, with no breaks. */
+  breaksHidden: z.boolean().default(false),
+  /** The lower bounds of the gaps of x1 that show in place of a break. */
+  openBreaks: z.array(z.number()).default([]),
+  /**
+   * The number of open and of closed breaks on x1, which the plot sets. It counts them
+   * while they are hidden too.
+   */
+  breaks: breakCountsZ.default({ open: 0, closed: 0 }),
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
@@ -36,13 +58,30 @@ export const linePlotStateZ = z.object({
   fetching: z.boolean().default(false),
 });
 
-const axesBoundsZ = z.record(
-  z.string(),
-  z.object({ lower: z.number(), upper: z.number() }),
-);
+const axesBoundsZ = z.record(z.string(), numericBoundsZ);
 
 export const linePlotMethodsZ = {
-  getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),
+  /**
+   * Returns, for each x axis, the values that a span of decimal positions across the
+   * home view holds.
+   */
+  getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
+  /**
+   * Returns, for each x axis, the decimal positions across the home view of a span of
+   * values. It is the inverse of getXBounds.
+   */
+  getXPositions: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
+  /**
+   * Returns the open breaks of x1 after a break action, and the boxes of the request
+   * mapped so each holds the same values, or null when the action changes nothing. It
+   * sets nothing: the caller sets the open breaks and the boxes.
+   */
+  getBreakChange: z.function({
+    input: z.tuple([breaksRequestZ]),
+    output: breaksChangeZ.nullable(),
+  }),
+  /** Returns the decimal positions across the home view of the seams of x1. */
+  getSeams: z.function({ input: z.tuple([]), output: z.array(z.number()) }),
 };
 
 interface InternalState {
@@ -56,6 +95,14 @@ type Children = XAxis | tooltip.Tooltip | measure.Measure;
 
 const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
 const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
+
+// Only the x axis keyed x1 collapses its gaps: the x axes share one viewport, and a
+// break change maps it through one layout.
+const isX1 = (a: XAxis): boolean => (a.state.axisKey ?? a.key) === "x1";
+
+// axisProps returns the props that the x axis a lays out with.
+const axisProps = <P extends LayoutProps>(a: XAxis, props: P): P =>
+  isX1(a) ? props : { ...props, breaksHidden: true };
 
 export class LinePlot
   extends aether.Composite<
@@ -93,19 +140,21 @@ export class LinePlot
     this.requestRender("high", "layout");
   }
 
-  findByXDecimal(x: number): FindResult[] {
+  findByXDecimal(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
-    return this.axes.flatMap((xAxis) => xAxis.findByXDecimal(props, x)).flat();
+    return this.axes
+      .flatMap((xAxis) => xAxis.findByXDecimal(axisProps(xAxis, props), x))
+      .flat();
   }
 
-  private findDrawnByXDecimal(x: number): FindResult[] {
+  private findDrawnByXDecimal(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
-    return this.axes.flatMap((a) => a.findDrawnByXDecimal(props, x));
+    return this.axes.flatMap((a) => a.findDrawnByXDecimal(axisProps(a, props), x));
   }
 
-  findByXValue(x: number): FindResult[] {
+  findByXValue(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
-    return this.axes.flatMap((a) => a.findByXValue(props, x)).flat();
+    return this.axes.flatMap((a) => a.findByXValue(axisProps(a, props), x)).flat();
   }
 
   private get axes(): readonly XAxis[] {
@@ -135,35 +184,86 @@ export class LinePlot
       this.setState((p) => ({ ...p, loading, fetching }));
   }
 
-  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
-    const p = { ...this.state, plot, canvases };
-    this.axes.forEach((xAxis) => xAxis.render(p));
+  private syncBreaks(gaps: readonly Gap[]): void {
+    const open = gaps.filter((g) => g.open).length;
+    const breaks = { open, closed: gaps.length - open };
+    const prev = this.state.breaks;
+    if (prev.open !== breaks.open || prev.closed !== breaks.closed)
+      this.setState((p) => ({ ...p, breaks }));
   }
 
-  private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
+  // renderAxes draws each x axis and returns the layout of x1, or null.
+  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): Layout | null {
+    const p = { ...this.state, plot, canvases };
+    // Raised lines draw after the lines of every axis, so they draw over all of them.
+    const raised: Array<() => void> = [];
+    try {
+      const drawn = this.axes.map((xAxis) => xAxis.render(axisProps(xAxis, p), raised));
+      const i = this.axes.findIndex(isX1);
+      const [x1, gaps] = (i < 0 ? null : drawn[i]) ?? [null, []];
+      this.syncBreaks(gaps);
+      const err = drawn.find((d) => d?.[2] != null)?.[2];
+      if (err != null) throw err;
+      return x1;
+    } finally {
+      raised.forEach((draw) => draw());
+    }
+  }
+
+  getSeams(): number[] {
+    return this.axes.find(isX1)?.layout(this.state).seams ?? [];
+  }
+
+  getBreakChange(req: BreaksRequest): BreaksChange | null {
+    const x1 = this.axes.find(isX1);
+    if (x1 == null) return null;
+    return x1.breaks(this.state, req, this.calculatePlot());
+  }
+
+  private renderTooltips(
+    region: box.Box,
+    canvases: render.CanvasVariant[],
+    x1: Layout | null,
+  ): void {
     const findByXDecimal = this.findDrawnByXDecimal.bind(this);
-    const p = { findByXDecimal, region, canvases };
+    const hiddenAt = (position: number) =>
+      x1 == null ? null : XAxis.hiddenAt(x1, position, region);
+    const p = { findByXDecimal, hiddenAt, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
 
-  getBounds(): AxesBounds {
-    const bounds: AxesBounds = {};
-    this.axes.forEach((v) => {
-      const axisKey = v.state.axisKey ?? v.key;
-      const xBounds = v.bounds(this.state.hold);
-      bounds[axisKey] = xBounds;
-      v.yAxes.forEach((y) => {
-        const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(this.state.hold, xBounds);
-      });
-    });
-    return bounds;
+  getXBounds(positions: bounds.Bounds): AxesBounds {
+    return Object.fromEntries(
+      this.axes.map((a) => [
+        a.state.axisKey ?? a.key,
+        a.layout(axisProps(a, this.state)).reverseHomeBounds(positions),
+      ]),
+    );
   }
 
-  private renderMeasures(region: box.Box): void {
+  getXPositions(values: bounds.Bounds): AxesBounds {
+    return Object.fromEntries(
+      this.axes.map((a) => {
+        const layout = a.layout(axisProps(a, this.state));
+        const positions = {
+          lower: layout.home(values.lower),
+          upper: layout.home(values.upper),
+        };
+        return [a.state.axisKey ?? a.key, positions];
+      }),
+    );
+  }
+
+  private renderMeasures(region: box.Box, x1: Layout | null): void {
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
+      // Only the lines of x1 break.
+      closedBetween: (a, b) =>
+        x1 != null &&
+        x1.hasSpan(a.key) &&
+        x1.hasSpan(b.key) &&
+        x1.closedBetween(a.value.x, b.value.x),
       region,
     };
     this.measures.forEach((m) => m.render(p));
@@ -211,9 +311,9 @@ export class LinePlot
     );
 
     try {
-      this.renderAxes(plot, canvases);
-      this.renderTooltips(plot, canvases);
-      this.renderMeasures(plot);
+      const x1 = this.renderAxes(plot, canvases);
+      this.renderTooltips(plot, canvases, x1);
+      this.renderMeasures(plot, x1);
     } catch (e) {
       handleError(e, "Failed to render line plot");
     } finally {

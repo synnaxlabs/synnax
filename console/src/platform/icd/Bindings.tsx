@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, type payload } from "@synnaxlabs/x";
+import { ICD as PICD } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 
 import { converts } from "@/platform/icd/dataType";
@@ -26,6 +26,7 @@ import {
   suit,
   type TreeField,
 } from "@/platform/icd/read";
+import { Unbind } from "@/platform/icd/Unbind";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -91,25 +92,6 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({
   );
 };
 
-interface UnbindProps {
-  path: deep.Target<channel.Key>;
-  kind: payload.Kind;
-  channel: channel.Key;
-}
-
-/**
- * Unbinds a channel that the field's kind can no longer convert to, so deploying
- * creates a new one.
- */
-const Unbind = ({ path, kind, channel: key }: UnbindProps) => {
-  const { set } = PForm.useContext();
-  const dataType = Channel.useResultDataType({ key }).data?.toString();
-  useEffect(() => {
-    if (dataType != null && !converts(kind, dataType)) set(path, 0);
-  }, [dataType, kind]);
-  return null;
-};
-
 export interface SuitReadProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
@@ -122,7 +104,7 @@ export interface SuitReadProps {
  * to.
  */
 export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const { set } = PForm.useContext();
+  const { get, set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const icdKey = PForm.useFieldValue(path.icd);
@@ -135,8 +117,10 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
   const fields = jsonFields(message);
   useEffect(() => {
     if (isPreview || message?.payload.format !== "json") return;
-    const suited = suit(readMessage, fields);
-    if (!deep.equal(suited, readMessage)) set(readPath, suited);
+    // An Unbind effect runs first and can change the read after this render.
+    const current = get(readPath).value;
+    const suited = suit(current, fields);
+    if (!deep.equal(suited, current)) set(readPath, suited);
   }, [isPreview, readMessage, message]);
   if (isPreview) return null;
   return readMessage.bindings.map((b, i) => {
@@ -146,8 +130,8 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
       <Unbind
         key={b.field}
         path={readPath.bindings[i].channel}
-        kind={field.type}
         channel={b.channel}
+        takes={(dataType) => converts(field, dataType)}
       />
     );
   });

@@ -49,6 +49,9 @@ package or needing broader context:
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
   golangci-lint fmt (Go), clang-format (C++).
+- **Commits run `scripts/fix.sh`** through the `pre-commit` hook. If CI still fails on
+  format or copyright headers, run `scripts/fix.sh` on the files CI names, and install
+  any formatter it says is missing. Never fix them by hand.
 - **BDD-style tests** with the language's framework; co-located with source where the
   language allows.
 - **Absolute imports** in TypeScript (`@/components`).
@@ -276,8 +279,8 @@ review. A Claude session pushes against it, never along with it:
   several PRs. Before you open or hand over a PR, check that its diff holds only its own
   change.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
-  behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
-  small PR, never the first big one.
+  behind a flag in `console/src/flags/flags.ts` and merges anyway. The flag flip is the
+  last small PR, never the first big one.
 - **Mechanical changes ship alone** as `review/bot` PRs: renames, format runs, lint
   fixes, regenerated code. The human review then reads only hand-written code.
 - **A fix and the refactor it needed are two PRs.** The refactor lands first.

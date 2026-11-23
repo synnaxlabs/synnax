@@ -106,7 +106,7 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
     case "left":
       return xy.translate(box.topLeft(container), [offset, otherOffset]);
     case "right":
-      return xy.translate(box.topRight(container), [offset - axis.size, otherOffset]);
+      return xy.translate(box.topRight(container), [-offset - axis.size, otherOffset]);
     case "top":
       return xy.translate(box.topLeft(container), [otherOffset, offset]);
     default:

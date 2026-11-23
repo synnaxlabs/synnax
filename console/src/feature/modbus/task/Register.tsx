@@ -13,11 +13,7 @@ import { deep, record } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 import type { z } from "zod";
 
-import {
-  MENU_PROPS,
-  Option,
-  SHADOW_TRIGGER_PROPS,
-} from "@/feature/modbus/device/Option";
+import { Device } from "@/feature/modbus/device";
 import type { Channel, ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
@@ -123,8 +119,8 @@ export const RegisterField = <C extends Channel>({
       preview={field.preview}
       allowNone={false}
       resourceName="register type"
-      triggerProps={SHADOW_TRIGGER_PROPS}
-      dialogProps={MENU_PROPS}
+      triggerProps={Device.SHADOW_TRIGGER_PROPS}
+      dialogProps={Device.MENU_PROPS}
     >
       {REGISTER_TYPES.filter((t): t is C["type"] => t in schemas).map((t) => (
         <Select.Item<C["type"]>
@@ -133,7 +129,7 @@ export const RegisterField = <C extends Channel>({
           aria-label={REGISTERS[t].name}
           aria-description={REGISTERS[t].description}
         >
-          <Option glyph={<RegisterGlyph type={t} />} {...REGISTERS[t]} />
+          <Device.Option glyph={<RegisterGlyph type={t} />} {...REGISTERS[t]} />
         </Select.Item>
       ))}
     </Select.Simple>

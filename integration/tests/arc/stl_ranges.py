@@ -327,12 +327,9 @@ class StlRanges(ArcCase):
             if rng.color is not None:
                 self.fail(f"{case.name}: expected no color, got {rng.color}")
             return
-        if rng.color is None:
-            self.fail(f"{case.name}: expected color {case.color}, got none")
-        same_rgb = (rng.color.r, rng.color.g, rng.color.b) == (
-            case.color.r,
-            case.color.g,
-            case.color.b,
-        )
-        if not same_rgb or abs(rng.color.a - case.color.a) > 1e-6:
+        if not isinstance(rng.color, sy.color.FixedRef):
             self.fail(f"{case.name}: expected color {case.color}, got {rng.color}")
+        got = rng.color.value
+        same_rgb = (got.r, got.g, got.b) == (case.color.r, case.color.g, case.color.b)
+        if not same_rgb or abs(got.a - case.color.a) > 1e-6:
+            self.fail(f"{case.name}: expected color {case.color}, got {got}")

@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,7 +51,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "exported",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			})
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
@@ -71,7 +71,7 @@ var _ = Describe("ImEx", func() {
 			wire := WireRoundTrip(env)
 			decoded := MustSucceed(wire.Decode[symbol.Symbol]())
 			Expect(decoded.Name).To(Equal("exported"))
-			Expect(decoded.Data.SVG).To(Equal("<svg/>"))
+			Expect(decoded.Data.Drawing).To(Equal(svg("<svg/>")))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
@@ -130,17 +130,20 @@ var _ = Describe("ImEx", func() {
 					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Server Symbol"))
-				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
+				Expect(res.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
 				Expect(res.Data.Variant).To(Equal("valve"))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
-				region := res.Data.States[0].Regions[0]
+				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+				Expect(ok).To(BeTrue())
+				Expect(state.Enumeration).To(BeNil())
+				Expect(res.Data.Looks).To(HaveLen(1))
 				Expect(
-					region.StrokeColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+					res.Data.Looks[0].Stroke,
+				).To(HaveValue(Equal(colorPaint("#ff0000"))))
 				Expect(
-					region.FillColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#00ff00")))))
+					res.Data.Looks[0].Fill,
+				).To(HaveValue(Equal(colorPaint("#00ff00"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
@@ -159,18 +162,59 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
-				Expect(res.Data.States).To(HaveLen(1))
-				region := res.Data.States[0].Regions[0]
+				Expect(res.Data.Looks).To(HaveLen(1))
 				Expect(
-					region.StrokeColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#123456")))))
+					res.Data.Looks[0].Stroke,
+				).To(HaveValue(Equal(colorPaint("#123456"))))
 				Expect(
-					region.FillColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#654321")))))
+					res.Data.Looks[0].Fill,
+				).To(HaveValue(Equal(colorPaint("#654321"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
 			},
+		)
+
+		DescribeTable(
+			"Should keep the colors of an old symbol file as color looks with no enumeration",
+			func(ctx SpecContext, path string, colors [][2]string) {
+				countEnumerations := func() int {
+					GinkgoHelper()
+					var all []enumeration.Enumeration
+					Expect(
+						enumSvc.NewRetrieve().Entries(&all).Exec(ctx, tx),
+					).To(Succeed())
+					return len(all)
+				}
+				before := countEnumerations()
+				res := importAndRetrieve(ctx, path, createImportGroup(ctx, tx))
+				Expect(countEnumerations()).To(Equal(before))
+				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+				Expect(ok).To(BeTrue())
+				Expect(state.Enumeration).To(BeNil())
+				Expect(res.Data.Looks).To(HaveLen(len(colors)))
+				for i, c := range colors {
+					look := res.Data.Looks[i]
+					Expect(look.When).To(HaveValue(Equal(symbol.Condition{
+						Variant: symbol.EqualsCondition{
+							State:  "active",
+							Values: []float64{float64(i)},
+						},
+					})))
+					Expect(look.Stroke).To(HaveValue(Equal(colorPaint(c[0]))))
+					Expect(look.Fill).To(HaveValue(Equal(colorPaint(c[1]))))
+				}
+			},
+			Entry(
+				"a v2 file with one state",
+				"versions/testdata/import_v2.json",
+				[][2]string{{"#ff0000", "#00ff00"}},
+			),
+			Entry(
+				"a v3 file with the states Base and Active",
+				"versions/testdata/import_v3.json",
+				[][2]string{{"#111111", "#222222"}, {"#333333", "#444444"}},
+			),
 		)
 
 		It("Should put the imported symbol in the given group", func(ctx SpecContext) {
@@ -221,6 +265,85 @@ var _ = Describe("ImEx", func() {
 		)
 	})
 
+	Describe("Enumerations", func() {
+		var used enumeration.Enumeration
+		BeforeEach(func(ctx SpecContext) {
+			created := []enumeration.Enumeration{{
+				Name:    "Valve",
+				Entries: []enumeration.Entry{{Key: "off", Value: 0, Name: "Off"}},
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).CreateMany(ctx, created)
+			})).To(Succeed())
+			used = created[0]
+		})
+		// export returns the envelope of a symbol whose state shows used, and deletes
+		// the symbol so that used can be deleted.
+		export := func(ctx SpecContext) imex.Envelope {
+			GinkgoHelper()
+			sym := defaults.Fill(symbol.Symbol{Name: "valve", Data: symbol.Spec{
+				Drawing: svg("<svg/>"),
+				Variant: "static",
+				States: []symbol.State{{Variant: symbol.EnumerationState{
+					Key:         "active",
+					Name:        "Active",
+					Enumeration: &used.Key,
+					Match:       symbol.Matcher{Variant: symbol.ExactMatcher{}},
+				}}},
+			}})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &sym)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(sym.Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
+			return env
+		}
+		deleteUsed := func(ctx SpecContext) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).Delete(ctx, used.Key)
+			})).To(Succeed())
+		}
+		importState := func(
+			ctx SpecContext,
+			env imex.Envelope,
+		) symbol.EnumerationState {
+			GinkgoHelper()
+			tx := DeferClose(db.OpenTx())
+			id := MustSucceed(imexSvc.Import(
+				ctx,
+				tx,
+				WireRoundTrip(env),
+				imex.ImportOptions{Group: createImportGroup(ctx, tx)},
+			))
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+			Expect(ok).To(BeTrue())
+			return state
+		}
+
+		It("Should keep a state enumeration that the Core has", func(ctx SpecContext) {
+			DeferCleanup(deleteUsed)
+			env := export(ctx)
+			Expect(importState(ctx, env).Enumeration).To(HaveValue(Equal(used.Key)))
+		})
+
+		It(
+			"Should clear a state enumeration that the Core lacks",
+			func(ctx SpecContext) {
+				env := export(ctx)
+				deleteUsed(ctx)
+				Expect(importState(ctx, env).Enumeration).To(BeNil())
+			},
+		)
+	})
+
 	Describe("Round trip", func() {
 		It(
 			"Should preserve symbol content through export then import",
@@ -228,7 +351,7 @@ var _ = Describe("ImEx", func() {
 				original := defaults.Fill(symbol.Symbol{
 					Name: "round-trip",
 					Data: symbol.Spec{
-						SVG:          "<svg/>",
+						Drawing:      svg("<svg/>"),
 						Variant:      "valve",
 						StrokeScaled: true,
 					},
@@ -258,14 +381,18 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				// A required collection always serializes, so states and handles come
-				// back allocated and empty rather than nil.
+				// A required collection always serializes, so each list comes back
+				// allocated and empty rather than nil.
 				Expect(res.Data).To(Equal(symbol.Spec{
-					SVG:          "<svg/>",
+					Drawing:      svg("<svg/>"),
+					Parts:        []symbol.Part{},
+					Handles:      []symbol.Handle{},
+					States:       []symbol.State{},
+					Commands:     []symbol.Command{},
+					Looks:        []symbol.Look{},
+					Interactions: []symbol.Interaction{},
 					Variant:      "valve",
 					StrokeScaled: true,
-					States:       []symbol.State{},
-					Handles:      []symbol.Handle{},
 					Scale:        original.Data.Scale,
 				}))
 			},

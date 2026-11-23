@@ -11,15 +11,18 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { renderOverview } from "@/feature/range/overview/testutil";
+import { preloadOverview, renderOverview } from "@/feature/range/overview/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 
 const client = createTestClient();
 
+preloadOverview();
+
 describe("range/overview", () => {
   it("should offer no copy link in the more menu when links are disabled", async () => {
     const rng = await createTestRange(client);
-    await renderOverview(rng.key);
+    // The exports fold into the More menu in a pane narrower than 56rem.
+    await renderOverview(rng.key, client, { width: "40rem" });
     fireEvent.click(await screen.findByRole("button", { name: "More" }));
     await screen.findByRole("menuitem", { name: "Download as CSV" });
     expect(screen.queryByRole("menuitem", { name: "Copy link" })).toBeNull();

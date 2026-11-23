@@ -427,6 +427,20 @@ class TestCodec:
         assert decoded.series[0].time_range == sy.TimeRange.ZERO
         assert decoded.series[1].time_range == sy.TimeRange(start=5, end=10)
 
+    def test_repeated_key(self) -> None:
+        """Should keep the keys of a frame that repeats one key and omits another."""
+        codec = Codec(keys=[1, 2], data_types=[sy.DataType.INT64, sy.DataType.INT64])
+        frame = sy.Frame(
+            channels=[1, 1],
+            series=[
+                sy.Series(data=np.array([1, 2], dtype=np.int64)),
+                sy.Series(data=np.array([3, 4], dtype=np.int64)),
+            ],
+        )
+        decoded = codec.decode(codec.encode(frame))
+        assert decoded.keys == [1, 1]
+        assert np.array_equal(decoded.series[1].to_numpy(), [3, 4])
+
     def test_no_alignment_multiples(self) -> None:
         """Should leave the multiples flag clear when no series is reduced."""
         codec = Codec(keys=[1], data_types=[sy.DataType.INT64])

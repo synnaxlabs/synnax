@@ -133,10 +133,11 @@ export const collapseSelectTrigger = (trigger: HTMLElement): void => {
 
 /**
  * Waits for the live dialog trigger of the mounted select whose current value renders
- * as text. Select triggers expose no accessible name, so this matches on the shown
- * value. A preview trigger opens nothing and so carries no popup, which also keeps it
- * out of this query: one holding no value renders the literal word "None", colliding
- * with a real selection of the same name while the form waits on its permission query.
+ * as text. Select triggers expose no accessible name, so this matches on the whole
+ * shown value: "rig" does not match a trigger that shows "sift_x8rigo". A preview
+ * trigger opens nothing and so carries no popup, which also keeps it out of this query:
+ * one holding no value renders the literal word "None", colliding with a real
+ * selection of the same name while the form waits on its permission query.
  */
 export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
   await waitFor(() => {
@@ -144,7 +145,8 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
       .getAllByRole("button")
       .find(
         (b) =>
-          b.getAttribute("aria-haspopup") === "dialog" && b.textContent?.includes(text),
+          b.getAttribute("aria-haspopup") === "dialog" &&
+          within(b).queryAllByText(text).length > 0,
       );
     if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
     return match;

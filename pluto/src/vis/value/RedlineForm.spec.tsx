@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Color } from "@/color";
-import { renderForm } from "@/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 import { Value } from "@/vis/value";
 
 const client = createTestClient();

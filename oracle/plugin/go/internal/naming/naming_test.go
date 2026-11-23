@@ -28,6 +28,7 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("http acronym", "http_server", "HTTPServer"),
 		Entry("url acronym", "base_url", "BaseURL"),
 		Entry("json acronym", "json_data", "JSONData"),
+		Entry("oidc acronym", "oidc_link", "OIDCLink"),
 		Entry("uuid acronym", "my_uuid", "MyUUID"),
 		Entry("multiple acronyms", "http_url", "HTTPURL"),
 		Entry("acronym at start", "id", "ID"),

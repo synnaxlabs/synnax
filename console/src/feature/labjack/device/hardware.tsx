@@ -10,11 +10,22 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { suggestIdentifiers } from "@/feature/labjack/device/identifier";
-import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
-import { SCAN_TYPE } from "@/feature/labjack/task/types";
+import {
+  INTEGRATION_KEY,
+  MAKE,
+  SCAN_TYPE,
+  ZERO_PROPERTIES,
+} from "@/feature/labjack/device/types";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.LabJack />;
+
+/** Binds the configure form and menu items to the generic device table. */
+export const ADAPTER = Device.createLegacyAdapter({
+  make: MAKE,
+  zeroProperties: ZERO_PROPERTIES,
+  suggestIdentifiers,
+});
 
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
@@ -25,11 +36,7 @@ export const HARDWARE: Device.Hardware = {
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "plain" },
-  Configure: Device.createConfigure({
-    icon: ICON,
-    zeroProperties: ZERO_PROPERTIES,
-    suggestIdentifiers,
-  }),
+  Configure: Device.createConfigure({ icon: ICON, adapter: ADAPTER }),
   checks: [
     "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",
     "Kipling and other LabJack programs are closed, because they hold the device.",

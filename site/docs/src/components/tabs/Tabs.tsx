@@ -13,7 +13,7 @@ import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
-import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
+import { sync } from "@/components/tabs/sync";
 
 /**
  * Returns the prop that holds the slot of a tab. Astro's React SSR camelCases dashed
@@ -71,7 +71,7 @@ export const Tabs = <K extends string>({
   return (
     <Base.Frame
       initialValue={shown[0].tabKey}
-      {...{ [QUERY_ATTRIBUTE]: queryParamKey ?? "" }}
+      {...{ [sync.QUERY_ATTRIBUTE]: queryParamKey ?? "" }}
     >
       <div className="docs-tabs__header">
         <Base.Selector sizing="content">

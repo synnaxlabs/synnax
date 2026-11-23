@@ -42,7 +42,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const tests = await Promise.all(TESTS.map((n) => client.ranges.retrieve(n)));
     const campaign = await client.ranges.create({
       name: CAMPAIGN,
-      color: "#3B7DDB",
+      color: { type: "fixed", value: "#3B7DDB" },
       timeRange: new TimeRange(
         tests[0].timeRange.start.sub(TimeSpan.minutes(12)),
         TimeStamp.MAX,

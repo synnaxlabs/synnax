@@ -126,7 +126,10 @@ describe("status", () => {
     });
 
     it("should give the label keys of a status to a caller that cannot read the labels", async () => {
-      const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
+      const lbl = await client.labels.create({
+        name: "test",
+        color: { type: "fixed", value: "#FF0000" },
+      });
       const userClient = await createTestClientWithPolicy(client, [
         { name: "statuses", objects: [status.TYPE_RESOURCE_ID], actions: ["retrieve"] },
         { name: "labels", objects: [label.TYPE_RESOURCE_ID], actions: ["create"] },

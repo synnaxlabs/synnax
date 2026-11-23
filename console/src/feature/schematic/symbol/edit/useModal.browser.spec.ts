@@ -1,0 +1,389 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { group, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { theming } from "@synnaxlabs/pluto/ether";
+import { color, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { Schematic } from "@/feature/schematic";
+import {
+  client,
+  createSymbolPayload,
+  getEditSectionHeaderButton,
+  getOverlayHandles,
+  getPreviewTransformWrapper,
+  SYMBOL_FILE_DROP_PROMPT,
+  symbolNames,
+} from "@/feature/schematic/testutil";
+import {
+  findButton,
+  pressSaveTrigger,
+  renderModalOpener,
+} from "@/platform/modals/testutil";
+import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// A shapeless SVG exercises the production load path.
+const SHAPELESS_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="grp"></g></svg>';
+
+// The triggers provider identifies a key by KeyboardEvent.code, not by the printed
+// character, so the zoom keys are pressed as Equal, Minus, and Digit0.
+const pressKey = (code: string): void => {
+  fireEvent.keyDown(window, { code });
+  fireEvent.keyUp(window, { code });
+};
+
+const createParentGroup = async (): Promise<group.Group> =>
+  await client.groups.create({
+    scope: "schematic_symbol",
+    name: uniqueName("edit_grp"),
+  });
+
+const openCreateModal = async (createKey?: string) => {
+  const grp = await createParentGroup();
+  const picker = interceptFilePicker();
+  const handle = await renderModalOpener(
+    Schematic.Symbol.Edit.useModal,
+    [{ group: grp.key, createKey }],
+    { client, additionalRegistry: theming.REGISTRY },
+  );
+  return { grp, picker, handle };
+};
+
+const loadSVG = async (
+  picker: ReturnType<typeof interceptFilePicker>,
+  fileName = "flow_meter.svg",
+  contents = SHAPELESS_SVG,
+) => {
+  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+  await waitFor(() => expect(picker.lastInput()).toBeDefined());
+  picker.selectFiles([fakePickedFile(fileName, contents)]);
+  await screen.findByText("Colors");
+};
+
+const findNameInput = (): HTMLInputElement =>
+  screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
+
+describe("Schematic.Symbol.Edit.useModal", () => {
+  describe("create mode", () => {
+    it("loads a picked SVG, names the symbol after the file, and shows the sidebar", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      await waitFor(() => expect(findNameInput().value).toBe("Flow Meter"));
+      expect(screen.getByText("States")).toBeDefined();
+      expect(screen.getByText("Handles")).toBeDefined();
+      expect(screen.getByText("Properties")).toBeDefined();
+      expect(screen.getByText("Scale stroke")).toBeDefined();
+    });
+
+    it("creates the symbol under the parent group on save", async () => {
+      const { grp, picker } = await openCreateModal();
+      await loadSVG(picker);
+      const name = uniqueName("created_symbol");
+      fireEvent.change(findNameInput(), { target: { value: name } });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => expect(await symbolNames(grp.key)).toContain(name));
+      await waitFor(() =>
+        expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
+      );
+    });
+
+    it("creates the symbol on the shortcut its footer advertises", async () => {
+      const { grp, picker } = await openCreateModal();
+      await loadSVG(picker);
+      const name = uniqueName("triggered_symbol");
+      fireEvent.change(findNameInput(), { target: { value: name } });
+      pressSaveTrigger();
+      await waitFor(async () => expect(await symbolNames(grp.key)).toContain(name));
+    });
+
+    it("persists the symbol under a forced key when createKey is provided", async () => {
+      const createKey = uuid.create();
+      const { picker } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      const name = uniqueName("healed_symbol");
+      fireEvent.change(findNameInput(), { target: { value: name } });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
+        expect(created.name).toBe(name);
+      });
+    });
+
+    it("adds a new region to the selected state", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      expect(await screen.findByText("Region 1")).toBeDefined();
+      expect(screen.getByText("0 elements")).toBeDefined();
+    });
+
+    it("saves a region stroke picked from its swatch", async () => {
+      const createKey = uuid.create();
+      const { picker, handle } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
+      const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
+      expect(swatches).toHaveLength(2);
+      fireEvent.click(swatches[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("colored_symbol") },
+      });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
+        const part = created.data.parts[0].key;
+        expect(created.data.looks.find((l) => l.part === part)?.stroke).toEqual({
+          type: "color",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+        });
+      });
+    });
+
+    it("adds a placeable handle at the symbol center", async () => {
+      const { picker, handle } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Handles"));
+      expect(await screen.findByText("Handle 1")).toBeDefined();
+      expect(screen.getByText("(50%, 50%)")).toBeDefined();
+      const [overlay] = getOverlayHandles(handle.baseElement, "left");
+      expect(overlay.style.left).toBe("50%");
+      expect(overlay.style.top).toBe("50%");
+    });
+
+    it("zooms the preview with keyboard shortcuts", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      await screen.findByText("100%");
+      // Bare keys, since a browser reserves the Control chords for its own zoom.
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      pressKey("Digit0");
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Minus");
+      expect(await screen.findByText("83%")).toBeDefined();
+    });
+
+    it("pans the preview while shift-dragging", async () => {
+      const { picker, handle } = await openCreateModal();
+      await loadSVG(picker);
+      await screen.findByText("100%");
+      const wrapper = getPreviewTransformWrapper(handle.baseElement);
+      const container = wrapper.parentElement;
+      if (container == null) throw new Error("preview container not found");
+      fireEvent.mouseDown(container, {
+        button: 0,
+        shiftKey: true,
+        clientX: 100,
+        clientY: 100,
+      });
+      fireEvent.mouseMove(container, { clientX: 120, clientY: 130 });
+      await waitFor(() =>
+        expect(wrapper.style.transform).toContain("translate(20px, 30px)"),
+      );
+      fireEvent.mouseUp(container);
+      fireEvent.mouseMove(container, { clientX: 200, clientY: 200 });
+      expect(wrapper.style.transform).toContain("translate(20px, 30px)");
+    });
+
+    it("zooms the preview with the scroll wheel", async () => {
+      const { picker, handle } = await openCreateModal();
+      await loadSVG(picker);
+      await screen.findByText("100%");
+      const wrapper = getPreviewTransformWrapper(handle.baseElement);
+      const container = wrapper.parentElement;
+      if (container == null) throw new Error("preview container not found");
+      fireEvent.wheel(container, { deltaY: -1 });
+      expect(await screen.findByText("110%")).toBeDefined();
+      fireEvent.wheel(container, { deltaY: 1 });
+      expect(await screen.findByText("99%")).toBeDefined();
+    });
+
+    it("selects a handle from the preview overlay and re-orients it", async () => {
+      const { picker, handle } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Handles"));
+      await screen.findByText("Handle 1");
+      fireEvent.click(getEditSectionHeaderButton("Handles"));
+      await screen.findByText("Handle 2");
+      const overlayHandles = getOverlayHandles(handle.baseElement, "left");
+      expect(overlayHandles).toHaveLength(2);
+      expect(overlayHandles[1].className).toContain("console--selected");
+      fireEvent.mouseDown(overlayHandles[0]);
+      await waitFor(() =>
+        expect(overlayHandles[0].className).toContain("console--selected"),
+      );
+      fireEvent.click(getIconButton(handle.baseElement, "arrow-right"));
+      await waitFor(() =>
+        expect(getOverlayHandles(handle.baseElement, "right")).toHaveLength(1),
+      );
+    });
+
+    it("adds an active state when the variant switches to actuator", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(await screen.findByText("Actuator"));
+      expect(await screen.findByText("Base")).toBeDefined();
+      expect(screen.getByText("Active")).toBeDefined();
+    });
+
+    it("rejects a non-SVG file without opening the editor", async () => {
+      const { picker } = await openCreateModal();
+      fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+      await waitFor(() => expect(picker.lastInput()).toBeDefined());
+      picker.selectFiles([fakePickedFile("not_an_svg.txt", "hello")]);
+      await waitFor(() => expect(screen.queryByText("Colors")).toBeNull());
+      expect(screen.getByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
+    });
+  });
+
+  describe("edit mode", () => {
+    // openEditModal opens the editor on a new symbol with no state, as a client or the
+    // v5 migration creates one.
+    // The client that saves keeps its edits in its cache even when the Core refuses
+    // them, so a new client reads what the Core stored.
+    const retrieveStored = async (
+      key: schematic.symbol.Key,
+    ): Promise<schematic.symbol.Symbol> =>
+      await createTestClient().schematics.symbols.retrieve(key);
+
+    const openEditModal = async (markup?: string) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("stateless"));
+      if (markup != null) payload.data.drawing = { type: "svg", markup };
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      expect(symbol.data.states).toEqual([]);
+      const handle = await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      return { symbol, handle };
+    };
+
+    it("saves a new region and its color on a symbol with no state", async () => {
+      const { symbol, handle } = await openEditModal();
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      fireEvent.click(item.querySelectorAll<HTMLElement>(".lyra-color-swatch")[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((s) => s.key)).toEqual(["active"]);
+        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        assertDefined(part);
+        expect(saved.data.looks.find((l) => l.part === part.key)?.stroke).toEqual({
+          type: "color",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+        });
+      });
+    });
+
+    it("names an unnamed shape in the drawing when a click adds it to a region", async () => {
+      const { symbol, handle } = await openEditModal(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<rect data-region-id="region-1" width="10" height="10" fill="#ffffff"/>' +
+          '<circle cx="5" cy="5" r="2" fill="#000000"/></svg>',
+      );
+      const circle = getPreviewTransformWrapper(handle.baseElement).querySelector(
+        "circle",
+      );
+      assertDefined(circle);
+      fireEvent.click(circle);
+      await screen.findByText("1 element");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        expect(part?.selectors).toEqual(['[data-region-id="region-2"]']);
+        expect(saved.data.drawing.markup).toContain(
+          '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
+        );
+      });
+    });
+
+    it("loads the existing symbol and renames it on save", async () => {
+      const grp = await createParentGroup();
+      const original = uniqueName("existing");
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(original),
+        group: grp.key,
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      // The modal suspends on the symbol retrieve, which can outlast the default
+      // waitFor timeout on a loaded CI machine.
+      const nameInput = await waitFor(
+        () => {
+          const input = findNameInput();
+          expect(input.value).toBe(original);
+          return input;
+        },
+        { timeout: 5000 },
+      );
+      const renamed = uniqueName("renamed_symbol");
+      fireEvent.change(nameInput, { target: { value: renamed } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const retrieved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(retrieved.name).toBe(renamed);
+      });
+    });
+
+    it("counts the elements of each part in the singular and the plural", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("counted"));
+      const parts = [
+        { key: "one", name: "One", selectors: ["#a"] },
+        { key: "two", name: "Two", selectors: ["#a", "#b"] },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, parts },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("1 element")).toBeDefined();
+      expect(screen.getByText("2 elements")).toBeDefined();
+    });
+  });
+});

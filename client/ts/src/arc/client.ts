@@ -22,8 +22,7 @@ import {
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { validateIdentifier } from "@/arc/identifier";
-import { arcKeyOf } from "@/arc/task/task";
-import { type Performance, performanceZ } from "@/arc/task/types.gen";
+import { task as arcTask } from "@/arc/task";
 import {
   type Arc,
   arcZ,
@@ -106,7 +105,7 @@ const singleQueryZ = z.union([
 const updateTaskReqZ = z.object({
   key: keyZ,
   rack: rack.keyZ.optional(),
-  performance: performanceZ.optional(),
+  performance: arcTask.performanceZ.optional(),
 });
 const updateTaskResZ = z.object({ task: task.payloadZ().nullish() });
 
@@ -118,7 +117,7 @@ export interface UpdateTaskParams {
    */
   rack?: rack.Key;
   /** Sets how closely the task's runtime holds timer deadlines. */
-  performance?: Performance;
+  performance?: arcTask.Performance;
 }
 
 export interface ClientConfig {
@@ -222,7 +221,7 @@ export class Client extends query.Retriever<
         return tsk == null ? [] : [tsk.key];
       },
       compose: (records) => records[0] ?? null,
-      matches: (t, q) => arcKeyOf(t) === q,
+      matches: (t, q) => arcTask.arcKeyOf(t) === q,
     });
     this.statusAnswers = cache.queries<
       Key,
@@ -348,8 +347,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached Arc and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the Arc isn't cached. Rolls
-   * back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the Arc isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -393,7 +392,10 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }
