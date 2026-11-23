@@ -37,10 +37,6 @@ import (
 // LimitChecker returns an error when a count of external channels exceeds the limit.
 type LimitChecker = func(types.Uint20) error
 
-// OutputAnnouncer announces through w, in tx, the calculation fields of each channel
-// among keys that a calculation writes.
-type OutputAnnouncer = func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
-
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
@@ -77,11 +73,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
-	// AnnounceOutputs announces the calculation fields of a stored channel that a
-	// create links to a new index, since its create action holds none.
+	// AnnounceLinked announces through w, in tx, the fields of each stored channel
+	// among keys that a create links to a new index and that its create action does
+	// not hold.
 	//
 	// [OPTIONAL] - Defaults to announcing nothing.
-	AnnounceOutputs OutputAnnouncer
+	AnnounceLinked func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
 	// Computes reports whether the holder of a use computes the channel, as a
 	// calculation computes the channel it writes. Declare never adopts a computed
 	// channel as a built-in.
@@ -115,7 +112,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
-	c.AnnounceOutputs = override.Nil(c.AnnounceOutputs, other.AnnounceOutputs)
+	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }

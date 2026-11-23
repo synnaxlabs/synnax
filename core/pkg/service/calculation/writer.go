@@ -96,7 +96,10 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 // from c as the batch leaves it.
 func (w Writer) attach(c Calculation, acts ...Action) {
 	seq := w.dispatcher.Attach(w.tx, c.Key, acts...)
-	w.svc.checks.Add(w.tx, batchCheck{key: c.Key, seq: seq, check: w.svc.Readable(c)})
+	w.svc.checks.Add(w.tx, batchCheck[Key]{
+		id:    batchID[Key]{key: c.Key, seq: seq},
+		check: w.svc.Readable(c),
+	})
 }
 
 // CreateOutput creates c with a new output: a virtual channel named name in the group
