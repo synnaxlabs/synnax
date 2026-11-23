@@ -118,14 +118,15 @@ export interface ChannelUsageProps {
 
 /**
  * Says how many channels a Start creates and how many of the channels that the license
- * allows are in use. Renders nothing while the counts load.
+ * allows are in use. Holds an empty line while the counts load, so the form above it
+ * keeps its size when they arrive.
  */
 export const ChannelUsage = ({
   indexOptions,
   pdoType,
   path,
   slaves,
-}: ChannelUsageProps): ReactElement | null => {
+}: ChannelUsageProps): ReactElement => {
   const channels = Form.useFieldValue(path);
   const keys = mappedKeys(slaves ?? []);
   const { data: mapped } = Channel.useResultMultiple(
@@ -145,11 +146,13 @@ export const ChannelUsage = ({
   );
   const count = Channel.useResultCountLimited();
   const license = License.useResult({});
-  if (creations == null || (names.length > 0 && named == null)) return null;
-  if (license.variant === "loading") return null;
+  const className = CSS.BE("ethercat-channel-usage", "text");
+  const empty = <Text.Text level="small" className={className} />;
+  if (creations == null || (names.length > 0 && named == null)) return empty;
+  if (license.variant === "loading") return empty;
   const inUse = count.data;
   // A count that fails, as for a user who cannot retrieve channels, leaves it out.
-  if (inUse == null && count.variant !== "error") return null;
+  if (inUse == null && count.variant !== "error") return empty;
   const held = new Set((named ?? []).map(({ name }) => name));
   const created = creations.filter(({ name }) => !held.has(name));
   const data = math.sum(created.map((c) => c.data));
@@ -167,7 +170,7 @@ export const ChannelUsage = ({
       level="small"
       color={over > 0 ? undefined : 9}
       status={over > 0 ? "warning" : undefined}
-      className={CSS.BE("ethercat-channel-usage", "text")}
+      className={className}
     >
       {message}
     </Text.Text>

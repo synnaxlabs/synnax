@@ -2866,6 +2866,26 @@ describe("Read channel usage", () => {
     ).toBeTruthy();
   });
 
+  // A late resize of the panes during a ResizeObserver loop fails the loop in WebKit.
+  it("should keep the size of the channel panes when the counts load", async () => {
+    const slave = await createTwoEntrySlave();
+    let first: number | undefined;
+    const observer = new MutationObserver(() => {
+      const panes = document.querySelector(".console-panes");
+      if (first == null && panes != null) first = panes.getBoundingClientRect().height;
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    try {
+      await renderRead(createConfig(slave));
+      await screen.findByText(/ in use\.$/);
+    } finally {
+      observer.disconnect();
+    }
+    const panes = document.querySelector(".console-panes");
+    assert(panes != null);
+    expect(panes.getBoundingClientRect().height).toBe(first);
+  });
+
   it("should leave a disabled channel out of the count", async () => {
     const slave = await createTwoEntrySlave();
     await renderRead(createConfig(slave, true));
