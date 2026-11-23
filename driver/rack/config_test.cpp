@@ -668,7 +668,7 @@ TEST_F(RackConfigTest, RejectsAZeroOutageInterval) {
             std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
     );
     const auto [cfg, err] = Config::resolve(config_args, brk);
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(err.data.find("reopen_interval"), std::string::npos);
     EXPECT_EQ(cfg.outage.reopen_interval, x::telem::SECOND);
 }
