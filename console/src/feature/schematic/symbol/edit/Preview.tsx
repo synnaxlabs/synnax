@@ -217,7 +217,8 @@ export const Preview = ({
         onElementClick(named.selector);
       });
 
-      Array.from(el.children).forEach(addInteractivity);
+      // The spans of a text are part of its shape, so their clicks reach the text.
+      if (el.tagName !== "text") Array.from(el.children).forEach(addInteractivity);
     };
     Array.from(drawing.children).forEach(addInteractivity);
   };

@@ -796,6 +796,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Part 1")).toBeNull();
     });
 
+    it("toggles the text of a span clicked", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<text id="t" y="8"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#t"] }],
+      });
+      fireEvent.click(findShape("s"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
     it("adds only the clicked shape of a group to a part", async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("grouped"));
