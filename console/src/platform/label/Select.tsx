@@ -10,7 +10,7 @@
 import { label } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Access, Label } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CreateFooter } from "@/platform/label/CreateFooter";
 

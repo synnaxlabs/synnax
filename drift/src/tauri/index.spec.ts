@@ -13,7 +13,7 @@ import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Event } from "@/runtime";
+import type { Event } from "@/runtime";
 import { runtimeSetWindowProps, type StoreState } from "@/state";
 import { TauriRuntime } from "@/tauri";
 

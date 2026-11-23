@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type HastPluginDefinition } from "satteri";
+import type { HastPluginDefinition } from "satteri";
 
 // Single letters other than s and V are left out, because "step 1 A" is not a unit.
 const UNITS = [

@@ -33,7 +33,11 @@ var _ = Describe("Write and records with many links", func() {
 			GinkgoHelper()
 			labels := make([]label.Label, n)
 			for i := range labels {
-				labels[i] = label.Label{Key: uuid.New(), Name: "read"}
+				labels[i] = label.Label{
+					Key:   uuid.New(),
+					Name:  "read",
+					Color: labelColor,
+				}
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).CreateMany(ctx, &labels)

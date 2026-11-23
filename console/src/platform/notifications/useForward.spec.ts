@@ -14,7 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 import { renderForward, settleWrites } from "@/platform/notifications/testutil";
 
 const client = createTestClient();
@@ -94,10 +94,79 @@ describe("Notifications.useForward", () => {
     });
 
     it("should not notify a reply that reports success", async () => {
-      await renderForward(client, { channel: REPLY });
+      const repliesInPlace = vi.fn(async () => false);
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
       const [success] = await write({ variant: "success" });
       await settleWrites(client);
       expect(screen.queryByText(success.message)).toBeNull();
+      expect(repliesInPlace).not.toHaveBeenCalled();
+    });
+
+    it("should not notify a reply that shows where its command was sent", async () => {
+      const shown = await createOwner();
+      const repliesInPlace = vi.fn(
+        async ({ key }: Notifications.InUseParams) => key === shown.key,
+      );
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const [inPlace, elsewhere] = await write(
+        { owner: shown, variant: "error" },
+        { variant: "error" },
+      );
+      await screen.findByText(elsewhere.message);
+      expect(screen.queryByText(inPlace.message)).toBeNull();
+    });
+
+    it("should not notify a reply after a newer status on its key", async () => {
+      const owner = await createOwner();
+      let resolve: ((inPlace: boolean) => void) | undefined;
+      const repliesInPlace = vi.fn(async ({ key }: Notifications.InUseParams) => {
+        if (key !== owner.key) return true;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const key = uniqueName("reply");
+      const [reply] = await write({ key, owner, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await write({ key, owner, variant: "success" });
+      await settleWrites(client);
+      act(() => resolve?.(false));
+      await settleWrites(client);
+      expect(screen.queryByText(reply.message)).toBeNull();
+    });
+
+    it("should not notify a deleted reply whose check ends late", async () => {
+      const owner = await createOwner();
+      let resolve: ((inPlace: boolean) => void) | undefined;
+      const repliesInPlace = vi.fn(async ({ key }: Notifications.InUseParams) => {
+        if (key !== owner.key) return true;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const [reply] = await write({ owner, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await client.statuses.delete(reply.key);
+      await settleWrites(client);
+      act(() => resolve?.(false));
+      await settleWrites(client);
+      expect(screen.queryByText(reply.message)).toBeNull();
+    });
+
+    it("should notify a reply whose check fails and print the error", async () => {
+      const owner = await createOwner();
+      const exc = new Error("The Core is unreachable.");
+      const repliesInPlace = vi.fn(async ({ key }: Notifications.InUseParams) => {
+        if (key === owner.key) throw exc;
+        return true;
+      });
+      const printError = vi.spyOn(console, "error").mockImplementation(() => {});
+      await renderForward(client, { channel: { ...REPLY, repliesInPlace } });
+      const [reply] = await write({ owner, variant: "error" });
+      expect(await screen.findByText(reply.message)).toBeTruthy();
+      expect(printError).toHaveBeenCalledWith(
+        `failed to check where the reply ${reply.key} shows`,
+        exc,
+      );
+      printError.mockRestore();
     });
   });
 

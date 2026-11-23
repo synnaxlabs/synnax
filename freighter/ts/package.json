@@ -51,6 +51,7 @@
     "!dist/eslint.config.*"
   ],
   "browser": {
+    "node:fs/promises": false,
     "node:tls": false,
     "undici": false
   },

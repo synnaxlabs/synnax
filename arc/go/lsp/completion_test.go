@@ -899,6 +899,53 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	It("should filter out an already-listed dashed channel", func(ctx SpecContext) {
+		channels := []symbol.Symbol{{
+			Name: "vent-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   1,
+		}, {
+			Name: "press-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   2,
+		}}
+		server = MustSucceed(lsp.New(lsp.Config{
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			AllowDashedNames: true,
+		}))
+		server.SetClient(&MockClient{})
+		content := "authority (\n    200\n    vent-1 100\n    \n)"
+		OpenArcDocument(server, ctx, docURI, content)
+		completions := Completion(server, ctx, docURI, 3, 4)
+		Expect(HasCompletion(completions.Items, "vent-1")).To(BeFalse())
+		Expect(HasCompletion(completions.Items, "press-1")).To(BeTrue())
+	})
+
+	It("should complete a partly typed dashed name", func(ctx SpecContext) {
+		channels := []symbol.Symbol{{
+			Name: "ox-pt-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   1,
+		}, {
+			Name: "pt-2",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   2,
+		}}
+		server = MustSucceed(lsp.New(lsp.Config{
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			AllowDashedNames: true,
+		}))
+		server.SetClient(&MockClient{})
+		OpenArcDocument(server, ctx, docURI, "func f() {\n    x := ox-p\n}")
+		completions := Completion(server, ctx, docURI, 1, 13)
+		Expect(HasCompletion(completions.Items, "ox-pt-1")).To(BeTrue())
+		Expect(HasCompletion(completions.Items, "pt-2")).To(BeFalse())
+	})
+
 	Describe("Loop Keyword Completion", func() {
 		It(
 			"should show for keyword at statement start inside func body",
@@ -1138,6 +1185,18 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "add")).To(BeFalse(),
 				"Internal symbol math.add should not appear in module-qualified completion")
 		})
+
+		It(
+			"Should replace a qualified prefix after a non-ASCII character",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, `"°" + math.a`)
+				completions := Completion(server, ctx, docURI, 0, 12)
+				item := MustBeOk(FindCompletion(completions.Items, "avg"))
+				edit, ok := item.TextEdit.(*protocol.TextEdit)
+				Expect(ok).To(BeTrue())
+				Expect(edit.Range.Start).To(Equal(protocol.Position{Character: 6}))
+			},
+		)
 
 		DescribeTable(
 			"Should complete float checks and constants",

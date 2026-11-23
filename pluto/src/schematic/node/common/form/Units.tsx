@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const path = deep.path<{ units?: string }>();
 

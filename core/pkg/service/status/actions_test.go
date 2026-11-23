@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -73,7 +74,7 @@ var _ = Describe("Actions", func() {
 	It("Should attach a set of the status a label delete leaves", func(
 		ctx SpecContext,
 	) {
-		l := label.Label{Name: "Critical"}
+		l := label.Label{Name: "Critical", Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			if err := labels.NewWriter(tx).Create(ctx, &l); err != nil {
 				return err
@@ -99,7 +100,7 @@ var _ = Describe("Actions", func() {
 	})
 
 	It("Should attach a set that holds the labeled status", func(ctx SpecContext) {
-		l := label.Label{Name: "Critical"}
+		l := label.Label{Name: "Critical", Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			if err := labels.NewWriter(tx).Create(ctx, &l); err != nil {
 				return err
@@ -120,3 +121,6 @@ var _ = Describe("Actions", func() {
 		)).To(Equal(next))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

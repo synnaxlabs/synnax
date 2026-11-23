@@ -2972,9 +2972,6 @@ var _ = Describe("Binary Operations", func() {
 		})
 
 		Describe("Series-Scalar Comparisons", func() {
-			// Note: The compiler currently uses series-series comparison functions for
-			// series-scalar comparisons (GetSeriesComparison, not
-			// GetSeriesScalarComparison). Tests reflect the actual compiler behavior.
 			DescribeTable("should emit correct opcodes for series-scalar comparisons",
 				expectSeriesExpression,
 

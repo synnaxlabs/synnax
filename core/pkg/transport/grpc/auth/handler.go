@@ -144,6 +144,15 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 		return svcauth.Proof{Variant: svcauth.APIKeyProof{
 			APIKeyCredentials: svcauth.APIKeyCredentials{Key: p.Key},
 		}}, nil
+	case svcauth.MethodOIDC:
+		return svcauth.Proof{Variant: svcauth.OIDCProof{
+			OIDCCredentials: svcauth.OIDCCredentials{
+				Provider:    p.Provider,
+				Code:        p.Code,
+				Verifier:    p.Verifier,
+				RedirectURI: p.RedirectUri,
+			},
+		}}, nil
 	default:
 		return svcauth.Proof{}, errors.Wrapf(
 			validate.ErrValidation,
@@ -356,11 +365,42 @@ func (keyDeleteRequestTranslator) Backward(
 	return auth.KeyDeleteRequest{Keys: keys}, nil
 }
 
+type (
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*MethodsResponse,
+	]
+	methodsResponseTranslator struct{}
+)
+
+var _ grpc.ForwardTranslator[auth.MethodsResponse, *MethodsResponse] = (*methodsResponseTranslator)(
+	nil,
+)
+
+func (methodsResponseTranslator) Forward(
+	_ context.Context,
+	r auth.MethodsResponse,
+) (*MethodsResponse, error) {
+	return &MethodsResponse{
+		Methods: lo.Map(r.Methods, func(m svcauth.Method, _ int) string {
+			return string(m)
+		}),
+	}, nil
+}
+
 func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	login := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &AuthLoginService_ServiceDesc,
+		Errors:             errs,
+	}
+	methods := &methodsServer{
+		RequestTranslator:  grpc.EmptyTranslator{},
+		ResponseTranslator: methodsResponseTranslator{},
+		ServiceDesc:        &AuthMethodsService_ServiceDesc,
 		Errors:             errs,
 	}
 	create := &sessionCreateServer{
@@ -406,6 +446,7 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		Errors:             errs,
 	}
 	t.AuthLogin = login
+	t.AuthMethods = methods
 	t.AuthSessionCreate = create
 	t.AuthSessionRenew = renew
 	t.AuthSessionRetrieve = retrieve
@@ -415,5 +456,6 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	t.AuthKeyDelete = keyDelete
 	return grpc.CompoundBindableTransport{
 		login, create, renew, retrieve, del, keyCreate, keyRetrieve, keyDelete,
+		methods,
 	}
 }

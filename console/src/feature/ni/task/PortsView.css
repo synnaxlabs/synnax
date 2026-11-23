@@ -37,10 +37,7 @@
 .console-ni-ports__add > .console-ni-ports__trigger {
     width: auto;
     margin: 0 1rem 1rem;
-    padding: 1rem 2rem;
-    min-height: 5.5rem;
     border-radius: var(--pluto-border-radius-small);
-    gap: 1.5rem;
     color: var(--pluto-gray-l9);
 }
 

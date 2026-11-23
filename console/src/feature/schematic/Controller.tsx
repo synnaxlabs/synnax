@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";

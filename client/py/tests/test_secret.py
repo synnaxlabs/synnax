@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import rack, secret
+from synnax import certificate, rack, secret
 from x import filter
 from x.testutil import assert_eventually
 
@@ -27,27 +27,32 @@ class TestSecret:
         assert s.updated > 0
 
     def test_create_file(self, client: sy.Synnax) -> None:
-        """Should create a file secret."""
+        """Should create a file secret on a rack."""
+        r = client.racks.create(name="File secret")
         s = client.secrets.set(
-            secret.NewFile(name="Client key", file_name="client.key")
+            secret.NewFile(name="Client key", file_name="client.key", rack=r.key)
         )
         assert isinstance(s, secret.FileSecret)
         assert s.file_name == "client.key"
+        assert s.rack == r.key
 
     def test_create_from_keywords(self, client: sy.Synnax) -> None:
         """Should create a stored or file secret from keyword arguments."""
         stored = client.secrets.set(name="Token", value="abc")
         assert isinstance(stored, secret.StoredSecret)
         assert stored.name == "Token"
-        file = client.secrets.set(name="Key file", file_name="key.pem")
+        r = client.racks.create(name="Keyword file secret")
+        file = client.secrets.set(name="Key file", file_name="key.pem", rack=r.key)
         assert isinstance(file, secret.FileSecret)
         assert file.file_name == "key.pem"
+        assert file.rack == r.key
 
     @pytest.mark.parametrize(
         "kwargs",
         [
             {"name": "Missing"},
             {"name": "Both", "value": "abc", "file_name": "key.pem"},
+            {"name": "No rack", "file_name": "key.pem"},
             {"value": "abc"},
         ],
     )
@@ -57,16 +62,20 @@ class TestSecret:
         """Should reject keyword arguments without a name and one value or file."""
         with pytest.raises(
             sy.ValidationError,
-            match=r"A secret needs a name and exactly one of a value or a file name\.",
+            match=(
+                r"A secret needs a name and exactly one of a value or a file name "
+                r"and rack\."
+            ),
         ):
             client.secrets.set(**kwargs)
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple secrets."""
+        r = client.racks.create(name="Multiple secrets")
         secrets = client.secrets.set(
             [
                 secret.NewStored(name="Token", value="abc"),
-                secret.NewFile(name="Key file", file_name="key.pem"),
+                secret.NewFile(name="Key file", file_name="key.pem", rack=r.key),
             ]
         )
         assert isinstance(secrets[0], secret.StoredSecret)
@@ -164,10 +173,11 @@ class TestSecret:
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete secrets."""
+        r = client.racks.create(name="Delete")
         secrets = client.secrets.set(
             [
                 secret.NewStored(name="Delete 1", value="a"),
-                secret.NewFile(name="Delete 2", file_name="b"),
+                secret.NewFile(name="Delete 2", file_name="b", rack=r.key),
             ]
         )
         client.secrets.delete([s.key for s in secrets])
@@ -180,14 +190,80 @@ class TestSecret:
     def test_grant(self, client: sy.Synnax) -> None:
         """Should return the key of a new grant each time."""
         r = client.racks.create(name="Grant rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
         s = client.secrets.set(secret.NewStored(name="Grant", value="abc"))
-        first = client.secrets.grant(rack.resource_id(r.key), s.key)
-        second = client.secrets.grant(rack.resource_id(r.key), [s.key])
+        first = client.secrets.grant(
+            rack.resource_id(r.key), s.key, task=t.key, type_="test_connection"
+        )
+        second = client.secrets.grant(
+            rack.resource_id(r.key),
+            [s.key],
+            task=t.key,
+            type_="test_connection",
+            args={"connection": {"uri": "sift.example.com"}},
+        )
         assert first != second
 
     def test_grant_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has a key."""
         r = client.racks.create(name="Grant rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
         key = uuid4()
         with pytest.raises(sy.NotFoundError, match=f"Secrets with keys \\[{key}\\]"):
-            client.secrets.grant(rack.resource_id(r.key), key)
+            client.secrets.grant(
+                rack.resource_id(r.key), key, task=t.key, type_="test_connection"
+            )
+
+    def test_grant_task_on_other_rack(self, client: sy.Synnax) -> None:
+        """Should raise ValidationError when the task is not on the subject rack."""
+        r = client.racks.create(name="Grant rack")
+        other = client.racks.create(name="Other rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=other.key
+        )
+        s = client.secrets.set(secret.NewStored(name="Grant", value="abc"))
+        with pytest.raises(sy.ValidationError, match="is not on rack:"):
+            client.secrets.grant(
+                rack.resource_id(r.key), s.key, task=t.key, type_="test_connection"
+            )
+
+    def test_grant_certificates(self, client: sy.Synnax) -> None:
+        """Should grant a file certificate of the subject rack, and refuse one of
+        another rack."""
+        r = client.racks.create(name="Grant rack")
+        other = client.racks.create(name="Other rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
+
+        def file(name: str, rack_key: int) -> certificate.Certificate:
+            return client.certificates.set(
+                certificate.FileCertificate(
+                    name=name, certificate_path="/etc/synnax/client.crt", rack=rack_key
+                )
+            )
+
+        own = file("Own", r.key)
+        client.secrets.grant(
+            rack.resource_id(r.key),
+            [],
+            task=t.key,
+            type_="test_connection",
+            certificates=own.key,
+        )
+        foreign = file("Foreign", other.key)
+        with pytest.raises(
+            sy.ValidationError,
+            match=f'certificate "Foreign" is a file of rack {other.key}, not of rack:',
+        ):
+            client.secrets.grant(
+                rack.resource_id(r.key),
+                [],
+                task=t.key,
+                type_="test_connection",
+                certificates=[foreign.key],
+            )

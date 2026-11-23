@@ -9,7 +9,7 @@
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { useEffect, useSyncExternalStore } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { gauge } from "@/vis/gauge/aether";
@@ -42,6 +42,7 @@ export const use = ({
   barWidth,
   stalenessColor,
   stalenessTimeout,
+  staleColorHidden,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
@@ -57,6 +58,7 @@ export const use = ({
     barWidth,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden,
   });
   const { setState, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,

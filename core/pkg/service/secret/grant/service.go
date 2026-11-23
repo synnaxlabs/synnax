@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -90,6 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Grant]{
 		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -105,15 +108,23 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer { return Writer{svc: s, tx: tx} }
 
 // Redeem returns the grant with the given key and deletes it, so no later call can use
 // it. Redeem runs in a transaction of its own, so two calls cannot both use one grant,
-// and the caller must not hold a transaction or snapshot of the DB. It returns an error
-// wrapping access.ErrDenied when no grant has the key, the grant has expired, or the
-// grant is for a subject other than subject. A grant for another subject stays in
-// place, and an expired grant is deleted.
+// and the caller must not hold a transaction or snapshot of the DB. It returns a
+// validation error, and keeps the grant, when taskKey is nil. It returns an error
+// wrapping access.ErrDenied when no grant has the key, the grant has expired, the grant
+// is for a subject other than subject, or its command is for a task other than taskKey.
+// A grant for another subject stays in place. An expired grant and a grant for another
+// task are deleted.
 func (s *Service) Redeem(
 	ctx context.Context,
 	key Key,
 	subject resource.ID,
+	taskKey task.Key,
 ) (Grant, error) {
+	v := validate.New("redeem")
+	v.NonZero("task", taskKey)
+	if err := v.Error(); err != nil {
+		return Grant{}, err
+	}
 	var (
 		g       Grant
 		expired bool
@@ -140,6 +151,13 @@ func (s *Service) Redeem(
 	}
 	if expired {
 		return Grant{}, errEnded(key)
+	}
+	if g.Command.Task != taskKey {
+		return Grant{}, errors.Wrapf(
+			access.ErrDenied,
+			"grant is not for task %s",
+			taskKey,
+		)
 	}
 	return g, nil
 }
