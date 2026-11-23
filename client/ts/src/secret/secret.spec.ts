@@ -65,6 +65,8 @@ const createFakeSecrets = async ({
 }: { recordCap?: number; closed?: boolean } = {}) => {
   const usesRequests: secret.Key[][] = [];
   const listFetches = { count: 0 };
+  // The keys of the secrets that each set request names, in order.
+  const setKeys: string[] = [];
   const core = {
     usesOf,
     holding: false,
@@ -73,6 +75,7 @@ const createFakeSecrets = async ({
   };
   const send = async (target: string, req: Request, _: z.ZodType, res: z.ZodType) => {
     if (target === "/secret/set") {
+      (req.secrets ?? []).forEach(({ key }) => setKeys.push(key));
       await core.set;
       return res.parse({
         secrets: (req.secrets ?? []).map(({ key, name }) => ({
@@ -150,6 +153,7 @@ const createFakeSecrets = async ({
     core,
     usesRequests,
     listFetches,
+    setKeys,
     push,
     change,
     reconnect,
@@ -1151,7 +1155,7 @@ describe("Secret", () => {
 
     it("should keep the no uses of a secret that a refetch meets during its set", async () => {
       useFakeTimers();
-      const { secrets, core, listFetches, change } = await createFakeSecrets();
+      const { secrets, core, listFetches, change, setKeys } = await createFakeSecrets();
       core.usesOf = () => [];
       const prefix = id.create();
       const list = secrets.watch({ name: { startsWith: prefix }, includeUses: true });
@@ -1164,7 +1168,8 @@ describe("Secret", () => {
         source: "stored",
         value: "a",
       });
-      change();
+      await expect.poll(() => setKeys.length).toBe(1);
+      change(setKeys[0]);
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       set.resolve();
       const { key } = await created;
