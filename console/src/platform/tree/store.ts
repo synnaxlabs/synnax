@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { type Tree as Base } from "@synnaxlabs/lyra/tree";
+import type { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { array, compare, type destructor, map } from "@synnaxlabs/x";
 
-import { type Source, type Window } from "@/platform/tree/children";
-import { type Resource } from "@/platform/tree/types";
+import type { Source, Window } from "@/platform/tree/children";
+import type { Resource } from "@/platform/tree/types";
 
 const MORE_PREFIX = "more/";
 

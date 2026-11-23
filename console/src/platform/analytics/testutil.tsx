@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { vi } from "vitest";
 
 import { Provider } from "@/platform/analytics/Context";
-import { type Sink } from "@/platform/analytics/sink";
+import type { Sink } from "@/platform/analytics/sink";
 
 /** A sink whose every method is a spy, so a spec can read what was reported. */
 export const createTestSink = () => ({

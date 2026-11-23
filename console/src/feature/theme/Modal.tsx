@@ -9,19 +9,19 @@
 
 import "@/feature/theme/Modal.css";
 
-import { type Dispatch } from "@reduxjs/toolkit";
+import type { Dispatch } from "@reduxjs/toolkit";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { type Option, OPTIONS } from "@/feature/theme/options";
 import { CSS } from "@/platform/css";
 import { create } from "@/platform/modals/factory";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 import { Theme } from "@/session/theme";
 
 const ListItem = (props: List.ItemProps<Theme.Mode>): ReactElement | null => {

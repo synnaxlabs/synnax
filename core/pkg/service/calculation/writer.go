@@ -76,8 +76,15 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 	if err := w.table.NewCreate().Exclusive().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.Attach(w.tx, c.Key, NewCreateAction(CreatePayload{Calculation: *c}))
+	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
 	return nil
+}
+
+// attach attaches acts on c as one batch, with the check of who may receive the batch,
+// from c as the batch leaves it.
+func (w Writer) attach(c Calculation, acts ...Action) {
+	seq := w.dispatcher.Attach(w.tx, c.Key, acts...)
+	w.svc.checks.Add(w.tx, batchCheck{key: c.Key, seq: seq, check: w.svc.Readable(c)})
 }
 
 // CreateOutput creates c with a new output: a virtual channel named name in the group
@@ -224,7 +231,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			Value: next.Reads,
 		}))
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
+	w.attach(next, slices.Concat(acts, computed)...)
 	return computed, nil
 }
 
@@ -366,19 +373,18 @@ func (w Writer) SetReads(
 		return nil
 	}
 	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
+	var next Calculation
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
 		Change(func(_ gorp.Context, stored Calculation) Calculation {
 			stored.Reads = reads
+			next = stored
 			return stored
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.Attach(w.tx, c.Key, NewSetAction(SetPayload{
-		Path:  []string{"reads"},
-		Value: reads,
-	}))
+	w.attach(next, NewSetAction(SetPayload{Path: []string{"reads"}, Value: reads}))
 	return nil
 }
 

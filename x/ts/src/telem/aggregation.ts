@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Aggregation } from "@/telem/types.gen";
+import type { Aggregation } from "@/telem/types.gen";
 
 /** The number of points each group of samples reduces to under the aggregation. */
 export const POINTS_PER_GROUP: Record<Aggregation, number> = {

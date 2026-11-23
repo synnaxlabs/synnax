@@ -12,8 +12,10 @@ package validate_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,6 +37,19 @@ var _ = Describe("Errors", func() {
 			Expect(
 				validate.PathedError(first, "parent"),
 			).To(MatchError(ContainSubstring("parent.first: cat")))
+		})
+		It("Should keep diagnostics whole under nested paths", func() {
+			var diag diagnostics.Diagnostics
+			diag.Add(diagnostics.Error(errors.New("undefined symbol: missing"), nil))
+			err := validate.PathedError(
+				validate.PathedError(&diag, "expression"),
+				"calculations",
+				"0",
+			)
+			got := MustBeOk(errors.AsType[*diagnostics.Diagnostics](err))
+			Expect(got).To(BeIdenticalTo(&diag))
+			pathErr := MustBeOk(errors.AsType[validate.PathError](err))
+			Expect(pathErr.Path).To(Equal([]string{"calculations", "0", "expression"}))
 		})
 		It("Should prefix every member of a joined error independently", func() {
 			joined := errors.Join(

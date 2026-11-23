@@ -54,6 +54,7 @@ jobs:
       duplication-ts: ${{ steps.prompt.outputs.duplication-ts }}
       duplication-python: ${{ steps.prompt.outputs.duplication-python }}
       duplication-cpp: ${{ steps.prompt.outputs.duplication-cpp }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -127,6 +128,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     permissions: {}
+    timeout-minutes: 10
     steps:
       - name: Download the reports
         if: needs.agent.result != 'skipped'

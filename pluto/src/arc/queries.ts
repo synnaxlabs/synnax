@@ -17,7 +17,7 @@ import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Task } from "@/task";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";

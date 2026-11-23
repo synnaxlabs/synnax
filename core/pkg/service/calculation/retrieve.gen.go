@@ -56,6 +56,11 @@ func newIndexes() indexes {
 			Targets: func(e *Calculation) []channel.Key {
 				return []channel.Key{e.Output}
 			},
+			Retarget: func(e *Calculation, from, to channel.Key) {
+				if e.Output == from {
+					e.Output = to
+				}
+			},
 		}),
 		primary: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Calculation, channel.Key]{
 			Name:     "primary",
@@ -70,6 +75,11 @@ func newIndexes() indexes {
 				return []channel.Key{*e.Primary}
 			},
 			Detach: func(e *Calculation, _ channel.Key) { e.Primary = nil },
+			Retarget: func(e *Calculation, from, to channel.Key) {
+				if e.Primary != nil && *e.Primary == from {
+					*e.Primary = to
+				}
+			},
 		}),
 		reads: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Calculation, channel.Key]{
 			Name:     "reads",
@@ -84,6 +94,21 @@ func newIndexes() indexes {
 				e.Reads = slices.DeleteFunc(e.Reads, func(v channel.Key) bool {
 					return v == t
 				})
+			},
+			Retarget: func(e *Calculation, from, to channel.Key) {
+				if slices.ContainsFunc(e.Reads, func(k1 channel.Key) bool {
+					return k1 == to
+				}) {
+					e.Reads = slices.DeleteFunc(e.Reads, func(k1 channel.Key) bool {
+						return k1 == from
+					})
+				} else {
+					for i2 := range e.Reads {
+						if e.Reads[i2] == from {
+							e.Reads[i2] = to
+						}
+					}
+				}
 			},
 		}),
 		operationsReset: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Calculation, channel.Key]{
@@ -139,6 +164,27 @@ func newIndexes() indexes {
 							v4.Reset = nil
 						}
 						e.Operations[i3].Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Calculation, from, to channel.Key) {
+				for i5 := range e.Operations {
+					switch v6 := e.Operations[i5].Variant.(type) {
+					case MinOperation:
+						if v6.Reset != nil && *v6.Reset == from {
+							*v6.Reset = to
+						}
+						e.Operations[i5].Variant = v6
+					case MaxOperation:
+						if v6.Reset != nil && *v6.Reset == from {
+							*v6.Reset = to
+						}
+						e.Operations[i5].Variant = v6
+					case AvgOperation:
+						if v6.Reset != nil && *v6.Reset == from {
+							*v6.Reset = to
+						}
+						e.Operations[i5].Variant = v6
 					}
 				}
 			},
