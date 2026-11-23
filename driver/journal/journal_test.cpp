@@ -248,7 +248,30 @@ TEST_F(JournalTest, ReadsV1Offset) {
 TEST_F(JournalTest, WritesV1Offset) {
     const auto offset_path = this->dir / "0.offset";
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 7, .pos = 42}));
-    EXPECT_EQ(read_file(offset_path), read_file(TESTDATA / "v1_offset.bin"));
+    // Each file has its own salt, so only the bytes before it match the fixture.
+    const auto written = read_file(offset_path);
+    const auto fixture = read_file(TESTDATA / "v1_offset.bin");
+    EXPECT_EQ(written.size(), fixture.size());
+    EXPECT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    const auto offset = ASSERT_NIL_P(read_offset(offset_path, OFFSET));
+    EXPECT_EQ(offset.value().segment, 7);
+    EXPECT_EQ(offset.value().pos, 42);
+}
+
+/// @brief it should read an offset record with fields after the offset.
+TEST_F(JournalTest, ReadsLongerOffsetRecord) {
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
+    const auto data = read_file(offset_path).substr(0, HEADER_SIZE);
+    std::string payload;
+    for (const std::uint64_t v:
+         {std::uint64_t{3}, std::uint64_t{30}, std::uint64_t{99}})
+        for (int i = 0; i < 8; i++)
+            payload.push_back(static_cast<char>(v >> (8 * i)));
+    write_file(offset_path, data + encode(salt_of(offset_path), 1, payload));
+    const auto offset = ASSERT_NIL_P(read_offset(offset_path, OFFSET));
+    EXPECT_EQ(offset.value().segment, 3);
+    EXPECT_EQ(offset.value().pos, 30);
 }
 
 /// @brief it should append after the records of an existing file.
@@ -920,7 +943,10 @@ TEST_F(JournalTest, OffsetWithWrongLengthIsCorrupt) {
     const auto offset_path = this->dir / "0.offset";
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
     auto data = read_file(offset_path).substr(0, HEADER_SIZE);
-    write_file(offset_path, data + encode(1, std::string(15, 'a')));
+    write_file(
+        offset_path,
+        data + encode(salt_of(offset_path), 1, std::string(15, 'a'))
+    );
     ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), CORRUPT);
 }
 
@@ -928,7 +954,7 @@ TEST_F(JournalTest, OffsetWithWrongLengthIsCorrupt) {
 TEST_F(JournalTest, OffsetWithUnknownRecordIsUnknownType) {
     const auto offset_path = this->dir / "0.offset";
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
-    append_file(offset_path, encode(2, "new"));
+    append_file(offset_path, encode(salt_of(offset_path), 2, "new"));
     ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), UNKNOWN_TYPE);
 }
 

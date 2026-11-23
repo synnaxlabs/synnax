@@ -480,7 +480,8 @@ read_offset(const std::filesystem::path &path, const Magic &magic) {
     if (err) return {std::nullopt, err};
     auto [record, r_err] = reader->next();
     if (r_err) return {std::nullopt, r_err};
-    if (!record || record->payload.size() != OFFSET_SIZE)
+    // A later Driver can append fields to the record.
+    if (!record || record->payload.size() < OFFSET_SIZE)
         return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
     // The file is renamed into place whole, so any bytes after the record are corrupt.
     auto [extra, e_err] = reader->next();
@@ -505,7 +506,7 @@ x::errors::Error commit_offset(
     put(record.payload, offset.segment);
     put(record.payload, offset.pos);
     auto buf = encode_header(magic, 0);
-    encode_record(buf, record);
+    encode_record(buf, get<std::uint32_t>(buf.data() + SALT_OFFSET), record);
     return create(path, buf);
 }
 
