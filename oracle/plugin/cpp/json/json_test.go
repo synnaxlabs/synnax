@@ -499,6 +499,19 @@ var _ = Describe("C++ JSON Plugin", func() {
 					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
 				)
 			})
+			It("Should keep a small float fallback exact", func() {
+				source := `
+					@cpp output "out"
+
+					Task struct {
+						tolerance float64 = 0.0000001
+					}
+				`
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`parser.field<double>("tolerance", 1e-07)`,
+				)
+			})
 			It("Should fall back to an int enum variant", func() {
 				source := `
 					@cpp output "client/cpp/task"

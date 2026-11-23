@@ -1352,6 +1352,19 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should keep a small float default exact", func() {
+			source := `
+				@py output "client/py/synnax/wave"
+
+				Wave struct {
+					tolerance float64 = 0.0000001
+				}
+			`
+			resp := MustGenerate(source, "wave", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`tolerance: float = 1e-07`))
+		})
+
 		It(
 			"Should qualify a union default whose union lives in another module",
 			func() {

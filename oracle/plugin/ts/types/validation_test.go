@@ -162,6 +162,18 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(1.500000)`)
 	})
 
+	It("Should emit a small float default without truncating it", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				tolerance float64 = 0.0000001
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(`.default(1e-07)`)
+	})
+
 	It("Should emit bool default", func() {
 		source := `
 			@ts output "out"

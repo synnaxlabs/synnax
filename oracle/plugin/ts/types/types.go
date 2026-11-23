@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -3107,7 +3108,7 @@ func floatDefault(
 	if ok {
 		return fmt.Sprintf("%s.default(%s)", zodType, expr)
 	}
-	return fmt.Sprintf("%s.default(%f)", zodType, value)
+	return fmt.Sprintf("%s.default(%s)", zodType, literal.Float(value))
 }
 
 // identDefault appends an identifier default such as now, create, an enum member, or a
@@ -3237,7 +3238,7 @@ func (p *Plugin) tsDefaultLiteral(
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", val.FloatValue)
+		return literal.Float(val.FloatValue)
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:
