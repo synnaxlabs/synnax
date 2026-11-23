@@ -57,12 +57,16 @@ var (
 	id       = jsonField("id", icd.UuidJSONField{})
 	setpoint = jsonMessage("Setpoint", temp, mode, limit)
 	tagged   = jsonMessage("Tagged", id)
+	empty    = jsonMessage("Empty")
 	binary   = icd.Message{
 		Key:     uuid.New(),
 		Name:    "Frame",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
 	}
-	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, binary}}
+	plant = icd.ICD{
+		Name:     "Plant",
+		Messages: []icd.Message{setpoint, tagged, empty, binary},
+	}
 )
 
 const valueKey channel.Key = 2
@@ -258,6 +262,10 @@ var _ = Describe("NewDocuments", func() {
 		Entry("a message with no bindings",
 			writeOf(setpoint),
 			"message Setpoint binds no channels",
+		),
+		Entry("a message with no fields",
+			writeOf(empty),
+			"message Empty binds no channels",
 		),
 		Entry("a message whose bindings all have values",
 			writeOf(
