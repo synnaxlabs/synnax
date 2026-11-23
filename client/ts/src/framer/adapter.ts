@@ -181,9 +181,10 @@ export class WriteAdapter {
   /** The held channels by name, and by each path the writer opened with. */
   private byText: Map<string, channel.Payload[]>;
   private byKey: Map<channel.Key, channel.Payload>;
-  /** The channel of each key of a record frame, resolved once until an update. */
-  private byRecordKey: Map<string, channel.Payload>;
-  /** The keys of the last record and their checked channels, until an update. */
+  /**
+   * The keys of the last record and their checked channels, until an update. Only a
+   * record of held references counts, since a path can move between records.
+   */
   private lastRecord: { keys: string[]; channels: channel.Payload[] } | null;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
@@ -193,7 +194,6 @@ export class WriteAdapter {
     this.retrieveChannels = retrieveChannels;
     this.byText = new Map();
     this.byKey = new Map();
-    this.byRecordKey = new Map();
     this.lastRecord = null;
     this.keys = [];
     this.codec = new Codec();
@@ -233,7 +233,6 @@ export class WriteAdapter {
       if (typeof l === "string") this.hold(l, each[i]);
     }
     this.byKey = new Map(results.map((c) => [c.key, c]));
-    this.byRecordKey = new Map();
     this.lastRecord = null;
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
@@ -278,48 +277,50 @@ export class WriteAdapter {
   }
 
   /**
-   * @returns the channel of each key of a record, resolved once until an update.
+   * @returns the channel of each key of a record.
+   * @throws {NotFoundError} naming every key that finds no channel.
    * @throws {ValidationError} if two keys name one channel.
    */
   private async resolveRecord(keys: string[]): Promise<channel.Payload[]> {
-    const channels = keys.map((k) => this.byRecordKey.get(k));
-    const missing: number[] = [];
-    for (let i = 0; i < keys.length; i++) if (channels[i] == null) missing.push(i);
-    if (missing.length > 0) {
-      const found = await this.resolveRefs(missing.map((i) => this.recordKey(keys[i])));
-      missing.forEach((i, j) => {
-        channels[i] = found[j];
-        this.byRecordKey.set(keys[i], found[j]);
-      });
-    }
-    const resolved = channels as channel.Payload[];
+    const refs = keys.map((k) => this.recordKey(k));
+    const channels = this.heldOf(refs);
+    const allHeld = channels.every((c) => c != null);
+    const resolved = allHeld ? channels : await this.fetchUnheld(refs, channels);
     refuseShared(keys, resolved);
-    this.lastRecord = { keys, channels: resolved };
+    this.lastRecord = allHeld ? { keys, channels: resolved } : null;
     return resolved;
   }
 
   /**
-   * @returns the channel of each reference. A held channel answers by key, NFC name, or
-   * the NFC path that opened it, with no request. The other references go in one
-   * retrieve.
+   * @returns the channel of each reference.
    * @throws {NotFoundError} naming every reference that finds no channel.
    */
   private async resolveRefs(refs: channel.Lookup[]): Promise<channel.Payload[]> {
-    const channels = refs.map((r) =>
-      typeof r === "number" ? this.byKey.get(r) : this.held(r),
-    );
+    return await this.fetchUnheld(refs, this.heldOf(refs));
+  }
+
+  /**
+   * @returns the held channel of each reference, by key, NFC name, or the NFC path that
+   * opened it, or undefined.
+   */
+  private heldOf(refs: channel.Lookup[]): (channel.Payload | undefined)[] {
+    return refs.map((r) => (typeof r === "number" ? this.byKey.get(r) : this.held(r)));
+  }
+
+  /**
+   * @returns channels, with each missing one resolved from its reference in one
+   * retrieve.
+   * @throws {NotFoundError} naming every reference that finds no channel.
+   */
+  private async fetchUnheld(
+    refs: channel.Lookup[],
+    channels: (channel.Payload | undefined)[],
+  ): Promise<channel.Payload[]> {
     const unheld = refs.filter((_, i) => channels[i] == null);
     if (unheld.length === 0) return channels as channel.Payload[];
     const found = await channel.resolveLookups(unheld, this.retrieveChannels);
     let j = 0;
-    return channels.map((ch, i) => {
-      if (ch != null) return ch;
-      const f = found[j++];
-      const r = refs[i];
-      // The channel set is fixed between updates, so a held channel cannot go stale.
-      if (typeof r === "string" && this.byKey.has(f.key)) this.hold(r, f);
-      return f;
-    });
+    return channels.map((ch) => ch ?? found[j++]);
   }
 
   private hold(text: string, ch: channel.Payload): void {
