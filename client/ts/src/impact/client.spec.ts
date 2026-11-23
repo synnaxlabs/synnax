@@ -85,7 +85,7 @@ describe("impact", () => {
     expect(plan.entries).toEqual([
       { record: lineplot.resourceID(plot.key), effect: "detach", choices: [] },
     ]);
-    expect(plan.hidden).toEqual(0);
+    expect(plan.hidden).toEqual({ restrict: 0, cascade: 0, detach: 0 });
     const applied = await client.impact.apply(deleteOf(ch.key), { token: plan.token });
     expect(applied.entries).toEqual(plan.entries);
     await expect
@@ -158,7 +158,7 @@ describe("impact", () => {
     });
     const plan = await userClient.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([]);
-    expect(plan.hidden).toEqual(1);
+    expect(plan.hidden).toEqual({ restrict: 1, cascade: 0, detach: 0 });
   });
 });
 
