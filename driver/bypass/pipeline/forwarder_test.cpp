@@ -105,7 +105,7 @@ TEST(ForwarderTest, DropsFramesPastTheQueueCap) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.max_queue_bytes = 10 * frame_size,
+        {.budget = std::make_shared<Budget>(10 * frame_size),
          .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 15; i++)
@@ -117,14 +117,97 @@ TEST(ForwarderTest, DropsFramesPastTheQueueCap) {
     ASSERT_EQ(server->writes->size(), 0);
 }
 
-/// @brief it should accept a frame larger than its cap when the queue is empty.
+/// @brief it should accept a frame larger than its budget when the queue is empty.
 TEST(ForwarderTest, AcceptsALargeFrameIntoAnEmptyQueue) {
     const auto server = factory();
-    Forwarder forwarder(server, {.channels = {1}}, {.max_queue_bytes = 2});
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.budget = std::make_shared<Budget>(2)}
+    );
     ASSERT_NIL(forwarder.write(frame(1)));
     ASSERT_EVENTUALLY_EQ(server->writes->size(), 1);
     ASSERT_EQ(forwarder.dropped().total(), 0);
     ASSERT_NIL(forwarder.close());
+}
+
+/// @brief it should drop the frames of one forwarder once another fills the budget
+/// that they share.
+TEST(ForwarderTest, SharesItsBudgetWithOtherForwarders) {
+    const auto server = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    const auto budget = std::make_shared<Budget>(4 * FRAME_SIZE);
+    const ForwarderConfig cfg{
+        .budget = budget,
+        .breaker = {.base_interval = x::telem::MILLISECOND},
+    };
+    Forwarder first(server, {.channels = {1}}, cfg);
+    Forwarder second(server, {.channels = {1}}, cfg);
+    for (int i = 0; i < 4; i++)
+        ASSERT_NIL(first.write(frame(static_cast<float>(i))));
+    ASSERT_EQ(budget->used(), 4 * FRAME_SIZE);
+    ASSERT_NIL(second.write(frame(0)));
+    ASSERT_EQ(first.dropped().full, 0);
+    ASSERT_EQ(second.dropped().full, 1);
+    ASSERT_NIL(first.close());
+    ASSERT_EQ(budget->used(), 0);
+    ASSERT_NIL(second.write(frame(1)));
+    ASSERT_EQ(second.dropped().full, 1);
+    ASSERT_EQ(budget->used(), FRAME_SIZE);
+    ASSERT_NIL(second.close());
+}
+
+/// @brief it should give back the bytes of each op it sends to the Core.
+TEST(ForwarderTest, ReleasesItsBudgetOnSend) {
+    const auto server = std::make_shared<GatedFactory>();
+    const auto budget = std::make_shared<Budget>(8 * FRAME_SIZE);
+    Forwarder forwarder(server, {.channels = {1}}, {.budget = budget});
+    x::defer::defer release([&server] { server->allow(1000); });
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    ASSERT_NIL(forwarder.set_authority({.keys = {1}, .authorities = {200}}));
+    const auto held = budget->used();
+    ASSERT_GT(held, 3 * FRAME_SIZE);
+    server->allow(1);
+    ASSERT_EVENTUALLY_EQ(budget->used(), held - FRAME_SIZE);
+    server->allow(2);
+    ASSERT_EVENTUALLY_EQ(budget->used(), 0);
+    ASSERT_NIL(forwarder.close());
+}
+
+/// @brief it should give back the bytes of the frames it drops when it stops or a Core
+/// error stops it.
+TEST(ForwarderTest, ReleasesItsBudgetOnDrop) {
+    const auto budget = std::make_shared<Budget>(8 * FRAME_SIZE);
+    const auto unreachable = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    Forwarder stopped(
+        unreachable,
+        {.channels = {1}},
+        {.budget = budget, .breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(stopped.write(frame(static_cast<float>(i))));
+    ASSERT_EQ(budget->used(), 3 * FRAME_SIZE);
+    ASSERT_NIL(stopped.close());
+    ASSERT_EQ(stopped.dropped().stopped, 3);
+    ASSERT_EQ(budget->used(), 0);
+
+    const auto failing = factory();
+    std::promise<void> gate;
+    failing->open_gate = gate.get_future().share();
+    failing->open_errors = {x::errors::VALIDATION};
+    Forwarder failed(failing, {.channels = {1}}, {.budget = budget});
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(failed.write(frame(static_cast<float>(i))));
+    ASSERT_EQ(budget->used(), 3 * FRAME_SIZE);
+    gate.set_value();
+    ASSERT_OCCURRED_AS(failed.opened(), x::errors::VALIDATION);
+    ASSERT_EQ(failed.dropped().failed, 3);
+    ASSERT_EQ(budget->used(), 0);
+    ASSERT_OCCURRED_AS(failed.close(), x::errors::VALIDATION);
 }
 
 /// @brief it should send what it holds to a reachable Core before close returns.
@@ -223,7 +306,7 @@ TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.max_queue_bytes = 8 * FRAME_SIZE, .warn = record(warnings)}
+        {.budget = std::make_shared<Budget>(8 * FRAME_SIZE), .warn = record(warnings)}
     );
     // A failed assertion must not leave the forwarder waiting on the Core forever.
     x::defer::defer release([&server] { server->allow(1000); });
@@ -258,7 +341,7 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.max_queue_bytes = 4 * FRAME_SIZE,
+        {.budget = std::make_shared<Budget>(4 * FRAME_SIZE),
          .drop_report_interval = x::telem::HOUR,
          .warn = record(warnings)}
     );
@@ -273,7 +356,7 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     ASSERT_EVENTUALLY_EQ(last().first, "Dropped frames");
     EXPECT_EQ(
         last().second,
-        "Dropped 1 frame because the queue for the Core was full."
+        "Dropped 1 frame because the Driver's queue for the Core was full."
     );
     const auto reports = warnings->size();
     for (int i = 0; i < 2; i++)
@@ -290,7 +373,7 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     ASSERT_NIL(forwarder.close());
     EXPECT_EQ(
         last().second,
-        "Dropped 2 frames because the queue for the Core was full."
+        "Dropped 2 frames because the Driver's queue for the Core was full."
     );
 }
 
@@ -364,15 +447,15 @@ public:
     }
 };
 
-/// @brief it should stop sending its queue to a slow Core once the close timeout
+/// @brief it should stop sending its queue to a slow Core once the drain timeout
 /// passes, and count what is left as dropped by the stop.
-TEST(ForwarderTest, StopsDrainingASlowCoreAtTheCloseTimeout) {
+TEST(ForwarderTest, StopsDrainingASlowCoreAtTheDrainTimeout) {
     const auto server = std::make_shared<SlowFactory>(std::chrono::milliseconds(20));
     const auto warnings = std::make_shared<Warnings>();
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.close_timeout = 100 * x::telem::MILLISECOND, .warn = record(warnings)}
+        {.drain_timeout = 100 * x::telem::MILLISECOND, .warn = record(warnings)}
     );
     constexpr size_t frames = 500;
     for (size_t i = 0; i < frames; i++)
@@ -401,7 +484,7 @@ TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.max_queue_bytes = 2 * FRAME_SIZE,
+        {.budget = std::make_shared<Budget>(2 * FRAME_SIZE),
          .drop_report_interval = 10 * x::telem::MILLISECOND,
          .warn = record(warnings),
          .breaker = {.base_interval = x::telem::HOUR}}
@@ -415,13 +498,13 @@ TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
     };
     ASSERT_EVENTUALLY_EQ(
         last().second,
-        "Dropped 3 frames because the queue for the Core was full."
+        "Dropped 3 frames because the Driver's queue for the Core was full."
     );
     ASSERT_EQ(server->writer_opens.load(), 1);
     ASSERT_NIL(forwarder.close());
     EXPECT_EQ(
         warnings->at(warnings->size() - 1).second,
-        "Dropped 3 frames because the queue for the Core was full. Dropped 2 frames "
+        "Dropped 3 frames because the Driver's queue for the Core was full. Dropped 2 frames "
         "because the task stopped before delivery to the Core."
     );
 }

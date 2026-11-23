@@ -56,8 +56,9 @@ Driver that restarts while the Core is down still starts with no tasks.
 the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which opens,
 writes, and reopens the task's Core writer on its own thread. `open_writer` waits for
 the first open, and returns once it succeeds, fails for good, or finds the Core
-unreachable. The handoff queue holds 64 MB. A stop sends what the queue holds for at
-most 5 s, then drops and counts the rest.
+unreachable. All forwarders share one queue budget, the Driver setting
+`outage.queue_size`, 256 MB by default. A stop sends what the queue holds for at most
+`outage.drain_timeout`, 5 s by default, then drops and counts the rest.
 
 When the Core is unreachable, the forwarder closes the live writer, spools the queued
 frames in order, and reopens the live writer only after the queue is empty. Every
@@ -66,9 +67,9 @@ spooled frame therefore comes before the next live session, as RFC 0095 §4.4 re
 gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
 Driver pings the Core every 10 s and closes a connection whose ping goes 20 s without an
 answer. That fails every call on the connection, the forwarder's included, in about 30
-s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that time at up
-to about 2 MB/s. A reachable Core too slow for the task fills it, and `write` then drops
-the frame and counts it.
+s. The Core accepts pings as often as every 5 s. The 256 MB budget covers that time at
+up to about 8 MB/s for all tasks together. A reachable Core too slow for the tasks fills
+it, and `write` then drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).

@@ -37,6 +37,7 @@
 #include "driver/modbus/modbus.h"
 #endif
 
+#include "driver/bypass/outage.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/file/file.h"
@@ -128,6 +129,8 @@ struct Config {
     common::TimingConfig timing;
     /// @brief configuration for the task manager.
     task::ManagerConfig manager;
+    /// @brief how tasks hold frames for the Core while it is slow or unreachable.
+    bypass::OutageConfig outage;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
@@ -164,6 +167,7 @@ struct Config {
            << cfg.connection << "\n"
            << cfg.timing << "\n"
            << cfg.manager << "\n"
+           << cfg.outage << "\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {

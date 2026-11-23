@@ -31,6 +31,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/thread/thread.h"
 
+#include "driver/bypass/outage.h"
 #include "driver/pipeline/acquisition.h"
 
 namespace driver::bypass::pipeline {
@@ -56,7 +57,7 @@ using Warn = std::function<
 
 /// @brief counts the frames that a Forwarder dropped, by cause.
 struct Drops {
-    /// @brief frames dropped because the queue was full.
+    /// @brief frames dropped because the queue budget was full.
     size_t full = 0;
     /// @brief frames still queued when the task stopped.
     size_t stopped = 0;
@@ -71,19 +72,22 @@ struct Drops {
 
 /// @brief configures a Forwarder.
 struct ForwarderConfig {
-    /// @brief the most bytes that queued frames and authority changes hold, overhead
-    /// included. A write past it drops its frame, the newest one, and counts it.
-    size_t max_queue_bytes = size_t{64} * 1024 * 1024;
+    /// @brief the bytes that queued frames and authority changes hold, overhead
+    /// included. Forwarders that share it share one cap. A write past it drops its
+    /// frame, the newest one, and counts it.
+    std::shared_ptr<Budget> budget = std::make_shared<Budget>(
+        OutageConfig{}.queue_size
+    );
     /// @brief the shortest time between two reports of a new drop count. While the Core
     /// is unreachable, the forwarder also reports at this interval.
     x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
     /// @brief the longest time that close() sends queued ops to a reachable Core. It
     /// drops and counts what is left after it.
-    x::telem::TimeSpan close_timeout = 5 * x::telem::SECOND;
+    x::telem::TimeSpan drain_timeout = OutageConfig{}.drain_timeout;
     /// @brief the frames that earlier forwarders of the same run dropped. The drop
     /// counts start from them.
     Drops dropped;
-    /// @brief warns when the queue passes half its cap, until it drains below a
+    /// @brief warns when the budget passes half its size, until it drains below a
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
@@ -111,9 +115,9 @@ class Forwarder {
 
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     synnax::framer::WriterConfig config;
-    const size_t max_queue_bytes;
+    const std::shared_ptr<Budget> budget;
     const std::chrono::nanoseconds drop_report_interval;
-    const std::chrono::nanoseconds close_timeout;
+    const std::chrono::nanoseconds drain_timeout;
     const Warn warn;
     const x::breaker::Config backoff;
 
@@ -130,8 +134,8 @@ class Forwarder {
     std::mutex mu;
     std::condition_variable cv;
     std::deque<Entry> queue;
-    /// @brief the bytes that queue and batch hold. Changed only under mu, except that
-    /// the forwarder thread subtracts each op it sends.
+    /// @brief the bytes that queue and batch hold, which budget also counts. Changed
+    /// only under mu, except that the forwarder thread subtracts each op it sends.
     std::atomic<size_t> queue_bytes = 0;
     /// @brief true while the forwarder thread waits for the queue.
     bool idle = false;
@@ -170,8 +174,8 @@ class Forwarder {
                auth.authorities.size() * sizeof(x::control::Authority);
     }
 
-    /// @brief queues entry. Requires mu. Returns true when the forwarder thread waits
-    /// for it.
+    /// @brief queues entry, whose bytes the budget holds. Requires mu. Returns true
+    /// when the forwarder thread waits for it.
     bool push_locked(Entry entry) {
         this->queue_bytes.fetch_add(entry.bytes, std::memory_order_relaxed);
         this->queue.push_back(std::move(entry));
@@ -201,7 +205,7 @@ class Forwarder {
                            (count == 1 ? " frame" : " frames") + " because " + cause +
                            ".";
         };
-        add(dropped.full, "the queue for the Core was full");
+        add(dropped.full, "the Driver's queue for the Core was full");
         add(dropped.stopped, "the task stopped before delivery to the Core");
         add(dropped.failed, "a Core error stopped delivery");
         this->show("Dropped frames", description);
@@ -210,10 +214,10 @@ class Forwarder {
     /// @brief shows on the task status whether the queue lags or drops frames.
     void report() {
         if (!this->warn) return;
-        const auto bytes = this->queue_bytes.load(std::memory_order_relaxed);
-        if (bytes * 2 >= this->max_queue_bytes)
+        const auto bytes = this->budget->used();
+        if (bytes * 2 >= this->budget->size())
             this->lagging = true;
-        else if (bytes * 4 < this->max_queue_bytes)
+        else if (bytes * 4 < this->budget->size())
             this->lagging = false;
         if (this->dropped_total.load(std::memory_order_relaxed) > 0) {
             if (this->shown_message != "Dropped frames" ||
@@ -226,12 +230,13 @@ class Forwarder {
             this->show("", "");
             return;
         }
-        const auto mb = this->max_queue_bytes / (size_t{1024} * 1024);
+        const auto mb = this->budget->size() / (size_t{1024} * 1024);
         this->show(
             "Falling behind the Core",
             "More than " + std::to_string(mb / 2) +
-                " MB of frames wait for the Core. Frames drop when " +
-                std::to_string(mb) + " MB wait."
+                " MB of frames from this Driver wait for the Core. Frames drop when "
+                "they fill the " +
+                std::to_string(mb) + " MB queue that all tasks share."
         );
     }
 
@@ -248,7 +253,7 @@ class Forwarder {
 
     /// @brief waits for ops and moves all of them into batch, so the forwarder thread
     /// sends them without the lock. Returns false once closing leaves none, or once the
-    /// close timeout passes.
+    /// drain timeout passes.
     bool take() {
         std::unique_lock lock(this->mu);
         this->idle = true;
@@ -279,7 +284,7 @@ class Forwarder {
                 ++(this->drops.*cause);
         this->dropped_total = this->drops.total();
         this->queue.clear();
-        this->queue_bytes = 0;
+        this->budget->release(this->queue_bytes.exchange(0));
     }
 
     /// @brief waits out the backoff after the Core proves unreachable, and reports the
@@ -358,10 +363,9 @@ class Forwarder {
                 while (!this->batch.empty() && !this->expired()) {
                     if (op_err = this->apply(*writer, this->batch.front().op); op_err)
                         break;
-                    this->queue_bytes.fetch_sub(
-                        this->batch.front().bytes,
-                        std::memory_order_relaxed
-                    );
+                    const auto sent = this->batch.front().bytes;
+                    this->queue_bytes.fetch_sub(sent, std::memory_order_relaxed);
+                    this->budget->release(sent);
                     this->batch.pop_front();
                     this->report();
                 }
@@ -385,9 +389,9 @@ public:
     ):
         server(std::move(server)),
         config(std::move(config)),
-        max_queue_bytes(cfg.max_queue_bytes),
+        budget(cfg.budget),
         drop_report_interval(cfg.drop_report_interval.chrono()),
-        close_timeout(cfg.close_timeout.chrono()),
+        drain_timeout(cfg.drain_timeout.chrono()),
         warn(cfg.warn),
         backoff(cfg.breaker),
         drops(cfg.dropped),
@@ -409,9 +413,9 @@ public:
         return this->err;
     }
 
-    /// @brief queues fr for the Core. Drops and counts it when the queue is full, and
-    /// never waits on the Core. A frame larger than the cap goes through when the queue
-    /// is empty.
+    /// @brief queues fr for the Core. Drops and counts it when the budget is full, and
+    /// never waits on the Core. A frame larger than the whole budget goes through when
+    /// the queue of this forwarder is empty.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error write(const x::telem::Frame &fr) {
         Entry entry{.op = fr.shallow_copy(), .bytes = frame_bytes(fr)};
@@ -420,8 +424,9 @@ public:
         {
             std::lock_guard lock(this->mu);
             if (this->err) return this->err;
-            const auto bytes = this->queue_bytes.load(std::memory_order_relaxed);
-            if (bytes > 0 && bytes + entry.bytes > this->max_queue_bytes) {
+            const bool alone = entry.bytes > this->budget->size() &&
+                               this->queue_bytes.load(std::memory_order_relaxed) == 0;
+            if (!this->budget->reserve(entry.bytes, alone)) {
                 this->drops.full++;
                 this->dropped_total = this->drops.total();
                 if (++this->cap_drops % 1000 == 1) logged_drops = this->cap_drops;
@@ -432,12 +437,12 @@ public:
         if (logged_drops > 0)
             LOG(WARNING) << "[bypass.forwarder] " << this->config.subject.name
                          << " dropped " << logged_drops
-                         << " frames: the queue for the Core is full";
+                         << " frames: the Driver's queue for the Core is full";
         return x::errors::NIL;
     }
 
     /// @brief queues authorities for the Core, in order with the frames. It never drops
-    /// them, but they count toward the queue cap.
+    /// them, but they count toward the budget.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error set_authority(const ::driver::pipeline::Authorities &authorities) {
         Entry entry{.op = authorities, .bytes = authorities_bytes(authorities)};
@@ -445,6 +450,7 @@ public:
         {
             std::lock_guard lock(this->mu);
             if (this->err) return this->err;
+            this->budget->reserve(entry.bytes, true);
             wake = this->push_locked(std::move(entry));
         }
         if (wake) this->cv.notify_one();
@@ -452,7 +458,7 @@ public:
     }
 
     /// @brief sends what the queue holds while the Core is reachable, for at most
-    /// ForwarderConfig::close_timeout, then closes the Core writer. Drops and counts
+    /// ForwarderConfig::drain_timeout, then closes the Core writer. Drops and counts
     /// what is left, and all of the queue when the Core is unreachable.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error close() {
@@ -461,7 +467,7 @@ public:
             if (!this->closing) {
                 this->closing = true;
                 const auto deadline = std::chrono::steady_clock::now() +
-                                      this->close_timeout;
+                                      this->drain_timeout;
                 this->close_deadline.store(
                     deadline.time_since_epoch().count(),
                     std::memory_order_relaxed

@@ -602,7 +602,7 @@ TEST(WriterTest, CarriesDropsAcrossAReopen) {
         std::make_shared<Bus>(),
         std::make_shared<control::States>(),
         0,
-        {.max_queue_bytes = 2 * frame_size,
+        {.budget = std::make_shared<Budget>(2 * frame_size),
          .warn =
              [warnings](const std::string &message, const std::string &description) {
                  warnings->push_back({message, description});
@@ -618,7 +618,7 @@ TEST(WriterTest, CarriesDropsAcrossAReopen) {
     ASSERT_OCCURRED_AS(writer->close(), synnax::errors::LICENSE_MISSING);
     const std::pair<std::string, std::string> dropped{
         "Dropped frames",
-        "Dropped 3 frames because the queue for the Core was full.",
+        "Dropped 3 frames because the Driver's queue for the Core was full.",
     };
     ASSERT_EQ(warnings->at(warnings->size() - 1), dropped);
     const auto before = warnings->size();
@@ -667,7 +667,7 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
             std::make_shared<control::States>(),
             0,
             ForwarderConfig{
-                .max_queue_bytes = 2 * frame_size,
+                .budget = std::make_shared<Budget>(2 * frame_size),
                 .warn = [warnings](
                             const std::string &message,
                             const std::string &description
@@ -685,7 +685,7 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
     ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(
         warnings->at(warnings->size() - 1).second,
-        "Dropped 3 frames because the queue for the Core was full. Dropped 2 frames "
+        "Dropped 3 frames because the Driver's queue for the Core was full. Dropped 2 frames "
         "because the task stopped before delivery to the Core."
     );
     const auto first_run = warnings->size();

@@ -36,7 +36,11 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx, Warn warn = nul
         ctx->bus(),
         ctx->control_states(),
         ctx->rack_key(),
-        ForwarderConfig{.warn = std::move(warn)}
+        ForwarderConfig{
+            .budget = ctx->queue_budget(),
+            .drain_timeout = ctx->drain_timeout(),
+            .warn = std::move(warn),
+        }
     );
 }
 

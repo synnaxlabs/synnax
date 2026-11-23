@@ -621,6 +621,43 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
 }
 
+/// @brief it should hold 256 MB of frames for the Core and drain them for 5 s when no
+/// source sets the outage config.
+TEST_F(RackConfigTest, OutageConfigDefaults) {
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.outage.queue_size, size_t{256} * 1024 * 1024);
+    ASSERT_EQ(cfg.outage.drain_timeout, 5 * x::telem::SECOND);
+}
+
+/// @brief it should load the outage config from the config file.
+TEST_F(RackConfigTest, LoadOutageConfigFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/outage-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"outage": {"queue_size": 1048576, "drain_timeout": 2.5}})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
+    ASSERT_EQ(cfg.outage.queue_size, 1048576);
+    ASSERT_EQ(cfg.outage.drain_timeout, 2500 * x::telem::MILLISECOND);
+}
+
+/// @brief it should load the outage config from environment variables.
+TEST_F(RackConfigTest, LoadOutageConfigFromEnvironmentVariables) {
+    x::env::set("SYNNAX_DRIVER_QUEUE_SIZE", "2097152");
+    x::env::set("SYNNAX_DRIVER_DRAIN_TIMEOUT", "10");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_QUEUE_SIZE");
+        x::env::unset("SYNNAX_DRIVER_DRAIN_TIMEOUT");
+    });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.outage.queue_size, 2097152);
+    ASSERT_EQ(cfg.outage.drain_timeout, 10 * x::telem::SECOND);
+}
+
 /// @brief it should load the secrets folder from the config file as an absolute path.
 TEST_F(RackConfigTest, LoadSecretsDirFromFile) {
     const std::string config_path = "/tmp/rack-config-test/secrets-config.json";
