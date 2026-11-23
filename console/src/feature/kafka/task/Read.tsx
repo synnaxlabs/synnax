@@ -373,6 +373,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
 }) => {
   const isPreview = Task.useIsPreview();
   const reads = PForm.useFieldValue(path.messages);
+  const icdKey = PForm.useFieldValue(path.icd);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
     { optional: true, ctx: format },
@@ -404,7 +405,8 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           />
           {reads.length === 1 && (
             <ICD.MessageFormatField
-              path={path}
+              icdKey={icdKey}
+              message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
             />
