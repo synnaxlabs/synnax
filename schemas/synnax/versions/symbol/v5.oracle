@@ -251,13 +251,13 @@ Paint union on type {
 Motion union on type {
     spin {
         rate  float64 = 0.5 {
-            @doc value """
+            @doc value       """
                 is the turns each second at the upper bound of the state. A negative
                 rate turns the part the other way.
             """
             @validate finite
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 
@@ -265,13 +265,13 @@ Motion union on type {
     }
     flow {
         rate  float64 = 0.5 {
-            @doc value """
+            @doc value       """
                 is the cycles each second at the upper bound of the state. A negative
                 rate moves the dashes the other way.
             """
             @validate finite
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 
