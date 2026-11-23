@@ -39,10 +39,14 @@ const Properties = () => (
   <Asset.Destination path={path.config.asset} devicePath={path.config.device} grow />
 );
 
-// Sift stores only persisted data channels. The query keeps calculated channels, so the
-// select hides them. The Core sends each index on its own.
+// Sift stores only persisted data channels. The Core sends each index on its own.
 const CHANNEL_QUERY: Channel.ListQuery = {
-  where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
+  where: {
+    virtual: false,
+    calculated: false,
+    isIndex: { eq: false },
+    internal: { eq: false },
+  },
 };
 
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
@@ -84,7 +88,6 @@ const Form: FC = () => (
             onChange={onChange}
             preview={preview}
             query={CHANNEL_QUERY}
-            calculatedHidden
             triggerProps={CHANNEL_TRIGGER_PROPS}
             full="x"
           />

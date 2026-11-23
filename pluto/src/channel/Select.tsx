@@ -14,14 +14,12 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { state } from "@synnaxlabs/lyra/state";
 import type { ReactElement, ReactNode } from "react";
 
 import { getCachedPreviewProps, HaulPreview } from "@/channel/HaulPreview";
 import { KindIcon } from "@/channel/KindIcon";
 import { type ListQuery, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
-import { useCalculatedHidden } from "@/channel/useCalculatedHidden";
 import { CSS } from "@/css";
 import type { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -47,14 +45,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<channel.Key, channel.Channel | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children" | "status"
     >,
-    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {
-  /**
-   * Leaves out each channel that a calculation writes, and each channel until its
-   * answer loads. The list shows the status of the lookups while a channel has no
-   * answer, and reports a failed lookup once while it is open.
-   */
-  calculatedHidden?: boolean;
-}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
 
 const isChannel = (entry: unknown): entry is channel.Channel =>
   entry != null && typeof entry === "object" && "payload" in entry;
@@ -92,33 +83,21 @@ export const SelectMultiple = ({
   query,
   filter,
   triggerProps,
-  calculatedHidden = false,
-  initialVisible = false,
-  visible: propsVisible,
-  onVisibleChange,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
-  const [visible, setVisible] = state.usePassthrough({
-    initial: initialVisible,
-    value: propsVisible,
-    onChange: onVisibleChange,
-  });
   const { data, getItem, subscribe, more, search, status } = useList({ query, filter });
-  const hidden = useCalculatedHidden(data, visible, calculatedHidden);
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
       onFetchMore={more}
       onSearch={search}
-      status={hidden.status ?? status}
+      status={status}
       icon={<Icon.Channel />}
       triggerProps={withDefaults(client, triggerProps)}
-      visible={visible}
-      onVisibleChange={setVisible}
       {...rest}
       resourceName="channel"
-      data={hidden.data}
+      data={data}
       getItem={getItem}
       subscribe={subscribe}
     >

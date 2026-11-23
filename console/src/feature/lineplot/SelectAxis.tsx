@@ -21,7 +21,7 @@ import { CSS } from "@/platform/css";
 const SEARCH_QUERY: Channel.ListQuery = {
   where: {
     not: { dataType: { in: [DataType.STRING, DataType.JSON, DataType.UUID] } },
-    virtual: false,
+    or: [{ virtual: false }, { calculated: true }],
   },
 };
 
