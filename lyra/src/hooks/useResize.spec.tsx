@@ -11,25 +11,47 @@ import { act, render, renderHook } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useResize, type UseResizeHandler, useWindowResize } from "@/hooks";
+import {
+  useCombinedRefs,
+  useResize,
+  type UseResizeHandler,
+  useWindowResize,
+} from "@/hooks";
 
-const Observed = ({ onResize }: { onResize: UseResizeHandler }): ReactElement => (
+interface ObservedProps {
+  onResize: UseResizeHandler;
+  enabled?: boolean;
+}
+
+const Observed = ({ onResize }: ObservedProps): ReactElement => (
   <div ref={useResize(onResize)} />
+);
+
+/** Attaches through useCombinedRefs, whose ref callback never changes. */
+const Combined = ({ onResize, enabled }: ObservedProps): ReactElement => (
+  <div ref={useCombinedRefs(useResize(onResize, { enabled }))} />
 );
 
 describe("useResize", () => {
   let Base: typeof ResizeObserver;
   let created = 0;
+  let disconnected = 0;
 
   beforeEach(() => {
     Base = globalThis.ResizeObserver;
     created = 0;
+    disconnected = 0;
     vi.stubGlobal(
       "ResizeObserver",
       class extends Base {
         constructor(callback: ResizeObserverCallback) {
           super(callback);
           created++;
+        }
+
+        override disconnect(): void {
+          super.disconnect();
+          disconnected++;
         }
       },
     );
@@ -58,6 +80,34 @@ describe("useResize", () => {
     created = 0;
     rerender(<Observed onResize={vi.fn()} />);
     expect(created).toBe(1);
+  });
+
+  describe("with a stable ref callback", () => {
+    it("should replace the observer when the handler changes", () => {
+      const { rerender } = render(<Combined onResize={vi.fn()} />);
+      created = 0;
+      rerender(<Combined onResize={vi.fn()} />);
+      expect(created).toBe(1);
+      expect(disconnected).toBe(1);
+    });
+
+    it("should disconnect the observer when disabled", () => {
+      const onResize = vi.fn();
+      const { rerender } = render(<Combined onResize={onResize} />);
+      created = 0;
+      rerender(<Combined onResize={onResize} enabled={false} />);
+      expect(created).toBe(0);
+      expect(disconnected).toBe(1);
+    });
+
+    it("should create one observer when enabled again", () => {
+      const onResize = vi.fn();
+      const { rerender } = render(<Combined onResize={onResize} />);
+      rerender(<Combined onResize={onResize} enabled={false} />);
+      created = 0;
+      rerender(<Combined onResize={onResize} />);
+      expect(created).toBe(1);
+    });
   });
 });
 
