@@ -1,0 +1,164 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { schematic } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type FC, memo, type ReactElement } from "react";
+
+import { Color } from "@/color";
+import { CSS } from "@/css";
+import { BUILT_INS } from "@/schematic/node/builtIns";
+import { Custom } from "@/schematic/node/common/custom";
+import { Grid } from "@/schematic/node/common/grid";
+import { Label } from "@/schematic/node/common/label";
+import { Primitive } from "@/schematic/node/common/primitive";
+import { Stale } from "@/schematic/node/common/stale";
+import type { NodeProps, PreviewProps, Spec } from "@/schematic/node/spec";
+import { bindSpec, sources, values } from "@/schematic/node/symbol/bind";
+import { Symbol } from "@/schematic/symbol";
+import { SymbolNode } from "@/vis/symbolNode";
+
+export const SYMBOL_VARIANT = "symbol";
+
+type Config = schematic.SymbolNodeConfig;
+
+interface Resolved {
+  spec?: schematic.symbol.Spec;
+  builtIn: boolean;
+  missing: boolean;
+}
+
+const useSpec = (ref: schematic.symbol.Ref): Resolved => {
+  const custom = Symbol.useResolved(ref.type === "custom" ? ref.key : null);
+  switch (ref.type) {
+    case "builtin": {
+      const spec = BUILT_INS.get(ref.name);
+      return { spec, builtIn: true, missing: spec == null };
+    }
+    case "custom":
+      return { spec: custom.symbol?.data, builtIn: false, missing: custom.missing };
+    case "missing":
+      return { builtIn: false, missing: true };
+  }
+};
+
+interface DrawnProps extends Pick<
+  Config,
+  "spec" | "color" | "states" | "orientation" | "scale"
+> {
+  value: Custom.StateValue;
+}
+
+const Drawn = ({
+  spec: ref,
+  color,
+  states,
+  orientation,
+  scale,
+  value,
+}: DrawnProps): ReactElement => {
+  const { spec, builtIn, missing } = useSpec(ref);
+  const bound = spec == null ? undefined : bindSpec(spec, states);
+  const [nodeColor] = Color.useValues([color]);
+  const paints = Custom.usePaints(bound, value, undefined, nodeColor);
+  const invalid = bound != null && !builtIn && !Custom.isValidSVG(bound.drawing.markup);
+  if (missing || invalid)
+    return (
+      <Note.Note variant="warning">
+        <Text.Text level="p" status="warning">
+          <Icon.Warning />
+          {missing ? "Missing symbol" : "Invalid symbol"}
+        </Text.Text>
+      </Note.Note>
+    );
+  return (
+    <Primitive.Div orientation={orientation} className={CSS.B("symbol")}>
+      {bound != null && (
+        <Custom.Drawing
+          spec={bound}
+          builtIn={builtIn}
+          orientation={orientation}
+          scale={scale}
+          paints={paints}
+        />
+      )}
+    </Primitive.Div>
+  );
+};
+
+const Node = ({
+  nodeKey,
+  config,
+  selected,
+  onConfigChange,
+}: NodeProps<Config>): ReactElement => {
+  const { label, orientation, scale, spec, color, states, stalenessTimeout } = config;
+  const { readings } = SymbolNode.use({
+    aetherKey: nodeKey,
+    sources: sources(states),
+    sinks: {},
+    stalenessTimeout,
+  });
+  const stale = Object.values(readings).some((r) => r.stale);
+  const scaleResize = Grid.useScaleResize(config, onConfigChange);
+  return (
+    <Grid.Grid
+      editable={selected}
+      nodeKey={nodeKey}
+      orientation={orientation}
+      onRotate={onConfigChange}
+      {...scaleResize}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      {stale && <Stale.Indicator />}
+      <Drawn
+        spec={spec}
+        color={color}
+        states={states}
+        orientation={orientation}
+        scale={scale}
+        value={values(states, readings)}
+      />
+    </Grid.Grid>
+  );
+};
+
+const NO_VALUES: Custom.StateValue = new Map();
+
+const Preview = ({
+  spec,
+  color,
+  states,
+  orientation,
+  scale,
+}: PreviewProps<Config>): ReactElement => (
+  <Drawn
+    spec={spec}
+    color={color}
+    states={states}
+    orientation={orientation}
+    scale={scale}
+    value={NO_VALUES}
+  />
+);
+
+/**
+ * symbolSpec draws a symbol node: its symbol, with the looks that the values of its
+ * bound states give it, and the stale indicator while a state is stale.
+ */
+export const symbolSpec: Spec<typeof SYMBOL_VARIANT, Config> = {
+  key: SYMBOL_VARIANT,
+  name: "Symbol",
+  Form: () => null,
+  Node: memo(Node) as FC<NodeProps<Config>>,
+  Preview,
+  zIndex: 4,
+};

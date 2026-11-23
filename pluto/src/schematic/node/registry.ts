@@ -21,11 +21,11 @@ import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
 import { GroupBox } from "@/schematic/node/groupBox";
-import { SYMBOL_VARIANT, symbolSpec } from "@/schematic/node/placeholder";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
 import type { Spec } from "@/schematic/node/spec";
+import { SYMBOL_VARIANT, symbolSpec } from "@/schematic/node/symbol/spec";
 import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
 
@@ -43,20 +43,6 @@ export const REGISTRY = {
   group_box: GroupBox.spec,
   symbol: symbolSpec,
 } as const satisfies Record<schematic.NodeConfigType, unknown>;
-
-/** BUILT_INS maps the name of each built-in symbol to its spec. */
-export const BUILT_INS: ReadonlyMap<string, schematic.symbol.Spec> = new Map(
-  Object.entries({
-    ...Fittings.BUILT_INS,
-    ...Flowmeters.BUILT_INS,
-    ...General.BUILT_INS,
-    ...Process.BUILT_INS,
-    ...Pumps.BUILT_INS,
-    ...Safety.BUILT_INS,
-    ...Valves.BUILT_INS,
-    ...Vessels.BUILT_INS,
-  }),
-);
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
