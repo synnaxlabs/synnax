@@ -96,7 +96,9 @@ class Shape {
   private written?: string | null;
   private cycle?: number;
   private turn?: { of: xy.XY; at: xy.XY };
-  private readonly offers = new Map<Track, Offer>();
+  // offers holds the offer of each track that claims the element, or undefined while
+  // the track draws nothing.
+  private readonly offers = new Map<Track, Offer | undefined>();
 
   constructor(
     readonly el: SVGElement,
@@ -113,6 +115,12 @@ class Shape {
   }
 
   /** Draws the element with the offer of track. */
+  /** Claims the element for track, which draws nothing until it offers. */
+  claim(track: Track): void {
+    if (!this.offers.has(track)) this.offers.set(track, undefined);
+    this.write();
+  }
+
   offer(track: Track, offer: Offer): void {
     this.offers.set(track, offer);
     this.write();
@@ -147,12 +155,13 @@ class Shape {
     let offset: xy.XY | undefined;
     const turns: { angle: number; at: xy.XY }[] = [];
     for (const kind of ORDER) {
-      let won: [Track, Offer] | undefined;
+      let won: [Track, Offer | undefined] | undefined;
       for (const entry of this.offers)
         if (entry[0].kind === kind && (won == null || entry[0].order > won[0].order))
           won = entry;
       if (won == null) continue;
       const [track, offer] = won;
+      if (offer == null) continue;
       if (typeof offer === "string") return offer;
       if (offer.offset != null) offset = xy.translate(offset ?? xy.ZERO, offer.offset);
       if (offer.angle == null) continue;
@@ -413,9 +422,9 @@ class Track {
 
   set({ value, reads, order }: Effect, ctx: Context, fresh: boolean): void {
     this.motion = value;
-    const reordered = !fresh && order !== this.order;
+    const reordered = order !== this.order;
     this.order = order;
-    if (reordered) this.draw();
+    if (fresh || reordered) for (const shape of this.shapes) shape.claim(this);
     const state = "state" in value ? value.state : undefined;
     const { speed, held } = this.entry;
     if (speed == null) {
