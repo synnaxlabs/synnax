@@ -30,28 +30,22 @@ import type { ChannelRetriever } from "@/framer/adapter";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import type { join } from "@/framer/cache/join";
-import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import { reader as cacheReader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { store as cacheStore } from "@/framer/cache/store";
-import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
-import {
-  isCut,
-  tileKey,
-  type TileReader,
-  tileRequestKey,
-  type TileSpec,
-} from "@/framer/cache/tile";
+import type { streamer as cacheStreamer } from "@/framer/cache/streamer";
+import { tile as cacheTile } from "@/framer/cache/tile";
 import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import type { PointsLimit, Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
-export interface PointsProps {
+export interface Props {
   store: cacheStore.Store;
   joins: join.Joins;
-  reader: Reader;
-  tiles: TileReader;
-  streamer: MultiplexedStreamer;
+  reader: cacheReader.Reader;
+  tiles: cacheTile.Reader;
+  streamer: cacheStreamer.Multiplexed;
   joiner: join.Joiner;
   retrieveChannels: ChannelRetriever;
   /** Reads the newest count stored samples of each channel in the time range. */
@@ -62,7 +56,7 @@ export interface PointsProps {
 }
 
 interface Held {
-  spec: TileSpec;
+  spec: cacheTile.Spec;
   series: MultiSeries;
   // The cached tile, when the read cached one.
   block?: cacheBlock.Block;
@@ -80,7 +74,7 @@ interface Memo {
 
 // The stream and join of a window that reaches past the commit point.
 interface Live {
-  demand: Demand;
+  demand: cacheStreamer.Demand;
   leave: destructor.Destructor;
   keys: channel.Key[];
 }
@@ -155,7 +149,7 @@ export class Points {
   private tileKeys: string | null = null;
 
   constructor(
-    private readonly props: PointsProps,
+    private readonly props: Props,
     readonly key: channel.Key,
     private window: Window,
     private limit: PointsLimit,
@@ -182,7 +176,7 @@ export class Points {
   // it.
   private get streaming(): boolean {
     if (this.dynamic) return true;
-    return this.home().end.after(this.props.now().sub(COMMIT_MARGIN));
+    return this.home().end.after(this.props.now().sub(cacheReader.COMMIT_MARGIN));
   }
 
   /**
@@ -285,7 +279,7 @@ export class Points {
       this.raw = this.raw.filter((s) => s.dataType.equals(dataType));
     }
     this.pin(home);
-    const loaded = targets.every((spec) => this.held.has(tileRequestKey(spec)));
+    const loaded = targets.every((spec) => this.held.has(cacheTile.requestKey(spec)));
     if (this.loading && !filling && loaded) this.loading = false;
     const snapshot = {
       series: new MultiSeries(series),
@@ -307,8 +301,8 @@ export class Points {
   // Returns when the clock next moves the window across a grid edge that changes its
   // raw blocks, its tiles, or the commit point.
   private edgeAfter(now: TimeStamp, home: TimeRange): bigint {
-    const margin = COMMIT_MARGIN.valueOf();
-    const committed = now.sub(COMMIT_MARGIN);
+    const margin = cacheReader.COMMIT_MARGIN.valueOf();
+    const committed = now.sub(cacheReader.COMMIT_MARGIN);
     let until = nextEdge(now, cacheBlock.RAW_LEVEL);
     const commit = nextEdge(committed, cacheBlock.RAW_LEVEL) + margin;
     if (commit < until) until = commit;
@@ -373,7 +367,7 @@ export class Points {
       ...this.targets(view, home, extremesKept),
       ...this.targets(view, home, false, this.rawFrom(home)),
     ]
-      .map((spec) => tileRequestKey(spec))
+      .map((spec) => cacheTile.requestKey(spec))
       .join();
   }
 
@@ -479,7 +473,7 @@ export class Points {
   // of a static window once the end commits. Raw samples never start before the floor
   // of the store.
   private rawFrom(home: TimeRange): TimeStamp {
-    const committed = this.props.now().sub(COMMIT_MARGIN);
+    const committed = this.props.now().sub(cacheReader.COMMIT_MARGIN);
     if (!this.dynamic && !home.end.after(committed)) return home.end;
     const floor = this.floor()?.start ?? TimeStamp.MIN;
     const level = grid.level(home);
@@ -537,7 +531,7 @@ export class Points {
     home: TimeRange,
     extremesKept: boolean,
     boundary: TimeStamp = this.boundary,
-  ): TileSpec[] {
+  ): cacheTile.Spec[] {
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
@@ -591,7 +585,7 @@ export class Points {
     const keys: string[] = [];
     for (let i = this.steps.length - 1; i >= 0; i--) {
       const next = this.targets(view, home, false, this.steps[i]);
-      const stepKeys = next.map((spec) => tileRequestKey(spec));
+      const stepKeys = next.map((spec) => cacheTile.requestKey(spec));
       if (stepKeys.every((k) => this.held.has(k))) {
         this.boundary = this.steps[i];
         this.steps = this.steps.slice(i + 1);
@@ -626,10 +620,10 @@ export class Points {
   }
 
   // Chooses the held tiles that draw the targets, standing in for the missing ones.
-  private select(targets: TileSpec[], home: TimeRange): Held[] {
+  private select(targets: cacheTile.Spec[], home: TimeRange): Held[] {
     if (targets.length === 0) return [];
     const preferred = new Map(
-      targets.map((t) => [grid.positionKey(t), tileRequestKey(t)]),
+      targets.map((t) => [grid.positionKey(t), cacheTile.requestKey(t)]),
     );
     // A held tile that reaches past tilesEnd covers raw samples the window still draws.
     const raw = this.rawRange(home);
@@ -648,15 +642,15 @@ export class Points {
   // Releases the tiles the window no longer draws. The tiles of the window keep, and so
   // do the tiles that stand in for targets until they arrive.
   private prune(
-    targets: TileSpec[],
+    targets: cacheTile.Spec[],
     chosen: Held[],
     next: string[],
     home: TimeRange,
     extremesKept: boolean,
   ): void {
     const keep = new Set([
-      ...chosen.map((t) => tileRequestKey(t.spec)),
-      ...targets.map((t) => tileRequestKey(t)),
+      ...chosen.map((t) => cacheTile.requestKey(t.spec)),
+      ...targets.map((t) => cacheTile.requestKey(t)),
       ...next,
       ...this.homeKeys(home, extremesKept),
     ]);
@@ -667,21 +661,21 @@ export class Points {
   private homeKeys(home: TimeRange, extremesKept: boolean): string[] {
     const targets = this.targets(home, home, extremesKept);
     const preferred = new Map(
-      targets.map((t) => [grid.positionKey(t), tileRequestKey(t)]),
+      targets.map((t) => [grid.positionKey(t), cacheTile.requestKey(t)]),
     );
     return [
       ...preferred.values(),
       ...targets.flatMap((t) => {
         const found = this.find(t, preferred, t.aggregation);
-        return found == null ? [] : [tileRequestKey(found.spec)];
+        return found == null ? [] : [cacheTile.requestKey(found.spec)];
       }),
     ];
   }
 
   // A failed tile waits out the breaker before a later value call requests it again. A
   // definitive rejection stops it until the channel restarts.
-  private request(spec: TileSpec): void {
-    const key = tileRequestKey(spec);
+  private request(spec: cacheTile.Spec): void {
+    const key = cacheTile.requestKey(spec);
     if (
       this.limit.settling === true ||
       this.held.get(key)?.stale === false ||
@@ -698,7 +692,9 @@ export class Points {
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
-        const block = isCut(spec) ? undefined : store.get(tileKey(spec));
+        const block = cacheTile.isCut(spec)
+          ? undefined
+          : store.get(cacheTile.storeKey(spec));
         this.held.set(key, { spec, series, block, stale: false });
         this.tileBreaker.reset();
         this.readFailure = null;
@@ -753,7 +749,7 @@ export class Points {
     const stored = new TimeRange(TimeStamp.max(tr.start, kept), tr.end);
     // A waiting join's catch-up read fills the blocks from its first held sample on.
     const joinFrom = this.streaming
-      ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
+      ? this.props.joins.catchUpFrom(this.key, now.sub(cacheReader.COMMIT_MARGIN))
       : Infinity;
     const current = cacheBlock.rawIndex(now);
     const blocks: cacheBlock.Raw[] = [];

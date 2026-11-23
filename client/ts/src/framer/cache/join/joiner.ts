@@ -18,16 +18,16 @@ import {
 import type { channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
 import type { Joins, Wait } from "@/framer/cache/join/join";
-import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import { reader as cacheReader } from "@/framer/cache/reader";
 import { NO_HISTORY, READ_FAILED } from "@/framer/cache/status";
-import type { MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { status } from "@/status";
 
 export interface JoinerProps {
   joins: Joins;
-  reader: Reader;
-  streamer: MultiplexedStreamer;
+  reader: cacheReader.Reader;
+  streamer: cacheStreamer.Multiplexed;
   now: () => TimeStamp;
   /** Retry behavior for failed catch-up reads. */
   breaker?: breaker.Config;
@@ -144,7 +144,7 @@ export class Joiner {
               const stop =
                 left[i] == null ? signal : AbortSignal.any([signal, left[i]]);
               await streamer.waitAcked(k === index ? [k] : [k, index], stop);
-              const from = joins.catchUpFrom(k, now().sub(COMMIT_MARGIN));
+              const from = joins.catchUpFrom(k, now().sub(cacheReader.COMMIT_MARGIN));
               releases.push(await reader.catchUp(k, from));
             }),
           );

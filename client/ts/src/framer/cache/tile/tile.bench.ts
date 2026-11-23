@@ -14,7 +14,7 @@ import { test } from "vitest";
 import type { channel } from "@/channel";
 import { grid } from "@/framer/cache/grid";
 import { store as cacheStore } from "@/framer/cache/store";
-import { tileKey, TileReader, type TileSpec } from "@/framer/cache/tile";
+import { tile } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
 
 // One week of 1kHz data. A plot 1000 pixels wide that shows the last day of it draws
@@ -27,15 +27,15 @@ const POINT_LIMIT = 1024;
 const createCore = (channels: number): SyntheticCore =>
   new SyntheticCore({ rate: 1000, start: START, now: NOW, channels });
 
-const createReader = (core: SyntheticCore, budget?: Size): TileReader =>
-  new TileReader({
+const createReader = (core: SyntheticCore, budget?: Size): tile.Reader =>
+  new tile.Reader({
     readRemote: async (tr, keys, reduction) => core.read(tr, keys, reduction),
     batchDebounce: TimeSpan.ZERO,
     store: new cacheStore.Store({ budget }),
   });
 
 // specs returns the tiles of the last day for the index and every data channel.
-const specs = (core: SyntheticCore, tiles = 3): TileSpec[] => {
+const specs = (core: SyntheticCore, tiles = 3): tile.Spec[] => {
   const last = Number(NOW.valueOf() / grid.tileSpan(LEVEL).valueOf());
   const keys: channel.Key[] = [core.index.key, ...core.data.map((c) => c.key)];
   return Array.from({ length: tiles }, (_, i) => last - tiles + 1 + i).flatMap(
@@ -50,7 +50,7 @@ const specs = (core: SyntheticCore, tiles = 3): TileSpec[] => {
   );
 };
 
-const readAll = async (reader: TileReader, all: TileSpec[]): Promise<void> => {
+const readAll = async (reader: tile.Reader, all: tile.Spec[]): Promise<void> => {
   await Promise.all(all.map(async (spec) => await reader.read(spec)));
 };
 
@@ -99,7 +99,7 @@ const CYCLE = 20_000;
 
 const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   const core = createCore(1);
-  const spec = (index: number): TileSpec => ({
+  const spec = (index: number): tile.Spec => ({
     key: core.data[0].key,
     level: HELD_LEVEL,
     index,
@@ -120,7 +120,7 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   const store = new cacheStore.Store({
     budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
   });
-  const reader = new TileReader({
+  const reader = new tile.Reader({
     readRemote: async (tr, keys, reduction) => {
       remoteReads++;
       return core.read(tr, keys, reduction);
@@ -129,7 +129,7 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
     store,
   });
   await readAll(reader, heldSpecs);
-  heldSpecs.forEach((s) => store.get(tileKey(s))!.pins++);
+  heldSpecs.forEach((s) => store.get(tile.storeKey(s))!.pins++);
   let n = 0;
   const insert = async (): Promise<void> => {
     const batch = Array.from({ length: INSERTS }, () =>
@@ -139,7 +139,7 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   };
   // Inserts past the spare budget reach the state where every insert evicts.
   for (let i = 0; i < Math.max(held, INSERTS); i += INSERTS) await insert();
-  const readsFrom = async (s: TileSpec): Promise<number> => {
+  const readsFrom = async (s: tile.Spec): Promise<number> => {
     const before = remoteReads;
     await reader.read(s);
     return remoteReads - before;

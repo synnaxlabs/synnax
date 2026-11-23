@@ -15,7 +15,7 @@ import type { channel } from "@/channel";
 import type { framer } from "@/framer";
 import { join } from "@/framer/cache/join";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { createKeys, createSequence } from "@/framer/testutil";
 
 class StubStreamer implements framer.Streamer {
@@ -78,7 +78,7 @@ const runIngest = async (
   let drained = (): void => undefined;
   const done = new Promise<void>((res) => (drained = res));
   const stub = new StubStreamer(frames, keys, () => drained());
-  const streamer = new MultiplexedStreamer({
+  const streamer = new cacheStreamer.Multiplexed({
     store,
     joins: new join.Joins(store),
     onWait: () => {},

@@ -26,9 +26,9 @@ import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { block } from "@/framer/cache/block";
 import { join } from "@/framer/cache/join";
-import { Latest, type LatestProps } from "@/framer/cache/latest";
+import { latest as cacheLatest } from "@/framer/cache/latest";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { UnsupportedError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
@@ -44,7 +44,7 @@ const createLatest = (
   onRetrieve: () => void | Promise<void> = () => {},
 ) => {
   const store = new cacheStore.Store({ now: core.now });
-  const streamer = new MultiplexedStreamer({
+  const streamer = new cacheStreamer.Multiplexed({
     store,
     joins: new join.Joins(store),
     onWait: () => {},
@@ -52,7 +52,7 @@ const createLatest = (
     removalDelay: TimeSpan.ZERO,
   });
   let reads = 0;
-  const props: LatestProps = {
+  const props: cacheLatest.Props = {
     store,
     streamer,
     retrieveChannels: async (keys) => {
@@ -74,11 +74,17 @@ const createLatest = (
   };
   const open = (
     count: number,
-    notify: (l: Latest) => void = () => {},
+    notify: (l: cacheLatest.Latest) => void = () => {},
     key = core.data[0].key,
     window?: Window,
-  ): Latest => {
-    const latest: Latest = new Latest(props, key, window, count, () => notify(latest));
+  ): cacheLatest.Latest => {
+    const latest: cacheLatest.Latest = new cacheLatest.Latest(
+      props,
+      key,
+      window,
+      count,
+      () => notify(latest),
+    );
     return latest;
   };
   return {
@@ -99,7 +105,7 @@ const createCore = (derived = false): SyntheticCore =>
   });
 
 // Returns the timestamps of the snapshot's samples.
-const timesOf = (latest: Latest): bigint[] =>
+const timesOf = (latest: cacheLatest.Latest): bigint[] =>
   Array.from(latest.value().series) as bigint[];
 
 describe("Latest", () => {
@@ -570,7 +576,7 @@ describe("Latest", () => {
 
   describe("timeAt", () => {
     // Returns the alignment of every sample the latest holds.
-    const alignmentsOf = (latest: Latest): bigint[] =>
+    const alignmentsOf = (latest: cacheLatest.Latest): bigint[] =>
       latest
         .value()
         .series.series.flatMap((s) =>
@@ -578,12 +584,12 @@ describe("Latest", () => {
         );
 
     // Returns the time of each held sample, or null for a sample timeAt misses.
-    const timedOf = (latest: Latest): (bigint | null)[] =>
+    const timedOf = (latest: cacheLatest.Latest): (bigint | null)[] =>
       alignmentsOf(latest).map((a) => latest.timeAt(a)?.valueOf() ?? null);
 
     // Returns true when every held sample is timed, one period apart, and the newest
     // ends the snapshot.
-    const timedInOrder = (latest: Latest): boolean => {
+    const timedInOrder = (latest: cacheLatest.Latest): boolean => {
       const period = Rate.hz(100).period.valueOf();
       const times = timedOf(latest);
       const end = latest.value().time?.valueOf();

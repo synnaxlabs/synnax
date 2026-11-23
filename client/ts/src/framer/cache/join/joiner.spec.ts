@@ -14,9 +14,9 @@ import { describe, expect, it } from "vitest";
 import type { channel } from "@/channel";
 import { block } from "@/framer/cache/block";
 import { join as cacheJoin } from "@/framer/cache/join";
-import { Reader, type RemoteReader } from "@/framer/cache/reader";
+import { reader as cacheReader } from "@/framer/cache/reader";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { UnsupportedError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
 
@@ -37,7 +37,7 @@ const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
 
 interface JoinerOptions {
   breaker?: breaker.Config;
-  readRemote?: RemoteReader;
+  readRemote?: cacheReader.Remote;
   budget?: Size;
 }
 
@@ -52,14 +52,14 @@ const createJoiner = (
 ) => {
   const store = new cacheStore.Store({ now: core.now, budget });
   const joins = new cacheJoin.Joins(store);
-  const reader = new Reader({
+  const reader = new cacheReader.Reader({
     readRemote,
     retrieveChannels: core.retrieveChannels,
     store,
     batchDebounce: TimeSpan.milliseconds(5),
     now: core.now,
   });
-  const streamer = new MultiplexedStreamer({
+  const streamer = new cacheStreamer.Multiplexed({
     store,
     joins,
     onWait: (indexes) => joiner.wake(indexes),

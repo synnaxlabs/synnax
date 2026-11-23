@@ -23,7 +23,7 @@ import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { join } from "@/framer/cache/join";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { NotFoundError, UnexpectedError } from "@/index";
 
 // Returns the stores a streamer writes into, with no join that can wait.
@@ -147,10 +147,10 @@ const oneFrameStreamer = (keys: channel.Key[], frame: framer.Frame): MockStreame
 const createStreamOpener =
   (
     streamers: MockStreamer[],
-    hooksOut?: StreamHooks[],
+    hooksOut?: cacheStreamer.Hooks[],
   ): ((
     config: framer.StreamerConfig,
-    hooks: StreamHooks,
+    hooks: cacheStreamer.Hooks,
   ) => Promise<framer.Streamer>) =>
   async (_, hooks) => {
     hooksOut?.push(hooks);
@@ -159,7 +159,7 @@ const createStreamOpener =
     return streamer;
   };
 
-describe("MultiplexedStreamer", () => {
+describe("Multiplexed", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -185,7 +185,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should stream every other key when the open rejects one", async () => {
       const opened: channel.Key[][] = [];
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
@@ -207,7 +207,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should stream a key opened after a rejected one", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
@@ -224,7 +224,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should keep a rejected key's error when no other key is demanded", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: async () => {
           throw new NotFoundError(`channel ${BAD} not found`);
@@ -238,8 +238,8 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should give each opened stream its own abort signal", async () => {
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener(
           [pendingStreamer([1]), pendingStreamer([1])],
@@ -262,7 +262,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should keep streaming when an update adds a rejected key", async () => {
       const ms = rejectingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
         instrumentation: createErrorSpy().instrumentation,
@@ -280,7 +280,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should narrow a rejected key without waiting between attempts", async () => {
       const ms = rejectingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
         instrumentation: createErrorSpy().instrumentation,
@@ -304,7 +304,7 @@ describe("MultiplexedStreamer", () => {
         if ((next as channel.Key[]).includes(BAD)) attempts++;
         await update(next);
       };
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
         removalDelay: TimeSpan.milliseconds(10),
@@ -327,7 +327,7 @@ describe("MultiplexedStreamer", () => {
 
   describe("construction", () => {
     it("should correctly construct a new streamer that operates", () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([new MockStreamer([])]),
       });
@@ -338,7 +338,7 @@ describe("MultiplexedStreamer", () => {
   describe("basic operation", () => {
     it("should allow the caller to subscribe to changes from a channel", async () => {
       let i = 0;
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([
           new MockStreamer([1], async () => {
@@ -394,7 +394,7 @@ describe("MultiplexedStreamer", () => {
         resolve?.({ done: true, value: undefined });
         origClose();
       };
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
@@ -421,7 +421,7 @@ describe("MultiplexedStreamer", () => {
         return next;
       };
 
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: slowOpener,
       });
@@ -447,7 +447,7 @@ describe("MultiplexedStreamer", () => {
   describe("update timing", () => {
     it("should open the stream on the next task after the first subscription", async () => {
       const open = vi.fn(createStreamOpener([pendingStreamer([1])]));
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: open,
       });
@@ -460,7 +460,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should open one stream with every key subscribed in the same task", async () => {
       const open = vi.fn(createStreamOpener([pendingStreamer([1, 2, 3])]));
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: open,
       });
@@ -478,7 +478,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should update the stream at most once per 100 ms while demand keeps changing", async () => {
       const ms = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
@@ -504,7 +504,7 @@ describe("MultiplexedStreamer", () => {
         openCalls++;
         return pendingStreamer([1]);
       };
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: opener,
       });
@@ -524,7 +524,7 @@ describe("MultiplexedStreamer", () => {
         await sleep.sleep(TimeSpan.milliseconds(300));
         return ms1;
       };
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: slowOpener,
       });
@@ -543,7 +543,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should close the underlying streamer when the last listener disconnects", async () => {
       const ms1 = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.milliseconds(50),
@@ -562,7 +562,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should release a subscription closed twice", async () => {
       const ms1 = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.milliseconds(50),
@@ -579,7 +579,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should throw when demand() is called after close()", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([]),
       });
@@ -591,7 +591,7 @@ describe("MultiplexedStreamer", () => {
   describe("update path", () => {
     it("should not call update again when the merged key set is unchanged", async () => {
       const ms1 = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms1]),
       });
@@ -624,7 +624,7 @@ describe("MultiplexedStreamer", () => {
       const onRejection = (reason: unknown) => rejections.push(reason);
       process.on("unhandledRejection", onRejection);
 
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         instrumentation,
@@ -659,7 +659,7 @@ describe("MultiplexedStreamer", () => {
       // stream that dies. The streamer must detect the dead loop and reopen.
       const dying = new MockStreamer([1], undefined, [frame]);
       const replacement = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
@@ -678,7 +678,7 @@ describe("MultiplexedStreamer", () => {
       const { promise: updateGate, resolve: releaseUpdate } =
         Promise.withResolvers<void>();
       dying.update = async () => await updateGate;
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
@@ -719,7 +719,7 @@ describe("MultiplexedStreamer", () => {
         });
       };
       const { instrumentation, errorSpy } = createErrorSpy();
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: opener,
         instrumentation,
@@ -748,7 +748,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should notify remaining status handlers when one throws", async () => {
       const { instrumentation, errorSpy } = createErrorSpy();
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
         instrumentation,
@@ -776,8 +776,8 @@ describe("MultiplexedStreamer", () => {
 
   describe("connection health", () => {
     it("should report reconnecting on drop and streaming on reopen", async () => {
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
@@ -796,8 +796,8 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should run the drop handlers of open demands when the stream drops", async () => {
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
@@ -816,7 +816,7 @@ describe("MultiplexedStreamer", () => {
     it("should run the drop handlers when the run loop dies", async () => {
       const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
       const dying = new MockStreamer([1], undefined, [frame]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([dying, pendingStreamer([1])]),
       });
@@ -833,7 +833,7 @@ describe("MultiplexedStreamer", () => {
   describe("acks", () => {
     it("should resolve a wait once the stream acks every key", async () => {
       const ms = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
@@ -852,8 +852,8 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should wait again after a drop until the stream reopens", async () => {
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
@@ -872,7 +872,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should reject a wait with the Core's rejection of a key", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: async () => {
           throw new NotFoundError("channel 3 not found");
@@ -889,7 +889,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should remove a wait's abort listener when the wait settles", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
       });
@@ -906,7 +906,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should reject a wait when its signal aborts or the streamer closes", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
       });
@@ -947,7 +947,7 @@ describe("MultiplexedStreamer", () => {
     it("should close a channel's open block when its demand ends", async () => {
       const cache = createJoined(1);
       const { store } = cache;
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener([
           oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() })),
@@ -979,8 +979,8 @@ describe("MultiplexedStreamer", () => {
           isIndex: true,
         }).payload,
       );
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener(
           [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
@@ -1021,8 +1021,8 @@ describe("MultiplexedStreamer", () => {
           isIndex: true,
         }).payload,
       );
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener(
           [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
@@ -1052,7 +1052,7 @@ describe("MultiplexedStreamer", () => {
     it("should close only the blocks of the keys that left the stream", async () => {
       const cache = createJoined(1, 2);
       const { store } = cache;
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener([
           oneFrameStreamer(
@@ -1080,8 +1080,8 @@ describe("MultiplexedStreamer", () => {
     it("should close open blocks when the stream drops", async () => {
       const cache = createJoined(1);
       const { store } = cache;
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener(
           [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
@@ -1106,7 +1106,7 @@ describe("MultiplexedStreamer", () => {
         new framer.Frame({ 1: createTimestamps() }),
       ]);
       const replacement = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...cache,
         openStreamer: createStreamOpener([dying, replacement]),
       });
@@ -1137,7 +1137,7 @@ describe("MultiplexedStreamer", () => {
         // teardown await hangs.
         return await new Promise<IteratorResult<framer.Frame>>(() => {});
       });
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([stuck, pendingStreamer([2])]),
         removalDelay: TimeSpan.milliseconds(50),
@@ -1162,7 +1162,7 @@ describe("MultiplexedStreamer", () => {
   describe("close path", () => {
     it("should cancel a pending removal timer on close", async () => {
       const ms1 = pendingStreamer([1]);
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.seconds(5),
@@ -1177,7 +1177,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should cancel a pending stream update on close", async () => {
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
       });
@@ -1201,7 +1201,7 @@ describe("MultiplexedStreamer", () => {
         openCalls++;
         return ms1;
       };
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),
         openStreamer: opener,
         instrumentation,
