@@ -91,9 +91,12 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ) as Look[F] | undefined,
     onChange: (v) => {
       const spec = get(path.data).value;
-      // A stored static symbol can hold looks at Base, which an edit at every value
-      // would not reach, so setVariant first moves them to every value.
-      const from = spec.variant === "static" ? Spec.setVariant(spec, "static") : spec;
+      // A stored static symbol can hold looks on Base, which an edit at every value
+      // would not reach.
+      const from =
+        spec.variant === "static"
+          ? { ...spec, looks: Spec.staticLooks(spec.looks) }
+          : spec;
       set(path.data, Spec.setOwn(from, part, field.field, v, at));
     },
   };
