@@ -24,7 +24,6 @@ from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
     CountLimitedResponse,
     Cursor,
-    Operation,
     Order,
     Payload,
     RetrieveBuiltInsResponse,
@@ -70,15 +69,12 @@ class Channel(Payload):
         index: Key = 0,
         leaseholder: node.Key = 0,
         key: Key = 0,
-        virtual: bool | None = None,
+        virtual: bool = False,
         internal: bool = False,
-        expression: str = "",
-        operations: list[Operation] | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
         uses: list[Use] | None = None,
-        calculated: bool = False,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -96,27 +92,16 @@ class Channel(Payload):
         know what this is, leave it at the default value of 0.
         :param virtual: Boolean indicating whether the channel is virtual. Virtual
         channels do not store any data, and are used for streaming purposes only.
-        :param expression: An optional Lua expression that defines the channel as a
-        calculation of another channel. If this is set, the channel will be
-        automatically configured as virtual.
         :param internal: Boolean indicating whether the channel is internal. Internal
         channels are not visible to the user and are used for internal purposes only.
-        :param operations: A list of operations to apply to the channel. Operations
-        include aggregations like min, max, avg over a time duration or triggered by
-        a reset channel.
         :param group: The group the channel sits in, if any.
         :param uses: The records that read or write the channel, set only when a
             retrieve asks for them.
-        :param calculated: Whether a calculation writes the channel. The Core sets it.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
-        if operations is None:
-            operations = []
-        if virtual is None:
-            virtual = len(expression) > 0
         super().__init__(
             data_type=DataType(data_type),
             name=name,
@@ -126,13 +111,10 @@ class Channel(Payload):
             index=index,
             internal=internal,
             virtual=virtual,
-            expression=expression,
-            operations=operations,
             concurrency=concurrency,
             status=status,
             group=group,
             uses=uses,
-            calculated=calculated,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -219,10 +201,7 @@ class Channel(Payload):
             is_index=self.is_index,
             virtual=self.virtual,
             internal=self.internal,
-            expression=self.expression,
-            operations=self.operations,
             group=self.group,
-            calculated=self.calculated,
         )
 
 
@@ -284,9 +263,7 @@ class Client:
         index: Key = 0,
         is_index: bool = False,
         leaseholder: node.Key = 0,
-        virtual: bool | None = None,
-        expression: str = "",
-        operations: list[Operation] | None = None,
+        virtual: bool = False,
         group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
@@ -310,9 +287,7 @@ class Client:
         is_index: bool = False,
         index: Key = 0,
         leaseholder: node.Key = 0,
-        virtual: bool | None = None,
-        expression: str = "",
-        operations: list[Operation] | None = None,
+        virtual: bool = False,
         group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
@@ -328,12 +303,8 @@ class Client:
         :param leaseholder: The node that holds the lease for this channel. If you don't
         know what this is, leave it at the default value of 0.
         :param virtual: Boolean indicating whether the channel is virtual. Virtual
-        channels do not store any data, and are used for streaming purposes only.
-        :param expression: An optional expression that defines the channel as a
-        calculation of another channel. If this is set, the channel will be
-        automatically configured as virtual.
-        set if expression is not an empty string. If expression is not an empty string,
-        this should have at least one channel.
+        channels do not store any data, and are used for streaming purposes only. To
+        compute a channel from others, use ``client.calculations.create``.
         :param group: The group to create the channel in, if any.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
@@ -358,8 +329,6 @@ class Client:
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
-            if operations is None:
-                operations = []
             _channels = [
                 Payload(
                     name=name,
@@ -367,9 +336,7 @@ class Client:
                     data_type=DataType(data_type),
                     index=index,
                     is_index=is_index,
-                    virtual=virtual if virtual is not None else len(expression) > 0,
-                    expression=expression,
-                    operations=operations,
+                    virtual=virtual,
                     group=group,
                 )
             ]
@@ -663,22 +630,11 @@ class Client:
         """
         self._creator.set_group(normalize(keys), group)
 
-    def set_expression(self, key: Key, expression: str) -> None:
-        """Sets the expression of a calculated channel. The Core infers the data type
-        of the channel from the new expression.
-
-        :param key: The key of the calculated channel.
-        :param expression: The new expression.
-        :raises NotFoundError: If no channel has the given key.
-        :raises ValidationError: If the channel is not calculated.
-        """
-        self._creator.set_expression(key, expression)
-
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
-        return [
-            Channel(**c.model_dump(), _frame_client=self._frame_client)
-            for c in channels
-        ]
+        sugared = [Channel.model_validate(c.model_dump()) for c in channels]
+        for ch in sugared:
+            ch._cached_frame_client = self._frame_client
+        return sugared
 
 
 def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:

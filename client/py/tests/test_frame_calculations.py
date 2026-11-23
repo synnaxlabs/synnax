@@ -15,6 +15,21 @@ from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually
 
+
+def create_calculated(
+    client: sy.Synnax,
+    *,
+    name: str,
+    expression: str,
+    operations: list[sy.calculation.Operation] | None = None,
+) -> sy.Channel:
+    """Creates a calculation and returns the channel that it writes."""
+    calc = client.calculations.create(
+        name=name, expression=expression, operations=operations
+    )
+    return client.channels.retrieve(calc.output)
+
+
 # Seconds to wait for a written sample to come back through the calculation pipeline.
 READ_TIMEOUT = 5
 
@@ -45,7 +60,8 @@ class TestCalculatedChannelStreaming:
                 ),
             ]
         )
-        calc_channel = client.channels.create(
+        calc_channel = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {src_channels[0].name} + {src_channels[1].name}",
         )
@@ -98,7 +114,8 @@ class TestCalculatedChannelStreaming:
             data_type=sy.DataType.FLOAT32,
             virtual=True,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {virt.name} * 2",
         )
@@ -127,7 +144,8 @@ class TestCalculatedChannelStreaming:
             data_type=sy.DataType.UINT8,
             virtual=True,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {virt.name} * 2",
         )
@@ -170,7 +188,8 @@ class TestCalculatedChannelIteration:
                 data_type=sy.DataType.FLOAT32,
             ),
         )
-        calc_channel = client.channels.create(
+        calc_channel = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {src_channel.name}",
         )
@@ -266,7 +285,8 @@ class TestCalculatedChannelIteration:
                 data_type=sy.DataType.FLOAT32,
             ),
         )
-        calc_channel = client.channels.create(
+        calc_channel = create_calculated(
+            client,
             name=random_name(),
             expression=f"""
             if ({src_channel.name} > 15) {{
@@ -318,7 +338,8 @@ class TestCalculatedChannelIteration:
                 data_type=sy.DataType.FLOAT32,
             ),
         )
-        calc_channel = client.channels.create(
+        calc_channel = create_calculated(
+            client,
             name=random_name(),
             expression=f"""
               if ({src_channel.name} > 15) {{
@@ -379,13 +400,15 @@ class TestCalculatedChannelIteration:
         )
 
         # Create B: calculated channel that depends on concrete channel A (sensor_1)
-        calc_b = client.channels.create(
+        calc_b = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: calculated channel that depends on calculated channel B
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_b.name} + 10",
         )
@@ -441,19 +464,22 @@ class TestCalculatedChannelIteration:
         )
 
         # Create B: depends on sensor_1 (concrete)
-        calc_b = client.channels.create(
+        calc_b = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: depends on B (calculated)
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_b.name} + 5",
         )
 
         # Create D: depends on C (calculated)
-        calc_d = client.channels.create(
+        calc_d = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_c.name} * 3",
         )
@@ -508,19 +534,22 @@ class TestCalculatedChannelIteration:
         )
 
         # Create C: depends on sensor_1 (concrete)
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} + 10",
         )
 
         # Create D: also depends on sensor_1 (concrete)
-        calc_d = client.channels.create(
+        calc_d = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} * 5",
         )
 
         # Create E: depends on both C and D (calculated)
-        calc_e = client.channels.create(
+        calc_e = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
@@ -566,7 +595,7 @@ class TestCalculatedChannelIteration:
 
         # Trying to create a channel that references a non-existent channel fails
         with pytest.raises(Exception, match="undefined symbol"):
-            client.channels.create(
+            client.calculations.create(
                 name="calc_circ_invalid",
                 expression="return nonexistent_channel + 1",
             )
@@ -597,13 +626,15 @@ class TestCalculatedChannelIteration:
         )
 
         # Create calculated channel that depends on both sensors
-        calc_mixed = client.channels.create(
+        calc_mixed = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
 
         # Create nested calculated channel
-        calc_mixed_nested = client.channels.create(
+        calc_mixed_nested = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_mixed.name} * 2",
         )
@@ -663,10 +694,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg")],
+            operations=[sy.calculation.AvgOperation()],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -718,12 +750,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[
-                sy.channel.Operation(type="avg", duration=5 * sy.TimeSpan.SECOND)
-            ],
+            operations=[sy.calculation.AvgOperation(duration=5 * sy.TimeSpan.SECOND)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -769,12 +800,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[
-                sy.channel.Operation(type="min", duration=5 * sy.TimeSpan.SECOND)
-            ],
+            operations=[sy.calculation.MinOperation(duration=5 * sy.TimeSpan.SECOND)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -825,12 +855,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[
-                sy.channel.Operation(type="max", duration=5 * sy.TimeSpan.SECOND)
-            ],
+            operations=[sy.calculation.MaxOperation(duration=5 * sy.TimeSpan.SECOND)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -884,10 +913,11 @@ class TestCalculationOperations:
         reset = client.channels.create(
             name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
+            operations=[sy.calculation.AvgOperation(reset=reset.key)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -938,10 +968,11 @@ class TestCalculationOperations:
         reset = client.channels.create(
             name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="min", reset_channel=reset.key)],
+            operations=[sy.calculation.MinOperation(reset=reset.key)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -992,10 +1023,11 @@ class TestCalculationOperations:
         reset = client.channels.create(
             name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="max", reset_channel=reset.key)],
+            operations=[sy.calculation.MaxOperation(reset=reset.key)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1043,20 +1075,23 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc_min = client.channels.create(
+        calc_min = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="min")],
+            operations=[sy.calculation.MinOperation()],
         )
-        calc_max = client.channels.create(
+        calc_max = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="max")],
+            operations=[sy.calculation.MaxOperation()],
         )
-        calc_avg = client.channels.create(
+        calc_avg = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg")],
+            operations=[sy.calculation.AvgOperation()],
         )
         start = sy.TimeStamp.now()
         with (
@@ -1084,12 +1119,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[
-                sy.channel.Operation(type="avg", duration=3 * sy.TimeSpan.SECOND)
-            ],
+            operations=[sy.calculation.AvgOperation(duration=3 * sy.TimeSpan.SECOND)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1138,14 +1172,13 @@ class TestCalculationOperations:
         reset = client.channels.create(
             name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
             operations=[
-                sy.channel.Operation(
-                    type="avg",
-                    duration=10 * sy.TimeSpan.SECOND,
-                    reset_channel=reset.key,
+                sy.calculation.AvgOperation(
+                    duration=10 * sy.TimeSpan.SECOND, reset=reset.key
                 )
             ],
         )
@@ -1200,20 +1233,23 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc_min = client.channels.create(
+        calc_min = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="min")],
+            operations=[sy.calculation.MinOperation()],
         )
-        calc_max = client.channels.create(
+        calc_max = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="max")],
+            operations=[sy.calculation.MaxOperation()],
         )
-        calc_avg = client.channels.create(
+        calc_avg = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg")],
+            operations=[sy.calculation.AvgOperation()],
         )
         start = sy.TimeStamp.now()
         with (
@@ -1252,10 +1288,11 @@ class TestCalculationOperations:
         reset = client.channels.create(
             name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
+            operations=[sy.calculation.AvgOperation(reset=reset.key)],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1302,10 +1339,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="derivative")],
+            operations=[sy.calculation.DerivativeOperation()],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1339,10 +1377,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="derivative")],
+            operations=[sy.calculation.DerivativeOperation()],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1385,10 +1424,11 @@ class TestCalculationOperations:
         data = client.channels.create(
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="derivative")],
+            operations=[sy.calculation.DerivativeOperation()],
         )
         start = sy.TimeStamp.now()
         with client.open_streamer(calc.key) as streamer:
@@ -1438,7 +1478,8 @@ class TestCalculationsAcrossDomains:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name} * 2",
         )
@@ -1526,12 +1567,14 @@ class TestCalculationsAcrossDomains:
             index=idx.key,
         )
         # B depends on sensor (concrete)
-        calc_b = client.channels.create(
+        calc_b = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_b.name} + 10",
         )
@@ -1621,17 +1664,20 @@ class TestCalculationsAcrossDomains:
             index=idx.key,
         )
         # B depends on sensor (concrete)
-        calc_b = client.channels.create(
+        calc_b = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_b.name} + 5",
         )
         # D depends on C (calculated)
-        calc_d = client.channels.create(
+        calc_d = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_c.name} * 3",
         )
@@ -1733,17 +1779,20 @@ class TestCalculationsAcrossDomains:
             index=idx.key,
         )
         # C depends on sensor
-        calc_c = client.channels.create(
+        calc_c = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} + 10",
         )
         # D also depends on sensor
-        calc_d = client.channels.create(
+        calc_d = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} * 5",
         )
         # E depends on both C and D
-        calc_e = client.channels.create(
+        calc_e = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
@@ -1846,12 +1895,14 @@ class TestCalculationsAcrossDomains:
             index=idx.key,
         )
         # Calculated channel that depends on both sensors
-        calc_mixed = client.channels.create(
+        calc_mixed = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
         # Nested calculated channel
-        calc_nested = client.channels.create(
+        calc_nested = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {calc_mixed.name} * 2",
         )
@@ -1983,7 +2034,8 @@ class TestCalculationsAcrossDomains:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name} * 2",
         )
@@ -2075,7 +2127,8 @@ class TestCalculationsAcrossDomains:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name} + 100",
         )
@@ -2154,15 +2207,18 @@ class TestCalculationsAcrossDomains:
             index=idx.key,
         )
         # Multiple calculations on the same source
-        calc_double = client.channels.create(
+        calc_double = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} * 2",
         )
-        calc_square = client.channels.create(
+        calc_square = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} * {sensor.name}",
         )
-        calc_plus_ten = client.channels.create(
+        calc_plus_ten = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor.name} + 10",
         )
@@ -2254,7 +2310,8 @@ class TestCalculationsAcrossDomains:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"""
             if ({data.name} > 5) {{
@@ -2354,7 +2411,8 @@ class TestCalculationsAcrossDomains:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {sensor_a.name} + {sensor_b.name}",
         )
@@ -2446,10 +2504,11 @@ class TestStatOperationsAlignment:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="avg")],
+            operations=[sy.calculation.AvgOperation()],
         )
 
         # First domain
@@ -2525,10 +2584,11 @@ class TestStatOperationsAlignment:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="min")],
+            operations=[sy.calculation.MinOperation()],
         )
 
         # First domain
@@ -2603,10 +2663,11 @@ class TestStatOperationsAlignment:
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {data.name}",
-            operations=[sy.channel.Operation(type="max")],
+            operations=[sy.calculation.MaxOperation()],
         )
 
         # First domain
@@ -2688,7 +2749,8 @@ class TestStatOperationsAlignment:
                 data_type=sy.DataType.FLOAT32,
             ),
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return 1000 - {src.name}",
         )
@@ -2723,7 +2785,8 @@ class TestStatOperationsAlignment:
                 data_type=sy.DataType.FLOAT32,
             ),
         )
-        calc = client.channels.create(
+        calc = create_calculated(
+            client,
             name=random_name(),
             expression=f"return 1000.0 / {src.name}",
         )
@@ -2769,7 +2832,7 @@ class TestStatOperationsAlignment:
             ),
         )
         with pytest.raises(Exception, match="type mismatch"):
-            client.channels.create(
+            client.calculations.create(
                 name=random_name(),
                 expression=f"return 1000.0 - {f32_ch.name} + {f64_ch.name}",
             )
@@ -2816,65 +2879,78 @@ class TestCalcChannelStress:
 
         # ── CALC CHAIN (4 levels deep) ────────────────────────────────────
         # Level 1: direct operations on source channels
-        c_offset = client.channels.create(
+        c_offset = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {alpha.name} + 10",
         )
-        c_lit_left = client.channels.create(
+        c_lit_left = create_calculated(
+            client,
             name=random_name(),
             expression=f"return 1000 - {alpha.name}",
         )
-        c_scaled = client.channels.create(
+        c_scaled = create_calculated(
+            client,
             name=random_name(),
             expression=f"return 2.5 * {alpha.name}",
         )
-        c_product = client.channels.create(
+        c_product = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {alpha.name} * {beta.name}",
         )
-        c_power = client.channels.create(
+        c_power = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {alpha.name} ^ 2",
         )
-        c_temp_conv = client.channels.create(
+        c_temp_conv = create_calculated(
+            client,
             name=random_name(),
             expression=f"return ({alpha.name} - 32) * 5 / 9",
         )
-        c_inverse = client.channels.create(
+        c_inverse = create_calculated(
+            client,
             name=random_name(),
             expression=f"return 10000.0 / {alpha.name}",
         )
 
         # Calc on the separate index B
-        c_gamma_offset = client.channels.create(
+        c_gamma_offset = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {gamma.name} * 3 + 7",
         )
 
         # Level 2: calcs referencing calcs
-        c_chain2 = client.channels.create(
+        c_chain2 = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {c_offset.name} * 3",
         )
-        c_combo2 = client.channels.create(
+        c_combo2 = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {c_scaled.name} + {c_product.name}",
         )
 
         # Level 3: deeper chain
-        c_deep3 = client.channels.create(
+        c_deep3 = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {c_chain2.name} - {c_lit_left.name}",
         )
 
         # Level 4: deepest - references L3 and L1
-        c_mega4 = client.channels.create(
+        c_mega4 = create_calculated(
+            client,
             name=random_name(),
             expression=f"return ({c_deep3.name} + {c_inverse.name}) / 10",
         )
 
         # Calc referencing the L2 gamma calc (on index B)
-        c_gamma_chain = client.channels.create(
+        c_gamma_chain = create_calculated(
+            client,
             name=random_name(),
             expression=f"return {c_gamma_offset.name} ^ 2",
         )

@@ -127,10 +127,10 @@ class TestIterator:
         idx_ch, data_ch = indexed_pair
         idx_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
         data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
-        calc = client.channels.create(
-            name="calc",
-            expression=f"return 2 * {data_ch.name}",
-            data_type=data_ch.data_type,
+        calc = client.channels.retrieve(
+            client.calculations.create(
+                name=random_name(), expression=f"return 2 * {data_ch.name}"
+            ).output
         )
         data = calc.read(sy.TimeRange.MAX)
         assert np.array_equal(data, np.array([0, 2, 4, 6, 8, 10]))
