@@ -291,144 +291,6 @@ Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a device."
 }
 
-Base struct {
-    key               Key = create {
-        @doc value "uniquely identifies the device."
-        @key
-    }
-    rack              rack.Key    {
-        @doc value     "is the key of the rack the device is connected to."
-        @ref kind      place
-        @ref on_delete restrict
-    }
-    name              string      {
-        @doc value         "is a human-readable name for the device."
-        @filter
-        @search
-        @validate required
-    }
-    serial            uint32      {
-        @doc value         "is the serial number of the device."
-        @filter
-        @index lookup
-        @validate required
-    }
-    connection        Connection  {
-        @doc value "is the connection the scanner last found the device on."
-    }
-    identifier        string = "" {
-        @doc value   """
-            is the prefix of the device's channel names. The device is unconfigured
-            while it is empty.
-        """
-        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
-    }
-    read_index        channel.Key = 0 {
-        @doc value "is the index channel of the channels that the device reads into."
-    }
-    write_state_index channel.Key = 0 {
-        @doc value "is the index channel of the state channels of the device's outputs."
-    }
-    status            Status?     {
-        @doc value  "is the current operational status of the device."
-        @go marshal omit
-        @include
-    }
-
-    @doc value  "carries the fields that every LabJack device shares."
-    @go marshal
-}
-
-Device union on model Model extends Base {
-    t4 {
-        analog_input   map<T4AnalogInputPort, channel.Key> = {} {
-            @doc value """
-                maps an analog input port to the channel that holds its samples.
-            """
-        }
-        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
-            @doc value "maps an analog output port to the channels that write to it."
-        }
-        digital_input  map<T4DigitalPort, channel.Key> = {} {
-            @doc value "maps a digital port to the channel that holds its samples."
-        }
-        digital_output map<T4DigitalPort, CommandStatePair> = {} {
-            @doc value "maps a digital port to the channels that write to it."
-        }
-
-        @doc value "is a T4."
-    }
-    t7 {
-        mux80_attached bool = false {
-            @doc value """
-                is true when a Mux80 is attached, which adds the analog input ports
-                AIN48 to AIN127.
-            """
-        }
-        analog_input   map<T7AnalogInputPort, channel.Key> = {} {
-            @doc value """
-                maps an analog input port to the channel that holds its samples.
-            """
-        }
-        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
-            @doc value "maps an analog output port to the channels that write to it."
-        }
-        digital_input  map<T7DigitalPort, channel.Key> = {} {
-            @doc value "maps a digital port to the channel that holds its samples."
-        }
-        digital_output map<T7DigitalPort, CommandStatePair> = {} {
-            @doc value "maps a digital port to the channels that write to it."
-        }
-
-        @doc value "is a T7."
-    }
-    t8 {
-        analog_input   map<T8AnalogInputPort, channel.Key> = {} {
-            @doc value """
-                maps an analog input port to the channel that holds its samples.
-            """
-        }
-        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
-            @doc value "maps an analog output port to the channels that write to it."
-        }
-        digital_input  map<T8DigitalPort, channel.Key> = {} {
-            @doc value "maps a digital port to the channel that holds its samples."
-        }
-        digital_output map<T8DigitalPort, CommandStatePair> = {} {
-            @doc value "maps a digital port to the channels that write to it."
-        }
-
-        @doc value "is a T8."
-    }
-
-    @create
-    @doc value     "is a LabJack T-series device. Its model selects the ports it has."
-    @go marshal
-    @go migrate
-    @resource type "labjack_device"
-    @retrieve
-}
-
-Identity struct {
-    rack       rack.Key   {
-        @doc value         "is the key of the rack the device is connected to."
-        @validate required
-    }
-    serial     uint32     {
-        @doc value         "is the serial number of the device."
-        @validate required
-    }
-    connection Connection {
-        @doc value "is the connection the scanner last found the device on."
-    }
-    model      Model      {
-        @doc value         "is the model of the device. An update cannot change it."
-        @validate required
-    }
-
-    @doc value "holds the device fields that the scanner owns."
-}
-
 Ports union on model Model {
     t4 {
         analog_input   map<T4AnalogInputPort, channel.Key> = {} {
@@ -491,10 +353,93 @@ Ports union on model Model {
         @doc value "are the ports of a T8."
     }
 
-    @doc value """
+    @doc value  """
         holds the configuration that depends on the model: the channel maps and the
         accessories that add ports.
     """
+    @go marshal
+}
+
+Device struct {
+    key               Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack              rack.Key    {
+        @doc value     "is the key of the rack the device is connected to."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name              string      {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @search
+        @validate required
+    }
+    serial            uint32      {
+        @doc value         "is the serial number of the device."
+        @filter
+        @index lookup
+        @validate required
+    }
+    connection        Connection  {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    identifier        string = "" {
+        @doc value   """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
+    }
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    status            Status?     {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+        @include
+    }
+    model             Model       {
+        @doc value         """
+            is the model of the device. It selects the ports the device has.
+        """
+        @filter
+        @validate required
+    }
+    ports             Ports       {
+        @doc value "holds the channel maps and the accessories of the device's model."
+    }
+
+    @create
+    @doc value     "is a LabJack T-series device."
+    @go marshal
+    @go migrate
+    @resource type "labjack_device"
+    @retrieve
+}
+
+Identity struct {
+    rack       rack.Key   {
+        @doc value         "is the key of the rack the device is connected to."
+        @validate required
+    }
+    serial     uint32     {
+        @doc value         "is the serial number of the device."
+        @validate required
+    }
+    connection Connection {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    model      Model      {
+        @doc value         "is the model of the device. An update cannot change it."
+        @validate required
+    }
+
+    @doc value "holds the device fields that the scanner owns."
 }
 
 Configuration struct {

@@ -58,8 +58,8 @@ inline x::json::json StatusDetails::to_json() const {
     return j;
 }
 
-inline Base Base::parse(x::json::Parser parser) {
-    return Base{
+inline Device Device::parse(x::json::Parser parser) {
+    return Device{
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
@@ -71,10 +71,12 @@ inline Base Base::parse(x::json::Parser parser) {
             "write_state_index"
         ),
         .status = parser.field<std::optional<Status>>("status"),
+        .model = parser.field<std::string>("model"),
+        .ports = parse_ports(parser.child("ports")),
     };
 }
 
-inline x::json::json Base::to_json() const {
+inline x::json::json Device::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
@@ -86,6 +88,8 @@ inline x::json::json Base::to_json() const {
     if (this->write_state_index.has_value())
         j["write_state_index"] = *this->write_state_index;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    j["model"] = this->model;
+    j["ports"] = ::synnax::labjack::device::to_json(this->ports);
     return j;
 }
 
@@ -194,177 +198,13 @@ inline x::json::json RetrieveRequest::to_json() const {
 
 inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
     return RetrieveResponse{
-        .devices = [&] {
-            std::vector<Device> result;
-            if (parser.has("devices"))
-                parser.iter("devices", [&result](x::json::Parser &p) {
-                    result.push_back(parse_device(p));
-                });
-            return result;
-        }(),
+        .devices = parser.field<std::vector<Device>>("devices", std::vector<Device>{}),
     };
 }
 
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->devices)
-            arr.push_back(::synnax::labjack::device::to_json(item));
-        j["devices"] = arr;
-    }
-    return j;
-}
-
-inline T4Device T4Device::parse(x::json::Parser parser) {
-    T4Device result;
-    static_cast<Base &>(result) = Base::parse(parser);
-    result.analog_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "analog_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .analog_output = parser
-                             .field<std::unordered_map<std::string, CommandStatePair>>(
-                                 "analog_output",
-                                 std::unordered_map<std::string, CommandStatePair>{}
-                             );
-    result.digital_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "digital_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .digital_output = parser
-                              .field<std::unordered_map<std::string, CommandStatePair>>(
-                                  "digital_output",
-                                  std::unordered_map<std::string, CommandStatePair>{}
-                              );
-    result.model = parser.field<std::string>("model");
-    return result;
-}
-
-inline x::json::json T4Device::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
-    j["analog_input"] = this->analog_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->analog_output)
-            obj[key] = item.to_json();
-        j["analog_output"] = obj;
-    }
-    j["digital_input"] = this->digital_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->digital_output)
-            obj[key] = item.to_json();
-        j["digital_output"] = obj;
-    }
-    j["model"] = this->model;
-    return j;
-}
-
-inline T7Device T7Device::parse(x::json::Parser parser) {
-    T7Device result;
-    static_cast<Base &>(result) = Base::parse(parser);
-    result.mux80_attached = parser.field<bool>("mux80_attached", false);
-    result.analog_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "analog_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .analog_output = parser
-                             .field<std::unordered_map<std::string, CommandStatePair>>(
-                                 "analog_output",
-                                 std::unordered_map<std::string, CommandStatePair>{}
-                             );
-    result.digital_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "digital_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .digital_output = parser
-                              .field<std::unordered_map<std::string, CommandStatePair>>(
-                                  "digital_output",
-                                  std::unordered_map<std::string, CommandStatePair>{}
-                              );
-    result.model = parser.field<std::string>("model");
-    return result;
-}
-
-inline x::json::json T7Device::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
-    j["mux80_attached"] = this->mux80_attached;
-    j["analog_input"] = this->analog_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->analog_output)
-            obj[key] = item.to_json();
-        j["analog_output"] = obj;
-    }
-    j["digital_input"] = this->digital_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->digital_output)
-            obj[key] = item.to_json();
-        j["digital_output"] = obj;
-    }
-    j["model"] = this->model;
-    return j;
-}
-
-inline T8Device T8Device::parse(x::json::Parser parser) {
-    T8Device result;
-    static_cast<Base &>(result) = Base::parse(parser);
-    result.analog_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "analog_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .analog_output = parser
-                             .field<std::unordered_map<std::string, CommandStatePair>>(
-                                 "analog_output",
-                                 std::unordered_map<std::string, CommandStatePair>{}
-                             );
-    result.digital_input = parser.field<
-        std::unordered_map<std::string, ::synnax::channel::Key>>(
-        "digital_input",
-        std::unordered_map<std::string, ::synnax::channel::Key>{}
-    );
-    result
-        .digital_output = parser
-                              .field<std::unordered_map<std::string, CommandStatePair>>(
-                                  "digital_output",
-                                  std::unordered_map<std::string, CommandStatePair>{}
-                              );
-    result.model = parser.field<std::string>("model");
-    return result;
-}
-
-inline x::json::json T8Device::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
-    j["analog_input"] = this->analog_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->analog_output)
-            obj[key] = item.to_json();
-        j["analog_output"] = obj;
-    }
-    j["digital_input"] = this->digital_input;
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->digital_output)
-            obj[key] = item.to_json();
-        j["digital_output"] = obj;
-    }
-    j["model"] = this->model;
+    j["devices"] = x::json::to_array(this->devices);
     return j;
 }
 
@@ -541,19 +381,6 @@ inline x::json::json ConfigurationUpdate::to_json() const {
         j.update(parent);
     j["group"] = this->group;
     return j;
-}
-
-inline Device parse_device(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("model");
-    if (discriminator == "t4") return T4Device::parse(parser);
-    if (discriminator == "t7") return T7Device::parse(parser);
-    if (discriminator == "t8") return T8Device::parse(parser);
-    parser.field_err("model", "unknown Device model: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const Device &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline Ports parse_ports(x::json::Parser parser) {

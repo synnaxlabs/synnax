@@ -279,23 +279,24 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a device.
 type Status = versions.Status
 
-// Base carries the fields that every LabJack device shares.
-type Base = versions.Base
+// Ports holds the configuration that depends on the model: the channel maps and the
+// accessories that add ports.
+type Ports = versions.Ports
 
-// Device is a LabJack T-series device. Its model selects the ports it has.
+// PortsVariant is implemented by every Ports variant.
+type PortsVariant = versions.PortsVariant
+
+// T4Ports are the ports of a T4.
+type T4Ports = versions.T4Ports
+
+// T7Ports are the ports of a T7.
+type T7Ports = versions.T7Ports
+
+// T8Ports are the ports of a T8.
+type T8Ports = versions.T8Ports
+
+// Device is a LabJack T-series device.
 type Device = versions.Device
-
-// DeviceVariant is implemented by every Device variant.
-type DeviceVariant = versions.DeviceVariant
-
-// T4Device is a T4.
-type T4Device = versions.T4Device
-
-// T7Device is a T7.
-type T7Device = versions.T7Device
-
-// T8Device is a T8.
-type T8Device = versions.T8Device
 
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
@@ -319,230 +320,6 @@ func (i Identity) Validate() error {
 	v.Ternaryf("model", !i.Model.IsValid(), "invalid model: %v", i.Model)
 	v.NonZero("rack", i.Rack)
 	v.NonZero("serial", i.Serial)
-	return v.Error()
-}
-
-// PortsVariant is implemented by every Ports variant.
-type PortsVariant interface {
-	isPortsVariant()
-}
-
-// T4Ports are the ports of a T4.
-type T4Ports struct {
-	// AnalogInput maps an analog input port to the channel that holds its samples.
-	AnalogInput map[T4AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
-	// AnalogOutput maps an analog output port to the channels that write to it.
-	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
-	// DigitalInput maps a digital port to the channel that holds its samples.
-	DigitalInput map[T4DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
-	// DigitalOutput maps a digital port to the channels that write to it.
-	DigitalOutput map[T4DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
-}
-
-func (T4Ports) isPortsVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T4Ports) Validate() error {
-	v := validate.New("T4Ports")
-	for key := range t.AnalogInput {
-		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
-	}
-	for key := range t.AnalogOutput {
-		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
-	}
-	for key := range t.DigitalInput {
-		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
-	}
-	for key := range t.DigitalOutput {
-		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
-	}
-	return v.Error()
-}
-
-// T7Ports are the ports of a T7.
-type T7Ports struct {
-	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
-	// AIN48 to AIN127.
-	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
-	// AnalogInput maps an analog input port to the channel that holds its samples.
-	AnalogInput map[T7AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
-	// AnalogOutput maps an analog output port to the channels that write to it.
-	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
-	// DigitalInput maps a digital port to the channel that holds its samples.
-	DigitalInput map[T7DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
-	// DigitalOutput maps a digital port to the channels that write to it.
-	DigitalOutput map[T7DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
-}
-
-func (T7Ports) isPortsVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T7Ports) Validate() error {
-	v := validate.New("T7Ports")
-	for key := range t.AnalogInput {
-		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
-	}
-	for key := range t.AnalogOutput {
-		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
-	}
-	for key := range t.DigitalInput {
-		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
-	}
-	for key := range t.DigitalOutput {
-		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
-	}
-	return v.Error()
-}
-
-// T8Ports are the ports of a T8.
-type T8Ports struct {
-	// AnalogInput maps an analog input port to the channel that holds its samples.
-	AnalogInput map[T8AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
-	// AnalogOutput maps an analog output port to the channels that write to it.
-	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
-	// DigitalInput maps a digital port to the channel that holds its samples.
-	DigitalInput map[T8DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
-	// DigitalOutput maps a digital port to the channels that write to it.
-	DigitalOutput map[T8DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
-}
-
-func (T8Ports) isPortsVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T8Ports) Validate() error {
-	v := validate.New("T8Ports")
-	for key := range t.AnalogInput {
-		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
-	}
-	for key := range t.AnalogOutput {
-		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
-	}
-	for key := range t.DigitalInput {
-		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
-	}
-	for key := range t.DigitalOutput {
-		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
-	}
-	return v.Error()
-}
-
-// Ports holds the configuration that depends on the model: the channel maps and the
-// accessories that add ports.
-type Ports struct {
-	Variant PortsVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "model" tag injected.
-func (u Ports) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case T4Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T4Ports
-		}{Type: ModelT4, T4Ports: v})
-	case T7Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T7Ports
-		}{Type: ModelT7, T7Ports: v})
-	case T8Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T8Ports
-		}{Type: ModelT8, T8Ports: v})
-	default:
-		return errors.Newf("Ports: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "model" field.
-func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type Model `json:"model"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ModelT4:
-		var v struct {
-			Type Model `json:"model"`
-			T4Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T4Ports
-	case ModelT7:
-		var v struct {
-			Type Model `json:"model"`
-			T7Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T7Ports
-	case ModelT8:
-		var v struct {
-			Type Model `json:"model"`
-			T8Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T8Ports
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"Ports: unknown model %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Model returns the model of the active variant, or an empty model when there is none.
-func (u Ports) Model() Model {
-	switch u.Variant.(type) {
-	case T4Ports:
-		return ModelT4
-	case T7Ports:
-		return ModelT7
-	case T8Ports:
-		return ModelT8
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u Ports) Validate() error {
-	v := validate.New("Ports")
-	v.Ternary("model", u.Variant == nil, "required")
-	switch variant := u.Variant.(type) {
-	case T4Ports:
-		v.Exec(variant.Validate)
-	case T7Ports:
-		v.Exec(variant.Validate)
-	case T8Ports:
-		v.Exec(variant.Validate)
-	}
 	return v.Error()
 }
 

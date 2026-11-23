@@ -24,21 +24,31 @@ const DEVICE = {
 describe("deviceZ", () => {
   it("should parse a device and apply the defaults", () => {
     const device = labjack.device.deviceZ.parse(DEVICE);
-    expect(device.ports).toEqual({ model: "t7", mux80Attached: false });
-    expect(device.identifier).toEqual("");
-    expect(device.readIndex).toEqual(0);
-    expect(device.analogInput).toEqual({});
-    expect(device.digitalOutput).toEqual({});
+    expect(device.ports).toEqual({
+      model: "t7",
+      mux80Attached: false,
+      analogInput: {},
+      analogOutput: {},
+      digitalInput: {},
+      digitalOutput: {},
+    });
   });
 
   it("should parse the port maps of a device", () => {
     const device = labjack.device.deviceZ.parse({
       ...DEVICE,
+      ports: {
+        model: "t7",
+        analogInput: { AIN0: 1, AIN48: 2 },
+        digitalOutput: { DIO22: { command: 3, state: 4 } },
+      },
+    });
+    expect(device.ports).toMatchObject({
       analogInput: { AIN0: 1, AIN48: 2 },
       digitalOutput: { DIO22: { command: 3, state: 4 } },
     });
-    expect(device.analogInput).toEqual({ AIN0: 1, AIN48: 2 });
-    expect(device.digitalOutput).toEqual({ DIO22: { command: 3, state: 4 } });
+    expect(device.identifier).toEqual("");
+    expect(device.readIndex).toEqual(0);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -46,8 +56,8 @@ describe("deviceZ", () => {
     ["a zero serial", { serial: 0 }],
     ["an unknown model", { model: "t9" }],
     ["unknown ports", { ports: { model: "t9" } }],
+    ["a port of another model", { ports: { model: "t4", digitalInput: { DIO0: 5 } } }],
     ["an unknown connection", { connection: "LJM_ctTCP" }],
-    ["a port of another model", { model: "t4", digitalInput: { DIO0: 5 } }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(labjack.device.deviceZ.safeParse({ ...DEVICE, ...change }).success).toBe(

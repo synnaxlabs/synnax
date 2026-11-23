@@ -38,7 +38,7 @@ struct Where;
 struct Identity;
 struct RetrieveRequest;
 struct Configuration;
-struct Base;
+struct Device;
 struct RetrieveResponse;
 
 constexpr const char *CONNECTION_USB = "LJM_ctUSB";
@@ -459,8 +459,8 @@ struct Configuration {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Base carries the fields that every LabJack device shares.
-struct Base {
+/// @brief Device is a LabJack T-series device.
+struct Device {
     /// @brief key uniquely identifies the device.
     Key key;
     /// @brief rack is the key of the rack the device is connected to.
@@ -482,8 +482,12 @@ struct Base {
     std::optional<::synnax::channel::Key> write_state_index;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
+    /// @brief model is the model of the device. It selects the ports the device has.
+    std::string model;
+    /// @brief ports holds the channel maps and the accessories of the device's model.
+    Ports ports;
 
-    static Base parse(x::json::Parser parser);
+    static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -509,74 +513,6 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
-
-/// @brief T4Device is a T4.
-struct T4Device : public Base {
-    std::string model = MODEL_T_4;
-    /// @brief analog_input maps an analog input port to the channel that holds its
-    /// samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
-    /// @brief analog_output maps an analog output port to the channels that write to
-    /// it.
-    std::unordered_map<std::string, CommandStatePair> analog_output = {};
-    /// @brief digital_input maps a digital port to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
-    /// @brief digital_output maps a digital port to the channels that write to it.
-    std::unordered_map<std::string, CommandStatePair> digital_output = {};
-
-    static T4Device parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T7Device is a T7.
-struct T7Device : public Base {
-    std::string model = MODEL_T_7;
-    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
-    /// input ports AIN48 to AIN127.
-    bool mux80_attached = false;
-    /// @brief analog_input maps an analog input port to the channel that holds its
-    /// samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
-    /// @brief analog_output maps an analog output port to the channels that write to
-    /// it.
-    std::unordered_map<std::string, CommandStatePair> analog_output = {};
-    /// @brief digital_input maps a digital port to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
-    /// @brief digital_output maps a digital port to the channels that write to it.
-    std::unordered_map<std::string, CommandStatePair> digital_output = {};
-
-    static T7Device parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T8Device is a T8.
-struct T8Device : public Base {
-    std::string model = MODEL_T_8;
-    /// @brief analog_input maps an analog input port to the channel that holds its
-    /// samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
-    /// @brief analog_output maps an analog output port to the channels that write to
-    /// it.
-    std::unordered_map<std::string, CommandStatePair> analog_output = {};
-    /// @brief digital_input maps a digital port to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
-    /// @brief digital_output maps a digital port to the channels that write to it.
-    std::unordered_map<std::string, CommandStatePair> digital_output = {};
-
-    static T8Device parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Device is a LabJack T-series device. Its model selects the ports it has.
-using Device = std::variant<T4Device, T7Device, T8Device>;
-
-Device parse_device(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Device &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const Base &base(const Device &value) {
-    return std::visit([](const auto &v) -> const Base & { return v; }, value);
-}
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
 struct RetrieveResponse {

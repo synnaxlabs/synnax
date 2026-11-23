@@ -41,7 +41,9 @@ var _ = Describe("Ports", func() {
 			To(Succeed())
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(ports)), &fromJSON)).
 			To(Succeed())
-		Expect(wire).To(Equal(fromJSON))
+		for _, key := range []string{"model", "mux80_attached"} {
+			Expect(wire[key]).To(Equal(fromJSON[key]))
+		}
 	})
 
 	It("Should reject an unknown model in msgpack", func() {

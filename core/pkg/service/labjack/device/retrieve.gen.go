@@ -50,7 +50,7 @@ func newIndexes() indexes {
 	return indexes{
 		serial: gorp.NewLookupIndex[Key, Device, uint32](
 			"serial",
-			func(e *Device) uint32 { return e.Base().Serial },
+			func(e *Device) uint32 { return e.Serial },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
 			Name:     "rack",
@@ -58,34 +58,11 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				var targets []rack.Key
-				switch v1 := e.Variant.(type) {
-				case T4Device:
-					targets = append(targets, v1.Rack)
-				case T7Device:
-					targets = append(targets, v1.Rack)
-				case T8Device:
-					targets = append(targets, v1.Rack)
-				}
-				return targets
+				return []rack.Key{e.Rack}
 			},
 			Retarget: func(e *Device, from, to rack.Key) {
-				switch v2 := e.Variant.(type) {
-				case T4Device:
-					if v2.Rack == from {
-						v2.Rack = to
-					}
-					e.Variant = v2
-				case T7Device:
-					if v2.Rack == from {
-						v2.Rack = to
-					}
-					e.Variant = v2
-				case T8Device:
-					if v2.Rack == from {
-						v2.Rack = to
-					}
-					e.Variant = v2
+				if e.Rack == from {
+					e.Rack = to
 				}
 			},
 		}),
@@ -130,7 +107,7 @@ func newIndexes() indexes {
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
-				return []string{e.Base().Name}
+				return []string{e.Name}
 			},
 		),
 	}
@@ -231,7 +208,7 @@ func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
 		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return want.Contains(e.Base().Name), nil
+			return want.Contains(e.Name), nil
 		})
 	}
 }
@@ -286,7 +263,7 @@ func MatchModels(vals ...Model) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
 		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return want.Contains(e.Model()), nil
+			return want.Contains(e.Model), nil
 		})
 	}
 }

@@ -46,51 +46,58 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Status unknown",
-			Details: StatusDetails{Device: d.Base().Key},
+			Details: StatusDetails{Device: d.Key},
 		}
 	} else if err != nil {
 		return err
 	}
-	s.Name = d.Base().Name
-	s.Details.Rack = d.Base().Rack
+	s.Name = d.Name
+	s.Details.Rack = d.Rack
 	return w.status.Set(ctx, &s)
 }
 
 // firstMux80Port is the lowest analog input port that a Mux80 adds to a T7.
 const firstMux80Port = 48
 
-// validateDevice rejects a device with no known model, which the generated Validate
-// accepts, and a T7 that maps a Mux80 port while no Mux80 is attached.
+// validateDevice rejects an invalid device, one whose ports are for another model, and
+// a
+// T7 that maps a Mux80 port while no Mux80 is attached.
 func validateDevice(d Device) error {
+	if err := d.Validate(); err != nil {
+		return err
+	}
 	v := validate.New("device")
-	v.Ternary("model", d.Model() == "", "required")
-	if t7, ok := d.Variant.(T7Device); ok && !t7.Mux80Attached {
+	v.Ternaryf(
+		"ports",
+		d.Ports.Model() != d.Model,
+		"are for %s, not %s",
+		d.Ports.Model(),
+		d.Model,
+	)
+	if t7, ok := d.Ports.Variant.(T7Ports); ok && !t7.Mux80Attached {
 		for _, port := range slices.Sorted(maps.Keys(t7.AnalogInput)) {
 			n, err := strconv.Atoi(strings.TrimPrefix(string(port), "AIN"))
 			v.Ternaryf(
-				"analog_input",
+				"ports.analog_input",
 				err == nil && n >= firstMux80Port,
 				"%s needs mux80_attached",
 				port,
 			)
 		}
 	}
-	if err := v.Error(); err != nil {
-		return err
-	}
-	return d.Validate()
+	return v.Error()
 }
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d has no model, is invalid, or its rack does not exist.
+// validation error when d is invalid, its ports are for another model, or its rack does
+// not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err
 	}
-	if b := d.Base(); b.Key == uuid.Nil() {
-		b.Key = uuid.New()
-		d.SetBase(b)
+	if d.Key == uuid.Nil() {
+		d.Key = uuid.New()
 	}
 	if err := w.table.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
@@ -114,12 +121,10 @@ func (w Writer) update(
 			if err != nil {
 				return Device{}, err
 			}
-			if err = refuseModelChange(d.Model(), updated.Model()); err != nil {
+			if err = refuseModelChange(d.Model, updated.Model); err != nil {
 				return Device{}, err
 			}
-			b := updated.Base()
-			b.Key = key
-			updated.SetBase(b)
+			updated.Key = key
 			if err = validateDevice(updated); err != nil {
 				return Device{}, err
 			}
@@ -129,7 +134,7 @@ func (w Writer) update(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if next.Base().Name != prev.Base().Name || next.Base().Rack != prev.Base().Rack {
+	if next.Name != prev.Name || next.Rack != prev.Rack {
 		return w.setStatus(ctx, next)
 	}
 	return nil

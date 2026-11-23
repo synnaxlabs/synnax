@@ -787,8 +787,8 @@ class Configuration(BaseModel):
     ports: Ports
 
 
-class Base(BaseModel):
-    """Carries the fields that every LabJack device shares.
+class Device(BaseModel):
+    """Is a LabJack T-series device.
 
     Attributes:
         key: Uniquely identifies the device.
@@ -802,6 +802,8 @@ class Base(BaseModel):
         write_state_index: Is the index channel of the state channels of the device's
             outputs.
         status: Is the current operational status of the device.
+        model: Is the model of the device. It selects the ports the device has.
+        ports: Holds the channel maps and the accessories of the device's model.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -813,6 +815,8 @@ class Base(BaseModel):
     read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     status: Status | None = None
+    model: Model
+    ports: Ports
 
     @_override
     def __hash__(self) -> int:
@@ -837,62 +841,6 @@ class ConfigurationUpdate(Configuration):
 Update = Annotated[
     IdentityUpdate | ConfigurationUpdate,
     Field(discriminator="group"),
-]
-
-
-class T4Device(Base):
-    """Is a T4."""
-
-    model: Literal["t4"] = "t4"
-    analog_input: dict[
-        T4AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
-        default_factory=dict
-    )
-    digital_input: dict[
-        T4DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    digital_output: dict[T4DigitalPort, CommandStatePair] = Field(default_factory=dict)
-
-
-class T7Device(Base):
-    """Is a T7."""
-
-    model: Literal["t7"] = "t7"
-    mux80_attached: bool = False
-    analog_input: dict[
-        T7AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
-        default_factory=dict
-    )
-    digital_input: dict[
-        T7DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    digital_output: dict[T7DigitalPort, CommandStatePair] = Field(default_factory=dict)
-
-
-class T8Device(Base):
-    """Is a T8."""
-
-    model: Literal["t8"] = "t8"
-    analog_input: dict[
-        T8AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
-        default_factory=dict
-    )
-    digital_input: dict[
-        T8DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
-    ] = Field(default_factory=dict)
-    digital_output: dict[T8DigitalPort, CommandStatePair] = Field(default_factory=dict)
-
-
-# Is a LabJack T-series device. Its model selects the ports it has.
-Device = Annotated[
-    T4Device | T7Device | T8Device,
-    Field(discriminator="model"),
 ]
 
 

@@ -456,8 +456,8 @@ export const UPDATE_SCHEMAS: {
   configuration: configurationUpdateZ,
 };
 
-/** Base carries the fields that every LabJack device shares. */
-export const baseZ = z.object({
+/** Device is a LabJack T-series device. */
+export const deviceZ = z.object({
   /** key uniquely identifies the device. */
   key: keyZ.default(uuid.create),
   /** rack is the key of the rack the device is connected to. */
@@ -481,74 +481,13 @@ export const baseZ = z.object({
   writeStateIndex: channel.keyZ.optional(),
   /** status is the current operational status of the device. */
   status: statusZ.optional(),
+  /** model is the model of the device. It selects the ports the device has. */
+  model: modelZ,
+  /** ports holds the channel maps and the accessories of the device's model. */
+  ports: portsZ,
 });
-export interface Base extends z.infer<typeof baseZ> {}
-
-/** T4Device is a T4. */
-export const t4DeviceZ = baseZ.extend({
-  model: z.literal("t4"),
-  /** analogInput maps an analog input port to the channel that holds its samples. */
-  analogInput: z.partialRecord(t4AnalogInputPortZ, channel.keyZ).default(() => ({})),
-  /** analogOutput maps an analog output port to the channels that write to it. */
-  analogOutput: z
-    .partialRecord(analogOutputPortZ, commandStatePairZ)
-    .default(() => ({})),
-  /** digitalInput maps a digital port to the channel that holds its samples. */
-  digitalInput: z.partialRecord(t4DigitalPortZ, channel.keyZ).default(() => ({})),
-  /** digitalOutput maps a digital port to the channels that write to it. */
-  digitalOutput: z.partialRecord(t4DigitalPortZ, commandStatePairZ).default(() => ({})),
-});
-export interface T4Device extends z.infer<typeof t4DeviceZ> {}
-
-/** T7Device is a T7. */
-export const t7DeviceZ = baseZ.extend({
-  model: z.literal("t7"),
-  /**
-   * mux80Attached is true when a Mux80 is attached, which adds the analog input ports
-   * AIN48 to AIN127.
-   */
-  mux80Attached: z.boolean().default(false),
-  /** analogInput maps an analog input port to the channel that holds its samples. */
-  analogInput: z.partialRecord(t7AnalogInputPortZ, channel.keyZ).default(() => ({})),
-  /** analogOutput maps an analog output port to the channels that write to it. */
-  analogOutput: z
-    .partialRecord(analogOutputPortZ, commandStatePairZ)
-    .default(() => ({})),
-  /** digitalInput maps a digital port to the channel that holds its samples. */
-  digitalInput: z.partialRecord(t7DigitalPortZ, channel.keyZ).default(() => ({})),
-  /** digitalOutput maps a digital port to the channels that write to it. */
-  digitalOutput: z.partialRecord(t7DigitalPortZ, commandStatePairZ).default(() => ({})),
-});
-export interface T7Device extends z.infer<typeof t7DeviceZ> {}
-
-/** T8Device is a T8. */
-export const t8DeviceZ = baseZ.extend({
-  model: z.literal("t8"),
-  /** analogInput maps an analog input port to the channel that holds its samples. */
-  analogInput: z.partialRecord(t8AnalogInputPortZ, channel.keyZ).default(() => ({})),
-  /** analogOutput maps an analog output port to the channels that write to it. */
-  analogOutput: z
-    .partialRecord(analogOutputPortZ, commandStatePairZ)
-    .default(() => ({})),
-  /** digitalInput maps a digital port to the channel that holds its samples. */
-  digitalInput: z.partialRecord(t8DigitalPortZ, channel.keyZ).default(() => ({})),
-  /** digitalOutput maps a digital port to the channels that write to it. */
-  digitalOutput: z.partialRecord(t8DigitalPortZ, commandStatePairZ).default(() => ({})),
-});
-export interface T8Device extends z.infer<typeof t8DeviceZ> {}
-
-/** Device is a LabJack T-series device. Its model selects the ports it has. */
-export const deviceZ = z.discriminatedUnion("model", [t4DeviceZ, t7DeviceZ, t8DeviceZ]);
-export type Device = T4Device | T7Device | T8Device;
-
-export const DEVICE_SCHEMAS: {
-  [K in Model]: z.ZodType<Extract<Device, { model: K }>>;
-} = {
-  t4: t4DeviceZ,
-  t7: t7DeviceZ,
-  t8: t8DeviceZ,
-};
-export type NewDevice = z.input<typeof deviceZ>;
+export interface Device extends z.infer<typeof deviceZ> {}
+export interface New extends z.input<typeof deviceZ> {}
 
 /** RetrieveResponse holds the devices a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({
