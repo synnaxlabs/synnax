@@ -1201,7 +1201,8 @@ func collectValidation(
 	if requiredString && !isString && rules.MinLength == nil {
 		constraints = append(constraints, "min_length=1")
 	}
-	if isString {
+	// Pydantic bounds bytes after the base64 decode, so the bound counts bytes.
+	if isString || primitive == "bytes" {
 		constraints = appendLengthConstraints(constraints, rules, requiredString)
 	}
 	if resolution.IsNumberPrimitive(primitive) {
