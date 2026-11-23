@@ -367,12 +367,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should send one missed marker per drop episode after the buffered frames",
 			func(ctx SpecContext) {
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
-				freeWrites := confluence.NewStream[relay.Response](10)
+				writes := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             writes,
 					StreamerBufferSize: 4,
 				}))
 				DeferCleanup(r.Close)
@@ -404,7 +401,7 @@ var _ = Describe("Relay", func() {
 				send := func(n int) {
 					GinkgoHelper()
 					for v := range int64(n) {
-						freeWrites.Inlet() <- relay.Response{
+						writes.Inlet() <- relay.Response{
 							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
 						}
 						Eventually(live.Outlet()).Should(Receive())
