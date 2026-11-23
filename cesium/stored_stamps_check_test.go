@@ -81,6 +81,7 @@ var _ = Describe("Check: data written against stored stamps", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: clockKeys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		fr, _ := MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -95,6 +96,7 @@ var _ = Describe("Check: data written against stored stamps", func() {
 		GinkgoHelper()
 		return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: onData,
+			Clock:    idx,
 			Start:    at * telem.SecondTS,
 		}))
 	}
@@ -203,6 +205,7 @@ var _ = Describe("Check: data written against stored stamps", func() {
 	) {
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: onData,
+			Clock:    idx,
 			Start:    11*telem.SecondTS + 500*telem.MillisecondTS,
 		}))
 		_, _, err := w.Write(ctx, frame(1), nil)
@@ -265,6 +268,7 @@ var _ = Describe("Check: data written against stored stamps", func() {
 		GinkgoHelper()
 		c := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: clockKeys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(c.Write(ctx, telem.MultiFrame(
