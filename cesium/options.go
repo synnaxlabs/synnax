@@ -80,6 +80,7 @@ func mergeAndValidateOptions(o *options) error {
 	)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	o.clock = override.Nil(xtime.Real, o.clock)
+	o.pointerLog = true
 	if o.random == nil {
 		var seed [16]byte
 		if _, err := crand.Read(seed[:]); err != nil {
