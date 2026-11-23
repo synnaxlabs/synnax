@@ -19,10 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { use, useFromConfig } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
-import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { Device } from "@/feature/mqtt/device";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
@@ -52,7 +49,7 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 /** The name deploying gives the command channel of a plain target. */
 const commandChannelName = (devName: string, topic: string): string =>
@@ -78,7 +75,7 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.targets[itemKey];
   const target = PForm.useFieldValue(path);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const paths = channelPaths(path, target.type);
   const channelKey = PForm.useFieldValue(paths.key);
   return (
@@ -260,7 +257,7 @@ const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[]
           },
     );
 
-const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
   const targets = PForm.useFieldListUtils(root.config.targets);
@@ -326,9 +323,9 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 };
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
 
@@ -336,7 +333,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
@@ -370,7 +370,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         );
     }
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

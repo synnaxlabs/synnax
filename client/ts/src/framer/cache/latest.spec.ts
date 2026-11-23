@@ -23,13 +23,13 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import type { channel } from "@/channel";
-import { UnsupportedError } from "@/errors";
 import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { UnsupportedError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);

@@ -9,8 +9,7 @@
 
 import { and, count, eq, gt, inArray } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 import { tooMany } from "@/server/errors";
 
 export const WINDOW_MS = 60 * 60 * 1000;
