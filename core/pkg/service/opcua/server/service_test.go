@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
@@ -84,6 +85,21 @@ var _ = Describe("Service", func() {
 		Expect(e.certs.NewWriter(tx).Set(ctx, &c, key)).To(Succeed())
 		return c.Base().Key
 	}
+	createFileCertificate := func(ctx context.Context, privateKey bool) certificate.Key {
+		GinkgoHelper()
+		var keyFile *string
+		if privateKey {
+			keyFile = new("plc.key")
+		}
+		c := certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Name: "PLC file"},
+			CertificatePath: "/etc/plc.pem",
+			PrivateKeyFile:  keyFile,
+			Rack:            e.racks.EmbeddedKey,
+		}}
+		Expect(e.certs.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+		return c.Base().Key
+	}
 	createSecret := func(ctx context.Context) secret.Key {
 		GinkgoHelper()
 		s := secret.Secret{Variant: secret.StoredSecret{
@@ -147,7 +163,8 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, s.Key).Key).To(Equal(s.Key))
 		})
 
-		DescribeTable("Should reject an invalid server",
+		DescribeTable(
+			"Should reject an invalid server",
 			func(ctx SpecContext, change func(*server.Server)) {
 				s := newServer()
 				change(&s)
@@ -172,6 +189,12 @@ var _ = Describe("Service", func() {
 			Entry("a malformed node", func(s *server.Server) {
 				s.Writes = []server.Write{{Node: "nsu=urn:plc;x=Valve", Channel: 2}}
 			}),
+			Entry(
+				"a byte string node that is not canonical base64",
+				func(s *server.Server) {
+					s.Writes = []server.Write{{Node: "nsu=urn:plc;b=AQI", Channel: 2}}
+				},
+			),
 			Entry("two reads of one node, field, and index", func(s *server.Server) {
 				s.Reads = []server.Read{
 					{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 2},
@@ -194,6 +217,7 @@ var _ = Describe("Service", func() {
 				{Node: "NSU=urn:plc%3Bline;S=Temp", Index: 1, Channel: 2},
 				{Node: "nsu=urn:plc;s=Temp", Field: "a.b", Index: 1, Channel: 3},
 				{Node: "ns=0;I=0085", Index: 1, Channel: 4},
+				{Node: "nsu=urn:plc;B=AQID", Index: 1, Channel: 6},
 			}
 			s.Writes = []server.Write{
 				{
@@ -207,6 +231,7 @@ var _ = Describe("Service", func() {
 				{Node: "nsu=urn:plc%3Bline;s=Temp", Index: 1, Channel: 2},
 				{Node: "nsu=urn:plc;s=Temp", Field: "a.b", Index: 1, Channel: 3},
 				{Node: "i=85", Index: 1, Channel: 4},
+				{Node: "nsu=urn:plc;b=AQID", Index: 1, Channel: 6},
 			}))
 			Expect(got.Writes[0].Node).
 				To(Equal("g=0e4b8f4c-6d2e-4b5a-9a63-2f9d8c7b1a00"))
@@ -234,6 +259,23 @@ var _ = Describe("Service", func() {
 			}}
 			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})
+
+		DescribeTable(
+			"Should check the private key of a file login certificate",
+			func(ctx SpecContext, privateKey bool, matcher types.GomegaMatcher) {
+				s := newServer()
+				s.Connection.Auth = server.Auth{Variant: server.CertificateAuth{
+					Certificate: createFileCertificate(ctx, privateKey),
+				}}
+				Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(matcher)
+			},
+			Entry("with a key file", true, Succeed()),
+			Entry(
+				"without a key file",
+				false,
+				MatchError(ContainSubstring("has no private key")),
+			),
+		)
 
 		It("Should refuse a client certificate that has no private key", func(
 			ctx SpecContext,
@@ -310,6 +352,31 @@ var _ = Describe("Service", func() {
 			Expect(got.Reads[0].Node).To(Equal("nsu=urn:plc;s=Temp"))
 			Expect(got.Writes).To(HaveLen(1))
 		})
+
+		It(
+			"Should refuse an identity whose client certificate has no private key",
+			func(
+				ctx SpecContext,
+			) {
+				s := create(ctx)
+				key := createCertificate(ctx, false)
+				var channel server.SecuredChannel
+				channel.SetDefaults()
+				channel.Policy = server.SecurityPolicyBasic256Sha256
+				channel.ClientCertificate = &key
+				conn := s.Connection
+				conn.Security = server.Security{
+					Variant: server.SignSecurity{SecuredChannel: channel},
+				}
+				Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+					Variant: server.IdentityUpdate{Identity: server.Identity{
+						Rack:       s.Rack,
+						Name:       s.Name,
+						Connection: conn,
+					}},
+				})).To(MatchError(ContainSubstring("has no private key")))
+			},
+		)
 
 		It("Should move the status with the rack", func(ctx SpecContext) {
 			s := create(ctx)
