@@ -14,6 +14,21 @@ package v14
 import "github.com/synnaxlabs/x/patch"
 
 // Patch applies the path action at c, which is not done, to the value.
+func (cb *CommandBinding) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&cb.Key, c.Next())
+	case "channel":
+		return patch.Value(&cb.Channel, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (cb *CommandBinding) PatchKey() string { return cb.Key }
+
+// Patch applies the path action at c, which is not done, to the value.
 func (e *Edge) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "config":
@@ -64,6 +79,51 @@ func (s *Schematic) Patch(c patch.Cursor) error {
 		return c.UnknownField()
 	}
 }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (sb *StateBinding) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "units":
+		return patch.OptionalValue(&sb.FormatConfig.Units, c.Next())
+	case "precision":
+		return patch.OptionalValue(&sb.FormatConfig.Precision, c.Next())
+	case "notation":
+		return patch.OptionalValue(&sb.FormatConfig.Notation, c.Next())
+	case "key":
+		return patch.Value(&sb.Key, c.Next())
+	case "source":
+		if c = c.Next(); c.Done() || sb.Source == nil {
+			return patch.OptionalValue(&sb.Source, c)
+		}
+		next := *sb.Source
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sb.Source = &next
+		return nil
+	case "enumeration":
+		return patch.OptionalValue(&sb.Enumeration, c.Next())
+	case "match":
+		if c = c.Next(); c.Done() || sb.Match == nil {
+			return patch.OptionalValue(&sb.Match, c)
+		}
+		next := *sb.Match
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sb.Match = &next
+		return nil
+	case "bounds":
+		return patch.OptionalValue(&sb.Bounds, c.Next())
+	case "default":
+		return patch.OptionalValue(&sb.Default, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (sb *StateBinding) PatchKey() string { return sb.Key }
 
 // Patch applies the path action at c, which is not done, to the value.
 func (ec *EdgeConfig) Patch(c patch.Cursor) error {
@@ -1676,6 +1736,19 @@ func (nc *NodeConfig) Patch(c patch.Cursor) error {
 		return nil
 	case GroupBoxNodeConfig:
 		c, ok := c.Guard("variant", "group_box")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "variant" {
+			return patch.Discriminator(nc, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		nc.Variant = v
+		return nil
+	case SymbolNodeConfig:
+		c, ok := c.Guard("variant", "symbol")
 		if !ok {
 			return nil
 		}
@@ -5508,6 +5581,124 @@ func (gbnc *GroupBoxNodeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "locked":
 		return patch.Value(&gbnc.Locked, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (snc *SymbolNodeConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "label":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.LabeledConfig.Label, c, func(def *SymbolNodeConfig) {
+				snc.LabeledConfig.Label = def.LabeledConfig.Label
+			})
+		}
+		return snc.LabeledConfig.Label.Patch(c)
+	case "orientation":
+		return patch.Defaulted(&snc.LabeledConfig.Orientation, c.Next(), func(def *SymbolNodeConfig) {
+			snc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
+		})
+	case "scale":
+		return patch.Defaulted(&snc.ScaledConfig.Scale, c.Next(), func(def *SymbolNodeConfig) {
+			snc.ScaledConfig.Scale = def.ScaledConfig.Scale
+		})
+	case "staleness_timeout":
+		return patch.Defaulted(&snc.StalenessConfig.StalenessTimeout, c.Next(), func(def *SymbolNodeConfig) {
+			snc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
+		})
+	case "spec":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&snc.Spec, c)
+		}
+		return snc.Spec.Patch(c)
+	case "color":
+		if c = c.Next(); c.Done() || snc.Color == nil {
+			return patch.OptionalValue(&snc.Color, c)
+		}
+		next := *snc.Color
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.Color = &next
+		return nil
+	case "disabled":
+		return patch.Value(&snc.Disabled, c.Next())
+	case "motion_disabled":
+		return patch.Value(&snc.MotionDisabled, c.Next())
+	case "on_click_delay":
+		return patch.Value(&snc.OnClickDelay, c.Next())
+	case "states":
+		return patch.List(&snc.States, c.Next())
+	case "commands":
+		return patch.List(&snc.Commands, c.Next())
+	case "control":
+		if c = c.Next(); c.Done() || snc.Control == nil {
+			return patch.OptionalValue(&snc.Control, c)
+		}
+		next := *snc.Control
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.Control = &next
+		return nil
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (s *Source) Patch(c patch.Cursor) error {
+	switch v := s.Variant.(type) {
+	case ChannelSource:
+		c, ok := c.Guard("type", "channel")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	case LocalSource:
+		c, ok := c.Guard("type", "local")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	default:
+		return patch.Absent(s, c, "type")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (cs *ChannelSource) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.OptionalValue(&cs.Key, c.Next())
+	case "command":
+		return patch.OptionalValue(&cs.Command, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (ls *LocalSource) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "value":
+		return patch.Value(&ls.Value, c.Next())
 	default:
 		return c.UnknownField()
 	}

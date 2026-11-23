@@ -34,7 +34,8 @@ the message sends a command from a command channel, a fixed value, or its
 - **First commands** -> the target sends nothing until each field with a channel and no
   default has a command.
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
-  NaN in a JSON number, and shows a warning.
+  NaN in a JSON number or a value outside the min and max of its field, and shows a
+  warning.
 
 For a message where `/position` has a command channel, `/source` has the fixed value
 `synnax`, and `/id` has a random UUID default, a command of 42 publishes:
@@ -210,8 +211,29 @@ For a Sparkplug B tag, remove the target, then add it again with **Add targets**
 Console creates a new command channel when you start the task.
 
 For a plain target, start the task in the Console. The Console creates a command channel
-for each binding that has no channel. When a channel was deleted, bind its field to an
-existing command channel in Python.
+for each binding that has no channel, or whose channel was deleted.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={[
+    "field ...: ... is below the min ...",
+    "field ...: ... is above the max ...",
+    "field ...: ... decodes to ..., which is below the min ...",
+    "field ...: ... decodes to ..., which is above the max ...",
+  ]}
+>
+<Problem.Cause>
+
+A fixed value of a plain target, or the default of a field in the ICD, is outside the
+min and max of the field after the scale and offset of the field.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the fixed value or the default, or change the min or the max of the field in the
+ICD.
 
 </Problem.Fix>
 </Problem.Item>

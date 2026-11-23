@@ -10,9 +10,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,10 +33,7 @@ using ::synnax::http::ReadEndpoint;
 using ::synnax::http::ReadField;
 
 namespace {
-/// @brief returns the bytes of text.
-std::span<const std::uint8_t> bytes(const std::string_view text) {
-    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
-}
+using x::testutil::bytes;
 
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 /// Each call creates its own Processor so tests have independent lifecycles.
