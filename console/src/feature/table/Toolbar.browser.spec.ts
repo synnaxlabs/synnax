@@ -363,6 +363,28 @@ describe("table/Toolbar", () => {
     });
   });
 
+  it("stores a multi-cell staleness color", async () => {
+    const { key } = await renderTable(TabToolbar, {
+      table: {
+        name: uniqueName("table"),
+        ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    await screen.findByText("Staleness");
+    fireEvent.change(getHexInput("Color"), { target: { value: "0000ff" } });
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect(
+        ["a", "b"].map((k) => {
+          const c = configOf(t, k);
+          return c?.variant === "value" ? hexOf(c.stalenessColor) : undefined;
+        }),
+      ).toEqual(["#0000ff", "#0000ff"]);
+    });
+  });
+
   it("hides the value groups when only text cells are selected", async () => {
     await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },

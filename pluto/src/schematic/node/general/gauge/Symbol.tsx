@@ -21,7 +21,6 @@ import { Stale } from "@/schematic/node/common/stale";
 import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
-import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
 const GAUGE_DIMENSIONS: Record<text.Level, dimensions.Dimensions> = {
@@ -53,11 +52,9 @@ export const Symbol = ({
     notation,
     bounds,
     barWidth,
-    stalenessColor,
     stalenessTimeout,
   },
 }: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
-  const badged = Staleness.useBadged();
   const resolve = Color.useResolve();
   const dims = GAUGE_DIMENSIONS[level] ?? DEFAULT_DIMENSIONS;
   const telem = Value.stringSource({ channel, rollingAverage, precision, notation });
@@ -71,14 +68,12 @@ export const Symbol = ({
     bounds,
     notation,
     barWidth,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
   });
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
+      {stale && <Stale.Indicator />}
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
