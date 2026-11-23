@@ -322,7 +322,15 @@ func splitSpec(body string) (expr, spec string, err error) {
 }
 
 // specShape enforces the canonical anatomy [flags][width][.precision][verb].
-var specShape = regexp.MustCompile(`^[#+\- 0]*\d*(\.\d+)?[a-zA-Z]$`)
+var specShape = regexp.MustCompile(`^[#+\- 0]*(\d*)(?:\.(\d+))?[a-zA-Z]$`)
+
+// maxSpecNumber is the largest width or precision a spec may hold, matching Go's fmt.
+const maxSpecNumber = 1_000_000
+
+func specNumberTooLarge(digits string) bool {
+	n, err := strconv.Atoi(digits)
+	return err != nil || n > maxSpecNumber
+}
 
 var (
 	stringKinds = []types.Kind{types.KindString}
@@ -374,8 +382,18 @@ func FmtStrValidateSpec(spec string, t types.Type) error {
 	if !slices.Contains(formattableKinds, t.Kind) {
 		return errors.Newf("cannot format type %s", t)
 	}
-	if !specShape.MatchString(spec) {
+	m := specShape.FindStringSubmatch(spec)
+	if m == nil {
 		return errors.Newf("invalid format spec %q for type %s", spec, t)
+	}
+	for _, digits := range m[1:] {
+		if digits != "" && specNumberTooLarge(digits) {
+			return errors.Newf(
+				"width or precision in %q exceeds %d",
+				spec,
+				maxSpecNumber,
+			)
+		}
 	}
 	allowed, ok := verbAllowedKinds[spec[len(spec)-1]]
 	if !ok || !slices.Contains(allowed, t.Kind) {
