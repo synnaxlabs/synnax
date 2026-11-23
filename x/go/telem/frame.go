@@ -337,22 +337,7 @@ func encodeSeriesMsgpack(enc *msgpack.Encoder, s *Series) error {
 	if err := enc.EncodeMapLen(fields); err != nil {
 		return err
 	}
-	if err := enc.EncodeString("time_range"); err != nil {
-		return err
-	}
-	if err := enc.EncodeMapLen(2); err != nil {
-		return err
-	}
-	if err := enc.EncodeString("start"); err != nil {
-		return err
-	}
-	if err := enc.EncodeInt64(int64(s.TimeRange.Start)); err != nil {
-		return err
-	}
-	if err := enc.EncodeString("end"); err != nil {
-		return err
-	}
-	if err := enc.EncodeInt64(int64(s.TimeRange.End)); err != nil {
+	if err := encodeTimeRangeMsgpack(enc, s.TimeRange); err != nil {
 		return err
 	}
 	if err := enc.EncodeString("data_type"); err != nil {
@@ -388,6 +373,25 @@ func encodeSeriesMsgpack(enc *msgpack.Encoder, s *Series) error {
 		return enc.EncodeUint32(s.Clock)
 	}
 	return nil
+}
+
+func encodeTimeRangeMsgpack(enc *msgpack.Encoder, tr TimeRange) error {
+	if err := enc.EncodeString("time_range"); err != nil {
+		return err
+	}
+	if err := enc.EncodeMapLen(2); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("start"); err != nil {
+		return err
+	}
+	if err := enc.EncodeInt64(int64(tr.Start)); err != nil {
+		return err
+	}
+	if err := enc.EncodeString("end"); err != nil {
+		return err
+	}
+	return enc.EncodeInt64(int64(tr.End))
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder. It replaces the receiver whole, so a
