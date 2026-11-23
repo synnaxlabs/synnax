@@ -135,6 +135,50 @@ var _ = Describe("Check", func() {
 		))
 	})
 
+	DescribeTable(
+		"Should refuse a tag that the Driver cannot match",
+		func(tag, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{
+				textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       tag,
+				}}),
+			}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    "messages.0.payload.fields.0.tag",
+				Message: message,
+			}))
+		},
+		Entry(
+			"a tag that holds the delimiter",
+			"T,1",
+			`the tag contains the delimiter ","`,
+		),
+		Entry("a tag that starts with a space", " T", "the tag starts with whitespace"),
+		Entry("a tag that starts with a tab", "\tT", "the tag starts with whitespace"),
+		Entry(
+			"a tag that starts with a carriage return",
+			"\rT",
+			"the tag starts with whitespace",
+		),
+	)
+
+	It("Should refuse an empty delimiter but not each tag in its message", func() {
+		ic := icd.ICD{Name: "L", Messages: []icd.Message{{
+			Name: "M",
+			Payload: icd.Payload{Variant: icd.TextPayload{
+				Fields: []icd.TextField{{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       "T",
+				}}},
+			}},
+		}}}
+		Expect(problemsOf(ic)).To(ConsistOf(problem{
+			Path:    "messages.0.payload.delimiter",
+			Message: "delimiter is required",
+		}))
+	})
+
 	DescribeTable("Should require a format, encoding, or type",
 		func(ic icd.ICD, path, message string) {
 			Expect(problemsOf(ic)).To(ConsistOf(
