@@ -30,12 +30,6 @@
     },
     {
       "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/place",
-      "name": "Part",
-      "caller": "sy-6569-18c-parts"
-    },
-    {
-      "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/state",
       "receiver": "State",
       "name": "Err",
