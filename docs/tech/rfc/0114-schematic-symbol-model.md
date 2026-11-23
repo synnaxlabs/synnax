@@ -145,6 +145,8 @@ Condition union on type {
 }
 Paint union on type {
     entry { state string }
+    // black or white, whichever reads on the entry color of state
+    contrast { state string }
     node {}
     color { value color.Ref }
 }
@@ -318,16 +320,16 @@ tracking can later show it as a deleted channel or link it again (§6). A schema
 import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
-that names no part, state, or command, an `entry` paint or `equals` condition on a
-number state, or an `ask` command with no state. It refuses a node whose binding keys
-repeat or name no state or command of its symbol, whose overrides do not fit the type of
-their state, or whose `CommandBinding` names a command that has a state. The Core list
-of built-ins lets it check built-in nodes the same way. A `missing` node has no symbol,
-so the Core checks its bindings when "Change symbol" moves it. When a symbol save
-removes a state or command, the save confirm lists the node bindings that it removes.
-When it changes the type of a state, the confirm lists the node overrides of the old
-type. When it gives a command a state, the confirm lists the `CommandBinding`s of that
-command. The Core removes them in the same transaction.
+that names no part, state, or command, an `entry` or `contrast` paint or `equals`
+condition on a number state, or an `ask` command with no state. It refuses a node whose
+binding keys repeat or name no state or command of its symbol, whose overrides do not
+fit the type of their state, or whose `CommandBinding` names a command that has a state.
+The Core list of built-ins lets it check built-in nodes the same way. A `missing` node
+has no symbol, so the Core checks its bindings when "Change symbol" moves it. When a
+symbol save removes a state or command, the save confirm lists the node bindings that it
+removes. When it changes the type of a state, the confirm lists the node overrides of
+the old type. When it gives a command a state, the confirm lists the `CommandBinding`s
+of that command. The Core removes them in the same transaction.
 
 A symbol import keeps each enumeration key that the Core has and clears one that it
 lacks (RFC 0112 §4.2). Every symbol import, alone or in a group, follows one rule. When
@@ -454,15 +456,16 @@ its read-only route. Phases 4 to 11 replace the 86 equipment variants with the `
 variant, and each merges on its own. Phase 4 gives each built-in spec its `active`
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
 The `switch` spec has no looks, because its wrapper keeps the colors that phase 2 draws.
-Phase 5 adds the node variant with the whole shape of §4.1 and its checks with the Core
-list of built-ins. Phase 6 removes the bindings and overrides that a symbol save
-orphans, and phase 7 adds the save confirm of §4.4, before the migration gives any node
-a binding that a save can remove. Phase 8 draws the node with its indicators and sends
-its commands. The `switch` keeps its own wrapper around the `symbol` drawing, which
-turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 9 adds
-the form with the enumeration picker. Phase 10 adds the Core migration, the symbol
-import that keeps keys by §4.4, and "Change symbol". Phase 11 deletes the old variants
-from the schema, the clients, Pluto, and the Console.
+The `thruster` spec has no looks and no `next`, because today it draws as a static
+picture and takes no clicks. Phase 5 adds the node variant with the whole shape of §4.1
+and its checks with the Core list of built-ins. Phase 6 removes the bindings and
+overrides that a symbol save orphans, and phase 7 adds the save confirm of §4.4, before
+the migration gives any node a binding that a save can remove. Phase 8 draws the node
+with its indicators and sends its commands. The `switch` keeps its own wrapper around
+the `symbol` drawing, which turns it only to stand upright and slides its knob, as phase
+2 draws it. Phase 9 adds the form with the enumeration picker. Phase 10 adds the Core
+migration, the symbol import that keeps keys by §4.4, and "Change symbol". Phase 11
+deletes the old variants from the schema, the clients, Pluto, and the Console.
 
 A Console flag hides the `symbol` variant until phase 10 moves every node and removes
 the flag. The Core and the clients accept the variant from phase 5. Phase 5 stores the
@@ -579,6 +582,10 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
     tracking holds every later phase. A plain key is the stored shape that the links
     annotate, so nothing migrates when they land. The trade is real: until then, a
     binding keeps the key of a deleted channel with no sign that the channel is gone.
+24. **A `contrast` paint for lines on a fill**: The detail lines of six pumps and
+    agitators turn black or white on an active fill, and no other paint can draw that. A
+    Pluto rule for detail lines hides the behavior from the spec. The trade is real: a
+    fourth paint for one look.
 
 ## 8 Open questions
 
