@@ -40,8 +40,7 @@ import (
 // read is the field that writes an index channel, and it takes no fill value. Any other
 // fill value becomes the default of its field. An endpoint whose fields are all
 // disabled becomes disabled. note receives the path and each change. ResolveReadConfig
-// returns an
-// error when a staged endpoint is not an endpoint of cfg.
+// returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
