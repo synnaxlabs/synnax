@@ -28,7 +28,6 @@ import { deep, id, uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
-  fireEvent,
   render,
   renderHook,
   type RenderHookOptions,
@@ -37,7 +36,6 @@ import {
   type RenderResult,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import {
   type CSSProperties,
@@ -81,37 +79,6 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
     assertDefined(el, "dialog trigger not found");
     return el;
   });
-
-/**
- * Searches the mounted select for the name, then clicks its option once the search
- * answers. Until then the list shows its first page, which unmounts a row out of view
- * once the list measures its height, so a row found there can be gone by the click.
- *
- * @param search - The placeholder of the search field, such as "Search devices...".
- * @param scope - The element that holds the field and the list. Defaults to the dialog
- * of the only field on screen with the placeholder.
- */
-export const pickOption = async (
-  name: string,
-  search: string,
-  scope?: HTMLElement,
-): Promise<void> => {
-  const field = await (scope == null ? screen : within(scope)).findByPlaceholderText(
-    search,
-  );
-  const list = scope ?? field.closest<HTMLElement>('[role="dialog"]');
-  if (list == null) throw new Error(`no dialog holds the field "${search}"`);
-  fireEvent.change(field, { target: { value: name } });
-  // A select that creates entries offers to create the name until the search lists it.
-  const option = await waitFor(() => {
-    const options = within(list).queryAllByRole("option");
-    const text = options[0]?.textContent ?? "";
-    if (options.length !== 1 || !text.includes(name) || text.startsWith("Create "))
-      throw new Error(`the search for ${name} has not answered`);
-    return options[0];
-  });
-  fireEvent.click(option);
-};
 
 /** Finds the close button of the rendered pluto tag whose text matches name. */
 export const findTagCloseButton = (name: string): HTMLElement => {
@@ -384,6 +351,8 @@ export interface CreateConsoleWrapperParams {
   additionalRegistry?: aether.ComponentRegistry;
   /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
+  /** Leaves the permissions unloaded, for a spec of a failed permissions load. */
+  skipPermissionLoad?: boolean;
 }
 
 export const createConsoleWrapper = async ({
@@ -392,11 +361,18 @@ export const createConsoleWrapper = async ({
   store,
   additionalRegistry,
   portal,
+  skipPermissionLoad = false,
 }: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
+  // The Console renders nothing before the permissions load, so no item that a
+  // permission gates mounts after the first render.
+  if (client != null && !skipPermissionLoad) {
+    const { role } = await client.users.current.retrieve();
+    await client.access.policies.watch({ roles: [role] }).retrieve();
+  }
   const SynnaxWrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },

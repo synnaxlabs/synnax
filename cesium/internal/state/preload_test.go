@@ -52,7 +52,7 @@ var _ = Describe("Preloads", func() {
 	It("Should refuse a writer that starts in a parted segment, through its "+
 		"preloaded record", func() {
 		Expect(s.OpenWriter(writer, preload(5, record))).Error().To(SatisfyAll(
-			MatchError(state.ErrConflict),
+			conflict(),
 			MatchError(ContainSubstring("inside its stored data from 10 to 30")),
 		))
 	})
@@ -73,7 +73,7 @@ var _ = Describe("Preloads", func() {
 
 	It("Should refuse a step with no preload of a key that parts hold", func() {
 		Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("no preload of key 6, which parts hold")),
 		))
 	})

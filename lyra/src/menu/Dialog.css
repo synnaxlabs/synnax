@@ -54,9 +54,4 @@
     &.lyra-menu-dialog--swap {
         animation: none;
     }
-
-    /* It stays above the context menu it opens from. */
-    &.lyra--visible {
-        z-index: 9;
-    }
 }

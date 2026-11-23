@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"context"
 	"os"
 	"strconv"
 
@@ -155,6 +156,24 @@ var _ = Describe("Files", func() {
 			})
 
 			Describe("Prepare", func() {
+				// prepare makes the file of log 4 through a checkpointer of logs of
+				// size bytes, and returns the error that its Prepared hook reports.
+				prepare := func(size int64) error {
+					GinkgoHelper()
+					p := &prepared{}
+					c := MustSucceed(checkpoint.New(checkpoint.Config{
+						FS:       fs,
+						DB:       db,
+						LogSize:  size,
+						Prepared: p.on,
+						Executor: goExec,
+					}))
+					start(c)
+					c.Prepare(4)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
+					return p.errs[0]
+				}
+
 				It(
 					"Should make a missing log of its size and remove a leftover head",
 					func() {
@@ -162,7 +181,7 @@ var _ = Describe("Files", func() {
 							fs.Open(checkpoint.Name(4), os.O_CREATE|os.O_RDWR),
 						)
 						Expect(f.Close()).To(Succeed())
-						Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+						Expect(prepare(3 * log.BlockSize)).To(Succeed())
 						Expect(exists(checkpoint.Name(4))).To(BeFalse())
 						info := MustSucceed(fs.Stat(log.Name(4)))
 						Expect(info.Size()).To(Equal(int64(3 * log.BlockSize)))
@@ -170,15 +189,15 @@ var _ = Describe("Files", func() {
 				)
 
 				It("Should keep a log of its size and remake a short one", func() {
-					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+					Expect(prepare(3 * log.BlockSize)).To(Succeed())
 					writes := len(fs.Ops())
-					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+					Expect(prepare(3 * log.BlockSize)).To(Succeed())
 					Expect(fs.Ops()[writes:]).To(HaveExactElements(
 						"remove "+checkpoint.Name(4),
 						"sync "+log.Name(4),
 						`syncdir ""`,
 					), "no write")
-					Expect(checkpoint.Prepare(fs, 4, 4*log.BlockSize)).To(Succeed())
+					Expect(prepare(4 * log.BlockSize)).To(Succeed())
 					info := MustSucceed(fs.Stat(log.Name(4)))
 					Expect(info.Size()).To(Equal(int64(4 * log.BlockSize)))
 				})
@@ -202,6 +221,24 @@ var _ = Describe("Files", func() {
 					return names
 				}
 				head, lg := checkpoint.Name, log.Name
+				// clean runs the first step of a checkpointer whose recovery opened the
+				// head
+				// of live, which cleans the root against it.
+				clean := func(live uint64) {
+					GinkgoHelper()
+					c := MustSucceed(checkpoint.New(checkpoint.Config{
+						FS:       fs,
+						DB:       db,
+						LogSize:  log.BlockSize,
+						Prepared: func(uint64, error) {},
+						Executor: goExec,
+						Live:     live,
+					}))
+					ran := make(chan error, 1)
+					go func() { ran <- c.Run(context.Background()) }()
+					Expect(c.Close()).To(Succeed())
+					Eventually(ran).WithTimeout(fileTimeout).Should(Receive(BeNil()))
+				}
 				// complete writes a head that Read takes for each generation of gs.
 				complete := func(gs ...uint64) {
 					GinkgoHelper()
@@ -216,7 +253,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 2, 3)
 						create(lg(1), lg(2), lg(3), lg(4))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(
 							left(),
 						).To(ConsistOf(head(2), head(3), lg(2), lg(3), lg(4)))
@@ -229,7 +266,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 3)
 						create(lg(1), lg(2), lg(3))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(
 							left(),
 						).To(ConsistOf(head(1), head(3), lg(1), lg(2), lg(3)))
@@ -239,7 +276,7 @@ var _ = Describe("Files", func() {
 				It("Should read only names of 16 hex digits as generations", func() {
 					complete(1, 4)
 					create("3.head", lg(1), lg(2), lg(3), lg(4))
-					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
+					clean(4)
 					Expect(
 						left(),
 					).To(ConsistOf(head(1), "3.head", head(4), lg(1), lg(2),
@@ -250,7 +287,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 3)
 						create(head(2), lg(1), lg(2), lg(3))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(left()).To(ConsistOf(head(1), head(2), head(3), lg(1),
 							lg(2), lg(3)))
 					})
@@ -258,7 +295,7 @@ var _ = Describe("Files", func() {
 				It("Should keep no older head whose logs are not all there", func() {
 					complete(1, 2, 4)
 					create(lg(1), lg(3), lg(4), "meta.json", head(1)+".damaged")
-					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
+					clean(4)
 					Expect(left()).
 						To(ConsistOf(head(4), lg(4), "meta.json", head(1)+".damaged"))
 				})

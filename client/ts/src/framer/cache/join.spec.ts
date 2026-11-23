@@ -12,14 +12,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { alignmentOf, RAW_LEVEL, rawTile } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 
 const INDEX = 1;
 const DATA = 2;
 const BLOCK = 100;
-const RANGE = tileRange({ level: RAW_LEVEL, tile: BLOCK });
+const RANGE = grid.tileRange({ level: RAW_LEVEL, tile: BLOCK });
 
 const at = (seconds: number): TimeStamp => RANGE.start.add(TimeSpan.seconds(seconds));
 
@@ -600,7 +600,7 @@ describe("Joins", () => {
 
     it("should keep a member joined when the change misses its open block", () => {
       const { joins } = createJoined();
-      const earlier = tileRange({ level: RAW_LEVEL, tile: BLOCK - 1 });
+      const earlier = grid.tileRange({ level: RAW_LEVEL, tile: BLOCK - 1 });
       expect(joins.invalidate(DATA, earlier).size).toBe(0);
       expect(joins.joined(DATA)).toBe(true);
     });
