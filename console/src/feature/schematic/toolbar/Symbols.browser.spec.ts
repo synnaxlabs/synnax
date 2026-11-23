@@ -356,6 +356,52 @@ describe("Schematic toolbar Symbols drag preview", () => {
   });
 });
 
+describe("Schematic toolbar Symbols drag", () => {
+  it("should haul a built-in symbol as a symbol node", async () => {
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.dragStart(await screen.findByText("Generic"), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            label: { label: "Valve" },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("should haul a remote symbol as a symbol node", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "custom", key: symbols[0].key },
+            label: { label: name },
+          },
+        },
+      },
+    ]);
+  });
+});
+
 describe("schematic/toolbar/Symbols permissions", () => {
   const READS = [
     schematicClient.TYPE_RESOURCE_ID,
