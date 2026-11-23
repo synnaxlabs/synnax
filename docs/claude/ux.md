@@ -155,6 +155,21 @@ a color picker has no "+".
   the top bar. Their right end is the Core island, then the island of the theme toggle.
   On the project splash, the Settings gear shares the island of the theme toggle.
 
+### Window controls
+
+- On Windows, the Console draws its own minimize, maximize, and close buttons with the
+  10 px, 1 px stroke glyphs of Windows 11. The glyphs are gray step 10, and they dim to
+  the disabled text color while the window does not have focus.
+- Each button is 36 px wide and clicks over the full height of the top bar. Its hover is
+  a 28 px pill with the tiny radius, like the other text buttons in the bar. On hover,
+  close turns `--pluto-error-m1` with a white glyph, the Windows close red.
+- The click areas reach the window's top edge, and the close button's reaches the
+  corner, so a throw to the corner closes the window. In an island before a workspace,
+  the click areas reach past the island to the edges.
+- Rejected: full-height backplates as Windows 11 draws them. At 46 px they take too much
+  space, at 36 px they are taller than wide, and short ones that hang from the top edge
+  move the glyphs off the bar's center line.
+
 ### Toolbar search
 
 - A search action in a resource toolbar header turns the title into a field. The search

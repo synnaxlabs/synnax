@@ -9,43 +9,100 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A button clicks over its full height, and draws its hover as a pill inside it. */
+.console-window__buttons {
+    align-self: stretch;
+}
+
 .console-window__button {
-    border: none;
-    width: 7rem;
-}
+    --pluto-hover-bg: transparent;
+    --pluto-active-bg: transparent;
 
-.console-window__button--maximize > svg {
-    top: 30% !important;
-    left: 30% !important;
-    width: 40% !important;
-    height: 40% !important;
-}
+    width: 6rem;
+    height: 100%;
+    padding: 0;
+    border-radius: 0;
+    justify-content: center;
+    color: var(--pluto-gray-l10);
 
-.console-window__button--close,
-.console-window__button--minimize {
-    & > svg {
-        top: 27.5% !important;
-        left: 27.5% !important;
-        width: 45% !important;
-        height: 45% !important;
+    &::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: round(0.3333rem, 1px);
+        left: round(0.3333rem, 1px);
+        height: var(--pluto-height-medium);
+        translate: 0 -50%;
+        border-radius: var(--pluto-border-radius-tiny);
+        transition: var(--pluto-btn-transition);
+    }
+
+    &:hover {
+        color: var(--pluto-gray-l11);
+
+        &::before {
+            background: var(--pluto-fill-hover);
+        }
+    }
+
+    &:active::before {
+        background: var(--pluto-fill-press);
     }
 }
 
+.console-window__glyph {
+    position: relative;
+    flex-shrink: 0;
+    width: round(1.6667rem, 1px);
+    height: round(1.6667rem, 1px);
+}
+
+.console-window__buttons.console--inactive .console-window__button:not(:hover) {
+    color: var(--pluto-text-disabled);
+}
+
+/* The Windows close red, with a lighter press. */
 .console-window__button--close {
-    border-top-right-radius: 1rem !important;
-
     &:hover {
-        background: var(--pluto-error-z) !important;
-        border-color: var(--pluto-error-z) !important;
+        color: var(--pluto-white);
 
-        & svg {
-            fill: var(--pluto-white);
-            transition: none;
+        &::before {
+            background: var(--pluto-error-m1);
         }
     }
 
     &:active {
-        background: var(--pluto-error-m1) !important;
-        border-color: var(--pluto-error-m1) !important;
+        color: color-mix(in srgb, var(--pluto-white) 70%, transparent);
+
+        &::before {
+            background: color-mix(in srgb, var(--pluto-error-m1) 90%, transparent);
+        }
     }
+}
+
+/* The top bar ends at the window's edge, so the close button's click area reaches the
+   corner while its pill keeps the bar's inset. */
+.console-nav__bar .console-window__button--close {
+    width: 7rem;
+    padding-right: 1rem;
+
+    &::before {
+        right: calc(1rem + round(0.3333rem, 1px));
+    }
+}
+
+.console-shell__island:has(> .console-window__buttons) {
+    padding: 0 round(0.3333rem, 1px);
+}
+
+/* In an island, each click area reaches up across the islands' 2rem inset to the
+   window's top edge, and the close button's reaches the corner. */
+.console-shell__island .console-window__button::after {
+    content: "";
+    position: absolute;
+    inset: calc(-2rem - var(--pluto-border-width)) 0 0;
+}
+
+.console-shell__island .console-window__button--close::after {
+    right: calc(-2rem - var(--pluto-border-width) - round(0.3333rem, 1px));
 }

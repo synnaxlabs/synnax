@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Window } from "@/platform/window";
-import { getIconButton } from "@/testutil";
 
 describe("Window.Buttons", () => {
   it("should call the handler matching each button", () => {
@@ -34,18 +33,24 @@ describe("Window.Buttons", () => {
   });
 
   it("should offer a restore button while the window is maximized", () => {
-    const { container } = render(<Window.Buttons maximized />);
+    const onMaximize = vi.fn();
+    render(<Window.Buttons maximized onMaximize={onMaximize} />);
     expect(screen.queryByRole("button", { name: "Maximize" })).toBeNull();
-    expect(getIconButton(container, "boxes")).toBe(
-      screen.getByRole("button", { name: "Restore" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(onMaximize).toHaveBeenCalledTimes(1);
   });
 
-  it("should close with the thin glyph rather than the heavier Icon.Close", () => {
-    const { container } = render(<Window.Buttons />);
-    expect(getIconButton(container, "close-thin")).toBe(
-      screen.getByRole("button", { name: "Close" }),
-    );
+  it("should dim the buttons while the window has no focus", () => {
+    render(<Window.Buttons />);
+    const group = screen.getByRole("group", { name: "Window controls" });
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    expect(group.classList.contains("console--inactive")).toBe(true);
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(group.classList.contains("console--inactive")).toBe(false);
   });
 
   it("should leave out a disabled button", () => {

@@ -11,8 +11,7 @@ import "@/platform/window/Buttons.css";
 
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import type { ReactElement } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -27,6 +26,64 @@ export interface ButtonsProps extends Flex.BoxProps {
   onClose?: () => void;
 }
 
+const useWindowFocused = (): boolean => {
+  const [focused, setFocused] = useState(() => document.hasFocus());
+  useEffect(() => {
+    const handleFocus = () => setFocused(true);
+    const handleBlur = () => setFocused(false);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+  return focused;
+};
+
+interface GlyphProps {
+  children: ReactNode;
+}
+
+/** Draws the 10 px, 1 px stroke caption glyphs of Windows 11. */
+const Glyph = ({ children }: GlyphProps): ReactElement => (
+  <svg
+    className={CSS.BE("window", "glyph")}
+    viewBox="0 0 10 10"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1}
+    aria-hidden
+  >
+    {children}
+  </svg>
+);
+
+const MINIMIZE = (
+  <Glyph>
+    <path d="M0 5.5h10" />
+  </Glyph>
+);
+
+const MAXIMIZE = (
+  <Glyph>
+    <rect x={0.5} y={0.5} width={9} height={9} rx={1.5} />
+  </Glyph>
+);
+
+const RESTORE = (
+  <Glyph>
+    <rect x={0.5} y={2.5} width={7} height={7} rx={1.5} />
+    <path d="M2.5 2.5v-.5a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-.5" />
+  </Glyph>
+);
+
+const CLOSE = (
+  <Glyph>
+    <path d="M0.5 0.5l9 9M9.5 0.5l-9 9" />
+  </Glyph>
+);
+
 /** The minimize, maximize, and close buttons a window draws for itself on Windows. */
 export const Buttons = ({
   disabled = [],
@@ -34,35 +91,54 @@ export const Buttons = ({
   onMinimize,
   onMaximize,
   onClose,
+  className,
   ...rest
-}: ButtonsProps): ReactElement => (
-  <Flex.Box pack {...rest}>
-    <Button
-      action="minimize"
-      aria-label="Minimize"
-      onClick={onMinimize}
-      disabled={disabled.includes("minimize")}
+}: ButtonsProps): ReactElement => {
+  const focused = useWindowFocused();
+  const maximizeLabel = maximized ? "Restore" : "Maximize";
+  return (
+    <Flex.Box
+      x
+      empty
+      role="group"
+      aria-label="Window controls"
+      className={CSS.cls(
+        CSS.BE("window", "buttons"),
+        !focused && CSS.M("inactive"),
+        className,
+      )}
+      {...rest}
     >
-      <Icon.Subtract />
-    </Button>
-    <Button
-      action="maximize"
-      aria-label={maximized ? "Restore" : "Maximize"}
-      onClick={onMaximize}
-      disabled={disabled.includes("maximize")}
-    >
-      {maximized ? <Icon.Boxes /> : <Icon.Box />}
-    </Button>
-    <Button
-      action="close"
-      aria-label="Close"
-      onClick={onClose}
-      disabled={disabled.includes("close")}
-    >
-      <Icon.CloseThin />
-    </Button>
-  </Flex.Box>
-);
+      <Button
+        action="minimize"
+        aria-label="Minimize"
+        tooltip="Minimize"
+        onClick={onMinimize}
+        disabled={disabled.includes("minimize")}
+      >
+        {MINIMIZE}
+      </Button>
+      <Button
+        action="maximize"
+        aria-label={maximizeLabel}
+        tooltip={maximizeLabel}
+        onClick={onMaximize}
+        disabled={disabled.includes("maximize")}
+      >
+        {maximized ? RESTORE : MAXIMIZE}
+      </Button>
+      <Button
+        action="close"
+        aria-label="Close"
+        tooltip="Close"
+        onClick={onClose}
+        disabled={disabled.includes("close")}
+      >
+        {CLOSE}
+      </Button>
+    </Flex.Box>
+  );
+};
 
 interface ButtonProps extends BaseButton.ButtonProps {
   action: Action;
@@ -81,6 +157,7 @@ const Button = ({
       )}
       tabIndex={-1}
       variant="text"
+      tooltipLocation={{ y: "bottom" }}
       {...rest}
     />
   ) : null;
