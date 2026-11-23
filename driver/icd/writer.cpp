@@ -26,7 +26,6 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
-#include "driver/codec/field.h"
 #include "driver/codec/text.h"
 #include "driver/errors/errors.h"
 #include "driver/icd/writer.h"

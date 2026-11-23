@@ -30,8 +30,4 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
 
 /// @brief returns err as a CONFIG_ERROR with context before its text.
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
-
-/// @brief returns the double of the shortest decimal text of v, so that a float32
-/// sample gains no float64 digits. A value that is not finite stays as it is.
-double widen(float v);
 }

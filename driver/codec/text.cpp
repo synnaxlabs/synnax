@@ -63,6 +63,13 @@ void append_number(const T v, std::string &out) {
 }
 }
 
+double widen(const float v) {
+    if (!std::isfinite(v)) return v;
+    std::array<char, 32> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
+    return x::json::parse_float64({buf.data(), res.ptr}).first;
+}
+
 std::pair<Text::Field, x::errors::Error> Text::Field::create(
     const icd::TextField &f,
     const x::telem::DataType &dt,

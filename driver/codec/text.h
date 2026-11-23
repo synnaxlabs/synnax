@@ -223,4 +223,8 @@ public:
         return this->fields[this->bound[binding]].fallback.has_value();
     }
 };
+
+/// @brief returns the double of the shortest decimal text of v, which TextEncoder
+/// writes for a float32 sample. A value that is not finite stays as it is.
+double widen(float v);
 }
