@@ -19,8 +19,8 @@ import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Staleness } from "@/vis/staleness";
 
-/** Unknown marks a symbol whose state has no data, or a value that names no entry. */
-export const Unknown = (): ReactElement => (
+/** Unknown shows that a state of a symbol has no data, or names no entry. */
+const Unknown = (): ReactElement => (
   <Badge.Badge
     status="warning"
     className={CSS.B("unknown-badge")}
