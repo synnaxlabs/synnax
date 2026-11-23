@@ -120,7 +120,7 @@ type FixedCommandValue = v5.FixedCommandValue
 type AskCommandValue = v5.AskCommandValue
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look = v5.Look
 
 // Blink makes a part flash.
