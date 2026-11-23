@@ -523,19 +523,25 @@ describe("symbol editor spec", () => {
       expect(next[0].selectors).toEqual([]);
     });
 
-    it("should put a group in place of the shapes of the part that it holds", () => {
-      const spec = createSpec({
-        drawing: {
-          type: "svg",
-          markup:
-            '<svg xmlns="http://www.w3.org/2000/svg">' +
-            '<g id="g"><rect id="body"/><rect id="seat"/></g></svg>',
-        },
-      });
-      expect(Spec.toggleSelector(spec, "body", "#g")).toEqual([
+    const grouped = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="seat"/></g></svg>',
+      },
+    });
+
+    it("should put a group in place of the shapes of every part inside it", () => {
+      expect(Spec.toggleSelector(grouped, "body", "#g")).toEqual([
         { key: "body", name: "Body", selectors: ["#g"] },
-        { key: "seat", name: "Seat", selectors: ["#seat"] },
+        { key: "seat", name: "Seat", selectors: [] },
       ]);
+    });
+
+    it("should keep the parts when the part holds a group around the shape", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toBe(parts);
     });
   });
 

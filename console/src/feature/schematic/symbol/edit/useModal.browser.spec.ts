@@ -869,6 +869,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("makes the nearest group around shapes at two depths the part", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<g id="g"><rect id="c" width="10" height="10"/>' +
+            '<g id="h"><rect id="d" x="10" width="10" height="10"/></g></g></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#c", "#d"] }],
+      });
+      fireEvent.click(screen.getByText("Select parent group"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#g"] },
+        ]),
+      );
+    });
+
     it("makes a part of the group of a shape alt-clicked", async () => {
       const symbol = await openPainted({ drawing: { type: "svg", markup: GROUPED } });
       fireEvent.click(screen.getByText("Whole drawing"));

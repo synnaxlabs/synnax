@@ -9,9 +9,12 @@
 
 import { Schematic } from "@synnaxlabs/pluto";
 
+const holdsAll = (group: Element, shapes: Element[]): boolean =>
+  shapes.every((s) => s !== group && group.contains(s));
+
 /**
- * @returns the drawing markup with a name on the group that holds every shape of
- * selectors, and the selector of that group. Null when the shapes sit in no one group.
+ * @returns the drawing markup with a name on the nearest group that holds every shape
+ * of selectors, and the selector of that group. Null when no group holds them all.
  */
 export const parentGroup = (
   markup: string,
@@ -19,9 +22,10 @@ export const parentGroup = (
 ): Schematic.Node.Region.Named | null => {
   const root = Schematic.Node.Region.parseSVG(markup);
   if (root == null) throw new Error("the markup of the drawing does not parse");
-  const shapes = new Set(selectors.flatMap((s) => [...root.querySelectorAll(s)]));
-  const parents = new Set([...shapes].map((s) => s.parentElement));
-  const [parent] = parents;
-  if (parents.size !== 1 || !(parent instanceof SVGGElement)) return null;
-  return Schematic.Node.Region.name(markup, root, parent);
+  const shapes = [...new Set(selectors.flatMap((s) => [...root.querySelectorAll(s)]))];
+  let el: Element | null = shapes[0]?.parentElement ?? null;
+  for (; el != null && el !== root; el = el.parentElement)
+    if (el instanceof SVGGElement && holdsAll(el, shapes))
+      return Schematic.Node.Region.name(markup, root, el);
+  return null;
 };

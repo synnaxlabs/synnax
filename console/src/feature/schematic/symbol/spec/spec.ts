@@ -232,16 +232,13 @@ export const removePart = (spec: Spec, part: string): Spec => ({
   looks: spec.looks.filter((l) => l.part !== part),
 });
 
-// heldBy returns the selectors whose shapes all sit in the shape of group.
-const heldBy = (markup: string, group: string, selectors: string[]): Set<string> => {
-  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
-  const el = doc.querySelector(group);
-  if (el == null) return new Set();
-  return new Set(
-    selectors.filter((s) => {
-      const shapes = [...doc.querySelectorAll(s)];
-      return shapes.length > 0 && shapes.every((shape) => el.contains(shape));
-    }),
+// holds returns whether every shape of inner sits inside a shape of outer.
+const holds = (doc: Document, outer: string, inner: string): boolean => {
+  const groups = [...doc.querySelectorAll(outer)];
+  const shapes = [...doc.querySelectorAll(inner)];
+  return (
+    shapes.length > 0 &&
+    shapes.every((s) => groups.some((g) => g !== s && g.contains(s)))
   );
 };
 
@@ -266,8 +263,9 @@ export const owner = (
 
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, so the other parts drop selector. A group
- * that joins part takes the place of the shapes of part that it holds.
+ * already did. A shape belongs to one part, so every part drops the selectors of shapes
+ * inside the shape of selector, and the other parts drop selector. A part that holds a
+ * group around the shape already has it, so the parts stay the same.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -276,14 +274,16 @@ export const toggleSelector = (
 ): schematic.symbol.Part[] => {
   const target = spec.parts.find((p) => p.key === part);
   if (target == null) return spec.parts;
-  const selected = target.selectors.includes(selector);
-  const held = selected
-    ? new Set<string>()
-    : heldBy(spec.drawing.markup, selector, target.selectors);
+  if (target.selectors.includes(selector))
+    return spec.parts.map((p) => ({
+      ...p,
+      selectors: p.selectors.filter((s) => s !== selector),
+    }));
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  if (target.selectors.some((s) => holds(doc, s, selector))) return spec.parts;
   return spec.parts.map((p) => {
-    const rest = p.selectors.filter((s) => s !== selector);
-    if (p.key !== part || selected) return { ...p, selectors: rest };
-    return { ...p, selectors: [...rest.filter((s) => !held.has(s)), selector] };
+    const rest = p.selectors.filter((s) => s !== selector && !holds(doc, selector, s));
+    return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
   });
 };
 
