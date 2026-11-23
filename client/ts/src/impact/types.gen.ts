@@ -37,6 +37,20 @@ export const entryZ = z.object({
 });
 export interface Entry extends z.infer<typeof entryZ> {}
 
+/**
+ * Hidden counts the entries whose records the caller cannot see, by effect. Counts name
+ * no record.
+ */
+export const hiddenZ = z.object({
+  /** restrict is the number of hidden entries that stop the change. */
+  restrict: z.uint32(),
+  /** cascade is the number of hidden entries that the change deletes. */
+  cascade: z.uint32(),
+  /** detach is the number of hidden entries that lose the channel. */
+  detach: z.uint32(),
+});
+export interface Hidden extends z.infer<typeof hiddenZ> {}
+
 /** DeleteChannelsChange deletes channels. */
 export const deleteChannelsChangeZ = z.object({
   type: z.literal("delete_channels"),
@@ -84,13 +98,13 @@ export const planZ = z.object({
    */
   kept: z.uint32(),
   /**
-   * hidden is the number of entries whose records the caller cannot see. One pick
-   * covers all of them.
+   * hidden counts the entries whose records the caller cannot see. One pick covers the
+   * ones that stop the change.
    */
-  hidden: z.uint32(),
+  hidden: hiddenZ,
   /**
    * token is the hex form of a hash of the change, each visible entry, and the hidden
-   * count, with the caller's picks. Apply refuses a token that no longer matches.
+   * counts, with the caller's picks. Apply refuses a token that no longer matches.
    */
   token: z.string(),
   /** change is the change that the plan covers. */
@@ -104,7 +118,7 @@ export const planRequestZ = z.object({
   change: changeZ,
   /** picks maps the text form of the record of a visible entry to the pick for it. */
   picks: caseconv.preserveKeys(z.record(z.string(), choiceZ).default(() => ({}))),
-  /** hidden is the pick for every entry that the caller cannot see. */
+  /** hidden is the pick for every hidden entry that stops the change. */
   hidden: choiceZ.optional(),
 });
 export interface PlanRequest extends z.infer<typeof planRequestZ> {}
@@ -117,7 +131,7 @@ export const applyRequestZ = z.object({
   token: z.string().default(""),
   /** picks maps the text form of the record of a visible entry to the pick for it. */
   picks: caseconv.preserveKeys(z.record(z.string(), choiceZ).default(() => ({}))),
-  /** hidden is the pick for every entry that the caller cannot see. */
+  /** hidden is the pick for every hidden entry that stops the change. */
   hidden: choiceZ.optional(),
 });
 export interface ApplyRequest extends z.infer<typeof applyRequestZ> {}

@@ -14,6 +14,7 @@ package impact
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -380,7 +381,7 @@ func (s *Service) deleteChannels(
 }
 
 // seen returns p for the delete of the channels with keys, with the entries whose
-// records visible hides counted in Hidden instead.
+// records visible hides counted in Hidden by effect instead.
 func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 	p.Change = Change{Variant: DeleteChannelsChange{Keys: keys}}
 	if visible == nil {
@@ -398,7 +399,7 @@ func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 		if visible(e.Record) {
 			entries = append(entries, e)
 		} else {
-			p.Hidden++
+			p.Hidden.count(e.Effect)
 		}
 	}
 	p.Entries = entries
@@ -528,4 +529,18 @@ func choose(
 		}
 	}
 	return channels, records, cancel, nil
+}
+
+// count counts one hidden entry with effect e.
+func (h *Hidden) count(e Effect) {
+	switch e {
+	case EffectRestrict:
+		h.Restrict++
+	case EffectCascade:
+		h.Cascade++
+	case EffectDetach:
+		h.Detach++
+	default:
+		panic(fmt.Sprintf("[impact] - no hidden count for effect %q", e))
+	}
 }

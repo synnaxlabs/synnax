@@ -165,7 +165,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		plot := createPlot(ctx, ch.Key())
 		visible := hide(lineplot.ResourceID(plot.Key))
 		p := plan(ctx, visible, ch.Key())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Detach: 1}))
 		_, err := apply(ctx, impact.ApplyOptions{
 			Token:   p.Token,
 			Hidden:  new(impact.Choice("bogus")),
@@ -255,7 +255,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 			dataID := channel.ResourceID(data.Key())
 			p := plan(ctx, hide(dataID), index.Key())
 			Expect(p.Entries).To(BeEmpty())
-			Expect(p.Hidden).To(Equal(uint32(1)))
+			Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 			late := createTask(ctx, data.Key())
 			_, err := apply(ctx, impact.ApplyOptions{
 				Token:   p.Token,
@@ -283,7 +283,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		hidden := plan(ctx, hide(id), ch.Key())
 		Expect(hidden.Token).ToNot(Equal(seen.Token))
 		Expect(hidden.Entries).To(BeEmpty())
-		Expect(hidden.Hidden).To(Equal(uint32(1)))
+		Expect(hidden.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 		_, err := apply(ctx, impact.ApplyOptions{
 			Token:   seen.Token,
 			Hidden:  new(impact.ChoiceDelete),

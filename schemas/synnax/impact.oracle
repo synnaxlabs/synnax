@@ -77,6 +77,23 @@ Entry struct {
     @doc value "is one record that a change touches."
 }
 
+Hidden struct {
+    restrict uint32 {
+        @doc value "is the number of hidden entries that stop the change."
+    }
+    cascade  uint32 {
+        @doc value "is the number of hidden entries that the change deletes."
+    }
+    detach   uint32 {
+        @doc value "is the number of hidden entries that lose the channel."
+    }
+
+    @doc value """
+        counts the entries whose records the caller cannot see, by effect. Counts name
+        no record.
+    """
+}
+
 Plan struct {
     entries Entry[] {
         @doc value "are the records that the change touches, sorted by record."
@@ -87,16 +104,16 @@ Plan struct {
             change. They need no pick, so they are not entries.
         """
     }
-    hidden  uint32  {
+    hidden  Hidden  {
         @doc value """
-            is the number of entries whose records the caller cannot see. One pick
-            covers all of them.
+            counts the entries whose records the caller cannot see. One pick covers the
+            ones that stop the change.
         """
     }
     token   string  {
         @doc value """
             is the hex form of a hash of the change, each visible entry, and the hidden
-            count, with the caller's picks. Apply refuses a token that no longer
+            counts, with the caller's picks. Apply refuses a token that no longer
             matches.
         """
     }
@@ -118,7 +135,7 @@ PlanRequest struct {
         @ts preserve_keys
     }
     hidden Choice?             {
-        @doc value "is the pick for every entry that the caller cannot see."
+        @doc value "is the pick for every hidden entry that stops the change."
     }
 
     @doc value "asks what a change would do with the caller's picks."
@@ -141,7 +158,7 @@ ApplyRequest struct {
         @ts preserve_keys
     }
     hidden Choice?             {
-        @doc value "is the pick for every entry that the caller cannot see."
+        @doc value "is the pick for every hidden entry that stops the change."
     }
 
     @doc value "carries out a change with the caller's picks."
