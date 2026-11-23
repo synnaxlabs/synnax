@@ -35,7 +35,10 @@
     -webkit-backdrop-filter: var(--pluto-frost);
     backdrop-filter: var(--pluto-frost);
     overflow: hidden;
-    animation: pop 0.2s ease-in-out;
+
+    &.lyra--entering {
+        animation: pop 0.2s ease-in-out;
+    }
 
     /* A name makes the small line the card's first line, so the indicator and the stamp
        centre on it instead of on the message. */

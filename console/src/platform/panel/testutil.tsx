@@ -16,7 +16,12 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, getBySelector, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  type CreateConsoleWrapperParams,
+  getBySelector,
+  type TestStore,
+} from "@/testutil";
 
 /** The rendered mosaic leaf: the drop target for both tabs and OS files. */
 export const getMosaicLeaf = (): HTMLElement =>
@@ -60,7 +65,10 @@ export const createResourceTab = async (
   return { panelKey, tabKey };
 };
 
-export interface PanelWrapperParams {
+export interface PanelWrapperParams extends Pick<
+  CreateConsoleWrapperParams,
+  "skipPermissionLoad"
+> {
   client: Synnax;
   store?: TestStore;
   panelKey?: panel.Key;
@@ -81,6 +89,7 @@ export const createPanelWrapper = async ({
   panelKey,
   tabKey,
   project,
+  skipPermissionLoad,
 }: PanelWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -88,6 +97,7 @@ export const createPanelWrapper = async ({
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     store,
+    skipPermissionLoad,
   });
   const projectKey =
     project ?? (await client.projects.create({ name: uniqueName("project") })).key;

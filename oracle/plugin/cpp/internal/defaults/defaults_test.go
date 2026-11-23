@@ -44,6 +44,7 @@ const source = `
 		name   string  = "task"
 		count  int32   = 3
 		ratio  float64 = 0.5
+		tiny   float64 = 0.0000001
 		active bool    = false
 		level  Level   = 4
 		mode   Mode    = off
@@ -93,6 +94,7 @@ var _ = Describe("Renderer", func() {
 			Entry("a string", "name", `"task"`),
 			Entry("an integer", "count", "3"),
 			Entry("a float", "ratio", "0.500000"),
+			Entry("a small float", "tiny", "1e-07"),
 			Entry("a boolean", "active", "false"),
 			Entry("a distinct integer", "level", "task.Level(4)"),
 			Entry("an int enum", "mode", "Mode::Off"),

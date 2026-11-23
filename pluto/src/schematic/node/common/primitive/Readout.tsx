@@ -9,7 +9,7 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { color, text } from "@synnaxlabs/x";
+import type { text } from "@synnaxlabs/x";
 import type { ReactElement, ReactNode, Ref } from "react";
 
 import { CSS } from "@/css";
@@ -36,7 +36,6 @@ export interface ReadoutProps {
   size: Component.Size;
   value?: ReactNode;
   units?: string;
-  color?: color.Color;
   /** valueRef receives the value cell, so a value drawn on the canvas can fit it. */
   valueRef?: Ref<HTMLParagraphElement>;
 }
@@ -49,7 +48,6 @@ export const Readout = ({
   size,
   value,
   units,
-  color,
   valueRef,
 }: ReadoutProps): ReactElement => {
   const level = READOUT_LEVELS[size];
@@ -61,7 +59,6 @@ export const Readout = ({
       <Text.Text
         ref={valueRef}
         level={level}
-        color={color}
         overflow="fade"
         className={CSS.BE("symbol-field", "readout-value")}
       >

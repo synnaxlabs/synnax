@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, filter, id } from "@synnaxlabs/x";
+import { array, caseconv, filter, id, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -130,6 +130,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
+  private readonly uses: query.Uses<Key, Secret, RetrieveRequest>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -179,6 +180,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
+    this.uses = uses;
   }
 
   /**
@@ -193,12 +195,19 @@ export class Client extends query.Retriever<
   async set(secrets: New[]): Promise<Secret[]>;
   async set(secrets: New | New[]): Promise<Secret | Secret[]> {
     const isMany = Array.isArray(secrets);
-    const res = await this.cfg.unary.send(
-      "/secret/set",
-      { secrets: array.toArray(secrets) },
-      setReqZ,
-      setResZ,
-    );
+    // A secret with no key is new and has no uses, so a list admits it with no fetch.
+    const created: Key[] = [];
+    const keyed = array.toArray(secrets).map((s) => {
+      if (s.key != null) return s;
+      const key = uuid.create();
+      created.push(key);
+      return { ...s, key };
+    });
+    const res = await query.optimistic({
+      rollbacks: [this.uses.created(created)],
+      commit: async () =>
+        await this.cfg.unary.send("/secret/set", { secrets: keyed }, setReqZ, setResZ),
+    });
     this.store.set(res.secrets);
     return isMany ? res.secrets : res.secrets[0];
   }

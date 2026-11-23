@@ -10,14 +10,8 @@
 import type { device, Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
-import {
-  createNextAIChannel,
-  createNextAOChannel,
-  createNextCIChannel,
-  createNextDIChannel,
-  createNextDOChannel,
-} from "@/feature/ni/task/createChannel";
+import { Device } from "@/feature/ni/device";
+import { Channel } from "@/feature/ni/task/channel";
 import {
   ANALOG_READ_TYPE,
   ANALOG_WRITE_TYPE,
@@ -45,15 +39,15 @@ const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = asy
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
   if (config == null && deviceKeys.length === 0)
-    cfg.channels = [createNextAIChannel([])];
+    cfg.channels = [Channel.createNextAI([])];
   else if (config == null) {
     const devices = await client.devices.retrieve({
       key: deviceKeys,
-      schemas: SCHEMAS,
+      schemas: Device.SCHEMAS,
     });
     // No channel copies another, so each takes the voltage range of its own device.
     cfg.channels = deviceKeys.map((device) =>
-      createNextAIChannel([], { device }, devices),
+      Channel.createNextAI([], { device }, devices),
     );
   }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
@@ -61,7 +55,7 @@ const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = asy
 
 export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues: getAnalogReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogReadSelectable: Selector.Selectable = {
@@ -78,13 +72,13 @@ const getAnalogWriteInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = (
 }) => {
   const cfg = analogWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextAOChannel([])];
+  if (config == null) cfg.channels = [Channel.createNextAO([])];
   return { name: "NI analog write task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues: getAnalogWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogWriteSelectable: Selector.Selectable = {
@@ -102,16 +96,16 @@ const getCounterReadInitialValues: Task.GetInitialValues<CounterReadSchemas> = (
   const cfg = counterReadConfigZ.parse(config ?? {});
   if (config == null) {
     cfg.channels = [];
-    if (deviceKeys.length === 0) cfg.channels.push(createNextCIChannel([]));
+    if (deviceKeys.length === 0) cfg.channels.push(Channel.createNextCI([]));
     for (const device of deviceKeys)
-      cfg.channels.push(createNextCIChannel(cfg.channels, { device }));
+      cfg.channels.push(Channel.createNextCI(cfg.channels, { device }));
   }
   return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
 };
 
 export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues: getCounterReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const CounterReadSelectable: Selector.Selectable = {
@@ -125,8 +119,10 @@ export const CounterReadSelectable: Selector.Selectable = {
 const retrieveDevice = async (
   client: Synnax,
   key: device.Key | undefined,
-): Promise<Device | undefined> =>
-  key == null ? undefined : await client.devices.retrieve({ key, schemas: SCHEMAS });
+): Promise<Device.Device | undefined> =>
+  key == null
+    ? undefined
+    : await client.devices.retrieve({ key, schemas: Device.SCHEMAS });
 
 const getDigitalReadInitialValues: Task.GetInitialValues<DigitalReadSchemas> = async ({
   client,
@@ -137,14 +133,14 @@ const getDigitalReadInitialValues: Task.GetInitialValues<DigitalReadSchemas> = a
   if (deviceKey != null) cfg.device = deviceKey;
   if (config == null)
     cfg.channels = [
-      createNextDIChannel([], {}, await retrieveDevice(client, deviceKey)),
+      Channel.createNextDI([], {}, await retrieveDevice(client, deviceKey)),
     ];
   return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 export const useCreateDigitalRead = Task.createUseCreate({
   getInitialValues: getDigitalReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalReadSelectable: Selector.Selectable = {
@@ -162,14 +158,14 @@ const getDigitalWriteInitialValues: Task.GetInitialValues<
   if (deviceKey != null) cfg.device = deviceKey;
   if (config == null)
     cfg.channels = [
-      createNextDOChannel([], {}, await retrieveDevice(client, deviceKey)),
+      Channel.createNextDO([], {}, await retrieveDevice(client, deviceKey)),
     ];
   return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 export const useCreateDigitalWrite = Task.createUseCreate({
   getInitialValues: getDigitalWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalWriteSelectable: Selector.Selectable = {
