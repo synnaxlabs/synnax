@@ -14,8 +14,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { type deep, primitive } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
-import type { SlaveDevice } from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import {
   addressKey,
   type Channel,
@@ -34,7 +33,7 @@ export interface AddSlaveEntriesItemProps<
   /** The entries to add: inputs for a read task, outputs for a write task. */
   pdoType: PDOType;
   /** Creates a channel bound to one entry of the slave. */
-  createChannel: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C;
+  createChannel: (slave: Device.SlaveDevice, entry: ethercat.PDOEntry) => C;
 }
 
 /**
@@ -50,7 +49,7 @@ export const AddSlaveEntriesItem = <C extends Channel>({
   createChannel,
 }: AddSlaveEntriesItemProps<C>): ReactElement | null => {
   const device = keys.length === 1 ? (channels[0]?.device ?? "") : "";
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(device) ? null : { key: device },
   );
   const all = Form.useFieldValue(path);

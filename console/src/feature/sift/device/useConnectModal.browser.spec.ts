@@ -36,7 +36,7 @@ const createScanTask = async () => {
   const rack = await createRunningRack(client, "sift");
   const scan = await rack.createTask({
     name: uniqueName("sift_scan"),
-    type: Sift.Task.SCAN_TYPE,
+    type: Sift.Device.SCAN_TYPE,
     config: {},
   });
   return { rack, scan };
@@ -88,7 +88,7 @@ describe("Sift.Device.useConnectModal", () => {
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     const cmd = await answered;
-    expect(cmd.type).toBe(Sift.Task.TEST_CONNECTION_COMMAND_TYPE);
+    expect(cmd.type).toBe(Sift.Device.TEST_CONNECTION_COMMAND_TYPE);
     expect(cmd.args).toEqual({ grant: expect.any(String) });
     await waitFor(async () =>
       expect((await client.devices.retrieve({ key: dev.key })).location).toBe(
