@@ -25,6 +25,7 @@ import (
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -129,9 +130,8 @@ type ValueCellConfig struct {
 	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale, a named color or a
 	// fixed color. When absent the value renders with the theme warning color.
 	StalenessColor *servicecolor.Ref `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
@@ -144,7 +144,7 @@ func (va *ValueCellConfig) SetDefaults() {
 	va.RollingAverage = 1
 	va.Notation = notation.NotationStandard
 	va.Level = text.LevelH5
-	va.StalenessTimeout = 5
+	va.StalenessTimeout = 5000000000
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -154,7 +154,8 @@ func (va ValueCellConfig) Validate() error {
 	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.GreaterThanEq("rolling_average", va.RollingAverage, 1)
-	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1)
+	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", va.StalenessTimeout, 9007199254740991)
 	if va.FillColor != nil {
 		v.Exec(func() error { return validate.PathedError(va.FillColor.Validate(), "fill_color") })
 	}

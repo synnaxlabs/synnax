@@ -74,14 +74,13 @@ func autoMigrateCellConfig(_ context.Context, old v6.CellConfig) (CellConfig, er
 		}}, nil
 	case v6.ValueCellConfig:
 		return CellConfig{Variant: ValueCellConfig{
-			Channel:          variant.Channel,
-			RollingAverage:   variant.RollingAverage,
-			Precision:        variant.Precision,
-			Notation:         variant.Notation,
-			Redline:          variant.Redline,
-			Level:            variant.Level,
-			Units:            variant.Units,
-			StalenessTimeout: variant.StalenessTimeout,
+			Channel:        variant.Channel,
+			RollingAverage: variant.RollingAverage,
+			Precision:      variant.Precision,
+			Notation:       variant.Notation,
+			Redline:        variant.Redline,
+			Level:          variant.Level,
+			Units:          variant.Units,
 		}}, nil
 	default:
 		return CellConfig{}, errors.Newf("unknown CellConfig variant %T", variant)

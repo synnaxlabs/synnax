@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -72,7 +73,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(text(cell(t, "c1")).Value).To(Equal("hi"))
 	})
 
-	It("Should decode a v0.62 export with its colors as fixed colors", func(
+	It("Should decode a v0.62 export with fixed colors and a span timeout", func(
 		ctx SpecContext,
 	) {
 		t := decode(ctx, "testdata/import_v6.json")
@@ -94,6 +95,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(value.FillColor).To(Equal(fixed(3)))
 		Expect(value.TextColor).To(Equal(fixed(4)))
 		Expect(value.StalenessColor).To(Equal(fixed(5)))
+		Expect(value.StalenessTimeout).To(Equal(5 * telem.Second))
 		Expect(value.Redline.Bands).To(HaveLen(1))
 		Expect(value.Redline.Bands[0].Color).
 			To(Equal(color.Color{R: 6, G: 29, B: 29, A: 255}))
