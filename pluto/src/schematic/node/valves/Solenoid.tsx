@@ -30,14 +30,14 @@ const HANDLES: schematic.symbol.Handle[] = [
   { key: "5", position: { x: 0.666667, y: 0.177778 }, orientation: "right" },
 ];
 
-export const SYMBOL = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: HANDLES,
 });
 
 /** NORMALLY_OPEN_SYMBOL is the solenoid valve that is open at rest. */
-export const NORMALLY_OPEN_SYMBOL = Custom.createBuiltIn({
+export const NORMALLY_OPEN_SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: HANDLES,

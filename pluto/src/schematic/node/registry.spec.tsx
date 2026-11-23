@@ -46,9 +46,12 @@ describe("Schematic.Node.REGISTRY", () => {
 describe("Schematic.Node.BUILT_INS", () => {
   it("should hold a spec for each symbol that the Core lists", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
-    expect(Object.keys(Node.BUILT_INS).sort()).toEqual(
+    expect([...Node.BUILT_INS.keys()].sort()).toEqual(
       builtins.map((b) => b.name).sort(),
     );
+  });
+  it("should hold no spec for a name that only an object prototype has", () => {
+    expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
   });
 });
 

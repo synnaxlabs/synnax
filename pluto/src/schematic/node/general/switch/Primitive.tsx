@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
+import type { schematic } from "@synnaxlabs/client";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { location } from "@synnaxlabs/x";
 import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
@@ -20,7 +21,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
-export const SYMBOL = Custom.createBuiltIn({ svg, handles: [] });
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({ svg, handles: [] });
 
 const SWITCH_SCALE = CSS.variable("switch-scale");
 

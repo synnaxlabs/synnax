@@ -43,16 +43,18 @@ export const REGISTRY = {
 } as const satisfies Record<schematic.NodeConfigType, unknown>;
 
 /** BUILT_INS maps the name of each built-in symbol to its spec. */
-export const BUILT_INS: Partial<Record<string, schematic.symbol.Spec>> = {
-  ...Fittings.BUILT_INS,
-  ...Flowmeters.BUILT_INS,
-  ...General.BUILT_INS,
-  ...Process.BUILT_INS,
-  ...Pumps.BUILT_INS,
-  ...Safety.BUILT_INS,
-  ...Valves.BUILT_INS,
-  ...Vessels.BUILT_INS,
-};
+export const BUILT_INS: ReadonlyMap<string, schematic.symbol.Spec> = new Map(
+  Object.entries({
+    ...Fittings.BUILT_INS,
+    ...Flowmeters.BUILT_INS,
+    ...General.BUILT_INS,
+    ...Process.BUILT_INS,
+    ...Pumps.BUILT_INS,
+    ...Safety.BUILT_INS,
+    ...Valves.BUILT_INS,
+    ...Vessels.BUILT_INS,
+  }),
+);
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
