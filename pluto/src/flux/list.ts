@@ -64,7 +64,10 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
    * order, so it drops the query's `order`. Null disables the list.
    */
   query?: Q | null;
-  /** Hides the records it rejects. */
+  /**
+   * Hides the records it rejects. The list reads on past a page that it hides whole, so
+   * a filter that hides most records belongs in the query.
+   */
   filter?: (item: E) => boolean;
   /** How many records each call to `more` reads. */
   pageSize?: number;
