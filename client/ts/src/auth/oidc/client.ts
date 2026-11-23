@@ -10,28 +10,9 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { type Link, type LinkKey, linkKeyZ, linkZ } from "@/auth/oidc/types.gen";
 import { type OIDCCredentials, oidcCredentialsZ } from "@/auth/types.gen";
 import { resource } from "@/resource";
-import { user } from "@/user";
-
-export const linkKeyZ = z.uuid();
-export type LinkKey = z.infer<typeof linkKeyZ>;
-
-export const linkZ = z.object({
-  /** key is the unique identifier for this link. */
-  key: linkKeyZ,
-  /** user is the key of the user the provider account logs in as. */
-  user: user.keyZ,
-  /**
-   * issuer is the issuer URL of the provider that proved the account, its `iss` claim.
-   * With account, it identifies the provider account.
-   */
-  issuer: z.string(),
-  /** account is the provider's permanent ID for the account, its `sub` claim. */
-  account: z.string(),
-});
-/** Link links an OpenID Connect provider account to a user. */
-export interface Link extends z.infer<typeof linkZ> {}
 
 const linkReqZ = z.object({ credentials: oidcCredentialsZ });
 const linkResZ = z.object({ link: linkZ });
