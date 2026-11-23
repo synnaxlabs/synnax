@@ -107,15 +107,17 @@ func checkState(i int, st State) error {
 	switch v := st.Variant.(type) {
 	case EnumerationState:
 		if w, ok := v.Match.Variant.(WithinMatcher); ok {
-			return checkBounds(at("states", i, "match", "bounds"), w.Bounds)
+			return CheckBounds(at("states", i, "match", "bounds"), w.Bounds)
 		}
 	case NumberState:
-		return checkBounds(at("states", i, "bounds"), v.Bounds)
+		return CheckBounds(at("states", i, "bounds"), v.Bounds)
 	}
 	return nil
 }
 
-func checkBounds(p []string, b spatial.Bounds) error {
+// CheckBounds returns an error wrapping validate.ErrValidation at path p when the lower
+// of b is not below its upper.
+func CheckBounds(p []string, b spatial.Bounds) error {
 	if b.Lower < b.Upper {
 		return nil
 	}
