@@ -408,6 +408,26 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should let a field that sends its default take a fixed value", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string", { default: "auto" });
+      const { target } = await createFormatTarget([setpoint, mode]);
+      const { draft } = await renderWrite([target]);
+      const modeGroup = await fieldGroup(mode.name);
+      fireEvent.click(modeGroup.getByRole("button", { name: "Value" }));
+      await modeGroup.findByRole("textbox");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: setpoint.key },
+              { type: "value", field: mode.key, value: { type: "string", value: "" } },
+            ],
+          },
+        }),
+      );
+    });
+
     it("should start a fixed value inside the min and max of its field", async () => {
       const setpoint = createField("setpoint", "float");
       const low = createField("low", "float", { min: 5 });

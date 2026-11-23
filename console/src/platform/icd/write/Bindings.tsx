@@ -72,8 +72,8 @@ const FieldBinding = ({
   const isPreview = Task.useIsPreview();
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === field.key);
-  const binding = bindings.at(i);
-  const bound = i >= 0 && binding != null;
+  const binding = i >= 0 ? bindings[i] : undefined;
+  const bound = binding != null;
   // The Core refuses a message that binds no channels.
   const only =
     binding?.type === "channel" &&
