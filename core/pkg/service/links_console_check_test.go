@@ -153,6 +153,69 @@ var _ = Describe("Console file paths check", Ordered, ContinueOnFailure, func() 
 		Expect(value.Channel).To(Equal(key))
 	}, linkValues)
 
+	DescribeTable("Should bind the channel of a v2 Console schematic state", func(
+		ctx SpecContext,
+		link func() string,
+	) {
+		tx := DeferClose(db.OpenTx())
+		k := importFile(ctx, tx, fmt.Sprintf(`{
+			"version": "2.0.0",
+			"type": "schematic",
+			"name": "S2",
+			"editable": true,
+			"snapshot": false,
+			"remoteCreated": false,
+			"viewport": {"position": {"x": 0, "y": 0}, "zoom": 1},
+			"nodes": [{"key": "n1", "position": {"x": 0, "y": 0}, "zIndex": 1}],
+			"edges": [],
+			"props": {"n1": {
+				"key": "value",
+				"units": "psi",
+				"telem": {
+					"type": "source-pipeline",
+					"variant": "source",
+					"valueType": "string",
+					"props": {
+						"outlet": "stringifier",
+						"connections": [
+							{"from": "valueStream", "to": "rollingAverage"},
+							{"from": "rollingAverage", "to": "stringifier"}
+						],
+						"segments": {
+							"valueStream": {
+								"type": "stream-channel-value",
+								"variant": "source",
+								"valueType": "number",
+								"props": {"channel": %s}
+							},
+							"rollingAverage": {
+								"type": "rolling-average",
+								"variant": "source",
+								"valueType": "number",
+								"props": {"windowSize": 1}
+							},
+							"stringifier": {
+								"type": "stringify-number",
+								"variant": "source",
+								"valueType": "string",
+								"props": {"precision": 2}
+							}
+						}
+					}
+				}
+			}}
+		}`, link()))
+		var sch schematic.Schematic
+		Expect(l.Schematic.NewRetrieve().
+			Where(schematic.MatchKeys(k)).
+			Entry(&sch).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(sch.Nodes).To(HaveLen(1))
+		value, ok := sch.Nodes[0].Config.Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue(), "node is %T", sch.Nodes[0].Config.Variant)
+		Expect(value.Channel).To(Equal(key))
+	}, linkValues)
+
 	DescribeTable("Should bind the channel of a v1 Console log", func(
 		ctx SpecContext,
 		link func() string,
