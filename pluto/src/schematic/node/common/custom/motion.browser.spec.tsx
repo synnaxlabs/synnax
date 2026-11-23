@@ -482,6 +482,17 @@ describe("Custom.Drawing motion", () => {
       expect(loop.size).toBe(0);
     });
 
+    it("should slide on the curve of the modal animation", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+    });
+
     it("should jump to a new fraction on a node with motion disabled", async () => {
       const { loop, attr, rerender } = await setup({
         spec: level(),

@@ -40,8 +40,21 @@ export const moves = ({ motion, blink }: schematic.symbol.Look): boolean =>
 // One flash is one period, so a blink stays under three flashes a second.
 const MIN_BLINK_PERIOD = TimeSpan.milliseconds(400).milliseconds;
 const BLINK_DIM = 0.2;
-// The duration of --pluto-modal-animation.
+// The duration and curve of --pluto-modal-animation.
 const TRANSITION_MS = 150;
+
+// easeInOut is the CSS ease-in-out curve, cubic-bezier(0.42, 0, 0.58, 1), at time t.
+const easeInOut = (t: number): number => {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 20; i++) {
+    const s = (lo + hi) / 2;
+    if (1.26 * s * (1 - s) ** 2 + 1.74 * s * s * (1 - s) + s ** 3 < t) lo = s;
+    else hi = s;
+  }
+  const s = (lo + hi) / 2;
+  return s * s * (3 - 2 * s);
+};
 
 type Kind = schematic.symbol.MotionType | "blink";
 type Of<K extends Kind> = K extends "blink"
@@ -379,7 +392,7 @@ class Track {
   private ease(now: number): number {
     this.start ??= now;
     const t = Math.min(1, (now - this.start) / TRANSITION_MS);
-    return t === 1 ? this.target : lerp(this.from, this.target, 1 - (1 - t) ** 3);
+    return t === 1 ? this.target : lerp(this.from, this.target, easeInOut(t));
   }
 
   private cycle(now: number): number {
