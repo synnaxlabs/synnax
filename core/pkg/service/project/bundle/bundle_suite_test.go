@@ -194,6 +194,3 @@ func textOf(b arc.Base) text.Text {
 	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
 	return src.Text
 }
-
-// readAll lets the exporting subject retrieve every record.
-func readAll(resource.ID) bool { return true }

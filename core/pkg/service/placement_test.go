@@ -102,9 +102,7 @@ var _ = Describe("Visualization exports", Ordered, func() {
 	It("Should leave the placement out of every member of a project bundle", func(
 		ctx SpecContext,
 	) {
-		files, _ := MustSucceed2(
-			l.Bundle.Export(ctx, db, proj.Key, xjson.Codec, readAll),
-		)
+		files, _ := MustSucceed2(l.Bundle.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(6))
 		for path, data := range files {
 			By(path)

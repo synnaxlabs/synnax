@@ -10,7 +10,6 @@
 package modbus_test
 
 import (
-	"encoding/json/v2"
 	"maps"
 	"uuid"
 
@@ -94,44 +93,6 @@ var _ = Describe("Service", func() {
 				"modbus_write",
 				"modbus_scan",
 			))
-		})
-	})
-
-	Describe("Files", func() {
-		It("Should write each channel of an exported config as its path", func(
-			ctx SpecContext,
-		) {
-			Expect(tasks.CreateDevice(ctx, "dev-files")).To(Succeed())
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
-			var created svcchannel.Channel
-			Expect(channelSvc.NewRetrieve().
-				Where(svcchannel.MatchKeys(ch)).
-				Entry(&created).
-				Exec(ctx, db)).To(Succeed())
-			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
-				"device":   "dev-files",
-				"channels": []any{register(map[string]any{"channel": ch})},
-			}))
-			body := MustSucceed(svc.Read.Export(ctx, db, key))
-			b := MustSucceed(
-				json.Marshal(body, channelSvc.LinkWriter(ctx, db, readAll)),
-			)
-			var file msgpack.EncodedJSON
-			Expect(json.Unmarshal(b, &file)).To(Succeed())
-			Expect(channel(file)).To(HaveKeyWithValue("channel", created.Name))
-			links := channelSvc.NewLinkReader(ctx, db)
-			decoded := MustSucceed(svc.Read.Decode(
-				ctx,
-				svc.Read.Version(),
-				file,
-				links.Options(),
-			))
-			Expect(links.Err()).To(Succeed())
-			tx := DeferClose(db.OpenTx())
-			cfg := MustSucceed(decoded.Normalize(ctx, tx))
-			Expect(
-				channel(cfg),
-			).To(HaveKeyWithValue("channel", BeNumerically("==", ch)))
 		})
 	})
 

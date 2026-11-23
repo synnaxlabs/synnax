@@ -200,57 +200,6 @@ func (u *UniqueIndex[K, E, V]) Key(
 	return u.store.Holder(scopeOf(snap), v, nil)
 }
 
-// Value returns the value of the entry of the table of u under key, as seen by snap,
-// and false when no entry has key.
-func (u *UniqueIndex[K, E, V]) Value(
-	ctx context.Context,
-	snap Snapshot,
-	key K,
-) (V, bool, error) {
-	var none V
-	if err := u.store.Wait(ctx); err != nil {
-		return none, false, err
-	}
-	return u.store.Value(scopeOf(snap), key)
-}
-
-// ValueOf returns the value of the entry target in the space of u, as seen by snap, and
-// false when no index of the space holds target. Value reads the table of u by key
-// with no text form.
-func (u *UniqueIndex[K, E, V]) ValueOf(
-	ctx context.Context,
-	snap Snapshot,
-	target Target,
-) (V, bool, error) {
-	scope := scopeOf(snap)
-	for _, m := range *u.members.members.Load() {
-		if v, found, err := m.valueOf(ctx, scope, target); err != nil || found {
-			return v, found, err
-		}
-	}
-	var none V
-	return none, false, nil
-}
-
-func (u *UniqueIndex[K, E, V]) valueOf(
-	ctx context.Context,
-	scope *txState,
-	target Target,
-) (V, bool, error) {
-	var none V
-	if target.Table != u.table {
-		return none, false, nil
-	}
-	k, err := key.Parse[K](target.Key)
-	if err != nil {
-		return none, false, err
-	}
-	if err = u.store.Wait(ctx); err != nil {
-		return none, false, err
-	}
-	return u.store.Value(scope, k)
-}
-
 // Committing returns the keys of the table of u that a transaction in its commit maps
 // to v. Holder misses them until the commit flushes. The commit can fail, so a caller
 // checks each key against storage.
@@ -367,9 +316,6 @@ type checkedIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
-	// valueOf returns the value of target when it is an entry of the member's table,
-	// with the changes of scope applied, and false otherwise.
-	valueOf(ctx context.Context, scope *txState, target Target) (V, bool, error)
 }
 
 // uniqueSpace is the set of UniqueIndexes of one space on a DB.

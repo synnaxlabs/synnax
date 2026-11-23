@@ -12,7 +12,6 @@ package imex_test
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"fmt"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,32 +44,6 @@ type portableBody struct {
 func (bodyExported) ExportBody() any {
 	return portableBody{Name: "portable", Shape: "portable"}
 }
-
-// tag is a value that tagWriter writes as a string and tagReader reads back.
-type tag int
-
-type tagged struct {
-	Name string `json:"name"`
-	Tag  tag    `json:"tag"`
-}
-
-var (
-	tagWriter = json.WithMarshalers(json.MarshalToFunc(
-		func(enc *jsontext.Encoder, t tag) error {
-			return enc.WriteToken(jsontext.String(fmt.Sprintf("tag-%d", t)))
-		},
-	))
-	tagReader = json.WithUnmarshalers(json.UnmarshalFromFunc(
-		func(dec *jsontext.Decoder, t *tag) error {
-			tok, err := dec.ReadToken()
-			if err != nil {
-				return err
-			}
-			_, err = fmt.Sscanf(tok.String(), "tag-%d", (*int)(t))
-			return err
-		},
-	))
-)
 
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
@@ -303,72 +276,6 @@ var _ = Describe("ImEx", func() {
 						To(MatchError(ContainSubstring("envelope has no body")))
 				},
 			)
-		})
-
-		Describe("WithEncodeOptions", func() {
-			It("Should marshal the body with the options", func() {
-				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(env.Encode(tagged{Name: "n", Tag: 7})).To(Succeed())
-				Expect(json.Marshal(env.WithEncodeOptions(tagWriter))).To(MatchJSON(
-					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
-				))
-			})
-		})
-
-		Describe("Freeze", func() {
-			It("Should write the body with its encode options once", func() {
-				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(env.Encode(tagged{Name: "n", Tag: 7})).To(Succeed())
-				calls := 0
-				counting := json.WithMarshalers(json.MarshalToFunc(
-					func(enc *jsontext.Encoder, t tag) error {
-						calls++
-						return enc.WriteToken(jsontext.String(fmt.Sprintf("tag-%d", t)))
-					},
-				))
-				env = MustSucceed(env.WithEncodeOptions(counting).Freeze())
-				Expect(json.Marshal(env)).To(MatchJSON(
-					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
-				))
-				Expect(json.Marshal(env)).To(MatchJSON(
-					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
-				))
-				Expect(calls).To(Equal(1))
-			})
-
-			It("Should error on an envelope with no body", func() {
-				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-				Expect(env.WithEncodeOptions(tagWriter).Freeze()).Error().
-					To(MatchError(ContainSubstring("envelope has no body")))
-			})
-		})
-
-		Describe("WithDecodeOptions", func() {
-			It("Should decode the body with the options", func() {
-				var env imex.Envelope
-				Expect(imex.Codec.Decode(
-					[]byte(`{"version":1,"type":"log","name":"n","tag":"tag-7"}`),
-					&env,
-				)).To(Succeed())
-				env = env.WithDecodeOptions(tagReader)
-				Expect(env.Decode[tagged]()).To(Equal(tagged{Name: "n", Tag: 7}))
-				Expect(env.DecodeOptions()).To(HaveLen(1))
-			})
-
-			It("Should keep replacing invalid UTF-8 in the body", func() {
-				var env imex.Envelope
-				Expect(imex.Codec.Decode(
-					[]byte("{\"version\":1,\"tag\":\"tag-1\",\"x\":\"\xff\"}"),
-					&env,
-				)).To(Succeed())
-				env = env.WithDecodeOptions(tagReader)
-				p := MustSucceed(env.Decode[struct {
-					Tag tag    `json:"tag"`
-					X   string `json:"x"`
-				}]())
-				Expect(p.Tag).To(Equal(tag(1)))
-				Expect(p.X).To(Equal("\uFFFD"))
-			})
 		})
 
 		Describe("Decode", func() {

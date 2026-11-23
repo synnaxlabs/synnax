@@ -54,10 +54,8 @@ var (
 	groupSvc *group.Service
 	importer *recordingImporter
 	root     user.User
-	logSvc   *log.Service
-	// ch is a channel that imported logs use, and chName is its name.
-	ch     channel.Key
-	chName string
+	// ch is a channel that imported logs use.
+	ch channel.Key
 	// proj is the project that imported logs sit in.
 	proj project.Project
 	// importEnvelope and export run their routes as the API layer binds them.
@@ -116,18 +114,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	ch = MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
-	var created channel.Channel
-	Expect(channelSvc.NewRetrieve().
-		Where(channel.MatchKeys(ch)).
-		Entry(&created).
-		Exec(ctx, db)).To(Succeed())
-	chName = created.Name
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
 	proj.Name = "Imports"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return projectSvc.NewWriter(tx).Create(ctx, &proj)
 	})).To(Succeed())
-	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
+	MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
 	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
 		ImEx:    imexSvc,
 		Channel: channelSvc,
