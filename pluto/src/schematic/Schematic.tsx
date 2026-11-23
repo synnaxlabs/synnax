@@ -20,12 +20,9 @@ import { type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useClipboard } from "@/schematic/clipboard";
-import {
-  Diagram,
-  edgeChangesToActions,
-  nodeChangesToActions,
-} from "@/schematic/Diagram";
+import { Diagram } from "@/schematic/Diagram";
 import { useAddNode } from "@/schematic/editor";
+import { Gesture } from "@/schematic/gesture";
 import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
@@ -41,7 +38,7 @@ import {
   useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
-import { Tooltip } from "@/schematic/Tooltip";
+import { Tooltip } from "@/schematic/tooltip";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 import { Staleness } from "@/vis/staleness";
 
@@ -99,10 +96,10 @@ export const Schematic = ({
   const lockedNodes = Group.lockMembers(nodes, parentOf, configs);
   const dispatch = useSingleDispatch();
   const handleNodesChange = (changes: BaseDiagram.NodeChange[]) =>
-    dispatch(nodeChangesToActions(changes));
+    dispatch(Gesture.nodeChangesToActions(changes));
 
   const handleEdgesChange = (changes: BaseDiagram.EdgeChange[]) =>
-    dispatch(edgeChangesToActions(changes));
+    dispatch(Gesture.edgeChangesToActions(changes));
 
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
@@ -278,7 +275,7 @@ export const Schematic = ({
         !contextMenu.visible &&
         hoveredConfig != null &&
         Node.isConfig(hoveredConfig) && (
-          <Tooltip
+          <Tooltip.Panel
             key={hovered.nodeKey}
             anchor={hovered.anchor}
             config={hoveredConfig}

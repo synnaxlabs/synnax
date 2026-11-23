@@ -15,9 +15,9 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
-import { LightForm } from "@/schematic/node/general/light/Form";
-import { Light } from "@/schematic/node/general/light/Primitive";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Light } from "@/schematic/node/general/light";
+import { Primitive } from "@/schematic/node/general/light/primitive";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -50,7 +50,7 @@ describe("light symbol", () => {
     // compute, so these specs assert the source vars and the classes that read them.
     it("should paint the outline from the stroke and the lamp from the on color", () => {
       const { container } = render(
-        <Light
+        <Primitive.Light
           strokeColor={color.construct("#00ff00")}
           onColor={color.construct("#ff0000")}
         />,
@@ -62,14 +62,18 @@ describe("light symbol", () => {
     });
 
     it("should let the lamp inherit the stroke when the on color is absent", () => {
-      const { container } = render(<Light strokeColor={color.construct("#00ff00")} />);
+      const { container } = render(
+        <Primitive.Light strokeColor={color.construct("#00ff00")} />,
+      );
       const root = getRoot(container);
       expect(root.getAttribute("class")).not.toContain("pluto-light--on-colored");
       expect(root.style.getPropertyValue(ON_COLOR_VAR)).toBe("");
     });
 
     it("should mark the lamp as a colored part", () => {
-      const { container } = render(<Light onColor={color.construct("#ff0000")} />);
+      const { container } = render(
+        <Primitive.Light onColor={color.construct("#ff0000")} />,
+      );
       expect(getLamp(container).getAttribute("class")).toContain("lyra-symbol-colored");
     });
   });
@@ -93,7 +97,7 @@ describe("light symbol", () => {
     const renderStyle = (strokeColor?: color.Color) => {
       const result = render(
         <FormWrapper strokeColor={strokeColor}>
-          <LightForm />
+          <Light.spec.Form />
         </FormWrapper>,
       );
       fireEvent.click(result.getByText("Style"));
