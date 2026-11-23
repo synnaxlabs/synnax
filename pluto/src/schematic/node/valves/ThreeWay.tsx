@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -17,8 +18,8 @@ import svg from "@/schematic/node/valves/ThreeWay.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  family: "valve",
   svg,
   handles: [
     { key: "1", position: { x: 0.5, y: 0.970278 }, orientation: "bottom" },
@@ -39,7 +40,7 @@ export const ThreeWay = ({
     orientation={orientation}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -17,8 +18,8 @@ import svg from "@/schematic/node/pumps/Piston.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  family: "pump",
   svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
@@ -26,6 +27,7 @@ const SPEC = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.96875 }, orientation: "bottom" },
   ],
+  ...Custom.DETAIL_LINES,
 });
 
 export const Piston = ({
@@ -41,7 +43,7 @@ export const Piston = ({
     orientation={orientation}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}
