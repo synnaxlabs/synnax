@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, Suspense } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -87,12 +87,20 @@ const Use = ({ schematic: s, stored, spec }: UseProps): ReactElement => {
 
 interface UsesProps extends ConfirmSaveParams {}
 
+/** Orders schematics by name, then by key, so equal names keep one order. */
+const ORDER = compare.chain<schematic.Schematic>(
+  compare.by((s) => s.name),
+  compare.by((s) => s.key),
+);
+
 /** Lists the schematics that use the symbol. Suspends while they load. */
 const Uses = ({ uses, ...rest }: UsesProps): ReactElement => (
   <Flex.Box y gap="medium" aria-label="Schematics">
-    {Schematic.useMultiple({ keys: uses.map((u) => u.key) }).map((s) => (
-      <Use key={s.key} schematic={s} {...rest} />
-    ))}
+    {Schematic.useMultiple({ keys: uses.map((u) => u.key) })
+      .toSorted(ORDER)
+      .map((s) => (
+        <Use key={s.key} schematic={s} {...rest} />
+      ))}
   </Flex.Box>
 );
 
