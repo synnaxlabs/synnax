@@ -222,6 +222,41 @@ describe("Schematic.Node.customKey", () => {
   });
 });
 
+describe("Schematic.Node.builtInName", () => {
+  const createBuiltIn = (name: string) =>
+    Node.createConfig({ variant: "symbol", spec: { type: "builtin", name } });
+
+  it("should name an old node as its spec labels it", () => {
+    expect(Node.builtInName(Node.createConfig({ variant: "valve" }))).toBe("Valve");
+  });
+
+  it("should name each built-in symbol node as the toolbar labels its old node", () => {
+    const old = Node.STATIC_SPECS.filter((s) => Node.BUILT_INS.has(s.key));
+    expect(old.map((s) => [s.key, Node.builtInName(createBuiltIn(s.key))])).toEqual(
+      old.map((s) => [s.key, s.label ?? s.name]),
+    );
+  });
+
+  it("should label a new built-in symbol node with its name", () => {
+    expect(createBuiltIn("normally_open_solenoid_valve").label.label).toBe(
+      "Normally open solenoid",
+    );
+  });
+
+  it.each([
+    [
+      "an old custom node",
+      Node.createConfig({ variant: "custom_static", specKey: CUSTOM }),
+    ],
+    [
+      "a custom symbol node",
+      Node.createConfig({ variant: "symbol", spec: { type: "custom", key: CUSTOM } }),
+    ],
+  ])("should give %s no name", (_, config) => {
+    expect(Node.builtInName(config)).toBeUndefined();
+  });
+});
+
 describe("Schematic.Node.changeConfig", () => {
   it("should keep the wrap width of a symbol that changes to a button", () => {
     const tank = Node.createConfig({ variant: "tank", label: { maxInlineSize: 80 } });

@@ -52,18 +52,12 @@ export const useAddNode = () => {
 // The label a symbol takes on creation: the name of its custom or built-in symbol.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
   const key = Node.customKey(config);
-  if (key != null) {
-    const sym = client.schematics.symbols.watch(key).getCached();
-    return query.isLive(sym) ? sym.name : undefined;
-  }
-  if (config.variant === "symbol")
-    return Node.BUILT_IN_NAMES.get(Node.symbolKey(config));
-  const spec = Node.resolveSpec(config.variant);
-  return spec.label ?? spec.name;
+  if (key == null) return Node.builtInName(config);
+  const sym = client.schematics.symbols.watch(key).getCached();
+  return query.isLive(sym) ? sym.name : undefined;
 };
 
-// The spec that a symbol node draws, or undefined when its symbol is missing, as the
-// node draws it.
+// The spec that the reference names, or undefined if its symbol is missing.
 const resolveSymbol = (
   client: Client,
   ref: schematic.symbol.Ref,
@@ -81,8 +75,11 @@ const changeLegacy = (
   config: Node.Config,
   ref: schematic.symbol.Ref,
 ): Node.Config => {
-  if (ref.type === "builtin")
-    return Node.changeConfig(config, { variant: Node.variantZ.parse(ref.name) });
+  if (ref.type === "builtin") {
+    const variant = Node.variantZ.safeParse(ref.name);
+    if (!variant.success) throw new NotFoundError(`symbol ${ref.name} has no old node`);
+    return Node.changeConfig(config, { variant: variant.data });
+  }
   const sym =
     ref.type === "custom"
       ? client.schematics.symbols.watch(ref.key).getCached()
@@ -100,7 +97,8 @@ const changeLegacy = (
  * symbol's name takes the new symbol's name. A symbol node keeps the bindings that
  * {@link Node.rebind} keeps. Any other node changes to the old node of the symbol, so
  * it keeps its channels.
- * @throws {NotFoundError} if the input names a symbol that is missing.
+ * @throws {NotFoundError} if the input names a symbol that is missing, or a built-in
+ * symbol that no old node draws.
  */
 export const useChangeSymbol = () => {
   const key = Scope.use();

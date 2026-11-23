@@ -11,6 +11,7 @@ import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { deep, record } from "@synnaxlabs/x";
 import type { z } from "zod";
 
+import { BUILT_IN_NAMES } from "@/schematic/node/builtIns";
 import {
   CUSTOM_ACTUATOR_VARIANT,
   CUSTOM_STATIC_VARIANT,
@@ -82,7 +83,7 @@ export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> =>
   const spec = resolveSpec(input.variant);
   const labeled = input as { label?: { label?: string } };
   if ("label" in config && labeled.label?.label == null)
-    config.label.label = spec.label ?? spec.name;
+    config.label.label = builtInName(config) ?? spec.label ?? spec.name;
   if ("value" in config && spec.value != null && !("value" in input))
     config.value = spec.value;
   return config;
@@ -129,6 +130,17 @@ export const customKey = (config: Config): string | undefined => {
 export const symbolKey = (config: Config): string => {
   if (config.variant !== SYMBOL_VARIANT) return customKey(config) ?? config.variant;
   return config.spec.type === "builtin" ? config.spec.name : config.spec.key;
+};
+
+/**
+ * @returns the name of the built-in symbol that config draws, which is also the label
+ * of a new node of it, or undefined if config draws a custom symbol.
+ */
+export const builtInName = (config: Config): string | undefined => {
+  if (customKey(config) != null) return undefined;
+  if (config.variant === SYMBOL_VARIANT) return BUILT_IN_NAMES.get(symbolKey(config));
+  const spec = resolveSpec(config.variant);
+  return spec.label ?? spec.name;
 };
 
 /**

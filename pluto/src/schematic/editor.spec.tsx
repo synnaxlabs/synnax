@@ -19,7 +19,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const builtIn = (name: string): Schematic.Node.Input<"symbol"> => ({
+const createBuiltIn = (name: string): Schematic.Node.Input<"symbol"> => ({
   variant: "symbol",
   spec: { type: "builtin", name },
 });
@@ -63,7 +63,7 @@ describe("useChangeSymbol", () => {
         commandChannel: 13,
       }),
     );
-    act(() => change(["n1"], builtIn("solenoid_valve")));
+    act(() => change(["n1"], createBuiltIn("solenoid_valve")));
     await waitFor(async () =>
       expect(await configOf()).toMatchObject({
         variant: "solenoid_valve",
@@ -105,14 +105,14 @@ describe("useChangeSymbol", () => {
   it("should rename a built-in symbol node that keeps the name it shows", async () => {
     const { change, configOf } = await renderChange(
       Schematic.Node.createConfig({
-        ...builtIn("normally_open_solenoid_valve"),
+        ...createBuiltIn("normally_open_solenoid_valve"),
         label: { label: "Normally open solenoid" },
       }),
     );
-    act(() => change(["n1"], builtIn("valve")));
+    act(() => change(["n1"], createBuiltIn("valve")));
     await waitFor(async () =>
       expect(await configOf()).toMatchObject({
-        ...builtIn("valve"),
+        ...createBuiltIn("valve"),
         label: { label: "Valve" },
       }),
     );
@@ -122,15 +122,15 @@ describe("useChangeSymbol", () => {
     const binding = { key: "active", source: { type: "local" as const, value: 1 } };
     const { change, configOf } = await renderChange(
       Schematic.Node.createConfig({
-        ...builtIn("valve"),
+        ...createBuiltIn("valve"),
         label: { label: "Valve" },
         states: [binding],
       }),
     );
-    act(() => change(["n1"], builtIn("light")));
+    act(() => change(["n1"], createBuiltIn("light")));
     await waitFor(async () =>
       expect(await configOf()).toMatchObject({
-        ...builtIn("light"),
+        ...createBuiltIn("light"),
         label: { label: "Light" },
         states: [binding],
       }),
@@ -139,7 +139,7 @@ describe("useChangeSymbol", () => {
 
   it("should throw when the new symbol is missing", async () => {
     const { change } = await renderChange(
-      Schematic.Node.createConfig(builtIn("valve")),
+      Schematic.Node.createConfig(createBuiltIn("valve")),
     );
     const key = uuid.create();
     expect(() =>

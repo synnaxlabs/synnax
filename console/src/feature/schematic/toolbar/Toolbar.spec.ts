@@ -47,8 +47,8 @@ const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => 
   });
 };
 
-// Starts a change, searches the symbols tab for the name, and clicks the symbol.
-const pickSymbol = async (name: string): Promise<void> => {
+// Starts a change and searches the symbols tab for the name.
+const findSymbol = async (name: string): Promise<HTMLElement> => {
   fireEvent.click(await screen.findByLabelText("Change symbol"));
   const symbols = await waitFor(() => {
     const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
@@ -58,10 +58,13 @@ const pickSymbol = async (name: string): Promise<void> => {
   fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
     target: { value: name },
   });
-  fireEvent.click(await within(symbols).findByText(name, { selector: "small" }));
+  return await within(symbols).findByText(name, { selector: "small" });
 };
 
-// The toolbar adds a built-in as a symbol node named after it.
+const pickSymbol = async (name: string): Promise<void> => {
+  fireEvent.click(await findSymbol(name));
+};
+
 const createSymbolNode = (
   name: string,
   label: string,
@@ -74,7 +77,7 @@ const createSymbolNode = (
     states,
   });
 
-const builtIn = (name: string) => ({
+const createBuiltIn = (name: string) => ({
   variant: "symbol",
   spec: { type: "builtin", name },
 });
@@ -218,20 +221,13 @@ describe("Toolbar", () => {
       expect(screen.queryByLabelText("Change symbol")).toBeNull();
     });
 
-    it("marks the current symbol in the symbols tab", async () => {
-      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
-      fireEvent.click(await screen.findByLabelText("Change symbol"));
-      const symbols = await waitFor(() => {
-        const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
-        assertDefined(el);
-        return el;
-      });
-      fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
-        target: { value: "Generic" },
-      });
-      const current = (
-        await within(symbols).findByText("Generic", { selector: "small" })
-      ).parentElement;
+    it.each([
+      ["an old node", Schematic.Node.createConfig({ variant: "valve" })],
+      ["a symbol node", createSymbolNode("valve", "OX-1")],
+    ])("names %s after its symbol and marks it", async (_, config) => {
+      await renderSelected({ n1: config });
+      const current = (await findSymbol("Generic")).parentElement;
+      expect(screen.getByText("Changing Valve")).toBeDefined();
       expect(current?.classList.contains("lyra--selected")).toBe(true);
     });
 
@@ -328,24 +324,6 @@ describe("Toolbar", () => {
       );
     });
 
-    it("names a symbol node after its symbol and marks it", async () => {
-      await renderSelected({ n1: createSymbolNode("valve", "OX-1") });
-      fireEvent.click(await screen.findByLabelText("Change symbol"));
-      expect(await screen.findByText("Changing Valve")).toBeDefined();
-      const symbols = await waitFor(() => {
-        const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
-        assertDefined(el);
-        return el;
-      });
-      fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
-        target: { value: "Generic" },
-      });
-      const current = (
-        await within(symbols).findByText("Generic", { selector: "small" })
-      ).parentElement;
-      expect(current?.classList.contains("lyra--selected")).toBe(true);
-    });
-
     it("names a built-in symbol node that no old symbol draws", async () => {
       await renderSelected({
         n1: createSymbolNode("normally_open_solenoid_valve", "NO-1"),
@@ -361,17 +339,13 @@ describe("Toolbar", () => {
       expect(await screen.findByText("Mixed")).toBeDefined();
     });
 
-    it("keeps the binding of a state that the new symbol shares", async () => {
-      const binding = { key: "active", source: { type: "local" as const, value: 1 } };
-      const { key } = await renderSelected({
-        n1: createSymbolNode("valve", "Valve", [binding]),
-      });
-      await pickSymbol("Light");
+    it("changes a symbol node to an old node when no built-in symbol draws it", async () => {
+      const { key } = await renderSelected({ n1: createSymbolNode("valve", "Valve") });
+      await pickSymbol("Tank");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          ...builtIn("light"),
-          label: { label: "Light" },
-          states: [binding],
+          variant: "tank",
+          label: { label: "Tank" },
         }),
       );
     });
@@ -381,7 +355,7 @@ describe("Toolbar", () => {
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          ...builtIn("solenoid_valve"),
+          ...createBuiltIn("solenoid_valve"),
           label: { label: "OX-1" },
         }),
       );

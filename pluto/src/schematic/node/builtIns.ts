@@ -35,8 +35,8 @@ export const BUILT_INS: ReadonlyMap<string, schematic.symbol.Spec> = new Map(
 );
 
 /**
- * BUILT_IN_NAMES maps the name of each built-in symbol to the name it shows in the
- * toolbar, which is also the label of a new node of it.
+ * BUILT_IN_NAMES maps the name of each built-in symbol to the default label of its
+ * node, which the toolbar header also shows.
  */
 export const BUILT_IN_NAMES: ReadonlyMap<string, string> = new Map(
   Object.entries({

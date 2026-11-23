@@ -371,7 +371,6 @@ describe("Schematic toolbar Symbols drag", () => {
           config: {
             variant: "symbol",
             spec: { type: "builtin", name: "valve" },
-            label: { label: "Valve" },
           },
         },
       },

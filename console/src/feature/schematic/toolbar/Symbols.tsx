@@ -55,14 +55,6 @@ export interface SymbolsChangeProps {
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
 ChangeContext.displayName = "Symbols.ChangeContext";
 
-const createSymbolParams = (
-  ref: schematic.symbol.Ref,
-  label: string,
-): Schematic.AddNodeProps<"symbol"> => ({
-  key: id.create(),
-  config: { variant: "symbol", spec: ref, label: { label } },
-});
-
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const addNode = Schematic.useAddNode();
@@ -77,7 +69,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
     symbolNode
-      ? createSymbolParams(ref, spec.label ?? name)
+      ? { key: id.create(), config: { variant: "symbol", spec: ref } }
       : { key: id.create(), config: { variant } };
   const handleChange = (target: SymbolsChangeProps) =>
     symbolNode
@@ -154,15 +146,19 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
+  const ref: schematic.symbol.CustomRef = { type: "custom", key: itemKey };
   const createParams = ():
     | Schematic.AddNodeProps<"symbol">
     | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
     FLAGS.symbolNodes
-      ? createSymbolParams({ type: "custom", key: itemKey }, symbol.name)
+      ? {
+          key: id.create(),
+          config: { variant: "symbol", spec: ref, label: { label: symbol.name } },
+        }
       : { key: id.create(), config: { variant, specKey: itemKey } };
   const handleChange = (target: SymbolsChangeProps) =>
     FLAGS.symbolNodes
-      ? target.onChange({ variant: "symbol", spec: { type: "custom", key: itemKey } })
+      ? target.onChange({ variant: "symbol", spec: ref })
       : target.onChange({ variant, specKey: itemKey });
   const handleAddNode = () => addNode(createParams());
   // The node's own drawing reads the symbol through a hook, which a preview cannot.

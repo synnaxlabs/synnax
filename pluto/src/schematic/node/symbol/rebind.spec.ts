@@ -12,9 +12,11 @@ import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 
+type SpecInput = schematic.symbol.New["data"];
+
 const createSpec = (
-  states: unknown[],
-  commands: unknown[] = [],
+  states: SpecInput["states"],
+  commands: SpecInput["commands"] = [],
 ): schematic.symbol.Spec =>
   schematic.symbol.specZ.parse({
     drawing: { type: "svg", markup: "<svg/>" },
@@ -23,7 +25,7 @@ const createSpec = (
     commands,
   });
 
-const FIXED = { type: "fixed", value: 1 };
+const FIXED = { type: "fixed" as const, value: 1 };
 const ENUMERATION = createSpec([{ type: "enumeration", key: "mode", name: "Mode" }]);
 const NUMBER = createSpec([{ type: "number", key: "mode", name: "Mode" }]);
 const SOURCE: schematic.Source = { type: "channel", key: 5, command: 6 };

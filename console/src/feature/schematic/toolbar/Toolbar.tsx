@@ -14,6 +14,7 @@ import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
@@ -89,11 +90,10 @@ const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName 
   const { symbol: custom } = Schematic.Symbol.useResolved(customKey ?? null);
   if (shared == null) return { name: "Mixed" };
   if (customKey != null) return { symbol: customKey, name: custom?.name ?? "" };
-  const symbol = Schematic.Node.symbolKey(shared);
-  if (shared.variant === "symbol")
-    return { symbol, name: Schematic.Node.BUILT_IN_NAMES.get(symbol) ?? "" };
-  const spec = Schematic.Node.resolveSpec(symbol);
-  return { symbol, name: spec.label ?? spec.name };
+  return {
+    symbol: Schematic.Node.symbolKey(shared),
+    name: Schematic.Node.builtInName(shared) ?? "",
+  };
 };
 
 interface SymbolSummaryProps {
@@ -162,6 +162,7 @@ const Internal = (): ReactElement => {
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
+  const handleError = Status.useErrorHandler();
   const setChanging = (changing: boolean) =>
     dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
@@ -170,10 +171,11 @@ const Internal = (): ReactElement => {
   const change: SymbolsChangeProps | undefined = changing
     ? {
         value: current.symbol,
-        onChange: (input) => {
-          changeSymbol([...changeable.keys()], input);
-          setChanging(false);
-        },
+        onChange: (input) =>
+          handleError(() => {
+            changeSymbol([...changeable.keys()], input);
+            setChanging(false);
+          }, "Failed to change symbol"),
       }
     : undefined;
   const singleSelectedName =
