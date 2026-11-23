@@ -200,6 +200,12 @@ interface Entry<M> {
   speed?: (motion: M) => number;
   /** held keeps the last cycle drawn while the motion stops. Otherwise it draws 0. */
   held?: boolean;
+  /**
+   * inherited is true when an element takes the attribute from its parent unless it
+   * sets its own. SVG composes any other attribute of nested elements, so the motion
+   * moves only the outermost elements of its part.
+   */
+  inherited?: boolean;
   /** draw returns the offer of the motion at a cycle in [0, 1), or at a fraction. */
   draw: (motion: M, shape: Shape, value: number) => Offer;
 }
@@ -215,6 +221,7 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
     attribute: "stroke-dashoffset",
     speed: ({ rate }) => rate,
     held: true,
+    inherited: true,
     draw: (_, shape, cycles) => num(parse(shape.own, 0) - cycles * shape.dash),
   },
   blink: {
@@ -269,10 +276,19 @@ const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
 
 const MIDDLE: xy.XY = { x: 0.5, y: 0.5 };
 
-// center returns the center of the bounding box of elements, as fractions of the box,
-// or undefined while no element has a layout, as in a hidden tab.
+const SHAPES = "path, rect, circle, ellipse, line, polyline, polygon, text, use, image";
+const DEFINITIONS = "defs, clipPath, mask, marker, pattern, symbol";
+
+// leaves returns the shapes that el draws. Motion never changes the box of a shape.
+const leaves = (el: SVGElement): SVGGraphicsElement[] =>
+  (el.matches(SHAPES) ? [el] : Array.from(el.querySelectorAll(SHAPES))).filter(
+    (leaf) => leaf instanceof SVGGraphicsElement && leaf.closest(DEFINITIONS) == null,
+  );
+
+// center returns the center of the box around the shapes of elements at rest, as
+// fractions of the box, or undefined while no shape has a layout, as in a hidden tab.
 const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
-  const graphics = elements.filter((el) => el instanceof SVGGraphicsElement);
+  const graphics = elements.flatMap(leaves);
   if (graphics.length === 0) return MIDDLE;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -498,6 +514,7 @@ class Track {
 // kind of motion.
 class Part implements Mover {
   private readonly tracks = new Map<Kind, Track>();
+  private readonly outermost: SVGElement[];
   private center?: xy.XY;
 
   constructor(
@@ -505,7 +522,11 @@ class Part implements Mover {
     private readonly elements: SVGElement[],
     private readonly space: Space,
     private readonly shapeOf: (el: SVGElement, attribute: Attribute) => Shape,
-  ) {}
+  ) {
+    this.outermost = elements.filter(
+      (el) => !elements.some((other) => other !== el && other.contains(el)),
+    );
+  }
 
   get moving(): boolean {
     for (const track of this.tracks.values()) if (track.moving) return true;
@@ -527,11 +548,12 @@ class Part implements Mover {
     for (const [kind, effect] of effects.motions) {
       let track = this.tracks.get(kind);
       const fresh = track == null;
-      const { attribute } = MOTIONS[kind];
+      const { attribute, inherited } = MOTIONS[kind];
+      const elements = inherited === true ? this.elements : this.outermost;
       track ??= new Track(
         kind,
         effect.value,
-        this.elements.map((el) => this.shapeOf(el, attribute)),
+        elements.map((el) => this.shapeOf(el, attribute)),
         this.pivotOf,
       );
       track.set(effect, partCtx, fresh);
