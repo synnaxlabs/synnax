@@ -1316,7 +1316,9 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CIFreqUnits = "Hz"
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.000006
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(6000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
@@ -1340,7 +1342,9 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CITimeUnits = "Seconds"
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.001000
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
