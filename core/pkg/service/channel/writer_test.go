@@ -1127,42 +1127,6 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 				},
 			)
-			It(
-				"Should succeed when deleting by names that do not exist",
-				func(ctx SpecContext) {
-					names := []string{UniqueChannelName(), UniqueChannelName()}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteManyByNames(ctx, names)
-					})).To(Succeed())
-				},
-			)
-		})
-		Context("Names", func() {
-			It(
-				"Should delete only exact names and not read a name as a pattern",
-				func(ctx SpecContext) {
-					prefix := UniqueChannelName()
-					chs := []channel.Channel{
-						{Name: prefix + "_a", DataType: telem.Float32T, Virtual: true},
-						{Name: prefix + "_b", DataType: telem.Float32T, Virtual: true},
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).CreateMany(ctx, &chs)
-					})).To(Succeed())
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteManyByNames(
-							ctx,
-							[]string{prefix + "_a", prefix + "_.*"},
-						)
-					})).To(Succeed())
-					var remaining []channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(prefix+"_a", prefix+"_b")).
-						Entries(&remaining).
-						Exec(ctx, db)).To(Succeed())
-					Expect(remaining).To(ConsistOf(HaveField("Name", prefix+"_b")))
-				},
-			)
 		})
 		Context("Built-in Channels", func() {
 			var internalCh channel.Channel
@@ -1186,21 +1150,6 @@ var _ = Describe("Writer", func() {
 						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
-						Exists(ctx, db)).To(BeTrue())
-				},
-			)
-			It(
-				"Should return an error when deleting a built-in channel by name",
-				func(ctx SpecContext) {
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteManyByNames(
-							ctx,
-							[]string{internalCh.Name},
-						)
-					})).
-						To(MatchError(ContainSubstring("can't delete built-in channel")))
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(internalCh.Name)).
 						Exists(ctx, db)).To(BeTrue())
 				},
 			)

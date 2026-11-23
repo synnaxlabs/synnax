@@ -69,12 +69,6 @@ var _ = Describe("Ambiguous names", func() {
 		createStored(ctx, db, inStand, inRig, solo)
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 	})
-	exists := func(ctx SpecContext, k channel.Key) bool {
-		GinkgoHelper()
-		return MustSucceed(svc.NewRetrieve().
-			Where(channel.MatchKeys(k)).
-			Exists(ctx, db))
-	}
 	ambiguousPT := func() channel.AmbiguousNameError {
 		return channel.AmbiguousNameError{
 			Name:    "pt",
@@ -121,6 +115,11 @@ var _ = Describe("Ambiguous names", func() {
 			Expect(svc.KeysByNames(ctx, db, []string{"solo", "pt"})).Error().
 				To(matchAmbiguousPT())
 		})
+
+		It("Should match each name exactly, never as a pattern", func(ctx SpecContext) {
+			Expect(svc.KeysByNames(ctx, db, []string{"solo", "s.*", "p."})).
+				To(Equal(channel.Keys{solo.Key()}))
+		})
 	})
 
 	Describe("DescribeAmbiguity", func() {
@@ -161,17 +160,6 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should return another error unchanged", func(ctx SpecContext) {
 			err := errors.New("other")
 			Expect(svc.DescribeAmbiguity(ctx, db, err, access())).To(BeIdenticalTo(err))
-		})
-	})
-
-	Describe("DeleteManyByNames", func() {
-		It("Should delete every channel that holds a name", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteManyByNames(ctx, []string{"pt"})
-			})).To(Succeed())
-			Expect(exists(ctx, inStand.Key())).To(BeFalse())
-			Expect(exists(ctx, inRig.Key())).To(BeFalse())
-			Expect(exists(ctx, solo.Key())).To(BeTrue())
 		})
 	})
 

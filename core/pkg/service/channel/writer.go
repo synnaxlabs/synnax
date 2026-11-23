@@ -293,19 +293,6 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes every channel that holds one of names, compared in NFC.
-// Deleting any internal channel returns an error and no channels are deleted.
-func (w Writer) DeleteManyByNames(ctx context.Context, names []string) error {
-	var res []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(NormalizeNames(names)...)).
-		Entries(&res).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.DeleteMany(ctx, KeysFromChannels(res), false)
-}
-
 // withFreeIndexes returns keys and the free index of each channel in keys that no
 // channel outside keys uses.
 func (w Writer) withFreeIndexes(ctx context.Context, keys Keys) (Keys, error) {
