@@ -95,10 +95,11 @@ var _ = Describe("Check: version 2 progressions", func() {
 		Expect(w.Close()).To(Succeed())
 		return fr.Get(idx).Series[0].Alignment
 	}
-	positions := func(from, to int) []int {
-		out := make([]int, 0, to-from)
-		for p := from; p < to; p++ {
-			out = append(out, p)
+	// positions returns 0 to count - 1.
+	positions := func(count int) []int {
+		out := make([]int, count)
+		for p := range out {
+			out[p] = p
 		}
 		return out
 	}
@@ -188,7 +189,10 @@ var _ = Describe("Check: version 2 progressions", func() {
 		}
 		return out
 	}
-	BeforeEach(func(ctx SpecContext) {
+	// start opens a new database and creates its clock and data channel. Each spec
+	// calls it, so that Run ends with the spec and not with a setup node.
+	start := func(ctx context.Context) {
+		GinkgoHelper()
 		fs = xfs.NewMem()
 		fake = timetestutil.NewClock(time.Unix(0, 0))
 		open(ctx)
@@ -201,11 +205,12 @@ var _ = Describe("Check: version 2 progressions", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-	})
+	}
 
 	It("Should encode a sealed clock of one step in one block, and read every range "+
 		"as version 1 did, across a reopen", func(ctx SpecContext) {
-		a0 := write(ctx, positions(0, n)...)
+		start(ctx)
+		a0 := write(ctx, positions(n)...)
 		write(ctx, far)
 		Expect(hasSize(idx, 4*block)).To(BeTrue())
 		Eventually(fake.Pending).Should(Equal(1))
@@ -221,7 +226,8 @@ var _ = Describe("Check: version 2 progressions", func() {
 
 	It("Should encode a clock with a dead range in the middle, and read and cut it as "+
 		"version 1 did", func(ctx SpecContext) {
-		a0 := write(ctx, positions(0, n)...)
+		start(ctx)
+		a0 := write(ctx, positions(n)...)
 		Expect(db.DeleteTimeRange(ctx, keys, telem.TimeRange{
 			Start: stamp(1000),
 			End:   stamp(3000),
@@ -247,7 +253,8 @@ var _ = Describe("Check: version 2 progressions", func() {
 
 	It("Should keep a version 2 segment through a delete, and remove it once nothing "+
 		"in it is live", func(ctx SpecContext) {
-		write(ctx, positions(0, n)...)
+		start(ctx)
+		write(ctx, positions(n)...)
 		write(ctx, far)
 		settle(func() bool { return hasSize(idx, block) && !hasSize(idx, 4*block) })
 		encoded := sizes(idx)
@@ -270,8 +277,9 @@ var _ = Describe("Check: version 2 progressions", func() {
 	It("Should pad the rewrite of a version 1 segment to whole blocks", func(
 		ctx SpecContext,
 	) {
+		start(ctx)
 		const m = 1 << 17
-		a0 := write(ctx, positions(0, m)...)
+		a0 := write(ctx, positions(m)...)
 		write(ctx, far)
 		Expect(hasSize(data, 16*block)).To(BeTrue())
 		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, telem.TimeRange{
@@ -294,6 +302,7 @@ var _ = Describe("Check: version 2 progressions", func() {
 
 	It("Should try a clock that progressions cannot halve once, and not read it again "+
 		"after a reopen", func(ctx SpecContext) {
+		start(ctx)
 		rng := rand.New(rand.NewPCG(3, 4))
 		at := make([]int, n)
 		for i := 1; i < n; i++ {
