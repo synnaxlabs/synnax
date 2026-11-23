@@ -567,6 +567,20 @@ describe("Auth login", () => {
       expect(store.getState().core.cores[core.key].lastLogin).toBeUndefined();
     });
 
+    it("should name a failed provider login by its brand", async () => {
+      const google = { ...PROVIDER, provider: "google" };
+      const core = await serveAuth(["oidc"], [google]);
+      fakeDesktop();
+      const { statuses } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with Google"));
+      await vi.waitFor(() =>
+        expect(statuses().map((s) => s.message)).toContain(
+          "Failed to log in with Google",
+        ),
+      );
+    });
+
     it("should refuse a login when the Core's address changed during it", async () => {
       const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
       let move = (): void => {};
