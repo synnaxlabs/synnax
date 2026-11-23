@@ -30,9 +30,9 @@ import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
-import { DefaultContextMenu, ERASE_TRIGGER } from "@/table/ContextMenu";
-import { ColumnIndicators, INDICATOR_SIZE } from "@/table/Indicator";
-import { Overlay, shifts, steps, useMove } from "@/table/move";
+import { ContextMenu } from "@/table/contextMenu";
+import { Indicator } from "@/table/indicator";
+import { Move } from "@/table/move";
 import {
   cellsInRegion,
   findCellPosition,
@@ -49,9 +49,7 @@ import { Selection } from "@/table/selection";
 import { useKey } from "@/table/Suspended";
 import { Canvas } from "@/vis/canvas";
 
-export { getCellColumn } from "@/table/Indicator";
-
-const ERASE_TRIGGERS: Triggers.Trigger[] = [ERASE_TRIGGER, ["Backspace"]];
+const ERASE_TRIGGERS: Triggers.Trigger[] = [ContextMenu.ERASE_TRIGGER, ["Backspace"]];
 
 const NAV_KEYS = new Set<Triggers.Key>([
   "Tab",
@@ -243,7 +241,7 @@ export const Table = ({
 
   const menuProps = Menu.useContextMenu();
   const renderMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
-    <DefaultContextMenu
+    <ContextMenu.Default
       resourceKey={key}
       targetID={keys[0] ?? null}
       selected={selected}
@@ -297,7 +295,7 @@ export const Table = ({
     lastSelectedRef.current = cells.at(-1) ?? null;
     onSelectionChange?.(cells);
   };
-  const rowMove = useMove({
+  const rowMove = Move.use({
     direction: "y",
     items: rows,
     selected: selectedRows,
@@ -305,10 +303,12 @@ export const Table = ({
     onMove: (move) =>
       finishMove(
         move.indices.flatMap((y) => rows[y].cells),
-        steps(move).map(({ from, to }) => table.moveRow({ key: rows[from].key, to })),
+        Move.steps(move).map(({ from, to }) =>
+          table.moveRow({ key: rows[from].key, to }),
+        ),
       ),
   });
-  const colMove = useMove({
+  const colMove = Move.use({
     direction: "x",
     items: columns,
     selected: selectedCols,
@@ -316,7 +316,7 @@ export const Table = ({
     onMove: (move) =>
       finishMove(
         rows.flatMap((row) => move.indices.flatMap((x) => row.cells[x] ?? [])),
-        steps(move).map(({ from, to }) =>
+        Move.steps(move).map(({ from, to }) =>
           table.moveCol({ key: columns[from].key, to }),
         ),
       ),
@@ -329,8 +329,9 @@ export const Table = ({
   const totalRow = math.sum(rowSizes);
   const colSizes = columns.map((c) => c.size);
   const totalCol = math.sum(colSizes);
-  const rowShifts = rowMove.move == null ? undefined : shifts(rows, rowMove.move);
-  const colShifts = colMove.move == null ? undefined : shifts(columns, colMove.move);
+  const rowShifts = rowMove.move == null ? undefined : Move.shifts(rows, rowMove.move);
+  const colShifts =
+    colMove.move == null ? undefined : Move.shifts(columns, colMove.move);
   // The canvas does not slide, so value cells a move displaces draw nothing until it
   // ends.
   const hidden = displacedCells(rows, rowShifts, colShifts);
@@ -496,7 +497,7 @@ export const Table = ({
 
   const tableStyle = { width: totalCol, height: totalRow };
 
-  const indicatorSize = showIndicators ? INDICATOR_SIZE : 0;
+  const indicatorSize = showIndicators ? Indicator.SIZE : 0;
   // One offset feeds the frame's translate and the canvas cell boxes.
   const liveOffset = centered
     ? centerOffset(region, totalCol + indicatorSize, totalRow + indicatorSize)
@@ -558,7 +559,7 @@ export const Table = ({
                 <Aether.Composite path={path}>
                   <Selection.Context value={selected}>
                     {showIndicators && (
-                      <ColumnIndicators
+                      <Indicator.Columns
                         columns={columns}
                         rows={rows}
                         selected={selected}
@@ -598,7 +599,7 @@ export const Table = ({
             </table>
           </Menu.ContextMenu>
           {rowMove.move != null && rowShifts != null && (
-            <Overlay
+            <Move.Overlay
               direction="y"
               move={rowMove.move}
               sizes={rowSizes}
@@ -607,7 +608,7 @@ export const Table = ({
             />
           )}
           {colMove.move != null && colShifts != null && (
-            <Overlay
+            <Move.Overlay
               direction="x"
               move={colMove.move}
               sizes={colSizes}
@@ -634,3 +635,5 @@ export const Table = ({
     </div>
   );
 };
+
+export const getCellColumn = Indicator.getCellColumn;
