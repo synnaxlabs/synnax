@@ -36,10 +36,7 @@ import {
   useState,
 } from "react";
 
-import { use, useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/http/device/Select";
-import { type Device, SCHEMAS } from "@/feature/http/device/types";
-import { useConnectModal } from "@/feature/http/device/useConnectModal";
+import { Device } from "@/feature/http/device";
 import { DEFAULT_READ_NAME } from "@/feature/http/task/create";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
@@ -65,7 +62,7 @@ const RATE_INPUT_PROPS = {
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.NumericField
         path={root.config.rate}
@@ -99,7 +96,7 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
 const planEndpoint = async (
   client: Synnax,
   namer: Task.Namer,
-  dev: Device,
+  dev: Device.Device,
   ep: ReadEndpoint,
 ): Promise<Task.ReadChannelPlan> =>
   await Task.planReadChannels({
@@ -141,7 +138,7 @@ const sharedPlan = (
  */
 const planEndpoints = async (
   client: Synnax,
-  dev: Device,
+  dev: Device.Device,
   endpoints: ReadEndpoint[],
   signal?: AbortSignal,
 ): Promise<Task.ReadChannelPlan[]> => {
@@ -170,7 +167,7 @@ PlansContext.displayName = "HTTP.PlansContext";
 /** Plans the channels of every endpoint together, as deploying does, for the panes. */
 const Plans = ({ children }: PropsWithChildren): ReactElement => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const sources = endpoints.map((ep) => ({
     ep,
     name: dev?.name,
@@ -189,7 +186,7 @@ const Plans = ({ children }: PropsWithChildren): ReactElement => {
  */
 const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
   const ep = PForm.useFieldValue(endpoint);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const plan = useContext(PlansContext).get(ep.key);
   const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
   const fallback =
@@ -476,7 +473,7 @@ const fieldDetails = Component.renderProp(FieldDetails);
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const read = useFromConfig()?.properties.read ?? null;
+  const read = Device.useFromConfig()?.properties.read ?? null;
   return (
     <Plans>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
@@ -600,7 +597,7 @@ const EndpointItem = (props: Tree.ItemRenderProps<string>) => {
 
 /** @returns the props that the panels of a message of an endpoint share. */
 const useMessageProps = (
-  device: Device,
+  device: Device.Device,
   path: deep.Path<ICDEndpoint>,
   read: number,
 ): Omit<ICD.MessageSectionsProps, "format"> => {
@@ -623,7 +620,7 @@ interface MessagePanelProps {
   /** The index of the message in the endpoint's reads. */
   read: number;
   format: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
 }
 
 const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
@@ -668,7 +665,7 @@ interface ICDEndpointDetailsProps {
   endpoint: string;
   /** The open form of the ICD of the endpoint. Absent when the endpoint reads none. */
   format?: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
   /** Adds a field to the message of an endpoint that reads one. */
   onAddField: () => void;
   /** Adds a message to the endpoint, for responses that its messages do not cover. */
@@ -734,7 +731,7 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
 };
 
 interface EndpointsProps {
-  device: Device;
+  device: Device.Device;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -959,7 +956,7 @@ const prefixOf = (deviceName: string, { source, read, message }: BoundMessage) =
  */
 const planMessages = async (
   client: Synnax,
-  dev: Device,
+  dev: Device.Device,
   bound: BoundMessage[],
   written: Set<channel.Key>,
   signal?: AbortSignal,
@@ -983,7 +980,7 @@ const planMessages = async (
 };
 
 interface MessagePlansProps extends PropsWithChildren {
-  device: Device;
+  device: Device.Device;
 }
 
 /**
@@ -1025,7 +1022,7 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
   return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
 };
 
-const ICDContent = ({ device }: { device: Device }) => {
+const ICDContent = ({ device }: { device: Device.Device }) => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(() =>
@@ -1062,9 +1059,9 @@ const ICDContent = ({ device }: { device: Device }) => {
 
 /** The endpoints of the task, each with the messages of its ICD that it reads. */
 const ICDForm = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content: ICDContent,
 });
 
@@ -1073,7 +1070,10 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const enabled = config.endpoints.filter(readsICD).filter(({ disabled }) => !disabled);
   const messages = await ICD.retrieveMessages(
     client,
@@ -1100,7 +1100,7 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
         key: storedKeyOf(b),
       });
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };
@@ -1108,7 +1108,7 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
@@ -1123,7 +1123,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

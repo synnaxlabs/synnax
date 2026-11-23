@@ -38,10 +38,7 @@ import {
   useState,
 } from "react";
 
-import { use } from "@/feature/kafka/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
-import { type Device, SCHEMAS } from "@/feature/kafka/device/types";
-import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
+import { Device } from "@/feature/kafka/device";
 import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
@@ -113,7 +110,7 @@ const renderStartOffsetSelect = Component.renderProp(SelectStartOffset);
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
@@ -254,7 +251,7 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
 
 /** @returns the props that the panels of a message of a record share. */
 const useMessageProps = (
-  device: Device,
+  device: Device.Device,
   topic: string,
   path: deep.Path<ReadRecord>,
   read: number,
@@ -280,7 +277,7 @@ interface MessagePanelProps {
   /** The index of the message in the record's reads. */
   read: number;
   format: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
 }
 
 const MessageSections = ({ device, topic, path, read, format }: MessagePanelProps) => {
@@ -342,7 +339,7 @@ interface RecordDetailsProps {
   topic: string;
   path: deep.Path<ReadRecord>;
   format: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
   /** Adds a field to the message of a record that reads one. */
   onAddField: () => void;
   /** Adds a message to the record, for values that its messages do not cover. */
@@ -406,7 +403,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
 };
 
 interface RecordsProps {
-  device: Device;
+  device: Device.Device;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -737,7 +734,7 @@ const prefixOf = (deviceName: string, { topic, source, read, message }: BoundMes
  */
 const planRead = async (
   client: Synnax,
-  dev: Pick<Device, "name" | "properties">,
+  dev: Pick<Device.Device, "name" | "properties">,
   bound: BoundMessage[],
   written: Set<channel.Key>,
   signal?: AbortSignal,
@@ -761,7 +758,7 @@ const planRead = async (
 };
 
 interface PlansProps extends PropsWithChildren {
-  device: Device;
+  device: Device.Device;
 }
 
 /**
@@ -804,7 +801,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
   return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
 };
 
-const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
   // The tree selects its first item, a topic, when nothing is selected.
@@ -850,15 +847,18 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 };
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
 
 /** Gives each field that an enabled record reads a channel, and binds it. */
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const enabled = config.topics.flatMap((topic) =>
     topic.records.filter(({ disabled }) => !disabled).map((rec) => ({ topic, rec })),
   );
@@ -888,7 +888,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         key: storedKeyOf(b),
       });
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

@@ -44,7 +44,7 @@ const StateIndicatorTelemForm = (): ReactElement => {
         </Input.Item>
       </Base.Section>
       <Base.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Base.Section>
     </Base.Sections>
   );
