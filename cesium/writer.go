@@ -335,12 +335,16 @@ func (w *idxWriter) write(
 		fr.SetRawSeriesAt(i, series)
 	}
 	if skipped {
-		if idx.skipped && w.hasUncommittedData {
-			w.dataPending = true
-		}
-		w.hasUncommittedData = false
+		w.holdBack(idx.skipped)
 	}
 	return fr, nil
+}
+
+// holdBack ends the uncommitted data of a write that skipped a channel. The data that a
+// skipped index held back stays pending for a later commit.
+func (w *idxWriter) holdBack(indexSkipped bool) {
+	w.dataPending = w.dataPending || (indexSkipped && w.hasUncommittedData)
+	w.hasUncommittedData = false
 }
 
 // dataSeries returns the series at raw position i of fr and the writer of its data
