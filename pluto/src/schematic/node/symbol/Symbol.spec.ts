@@ -7,93 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render } from "@testing-library/react";
-import { ReactFlowProvider } from "@xyflow/react";
-import type { FC, PropsWithChildren } from "react";
+import { act, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import type { NodeProps } from "@/schematic/node/spec";
-import { symbolSpec } from "@/schematic/node/symbol/spec";
-import type { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/testutil";
+import {
+  COLOR,
+  CommandFactory,
+  createControlStubs,
+  createWrapper,
+  FILLED,
+  renderNode,
+  WITHIN,
+} from "@/schematic/node/symbol/testutil";
 import { control } from "@/telem/control/aether";
-import { createSynnaxWrapper } from "@/testutil";
-import { symbolNode } from "@/vis/symbolNode/aether";
-
-const chipState = z.object({ sink: z.unknown() }).loose();
-const chipSinks = vi.fn();
-
-// Stands in for the chip worker component and records the sink it acquires with.
-class StubChip extends aether.Leaf<typeof chipState> {
-  static readonly TYPE = control.Chip.TYPE;
-  override schema = chipState;
-
-  override afterUpdate(): void {
-    chipSinks(this.state.sink);
-  }
-}
-
-const indicatorState = z.object({}).loose();
-
-class StubIndicator extends aether.Leaf<typeof indicatorState> {
-  static readonly TYPE = control.Indicator.TYPE;
-  override schema = indicatorState;
-}
-
-// Records each command write by its channel, in place of a control session.
-class CommandFactory implements telem.Factory {
-  type = "command";
-  readonly sinks = new Map<channel.Key, telemTest.TestSink<number>>();
-
-  create(spec: telem.Spec): telem.Telem | null {
-    if (spec.type !== control.SetChannelValue.TYPE) return null;
-    const sink = telemTest.sink<number>();
-    this.sinks.set(control.setChannelValuePropsZ.parse(spec.props).channel, sink);
-    return sink;
-  }
-}
-
-const LocalWrapper = createSynnaxWrapper({
-  client: null,
-  additionalRegistry: symbolNode.REGISTRY,
-});
-
-const createCoreWrapper = (core: SyntheticCore): FC<PropsWithChildren> =>
-  createSynnaxWrapper({
-    client: null,
-    additionalRegistry: symbolNode.REGISTRY,
-    telemFactories: [telemTest.createRemoteFactory(core)],
-  });
-
-// The light theme of the wrapper shows #abcdef as #a0c2e3.
-const COLOR = { type: "fixed" as const, value: "#abcdef" };
-const FILLED = "[fill='#a0c2e3']";
-
-// Every sample of the synthetic Core reads as 1 through this match.
-const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
-
-const renderNode = (
-  config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
-  Wrapper: FC<PropsWithChildren> = LocalWrapper,
-  onConfigChange: NodeProps["onConfigChange"] = vi.fn(),
-) =>
-  render(
-    <Wrapper>
-      <ReactFlowProvider>
-        <symbolSpec.Node
-          nodeKey="s1"
-          selected={false}
-          onConfigChange={onConfigChange}
-          config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
-        />
-      </ReactFlowProvider>
-    </Wrapper>,
-  );
 
 describe("Symbol node", () => {
   afterEach(() => vi.useRealTimers());
@@ -132,7 +60,7 @@ describe("Symbol node", () => {
           },
         ],
       },
-      createCoreWrapper(core),
+      createWrapper({ core }),
     );
     await act(
       async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
@@ -159,7 +87,7 @@ describe("Symbol node", () => {
           },
         ],
       },
-      createCoreWrapper(core),
+      createWrapper({ core }),
     );
     await act(
       async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
@@ -192,7 +120,7 @@ describe("Symbol node", () => {
           },
         ],
       },
-      createCoreWrapper(core),
+      createWrapper({ core }),
     );
     await findByRole("img", { name: "Unknown" });
   });
@@ -224,7 +152,7 @@ describe("Symbol node", () => {
           },
         ],
       },
-      createCoreWrapper(core),
+      createWrapper({ core }),
     );
     await act(
       async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
@@ -261,7 +189,7 @@ describe("Symbol node clicks", () => {
         spec: VALVE,
         states: [{ key: "active", source: { type: "local", value: from } }],
       },
-      LocalWrapper,
+      undefined,
       onConfigChange,
     );
     fireEvent.click(container.querySelector(BUTTON)!);
@@ -290,15 +218,8 @@ describe("Symbol node clicks", () => {
     const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
     const [reading] = core.data;
     const commands = new CommandFactory();
-    const Wrapper = createSynnaxWrapper({
-      client: null,
-      additionalRegistry: {
-        ...symbolNode.REGISTRY,
-        [StubChip.TYPE]: StubChip,
-        [StubIndicator.TYPE]: StubIndicator,
-      },
-      telemFactories: [telemTest.createRemoteFactory(core), commands],
-    });
+    const { registry, chipSinks } = createControlStubs();
+    const Wrapper = createWrapper({ core, commands, registry });
     const { container } = renderNode(
       {
         spec: VALVE,
