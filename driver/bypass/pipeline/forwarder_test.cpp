@@ -919,4 +919,23 @@ TEST(ForwarderTest, RetryEndsTheBackoff) {
     ASSERT_EQ(server->writer_opens.load(), 2);
     ASSERT_NIL(forwarder.close());
 }
+
+/// @brief it should report the open of a Core writer only once the writer sends the
+/// authority changes queued before the open, since it opens without them.
+TEST(ForwarderTest, ReportsTheOpenOnceQueuedAuthoritiesAreSent) {
+    const auto server = factory();
+    std::promise<void> gate;
+    server->open_gate = gate.get_future().share();
+    std::atomic<size_t> sent_at_open = 1000;
+    Forwarder forwarder(server, {.channels = {1}}, {.on_open = [&] {
+                            sent_at_open = server->authority_changes->size();
+                        }});
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    gate.set_value();
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 2);
+    ASSERT_EQ(sent_at_open.load(), 1);
+    ASSERT_NIL(forwarder.close());
+}
 }

@@ -107,7 +107,9 @@ struct ForwarderConfig {
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
-    /// @brief called from the forwarder thread each time the Core writer opens.
+    /// @brief called from the forwarder thread once the Core writer opens with the
+    /// newest authorities: at the open, or once it sends the authority changes queued
+    /// before the open.
     std::function<void()> on_open;
     /// @brief called from the forwarder thread each time an open Core writer closes,
     /// fails, or loses its stream.
@@ -373,6 +375,18 @@ class Forwarder {
         return true;
     }
 
+    /// @returns the authority changes in the queue.
+    size_t queued_authorities() {
+        std::lock_guard lock(this->mu);
+        return static_cast<size_t>(
+            std::ranges::count_if(this->queue, [](const Entry &entry) {
+                return std::holds_alternative<::driver::pipeline::Authorities>(
+                    entry.op
+                );
+            })
+        );
+    }
+
     /// @brief puts the ops of batch that were not sent back at the front of the queue.
     void unsent() {
         if (this->batch.empty()) return;
@@ -476,9 +490,16 @@ class Forwarder {
     }
 
     /// @brief sends batch to writer, and gives back the bytes of each op it sends.
-    x::errors::Error send(::driver::pipeline::Writer &writer) {
+    /// Reports the open once it sends the last of the stale authority changes.
+    x::errors::Error send(::driver::pipeline::Writer &writer, size_t &stale) {
         while (!this->batch.empty() && !this->expired()) {
-            if (auto err = this->apply(writer, this->batch.front().op)) return err;
+            const auto &op = this->batch.front().op;
+            if (auto err = this->apply(writer, op)) return err;
+            if (stale > 0 &&
+                std::holds_alternative<::driver::pipeline::Authorities>(op)) {
+                stale--;
+                if (stale == 0 && this->on_open) this->on_open();
+            }
             const auto sent = this->batch.front().bytes;
             this->queue_bytes.fetch_sub(sent, std::memory_order_relaxed);
             this->budget->release(sent);
@@ -511,7 +532,10 @@ class Forwarder {
                 std::lock_guard lock(this->mu);
                 this->current = writer.get();
             }
-            if (this->on_open) this->on_open();
+            // The writer opens with the authorities sent so far, so it is current
+            // only once it sends the changes queued before the open.
+            size_t stale = this->queued_authorities();
+            if (stale == 0 && this->on_open) this->on_open();
             this->settle();
             this->failures = 0;
             std::thread watcher([this, w = writer.get()] {
@@ -524,7 +548,7 @@ class Forwarder {
             });
             x::errors::Error op_err;
             while (!op_err && this->take()) {
-                op_err = this->send(*writer);
+                op_err = this->send(*writer, stale);
                 this->unsent();
             }
             bool lost = false;
