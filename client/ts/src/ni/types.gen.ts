@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
+import { minMaxValZ } from "@/ni/range";
 import { task } from "@/task";
 
 export const TERMINAL_CONFIGS = [
@@ -227,13 +228,6 @@ export const ACCEL_CHARGE_SENSITIVITY_UNITS = [
 ] as const;
 export const accelChargeSensitivityUnitsZ = z.enum(ACCEL_CHARGE_SENSITIVITY_UNITS);
 export type AccelChargeSensitivityUnits = z.infer<typeof accelChargeSensitivityUnitsZ>;
-
-/** MinMaxVal bounds the expected signal range in scaled units. */
-export const minMaxValZ = z.object({
-  /** range is the expected signal range, in scaled units. */
-  range: spatial.closedBoundsZ().prefault({ lower: 0, upper: 1 }),
-});
-export interface MinMaxVal extends z.infer<typeof minMaxValZ> {}
 
 /** Terminal configures the terminal wiring of an analog input channel. */
 export const terminalZ = z.object({

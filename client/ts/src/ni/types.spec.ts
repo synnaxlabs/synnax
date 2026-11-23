@@ -40,3 +40,38 @@ describe("aoFuncGenChannelZ", () => {
     expect(ni.aoFuncGenChannelZ.safeParse(CHANNEL).success).toBe(false);
   });
 });
+
+describe("minMaxValZ", () => {
+  it.each(["minVal", "maxVal"])("should reject the replaced %s key", (key) => {
+    const result = ni.aiVoltageChannelZ.safeParse({
+      type: "ai_voltage",
+      device: "dev",
+      port: 0,
+      [key]: 5,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: [key],
+        message: `${key} was replaced by range: set range: { lower, upper }`,
+      }),
+    ]);
+  });
+
+  it("should reject the replaced keys in a counter channel", () => {
+    expect(
+      ni.ciFrequencyChannelZ.safeParse({ type: "ci_frequency", port: 0, minVal: 1 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("should accept a range", () => {
+    const ch = ni.aiVoltageChannelZ.parse({
+      type: "ai_voltage",
+      device: "dev",
+      port: 0,
+      range: { lower: -10, upper: 10 },
+    });
+    expect(ch.range).toEqual({ lower: -10, upper: 10 });
+  });
+});

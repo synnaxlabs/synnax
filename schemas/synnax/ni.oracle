@@ -523,6 +523,8 @@ MinMaxVal struct {
     @go marshal
     @py hand
     @py include "client/py/synnax/ni/range"
+    @ts hand
+    @ts include "client/ts/src/ni/range"
 }
 
 Terminal struct {
