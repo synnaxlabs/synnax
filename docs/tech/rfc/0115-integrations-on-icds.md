@@ -82,8 +82,9 @@ This RFC changes the ICD in these ways:
 ### 3.1 Tasks
 
 A task entry names one ICD and lists messages. Each message lists bindings (`field`,
-`channel`, and `data_type`) and an optional index field. Each read binding to an index
-channel stamps the channels on that index, so one message can carry several timestamps.
+`channel`, and `data_type`) and an optional index field. In the Driver, each read
+binding to an index channel stamps the channels on that index, so one HTTP or bus
+message can carry several timestamps. An MQTT or Kafka message keeps one index group.
 The index field is the one that the form makes an index channel for. A write binding is
 a union on `type`: the `channel` variant holds these keys, and the `value` variant holds
 `field` and `value`. An unbound field is not read. The ICD key sits on each entry,
@@ -308,9 +309,10 @@ real adapter (§6.16).
     Desktop-first rule in `CONTRIBUTING.md` that the release owner ruled. A Desktop-only
     release first was rejected, so ICDs and the bus integrations reach the Console in
     0.63.0, not 0.64.0.
-20. **A message can carry several timestamps**: Each field bound to an index channel
-    stamps the channels on that index (2026-11-22), as an HTTP v4 endpoint does and RFC
-    0028 specifies. A script can make such an endpoint, so the lift keeps it. Keeping
-    only the first timestamp was rejected: the other channels would take the arrival
-    time with no warning. Refusing the task was rejected: v5 would have no way to hold
-    it.
+20. **A Driver message can carry several timestamps**: Each field bound to an index
+    channel stamps the channels on that index (2026-11-22), as an HTTP v4 endpoint does
+    and RFC 0028 specifies. A script can make such an endpoint, so the lift keeps it.
+    The MQTT and Kafka runtimes build one index group per message, and their configure
+    step refuses a second. Keeping only the first timestamp was rejected: the other
+    channels would take the arrival time with no warning. Refusing the task was
+    rejected: v5 would have no way to hold it.
