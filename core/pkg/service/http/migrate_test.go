@@ -36,6 +36,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Task migration", func() {
@@ -115,6 +118,9 @@ var _ = Describe("ICDMigration", func() {
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
 		lookup http.TaskNames
+		ins    alamos.Instrumentation
+		// logs holds the warnings that the migration logs.
+		logs *observer.ObservedLogs
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
@@ -123,6 +129,11 @@ var _ = Describe("ICDMigration", func() {
 			ICD:     icdSvc,
 		}))
 		names, asked = map[uuid.UUID]string{}, nil
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		ins = alamos.New("test", alamos.WithLogger(MustSucceed(alamos.NewLogger(
+			alamos.LoggerConfig{ZapLogger: zap.New(core)},
+		))))
 		lookup = func(
 			_ context.Context,
 			_ gorp.Tx,
@@ -172,7 +183,7 @@ var _ = Describe("ICDMigration", func() {
 	}
 	run := func(ctx SpecContext) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.ICDMigration(lookup).Run(ctx, tx, alamos.Instrumentation{})
+			return svc.ICDMigration(lookup).Run(ctx, tx, ins)
 		})
 	}
 	// expectStaged asserts whether the fields of the config are staged.
@@ -245,7 +256,7 @@ var _ = Describe("ICDMigration", func() {
 		MustSucceed(svc.Read.Prepare(ctx, db, key, "Tank farm", data))
 	})
 
-	It("Should lift two index fields into reads that a later save refuses", func(
+	It("Should lift two index fields, note them, and refuse a later save", func(
 		ctx SpecContext,
 	) {
 		sent := createChannel(ctx, telem.TimestampT, channel.Channel{})
@@ -276,6 +287,17 @@ var _ = Describe("ICDMigration", func() {
 			HaveField("Channel", sent.Key()),
 			HaveField("Channel", received.Key()),
 		))
+		Expect(logs.FilterMessage("changed an HTTP read field to v5").All()).To(
+			HaveExactElements(WithTransform(
+				func(e observer.LoggedEntry) map[string]any { return e.ContextMap() },
+				SatisfyAll(
+					HaveKeyWithValue("field", "endpoints.0.fields.1"),
+					HaveKeyWithValue("change", "field received and index field sent "+
+						"both write index channels. Split the endpoint into two, "+
+						"each with one index field"),
+				),
+			)),
+		)
 		data := MustSucceed(svc.Read.Read(ctx, db, key))
 		Expect(svc.Read.Prepare(ctx, db, key, "Tank farm", data)).Error().To(MatchError(
 			"endpoints.0.messages.0.bindings.1.channel: field received cannot write " +
