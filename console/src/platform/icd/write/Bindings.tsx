@@ -16,6 +16,7 @@ import type { ReactElement } from "react";
 
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
 import { formatDefault } from "@/platform/icd/Options";
+import { rawBounds } from "@/platform/icd/range";
 import { ValueField } from "@/platform/icd/ValueField";
 import { Task } from "@/platform/task";
 
@@ -24,21 +25,26 @@ type Kind = icd.JSONField["type"];
 /** What fills a field: a command channel, a fixed value, or the field's default. */
 type Mode = icd.WriteBindingType | "default";
 
-/** @returns the number nearest zero that the field's min and max allow. */
-const nearZero = ({ min = -Infinity, max = Infinity }: icd.JSONField): number =>
-  bounds.clamp({ lower: min, upper: max }, 0);
+/** @returns the number in b nearest zero, or zero when b holds none. */
+const nearZero = (b: bounds.Bounds): number =>
+  b.lower > b.upper ? 0 : bounds.clamp(b, 0);
 
-/** @returns the whole number nearest zero that the field's min and max allow. */
-const wholeNearZero = ({ min = -Infinity, max = Infinity }: icd.JSONField): string =>
-  String(bounds.clamp({ lower: Math.ceil(min), upper: Math.floor(max) }, 0));
+/** @returns the whole numbers of b, at or above floor. */
+const whole = ({ lower, upper }: bounds.Bounds, floor = -Infinity): bounds.Bounds => ({
+  lower: Math.max(Math.ceil(lower), floor),
+  upper: Math.floor(upper),
+});
 
-/** The fixed value that a field starts with, one the Core accepts. */
+/** The fixed value that a field starts with, one the Core accepts when one fits. */
 const INITIAL_VALUES: {
   [K in Kind]: (field: icd.JSONField) => Extract<icd.WriteValue, { type: K }>;
 } = {
-  float: (f) => ({ type: "float", value: nearZero(f) }),
-  integer: (f) => ({ type: "integer", value: wholeNearZero(f) }),
-  unsigned: (f) => ({ type: "unsigned", value: wholeNearZero(f) }),
+  float: (f) => ({ type: "float", value: nearZero(rawBounds(f)) }),
+  integer: (f) => ({ type: "integer", value: String(nearZero(whole(rawBounds(f)))) }),
+  unsigned: (f) => ({
+    type: "unsigned",
+    value: String(nearZero(whole(rawBounds(f), 0))),
+  }),
   string: () => ({ type: "string", value: "" }),
   boolean: () => ({ type: "boolean", value: false }),
   timestamp: () => ({

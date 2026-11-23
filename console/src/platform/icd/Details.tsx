@@ -279,7 +279,10 @@ export interface MessageStatusProps {
   actions?: ReactNode;
 }
 
-/** Warns when the ICD has no such message, or when the message is not JSON. */
+/**
+ * Warns when the ICD has no such message, when the message is not JSON, or when it has
+ * no fields.
+ */
 export const MessageStatus = ({
   message,
   missingDescription,
@@ -296,13 +299,24 @@ export const MessageStatus = ({
         />
       </PForm.Section>
     );
-  if (message.payload.format === "json") return null;
+  if (message.payload.format !== "json")
+    return (
+      <PForm.Section title="Message" actions={actions}>
+        <Text.Text color={9}>
+          The format of this message is not JSON.
+          {FLAGS.icds && " Open it in the editor to change its format."}
+        </Text.Text>
+      </PForm.Section>
+    );
+  if (message.payload.fields.length > 0) return null;
   return (
-    <PForm.Section title="Message" actions={actions}>
-      <Text.Text color={9}>
-        The format of this message is not JSON.
-        {FLAGS.icds && " Open it in the editor to change its format."}
-      </Text.Text>
+    <PForm.Section title="Message">
+      <Status.Summary
+        variant="warning"
+        message="Message has no fields"
+        description="A task cannot deploy a message with no fields. Add a field to the message."
+        center={false}
+      />
     </PForm.Section>
   );
 };

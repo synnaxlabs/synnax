@@ -18,7 +18,12 @@ import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat, selectedIn } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  removeField,
+  retype,
+  selectedIn,
+} from "@/platform/icd/testutil";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
@@ -29,7 +34,12 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { awaitTextEditingElement, commitTextEdit, getSwitchInput } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  getSwitchInput,
+  isSelectButtonSelected,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -432,9 +442,14 @@ describe("MQTT Write form", () => {
       const setpoint = createField("setpoint", "float");
       const low = createField("low", "float", { min: 5 });
       const high = createField("high", "integer", { max: -2.5 });
-      const { target } = await createFormatTarget([setpoint, low, high]);
+      // Each limit maps to a raw value through the scale and offset of its field.
+      const scaled = createField("scaled", "float", { scale: 0.1, min: 5 });
+      const shifted = createField("shifted", "integer", { offset: 10, max: 5 });
+      const flipped = createField("flipped", "float", { scale: -2, min: 10 });
+      const fields = [setpoint, low, high, scaled, shifted, flipped];
+      const { target } = await createFormatTarget(fields);
       const { draft } = await renderWrite([target]);
-      for (const field of [low, high])
+      for (const field of fields.slice(1))
         fireEvent.click(
           (await fieldGroup(field.name)).getByRole("button", { name: "Value" }),
         );
@@ -449,10 +464,149 @@ describe("MQTT Write form", () => {
                 field: high.key,
                 value: { type: "integer", value: "-3" },
               },
+              { type: "value", field: scaled.key, value: { type: "float", value: 50 } },
+              {
+                type: "value",
+                field: shifted.key,
+                value: { type: "integer", value: "-5" },
+              },
+              {
+                type: "value",
+                field: flipped.key,
+                value: { type: "float", value: -5 },
+              },
             ],
           },
         }),
       );
+    });
+
+    describe("when the message changes in the ICD", () => {
+      const messageOf = ({ icd: key, message }: MQTT.Task.PlainWriteTarget) => ({
+        icd: key,
+        message: message.message,
+      });
+
+      it("should warn when the last field leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        await removeField(client, messageOf(target), setpoint);
+        await screen.findByText("Message has no fields");
+      });
+
+      it("should drop the binding of a field that leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([target]);
+        await fieldGroup(mode.name);
+        await removeField(client, messageOf(target), mode);
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
+            },
+          }),
+        );
+      });
+
+      it("should put a field on a channel when its fixed value stops suiting its kind", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([
+          {
+            ...target,
+            message: {
+              ...target.message,
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                {
+                  type: "value",
+                  field: mode.key,
+                  value: { type: "string", value: "auto" },
+                },
+              ],
+            },
+          },
+        ]);
+        await fieldGroup(mode.name);
+        await retype(client, messageOf(target), mode, "float");
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: mode.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
+
+      it("should put a field on a channel when it loses its default", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string", { default: "auto" });
+        const { ic, message, target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([target]);
+        await (await fieldGroup(mode.name)).findByText('Sends its default, "auto".');
+        await client.icds.dispatch(
+          ic.key,
+          icd.set({
+            path: ["messages", message.key, "payload", "fields", mode.key],
+            value: { ...mode, default: undefined },
+          }),
+        );
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: mode.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
+
+      it("should unbind a channel whose data type its field stops taking", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        const { draft } = await renderWrite([
+          {
+            ...target,
+            message: {
+              ...target.message,
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: cmd.key },
+              ],
+            },
+          },
+        ]);
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        await retype(client, messageOf(target), count, "string");
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
     });
 
     it("should send the default of a field set to Default", async () => {
@@ -523,33 +677,42 @@ describe("MQTT Write form", () => {
       return { dialog, draft, scanner };
     };
 
-    it("should add a whole picked topic only once a message format is picked", async () => {
-      const setpoint = createField("setpoint", "float");
-      const { ic, message } = await createFormat([setpoint]);
+    const TOPIC = {
+      topic: "plant/valve/set",
+      payload: '{"setpoint": 1, "mode": "auto"}',
+      fields: [
+        { pointer: "/setpoint", type: "number", sample: "1" },
+        { pointer: "/mode", type: "string", sample: '"auto"' },
+      ],
+      retained: true,
+    };
+    const FORMAT_REQUIRED = "Select a message format to add topics.";
+
+    // Opens the dialog over a broker whose scan task lists TOPIC, and picks it.
+    const openOnPickedTopic = async () => {
       const { dev, draft } = await renderWrite();
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
-      const topic = {
-        topic: "plant/valve/set",
-        payload: '{"setpoint": 1, "mode": "auto"}',
-        fields: [
-          { pointer: "/setpoint", type: "number", sample: "1" },
-          { pointer: "/mode", type: "string", sample: '"auto"' },
-        ],
-        retained: true,
-      };
-      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
       scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      return { dialog, draft };
+    };
+
+    it("should ask for a message format before it adds a whole picked topic", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { ic, message } = await createFormat([setpoint]);
+      const { dialog, draft } = await openOnPickedTopic();
       const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
         name: "Record mode",
       });
       expect(mode.checked).toBe(true);
       dialog.getByText("1 topic selected");
       const add = () => dialog.getByRole("button", { name: "Add 1 target" });
-      expect(add().getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(add());
+      await dialog.findByText(FORMAT_REQUIRED);
       await pickMessageFormat("Select message format", message.name, ic.name);
-      await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"));
+      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
       fireEvent.click(add());
       await waitFor(async () =>
         expect(await retrieveTargets(draft.key)).toMatchObject([
@@ -566,42 +729,37 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should go back to the topics to ask for a message format when a tag adds by name", async () => {
+      const { dialog } = await openOnPickedTopic();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      await dialog.findByText(FORMAT_REQUIRED);
+      expect(isSelectButtonSelected("JSON topics")).toBe(true);
+    });
+
     it("should drop a whole picked topic when any of its fields is unticked", async () => {
-      const { dev } = await renderWrite();
-      const scanner = await openScanner(client, dev.rack);
-      const dialog = await openAddTargets();
-      const topic = {
-        topic: "plant/valve/set",
-        payload: '{"setpoint": 1, "mode": "auto"}',
-        fields: [
-          { pointer: "/setpoint", type: "number", sample: "1" },
-          { pointer: "/mode", type: "string", sample: '"auto"' },
-        ],
-        retained: true,
-      };
-      await scanner.answer({ data: { topics: [topic], truncated: false } });
-      scanner.close();
+      const { dialog } = await openOnPickedTopic();
       const box = (name: string) =>
         dialog.getByRole<HTMLInputElement>("checkbox", { name: `Record ${name}` });
-      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
       dialog.getByText("1 topic selected");
       fireEvent.click(box("mode"));
       expect([box("setpoint").checked, box("mode").checked]).toEqual([false, false]);
       expect(dialog.queryByText("1 topic selected")).toBeNull();
     });
 
-    it("should add a topic by name only once a message format is picked", async () => {
+    it("should ask for a message format before it adds a topic by name", async () => {
       const setpoint = createField("setpoint", "float");
       const mode = createField("mode", "string", { default: "auto" });
       const { ic, message } = await createFormat([setpoint, mode]);
       const { draft } = await renderWrite();
       const dialog = await openAddTargets();
       const byName = () => dialog.getByRole("button", { name: "Add a topic by name" });
-      await waitFor(() => expect(byName().getAttribute("aria-disabled")).toBe("true"));
-      await pickMessageFormat("Select message format", message.name, ic.name);
-      await waitFor(() =>
-        expect(byName().getAttribute("aria-disabled")).not.toBe("true"),
+      fireEvent.click(
+        await dialog.findByRole("button", { name: "Add a topic by name" }),
       );
+      await dialog.findByText(FORMAT_REQUIRED);
+      await pickMessageFormat("Select message format", message.name, ic.name);
+      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
       fireEvent.click(byName());
       await screen.findByText(setpoint.name);
       await waitFor(async () =>

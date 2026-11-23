@@ -10,6 +10,7 @@
 import "@/feature/mqtt/task/discover/Discover.css";
 
 import type { icd } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -27,6 +28,8 @@ import { ICD } from "@/platform/icd";
 import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
+
+const FORMAT_REQUIRED = "Select a message format to add topics.";
 
 /** A message of an ICD. */
 export interface Format {
@@ -57,8 +60,8 @@ export interface Kind<E> {
   /** Each pick is a whole topic, and a topic that the task holds takes none. */
   whole?: boolean;
   /**
-   * Each entry from a topic sends one message, which the dialog picks under the topics.
-   * Nothing adds from a topic until it is picked.
+   * Each entry from a topic sends one message, which a field under the topics picks. An
+   * add that holds a topic before the pick shows the error at that field.
    */
   formatRequired?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
@@ -85,10 +88,19 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
+  const [refused, setRefused] = useState(false);
   const picks: Picks = { topics: topicPicks, tags: tagPicks, format };
-  const needsFormat = kind.formatRequired === true && format == null;
+  const formatError = refused && format == null ? FORMAT_REQUIRED : undefined;
 
-  const picked = (): E[] => kind.create(picks, entries);
+  const add = (extra: () => E[], extraTopics = 0) => {
+    const topicCount = topicPicks.size + extraTopics;
+    if (kind.formatRequired === true && format == null && topicCount > 0) {
+      setMode("topics");
+      setRefused(true);
+      return;
+    }
+    close([...kind.create(picks, entries), ...extra()]);
+  };
 
   const entryCount =
     kind.whole === true
@@ -121,9 +133,21 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             whole={kind.whole}
             value={topicPicks}
             onChange={setTopicPicks}
-            onAddByName={(topic) => close([...picked(), createTopic(topic, picks)])}
-            addByNameDisabled={needsFormat}
-          />
+            onAddByName={(topic) => add(() => [createTopic(topic, picks)], 1)}
+          >
+            {kind.formatRequired === true && (
+              <Flex.Box y empty className={CSS.BE("mqtt-discover", "format")}>
+                <ICD.MessageFormatField
+                  icdKey={format?.icd}
+                  message={format?.message.key}
+                  onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
+                  helpText={formatError}
+                  status={formatError == null ? undefined : "error"}
+                  padHelpText
+                />
+              </Flex.Box>
+            )}
+          </TopicPicker>
         </ICD.Picker.Frame>
       )}
       {createTag != null && (
@@ -133,7 +157,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             entries={entries}
             value={tagPicks}
             onChange={setTagPicks}
-            onAddByName={() => close([...picked(), createTag()])}
+            onAddByName={() => add(() => [createTag()])}
           />
         </ICD.Picker.Frame>
       )}
@@ -143,17 +167,9 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
           [tagNoun, tagPicks.size],
         ]}
         idle={mode === "sparkplug" ? tagNoun : noun}
-        disabled={needsFormat && entryCount > 0}
-        onAdd={() => close(picked())}
+        onAdd={() => add(() => [])}
         onCancel={() => close()}
       >
-        {kind.formatRequired === true && mode === "topics" && (
-          <ICD.MessageFormatField
-            icdKey={format?.icd}
-            message={format?.message.key}
-            onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
-          />
-        )}
         {summary != null && (
           <Text.Text level="small" color={10}>
             {summary}

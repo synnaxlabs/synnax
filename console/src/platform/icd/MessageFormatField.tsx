@@ -48,7 +48,10 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
 
 const choiceRenderProp = Component.renderProp(ChoiceItem);
 
-export interface MessageFormatFieldProps {
+export interface MessageFormatFieldProps extends Pick<
+  Input.ItemProps,
+  "helpText" | "status" | "padHelpText"
+> {
   /** The ICD of the picked message. Absent before a pick. */
   icdKey?: icd.Key;
   /** The key of the picked message. Absent before a pick. */
@@ -70,6 +73,7 @@ export const MessageFormatField = ({
   onChange,
   disabled = false,
   preview = false,
+  ...rest
 }: MessageFormatFieldProps): ReactElement => {
   const icds = PICD.useList();
   // List readers need one choice object for as long as its ICD stays the same.
@@ -129,7 +133,7 @@ export const MessageFormatField = ({
     onChange(parent, picked);
   };
   return (
-    <Input.Item label="Message format" padHelpText={false}>
+    <Input.Item label="Message format" {...rest}>
       <Flex.Box x align="center" gap="small">
         <Select.Single<string, Choice>
           resourceName="message format"
