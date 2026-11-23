@@ -373,4 +373,44 @@ var _ = Describe("msgpack", func() {
 		Expect(msgpack.Unmarshal(raw, &decoded)).
 			To(MatchError(validate.ErrValidation))
 	})
+
+	DescribeTable("Should reject a variant whose fields have the wrong type",
+		func(target any, fields map[string]any) {
+			raw := MustSucceed(msgpack.Marshal(fields))
+			Expect(msgpack.Unmarshal(raw, target)).To(HaveOccurred())
+		},
+		Entry("HTTPS", &v0.Scheme{}, map[string]any{
+			"type":                            "https",
+			"certificate_validation_disabled": "yes",
+		}),
+		Entry("bearer", &v0.Auth{}, map[string]any{"type": "bearer", "token": 1}),
+		Entry("basic", &v0.Auth{}, map[string]any{"type": "basic", "username": 1}),
+		Entry("API key", &v0.Auth{}, map[string]any{"type": "api_key", "name": 1}),
+		Entry("none", &v0.Auth{}, map[string]any{"type": []int{1}}),
+		Entry("string", &v0.Response{}, map[string]any{
+			"expected_value_type": "string",
+			"expected_value":      1,
+		}),
+		Entry("number", &v0.Response{}, map[string]any{
+			"expected_value_type": "number",
+			"expected_value":      "one",
+		}),
+		Entry("boolean", &v0.Response{}, map[string]any{
+			"expected_value_type": "boolean",
+			"expected_value":      "yes",
+		}),
+		Entry("null", &v0.Response{}, map[string]any{
+			"expected_value_type": "null",
+			"pointer":             1,
+		}),
+	)
+
+	DescribeTable("Should reject truncated input",
+		func(target any) {
+			Expect(msgpack.Unmarshal([]byte{0x81}, target)).To(HaveOccurred())
+		},
+		Entry("scheme", &v0.Scheme{}),
+		Entry("auth", &v0.Auth{}),
+		Entry("response", &v0.Response{}),
+	)
 })
