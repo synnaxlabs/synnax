@@ -80,6 +80,8 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   private readonly changes = { count: 0 };
   /** The members of each maintained query that asks for uses. */
   private readonly watchers = new Set<() => readonly K[]>();
+  /** The keys of records that this client is creating and the table does not hold. */
+  private readonly creating = new Set<K>();
   private readonly refetch: () => void;
 
   constructor(cfg: UsesConfig<K, R, Q>) {
@@ -92,7 +94,10 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     store.hold({ held: () => this.watched() });
     // A record created again under a deleted key reads its uses again.
     table.subscribe((event) => {
-      if (event.variant !== "delete") return;
+      if (event.variant === "set") {
+        this.creating.delete(event.key);
+        return;
+      }
       store.evict(event.key);
       if (this.deletes.inFlight > 0) this.deletes.at.set(event.key, ++this.deletes.seq);
     });
@@ -186,11 +191,17 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
 
   /**
    * Records that the records with the keys have no uses, since this client is creating
-   * them. A query that asks for uses then lists them with no fetch.
+   * them. A query that asks for uses then lists them with no fetch. The uses stay held
+   * until the table holds the records.
    * @returns a destructor that restores the uses that the client held before.
    */
   created(keys: K[]): destructor.Destructor {
-    return this.store.set(keys.map((key) => ({ key, uses: [] })));
+    keys.forEach((key) => this.creating.add(key));
+    const restore = this.store.set(keys.map((key) => ({ key, uses: [] })));
+    return () => {
+      keys.forEach((key) => this.creating.delete(key));
+      restore();
+    };
   }
 
   /**
@@ -212,7 +223,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   }
 
   private watched(): Set<K> {
-    const watched = new Set<K>();
+    const watched = new Set<K>(this.creating);
     this.watchers.forEach((members) => members().forEach((key) => watched.add(key)));
     return watched;
   }

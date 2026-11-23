@@ -150,7 +150,7 @@ public:
         else if (this->precise || this->high_rate())
             this->precise_sleep(remaining);
         else
-            std::this_thread::sleep_for(remaining.chrono());
+            this->step(remaining);
         // Anchor to the deadline so a late wake shortens the next sleep instead of
         // stretching every period. An early wake keeps the wake time.
         last = std::min(deadline, this->clock_now());
@@ -171,7 +171,7 @@ public:
         else if (this->precise || this->high_rate())
             this->precise_sleep(remaining, breaker);
         else if (this->medium_rate())
-            std::this_thread::sleep_for(remaining.chrono());
+            this->step(remaining);
         else
             breaker.wait_for(remaining);
         last = std::min(deadline, this->clock_now());
