@@ -18,6 +18,8 @@ interface Size {
   height: number;
   /** The content size, which a scrollbar, a border, or padding changes. */
   inner: string;
+  /** The padding and border widths around the content box. */
+  frame: string;
 }
 
 // A ResizeObserver loop can come from a change of less than a pixel. The offset size
@@ -29,7 +31,17 @@ const measure = (element: Element): Size => {
   const x = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   const y = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const inner = `${element.clientWidth - x}x${element.clientHeight - y}`;
-  return { width, height, inner };
+  const frame = [
+    style.paddingTop,
+    style.paddingRight,
+    style.paddingBottom,
+    style.paddingLeft,
+    style.borderTopWidth,
+    style.borderRightWidth,
+    style.borderBottomWidth,
+    style.borderLeftWidth,
+  ].join(" ");
+  return { width, height, inner, frame };
 };
 
 const callerStack = (): string =>
@@ -43,11 +55,38 @@ const callerStack = (): string =>
     .slice(0, STACK_FRAMES)
     .join("\n");
 
+interface Pass {
+  /** The depth of the shallowest target delivered in the pass. */
+  shallowest: number;
+  /** The creation order of the last observer called in the pass. */
+  last: number;
+}
+
+interface Change {
+  text: string;
+  depth: number;
+  pass: Pass;
+}
+
+interface Context {
+  origin: string;
+  targets: string;
+  during: Pass;
+}
+
 const formatSize = ({ width, height }: Size): string => `${width}x${height}`;
 
-const depth = (node: Node): number => {
+// The browser counts the element and its ancestors in the flat tree, so an element off
+// the page has a depth of at least one.
+const flatParent = (element: Element): Element | null => {
+  if (element.assignedSlot != null) return element.assignedSlot;
+  const parent = element.parentNode;
+  return parent instanceof ShadowRoot ? parent.host : element.parentElement;
+};
+
+const depth = (element: Element): number => {
   let d = 0;
-  for (let n = node.parentNode; n != null; n = n.parentNode) d++;
+  for (let e: Element | null = element; e != null; e = flatParent(e)) d++;
   return d;
 };
 
@@ -96,11 +135,10 @@ const label = (element: Element): string => {
 
 /**
  * Wraps the global ResizeObserver to name the cause of each ResizeObserver loop error.
- * Each report lists the observed elements that a callback resized in the frame of the
- * error, at or above the shallowest target of that callback, and the observed elements
- * that a callback took off the page, with the stack that created the observer. It also
- * lists the targets observed after a callback in that frame, with the stack that
- * observed them.
+ * Each report lists the observed elements that a callback resized or took off the page
+ * in the frame of the error, with the stack that created the observer, and the targets
+ * observed after a callback, with the stack that observed them. It lists only those at
+ * or above the shallowest target of the loop pass of that callback.
  *
  * @param report - Receives each report.
  * @returns a function that puts back the previous ResizeObserver and stops reporting.
@@ -108,22 +146,23 @@ const label = (element: Element): string => {
  */
 export const traceResizeLoops = (report: (text: string) => void): (() => void) => {
   const Native = window.ResizeObserver;
-  const observed = new Map<Element, number>();
-  const changes: string[] = [];
+  // The boxes that each traced observer watches on an element.
+  const observed = new Map<Element, Map<ResizeObserver, ResizeObserverBoxOptions>>();
+  let changes: Change[] = [];
   // Checks the last callback once more, at the next callback or the loop error. The
   // microtasks of a callback end before the next callback starts.
   let late: (() => void) | null = null;
   let frame: CSSNumberish | null = null;
-  // The depth of the shallowest target of the last callback in the frame.
-  let delivered: number | null = null;
+  let pass: Pass | null = null;
+  let created = 0;
 
   // Every callback and the loop error of one rendering update share a timeline time.
   const enterFrame = (): void => {
     const now = document.timeline.currentTime;
     if (now === frame) return;
     frame = now;
-    delivered = null;
-    changes.length = 0;
+    pass = null;
+    changes = [];
     late = null;
   };
 
@@ -132,37 +171,43 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     late = null;
   };
 
-  const record = (change: string): void => {
-    changes.push(change);
+  const record = (text: string, at: number, during: Pass): void => {
+    changes.push({ text, depth: at, pass: during });
     if (changes.length > MAX_CHANGES) changes.shift();
   };
 
-  // An element deeper than the targets counts only when it leaves the page. The browser
-  // then reports a zero size from its depth off the page, if still observed.
-  const check = (
-    before: Map<Element, Size>,
-    shallowest: number,
-    origin: string,
-    targets: string,
-    phase: string,
-  ): void => {
+  // Whether a box that some observer watches on the element changed.
+  const resized = (element: Element, before: Size, after: Size): boolean => {
+    const border = before.width !== after.width || before.height !== after.height;
+    const content =
+      before.inner !== after.inner || (border && before.frame === after.frame);
+    for (const box of observed.get(element)?.values() ?? [])
+      if (box === "border-box" ? border : content) return true;
+    return false;
+  };
+
+  const check = (before: Map<Element, Size>, context: Context, phase: string): void => {
+    const { origin, targets, during } = context;
     const callback = `${phase} the callback for ${targets}, of the observer`;
     for (const [element, size] of before) {
       if (!element.isConnected) {
         before.delete(element);
-        const sized = size.width > 0 || size.height > 0;
-        if (observed.has(element) && sized && depth(element) <= shallowest)
-          record(`${label(element)} left the page ${callback} created at:\n${origin}`);
+        // The browser then reports a zero size from the depth of the element off the
+        // page.
+        if (observed.has(element) && (size.width > 0 || size.height > 0)) {
+          const text = `${label(element)} left the page ${callback} created at:`;
+          record(`${text}\n${origin}`, depth(element), during);
+        }
         continue;
       }
-      if (depth(element) > shallowest) continue;
       const after = measure(element);
+      if (!resized(element, size, after)) continue;
       const same = after.width === size.width && after.height === size.height;
-      if (same && after.inner === size.inner) continue;
       const resize = same
         ? `its content size from ${size.inner} to ${after.inner}`
         : `from ${formatSize(size)} to ${formatSize(after)}`;
-      record(`${label(element)} changed ${resize} ${callback} created at:\n${origin}`);
+      const text = `${label(element)} changed ${resize} ${callback} created at:`;
+      record(`${text}\n${origin}`, depth(element), during);
       before.set(element, after);
     }
   };
@@ -170,55 +215,65 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   const trace = (
     callback: ResizeObserverCallback,
     origin: string,
+    order: number,
     entries: ResizeObserverEntry[],
     observer: ResizeObserver,
   ): void => {
     enterFrame();
     closeLate();
-    const shallowest = Math.min(...entries.map((e) => depth(e.target)));
-    delivered = shallowest;
+    // The browser calls each observer at most once per pass, in the order they were
+    // created.
+    if (pass == null || order <= pass.last) pass = { shallowest: Infinity, last: -1 };
+    pass.last = order;
+    pass.shallowest = Math.min(pass.shallowest, ...entries.map((e) => depth(e.target)));
+    const context: Context = {
+      origin,
+      targets: entries.map((e) => label(e.target)).join(", "),
+      during: pass,
+    };
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
       if (element.isConnected) before.set(element, measure(element));
-    const targets = entries.map((e) => label(e.target)).join(", ");
     try {
       callback(entries, observer);
     } finally {
-      check(before, shallowest, origin, targets, "inside");
+      check(before, context, "inside");
       let remaining = MICROTASKS;
       const next = (): void => {
-        check(before, shallowest, origin, targets, "in a microtask after");
+        check(before, context, "in a microtask after");
         remaining -= 1;
         if (remaining > 0) queueMicrotask(next);
       };
       queueMicrotask(next);
-      late = () => check(before, shallowest, origin, targets, "later in the frame of");
+      late = () => check(before, context, "later in the frame of");
     }
   };
 
   class Traced implements ResizeObserver {
     private readonly observer: ResizeObserver;
-    private readonly targets = new Set<Element>();
+    private readonly targets = new Map<Element, ResizeObserverBoxOptions>();
 
     constructor(callback: ResizeObserverCallback) {
       const origin = callerStack();
-      this.observer = new Native((entries) => trace(callback, origin, entries, this));
+      const order = created++;
+      this.observer = new Native((entries) =>
+        trace(callback, origin, order, entries, this),
+      );
     }
 
     observe(target: Element, options?: ResizeObserverOptions): void {
-      // The first delivery of a target observed after a callback in the same frame
-      // counts as a resize, so a shallow target ends the frame in a loop error.
-      if (!this.targets.has(target)) {
-        if (
-          delivered != null &&
-          document.timeline.currentTime === frame &&
-          depth(target) <= delivered
-        ) {
+      const box = options?.box ?? "content-box";
+      // The browser ignores a target observed again with the same box. A new target or
+      // box reports its first size, so a shallow one ends the frame in a loop error.
+      if (this.targets.get(target) !== box) {
+        if (pass != null && document.timeline.currentTime === frame) {
           const cause = "began to be observed after a callback, at:";
-          record(`${label(target)} ${cause}\n${callerStack()}`);
+          record(`${label(target)} ${cause}\n${callerStack()}`, depth(target), pass);
         }
-        this.targets.add(target);
-        observed.set(target, (observed.get(target) ?? 0) + 1);
+        this.targets.set(target, box);
+        const boxes = observed.get(target) ?? new Map();
+        boxes.set(this, box);
+        observed.set(target, boxes);
       }
       this.observer.observe(target, options);
     }
@@ -229,27 +284,30 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     }
 
     disconnect(): void {
-      for (const target of this.targets) this.release(target);
+      for (const target of this.targets.keys()) this.release(target);
       this.observer.disconnect();
     }
 
     private release(target: Element): void {
       if (!this.targets.delete(target)) return;
-      const count = (observed.get(target) ?? 1) - 1;
-      if (count === 0) observed.delete(target);
-      else observed.set(target, count);
+      const boxes = observed.get(target);
+      boxes?.delete(this);
+      if (boxes?.size === 0) observed.delete(target);
     }
   }
 
+  // The browser skips a change in a pass at or above the shallowest target of that
+  // pass, and a skipped change ends the frame in the loop error.
   const onError = (event: Event): void => {
     if (!(event instanceof ErrorEvent) || !LOOP_MESSAGE.test(event.message)) return;
     enterFrame();
     closeLate();
+    const skipped = changes.filter((c) => c.depth <= c.pass.shallowest);
     const causes =
-      changes.length === 0
+      skipped.length === 0
         ? "No observed element at or above the targets of a callback changed size."
-        : changes.join("\n");
-    changes.length = 0;
+        : skipped.map((c) => c.text).join("\n");
+    changes = [];
     report(`ResizeObserver loop diagnostic:\n${causes}`);
   };
 

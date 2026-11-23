@@ -24,6 +24,19 @@ const box = (parent: Element, className: string, height: number): HTMLDivElement
   return element;
 };
 
+// Nests levels boxes under the parent and returns the deepest.
+const nest = (parent: Element, levels: number): HTMLDivElement => {
+  let element = box(parent, "level", 10);
+  for (let i = 1; i < levels; i++) element = box(element, "level", 10);
+  return element;
+};
+
+const elementDepth = (element: Element): number => {
+  let d = 0;
+  for (let e: Element | null = element; e != null; e = e.parentElement) d++;
+  return d;
+};
+
 const isLoopError = (value: unknown): boolean =>
   value instanceof Error && value.message.startsWith("ResizeObserver loop");
 
@@ -239,6 +252,130 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toMatch(
       /div\.late changed from \d+x10 to \d+x20 later in the frame of the callback/,
     );
+  });
+
+  it("should leave out a new target below the shallowest of its pass", async () => {
+    const shallow = box(nest(root, 1), "shallow", 10);
+    observe(shallow, () => {});
+    const first = box(nest(root, 1), "first", 10);
+    const second = box(nest(root, 6), "second", 10);
+    const target = box(nest(root, 3), "target", 10);
+    const late = new ResizeObserver(() => {});
+    onTestFinished(() => late.disconnect());
+    let armed = false;
+    observe(first, () => {});
+    observe(second, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+      queueMicrotask(() => late.observe(target));
+    });
+    await frames(2);
+    armed = true;
+    first.style.height = "15px";
+    second.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.target");
+  });
+
+  it("should leave out a resize that the next pass delivers", async () => {
+    const shallow = box(nest(root, 1), "shallow", 10);
+    observe(shallow, () => {});
+    const middle = box(nest(root, 3), "middle", 10);
+    observe(middle, () => {});
+    const first = box(nest(root, 6), "first", 10);
+    const second = box(nest(root, 1), "second", 10);
+    let armed = false;
+    observe(first, () => {
+      if (armed) middle.style.height = "20px";
+    });
+    observe(second, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    first.style.height = "15px";
+    second.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.middle");
+  });
+
+  it("should name a target observed again only with a new box", async () => {
+    const same = box(root, "same", 10);
+    const other = box(root, "other", 10);
+    const watcher = new ResizeObserver(() => {});
+    watcher.observe(same);
+    watcher.observe(other);
+    onTestFinished(() => watcher.disconnect());
+    const deep = box(nest(root, 3), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      watcher.observe(same);
+      watcher.observe(other, { box: "border-box" });
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.other began to be observed after a callback");
+    expect(reports[0]).not.toContain("div.same");
+  });
+
+  it("should leave out padding under an observed border box", async () => {
+    grow(box(root, "grower", 10));
+    const element = box(root, "boxed", 20);
+    element.style.boxSizing = "border-box";
+    const watcher = new ResizeObserver(() => {});
+    watcher.observe(element, { box: "border-box" });
+    onTestFinished(() => watcher.disconnect());
+    const deep = box(nest(root, 3), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      element.style.padding = "2px";
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    for (const report of reports) expect(report).not.toContain("div.boxed");
+  });
+
+  it("should count an element off the page from its own depth", async () => {
+    const shallow = box(root, "shallow", 10);
+    observe(shallow, () => {});
+    const deep = box(nest(root, 3), "deep", 10);
+    const subtree = box(root, "subtree", 10);
+    // Off the page, the leaf sits one below the target.
+    const leaf = box(nest(subtree, elementDepth(deep) - 1), "leaf", 10);
+    const watcher = new ResizeObserver(() => {});
+    watcher.observe(leaf);
+    onTestFinished(() => watcher.disconnect());
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+      subtree.remove();
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.leaf");
   });
 
   it("should report nothing for a resize outside a callback", async () => {
