@@ -144,12 +144,11 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	It(
-		"Should delete the index of a free channel deleted by name",
+		"Should delete the index of a free channel when it is deleted",
 		func(ctx SpecContext) {
 			calc := createFree(ctx, UniqueChannelName(), &g.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
-					DeleteManyByNames(ctx, []string{calc.Name})
+				return svc.NewWriter(tx).Delete(ctx, calc.Key(), false)
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(channel.MatchKeys(calc.Key(), calc.Index())).
@@ -192,12 +191,6 @@ var _ = Describe("Group", Ordered, func() {
 			"by key",
 			func(ctx context.Context, w channel.Writer, c channel.Channel) error {
 				return w.Delete(ctx, c.Key(), false)
-			},
-		),
-		Entry(
-			"by name",
-			func(ctx context.Context, w channel.Writer, c channel.Channel) error {
-				return w.DeleteManyByNames(ctx, []string{c.Name})
 			},
 		),
 	)
