@@ -816,6 +816,15 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("keeps the parts when a Shift+drag pan ends on a shape", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { shiftKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([BODY]),
+      );
+    });
+
     it("selects the part of a shape clicked with the whole drawing selected", async () => {
       const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
       fireEvent.click(screen.getByText("Whole drawing"));
