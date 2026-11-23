@@ -36,6 +36,7 @@ public:
 
     /// @brief Mux is a field that selects which other fields a frame holds.
     struct Mux {
+        synnax::icd::FieldKey key;
         std::string name;
         BitRange bits;
         bool is_signed = false;

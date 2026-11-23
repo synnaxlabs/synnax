@@ -80,6 +80,7 @@ std::pair<Multiplexors::Condition, x::errors::Error> Multiplexors::resolve(
     c.mux = static_cast<int>(this->muxes.size());
     this->index[key] = c.mux;
     this->muxes.push_back({
+        .key = key,
         .name = mb.name,
         .bits = bits,
         .is_signed = std::holds_alternative<icd::IntegerBinaryField>(mux),
