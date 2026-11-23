@@ -501,8 +501,8 @@ export const use = <
   };
 
   /**
-   * Copies each chosen field after it in its message. A read of the field reads its
-   * copy into a new channel. Selects the first copy.
+   * Copies each chosen field after it in its message. Each chosen source that reads the
+   * field reads its copy into a new channel, as with Add field. Selects the first copy.
    */
   const duplicateFields = (chosen: FieldNode[]) => {
     const copies = new Map<string, icd.JSONField>();

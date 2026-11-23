@@ -54,6 +54,15 @@ describe("ICD.copyName", () => {
     expect(ICD.copyName("sensor_10", ["sensor_10"])).toBe("sensor_11");
   });
 
+  it("should count past a number too long for a float", () => {
+    expect(ICD.copyName("x_12345678901234567890", [])).toBe("x_12345678901234567891");
+    const name = "reading_99999999999999999999";
+    expect(ICD.copyName(name, [name])).toBe("reading_100000000000000000000");
+    expect(ICD.copyName(name, [name, "reading_100000000000000000000"])).toBe(
+      "reading_100000000000000000001",
+    );
+  });
+
   it("should skip a number whose channel name a field takes", () => {
     expect(ICD.copyName("flow", ["flow", "flow 2"])).toBe("flow_3");
   });

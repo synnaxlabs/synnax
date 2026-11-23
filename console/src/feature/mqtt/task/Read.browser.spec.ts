@@ -1147,6 +1147,45 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should read the copy only in the topic of the chosen field", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const kiln = mqtt.plainReadEntryZ.parse({
+        ...entry,
+        key: uuid.create(),
+        topic: "plant/kiln",
+        messages: [
+          { ...entry.messages[0], bindings: [{ field: temperature.key, channel: 0 }] },
+        ],
+      });
+      const { draft } = await renderRead({ entries: [entry, kiln] });
+      const [oven] = await waitFor(() => {
+        const found = screen.getAllByRole("treeitem", { name: /^temperature/ });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      fireEvent.contextMenu(oven);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields).toHaveLength(3);
+        return message.payload.fields[1];
+      });
+      await waitFor(async () =>
+        expect(
+          (await retrieveEntries(draft.key)).map(
+            (e) => plainOf(e).messages[0].bindings,
+          ),
+        ).toEqual([
+          [
+            { field: temperature.key, channel: ch.key, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+          [{ field: temperature.key, channel: 0, dataType: "" }],
+        ]),
+      );
+    });
+
     it("should copy a topic after it and read each field into a new channel", async () => {
       const { temperature, entry } = await createBoundEntry();
       const { draft } = await renderRead({ entries: [entry] });

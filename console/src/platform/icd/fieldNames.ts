@@ -38,7 +38,7 @@ const TRAILING_NUMBER = /^(.*)_(\d+)$/;
 export const copyName = (name: string, taken: string[]): string => {
   const names = new Set(taken.map((t) => channel.escapeInvalidName(t)));
   const [, base = name, last = "1"] = TRAILING_NUMBER.exec(name) ?? [];
-  let n = Number(last) + 1;
+  let n = BigInt(last) + 1n;
   while (names.has(channel.escapeInvalidName(`${base}_${n}`))) n++;
   return `${base}_${n}`;
 };
