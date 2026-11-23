@@ -84,6 +84,19 @@ TEST_F(StoreTest, ListInOrder) {
     }
 }
 
+/// @brief it should match the name of a certificate file in any directory, and no other
+/// name.
+TEST_F(StoreTest, IsCertFile) {
+    Store store(StoreConfig{.dir = this->dir});
+    const auto path = store.cert_path(ASSERT_NIL_P(store.current()));
+    ASSERT_TRUE(Store::is_cert_file(path));
+    ASSERT_TRUE(Store::is_cert_file(std::filesystem::path("/old") / path.filename()));
+    auto key = path;
+    key.replace_extension(".pem");
+    ASSERT_FALSE(Store::is_cert_file(key));
+    ASSERT_FALSE(Store::is_cert_file(path.parent_path() / "ca.der"));
+}
+
 /// @brief it should load the same identity in a new Store over the same directory.
 TEST_F(StoreTest, CurrentPersists) {
     Store first(StoreConfig{.dir = this->dir});
