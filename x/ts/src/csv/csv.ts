@@ -93,7 +93,7 @@ export const parseBlock = (
     fields = [];
   };
   for (let i = 0; i < data.length; i++) {
-    const char = data[i];
+    const char = data.charAt(i);
     if (quoted && char === '"' && data[i + 1] === '"') {
       addQuoted('"');
       i++;

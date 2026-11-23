@@ -13,9 +13,9 @@ import "@synnaxlabs/lyra/dist/tree/Item.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Caret } from "@synnaxlabs/lyra/caret";
-import { type CSS } from "@synnaxlabs/lyra/css";
+import type { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { SECTION_ICONS } from "@/components/nav/icons";
 import { ancestry, type PageNavNode } from "@/components/nav/tree";

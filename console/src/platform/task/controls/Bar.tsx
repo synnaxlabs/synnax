@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { status } from "@synnaxlabs/client";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { Actions } from "@/platform/task/controls/Actions";

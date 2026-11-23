@@ -47,11 +47,7 @@ Alert struct {
 
 TaskConfig struct extends task.StartConfig {
     routing_key       secret.Key? {
-        @doc value     """
-            is the secret that holds the PagerDuty Events API v2 routing key.
-        """
-        @ref kind      use
-        @ref on_delete restrict
+        @doc value "is the secret that holds the PagerDuty Events API v2 routing key."
     }
     plain_routing_key string?     {
         @doc value  """

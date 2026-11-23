@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enumeration, type resource } from "@synnaxlabs/client";
+import { enumeration } from "@synnaxlabs/client";
 import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -24,11 +24,10 @@ export const { use: useRetrieve, useResult } = Flux.createRetrieve<
   enumeration.Enumeration
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) =>
-    await client.enumerations.retrieve(key),
-  onChange: ({ client, query: { key } }, handler) =>
-    client.enumerations.watch(key).onChange(handler),
-  getCached: ({ client, query: { key } }) => client.enumerations.watch(key).getCached(),
+  retrieve: async ({ client, query }) => await client.enumerations.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.enumerations.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.enumerations.watch(query).getCached(),
 });
 
 export type RetrieveMultipleQuery = {
@@ -48,11 +47,10 @@ export const { use: useRetrieveMultiple, useResult: useResultMultiple } =
 
 const { useEnsure } = Flux.createRetrieve<RetrieveQuery, enumeration.Enumeration>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) =>
-    await client.enumerations.retrieve(key),
-  onChange: ({ client, query: { key } }, handler) =>
-    client.enumerations.watch(key).onChange(handler),
-  getCached: ({ client, query: { key } }) => client.enumerations.watch(key).getCached(),
+  retrieve: async ({ client, query }) => await client.enumerations.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.enumerations.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.enumerations.watch(query).getCached(),
 });
 
 export type ListQuery = enumeration.RetrieveMultipleParams;
@@ -73,16 +71,6 @@ export const { useResult: useResultBuiltins } = Flux.createRetrieve<
 >({
   name: "built-in enumerations",
   retrieve: async ({ client }) => await client.enumerations.retrieveBuiltins(),
-});
-
-/** The records that use an enumeration and that the caller can retrieve. */
-export const { useResult: useResultDependents } = Flux.createRetrieve<
-  RetrieveQuery,
-  resource.ID[]
->({
-  name: "enumeration users",
-  retrieve: async ({ client, query: { key } }) =>
-    await client.enumerations.retrieveDependents(key),
 });
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -139,6 +127,24 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
       key,
       enumeration.set({ path: ["name"], value: name }),
     );
+    return data;
+  },
+});
+
+export interface ReplaceParams {
+  /** The enumeration to delete. */
+  from: enumeration.Key;
+  /** The enumeration that each user of from moves to. */
+  to: enumeration.Key;
+}
+
+export const { useUpdate: useReplace } = Flux.createUpdate<ReplaceParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.REPLACE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.enumerations.replace(data.from, data.to, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

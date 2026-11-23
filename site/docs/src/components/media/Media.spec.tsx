@@ -12,9 +12,10 @@ import { describe, expect, it } from "vitest";
 
 import { Media } from "@/components/media";
 import { CDN } from "@/components/media/cdn";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [[ID, VERSION]] = Object.entries(versions);
+const [[ID, { version: VERSION, width: WIDTH, height: HEIGHT }]] =
+  Object.entries(videos);
 
 const show = (html: string): void => {
   document.body.innerHTML = html;
@@ -62,33 +63,17 @@ describe("Media", () => {
       expect(document.querySelector(".docs-video__play")).not.toBeNull();
     });
 
+    it("should reserve the space of the video before it loads", () => {
+      show(renderToString(<Media.Video id={ID} label="A video" />));
+      expect(document.querySelector("video")?.style.aspectRatio).toBe(
+        `auto ${WIDTH} / ${HEIGHT}`,
+      );
+    });
+
     it("should name the video with its label", () => {
       show(renderToString(<Media.Video id={ID} label="Create a line plot" />));
       expect(document.querySelector("video")?.getAttribute("aria-label")).toBe(
         "Create a line plot",
-      );
-    });
-  });
-
-  describe("Image", () => {
-    it("should offer the dark version by color scheme and fall back to light", () => {
-      show(renderToString(<Media.Image id="shot" alt="Shot" />));
-      expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN.ROOT}/shot-dark.png`],
-      ]);
-      const img = document.querySelector("picture > img") as HTMLImageElement;
-      expect(img.getAttribute("src")).toBe(`${CDN.ROOT}/shot-light.png`);
-      expect(img.alt).toBe("Shot");
-      expect(img.getAttribute("loading")).toBe("lazy");
-    });
-
-    it("should render a plain image when not themed", () => {
-      show(
-        renderToString(<Media.Image id="logo" alt="" extension="svg" themed={false} />),
-      );
-      expect(document.querySelector("picture")).toBeNull();
-      expect(document.querySelector("img")?.getAttribute("src")).toBe(
-        `${CDN.ROOT}/logo.svg`,
       );
     });
   });

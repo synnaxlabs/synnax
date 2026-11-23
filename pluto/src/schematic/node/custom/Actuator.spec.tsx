@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Actuator } from "@/schematic/node/custom/Actuator";
@@ -20,9 +20,13 @@ const VALID_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
 
 const createData = (svg: string): schematic.symbol.Spec => ({
-  svg,
-  states: [],
+  drawing: { type: "svg", markup: svg },
+  parts: [],
   handles: [],
+  states: [],
+  commands: [],
+  looks: [],
+  interactions: [],
   variant: "static",
   scale: 1,
   strokeScaled: false,
@@ -82,7 +86,7 @@ describe("Actuator", () => {
     await act(async () => {
       await client.schematics.symbols.dispatch(
         symbol.key,
-        schematic.symbol.set({ path: ["data", "svg"], value: VALID_SVG }),
+        schematic.symbol.set({ path: ["data", "drawing", "markup"], value: VALID_SVG }),
       );
     });
     await waitFor(() => {

@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { LABELS_SECTION, LICENSE_SECTION } from "@/app/settings/tab";
 import { Account } from "@/feature/account";
@@ -32,7 +32,7 @@ import { Secret } from "@/feature/secret";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
-import { type Settings } from "@/platform/settings";
+import type { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
 const useUsersVisible = (): boolean => Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
