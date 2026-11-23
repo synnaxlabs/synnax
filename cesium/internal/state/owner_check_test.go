@@ -91,7 +91,7 @@ var _ = Describe("State owner check", func() {
 		a := &appended{}
 		s, err := state.Open(config(a), &state.Snapshot{})
 		if err != nil {
-			Expect(err).To(MatchError(state.ErrRefused))
+			Expect(err).To(MatchError(ContainSubstring("refused by the state")))
 			return
 		}
 		a.s = s

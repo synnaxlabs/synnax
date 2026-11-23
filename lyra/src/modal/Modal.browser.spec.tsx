@@ -9,7 +9,7 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -41,7 +41,12 @@ const renderModal = async (
       </Dialog.Frame>
     </Triggers.Provider>,
   );
-  return page.getByRole("dialog").element();
+  const surface = page
+    .getByRole("dialog")
+    .element()
+    .querySelector(`.${CSS.B("modal")}`);
+  assert(surface != null);
+  return surface;
 };
 
 const px = (el: Element, property: string): number =>

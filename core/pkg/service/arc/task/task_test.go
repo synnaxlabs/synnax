@@ -339,10 +339,11 @@ var _ = Describe("Task", Ordered, func() {
 		idx, data channel.Channel,
 	) (values []uint8, stamps []telem.TimeStamp) {
 		GinkgoHelper()
-		iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 			Keys:   []channel.Key{idx.Key(), data.Key()},
 			Bounds: telem.TimeRangeMax,
 		}))
+		defer func() { Expect(iter.Close()).To(Succeed()) }()
 		if !iter.SeekFirst() {
 			return nil, nil
 		}
@@ -2559,7 +2560,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(t.Stop(true)).To(Succeed())
 
-				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+				iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 					Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -2574,6 +2575,7 @@ var _ = Describe("Task", Ordered, func() {
 						}
 					}
 				}
+				Expect(iter.Close()).To(Succeed())
 				Expect(len(persisted)).To(BeNumerically(">=", 3))
 				for _, ts := range persisted {
 					Expect(ts).To(BeNumerically(">=", wallStart))

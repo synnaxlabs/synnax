@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrClosed is the error of a call after the owner stopped.
-var ErrClosed = errors.New("state is closed")
+// errClosed is the error of a call after the owner stopped.
+var errClosed = errors.New("state is closed")
 
 // Config is the configuration of a state.
 type Config struct {
@@ -41,9 +41,9 @@ type Config struct {
 	OnHead func(generation uint64, s *Snapshot)
 }
 
-// Validate returns an error that wraps validate.ErrValidation when a field of c is not
+// validate returns an error that wraps validate.ErrValidation when a field of c is not
 // set.
-func (c Config) Validate() error {
+func (c Config) validate() error {
 	v := validate.New("state.Config")
 	v.Ternary("versions", !c.Versions.Contains(c.Version), "must hold version")
 	v.NotNil("append", c.Append)
@@ -91,10 +91,10 @@ type State struct {
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
-// that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown for a
-// segment format version that this binary does not read.
+// when a value of head breaks a rule, or log.ErrUnknown for a segment format version
+// that this binary does not read.
 func Open(cfg Config, head *Snapshot) (*State, error) {
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	s := &State{
@@ -113,8 +113,8 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 }
 
 // Replay applies the records of the durable entry of sequence, in replay mode, before
-// Run. It returns an error that wraps ErrRefused for a record that breaks a rule, or
-// log.ErrUnknown for one this binary does not apply.
+// Run. It returns an error for a record that breaks a rule, or log.ErrUnknown for one
+// this binary does not apply.
 func (s *State) Replay(sequence uint64, records []log.Record) error {
 	return s.core.apply(sequence, records)
 }
@@ -179,7 +179,7 @@ func (s *State) run() {
 	if err := s.Err(); err != nil {
 		s.failParked(err)
 	} else if closed {
-		s.failParked(ErrClosed)
+		s.failParked(errClosed)
 	}
 	s.stepped <- closed
 }
@@ -194,7 +194,7 @@ func (s *State) enqueue(r request) error {
 		return err
 	case s.mu.closed:
 		s.mu.Unlock()
-		return ErrClosed
+		return errClosed
 	}
 	s.mu.queue = append(s.mu.queue, r)
 	s.mu.Unlock()
@@ -348,7 +348,7 @@ func (r *snapshotRequest) run(s *State) {
 	r.done <- nil
 }
 
-// wait returns the error that done receives, or ErrClosed when the owner stops first.
+// wait returns the error that done receives, or errClosed when the owner stops first.
 func wait(s *State, done chan error) error {
 	select {
 	case err := <-done:
@@ -358,7 +358,7 @@ func wait(s *State, done chan error) error {
 		case err := <-done:
 			return err
 		default:
-			return errors.Join(ErrClosed, s.Err())
+			return errors.Join(errClosed, s.Err())
 		}
 	}
 }

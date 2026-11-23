@@ -34,8 +34,6 @@ describe("NumberFormatSection", () => {
 });
 
 describe("StalenessSection", () => {
-  const COLORS = [{ fallback: "#000000" }];
-
   const field = (): HTMLInputElement => {
     const input = screen
       .getByText("Timeout")
@@ -55,9 +53,7 @@ describe("StalenessSection", () => {
     const onTimeoutChange = vi.fn();
     await renderWithConsole(
       <MultiEdit.StalenessSection
-        colors={COLORS}
         timeout={Number(TimeSpan.seconds(3).valueOf())}
-        onColorChange={vi.fn()}
         onTimeoutChange={onTimeoutChange}
       />,
     );
@@ -72,10 +68,8 @@ describe("StalenessSection", () => {
     const onTimeoutChange = vi.fn();
     await renderWithConsole(
       <MultiEdit.StalenessSection
-        colors={COLORS}
         timeout={3}
         unit={TimeSpan.SECOND}
-        onColorChange={vi.fn()}
         onTimeoutChange={onTimeoutChange}
       />,
     );
@@ -86,12 +80,7 @@ describe("StalenessSection", () => {
 
   it("should show the default timeout when no element has one", async () => {
     await renderWithConsole(
-      <MultiEdit.StalenessSection
-        colors={COLORS}
-        unit={TimeSpan.SECOND}
-        onColorChange={vi.fn()}
-        onTimeoutChange={vi.fn()}
-      />,
+      <MultiEdit.StalenessSection unit={TimeSpan.SECOND} onTimeoutChange={vi.fn()} />,
     );
     expect(field().value).toBe("5s");
   });

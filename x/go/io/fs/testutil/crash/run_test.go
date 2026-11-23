@@ -12,6 +12,7 @@ package crash_test
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -336,7 +337,8 @@ var _ = Describe("Run", func() {
 				Profile: crash.OneTimeReadFaults,
 			})
 			// A run whose two commits never became durable has nothing to read.
-			if err != nil && !errors.Is(err, crash.ErrNoFault) {
+			if err != nil &&
+				!strings.Contains(err.Error(), "crash: no fault of the profile fired") {
 				rules.Add(broke(err))
 			}
 		}

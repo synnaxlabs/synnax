@@ -31,23 +31,19 @@ var _ = Describe("Virtual channel directories", func() {
 	)
 	// metaPath is the path of the metadata file of the directory of key.
 	metaPath := func() string { return channelKeyToPath(key) + "/" + meta.File }
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		mem = xfs.NewMem()
 		key = GenerateChannelKey()
 		// A Core older than this Cesium wrote a directory with a metadata file for each
 		// leased virtual channel.
 		dir := MustSucceed(mem.Sub(channelKeyToPath(key)))
-		Expect(meta.Create(
-			ctx,
-			dir,
-			json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true)),
-			cesium.Channel{
-				Key:      key,
-				Name:     "sy_task_cmd",
-				Virtual:  true,
-				DataType: telem.StringT,
-			},
-		)).To(Succeed())
+		codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
+		Expect(xfs.WriteFile(dir, meta.File, MustSucceed(codec.Encode(cesium.Channel{
+			Key:      key,
+			Name:     "sy_task_cmd",
+			Virtual:  true,
+			DataType: telem.StringT,
+		})))).To(Succeed())
 	})
 
 	It(

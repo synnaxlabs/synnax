@@ -98,15 +98,13 @@ var _ = Describe("DB", func() {
 				})
 
 				It(
-					"Should refuse new writers until UnmarkClosed",
+					"Should refuse new writers once marked closed",
 					func(ctx SpecContext) {
 						Expect(db.MarkClosed()).To(Succeed())
 						Expect(
 							db.OpenWriter(ctx, domain.WriterConfig{}),
 						).Error().To(MatchError(domain.ErrDBClosed))
-						db.UnmarkClosed()
-						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-						Expect(w.Close()).To(Succeed())
+						Expect(db.Release()).To(Succeed())
 					},
 				)
 
@@ -124,7 +122,7 @@ var _ = Describe("DB", func() {
 				It("Should return ErrDBClosed if the DB is closed", func() {
 					Expect(db.MarkClosed()).To(Succeed())
 					Expect(db.MarkClosed()).To(MatchError(domain.ErrDBClosed))
-					db.UnmarkClosed()
+					Expect(db.Release()).To(Succeed())
 				})
 			})
 

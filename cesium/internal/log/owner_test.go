@@ -207,11 +207,10 @@ var _ = Describe("Log", func() {
 				Sequence:   1,
 			}
 			change(&cfg)
-			Expect(cfg.Validate()).To(SatisfyAll(
+			Expect(log.Start(cfg)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
-			Expect(log.Start(cfg)).Error().To(MatchError(validate.ErrValidation))
 		},
 		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
 		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
@@ -509,11 +508,10 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
-				Expect(l.Append(commitEntry(n)).Wait()).Error().To(SatisfyAll(
-					MatchError(log.ErrFull),
-					MatchError(ContainSubstring("does not fit in log 3")),
-				))
-				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrFull)))
+				Expect(l.Append(commitEntry(n)).Wait()).Error().
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Expect(hook.refusals()).To(HaveLen(1))
 			})
@@ -538,8 +536,9 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				closeLog()
 				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).Error().
-					To(MatchError(log.ErrClosed))
-				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrClosed)))
+					To(MatchError("log is closed"))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError("log is closed")))
 			})
 
 			It("Should stop an entry with no Commit two blocks before the end, so "+
@@ -547,7 +546,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
 				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
-					To(MatchError(log.ErrFull))
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
@@ -562,7 +561,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
-					To(MatchError(log.ErrFull))
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 			})
 
 			DescribeTable(
@@ -600,7 +599,7 @@ var _ = Describe("Log", func() {
 				Expect(last.Clean).To(BeTrue())
 				Expect(last.Sequence).To(Equal(uint64(6)))
 				Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
-					To(MatchError(log.ErrClosed))
+					To(MatchError("log is closed"))
 			})
 
 			It("Should fail queued and later entries when the context of Run ends, "+

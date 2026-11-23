@@ -20,6 +20,7 @@ import {
 
 import { Arc } from "@/session/arc";
 import { Core } from "@/session/core";
+import { ICD } from "@/session/icd";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Modals } from "@/session/modals";
@@ -52,6 +53,7 @@ export const Context = ({ children, beforeClose }: ContextProps) => {
 const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
   ...Arc.SYNCHRONIZERS,
   ...Core.SYNCHRONIZERS,
+  ...ICD.SYNCHRONIZERS,
   ...LinePlot.SYNCHRONIZERS,
   ...Log.SYNCHRONIZERS,
   ...Panel.SYNCHRONIZERS,

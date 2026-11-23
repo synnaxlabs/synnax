@@ -149,7 +149,7 @@ var _ = Describe("Streamed series", func() {
 				s := res.Frame.SeriesAt(0)
 				Expect(s).To(telem.MatchSeriesDataV(3*i+1, 3*i+2, 3*i+3))
 				Expect(s.Alignment).To(Equal(
-					telem.LeadingAlignment(1, uint32(3*i)),
+					telem.NewAlignment(telem.LeadingDomain+1, uint32(3*i)),
 				))
 			}
 			Consistently(out.Outlet()).ShouldNot(Receive())
