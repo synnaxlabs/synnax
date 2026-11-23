@@ -900,7 +900,9 @@ TEST_F(JournalTest, CommitsAndReopensOffset) {
     EXPECT_FALSE(ASSERT_NIL_P(read_offset(offset_path, OFFSET)).has_value());
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 2, .pos = 30}));
+    write_file(this->dir / "0.offset.tmp.9", "partial");
     const auto offset = ASSERT_NIL_P(read_offset(offset_path, OFFSET));
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "0.offset.tmp.9"));
     EXPECT_EQ(offset.value().segment, 2);
     EXPECT_EQ(offset.value().pos, 30);
 }

@@ -290,7 +290,8 @@ struct Offset {
     std::uint64_t pos = 0;
 };
 
-/// @brief reads the offset file at path.
+/// @brief reads the offset file at path, and removes the temp files that a crash
+/// during commit_offset left. Call it only while no commit_offset to path runs.
 /// @returns std::nullopt when the file does not exist. UNKNOWN_MAGIC,
 /// UNKNOWN_VERSION, UNKNOWN_TYPE, or CORRUPT when the file is not a valid offset file
 /// for this Driver.

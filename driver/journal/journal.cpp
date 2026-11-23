@@ -87,6 +87,10 @@ bool zeros(const std::span<const char> data) {
     return std::ranges::all_of(data, [](const char c) { return c == 0; });
 }
 
+x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
+    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
+}
+
 x::errors::Error validate(const Magic &magic) {
     if (zeros(magic)) return x::errors::Error(BASE_ERROR, "magic is all zeros");
     return x::errors::NIL;
@@ -464,6 +468,7 @@ std::uint64_t Reader::cut() const {
 
 std::pair<std::optional<Offset>, x::errors::Error>
 read_offset(const std::filesystem::path &path, const Magic &magic) {
+    if (auto err = remove_temps(path)) return {std::nullopt, err};
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return {std::nullopt, fs_error("failed to stat " + path.string(), ec)};
