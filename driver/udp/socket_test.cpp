@@ -251,9 +251,11 @@ TEST(Socket, RefuseOversizedDatagram) {
     const std::vector<std::uint8_t> big(70000);
     const auto err = s->write(big, TIMEOUT);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    const auto prefix = "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +
-                        ": ";
-    EXPECT_TRUE(err.data.starts_with(prefix)) << err.data;
+    EXPECT_EQ(
+        err.data,
+        "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +
+            ": 70000 bytes exceed the 65507 bytes of a datagram"
+    );
 }
 
 /// @brief it should fail when no interface holds the local address.

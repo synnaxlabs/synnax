@@ -71,6 +71,12 @@ x::errors::Error translate(const std::string &context, const std::error_code &ec
     return transport::error(transport::CRITICAL_ERROR, context, native);
 }
 
+/// @brief MAX_V4_DATAGRAM and MAX_V6_DATAGRAM are the most bytes that one datagram
+/// carries. An IPv4 packet length counts its 20-byte header, and an IPv6 payload length
+/// does not.
+constexpr std::size_t MAX_V4_DATAGRAM = 65507;
+constexpr std::size_t MAX_V6_DATAGRAM = 65527;
+
 /// @brief cancels the pending operations of socket.
 void cancel(asio::ip::udp::socket &socket) {
     std::error_code ignored;
@@ -214,6 +220,15 @@ x::errors::Error Socket::write(
         return x::errors::Error(
             transport::CONFIG_ERROR,
             "no remote host is set to send to"
+        );
+    const auto max = this->remote->address().is_v4() ? MAX_V4_DATAGRAM
+                                                     : MAX_V6_DATAGRAM;
+    if (data.size() > max)
+        return x::errors::Error(
+            transport::CONFIG_ERROR,
+            "failed to send to " + to_string(*this->remote) + ": " +
+                std::to_string(data.size()) + " bytes exceed the " +
+                std::to_string(max) + " bytes of a datagram"
         );
     const auto done = transport::run_for(
         this->ctx,
