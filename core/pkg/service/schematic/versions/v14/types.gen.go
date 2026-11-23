@@ -14,7 +14,6 @@ package v14
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -32,7 +31,6 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
-	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -615,24 +613,21 @@ type Page = v13.Page
 
 // FormatConfig is how a node shows a number.
 type FormatConfig struct {
-	// Units is the unit suffix shown after the value.
-	Units string `json:"units" msgpack:"units"`
+	// Units is the unit suffix shown after the value. Absent shows none.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
 	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
-	// Notation is the notation of the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (f *FormatConfig) SetDefaults() {
-	f.Notation = "standard"
+	// Notation is the notation of the value. Absent shows standard notation.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (f FormatConfig) Validate() error {
 	v := validate.New("FormatConfig")
-	v.Ternaryf("notation", !f.Notation.IsValid(), "invalid notation: %v", f.Notation)
+	if f.Notation != nil {
+		v.Ternaryf("notation", !f.Notation.IsValid(), "invalid notation: %v", *f.Notation)
+	}
 	if f.Precision != nil {
 		v.LessThanEq("precision", *f.Precision, 17)
 	}
@@ -654,30 +649,6 @@ type StateBinding struct {
 	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
 	// Default replaces the default of the state.
 	Default *float64 `json:"default,omitzero" msgpack:"default,omitempty"`
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (s *StateBinding) SetDefaults() {
-	s.FormatConfig.SetDefaults()
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (s *StateBinding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain StateBinding
-	if reflect.ValueOf(*s).IsZero() {
-		s.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(s))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (s *StateBinding) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain StateBinding
-	if reflect.ValueOf(*s).IsZero() {
-		s.SetDefaults()
-	}
-	return dec.Decode((*plain)(s))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
