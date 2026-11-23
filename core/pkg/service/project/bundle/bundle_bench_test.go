@@ -137,7 +137,8 @@ func (w benchWorkspace) createLeafChannels(
 }
 
 // createVisualizations creates 50 schematics with 100 links each, 20 line plots with 20
-// channels each, 10 logs with 20 channels each, and 10 tables with 50 cells each.
+// channels each, 10 logs with 20 channels each, 10 tables with 50 cells each, and the
+// graph Arcs of createArcPanel. It returns the keys of the Arcs.
 func (w benchWorkspace) createVisualizations(
 	b *testing.B,
 	keys []channel.Key,

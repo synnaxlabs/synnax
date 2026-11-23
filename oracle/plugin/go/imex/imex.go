@@ -195,8 +195,9 @@ type target struct {
 	goName string
 	// body is true for `@go imex body`: another resource exports the type.
 	body bool
-	// prepare is true for `@go imex prepare`: Export calls the service's prepareExport.
-	prepare  bool
+	// prepared is true for `@go imex prepare`: Export calls the service's
+	// prepareExport.
+	prepared bool
 	livePath string
 	current  int
 	floor    int
@@ -246,7 +247,7 @@ func newTarget(
 		goName:     naming.GetGoName(typ),
 		references: referenceNames(typ, req.Resolutions),
 		body:       marker == bodyMarker,
-		prepare:    marker == prepareMarker,
+		prepared:   marker == prepareMarker,
 		livePath:   livePath,
 		current:    current,
 		floor:      floor,
@@ -381,7 +382,7 @@ func (p *Plugin) generateExport(
 		Runtime:    p.options.RuntimeImportPath,
 		Resource:   p.options.ResourceImportPath,
 		References: t.references,
-		Prepare:    t.prepare,
+		Prepared:   t.prepared,
 	}); err != nil {
 		return err
 	}
@@ -478,8 +479,8 @@ type exportData struct {
 	Runtime    string
 	Resource   string
 	References []string
-	// Prepare makes Export call the service's prepareExport before it encodes.
-	Prepare bool
+	// Prepared makes Export call the service's prepareExport before it encodes.
+	Prepared bool
 }
 
 var exportTemplate = template.Must(
@@ -515,7 +516,7 @@ func (s *Service) Export(
 		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
-{{- if .Prepare}}
+{{- if .Prepared}}
 	if err = s.prepareExport(ctx, snap, &v); err != nil {
 		return imex.Envelope{}, err
 	}

@@ -12,7 +12,6 @@ package arc
 import (
 	"context"
 	"encoding/json/v2"
-	"maps"
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
@@ -51,46 +50,26 @@ func (s *Service) readChannelInputs(a *Arc, opts []json.Options) error {
 }
 
 // mapChannelInputs replaces each channel input of a graph Arc's nodes with f of its
-// value. A node's function is a function of the graph or a standard flow function, as
-// the channel references read it, so a channel name never shadows a function.
+// value, in place, so a must own its node inputs. A node's function is a function of
+// the graph or a standard flow function, as the channel references read it, so a
+// channel name never shadows a function.
 func (s *Service) mapChannelInputs(a *Arc, f func(any) (any, error)) error {
-	b := a.Base()
-	src, ok := b.Source.Variant.(GraphSource)
+	src, ok := a.Base().Source.Variant.(GraphSource)
 	if !ok {
 		return nil
 	}
-	var (
-		inputs = src.Graph.Inputs
-		cloned = make(map[string]bool)
-		err    error
-	)
+	var err error
 	s.params().eachNodeParam(
 		src.Graph,
 		types.ChanDirectionReadWrite,
-		func(node string, values msgpack.EncodedJSON, param string) {
+		func(node string, inputs msgpack.EncodedJSON, param string) {
 			if err != nil {
 				return
 			}
-			if !cloned[node] {
-				if len(cloned) == 0 {
-					inputs = maps.Clone(inputs)
-				}
-				values = maps.Clone(values)
-				inputs[node] = values
-				cloned[node] = true
-			} else {
-				values = inputs[node]
-			}
-			if values[param], err = f(values[param]); err != nil {
+			if inputs[param], err = f(inputs[param]); err != nil {
 				err = errors.Wrapf(err, "input %s of node %s", param, node)
 			}
 		},
 	)
-	if err != nil || len(cloned) == 0 {
-		return err
-	}
-	src.Graph.Inputs = inputs
-	b.Source.Variant = src
-	a.SetBase(b)
-	return nil
+	return err
 }

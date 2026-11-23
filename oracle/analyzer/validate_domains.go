@@ -197,8 +197,8 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 			continue
 		}
 		c.report(diagnostics.Errorf(nil,
-			"%s has a malformed @go imex; the marker takes no argument, body, or "+
-				"prepare",
+			"%s has a malformed @go imex; the marker takes no argument, or the "+
+				"argument body or prepare",
 			t.QualifiedName,
 		))
 	}

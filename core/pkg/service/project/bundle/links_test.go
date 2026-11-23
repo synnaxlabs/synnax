@@ -11,6 +11,8 @@ package bundle_test
 
 import (
 	"encoding/json/v2"
+	"strconv"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,6 +78,41 @@ func createLinkedLog(ctx SpecContext, proj project.Key, keys ...channel.Key) {
 			return logSvc.NewWriter(tx).Delete(ctx, l.Key)
 		})).To(Succeed())
 	})
+}
+
+// createGraphArc creates a graph Arc named name whose one node reads key.
+func createGraphArc(ctx SpecContext, name string, key channel.Key) arc.Arc {
+	GinkgoHelper()
+	a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+		Name: name,
+		Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+			Nodes: graph.Nodes{{Key: "n1"}},
+			Inputs: map[string]msgpack.EncodedJSON{
+				"n1": {"type": "on", "channel": key},
+			},
+		}}},
+	}}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return arcSvc.NewWriter(tx).Create(ctx, &a)
+	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
+		})).To(Succeed())
+	})
+	return a
+}
+
+// renameArc renames a, so that an import of it does not collide with it.
+func renameArc(ctx SpecContext, a arc.Arc, name string) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return arcSvc.NewWriter(tx).Apply(
+			ctx,
+			a.Base().Key,
+			arc.NewSetAction(arc.SetPayload{Path: []string{"name"}, Value: name}),
+		)
+	})).To(Succeed())
 }
 
 // memberOfType returns the decoded body of the one file in files of type t.
@@ -165,23 +202,7 @@ var _ = Describe("Channel links", func() {
 		key := createFolderChannel(ctx, folder, name)
 		src := createProject(ctx, "Mixed")
 		createLinkedLog(ctx, src.Key, key)
-		a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
-			Name: "Graph " + folder,
-			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
-				Nodes: graph.Nodes{{Key: "n1"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"n1": {"type": "on", "channel": key},
-				},
-			}}},
-		}}}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return arcSvc.NewWriter(tx).Create(ctx, &a)
-		})).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return arcSvc.NewWriter(tx).Delete(ctx, a.Base().Key)
-			})).To(Succeed())
-		})
+		a := createGraphArc(ctx, "Graph "+folder, key)
 		createPanel(ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())))
 		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		Expect(memberOfType(files, "log")["channels"]).To(ConsistOf(
@@ -191,17 +212,7 @@ var _ = Describe("Channel links", func() {
 		Expect(memberOfType(files, "arc-automation")["source"]).To(
 			HaveKeyWithValue("graph", HaveKeyWithValue("inputs", node)),
 		)
-		// The import lands beside the original, where the name is taken.
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return arcSvc.NewWriter(tx).Apply(
-				ctx,
-				a.Base().Key,
-				arc.NewSetAction(arc.SetPayload{
-					Path:  []string{"name"},
-					Value: "Source " + folder,
-				}),
-			)
-		})).To(Succeed())
+		renameArc(ctx, a, "Source "+folder)
 		tx = DeferClose(db.OpenTx())
 		proj := MustSucceed(importFiles(ctx, files, "Fallback.zip"))
 		Expect(importedLogChannels(ctx, proj.Key)).To(Equal([]channel.Key{key}))
@@ -216,5 +227,34 @@ var _ = Describe("Channel links", func() {
 		graphSrc, ok := res.Base().Source.Variant.(arc.GraphSource)
 		Expect(ok).To(BeTrue())
 		Expect(graphSrc.Graph.Inputs["n1"]["channel"]).To(BeNumerically("==", key))
+	})
+
+	It("Should list a graph Arc's missing path with the other files' paths", func(
+		ctx SpecContext,
+	) {
+		folder := "links_" + uuid.New().String()[:8]
+		path := folder + ".pt_04"
+		key := createFolderChannel(ctx, folder, "pt_04")
+		src := createProject(ctx, "Missing graph")
+		createLinkedLog(ctx, src.Key, key)
+		a := createGraphArc(ctx, "Graph "+folder, key)
+		createPanel(ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
+		suffixes := map[any]string{"arc-automation": "_arc", "log": "_log"}
+		for name, b := range files {
+			if suffix, ok := suffixes[decode(b)["type"]]; ok {
+				files[name] = []byte(strings.ReplaceAll(
+					string(b),
+					strconv.Quote(path),
+					strconv.Quote(path+suffix),
+				))
+			}
+		}
+		renameArc(ctx, a, "Source "+folder)
+		tx = DeferClose(db.OpenTx())
+		Expect(importFiles(ctx, files, "Missing.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("no channel is at %s_arc, %s_log", path, path)),
+		))
 	})
 })

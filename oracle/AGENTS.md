@@ -145,7 +145,10 @@ or generator logic and schemas disagree.
   `@go imex body` marks a type another resource exports, such as a task config inside a
   task file: no `Export`, several types may share a package, and each gets an exported
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
-  type must declare its exported `Migrate<Type>` step.
+  type must declare its exported `Migrate<Type>` step. `@go imex prepare` acts as the
+  bare marker, and `Export` also calls the hand-written
+  `(*Service).prepareExport(ctx, snap, *<Type>) error` on the retrieved entry before it
+  encodes it, such as to put channel keys where the export writes channel paths.
 
 ## Field optionality
 

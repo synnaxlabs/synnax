@@ -104,7 +104,11 @@ var _ = Describe("Channel links", func() {
 		var env imex.Envelope
 		Expect(imex.Codec.Decode(file, &env)).To(Succeed())
 		env.Name = "imported_" + uuid.New().String()[:8]
-		links := channelSvc.NewLinkReader(ctx, db, func(resource.ID) bool { return true })
+		links := channelSvc.NewLinkReader(
+			ctx,
+			db,
+			func(resource.ID) bool { return true },
+		)
 		write := MustSucceed(svc.Decode(ctx, env.WithDecodeOptions(links.Options())))
 		var id resource.ID
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
@@ -154,6 +158,32 @@ var _ = Describe("Channel links", func() {
 		res := MustSucceed(importFile(ctx, MustSucceed(json.Marshal(env))))
 		Expect(graphOf(res.Base()).Inputs["source"]["channel"]).
 			To(BeNumerically("==", key))
+	})
+
+	It("Should bind a raw key and a path in a graph file that a Console wrote", func(
+		ctx SpecContext,
+	) {
+		file := fmt.Sprintf(`{
+			"key": %q,
+			"type": "arc",
+			"version": "0.0.0",
+			"mode": "graph",
+			"text": {"raw": ""},
+			"graph": {
+				"nodes": [
+					{"key": "by_key", "position": {"x": 0, "y": 0}},
+					{"key": "by_path", "position": {"x": 0, "y": 0}}
+				],
+				"edges": [],
+				"props": {
+					"by_key": {"key": "on", "channel": %d},
+					"by_path": {"key": "on", "channel": %q}
+				}
+			}
+		}`, uuid.New(), key, path)
+		g := graphOf(MustSucceed(importFile(ctx, []byte(file))).Base())
+		Expect(g.Inputs["by_key"]["channel"]).To(BeNumerically("==", key))
+		Expect(g.Inputs["by_path"]["channel"]).To(BeNumerically("==", key))
 	})
 
 	It("Should list a channel input whose path names no channel", func(

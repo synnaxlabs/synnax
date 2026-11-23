@@ -651,7 +651,8 @@ Node union on variant {
 			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
-				"malformed @go imex; the marker takes no argument, body, or prepare",
+				"malformed @go imex; the marker takes no argument, or the argument " +
+					"body or prepare",
 			))
 		})
 
