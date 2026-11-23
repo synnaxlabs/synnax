@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package write checks the writes of ICD messages that task configs hold against their
-// ICDs and channels.
+// ICDs and channels, and builds the documents that a write task sends.
 package write
 
 import (

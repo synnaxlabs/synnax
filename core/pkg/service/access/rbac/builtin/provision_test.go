@@ -62,7 +62,7 @@ var _ = Describe("Provision", func() {
 	})
 
 	DescribeTable(
-		"Should grant access to secrets, certificates, named colors, and enumerations",
+		"Should grant each built-in policy its objects and actions",
 		func(
 			ctx SpecContext,
 			name string,
@@ -138,6 +138,12 @@ var _ = Describe("Provision", func() {
 			"Viewer enumerations",
 			"Viewer",
 			resource.TypeEnumeration,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Driver ICDs",
+			"Driver ICD View Access",
+			resource.TypeICD,
 			[]access.Action{access.ActionRetrieve},
 		),
 		Entry(
