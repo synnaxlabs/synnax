@@ -9,14 +9,15 @@
 
 import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { theme } from "@synnaxlabs/lyra/theme";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import type { FC, PropsWithChildren } from "react";
+import { createElement, type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
-import { createSynnaxWrapper } from "@/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const fixed = (hex: string) => ({
   type: "fixed" as const,
@@ -99,8 +100,11 @@ describe("Custom.usePaints state values", () => {
       ],
     });
 
-  const renderValues = async (value: Custom.StateValue): Promise<Custom.Paint[]> => {
-    const { result } = renderHook(() => Custom.usePaints(createValueSpec(), value), {
+  const renderValues = async (
+    value: Custom.StateValues,
+    spec: schematic.symbol.Spec = createValueSpec(),
+  ): Promise<Custom.Paint[]> => {
+    const { result } = renderHook(() => Custom.usePaints(spec, value), {
       wrapper: createSynnaxWrapper({ client: null }),
     });
     await waitFor(() => expect(result.current).not.toHaveLength(0));
@@ -159,11 +163,9 @@ describe("Custom.usePaints state values", () => {
           },
         ],
       });
-      const { result } = renderHook(() => Custom.usePaints(spec, values), {
-        wrapper: createSynnaxWrapper({ client: null }),
-      });
-      await waitFor(() => expect(result.current).not.toHaveLength(0));
-      expect(result.current).toEqual([{ selectors: [".body"], fill: RED }]);
+      expect(await renderValues(values, spec)).toEqual([
+        { selectors: [".body"], fill: RED },
+      ]);
     },
   );
 
@@ -180,10 +182,19 @@ describe("Custom.usePaints state values", () => {
     ]);
   });
 });
+const LIGHT = theme.themeZ.parse(theme.SYNNAX_LIGHT);
+const NODE = "#abcdef";
+const BANDED_NODE = theme.legible(NODE, LIGHT);
 
 describe("Custom.usePaints", () => {
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
+  const Light: FC<PropsWithChildren> = ({ children }) =>
+    createElement(
+      wrapper,
+      null,
+      createElement(Theming.Provider, { theme: theme.SYNNAX_LIGHT }, children),
+    );
   let valve: enumeration.Key;
 
   beforeAll(async () => {
@@ -201,11 +212,11 @@ describe("Custom.usePaints", () => {
 
   const renderPaints = async (
     spec: schematic.symbol.Spec,
-    value: Custom.StateValue,
+    value: Custom.StateValues,
     options?: Custom.UsePaintsParams,
   ): Promise<Custom.Paint[]> => {
     const { result } = renderHook(() => Custom.usePaints(spec, value, options), {
-      wrapper,
+      wrapper: Light,
     });
     await waitFor(() => expect(result.current).not.toHaveLength(0));
     return result.current;
@@ -362,12 +373,12 @@ describe("Custom.usePaints", () => {
       const spec = createSpec({
         looks: [{ key: "stroke", part: "body", stroke: { type: "node" } }],
       });
-      expect(await renderPaints(spec, 0, { nodeColor: "#abcdef" })).toEqual([
-        { selectors: [".body"], stroke: color.construct("#a0c2e3") },
+      expect(await renderPaints(spec, 0, { nodeColor: NODE })).toEqual([
+        { selectors: [".body"], stroke: BANDED_NODE },
       ]);
     });
 
-    it("should draw the override at the value in place of the looks", async () => {
+    it("should draw the override in place of the looks", async () => {
       const spec = createSpec({ looks: [STROKE] });
       const regions = [
         {
@@ -377,42 +388,16 @@ describe("Custom.usePaints", () => {
           strokeColor: color.construct("#123456"),
         },
       ];
-      const overrides = [
-        { key: "closed", name: "Closed", regions },
-        { key: "open", name: "Open", regions: [] },
-      ];
-      expect(await renderPaints(spec, 0, { overrides })).toEqual([
+      const override = { key: "closed", name: "Closed", regions };
+      expect(await renderPaints(spec, 0, { override })).toEqual([
         { selectors: [".body"], stroke: color.construct("#123456") },
-      ]);
-    });
-
-    it("should ignore the overrides when the value is a map", async () => {
-      const spec = createSpec({ looks: [STROKE] });
-      const overrides = [
-        {
-          key: "closed",
-          name: "Closed",
-          regions: [
-            {
-              key: "body",
-              name: "Body",
-              selectors: [".body"],
-              strokeColor: color.construct("#123456"),
-            },
-          ],
-        },
-      ];
-      expect(await renderPaints(spec, new Map(), { overrides })).toEqual([
-        { selectors: [".body"], stroke: color.construct("#0000ff") },
       ]);
     });
   });
 
-  // The light theme of the wrapper snaps white to black, shows #00ff00 as #00e800, and
-  // shows #abcdef as #a0c2e3.
   describe("theme band", () => {
     const WHITE = color.construct("#ffffff");
-    const BLACK = color.construct("#000000");
+    const BANDED_WHITE = theme.legible(WHITE, LIGHT);
     const GREEN = color.construct("#00ff00");
 
     const createEntryFillSpec = () =>
@@ -432,13 +417,17 @@ describe("Custom.usePaints", () => {
 
     it("should band an entry fill on a built-in drawing", async () => {
       expect(await renderPaints(createEntryFillSpec(), 1, { builtIn: true })).toEqual([
-        { selectors: [".body"], stroke: BLACK, fill: color.construct("#00e800") },
+        {
+          selectors: [".body"],
+          stroke: BANDED_WHITE,
+          fill: theme.legible(GREEN, LIGHT),
+        },
       ]);
     });
 
     it("should keep an entry fill as stored on a custom drawing", async () => {
       expect(await renderPaints(createEntryFillSpec(), 1)).toEqual([
-        { selectors: [".body"], stroke: BLACK, fill: GREEN },
+        { selectors: [".body"], stroke: BANDED_WHITE, fill: GREEN },
       ]);
     });
 
@@ -446,11 +435,8 @@ describe("Custom.usePaints", () => {
       const spec = createEntryFillSpec();
       const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
       await waitFor(() => expect(result.current).toBeDefined());
-      const overrides = [
-        { key: "closed", name: "Closed", regions: [] },
-        { key: "open", name: "Open", regions: result.current ?? [] },
-      ];
-      expect(await renderPaints(spec, 1, { overrides })).toEqual(
+      const override = { key: "open", name: "Open", regions: result.current ?? [] };
+      expect(await renderPaints(spec, 1, { override })).toEqual(
         await renderPaints(spec, 1),
       );
     });
@@ -467,7 +453,7 @@ describe("Custom.usePaints", () => {
         ],
       });
       expect(await renderPaints(spec, 0)).toEqual([
-        { selectors: [".body"], stroke: BLACK, fill: WHITE },
+        { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
       ]);
     });
 
@@ -481,9 +467,9 @@ describe("Custom.usePaints", () => {
           fillColor: WHITE,
         },
       ];
-      const overrides = [{ key: "base", name: "Base", regions }];
-      expect(await renderPaints(createSpec({}), 0, { overrides })).toEqual([
-        { selectors: [".body"], stroke: BLACK, fill: WHITE },
+      const override = { key: "base", name: "Base", regions };
+      expect(await renderPaints(createSpec({}), 0, { override })).toEqual([
+        { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
       ]);
     });
 
@@ -496,15 +482,15 @@ describe("Custom.usePaints", () => {
       });
 
     it("should draw the node color for an entry with no color on a built-in drawing", async () => {
-      const options = { builtIn: true, nodeColor: "#abcdef" };
+      const options = { builtIn: true, nodeColor: NODE };
       expect(await renderPaints(createNoColorSpec(), 0, options)).toEqual([
-        { selectors: [".body"], fill: color.construct("#a0c2e3") },
+        { selectors: [".body"], fill: BANDED_NODE },
       ]);
     });
 
     it("should draw the theme gray for an entry with no color on a built-in drawing", async () => {
       expect(await renderPaints(createNoColorSpec(), 0, { builtIn: true })).toEqual([
-        { selectors: [".body"], fill: BLACK },
+        { selectors: [".body"], fill: theme.legible(LIGHT.colors.gray.l11, LIGHT) },
       ]);
     });
 
@@ -515,16 +501,16 @@ describe("Custom.usePaints", () => {
     });
 
     it.each([
-      [true, "#a0c2e3"],
-      [false, "#abcdef"],
+      [true, BANDED_NODE],
+      [false, color.construct(NODE)],
     ])(
       "should band a node fill only on a built-in drawing: %s",
-      async (builtIn, hex) => {
+      async (builtIn, fill) => {
         const spec = createSpec({
           looks: [{ key: "fill", part: "body", fill: { type: "node" } }],
         });
-        expect(await renderPaints(spec, 0, { builtIn, nodeColor: "#abcdef" })).toEqual([
-          { selectors: [".body"], fill: color.construct(hex) },
+        expect(await renderPaints(spec, 0, { builtIn, nodeColor: NODE })).toEqual([
+          { selectors: [".body"], fill },
         ]);
       },
     );
