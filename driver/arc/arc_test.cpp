@@ -4174,7 +4174,7 @@ TEST_F(OutageTest, ReloadsEditedNestedCalculation) {
 }
 
 /// @brief it should stream a calculated channel that reads a deleted one, instead of
-/// computing it, as the Core cannot compute it either.
+/// computing it, as the Core cannot compute it either, and compute it again once fixed.
 TEST_F(OutageTest, StreamsCalculationOfDeletedChannel) {
     const auto a = this->create_channel("a", x::telem::FLOAT32_T);
     const auto out = this->create_channel("out", x::telem::FLOAT32_T);
@@ -4194,6 +4194,11 @@ TEST_F(OutageTest, StreamsCalculationOfDeletedChannel) {
         frame.emplace(outer.key, x::telem::Series(42.0f));
         this->bus->publish(frame);
         return this->wrote(out.key, 42.0f);
+    }());
+    this->set_expression(outer, a.name + " * 5");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(a.key, 1.0f);
+        return this->wrote(out.key, 5.0f);
     }());
     task->stop("test_stop", true);
 }
