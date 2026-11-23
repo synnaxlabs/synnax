@@ -362,6 +362,24 @@ var _ = Describe("Service", func() {
 				i.Host = ""
 				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
 			}),
+			Entry("a configuration with a duplicate write", func(
+				server.Server,
+			) server.Update {
+				return server.Update{Variant: server.ConfigurationUpdate{
+					Configuration: server.Configuration{
+						Writes: []server.Write{write("/valve", 3), write("valve/", 4)},
+					},
+				}}
+			}),
+			Entry("a configuration with a read that has no channel", func(
+				server.Server,
+			) server.Update {
+				r := read("/now", "/t")
+				r.Channel = 0
+				return server.Update{Variant: server.ConfigurationUpdate{
+					Configuration: server.Configuration{Reads: []server.Read{r}},
+				}}
+			}),
 		)
 
 		It("Should return not found for a missing server", func(ctx SpecContext) {
