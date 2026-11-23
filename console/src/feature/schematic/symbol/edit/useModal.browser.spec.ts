@@ -462,7 +462,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("gives an overriding part the paint of the whole drawing back", async () => {
       const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
-      const { symbol, fill } = await openPainted({
+      const symbol = await openPainted({
         states: [createState()],
         looks: [
           node,
@@ -477,7 +477,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(fill);
+      fireEvent.click(screen.getByLabelText("Fill"));
       const dialog = await waitFor(() => {
         const el = document.querySelector<HTMLElement>(
           ".console-schematic-paint-dialog",
