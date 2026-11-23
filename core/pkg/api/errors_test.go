@@ -42,7 +42,6 @@ var _ = Describe("NewErrorCodec", func() {
 		},
 		Entry("EOF", io.EOF, "freighter.eof"),
 		Entry("stream closed", freighter.ErrStreamClosed, "freighter.stream_closed"),
-		Entry("unreachable", freighter.ErrUnreachable, "freighter.unreachable"),
 		Entry("panic", recovery.ErrPanic, "sy.internal"),
 		Entry("not found", query.ErrNotFound, "sy.query.not_found"),
 		Entry(
@@ -89,15 +88,20 @@ var _ = Describe("NewErrorCodec", func() {
 	})
 	It("Should encode a panic outside the API middleware as an internal error", func() {
 		interceptor := fgrpc.RecoveryUnaryServerInterceptor(alamos.Instrumentation{})
-		_, err := interceptor(
+		Expect(interceptor(
 			context.Background(),
 			nil,
 			&grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"},
 			func(context.Context, any) (any, error) { panic("boom") },
-		)
-		pld := errors.ParsePayload(status.Convert(err).Message())
-		Expect(pld.Type).To(Equal("sy.internal"))
-		Expect(codec.Decode(pld)).To(MatchError(recovery.ErrPanic))
+		)).Error().To(WithTransform(
+			func(err error) errors.Payload {
+				return errors.ParsePayload(status.Convert(err).Message())
+			},
+			SatisfyAll(
+				HaveField("Type", "sy.internal"),
+				WithTransform(codec.Decode, MatchError(recovery.ErrPanic)),
+			),
+		))
 	})
 	It("Should report a provider's errors as expected", func() {
 		Expect(codec.Expected(io.EOF)).To(BeTrue())

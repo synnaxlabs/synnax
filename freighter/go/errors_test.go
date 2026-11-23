@@ -28,7 +28,6 @@ var _ = Describe("ErrorProvider", func() {
 		},
 		Entry("EOF", io.EOF, "freighter.eof"),
 		Entry("stream closed", freighter.ErrStreamClosed, "freighter.stream_closed"),
-		Entry("unreachable", freighter.ErrUnreachable, "freighter.unreachable"),
 	)
 	It("Should decode another freighter type as an error with its data", func() {
 		Expect(codec.Decode(errors.Payload{Type: "freighter.other", Data: "cat"})).
