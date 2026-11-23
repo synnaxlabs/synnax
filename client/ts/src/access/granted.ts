@@ -76,8 +76,9 @@ export class Granted {
    */
   watch(grantee: Grantee, q: GrantedQuery): query.Live<boolean> {
     const policies = this.policies.watch(this.queryFor(grantee));
-    const verdictOf = (window: query.Window<policy.Policy, unknown> | undefined) =>
-      window == null ? undefined : this.verdict(grantee, q, window.records);
+    const verdictOf = (
+      window: query.list.Window<policy.Policy, unknown> | undefined,
+    ) => (window == null ? undefined : this.verdict(grantee, q, window.records));
     return {
       retrieve: async (options) =>
         this.verdict(grantee, q, (await policies.retrieve(options)).records),

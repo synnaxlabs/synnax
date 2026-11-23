@@ -234,8 +234,10 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
   try {
     return await next(ctx);
   } catch (err) {
-    if (err instanceof Unreachable)
-      err.message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
+    if (err instanceof Unreachable) {
+      const message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
+      err.message = err.hint == null ? message : `${message}. ${err.hint}`;
+    }
     throw errors.fromUnknown(err);
   }
 };
