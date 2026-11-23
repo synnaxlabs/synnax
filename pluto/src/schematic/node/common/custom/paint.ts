@@ -62,13 +62,13 @@ const banded = (
 ): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
 /**
- * @returns the value of the state after its match. A number state with no value reads
- * its lower bound. An enumeration state with no value reads its default entry, which
- * needs no match.
+ * @returns the value of the state after its match. A number state with no value, or a
+ * NaN value, reads its lower bound. An enumeration state with no value, or a NaN value,
+ * reads its default entry, which needs no match.
  */
 export const matched = (state: schematic.symbol.State, value: StateValue): number => {
   const v = typeof value === "number" ? value : value.get(state.key);
-  if (v == null)
+  if (v == null || Number.isNaN(v))
     return state.type === "enumeration" ? state.default : state.bounds.lower;
   if (state.type !== "enumeration" || state.match.type === "exact") return v;
   const { lower, upper } = state.match.bounds;
