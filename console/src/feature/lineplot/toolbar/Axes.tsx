@@ -13,7 +13,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Direction, LinePlot, Properties } from "@synnaxlabs/pluto";
-import type { text } from "@synnaxlabs/x";
+import type { closedBounds, text } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -43,6 +43,40 @@ export interface LinePlotAxisControlsProps {
 }
 
 const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
+
+type Edge = keyof closedBounds.ClosedBounds;
+
+/**
+ * @returns the bounds after setting the edge manually, or undefined when the other edge
+ * is manual and the pair would not hold a lower below its upper. An auto edge means
+ * nothing to the plot, so it takes any value that keeps the pair valid.
+ */
+const setManualEdge = (
+  { bounds, manualBounds }: lineplot.Axis,
+  edge: Edge,
+  value: number,
+): closedBounds.ClosedBounds | undefined => {
+  const next = {
+    lower: bounds?.lower ?? value,
+    upper: bounds?.upper ?? value,
+    [edge]: value,
+  };
+  if (next.lower < next.upper) return next;
+  if (edge === "lower" ? manualBounds.upper : manualBounds.lower) return undefined;
+  return edge === "lower"
+    ? { lower: value, upper: value + 1 }
+    : { lower: value - 1, upper: value };
+};
+
+/** @returns the bounds after returning the given edge to auto. */
+const setAutoEdge = (
+  { bounds, manualBounds }: lineplot.Axis,
+  edge: Edge,
+): { bounds?: closedBounds.ClosedBounds; manualBounds: lineplot.ManualBounds } => {
+  const nextManual = { ...manualBounds, [edge]: false };
+  if (!nextManual.lower && !nextManual.upper) return { manualBounds: nextManual };
+  return { bounds, manualBounds: nextManual };
+};
 
 interface BoundInputProps {
   value: number;
@@ -78,41 +112,23 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
     dispatch(lineplot.setAxisLabel({ key: axisKey, label: value }));
 
-  const handleLowerBoundChange: Input.Control<number>["onChange"] = (value) =>
-    dispatch(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: { ...axis.bounds, lower: value },
-        manualBounds: { ...axis.manualBounds, lower: true },
-      }),
-    );
+  const handleBoundChange =
+    (edge: Edge): Input.Control<number>["onChange"] =>
+    (value) => {
+      const bounds = setManualEdge(axis, edge, value);
+      // A manual edge that passes the other manual edge is refused.
+      if (bounds == null) return;
+      dispatch(
+        lineplot.setAxisBounds({
+          key: axisKey,
+          bounds,
+          manualBounds: { ...axis.manualBounds, [edge]: true },
+        }),
+      );
+    };
 
-  const handleLowerAutoBoundEnable = (): void =>
-    dispatch(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: axis.bounds,
-        manualBounds: { ...axis.manualBounds, lower: false },
-      }),
-    );
-
-  const handleUpperBoundChange: Input.Control<number>["onChange"] = (value) =>
-    dispatch(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: { ...axis.bounds, upper: value },
-        manualBounds: { ...axis.manualBounds, upper: true },
-      }),
-    );
-
-  const handleUpperAutoBoundEnable = (): void =>
-    dispatch(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: axis.bounds,
-        manualBounds: { ...axis.manualBounds, upper: false },
-      }),
-    );
+  const handleAutoBoundEnable = (edge: Edge) => (): void =>
+    dispatch(lineplot.setAxisBounds({ key: axisKey, ...setAutoEdge(axis, edge) }));
 
   const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) =>
     dispatch(lineplot.setAxisLabelDirection({ key: axisKey, labelDirection: value }));
@@ -128,18 +144,18 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
       <Flex.Box x>
         <Input.Item label="Lower bound" y grow>
           <BoundInput
-            value={axis.bounds.lower}
+            value={axis.bounds?.lower ?? 0}
             manual={axis.manualBounds.lower}
-            onChange={handleLowerBoundChange}
-            onAuto={handleLowerAutoBoundEnable}
+            onChange={handleBoundChange("lower")}
+            onAuto={handleAutoBoundEnable("lower")}
           />
         </Input.Item>
         <Input.Item label="Upper bound" grow>
           <BoundInput
-            value={axis.bounds.upper}
+            value={axis.bounds?.upper ?? 0}
             manual={axis.manualBounds.upper}
-            onChange={handleUpperBoundChange}
-            onAuto={handleUpperAutoBoundEnable}
+            onChange={handleBoundChange("upper")}
+            onAuto={handleAutoBoundEnable("upper")}
           />
         </Input.Item>
         <Input.Item label="Tick spacing" grow>

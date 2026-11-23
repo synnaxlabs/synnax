@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // MigrateLinePlot migrates old to v11 and drops each repeated range reference.
@@ -30,8 +31,32 @@ func MigrateAxes(ctx context.Context, old v10.Axes) (Axes, error) {
 	return autoMigrateAxes(ctx, old)
 }
 
+// MigrateAxis migrates old to v11. Only a manual edge gives the bounds meaning, so an
+// axis with no manual edge keeps no bounds. A single manual edge keeps its value, and
+// the auto edge moves where needed to keep the pair valid. Two manual edges swap when
+// reversed, and return to auto when equal.
 func MigrateAxis(ctx context.Context, old v10.Axis) (Axis, error) {
-	return autoMigrateAxis(ctx, old)
+	a, err := autoMigrateAxis(ctx, old)
+	if err != nil {
+		return Axis{}, err
+	}
+	lower, upper := old.Bounds.Lower, old.Bounds.Upper
+	m := old.ManualBounds
+	switch {
+	case !m.Lower && !m.Upper:
+		return a, nil
+	case m.Lower && m.Upper && lower == upper:
+		a.ManualBounds = ManualBounds{}
+		return a, nil
+	case m.Lower && m.Upper:
+		lower, upper = min(lower, upper), max(lower, upper)
+	case m.Lower && upper <= lower:
+		upper = lower + 1
+	case m.Upper && lower >= upper:
+		lower = upper - 1
+	}
+	a.Bounds = &spatial.ClosedBounds{Lower: lower, Upper: upper}
+	return a, nil
 }
 
 var Migration = migrate.NewEntry("v63_lineplot_range_compare", MigrateLinePlot)

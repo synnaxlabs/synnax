@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -424,7 +423,7 @@ func isRelative(m *TimeMode) bool { return m != nil && *m == TimeModeRelative }
 // as they mean nothing in another mode.
 func setTimeMode(axis *Axis, mode *TimeMode) {
 	if isRelative(axis.TimeMode) != isRelative(mode) {
-		axis.Bounds = spatial.Bounds{}
+		axis.Bounds = nil
 		axis.ManualBounds = ManualBounds{}
 	}
 	axis.TimeMode = mode

@@ -69,7 +69,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.axes.x1.bounds.lower).toBe(-5);
+      expect(plot.axes.x1.bounds?.lower).toBe(-5);
       expect(plot.axes.x1.manualBounds.lower).toBe(true);
     });
   });
@@ -129,7 +129,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.axes.x1.bounds.upper).toBe(50);
+      expect(plot.axes.x1.bounds?.upper).toBe(50);
       expect(plot.axes.x1.manualBounds.upper).toBe(true);
     });
   });

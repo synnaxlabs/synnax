@@ -314,12 +314,12 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(100),
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(100),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
-          original.bounds.upper,
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(
+          original.bounds?.upper,
         ),
       );
     });
@@ -347,17 +347,17 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(25),
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(25),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
-          original.bounds.upper,
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(
+          original.bounds?.upper,
         ),
       );
       await act(async () => result.current.redo.redo());
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(25),
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(25),
       );
     });
 
@@ -384,12 +384,12 @@ describe("lineplot queries", () => {
           });
         });
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(40),
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(40),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
-          original.bounds.upper,
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(
+          original.bounds?.upper,
         ),
       );
     });
@@ -429,15 +429,15 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(50);
-        expect(result.current.retrieve?.axes.x2.bounds.upper).toEqual(70);
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(50);
+        expect(result.current.retrieve?.axes.x2.bounds?.upper).toEqual(70);
       });
       // One undo reverts only the most recent gesture (x2).
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(50);
-        expect(result.current.retrieve?.axes.x2.bounds.upper).toEqual(
-          x2Orig.bounds.upper,
+        expect(result.current.retrieve?.axes.x1.bounds?.upper).toEqual(50);
+        expect(result.current.retrieve?.axes.x2.bounds?.upper).toEqual(
+          x2Orig.bounds?.upper,
         );
       });
     });
