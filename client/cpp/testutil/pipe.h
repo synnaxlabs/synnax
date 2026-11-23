@@ -12,7 +12,9 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <mutex>
+#include <set>
 #include <thread>
 #include <vector>
 
@@ -31,7 +33,9 @@
 #endif
 
 /// @brief forwards local TCP connections to the Core. cut drops every open
-/// connection, as a short Core outage does. Later connections still go through.
+/// connection, as a short Core outage does. Later connections still go through. reset
+/// resets every open gRPC stream, as a Core or proxy fault does. The connections stay
+/// up.
 class CorePipe {
 #ifdef _WIN32
     using Socket = SOCKET;
@@ -45,6 +49,79 @@ class CorePipe {
     static void close_socket(const Socket s) { close(s); }
 #endif
     static constexpr int BUFFER_SIZE = 16384;
+    static constexpr size_t FRAME_HEADER_SIZE = 9;
+    static constexpr uint8_t DATA_FRAME = 0x0;
+    static constexpr uint8_t HEADERS_FRAME = 0x1;
+    static constexpr uint8_t RST_STREAM_FRAME = 0x3;
+    static constexpr uint8_t END_STREAM_FLAG = 0x1;
+    static constexpr uint8_t INTERNAL_ERROR = 0x2;
+
+    static bool send_all(const Socket to, const uint8_t *data, size_t size) {
+        while (size > 0) {
+            const auto n = send(
+                to,
+                reinterpret_cast<const char *>(data),
+                static_cast<int>(size),
+                0
+            );
+            if (n <= 0) return false;
+            data += n;
+            size -= n;
+        }
+        return true;
+    }
+
+    /// @brief the HTTP/2 frames from the Core to one client, and the streams that the
+    /// Core has answered and not yet ended.
+    struct Connection {
+        Socket client;
+        std::mutex mu;
+        std::set<uint32_t> open;
+
+        explicit Connection(const Socket client): client(client) {}
+
+        /// @brief sends one whole frame to the client.
+        bool forward(const uint8_t *frame, const size_t size) {
+            std::lock_guard lock{this->mu};
+            const uint8_t type = frame[3];
+            const uint8_t flags = frame[4];
+            const uint32_t id = (frame[5] & 0x7Fu) << 24 | frame[6] << 16 |
+                                frame[7] << 8 | frame[8];
+            if (id != 0) {
+                if (type == HEADERS_FRAME) this->open.insert(id);
+                if ((type == HEADERS_FRAME || type == DATA_FRAME) &&
+                    (flags & END_STREAM_FLAG) != 0)
+                    this->open.erase(id);
+                if (type == RST_STREAM_FRAME) this->open.erase(id);
+            }
+            return send_all(this->client, frame, size);
+        }
+
+        /// @brief sends the client an RST_STREAM with INTERNAL_ERROR for each open
+        /// stream.
+        void reset() {
+            std::lock_guard lock{this->mu};
+            for (const auto id: this->open) {
+                const std::array<uint8_t, 13> frame{
+                    0,
+                    0,
+                    4,
+                    RST_STREAM_FRAME,
+                    0,
+                    static_cast<uint8_t>(id >> 24),
+                    static_cast<uint8_t>(id >> 16),
+                    static_cast<uint8_t>(id >> 8),
+                    static_cast<uint8_t>(id),
+                    0,
+                    0,
+                    0,
+                    INTERNAL_ERROR,
+                };
+                send_all(this->client, frame.data(), frame.size());
+            }
+            this->open.clear();
+        }
+    };
 
     /// @brief readies the socket library for the life of the pipe.
     struct Startup {
@@ -75,6 +152,7 @@ class CorePipe {
     std::atomic<bool> paused{false};
     std::mutex mu;
     std::vector<Socket> sockets;
+    std::vector<std::shared_ptr<Connection>> connections;
     std::vector<std::thread> pumps;
     std::thread acceptor;
 
@@ -94,6 +172,32 @@ class CorePipe {
             if (send(to, buf.data(), n, 0) != n) break;
         }
         shutdown(to, SHUT_BOTH);
+    }
+
+    /// @brief forwards the frames from the Core to the client one whole frame at a
+    /// time, so a reset never lands inside a frame.
+    static void pump_frames(const Socket from, const std::shared_ptr<Connection> conn) {
+        std::array<uint8_t, BUFFER_SIZE> buf{};
+        std::vector<uint8_t> pending;
+        while (true) {
+            const auto
+                n = recv(from, reinterpret_cast<char *>(buf.data()), BUFFER_SIZE, 0);
+            if (n <= 0) break;
+            pending.insert(pending.end(), buf.begin(), buf.begin() + n);
+            size_t off = 0;
+            bool sent = true;
+            while (sent && pending.size() - off >= FRAME_HEADER_SIZE) {
+                const auto *frame = pending.data() + off;
+                const size_t size = FRAME_HEADER_SIZE +
+                                    (frame[0] << 16 | frame[1] << 8 | frame[2]);
+                if (pending.size() - off < size) break;
+                sent = conn->forward(frame, size);
+                off += size;
+            }
+            if (!sent) break;
+            pending.erase(pending.begin(), pending.begin() + off);
+        }
+        shutdown(conn->client, SHUT_BOTH);
     }
 
     /// @brief waits up to 50 ms for a connection on the listener.
@@ -126,8 +230,10 @@ class CorePipe {
             }
             std::lock_guard lock{this->mu};
             this->sockets.insert(this->sockets.end(), {client, upstream});
+            auto conn = std::make_shared<Connection>(client);
+            this->connections.push_back(conn);
             this->pumps.emplace_back(pump, client, upstream);
-            this->pumps.emplace_back(pump, upstream, client);
+            this->pumps.emplace_back(pump_frames, upstream, conn);
         }
     }
 
@@ -153,6 +259,13 @@ public:
         std::lock_guard lock{this->mu};
         for (const auto s: this->sockets)
             shutdown(s, SHUT_BOTH);
+    }
+
+    /// @brief resets every gRPC stream that the Core has answered and not yet ended.
+    void reset() {
+        std::lock_guard lock{this->mu};
+        for (const auto &conn: this->connections)
+            conn->reset();
     }
 
     /// @brief cuts every connection and refuses new ones until resume.

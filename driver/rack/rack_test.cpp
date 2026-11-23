@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -65,59 +66,102 @@ TEST(RackTest, FatalErrorStopsRack) {
     ASSERT_OCCURRED_AS(r.stop(), synnax::auth::ERR_INVALID_CREDENTIALS);
 }
 
-/// @brief it should keep waiting for an unreachable Core past its retry limit after its
-/// first run.
-TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
-    const auto conn = test_client_config();
-    const auto client = new_test_client();
-    const auto rack = ASSERT_NIL_P(client.racks.create("outage rack"));
-    const auto cluster_key = client.connectivity->check().cluster_key;
-    CorePipe pipe(conn.port);
-    auto args = fresh_args({
-        "--host",
-        "127.0.0.1",
-        "--port",
-        std::to_string(pipe.port),
-        "--username",
-        conn.username,
-        "--password",
-        conn.password,
-    });
-    const auto kv = ASSERT_NIL_P(
-        x::kv::JSONFile::open_file({
-            .path = RACK_STATE_PATH,
-            .dir_mode = std::filesystem::perms::owner_all,
-            .file_mode = std::filesystem::perms::owner_read |
-                         std::filesystem::perms::owner_write,
-        })
-    );
-    ASSERT_NIL(kv->set(
-        "remote_info",
-        x::json::json{{"rack_key", rack.key}, {"cluster_key", cluster_key}}.dump()
-    ));
-    std::atomic shut_down = false;
-    Rack r({
-        .name = "driver",
-        .base_interval = x::telem::MILLISECOND,
-        .max_retries = 2,
-        .scale = 1,
-        .max_interval = x::telem::MILLISECOND,
-    });
-    r.start(args, [&] { shut_down = true; });
-    const auto running = [&] {
+/// @brief a rack that reaches the Core through a pipe.
+struct PipedRack {
+    synnax::Synnax client = new_test_client();
+    synnax::rack::Rack remote;
+    CorePipe pipe;
+    std::atomic<bool> shut_down = false;
+    Rack rack;
+
+    explicit PipedRack(const x::breaker::Config &breaker_config):
+        pipe(test_client_config().port), rack(breaker_config) {
+        const auto conn = test_client_config();
+        this->remote = ASSERT_NIL_P(this->client.racks.create("outage rack"));
+        const auto cluster_key = this->client.connectivity->check().cluster_key;
+        auto args = fresh_args({
+            "--host",
+            "127.0.0.1",
+            "--port",
+            std::to_string(this->pipe.port),
+            "--username",
+            conn.username,
+            "--password",
+            conn.password,
+        });
+        const auto kv = ASSERT_NIL_P(
+            x::kv::JSONFile::open_file({
+                .path = RACK_STATE_PATH,
+                .dir_mode = std::filesystem::perms::owner_all,
+                .file_mode = std::filesystem::perms::owner_read |
+                             std::filesystem::perms::owner_write,
+            })
+        );
+        EXPECT_NIL(kv->set(
+            "remote_info",
+            x::json::json{{"rack_key", this->remote.key}, {"cluster_key", cluster_key}}
+                .dump()
+        ));
+        this->rack.start(args, [this] { this->shut_down = true; });
+    }
+
+    /// @returns whether the Core holds a running status for the rack.
+    bool running() const {
         const synnax::rack::RetrieveOptions opts{.include_status = true};
-        const auto [remote, err] = client.racks.retrieve(rack.key, opts);
-        return !err && remote.status.has_value() && remote.status->details.running;
-    };
+        const auto [r, err] = this->client.racks.retrieve(this->remote.key, opts);
+        return !err && r.status.has_value() && r.status->details.running;
+    }
+};
+
+const x::breaker::Config FAST_BREAKER{
+    .name = "driver",
+    .base_interval = x::telem::MILLISECOND,
+    .max_retries = x::breaker::RETRY_INFINITELY,
+    .scale = 1,
+    .max_interval = x::telem::MILLISECOND,
+};
+
+/// @brief it should stop after the startup retries of its config file when it cannot
+/// reach the Core before its first run.
+TEST(RackTest, StopsAfterStartupRetries) {
+    const std::string config_path = "/tmp/rack-test/config.json";
+    std::filesystem::create_directories("/tmp/rack-test");
+    std::ofstream(config_path) << R"({"retry": {"startup_retries": 2}})";
+    auto args = fresh_args({"--port", "1", "--config", config_path});
+    std::atomic shut_down = false;
+    Rack r(FAST_BREAKER);
+    r.start(args, [&] { shut_down = true; });
+    ASSERT_EVENTUALLY_TRUE(shut_down.load());
+    ASSERT_OCCURRED_AS(r.stop(), freighter::UNREACHABLE);
+}
+
+/// @brief it should keep waiting for an unreachable Core with no limit after its first
+/// run.
+TEST(RackTest, WaitsForAnUnreachableCoreWithNoLimit) {
+    PipedRack r(FAST_BREAKER);
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
-        running(),
+        r.running(),
         std::chrono::seconds(30),
         std::chrono::milliseconds(100)
     );
-    pipe.pause();
+    r.pipe.pause();
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    ASSERT_FALSE(shut_down);
-    pipe.resume();
-    ASSERT_NIL(r.stop());
+    ASSERT_FALSE(r.shut_down);
+    r.pipe.resume();
+    ASSERT_NIL(r.rack.stop());
+}
+
+/// @brief it should keep running when the Core resets its streams.
+TEST(RackTest, KeepsRunningThroughAStreamReset) {
+    PipedRack r(FAST_BREAKER);
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        r.running(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
+    r.pipe.reset();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    ASSERT_FALSE(r.shut_down);
+    ASSERT_NIL(r.rack.stop());
 }
 }
