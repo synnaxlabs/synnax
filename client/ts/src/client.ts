@@ -34,7 +34,7 @@ import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
 import { enumeration } from "@/enumeration";
-import { nodeSystem, resolveParams } from "@/env";
+import { env } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
@@ -334,10 +334,10 @@ export default class Synnax extends framer.Client {
    * Deno.
    */
   constructor(params: ConstructorParams = {}) {
-    const system = nodeSystem();
+    const system = env.nodeSystem();
     const parsedParams = zod.parse(
       constructorParamsZ,
-      resolveParams(params, globalThis.process?.env, system),
+      env.resolveParams(params, globalThis.process?.env, system),
     );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;

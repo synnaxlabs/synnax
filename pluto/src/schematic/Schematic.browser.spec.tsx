@@ -24,7 +24,6 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
-import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";
 
@@ -53,13 +52,12 @@ const PUMP: schematic.New["nodes"] = [
 
 interface RenderOptions {
   editable?: boolean;
-  badged?: boolean;
   registry?: aether.ComponentRegistry;
 }
 
 const renderSchematic = async (
   nodes: schematic.New["nodes"] = PUMP,
-  { editable = true, badged = false, registry = {} }: RenderOptions = {},
+  { editable = true, registry = {} }: RenderOptions = {},
 ): Promise<{
   key: string;
   utils: ReturnType<typeof render>;
@@ -79,21 +77,19 @@ const renderSchematic = async (
   const View = (): ReactElement => (
     <Errors.SuspenseBoundary loading={null}>
       <Schematic.Suspended schematicKey={key}>
-        <Staleness.Provider badged={badged}>
-          <Schematic.Schematic
-            editable={editable}
-            visible
-            viewport={{ position: xy.ZERO, zoom: 1 }}
-            onViewportChange={() => {}}
-            onEditableChange={() => {}}
-            fitViewOnResize={false}
-            setFitViewOnResize={() => {}}
-            viewportMode="zoom"
-            onViewportModeChange={() => {}}
-            selected={[]}
-            onSelectionChange={() => {}}
-          />
-        </Staleness.Provider>
+        <Schematic.Schematic
+          editable={editable}
+          visible
+          viewport={{ position: xy.ZERO, zoom: 1 }}
+          onViewportChange={() => {}}
+          onEditableChange={() => {}}
+          fitViewOnResize={false}
+          setFitViewOnResize={() => {}}
+          viewportMode="zoom"
+          onViewportModeChange={() => {}}
+          selected={[]}
+          onSelectionChange={() => {}}
+        />
       </Schematic.Suspended>
     </Errors.SuspenseBoundary>
   );
@@ -206,6 +202,21 @@ describe("Schematic", () => {
     });
   });
 
+  it("should draw the label of a symbol node", async () => {
+    const { utils } = await renderSchematic([
+      {
+        key: "n1",
+        position: { x: 0, y: 0 },
+        config: {
+          variant: "symbol",
+          label: { label: "Heater" },
+          spec: { type: "builtin", name: "valve" },
+        },
+      },
+    ]);
+    expect(await utils.findByText("Heater")).toBeDefined();
+  });
+
   it("should keep the tooltip over the stale badge and close it over the chip", async () => {
     const command = await client.channels.create({
       name: id.create(),
@@ -220,7 +231,7 @@ describe("Schematic", () => {
           config: { variant: "valve", commandChannel: command.key },
         },
       ],
-      { editable: false, badged: true, registry: STALE_REGISTRY },
+      { editable: false, registry: STALE_REGISTRY },
     );
     // React Flow hides unmeasured nodes, so role queries cannot see the badge.
     const badge = await waitFor(() => {

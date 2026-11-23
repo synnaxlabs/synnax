@@ -107,15 +107,17 @@ func checkState(i int, st State) error {
 	switch v := st.Variant.(type) {
 	case EnumerationState:
 		if w, ok := v.Match.Variant.(WithinMatcher); ok {
-			return checkBounds(at("states", i, "match", "bounds"), w.Bounds)
+			return CheckBounds(at("states", i, "match", "bounds"), w.Bounds)
 		}
 	case NumberState:
-		return checkBounds(at("states", i, "bounds"), v.Bounds)
+		return CheckBounds(at("states", i, "bounds"), v.Bounds)
 	}
 	return nil
 }
 
-func checkBounds(p []string, b spatial.Bounds) error {
+// CheckBounds returns an error wrapping validate.ErrValidation at path p when the lower
+// of b is not below its upper.
+func CheckBounds(p []string, b spatial.Bounds) error {
 	if b.Lower < b.Upper {
 		return nil
 	}
@@ -154,10 +156,10 @@ func (c checker) checkLook(i int, l Look) error {
 		if paint.paint == nil {
 			continue
 		}
-		if e, ok := paint.paint.Variant.(EntryPaint); ok {
+		if state := paintState(*paint.paint); state != nil {
 			if err := c.enumerationState(
 				at("looks", i, paint.field, "state"),
-				e.State,
+				*state,
 			); err != nil {
 				return err
 			}
@@ -168,6 +170,16 @@ func (c checker) checkLook(i int, l Look) error {
 	}
 	if state := motionState(*l.Motion); state != nil {
 		return c.numberState(at("looks", i, "motion", "state"), *state)
+	}
+	return nil
+}
+
+func paintState(p Paint) *string {
+	switch v := p.Variant.(type) {
+	case EntryPaint:
+		return &v.State
+	case ContrastPaint:
+		return &v.State
 	}
 	return nil
 }

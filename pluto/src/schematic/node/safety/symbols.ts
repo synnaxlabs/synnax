@@ -7,14 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
+
 import { createStatic } from "@/schematic/node/common/create";
-import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
-import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
-import { FlameArrestorDetonation } from "@/schematic/node/safety/FlameArrestorDetonation";
-import { FlameArrestorExplosion } from "@/schematic/node/safety/FlameArrestorExplosion";
-import { FlameArrestorFireRes } from "@/schematic/node/safety/FlameArrestorFireRes";
-import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
-import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
+import { BurstDisc, SYMBOL as BURST_DISC } from "@/schematic/node/safety/BurstDisc";
+import {
+  FlameArrestor,
+  SYMBOL as FLAME_ARRESTOR,
+} from "@/schematic/node/safety/FlameArrestor";
+import {
+  FlameArrestorDetonation,
+  SYMBOL as FLAME_ARRESTOR_DETONATION,
+} from "@/schematic/node/safety/FlameArrestorDetonation";
+import {
+  FlameArrestorExplosion,
+  SYMBOL as FLAME_ARRESTOR_EXPLOSION,
+} from "@/schematic/node/safety/FlameArrestorExplosion";
+import {
+  FlameArrestorFireRes,
+  SYMBOL as FLAME_ARRESTOR_FIRE_RES,
+} from "@/schematic/node/safety/FlameArrestorFireRes";
+import {
+  FlameArrestorFireResDetonation,
+  SYMBOL as FLAME_ARRESTOR_FIRE_RES_DETONATION,
+} from "@/schematic/node/safety/FlameArrestorFireResDetonation";
+import {
+  IsoBurstDisc,
+  SYMBOL as ISO_BURST_DISC,
+} from "@/schematic/node/safety/IsoBurstDisc";
 
 const burstDisc = createStatic({
   variant: "burst_disc",
@@ -68,3 +88,14 @@ export const REGISTRY = {
   flame_arrestor_fire_res_detonation: flameArrestorFireResDetonation.spec,
   iso_burst_disc: isoBurstDisc.spec,
 } as const;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS = {
+  burst_disc: BURST_DISC,
+  flame_arrestor: FLAME_ARRESTOR,
+  flame_arrestor_detonation: FLAME_ARRESTOR_DETONATION,
+  flame_arrestor_explosion: FLAME_ARRESTOR_EXPLOSION,
+  flame_arrestor_fire_res: FLAME_ARRESTOR_FIRE_RES,
+  flame_arrestor_fire_res_detonation: FLAME_ARRESTOR_FIRE_RES_DETONATION,
+  iso_burst_disc: ISO_BURST_DISC,
+} as const satisfies Record<string, schematic.symbol.Spec>;
