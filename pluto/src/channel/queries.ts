@@ -128,7 +128,6 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
 
 const ZERO_CALCULATED_FORM_VALUES: z.infer<typeof calculatedFormSchema> = {
   ...ZERO_FORM_VALUES,
-  virtual: true,
   expression: "",
   operations: [ZERO_OPERATION],
   calculation: undefined,
