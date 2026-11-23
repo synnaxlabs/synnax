@@ -181,104 +181,123 @@ type tableFeed[K gorp.Key, E gorp.Entry[K]] struct {
 	deleteChecks *commitChecks
 }
 
+// commitSamples holds the samples and checks that one commit adds to the channels of a
+// table feed.
+type commitSamples[K gorp.Key] struct {
+	sets, deletes           telem.Series
+	setChecks, deleteChecks map[string]Check
+	deleteCheck             func(K) (Check, bool)
+	deleteSet               func(K) ([]byte, Check, bool)
+}
+
+func (s *commitSamples[K]) addSetCheck(sample []byte, check Check) {
+	if s.setChecks == nil {
+		s.setChecks = make(map[string]Check)
+	}
+	s.setChecks[string(sample)] = check
+}
+
 func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
-	var (
-		sets         = telem.Series{DataType: telem.JSONT}
-		deletes      = telem.Series{DataType: f.del.DataType}
-		setChecks    map[string]Check
-		deleteChecks map[string]Check
-		deleteCheck  func(K) (Check, bool)
-		deleteSet    func(K) ([]byte, Check, bool)
-	)
-	addSetCheck := func(sample []byte, check Check) {
-		if setChecks == nil {
-			setChecks = make(map[string]Check)
-		}
-		setChecks[string(sample)] = check
+	// The loop body of an iterator is a closure, so each local it writes would move to
+	// the heap on every commit, for every feed. One struct moves instead.
+	s := commitSamples[K]{
+		sets:    telem.Series{DataType: telem.JSONT},
+		deletes: telem.Series{DataType: f.del.DataType},
 	}
 	for ch := range f.cfg.Changes(c) {
-		if ch.Kind == gorp.ChangeDelete {
-			sample := keySample(ch.Key)
-			deletes.Data = append(deletes.Data, sample...)
-			if f.set != nil && f.cfg.DeleteSets != nil {
-				if deleteSet == nil {
-					deleteSet = f.cfg.DeleteSets(c)
-				}
-				if set, check, ok := deleteSet(ch.Key); ok {
-					sets.Data = append(sets.Data, telem.MarshalVariableSample(set)...)
-					addSetCheck(set, check)
-				}
-			}
-			if f.cfg.DeleteChecks == nil {
-				continue
-			}
-			if deleteCheck == nil {
-				deleteCheck = f.cfg.DeleteChecks(c)
-				deleteChecks = make(map[string]Check)
-			}
-			check, ok := deleteCheck(ch.Key)
-			if !ok {
-				f.L.DPanic("a delete has no check", zap.String("channel", f.del.Name))
-				continue
-			}
-			if f.del.DataType.IsVariable() {
-				key, n := telem.UnmarshalVariableSample(sample)
-				if n != len(sample) {
-					f.L.DPanic(
-						"a delete is not one sample",
-						zap.String("channel", f.del.Name),
-					)
-					continue
-				}
-				sample = key
-			}
-			deleteChecks[string(sample)] = check
-			continue
+		f.add(c, &s, ch)
+	}
+	if s.setChecks != nil {
+		f.setChecks.add(s.setChecks)
+	}
+	if s.deleteChecks != nil {
+		f.deleteChecks.add(s.deleteChecks)
+	}
+	if len(s.sets.Data) > 0 {
+		fr = fr.Append(f.set.Key(), s.sets)
+	}
+	if len(s.deletes.Data) > 0 {
+		fr = fr.Append(f.del.Key(), s.deletes)
+	}
+	return fr
+}
+
+// add adds the samples and checks of ch, a change in c, to s.
+func (f *tableFeed[K, E]) add(
+	c gorp.Commit,
+	s *commitSamples[K],
+	ch gorp.EntryChange[K, E],
+) {
+	if ch.Kind == gorp.ChangeDelete {
+		f.addDelete(c, s, ch.Key)
+		return
+	}
+	if f.set == nil {
+		return
+	}
+	b, err := f.cfg.MarshalSet(ch.Value)
+	if err != nil {
+		f.L.Error(
+			"failed to marshal a set",
+			zap.String("channel", f.set.Name),
+			zap.Error(err),
+		)
+		return
+	}
+	if f.cfg.SetCheck != nil {
+		sample, n := telem.UnmarshalVariableSample(b)
+		if n != len(b) {
+			f.L.DPanic("a set is not one sample", zap.String("channel", f.set.Name))
+			return
 		}
-		if f.set == nil {
-			continue
-		}
-		b, err := f.cfg.MarshalSet(ch.Value)
+		check, err := f.cfg.SetCheck(ch.Value)
 		if err != nil {
 			f.L.Error(
-				"failed to marshal a set",
+				"failed to check a set",
 				zap.String("channel", f.set.Name),
 				zap.Error(err),
 			)
-			continue
+			return
 		}
-		if f.cfg.SetCheck != nil {
-			sample, n := telem.UnmarshalVariableSample(b)
-			if n != len(b) {
-				f.L.DPanic("a set is not one sample", zap.String("channel", f.set.Name))
-				continue
-			}
-			check, err := f.cfg.SetCheck(ch.Value)
-			if err != nil {
-				f.L.Error(
-					"failed to check a set",
-					zap.String("channel", f.set.Name),
-					zap.Error(err),
-				)
-				continue
-			}
-			addSetCheck(sample, check)
+		s.addSetCheck(sample, check)
+	}
+	s.sets.Data = append(s.sets.Data, b...)
+}
+
+// addDelete adds the samples and checks of the delete of key in c to s.
+func (f *tableFeed[K, E]) addDelete(c gorp.Commit, s *commitSamples[K], key K) {
+	sample := keySample(key)
+	s.deletes.Data = append(s.deletes.Data, sample...)
+	if f.set != nil && f.cfg.DeleteSets != nil {
+		if s.deleteSet == nil {
+			s.deleteSet = f.cfg.DeleteSets(c)
 		}
-		sets.Data = append(sets.Data, b...)
+		if set, check, ok := s.deleteSet(key); ok {
+			s.sets.Data = append(s.sets.Data, telem.MarshalVariableSample(set)...)
+			s.addSetCheck(set, check)
+		}
 	}
-	if setChecks != nil {
-		f.setChecks.add(setChecks)
+	if f.cfg.DeleteChecks == nil {
+		return
 	}
-	if deleteChecks != nil {
-		f.deleteChecks.add(deleteChecks)
+	if s.deleteCheck == nil {
+		s.deleteCheck = f.cfg.DeleteChecks(c)
+		s.deleteChecks = make(map[string]Check)
 	}
-	if len(sets.Data) > 0 {
-		fr = fr.Append(f.set.Key(), sets)
+	check, ok := s.deleteCheck(key)
+	if !ok {
+		f.L.DPanic("a delete has no check", zap.String("channel", f.del.Name))
+		return
 	}
-	if len(deletes.Data) > 0 {
-		fr = fr.Append(f.del.Key(), deletes)
+	if f.del.DataType.IsVariable() {
+		unwrapped, n := telem.UnmarshalVariableSample(sample)
+		if n != len(sample) {
+			f.L.DPanic("a delete is not one sample", zap.String("channel", f.del.Name))
+			return
+		}
+		sample = unwrapped
 	}
-	return fr
+	s.deleteChecks[string(sample)] = check
 }
 
 func (f *tableFeed[K, E]) records() map[channel.Key]Record {
