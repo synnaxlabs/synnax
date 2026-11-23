@@ -9,24 +9,18 @@
 
 import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { ICD as PICD } from "@synnaxlabs/pluto";
+import type { deep } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
 
 import { converts, unbind } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import {
-  isReadable,
-  jsonFields,
-  type ReadSource,
-  suit,
-  type TreeField,
-} from "@/platform/icd/read";
+import { isReadable, type ReadSource, suit, type TreeField } from "@/platform/icd/read";
+import { useSuit } from "@/platform/icd/useSuit";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -99,16 +93,10 @@ export interface SuitReadProps {
 }
 
 /**
- * Keeps the read of a message suited to its format, whose edits can leave a read that
- * the Core refuses to save. Unbinds each channel that its field can no longer convert
- * to. It corrects only on a format change, so a refused correction waits for the next
- * one.
+ * Keeps the read of a message suited to its format, and unbinds each channel that its
+ * field can no longer convert to.
  */
 export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const client = PSynnax.use();
-  const { get, set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-  const handleError = Status.useAsyncErrorHandler();
   const formats = useFormats();
   const icdKey = PForm.useFieldValue(path.icd);
   const readPath = path.messages[read];
@@ -117,22 +105,15 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
     optional: true,
     ctx: formats.get(icdKey),
   });
-  useAsyncEffect(
-    async (signal) => {
-      if (isPreview || client == null || message?.payload.format !== "json") return;
-      const fields = jsonFields(message);
-      await handleError(async () => {
-        const bound = get(readPath).value.bindings.map((b) => b.channel);
-        const channels = await client.channels.retrieve(bound);
-        if (signal.aborted) return;
-        const current = get(readPath).value;
-        const suited = suit(current, fields);
-        const bindings = unbind(suited.bindings, fields, channels, converts);
-        const next = { ...suited, bindings };
-        if (!deep.equal(next, current)) set(readPath, next);
-      }, "Failed to retrieve the channels of a message");
-    },
-    [isPreview, client, read, message],
-  );
+  useSuit({
+    path: readPath,
+    message,
+    suit,
+    bound: ({ bindings }) => bindings.map((b) => b.channel),
+    unbind: (readMessage, fields, channels) => ({
+      ...readMessage,
+      bindings: unbind(readMessage.bindings, fields, channels, converts),
+    }),
+  });
   return null;
 };
