@@ -16,6 +16,7 @@ import { query } from "@/query";
 import {
   createEmptyRole,
   createTestClient,
+  createTestClientAs,
   createTestClientWithPolicy,
   createTestUser,
   expectDeleted,
@@ -205,7 +206,7 @@ describe("User", () => {
       const { user: u, password } = await createTestUser(client, { role: empty.key });
       const username = id.create();
       await client.users.changeUsername(u.key, username);
-      const renamed = createTestClient({ username, password });
+      const renamed = createTestClientAs(username, password);
       const [p] = await renamed.auth.retrievePasswords();
       expect(p.subject).toEqual(user.resourceID(u.key));
     });
@@ -215,7 +216,7 @@ describe("User", () => {
         username: old,
         password,
       } = await createTestUser(client, { role: empty.key });
-      const self = createTestClient({ username: old, password });
+      const self = createTestClientAs(old, password);
       const username = id.create();
       await self.users.changeUsername(u.key, username);
       const [p] = await client.auth.retrievePasswords({
