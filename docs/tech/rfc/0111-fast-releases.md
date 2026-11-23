@@ -62,7 +62,7 @@ is deleted. Desktop gains two inputs in `release.yaml`: `desktop` and `desktop_b
 A release runs from `main` or from `release/X.Y`. One branch per train replaces
 `release/<console|core|driver>-X.Y`. `resolve_version.sh:81` requires a product in the
 name but uses only the `X.Y`, so the product carries no meaning. The docs deploy also
-reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
+reads the branch name (`site/docs/src/util/deploy/plan.ts:87`).
 
 Desktop joins a run with the other products only on `main`. A Desktop patch is its own
 dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
@@ -240,9 +240,8 @@ release. Phase 9 saves 3 to 4 minutes per Windows build.
 
 1. **Full run cadence on `main`**: Nightly today. A run every few hours when `main`
    moved makes the lookup hit more often, at about 10 runner-hours each.
-2. **Queue skip and the Core tests**: The pull request runs the Core tests cached in one
-   job, and the queue runs three uncached shards (`ci.yaml:428`). Phase 12 skips them
-   only if the pull request runs the same job.
+2. **Queue skip and the Core tests**: Resolved. The pull request and the queue run the
+   same three cached shards, so Phase 12 can skip them.
 3. **Go caches on release branches**: The full CI takes 36 minutes on a release branch
    and 21 minutes with warm caches. A cache per shard and ref needs a measured size
    against the repository cache limit first.

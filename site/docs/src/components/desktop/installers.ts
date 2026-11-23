@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Platform } from "@/components/download/Buttons.astro";
+import type { Platform } from "@/components/download/Buttons.astro";
 import { appVersion } from "@/util/releases";
 
 /** Lists the installers of a Synnax Desktop release, one per platform. */

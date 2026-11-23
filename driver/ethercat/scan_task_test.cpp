@@ -2156,6 +2156,22 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     EXPECT_LE(at, x::telem::TimeStamp::now());
 }
 
+/// @brief it should write the switch time of a module whose serial number needs more
+/// than 32 bits, such as the 8-byte serial number of an IOLITE module.
+TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTimeOfAWideSerial) {
+    this->start(true);
+    this->props.serial = 0x1'0000'0001;
+    this->serve();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    Devices devices;
+    store(devices, this->device_key(), this->props);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_TRUE(scanned.at(0).properties.contains("switched_at"));
+}
+
 /// @brief it should leave the switch time of a module out of the device once the
 /// device holds another module, as after the user replaces the module.
 TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModule) {

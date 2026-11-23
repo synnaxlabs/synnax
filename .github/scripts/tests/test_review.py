@@ -18,13 +18,16 @@ import pytest
 
 from review import (
     Finding,
+    Fix,
     Review,
     Target,
+    authority,
     gh as call_gh,
     outside_findings,
     parse,
     post,
     render,
+    replies,
     reviewed,
 )
 
@@ -44,8 +47,6 @@ PATCH = (
 )
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 GREPTILE = "<!-- greptile_comment -->\nGreptile's summary\n<!-- /greptile_comment -->"
-SINCE = "a" * 40
-"""The commit of the review before the head."""
 MESSAGE = "[ci] Bound MQTT samples and give each discovery request a deadline"
 
 
@@ -58,21 +59,24 @@ def finding(path: str = "a.go", line: int = 2, **kw: Any) -> Finding:
     return Finding(**(fields | kw), path=path, line=line)
 
 
-def review(*findings: Finding, score: int = 4) -> Review:
+def review(*findings: Finding, score: int = 4, fixed: tuple[Fix, ...] = ()) -> Review:
     return Review(
         score=score,
         verdict="One finding should be fixed before merge.",
         summary=["Bounds the samples."],
         findings=list(findings),
+        fixed=list(fixed),
     )
 
 
-def record(*findings: Finding, score: int = 4) -> dict[str, Any]:
+def record(
+    *findings: Finding, score: int = 4, fixed: tuple[Fix, ...] = ()
+) -> dict[str, Any]:
     """The record of a run whose review has findings."""
     return {
         "at": "2026-11-08T05:00:00+00:00",
         "pr": 7,
-        "review": dataclasses.asdict(review(*findings, score=score)),
+        "review": dataclasses.asdict(review(*findings, score=score, fixed=fixed)),
     }
 
 
@@ -99,8 +103,6 @@ class FakeGH:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.head = "head"
         """The head of the pull request now."""
-        self.blobs: dict[str, str] = {f"{SINCE}:a.go": "1", "head:a.go": "2"}
-        """The blob ID of each `<commit>:<path>` that exists."""
         self.mutations: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -118,11 +120,6 @@ class FakeGH:
             if query.startswith("query=mutation"):
                 self.mutations.append(args)
                 return ""
-            if "object(expression" in query:
-                a, b = (
-                    next(x[2:] for x in args if x.startswith(k)) for k in ("a=", "b=")
-                )
-                return json.dumps([self.blobs.get(a), self.blobs.get(b)]) + "\n"
             threads = self.threads
             if self.later is not None:
                 self.threads = self.later
@@ -133,8 +130,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
-        if path == f"repos/{REPO}/collaborators/member/permission":
-            return "write\n"
+        if path.startswith(f"repos/{REPO}/collaborators/"):
+            return ("write" if path.endswith("/member/permission") else "read") + "\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -171,11 +168,13 @@ class TestParse:
                     "rule": "AGENTS.md",
                 }
             ],
+            "fixed": [{"path": "y.go", "title": "Race", "reason": "z.go locks it."}],
         }
         got = parse(data)
         assert got.score == 3
         assert got.findings[0].lines == range(7, 10)
         assert got.findings[0].rule == "AGENTS.md"
+        assert got.fixed == [Fix(path="y.go", title="Race", reason="z.go locks it.")]
 
     @pytest.mark.parametrize(
         ("change", "error"),
@@ -192,13 +191,20 @@ class TestParse:
     ) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
         top = {"score": change.pop("score", 4)}
-        data = top | {"verdict": "V", "summary": [], "findings": [f | change]}
+        rest = {"verdict": "V", "summary": [], "findings": [f | change], "fixed": []}
+        data = top | rest
         with pytest.raises(ValueError, match=error):
             parse(data)
 
     def test_should_reject_an_unknown_field(self) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
-        data = {"score": 4, "verdict": "V", "summary": [], "findings": [f | {"x": 1}]}
+        data = {
+            "score": 4,
+            "verdict": "V",
+            "summary": [],
+            "findings": [f | {"x": 1}],
+            "fixed": [],
+        }
         with pytest.raises(TypeError, match="unexpected keyword argument 'x'"):
             parse(data)
 
@@ -260,6 +266,30 @@ class TestInlineFindings:
         post(record(finding()), target=TARGET, gh=gh)
         assert gh.written("PATCH", "pulls/comments/9") == []
 
+    @pytest.mark.parametrize("path", ["a.go", "image.png"])
+    def test_should_post_one_off_the_changed_lines_as_a_file_thread(
+        self, gh: FakeGH, path: str
+    ) -> None:
+        post(record(finding(path=path, line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [posted] = gh.written("POST", "pulls/7/comments")
+        assert {k: v for k, v in posted.items() if k != "body"} == {
+            "commit_id": "head",
+            "path": path,
+            "subject_type": "file",
+        }
+        heading, where, _ = posted["body"].split("\n\n", 2)
+        assert heading.endswith("**Samples return old data**")
+        assert where == f"[`{path}:10`](https://github.com/{REPO}/blob/head/{path}#L10)"
+        assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_skip_a_file_finding_an_open_thread_of_the_bot_holds(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        post(record(finding(line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/comments") == []
+
     def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
         post(record(finding()), target=TARGET, gh=gh)
@@ -272,74 +302,65 @@ class TestInlineFindings:
 
 
 class TestSettledThreads:
-    """Tests resolving the threads whose findings a review no longer reports."""
+    """Tests resolving the threads whose findings a review marks fixed."""
+
+    FIXED = Fix(path="a.go", title="Samples return old data", reason="b.go sorts them.")
 
     @pytest.fixture(autouse=True)
     def earlier(self, gh: FakeGH) -> None:
-        gh.edits = [summary_edit(SINCE)]
         gh.threads = [thread("sedosaur")]
 
-    def test_should_resolve_one_whose_file_changed(self, gh: FakeGH) -> None:
-        post(record(finding(title="Other")), target=TARGET, gh=gh)
+    def test_should_resolve_one_marked_fixed_with_the_reason(self, gh: FakeGH) -> None:
+        post(record(finding(title="Other"), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         resolve, reply = gh.mutations
         assert "resolveReviewThread" in resolve[3]
         assert "t=T" in reply
-        assert "b=The review of head no longer reports this finding." in reply
+        assert "b=The review of head finds this fixed: b.go sorts them." in reply
 
-    def test_should_resolve_one_whose_file_the_head_deleted(self, gh: FakeGH) -> None:
-        del gh.blobs["head:a.go"]
-        post(record(), target=TARGET, gh=gh)
-        assert len(gh.mutations) == 2
-
-    def test_should_keep_one_whose_file_is_the_same(self, gh: FakeGH) -> None:
-        gh.blobs["head:a.go"] = "1"
+    def test_should_keep_one_the_review_omits(self, gh: FakeGH) -> None:
         post(record(), target=TARGET, gh=gh)
         assert gh.mutations == []
 
-    def test_should_keep_one_when_the_last_review_commit_is_gone(
-        self, gh: FakeGH
-    ) -> None:
-        del gh.blobs[f"{SINCE}:a.go"]
-        post(record(), target=TARGET, gh=gh)
-        assert gh.mutations == []
-
-    def test_should_keep_one_without_an_earlier_review(self, gh: FakeGH) -> None:
-        gh.edits = [summary_edit("b" * 40, login="pat")]
-        post(record(), target=TARGET, gh=gh)
+    def test_should_keep_one_fixed_in_another_file(self, gh: FakeGH) -> None:
+        other = dataclasses.replace(self.FIXED, path="b.go")
+        post(record(fixed=(other,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_when_the_pull_request_moved_on(self, gh: FakeGH) -> None:
         gh.head = "newer"
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_the_review_still_reports(self, gh: FakeGH) -> None:
-        post(record(finding()), target=TARGET, gh=gh)
+        post(record(finding(), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_whose_title_holds_asterisks(self, gh: FakeGH) -> None:
         f = finding(title="Leaks `**kwargs`")
         gh.threads = [posted(f)]
-        post(record(f), target=TARGET, gh=gh)
+        title = render.title(render.heading(f))
+        assert title is not None
+        fixed = dataclasses.replace(self.FIXED, title=title)
+        post(record(f, fixed=(fixed,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_still_reported_outside_the_diff(self, gh: FakeGH) -> None:
-        post(record(finding(line=10)), target=TARGET, gh=gh)
+        post(record(finding(line=10), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_a_member_dismissed(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", "@sedosaur dismiss")]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_skip_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_skip_a_thread_of_another_author(self, gh: FakeGH) -> None:
         gh.threads = [thread("greptile-apps")]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_complete_the_review_when_a_resolve_fails(
@@ -350,7 +371,7 @@ class TestSettledThreads:
                 raise subprocess.CalledProcessError(1, "gh")
             return gh(*args, stdin=stdin)
 
-        post(record(), target=TARGET, gh=fail)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=fail)
         assert gh.written("PATCH", "check-runs/55")[-1]["conclusion"] == "success"
         assert "::warning::Could not resolve settled threads" in capsys.readouterr().err
 
@@ -401,7 +422,7 @@ class TestDismissedFindings:
                 "external_id": "7:main",
                 "started_at": "2026-11-08T05:00:00Z",
                 "conclusion": "success",
-                "output": render.check(review(finding()), record(finding())),
+                "output": render.check(review(finding())),
             }
         ]
         post(record(finding()), target=TARGET, gh=gh)
@@ -434,17 +455,14 @@ class TestOutsideFindings:
     """Tests listing findings off the diff in the bot's one outside-diff comment."""
 
     def test_should_post_them_in_a_new_comment(self, gh: FakeGH) -> None:
-        post(
-            record(finding(line=10), finding(path="b.go", line=1, title="Gone")),
-            target=TARGET,
-            gh=gh,
-        )
+        post(record(finding(path="b.go", line=1, title="Gone")), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
+        assert gh.written("POST", "pulls/7/comments") == []
         [comment] = gh.written("POST", "issues/7/comments")
         body = comment["body"]
         assert body.startswith(OUTSIDE)
         assert "These findings could not be posted inline." in body
-        assert f"[`a.go:10`](https://github.com/{REPO}/blob/head/a.go#L10)" in body
+        assert f"[`b.go:1`](https://github.com/{REPO}/blob/head/b.go#L1)" in body
         assert "**Gone**" in body
 
     def test_should_edit_the_bot_comment_when_none_remain(self, gh: FakeGH) -> None:
@@ -549,7 +567,7 @@ class TestSummary:
             ("a.go", "Nit"),
         }
 
-    def test_should_record_before_linking_and_complete_last(self, gh: FakeGH) -> None:
+    def test_should_write_the_output_before_linking(self, gh: FakeGH) -> None:
         post(record(finding()), target=TARGET, gh=gh)
         patches = [(at, p) for m, at, p in gh.writes if m == "PATCH"]
         run, body = f"repos/{REPO}/check-runs/55", f"repos/{REPO}/pulls/7"
@@ -557,28 +575,6 @@ class TestSummary:
         assert list(patches[0][1]) == ["output"]
         assert patches[2][1] == {"status": "completed", "conclusion": "success"}
         assert gh.writes[0][:2] == ("PATCH", run)
-
-    def test_should_keep_the_record_in_the_check_run(self, gh: FakeGH) -> None:
-        rec = record(finding(body="Use ```` in `x`.\n<!-- /sedosaur_record -->"))
-        post(rec, target=TARGET, gh=gh)
-        [recorded, _] = gh.written("PATCH", "check-runs/55")
-        text = recorded["output"]["text"]
-        assert render.recorded(text) == rec
-        assert render.listed(text) == {("a.go", "Samples return old data")}
-        assert "<details><summary>Record</summary>" in text
-
-    def test_should_omit_a_record_that_does_not_fit(
-        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        post(record(finding(body="x" * render.TEXT_CHARS)), target=TARGET, gh=gh)
-        [recorded, _] = gh.written("PATCH", "check-runs/55")
-        text = recorded["output"]["text"]
-        assert render.recorded(text) is None
-        assert render.listed(text) == {("a.go", "Samples return old data")}
-        assert "::warning::Omitted the record from" in capsys.readouterr().err
-
-    def test_should_read_no_record_from_a_text_without_one(self) -> None:
-        assert render.recorded(render.RULES) is None
 
 
 class TestListing:
@@ -631,6 +627,33 @@ class TestReviewed:
     def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
         assert reviewed(TARGET, gh) == []
+
+
+def conversation(id: int, body: str, login: str, kind: str = "User") -> dict[str, Any]:
+    """A comment on the pull request in the shape that `comments` serves."""
+    return {
+        "id": id,
+        "login": login if kind == "User" else f"{login}[bot]",
+        "author": {"__typename": kind, "login": login},
+        "body": body,
+    }
+
+
+class TestReplies:
+    """Tests reading the comments on the pull request that mention the bot."""
+
+    def test_should_keep_those_of_members_and_agents(self, gh: FakeGH) -> None:
+        member = conversation(1, "@sedosaur `b.go:3` checks it.", "member")
+        agent = conversation(2, "@Sedosaur `b.go:3` checks it.", "synnax-codex", "Bot")
+        gh.comments = [
+            member,
+            conversation(3, "@sedosaur it is fine.", "reader"),
+            conversation(4, "@sedosaur it is fine.", "dependabot", "Bot"),
+            conversation(5, "Looks good to me.", "member"),
+            conversation(6, "> @sedosaur review\n\nThanks.", "member"),
+            agent,
+        ]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [member, agent]
 
 
 class TestGH:

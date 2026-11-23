@@ -51,8 +51,7 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 	if f, ok := certificateFailure(err); ok {
 		return f
 	}
-	var header tls.RecordHeaderError
-	if errors.As(err, &header) {
+	if _, ok := errors.AsType[tls.RecordHeaderError](err); ok {
 		return Failure{
 			Message: "Server does not use TLS",
 			Description: "The server answered without TLS. Turn off TLS, or connect " +

@@ -13,8 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tree } from "@synnaxlabs/lyra/tree";
-import { compare, id, search, unique } from "@synnaxlabs/x";
+import type { Tree } from "@synnaxlabs/lyra/tree";
+import { compare, id, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -24,13 +24,12 @@ import {
   type KeyedTopic,
   LISTENING,
 } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
-import { type Leaf } from "@/feature/mqtt/task/leaves";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
-import { type HeldEntry } from "@/feature/mqtt/task/types";
+import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
-import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 
 const prettyPayload = (payload: string): string => {
@@ -126,8 +125,8 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
   );
 
 /**
- * The values a click on a topic picks: its numbers and booleans, or all of them. A
- * single pick takes the first.
+ * The values a click on a topic picks: each free one. A single pick takes the first
+ * number or boolean, or else the first string.
  */
 const defaultPointers = (
   leaves: Leaf[],
@@ -135,9 +134,9 @@ const defaultPointers = (
   single: boolean,
 ): Set<string> => {
   const free = leaves.filter((l) => taken?.has(l.pointer) !== true);
-  const scalars = free.filter((l) => !l.disabled);
-  const picked = scalars.length > 0 ? scalars : free;
-  return new Set((single ? picked.slice(0, 1) : picked).map((l) => l.pointer));
+  if (!single) return new Set(free.map((l) => l.pointer));
+  const first = free.find((l) => l.type !== "string") ?? free.at(0);
+  return new Set(first == null ? [] : [first.pointer]);
 };
 
 /** The values picked from one topic, with the fields they came from. */
@@ -180,10 +179,7 @@ const toItem = (
 ): ICD.Picker.TreeItem => {
   const pickable = topics.filter((t) => freeCount(t, taken) > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
-  const values = topics.reduce(
-    (sum, t) => sum + (picks.get(t.topic)?.pointers.size ?? 0),
-    0,
-  );
+  const values = math.sum(topics.map((t) => picks.get(t.topic)?.pointers.size ?? 0));
   let meta = "";
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";
@@ -231,7 +227,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
     name: pointerLabel(l.pointer),
     sample: sampleAt(topic, l.pointer),
     dataType: l.dataType,
-    taken: taken.has(l.pointer),
+    lock: taken.has(l.pointer) ? ICD.Picker.TAKEN : undefined,
   }));
   return (
     <>
@@ -359,11 +355,10 @@ export const TopicPicker = ({
         onActivate={setSelected}
         onPick={handlePick}
         emptyContent={
-          <Empty.Action
+          <ICD.Picker.Notice
             message={
               trimmed === "" ? NOTHING_PUBLISHED : `No topic matches “${trimmed}”.`
             }
-            className={CSS.BE("mqtt-discover", "notice")}
           />
         }
       />
@@ -395,13 +390,7 @@ export const TopicPicker = ({
       />
     );
   else if (listing == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-  else
-    pane = (
-      <Empty.Action
-        message="Select a topic to see what it sends."
-        className={CSS.BE("mqtt-discover", "notice")}
-      />
-    );
+  else pane = <ICD.Picker.Notice message="Select a topic to see what it sends." />;
 
   return (
     <>
@@ -412,17 +401,12 @@ export const TopicPicker = ({
         onListen={listen}
       />
       <ICD.Picker.Side>
-        <Input.Text
+        <ICD.Picker.Search
           value={term}
           onChange={setTerm}
-          size="small"
           placeholder="Search topics"
-          startContent={<Icon.Search />}
-          className={CSS.BE("mqtt-discover", "search")}
         />
-        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
-          {tree}
-        </Flex.Box>
+        <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
         {(listing?.truncated === true || scope !== "") && (
           <Flex.Box y gap="small" className={CSS.BE("mqtt-discover", "scope")}>
             <Text.Text level="small" color={9}>
@@ -446,15 +430,9 @@ export const TopicPicker = ({
             </Flex.Box>
           </Flex.Box>
         )}
-        <Button.Button
-          variant="text"
-          size="small"
-          className={CSS.BE("mqtt-discover", "add")}
-          onClick={() => onAddByName(trimmed)}
-        >
-          <Icon.Add />
+        <ICD.Picker.SideAction onClick={() => onAddByName(trimmed)}>
           {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
-        </Button.Button>
+        </ICD.Picker.SideAction>
       </ICD.Picker.Side>
       <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>

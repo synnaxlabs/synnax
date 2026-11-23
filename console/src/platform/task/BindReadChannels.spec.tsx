@@ -9,12 +9,12 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { type FormRef, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
 import { BorderedList, EmptyContent } from "@/select/Body";
@@ -30,7 +30,8 @@ type FrameOmitted =
   | "virtual"
   | "itemHeight"
   | "overscan"
-  | "onFetchMore";
+  | "onFetchMore"
+  | "selectedFirst";
 
 interface BaseSimpleProps
   extends
@@ -69,10 +70,7 @@ export interface SingleSimpleProps<K extends record.Key>
 export interface MultipleSimpleProps<K extends record.Key>
   extends
     BaseSimpleProps,
-    Omit<
-      MultipleFrameProps<K, undefined>,
-      FrameOmitted | "replaceOnSingle" | "selectedFirst"
-    > {
+    Omit<MultipleFrameProps<K, undefined>, FrameOmitted | "replaceOnSingle"> {
   multiple: true;
   triggerProps?: MultipleTriggerProps<K, undefined>;
 }
@@ -136,7 +134,7 @@ export const Simple = <K extends record.Key>({
     placeholder,
     disabled,
     preview,
-    "aria-label": caseconv.capitalize(
+    "aria-label": strings.capitalize(
       multiple === true ? plural(resourceName) : resourceName,
     ),
   };

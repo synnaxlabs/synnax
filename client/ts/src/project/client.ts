@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type FileTransport,
-  type UnaryClient,
-  type UploadBody,
-} from "@synnaxlabs/freighter";
+import type { FileTransport, UnaryClient, UploadBody } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -122,8 +118,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = group.createMoveRequest("/project/dispatch", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/project/dispatch", key, acts, dispatchResZ),
     );
   }
 

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
-import { type Action } from "@/ui/useAction";
+import type { Action } from "@/ui/useAction";
 
 export interface SubmitProps extends PropsWithChildren {
   action: Action;

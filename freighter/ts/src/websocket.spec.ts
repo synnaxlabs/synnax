@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type IncomingMessage } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { type AddressInfo, createServer } from "node:net";
 
 import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
@@ -309,6 +309,15 @@ describe("local server", () => {
     await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
   });
 
+  test("should throw EOF on send after the server closes the socket", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    ws.close();
+    await closed;
+    await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+  });
+
   test("should wait to send while the socket buffer is full", async () => {
     const stream = await dial({ sendHighWaterMark: 1024 });
     const { ws, req } = await connected;
@@ -378,7 +387,7 @@ describe("local server", () => {
       const req = await authorize();
       expect(req.headers.authorization).toEqual(TOKEN);
       expect(req.url).not.toContain("test-token");
-      expect(req.url).toContain("freighterctxContent-Type=application/json");
+      expect(req.url).toContain("freighterctxContent-Type=application%2Fjson");
     });
 
     test("should send the token in the URL when dial does not send headers", async () => {
@@ -387,7 +396,7 @@ describe("local server", () => {
         dial: async (u) => new globalThis.WebSocket(u),
       });
       expect(req.headers.authorization).toBeUndefined();
-      expect(req.url).toContain(`freighterctxAuthorization=${encodeURI(TOKEN)}`);
+      expect(req.url).toContain("freighterctxAuthorization=Bearer+test-token");
     });
 
     describe("DOM WebSocket", () => {

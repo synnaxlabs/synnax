@@ -126,81 +126,6 @@ describe("caseconv", () => {
       });
     });
   });
-  describe("toKebab", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "foo-bar"],
-      ["fooBarBaz", "foo-bar-baz"],
-      ["foo bar", "foo-bar"],
-      ["foo bar baz", "foo-bar-baz"],
-      ["foo.bar", "foo.bar"],
-      ["foo.bar.baz", "foo.bar.baz"],
-      ["Foo Bar", "foo-bar"],
-      ["foo_bar", "foo-bar"],
-      ["foo_bar_baz", "foo-bar-baz"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toKebab(input)).toBe(expected);
-      });
-    });
-  });
-  describe("toProperNoun", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "Foo Bar"],
-      ["foo_bar", "Foo Bar"],
-      ["foo-bar", "Foo Bar"],
-      ["FooBar", "Foo Bar"],
-      ["foo_bar_baz", "Foo Bar Baz"],
-      ["fooBarBaz", "Foo Bar Baz"],
-      ["foo-bar-baz", "Foo Bar Baz"],
-      ["XMLParser", "XML Parser"],
-      ["parseXMLDocument", "Parse XML Document"],
-      ["IODevice", "IO Device"],
-      ["temperature_sensor", "Temperature Sensor"],
-      ["pressure-gauge", "Pressure Gauge"],
-      ["flowMeter", "Flow Meter"],
-      ["my_custom_symbol", "My Custom Symbol"],
-      ["valve-actuator-v2", "Valve Actuator V2"],
-      ["PIDController", "PID Controller"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test123value", "Test123value"],
-      ["test_123_value", "Test 123 Value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toProperNoun(input)).toBe(expected);
-      });
-    });
-  });
-
-  describe("toSentence", () => {
-    const SPECS: [string, string][] = [
-      ["sampleRate", "Sample rate"],
-      ["state_update_rate", "State update rate"],
-      ["data-type", "Data type"],
-      ["FooBar", "Foo bar"],
-      ["name", "Name"],
-      ["XMLParser", "XML parser"],
-      ["parseXMLDocument", "Parse XML document"],
-      ["IODevice", "IO device"],
-      ["apiKey", "Api key"],
-      ["cjcSource", "Cjc source"],
-      ["PIDController", "PID controller"],
-      ["valve-actuator-v2", "Valve actuator v2"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test_123_value", "Test 123 value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toSentence(input)).toBe(expected);
-      });
-    });
-  });
-
   describe("preserveKeys", () => {
     const configZ = z.object({
       variant: z.string(),
@@ -220,9 +145,9 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.node_a1).toBeDefined();
-      expect(configs.node_a1.backgroundColor).toBe("#fff");
-      expect(configs.node_a1.strokeWidth).toBe(2);
-      expect(configs.node_a1.background_color).toBeUndefined();
+      expect(configs.node_a1?.backgroundColor).toBe("#fff");
+      expect(configs.node_a1?.strokeWidth).toBe(2);
+      expect(configs.node_a1?.background_color).toBeUndefined();
     });
 
     it("should keep record keys but convert value keys on camelToSnake", () => {
@@ -238,9 +163,9 @@ describe("caseconv", () => {
       const configs = result.configs as Record<string, R>;
       expect(configs.nodeA1).toBeDefined();
       const value = configs.nodeA1;
-      expect(value.background_color).toBe("#fff");
-      expect(value.stroke_width).toBe(2);
-      expect(value.backgroundColor).toBeUndefined();
+      expect(value?.background_color).toBe("#fff");
+      expect(value?.stroke_width).toBe(2);
+      expect(value?.backgroundColor).toBeUndefined();
     });
 
     it("should convert nested arrays inside record values", () => {
@@ -259,7 +184,7 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.edge_b2).toBeDefined();
-      expect(configs.edge_b2.textColor).toBe("#000");
+      expect(configs.edge_b2?.textColor).toBe("#000");
     });
   });
 
@@ -273,7 +198,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through pipes", () => {
@@ -285,7 +210,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through unions, skipping non-records", () => {
@@ -297,7 +222,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should preserve keys with primitive record values", () => {
@@ -586,6 +511,20 @@ describe("caseconv", () => {
   });
 
   describe("preserveCase", () => {
+    it("should resolve a key two union options share to the earlier option", () => {
+      const schema = z.union([
+        z.object({ channels: caseconv.preserveCase(z.record(z.string(), z.number())) }),
+        z.object({
+          channels: z.record(z.string(), z.number()),
+          sample_rate: z.number(),
+        }),
+      ]);
+      const input = { channels: { my_channel: 1 }, sample_rate: 2 };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      expect(result.channels).toEqual({ my_channel: 1 });
+      expect(result.sampleRate).toBe(2);
+    });
+
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {
         const schema = z.object({
@@ -817,7 +756,7 @@ describe("caseconv", () => {
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };
         const result = caseconv.snakeToCamel(v, { schema });
-        expect(result.values[0].data.One).toBe(1);
+        expect(result.values[0]?.data.One).toBe(1);
       });
 
       it("should resolve array element schema through wrapper schemas (default, optional, nullable)", () => {

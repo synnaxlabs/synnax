@@ -1,0 +1,66 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { findButton, openModal } from "@/platform/modals/testutil";
+import { User } from "@/platform/user";
+
+describe("User.useRegisterModal", () => {
+  it("should disable the Register button when no Core is connected", async () => {
+    await openModal(User.useRegisterModal);
+    await screen.findByText("Username");
+    expect(findButton("Register").className).toContain("lyra--disabled");
+  });
+
+  it("should keep the modal open and surface errors when required fields are empty", async () => {
+    const client = createTestClient();
+    await openModal(User.useRegisterModal, { client });
+    await screen.findByText("Username");
+    await waitFor(() =>
+      expect(findButton("Register").className).not.toContain("lyra--disabled"),
+    );
+    fireEvent.click(findButton("Register"));
+    await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
+    expect(screen.getByText("Password is required")).toBeTruthy();
+    expect(screen.getByText("Username")).toBeTruthy();
+  });
+
+  it("should register the user with the selected role and close the modal", async () => {
+    const client = createTestClient();
+    const [role] = await client.access.roles.retrieve({ limit: 1 });
+    expect(role).toBeDefined();
+    const username = uniqueName("user");
+
+    await openModal(User.useRegisterModal, { client });
+    await screen.findByText("Username");
+    fireEvent.change(screen.getByPlaceholderText("Richard Feynman"), {
+      target: { value: "Ada Lovelace" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("username"), {
+      target: { value: username },
+    });
+    fireEvent.change(screen.getByPlaceholderText("password"), {
+      target: { value: "password123" },
+    });
+    fireEvent.click(await screen.findByText("Select role"));
+    const [roleItem] = await screen.findAllByText(role.name);
+    fireEvent.click(roleItem);
+
+    fireEvent.click(findButton("Register"));
+    await waitFor(() => expect(screen.queryByText("Username")).toBeNull());
+
+    const created = await client.users.retrieve({ username });
+    expect(created.name).toEqual("Ada Lovelace");
+    expect(created.role).toEqual(role.key);
+  });
+});

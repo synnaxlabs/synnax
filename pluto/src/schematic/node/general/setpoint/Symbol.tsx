@@ -7,47 +7,54 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type RefCallback, useState } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
+import { Staleness } from "@/vis/staleness";
 import { Value as BaseValue } from "@/vis/value";
 
 // READOUT_INSET is the readout's margin, border, and padding.
 const READOUT_INSET = 10;
 
-interface ReadbackProps {
+interface UseReadbackProps {
   nodeKey: string;
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
-  units?: string;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
+  staleColorHidden: boolean;
 }
 
-// Readback draws the actual value on the canvas, so samples never re-render React. The
-// offset moves the canvas text inset onto the readout's padding, under the field.
-const Readback = ({
+interface UseReadbackReturn {
+  stale: boolean;
+  valueRef: RefCallback<HTMLParagraphElement>;
+}
+
+// useReadback draws the actual value on the canvas, so samples never re-render React.
+// The offset moves the canvas text inset onto the readout's padding, under the field.
+const useReadback = ({
   nodeKey,
   position,
   channel,
   size,
-  units,
   stalenessColor,
   stalenessTimeout,
-}: ReadbackProps): ReactElement => {
+  staleColorHidden,
+}: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
   const level = Primitive.READOUT_LEVELS[size];
   const fontHeight = theme.typography[level].size * theme.sizes.base;
@@ -59,7 +66,7 @@ const Readback = ({
     setCellWidth(el.offsetWidth),
   );
   const telem = BaseValue.stringSource({ channel });
-  BaseValue.use({
+  const { stale } = BaseValue.use({
     aetherKey: `${nodeKey}-readback`,
     level,
     color: theme.colors.gray.l10,
@@ -74,8 +81,9 @@ const Readback = ({
     minWidth: 0,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden,
   });
-  return <Primitive.Readout size={size} units={units} valueRef={valueRef} />;
+  return { stale, valueRef };
 };
 
 export const Symbol = ({
@@ -99,9 +107,20 @@ export const Symbol = ({
     inlineSize,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
+  const badged = Staleness.useBadged();
+  const { stale, valueRef } = useReadback({
+    nodeKey,
+    position,
+    channel: stateChannel,
+    size,
+    stalenessColor,
+    stalenessTimeout,
+    staleColorHidden: badged,
+  });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -111,13 +130,15 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
-      />
+      >
+        {stale && badged ? <Staleness.Badge /> : null}
+      </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
         onSend={set}
         value={value}
         units={units}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
         orientation={orientation}
         disabled={disabled}
         size={size}
@@ -125,15 +146,7 @@ export const Symbol = ({
         inlineSize={inlineSize}
         readback={
           stateChannel !== 0 && (
-            <Readback
-              nodeKey={nodeKey}
-              position={position}
-              channel={stateChannel}
-              size={size}
-              units={units}
-              stalenessColor={stalenessColor}
-              stalenessTimeout={stalenessTimeout}
-            />
+            <Primitive.Readout size={size} units={units} valueRef={valueRef} />
           )
         }
       />

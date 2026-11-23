@@ -71,11 +71,16 @@ func remap(
 	}
 	p.Fields = slices.Clone(p.Fields)
 	for i, f := range p.Fields {
-		if f.Multiplexor == nil {
+		if f.Variant == nil {
 			continue
 		}
-		if key, ok := fieldKeys[*f.Multiplexor]; ok {
-			p.Fields[i].Multiplexor = &key
+		base := f.Base()
+		if base.Multiplexor == nil {
+			continue
+		}
+		if key, ok := fieldKeys[*base.Multiplexor]; ok {
+			base.Multiplexor = &key
+			p.Fields[i].SetBase(base)
 		}
 	}
 	m.Payload.Variant = p

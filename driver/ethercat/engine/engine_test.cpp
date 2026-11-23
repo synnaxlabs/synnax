@@ -2947,6 +2947,57 @@ TEST_F(EngineTest, StartEndsWhenCanceledWhileTheSlavesReachOP) {
     EXPECT_EQ(steps[0].message, "Starting eth0");
 }
 
+/// @brief it should keep the error of a try that fails for its own reason when its
+/// cancel stops during the try.
+TEST_F(EngineTest, StartKeepsTheErrorOfATryThatFailsWhileCanceled) {
+    this->master->inject_activate_error(
+        x::errors::Error(
+            errors::STARTUP_PARAMETER_REJECTED,
+            "module 1 rejected 0x5FFE:00"
+        )
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::STARTUP_PARAMETER_REJECTED);
+    EXPECT_EQ(res.second.data, "Module 1 rejected 0x5FFE:00.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should end a start at once, with no retry, when its cancel stops during a
+/// try that fails with an error that a retry can clear.
+TEST_F(EngineTest, StartEndsWhenCanceledDuringATryThatARetryCanClear) {
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "module 1 did not reach OP")
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    for (const auto &step: log.snapshot())
+        EXPECT_NE(step.message, "Retrying the start");
+}
+
 /// @brief it should keep an open that reads the slave settings while another open does
 /// waiting past the start timeout while that other open brings the slaves to OP.
 TEST_F(EngineTest, OpenAfterItsSettingsReadWaitsWhileTheSlavesReachOP) {
@@ -3233,6 +3284,29 @@ TEST_F(EngineTest, RetryStepOfAnErrorWithNoTextGivesOnlyTheWait) {
         steps[1].description,
         "Trying again in " + Config().start_retry.interval(1).to_string() + "."
     );
+}
+
+/// @brief it should report each slave that reaches OP as a step of the start, so the
+/// step limit counts from the latest slave.
+TEST_F(EngineTest, StartReportsEachSlaveThatReachesOP) {
+    this->master->add_slave(io_slave(1));
+    this->master->report_op_progress();
+    StepLog log;
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(steps[0].description, "Bringing 2 modules to OP.");
+    for (size_t i = 1; i < steps.size(); ++i) {
+        EXPECT_EQ(steps[i].message, "Starting eth0");
+        EXPECT_EQ(steps[i].limit, x::telem::SECOND * 30);
+    }
+    EXPECT_EQ(steps[1].description, "1 of 2 modules in OP.");
+    EXPECT_EQ(steps[2].description, "2 of 2 modules in OP.");
 }
 
 /// @brief it should report the wait of a start behind the start of another task.
@@ -4564,6 +4638,54 @@ TEST_F(EngineTest, RunningBusCountsASlaveBackInInitOrBootAsRestarted) {
     ASSERT_NO_FATAL_FAILURE(restart(slave::State::BOOT));
     slaves = ASSERT_NIL_P(this->engine->rediscover());
     ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GT(slaves[1].restarted_at.value(), first);
+}
+
+/// @brief it should read a slave that was starting when the bus started again once it
+/// leaves INIT, and read no slave again while none is starting.
+TEST_F(EngineTest, RunningBusReadsAStartingSlaveAgain) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_TRUE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    this->master->set_starting(1, false);
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->rediscover())[1].status.starting);
+    const auto scans = this->master->call_count("scan");
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    EXPECT_EQ(this->master->call_count("scan"), scans);
+}
+
+/// @brief it should count a slave that it read again after it was starting as
+/// restarted when its power restarts while the bus runs.
+TEST_F(EngineTest, RunningBusCountsARestartOfASlaveThatItReadAgain) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_serial(1, 7);
+    this->master->set_starting(1, false);
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves[1].properties.serial, 7);
+    const auto first = slaves[1].restarted_at.value();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].operational()
+    );
+    slaves = ASSERT_NIL_P(this->engine->discover());
     EXPECT_GT(slaves[1].restarted_at.value(), first);
 }
 
