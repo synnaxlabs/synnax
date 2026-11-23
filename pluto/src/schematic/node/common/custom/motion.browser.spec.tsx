@@ -467,11 +467,11 @@ describe("Custom.Drawing motion", () => {
       ]);
 
     it("should fill a part from its side to the fraction of its state", async () => {
-      const { loop, attr } = await setup({
+      const { pending, attr } = await setup({
         spec: level(),
         readings: { speed: reading(25) },
       });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
     });
 
@@ -484,18 +484,18 @@ describe("Custom.Drawing motion", () => {
     });
 
     it("should join the loop while it moves to a new fraction", async () => {
-      const { loop, frame, attr, rerender } = await setup({
+      const { pending, frame, attr, rerender } = await setup({
         spec: level(),
         readings: { speed: reading(25) },
       });
       await rerender({ readings: { speed: reading(75) } });
-      expect(loop.size).toBe(1);
+      expect(pending()).toBe(1);
       frame(0);
       frame(100);
       expect(attr(".liquid", "clip-path")).not.toBe("inset(25% 0 0 0)");
       frame(200);
       expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
     });
 
     it("should slide on the curve of the modal animation", async () => {
@@ -510,33 +510,33 @@ describe("Custom.Drawing motion", () => {
     });
 
     it("should jump to a new fraction on a node with motion disabled", async () => {
-      const { loop, attr, rerender } = await setup({
+      const { pending, attr, rerender } = await setup({
         spec: level(),
         readings: { speed: reading(25) },
         motionDisabled: true,
       });
       await rerender({ readings: { speed: reading(75) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
     });
 
     it("should draw an empty level while its state is unknown", async () => {
-      const { loop, attr, rerender } = await setup({
+      const { pending, attr, rerender } = await setup({
         spec: level(),
         readings: { speed: reading(25) },
       });
       await rerender({ readings: { speed: reading(NaN) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(100% 0 0 0)");
     });
 
     it("should keep its last fraction while its state is stale", async () => {
-      const { loop, attr, rerender } = await setup({
+      const { pending, attr, rerender } = await setup({
         spec: level(),
         readings: { speed: reading(25) },
       });
       await rerender({ readings: { speed: reading(75, true) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
     });
 
