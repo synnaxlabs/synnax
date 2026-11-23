@@ -264,10 +264,8 @@ describe("Sift stream form", () => {
       dataType: DataType.FLOAT64,
       index: index.key,
     });
-    await client.channels.create({
+    await client.calculations.create({
       name: `${prefix}_calc`,
-      dataType: DataType.FLOAT64,
-      virtual: true,
       expression: `return ${data.name} * 2`,
     });
     await renderStream();

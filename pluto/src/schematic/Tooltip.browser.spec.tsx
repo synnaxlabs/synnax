@@ -68,12 +68,14 @@ const createVirtual = async (): Promise<channel.Channel> =>
 
 const createCalculated = async (): Promise<channel.Channel> => {
   const source = await createVirtual();
-  return await client.channels.create({
-    name: id.create(),
-    dataType: DataType.FLOAT32,
-    virtual: true,
-    expression: `return ${source.name} * 2`,
-  });
+  return await client.channels.retrieve(
+    (
+      await client.calculations.create({
+        name: id.create(),
+        expression: `return ${source.name} * 2`,
+      })
+    ).output,
+  );
 };
 
 const STREAM_VALUE_TYPE = telem.streamChannelValue({ channel: 0 }).type;

@@ -260,12 +260,14 @@ describe("lineplot/toolbar/Toolbar", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const calculated = await client.channels.create({
-        name: `toolbar_csv_calculated_${suffix}`,
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
+      const calculated = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: `toolbar_csv_calculated_${suffix}`,
+            expression: `return ${source.name} * 2`,
+          })
+        ).output,
+      );
       const download = await openDownload([data.key, calculated.key]);
       expect(download.className).not.toContain("lyra--disabled");
     });

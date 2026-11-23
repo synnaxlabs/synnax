@@ -1753,12 +1753,14 @@ describe("StreamMultiChannelLog with a Core", () => {
       dataType: DataType.FLOAT64,
       index: time.key,
     });
-    const output = await admin.channels.create({
-      name: id.create(),
-      dataType: DataType.FLOAT64,
-      virtual: true,
-      expression: `return ${data.name} * 2`,
-    });
+    const output = await admin.channels.retrieve(
+      (
+        await admin.calculations.create({
+          name: id.create(),
+          expression: `return ${data.name} * 2`,
+        })
+      ).output,
+    );
     const start = TimeStamp.now().sub(TimeSpan.seconds(10));
     const stamps = [0, 1, 2].map((i) => start.add(TimeSpan.milliseconds(i)));
     await admin.write(start, { [time.key]: stamps, [data.key]: [1, 2, 3] });

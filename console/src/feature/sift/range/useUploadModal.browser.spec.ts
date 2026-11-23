@@ -10,7 +10,6 @@
 import {
   access,
   type channel,
-  DataType,
   device,
   type task,
   TimeRange,
@@ -295,12 +294,14 @@ describe("Sift.Range.useUploadModal", () => {
 
   it("should not list calculated channels, which the Core does not store", async () => {
     const [, data] = await newIndexedPair(client);
-    const calc = await client.channels.create({
-      name: uniqueName("sift_calc"),
-      dataType: DataType.FLOAT64,
-      virtual: true,
-      expression: `return ${data.name} * 2`,
-    });
+    const calc = await client.channels.retrieve(
+      (
+        await client.calculations.create({
+          name: uniqueName("sift_calc"),
+          expression: `return ${data.name} * 2`,
+        })
+      ).output,
+    );
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,

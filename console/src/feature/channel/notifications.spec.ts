@@ -29,12 +29,14 @@ const writeCalculatedStatus = async (variant: status.Variant): Promise<string> =
     dataType: DataType.FLOAT32,
     virtual: true,
   });
-  const calculated = await client.channels.create({
-    name: uniqueName("calculated"),
-    dataType: DataType.FLOAT32,
-    virtual: true,
-    expression: `return ${source.name} * 2`,
-  });
+  const calculated = await client.channels.retrieve(
+    (
+      await client.calculations.create({
+        name: uniqueName("calculated"),
+        expression: `return ${source.name} * 2`,
+      })
+    ).output,
+  );
   return await writeStatus(client, channel.resourceID(calculated.key), variant);
 };
 

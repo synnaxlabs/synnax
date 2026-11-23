@@ -112,12 +112,14 @@ describe("useCalculatedModal", () => {
   describe("edit mode", () => {
     it("should prefill the form from the existing channel and persist edits on save", async () => {
       const name = uniqueName("calc");
-      const ch = await client.channels.create({
-        name,
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: "return 2",
-      });
+      const ch = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name,
+            expression: "return 2",
+          })
+        ).output,
+      );
       await openModal({ channelKey: ch.key });
       await waitFor(() =>
         expect(
@@ -143,12 +145,14 @@ describe("useCalculatedModal", () => {
     });
 
     it("should not report an edited channel as created", async () => {
-      const ch = await client.channels.create({
-        name: uniqueName("calc"),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: "return 2",
-      });
+      const ch = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: uniqueName("calc"),
+            expression: "return 2",
+          })
+        ).output,
+      );
       const analytics = createTestSink();
       await openModal({ channelKey: ch.key }, analytics);
       await waitFor(() =>
