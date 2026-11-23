@@ -212,15 +212,17 @@ export const failRequests = (
 /**
  * Holds each response to target, or to each request that target matches, until release
  * is called or the test finishes. responded resolves when the first held response
- * arrives, and sent returns the count of held requests.
+ * arrives, and sent returns the count of held requests. via picks the transport client:
+ * auth requests use unaryNoRetry.
  */
 export const holdResponses = (
   client: Synnax,
   target: string | ((target: string, req: unknown) => boolean),
   field: "transport" = "transport",
+  via: "unary" | "unaryNoRetry" = "unary",
 ) => {
   const matches = typeof target === "string" ? (t: string) => t === target : target;
-  const { unary } = client[field];
+  const unary = client[field][via];
   const send = unary.send.bind(unary);
   const { promise: responded, resolve: respond } = Promise.withResolvers<void>();
   const { promise: released, resolve: release } = Promise.withResolvers<void>();
