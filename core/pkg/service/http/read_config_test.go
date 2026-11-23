@@ -167,12 +167,13 @@ var _ = Describe("Read config", func() {
 			msg string,
 		) {
 			f := createFormat(ctx)
-			_, err := svc.Read.Prepare(
+			Expect(svc.Read.Prepare(
 				ctx, db, uuid.New(), "Pump", readConfigOf(f.ic, reads(f)...),
-			)
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(HavePrefix(path + ": ")))
-			Expect(err).To(MatchError(ContainSubstring(msg)))
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(HavePrefix(path+": ")),
+				MatchError(ContainSubstring(msg)),
+			))
 		},
 		Entry("a message that the ICD lacks", func(f format) []map[string]any {
 			lacked := jsonMessage("Lacked", jsonField("v", "/v", icd.FloatJSONField{}))
