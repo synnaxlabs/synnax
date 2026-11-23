@@ -11,6 +11,8 @@
 
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -190,6 +192,12 @@ public:
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
+
+    /// @brief sets the channels that the streamer streams from the next start. Call it
+    /// only while the pipeline is stopped.
+    void set_channels(std::vector<synnax::channel::Key> channels) {
+        this->config.channels = std::move(channels);
+    }
 
     void run() override;
 

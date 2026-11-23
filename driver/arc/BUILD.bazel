@@ -48,6 +48,14 @@ cc_library(
 cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
+    copts = select({
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": [
+            "/wd4191",
+            "/D_WIN32_WINNT=0x0A00",
+        ],
+        "//conditions:default": [],
+    }),
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
@@ -61,6 +69,7 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
+        "@cpp-httplib//:cpp-httplib",
         "@googletest//:gtest_main",
     ],
 )

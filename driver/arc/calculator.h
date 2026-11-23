@@ -129,6 +129,14 @@ public:
         return {keys.begin(), keys.end()};
     }
 
+    /// @brief returns the calculated channels, their indexes, and the channels they
+    /// read.
+    [[nodiscard]] std::set<::arc::types::ChannelKey> channels() const {
+        auto keys = this->computed;
+        keys.insert(this->inputs.begin(), this->inputs.end());
+        return keys;
+    }
+
     /// @brief loads every calculation again if a compute ran since the last load, so
     /// that the next compute starts from a fresh state. On error, the calculator keeps
     /// its runtimes. Call it only while no compute runs.

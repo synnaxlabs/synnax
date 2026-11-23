@@ -149,6 +149,10 @@ Each costs about 450 ns per input sample, the same as a runtime cycle, so a slow
 calculation delays commands to the Arc. A module whose inputs are not in a frame does
 not run.
 
+When a channel a module uses changes, and on each reconnect, the task gets the modules
+again and swaps them in without a restart of the Arc. A failed reload keeps the old
+ones.
+
 ### 3.6 Reconnect and new minors
 
 The rack breaker waits for an unreachable Core with no limit. On reconnect the task

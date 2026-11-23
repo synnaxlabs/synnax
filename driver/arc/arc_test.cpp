@@ -18,6 +18,7 @@
 #include <variant>
 
 #include "gtest/gtest.h"
+#include "httplib.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "freighter/cpp/freighter.h"
@@ -3824,6 +3825,26 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     EXPECT_FALSE(statuses[0].details.running);
 }
 
+/// @brief opens streamers through another factory, except while down, when the Core is
+/// unreachable.
+class SwitchedStreamerFactory final : public pipeline::StreamerFactory {
+    std::shared_ptr<pipeline::StreamerFactory> factory;
+
+public:
+    std::atomic<bool> down = true;
+
+    explicit SwitchedStreamerFactory(
+        std::shared_ptr<pipeline::StreamerFactory> factory
+    ):
+        factory(std::move(factory)) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(const synnax::framer::StreamerConfig config) override {
+        if (this->down) return {nullptr, freighter::UNREACHABLE};
+        return this->factory->open_streamer(config);
+    }
+};
+
 /// @brief runs Arc tasks whose Core streamer is always unreachable, so their input
 /// comes only from the bypass bus.
 class OutageTest : public ::testing::Test {
@@ -3876,7 +3897,8 @@ protected:
     [[nodiscard]] std::unique_ptr<arc::Task> create_task(
         const std::string &source,
         const std::vector<synnax::channel::Key> &inputs,
-        const std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET
+        const std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        std::shared_ptr<pipeline::StreamerFactory> watch_factory = nullptr
     ) const {
         synnax::arc::AutomationArc arc_prog{
             {.name = make_unique_channel_name("outage_test")}
@@ -3920,9 +3942,67 @@ protected:
                         .scale = 1,
                         .max_interval = x::telem::MILLISECOND,
                     }
-                )
+                ),
+                nullptr,
+                std::move(watch_factory)
             )
         );
+    }
+
+    /// @brief sends body to the Core's HTTP API at path, as the test user. The C++
+    /// client cannot edit or delete a channel.
+    static void post(const std::string &path, const nlohmann::json &body) {
+        const auto cfg = test_client_config();
+        httplib::Client http(cfg.host, cfg.port);
+        const httplib::Headers accept{{"Accept", "application/json"}};
+        const auto login = http.Post(
+            "/api/v1/auth/login",
+            accept,
+            nlohmann::json{{"username", cfg.username}, {"password", cfg.password}}
+                .dump(),
+            "application/json"
+        );
+        ASSERT_TRUE(login);
+        ASSERT_EQ(login->status, 200) << login->body;
+        auto headers = accept;
+        headers.emplace(
+            "Authorization",
+            "Bearer " +
+                nlohmann::json::parse(login->body).at("token").get<std::string>()
+        );
+        const auto
+            res = http.Post("/api/v1" + path, headers, body.dump(), "application/json");
+        ASSERT_TRUE(res);
+        ASSERT_EQ(res->status, 200) << res->body;
+    }
+
+    /// @brief applies action to the channel ch.
+    static void dispatch(const synnax::channel::Channel &ch, nlohmann::json action) {
+        post(
+            "/channel/dispatch",
+            {{"key", ch.key}, {"actions", nlohmann::json::array({std::move(action)})}}
+        );
+    }
+
+    /// @brief sets the expression of the calculated channel ch.
+    static void
+    set_expression(const synnax::channel::Channel &ch, const std::string &expression) {
+        nlohmann::json set = {
+            {"path", nlohmann::json::array({"expression"})},
+            {"value", "return " + expression},
+        };
+        dispatch(ch, {{"type", "set"}, {"set", std::move(set)}});
+    }
+
+    /// @brief returns the first warning that the task sent.
+    [[nodiscard]] std::optional<synnax::task::Status> warning() const {
+        auto statuses = this->ctx->snapshot();
+        const auto *found = find_status_by_variant(
+            statuses,
+            synnax::status::VARIANT_WARNING
+        );
+        if (found == nullptr) return std::nullopt;
+        return *found;
     }
 
     /// @brief starts task and waits until its streamer reads the bus.
@@ -4038,6 +4118,136 @@ TEST_F(OutageTest, ComputesAfterConcurrentStops) {
     this->start(*task);
     this->publish(a.key, 3.0f);
     ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 6.0f));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should apply an edit of a calculated channel's expression while the task
+/// runs, and keep the state of the Arc.
+TEST_F(OutageTest, ReloadsEditedExpression) {
+    const auto start = this->create_channel("start", x::telem::UINT8_T);
+    const auto pressure = this->create_channel("pressure", x::telem::FLOAT32_T);
+    const auto valve = this->create_channel("valve", x::telem::INT64_T);
+    const auto scaled = this->create_calculated("scaled", pressure.name + " * 2");
+    const auto task = this->create_task(
+        "sequence main {\n"
+        "    stage pressurize {\n"
+        "        1 -> " +
+            valve.name + "\n        " + scaled.name + " -> " + scaled.name +
+            " > 50 => next\n"
+            "    }\n"
+            "    stage idle {\n"
+            "        0 -> " +
+            valve.name + "\n    }\n}\n" + start.name + " => main\n",
+        {start.key, pressure.key}
+    );
+    this->start(*task);
+    this->publish(start.key, static_cast<uint8_t>(1));
+    ASSERT_EVENTUALLY_TRUE(this->wrote(valve.key, int64_t{1}));
+    this->publish(pressure.key, 6.0f);
+    this->set_expression(scaled, pressure.name + " * 10");
+    // The sequence leaves its first stage only if the runtime kept its state.
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(pressure.key, 6.0f);
+        return this->wrote(valve.key, int64_t{0});
+    }());
+    task->stop("test_stop", true);
+}
+
+/// @brief it should apply an edit of a nested calculated channel that changes the
+/// channels the task streams.
+TEST_F(OutageTest, ReloadsEditedNestedCalculation) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto b = this->create_channel("b", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto task = this->create_task(outer.name + " -> " + out.name, {a.key, b.key});
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 3.0f));
+    this->set_expression(inner, b.name + " * 3");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(b.key, 2.0f);
+        return this->wrote(out.key, 7.0f);
+    }());
+    task->stop("test_stop", true);
+}
+
+/// @brief it should stream a calculated channel that reads a deleted one, instead of
+/// computing it, as the Core cannot compute it either.
+TEST_F(OutageTest, StreamsCalculationOfDeletedChannel) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto task = this->create_task(
+        outer.name + " -> " + out.name,
+        {a.key, outer.key, outer.index}
+    );
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 3.0f));
+    this->post("/channel/delete", {{"keys", nlohmann::json::array({inner.key})}});
+    ASSERT_EVENTUALLY_TRUE([&] {
+        x::telem::Frame frame(2);
+        frame.emplace(outer.index, x::telem::Series(x::telem::TimeStamp::now()));
+        frame.emplace(outer.key, x::telem::Series(42.0f));
+        this->bus->publish(frame);
+        return this->wrote(out.key, 42.0f);
+    }());
+    task->stop("test_stop", true);
+}
+
+/// @brief it should keep its calculations and warn when it cannot load them again.
+TEST_F(OutageTest, KeepsCalculationsWhenReloadFails) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
+    const auto task = this->create_task(doubled.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 2.0f));
+    // The Arc names the channel, so it no longer compiles.
+    this->dispatch(
+        doubled,
+        {{"type", "rename"},
+         {"rename", {{"name", make_unique_channel_name("renamed")}}}}
+    );
+    ASSERT_EVENTUALLY_TRUE(this->warning().has_value());
+    EXPECT_EQ(this->warning()->message, "Failed to reload calculations");
+    this->publish(a.key, 4.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 8.0f));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should apply an edit made while the Core was unreachable once it is
+/// reachable again.
+TEST_F(OutageTest, AppliesEditMadeDuringOutage) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto scaled = this->create_calculated("scaled", a.name + " * 2");
+    const auto watch = std::make_shared<SwitchedStreamerFactory>(
+        std::make_shared<pipeline::SynnaxStreamerFactory>(this->client)
+    );
+    const auto task = this->create_task(
+        scaled.name + " -> " + out.name,
+        {a.key},
+        ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        watch
+    );
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 2.0f));
+    this->set_expression(scaled, a.name + " * 10");
+    watch->down = false;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            this->publish(a.key, 1.0f);
+            return this->wrote(out.key, 10.0f);
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
     task->stop("test_stop", true);
 }
 }

@@ -19,6 +19,9 @@
 #include "core/pkg/transport/grpc/channel/channel.pb.h"
 
 namespace synnax::channel {
+const std::string SET_CHANNEL = "sy_channel_set";
+const std::string DELETE_CHANNEL = "sy_channel_delete";
+
 /// @brief freighter retrieve transport.
 using RetrieveClient = freighter::
     UnaryClient<grpc::channel::RetrieveRequest, ::api::channel::pb::RetrieveResponse>;

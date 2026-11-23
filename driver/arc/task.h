@@ -9,8 +9,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <set>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -39,6 +43,33 @@
 #include "driver/task/task.h"
 
 namespace driver::arc {
+/// @brief retrieves the automation with the given key, with its compiled program and
+/// calculations.
+inline std::pair<synnax::arc::AutomationArc, x::errors::Error>
+retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
+    auto [arc_data, err] = client.arcs.retrieve(
+        key,
+        synnax::arc::RetrieveOptions{.include_program = true}
+    );
+    if (err) return {{}, err};
+    auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
+    if (automation == nullptr)
+        return {
+            {},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "Modules cannot be deployed independently. Import \"" +
+                    synnax::arc::base(arc_data).name + "\" from an automation instead."
+            )
+        };
+    if (!automation->program.has_value())
+        return {
+            {},
+            x::errors::Error(x::errors::INTERNAL, "The Arc program is not compiled.")
+        };
+    return {std::move(*automation), x::errors::NIL};
+}
+
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
@@ -70,32 +101,10 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve(
-            cfg.arc_key,
-            synnax::arc::RetrieveOptions{.include_program = true}
-        );
-        if (arc_err) return {std::move(cfg), arc_err};
-        const auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
-        if (automation == nullptr)
-            return {
-                std::move(cfg),
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "Modules cannot be deployed independently. Import \"" +
-                        synnax::arc::base(arc_data).name +
-                        "\" from an automation instead."
-                )
-            };
-        if (!automation->program.has_value())
-            return {
-                std::move(cfg),
-                x::errors::Error(
-                    x::errors::INTERNAL,
-                    "The Arc program is not compiled."
-                )
-            };
-        cfg.program = *automation->program;
-        cfg.calculations = automation->calculations;
+        auto [automation, err] = retrieve_automation(*client, cfg.arc_key);
+        if (err) return {std::move(cfg), err};
+        cfg.program = std::move(*automation.program);
+        cfg.calculations = std::move(automation.calculations);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -103,9 +112,19 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
+    /// @brief computes calculated channels on the control thread.
     Calculator calculator;
+    /// @brief guards reloaded.
+    std::mutex reload_mu;
+    /// @brief a calculator to swap in before the next compute.
+    std::optional<Calculator> reloaded;
+    /// @brief true while reloaded holds a calculator. Lets the control thread skip
+    /// reload_mu on each frame.
+    std::atomic<bool> has_reloaded = false;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
+    /// @brief reloads the calculations when they change.
+    std::unique_ptr<pipeline::Control> watch;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
     /// and runtime threads all touch.
     std::mutex state_mu;
@@ -164,6 +183,12 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
+            if (this->task.has_reloaded.load(std::memory_order_acquire)) {
+                std::lock_guard lock(this->task.reload_mu);
+                this->task.calculator = std::move(*this->task.reloaded);
+                this->task.reloaded.reset();
+                this->task.has_reloaded.store(false, std::memory_order_release);
+            }
             this->task.calculator.compute(frame);
             const auto err = this->task.runtime->write(std::move(frame));
             // A runtime that stopped itself already reported why, so the frame drops.
@@ -191,6 +216,116 @@ class Task final : public task::Task {
         }
     };
 
+    /// @brief sink that loads the calculations again when a channel they use changes,
+    /// and each time its streamer opens, so that edits made during an outage apply. It
+    /// runs on its own thread, so the control thread never waits on the Core.
+    class Watch final : public pipeline::Sink {
+        Task &task;
+        std::shared_ptr<synnax::Synnax> client;
+        x::uuid::UUID arc_key;
+        synnax::channel::Key set_key;
+        synnax::channel::Key delete_key;
+        ::arc::runtime::Config cfg;
+        ::arc::runtime::scheduler::ErrorHandler on_error;
+        /// @brief the calculations last loaded.
+        x::json::json loaded;
+        /// @brief the channels whose change reloads the calculations.
+        std::set<::arc::types::ChannelKey> watched;
+        /// @brief the channels that the control pipeline streams.
+        std::vector<::arc::types::ChannelKey> streamed;
+
+        [[nodiscard]] bool changed(const x::telem::Frame &frame) const {
+            for (const auto [key, series]: frame)
+                if (key == this->delete_key) {
+                    for (const auto k: series.values<synnax::channel::Key>())
+                        if (this->watched.contains(k)) return true;
+                } else if (key == this->set_key)
+                    for (const auto &ch: series.json_values())
+                        if (this->watched.contains(
+                                ch.at("key").get<synnax::channel::Key>()
+                            ))
+                            return true;
+            return false;
+        }
+
+        x::errors::Error reload() {
+            auto [automation, err] = retrieve_automation(*this->client, this->arc_key);
+            if (err) return err;
+            auto loaded = x::json::to_array(automation.calculations);
+            if (loaded == this->loaded) return x::errors::NIL;
+            auto [calc, load_err] = Calculator::load(
+                automation.calculations,
+                this->cfg,
+                this->on_error
+            );
+            if (load_err) return load_err;
+            this->loaded = std::move(loaded);
+            this->watched = calc.channels();
+            auto streamed = calc.streamed(this->task.runtime->read_channels);
+            // The streamer cannot change its channels, so it opens again with the new
+            // ones. Frames sent while it reopens are lost.
+            const auto restart = streamed != this->streamed;
+            auto running = false;
+            if (restart) {
+                running = this->task.control->stop();
+                this->task.control->set_channels(streamed);
+                this->streamed = std::move(streamed);
+            }
+            {
+                std::lock_guard lock(this->task.reload_mu);
+                this->task.reloaded = std::move(calc);
+                this->task.has_reloaded.store(true, std::memory_order_release);
+            }
+            if (running) this->task.control->start();
+            return x::errors::NIL;
+        }
+
+        void warn(const x::errors::Error &err, const std::string &message) const {
+            if (!err) return;
+            std::lock_guard lock(this->task.state_mu);
+            this->task.state.send_warning(
+                message,
+                "The Arc keeps its previous calculations. " + err.data
+            );
+        }
+
+    public:
+        Watch(
+            Task &task,
+            std::shared_ptr<synnax::Synnax> client,
+            const x::uuid::UUID &arc_key,
+            const synnax::channel::Key set_key,
+            const synnax::channel::Key delete_key,
+            ::arc::runtime::Config cfg,
+            ::arc::runtime::scheduler::ErrorHandler on_error,
+            const std::vector<synnax::arc::Calculation> &calculations
+        ):
+            task(task),
+            client(std::move(client)),
+            arc_key(arc_key),
+            set_key(set_key),
+            delete_key(delete_key),
+            cfg(std::move(cfg)),
+            on_error(std::move(on_error)),
+            loaded(x::json::to_array(calculations)),
+            watched(task.calculator.channels()),
+            streamed(task.calculator.streamed(task.runtime->read_channels)) {}
+
+        x::errors::Error write(x::telem::Frame &frame) override {
+            if (this->changed(frame))
+                this->warn(this->reload(), "Failed to reload calculations");
+            return x::errors::NIL;
+        }
+
+        void opened() override {
+            this->warn(this->reload(), "Failed to reload calculations");
+        }
+
+        void stopped_with_err(const x::errors::Error &err) override {
+            this->warn(err, "Failed to watch calculations");
+        }
+    };
+
     Task(
         const synnax::task::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx
@@ -211,7 +346,8 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
-        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr,
+        std::shared_ptr<pipeline::StreamerFactory> watch_factory = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
@@ -305,19 +441,20 @@ public:
         if (err) return {nullptr, err};
 
         task->runtime = std::move(rt);
+        const auto on_calc_error = [task_ptr = task.get()](
+                                       const ::arc::ir::Node &node,
+                                       const x::errors::Error &err
+                                   ) {
+            std::lock_guard lock(task_ptr->state_mu);
+            task_ptr->state.send_warning(
+                "Failed to run calculation",
+                "The " + node.type + " node failed: " + err.data
+            );
+        };
         auto [calculator, calc_err] = Calculator::load(
             cfg.calculations,
             runtime_cfg,
-            [task_ptr = task.get()](
-                const ::arc::ir::Node &node,
-                const x::errors::Error &err
-            ) {
-                std::lock_guard lock(task_ptr->state_mu);
-                task_ptr->state.send_warning(
-                    "Failed to run calculation",
-                    "The " + node.type + " node failed: " + err.data
-                );
-            }
+            on_calc_error
         );
         if (calc_err) return {nullptr, calc_err};
         task->calculator = std::move(calculator);
@@ -365,6 +502,44 @@ public:
                 "arc_control"
             );
         }
+        if (task->control && !cfg.calculations.empty()) {
+            auto [signals, signals_err] = ctx->client->channels.retrieve(
+                std::vector{
+                    synnax::channel::SET_CHANNEL,
+                    synnax::channel::DELETE_CHANNEL,
+                }
+            );
+            if (signals_err) return {nullptr, signals_err};
+            synnax::channel::Key set_key = 0;
+            synnax::channel::Key delete_key = 0;
+            for (const auto &ch: signals)
+                if (ch.name == synnax::channel::SET_CHANNEL)
+                    set_key = ch.key;
+                else if (ch.name == synnax::channel::DELETE_CHANNEL)
+                    delete_key = ch.key;
+            if (!watch_factory)
+                watch_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
+                    ctx->client
+                );
+            auto calc_cfg = runtime_cfg;
+            calc_cfg.program = {};
+            task->watch = std::make_unique<pipeline::Control>(
+                std::move(watch_factory),
+                synnax::framer::StreamerConfig{.channels = {set_key, delete_key}},
+                std::make_unique<Watch>(
+                    *task,
+                    ctx->client,
+                    cfg.arc_key,
+                    set_key,
+                    delete_key,
+                    std::move(calc_cfg),
+                    on_calc_error,
+                    cfg.calculations
+                ),
+                x::breaker::default_config("arc_watch"),
+                "arc_watch"
+            );
+        }
 
         return {std::move(task), x::errors::NIL};
     }
@@ -388,6 +563,9 @@ public:
             }
         }
         if (this->control) {
+            // A watch can outlive a streamer that failed to open, and it changes the
+            // calculator and the control pipeline.
+            if (this->watch) this->watch->stop();
             // No compute runs while the control pipeline is stopped.
             if (const auto err = this->calculator.reset()) {
                 std::lock_guard lock(this->state_mu);
@@ -395,7 +573,10 @@ public:
                 this->answer_pending_starts();
                 return false;
             }
-            if (this->control->start()) return true;
+            if (this->control->start()) {
+                if (this->watch) this->watch->start();
+                return true;
+            }
             // The pipeline of a start that failed can still be on its way out.
             std::lock_guard lock(this->state_mu);
             for (const auto &key: this->pending_starts)
@@ -411,6 +592,8 @@ public:
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
+        // The watch stops first, as it can restart the control pipeline.
+        if (this->watch) this->watch->stop();
         auto control_stopped = true;
         if (this->control) control_stopped = this->control->stop();
         this->runtime->close_outputs();
