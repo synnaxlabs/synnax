@@ -67,6 +67,7 @@ type Channel struct {
 // schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
+	v.Ternaryf("concurrency", !c.Concurrency.IsValid(), "invalid concurrency: %v", c.Concurrency)
 	v.NotEmptyString("name", c.Name)
 	return v.Error()
 }

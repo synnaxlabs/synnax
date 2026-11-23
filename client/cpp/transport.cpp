@@ -180,7 +180,7 @@ Transport::Transport(
         grpc::ni_device::NIDeviceRetrieveService>>(pool, base_target);
     this->ni_device_update = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ni_device::UpdateRequest,
-        google::protobuf::Empty,
+        grpc::ni_device::UpdateResponse,
         grpc::ni_device::NIDeviceUpdateService>>(pool, base_target);
     this->ni_device_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ni_device::DeleteRequest,
@@ -196,7 +196,7 @@ Transport::Transport(
         grpc::ni_chassis::NIChassisRetrieveService>>(pool, base_target);
     this->ni_chassis_update = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ni_chassis::UpdateRequest,
-        google::protobuf::Empty,
+        grpc::ni_chassis::UpdateResponse,
         grpc::ni_chassis::NIChassisUpdateService>>(pool, base_target);
     this->ni_chassis_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ni_chassis::DeleteRequest,

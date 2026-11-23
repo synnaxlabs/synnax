@@ -111,194 +111,234 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 	if err != nil {
 		return err
 	}
-	byKey := make(map[string]*Group, len(groups))
+	g, into := newGroupGraph(groups, edges)
 	for i := range groups {
-		byKey[groups[i].Key.String()] = &groups[i]
+		g.placeGroup(&groups[i], ins)
 	}
-	var (
-		parents  = make(map[string]resource.ID, len(edges))
-		children = make(map[string][]resource.ID, len(edges))
-		into     []ontology.Relationship
-	)
+	if err = gorp.WrapWriter[Key, Group](tx).Set(ctx, groups...); err != nil {
+		return err
+	}
+	overruled, removals := g.sweepMembers(groups, edges, ins)
+	converted := slices.DeleteFunc(into, func(e ontology.Relationship) bool {
+		return g.underRanges(e.To.Key, set.New[string]())
+	})
+	if err = ontology.DeleteRelationships(
+		ctx,
+		tx,
+		append(converted, overruled...)...,
+	); err != nil {
+		return err
+	}
+	return StageRemovals(ctx, tx, removals...)
+}
+
+// groupGraph is the legacy group tree that the parent edges of the ontology hold.
+type groupGraph struct {
+	// byKey points at each group, so a scope that placeGroup sets shows through it.
+	byKey      map[string]*Group
+	parents    map[string]resource.ID
+	children   map[string][]resource.ID
+	placements map[string]placement
+}
+
+// newGroupGraph returns the tree of groups that edges hold, and the edges into a group.
+func newGroupGraph(
+	groups []Group, edges []ontology.Relationship,
+) (*groupGraph, []ontology.Relationship) {
+	g := &groupGraph{
+		byKey:      make(map[string]*Group, len(groups)),
+		parents:    make(map[string]resource.ID, len(edges)),
+		children:   make(map[string][]resource.ID, len(edges)),
+		placements: make(map[string]placement, len(groups)),
+	}
+	for i := range groups {
+		g.byKey[groups[i].Key.String()] = &groups[i]
+	}
+	var into []ontology.Relationship
 	for _, e := range edges {
 		if e.From.Type == resource.TypeGroup {
-			children[e.From.Key] = append(children[e.From.Key], e.To)
+			g.children[e.From.Key] = append(g.children[e.From.Key], e.To)
 		}
 		if e.To.Type != resource.TypeGroup {
 			continue
 		}
 		into = append(into, e)
-		if _, ok := parents[e.To.Key]; !ok {
+		if _, ok := g.parents[e.To.Key]; !ok {
 			parent := e.From
 			if parent.Type == legacyWorkspaceType {
 				parent.Type = resource.TypeProject
 			}
-			parents[e.To.Key] = parent
+			g.parents[e.To.Key] = parent
 		}
 	}
-	implied := func(key string) placement {
-		scopes, visited := set.New[resource.Type](), set.New[string]()
-		var walk func(key string)
-		walk = func(key string) {
-			visited.Add(key)
-			for _, c := range children[key] {
-				if c.Type != resource.TypeGroup {
-					if s, ok := memberScopes[c.Type]; ok {
-						scopes.Add(s)
-					}
-				} else if parents[c.Key] == groupID(key) && !visited.Contains(c.Key) {
-					walk(c.Key)
-				}
-			}
-		}
-		walk(key)
-		if len(scopes) != 1 {
-			return placement{scope: resource.TypeBuiltin}
-		}
-		return placement{scope: scopes.Slice()[0], placed: true}
-	}
-	placements := make(map[string]placement, len(groups))
-	var place func(key string, visited set.Set[string]) placement
-	place = func(key string, visited set.Set[string]) placement {
-		if p, ok := placements[key]; ok {
-			return p
-		}
-		if visited.Contains(key) {
-			return placement{scope: resource.TypeBuiltin}
-		}
+	return g, into
+}
+
+// implied returns the one scope that the members under the group with key imply.
+func (g *groupGraph) implied(key string) placement {
+	scopes, visited := set.New[resource.Type](), set.New[string]()
+	var walk func(key string)
+	walk = func(key string) {
 		visited.Add(key)
-		p := func() placement {
-			parent, ok := parents[key]
-			switch {
-			case !ok:
-				return implied(key)
-			case parent == ontology.RootID:
-				return placement{scope: resource.TypeBuiltin, placed: true}
-			case parent.Type == resource.TypeProject:
-				return placement{scope: resource.TypeProject, placed: true}
-			case parent.Type == resource.TypeRack:
-				return placement{scope: resource.TypeDevice, placed: true}
-			case parent.Type != resource.TypeGroup:
-				return implied(key)
+		for _, c := range g.children[key] {
+			if c.Type != resource.TypeGroup {
+				if s, ok := memberScopes[c.Type]; ok {
+					scopes.Add(s)
+				}
+			} else if g.parents[c.Key] == groupID(key) && !visited.Contains(c.Key) {
+				walk(c.Key)
 			}
-			p, ok := byKey[parent.Key]
-			if !ok {
-				return implied(key)
-			}
-			if parents[parent.Key] != ontology.RootID {
-				return place(parent.Key, visited)
-			}
-			if s, ok := builtinScopes[p.Name]; ok {
-				return placement{scope: s, placed: true}
-			}
-			if p.Name == legacyRangesRoot {
-				return placement{scope: resource.TypeBuiltin, placed: true}
-			}
-			return implied(key)
-		}()
-		placements[key] = p
+		}
+	}
+	walk(key)
+	if len(scopes) != 1 {
+		return placement{scope: resource.TypeBuiltin}
+	}
+	return placement{scope: scopes.Slice()[0], placed: true}
+}
+
+// place returns the placement of the group with key. visited holds the groups below it
+// in the walk, which breaks a cycle.
+func (g *groupGraph) place(key string, visited set.Set[string]) placement {
+	if p, ok := g.placements[key]; ok {
 		return p
 	}
-	for i := range groups {
-		g := &groups[i]
-		key := g.Key.String()
-		p := place(key, set.New[string]())
-		g.Scope, g.Parent = p.scope, nil
-		if !p.placed {
-			ins.L.Warn(
-				"found no scope for group, so its members will sit in no group",
-				zap.Stringer("key", g.Key),
-				zap.String("name", g.Name),
-			)
-			continue
-		}
-		if g.Scope == resource.TypeBuiltin {
-			continue
-		}
-		parent := parents[key]
-		switch parent.Type {
-		case resource.TypeProject, resource.TypeRack:
-			g.Parent = &parent
-		case resource.TypeGroup:
-			if _, ok := byKey[parent.Key]; ok &&
-				parents[parent.Key] != ontology.RootID {
-				g.Parent = &parent
-			}
-		case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
-			resource.TypeDevice, resource.TypeFramer, resource.TypeLabel,
-			resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
-			resource.TypePanel, resource.TypePolicy, resource.TypeRange,
-			resource.TypeRangeAlias, resource.TypeRole, resource.TypeSchematic,
-			resource.TypeSchematicSymbol, resource.TypeStatus, resource.TypeTable,
-			resource.TypeTask, resource.TypeUser, resource.TypeView,
-			resource.TypeEthercatMaster, resource.TypeEthercatSlave,
-			resource.TypeHTTPServer, resource.TypeLabjackDevice,
-			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
-			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
-			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
-			resource.TypeEnumeration,
-			resource.TypeCalculation:
-		}
+	if visited.Contains(key) {
+		return placement{scope: resource.TypeBuiltin}
 	}
-	if err = gorp.WrapWriter[Key, Group](tx).Set(ctx, groups...); err != nil {
-		return err
+	visited.Add(key)
+	p := g.derivePlacement(key, visited)
+	g.placements[key] = p
+	return p
+}
+
+func (g *groupGraph) derivePlacement(key string, visited set.Set[string]) placement {
+	parent, ok := g.parents[key]
+	switch {
+	case !ok:
+		return g.implied(key)
+	case parent == ontology.RootID:
+		return placement{scope: resource.TypeBuiltin, placed: true}
+	case parent.Type == resource.TypeProject:
+		return placement{scope: resource.TypeProject, placed: true}
+	case parent.Type == resource.TypeRack:
+		return placement{scope: resource.TypeDevice, placed: true}
+	case parent.Type != resource.TypeGroup:
+		return g.implied(key)
 	}
-	var underRanges func(key string, visited set.Set[string]) bool
-	underRanges = func(key string, visited set.Set[string]) bool {
-		parent, ok := parents[key]
-		if !ok || visited.Contains(key) {
-			return false
-		}
-		visited.Add(key)
-		if parent == ontology.RootID {
-			return byKey[key] != nil && byKey[key].Name == legacyRangesRoot
-		}
-		return parent.Type == resource.TypeGroup && underRanges(parent.Key, visited)
+	p, ok := g.byKey[parent.Key]
+	if !ok {
+		return g.implied(key)
 	}
+	if g.parents[parent.Key] != ontology.RootID {
+		return g.place(parent.Key, visited)
+	}
+	if s, ok := builtinScopes[p.Name]; ok {
+		return placement{scope: s, placed: true}
+	}
+	if p.Name == legacyRangesRoot {
+		return placement{scope: resource.TypeBuiltin, placed: true}
+	}
+	return g.implied(key)
+}
+
+// placeGroup sets the scope and parent of grp.
+func (g *groupGraph) placeGroup(grp *Group, ins alamos.Instrumentation) {
+	key := grp.Key.String()
+	p := g.place(key, set.New[string]())
+	grp.Scope, grp.Parent = p.scope, nil
+	if !p.placed {
+		ins.L.Warn(
+			"found no scope for group, so its members will sit in no group",
+			zap.Stringer("key", grp.Key),
+			zap.String("name", grp.Name),
+		)
+		return
+	}
+	if grp.Scope == resource.TypeBuiltin {
+		return
+	}
+	parent := g.parents[key]
+	switch parent.Type {
+	case resource.TypeProject, resource.TypeRack:
+		grp.Parent = &parent
+	case resource.TypeGroup:
+		if _, ok := g.byKey[parent.Key]; ok &&
+			g.parents[parent.Key] != ontology.RootID {
+			grp.Parent = &parent
+		}
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+		resource.TypeDevice, resource.TypeFramer, resource.TypeLabel,
+		resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
+		resource.TypePanel, resource.TypePolicy, resource.TypeRange,
+		resource.TypeRangeAlias, resource.TypeRole, resource.TypeSchematic,
+		resource.TypeSchematicSymbol, resource.TypeStatus, resource.TypeTable,
+		resource.TypeTask, resource.TypeUser, resource.TypeView,
+		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice,
+		resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
+		resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
+		resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+		resource.TypeEnumeration,
+		resource.TypeCalculation:
+	}
+}
+
+// underRanges reports whether the group with key sits under the legacy range root.
+func (g *groupGraph) underRanges(key string, visited set.Set[string]) bool {
+	parent, ok := g.parents[key]
+	if !ok || visited.Contains(key) {
+		return false
+	}
+	visited.Add(key)
+	if parent == ontology.RootID {
+		return g.byKey[key] != nil && g.byKey[key].Name == legacyRangesRoot
+	}
+	return parent.Type == resource.TypeGroup && g.underRanges(parent.Key, visited)
+}
+
+// memberSweep collects the memberships that ParentMigration drops.
+type memberSweep struct {
+	g        *groupGraph
+	ins      alamos.Instrumentation
+	removals []Removal
+}
+
+func (s *memberSweep) remove(
+	e ontology.Relationship, reason ontology.RelationshipType,
+) {
+	grp := s.g.byKey[e.From.Key]
+	s.ins.L.Warn(
+		"dropped a member from a group that cannot hold it",
+		zap.Stringer("group", grp.Key),
+		zap.String("group_name", grp.Name),
+		zap.Stringer("member", e.To),
+	)
+	s.removals = append(
+		s.removals,
+		Removal{Group: grp.Key, GroupName: grp.Name, Member: e.To, Reason: reason},
+	)
+}
+
+// sweepMembers returns the member edges that the member migrations must not apply, and
+// the removal of each membership that the migration drops: one in a group that cannot
+// hold the member, and each but the first by name of a member in several groups.
+func (g *groupGraph) sweepMembers(
+	groups []Group, edges []ontology.Relationship, ins alamos.Instrumentation,
+) ([]ontology.Relationship, []Removal) {
 	values := make(map[string]Group, len(groups))
-	for _, g := range groups {
-		values[g.Key.String()] = g
+	for _, grp := range groups {
+		values[grp.Key.String()] = grp
 	}
+	s := &memberSweep{g: g, ins: ins}
 	var (
 		members    []resource.ID
 		candidates = make(map[resource.ID][]ontology.Relationship)
 		// overruled holds the edges that the member migrations would otherwise apply.
 		overruled []ontology.Relationship
-		removals  []Removal
 	)
-	remove := func(e ontology.Relationship, reason ontology.RelationshipType) {
-		g := byKey[e.From.Key]
-		ins.L.Warn(
-			"dropped a member from a group that cannot hold it",
-			zap.Stringer("group", g.Key),
-			zap.String("group_name", g.Name),
-			zap.Stringer("member", e.To),
-		)
-		removals = append(
-			removals,
-			Removal{Group: g.Key, GroupName: g.Name, Member: e.To, Reason: reason},
-		)
-	}
 	for _, e := range edges {
-		if e.From.Type != resource.TypeGroup || e.To.Type == resource.TypeGroup {
-			continue
-		}
-		g, ok := byKey[e.From.Key]
-		if !ok ||
-			parents[e.From.Key] == ontology.RootID ||
-			underRanges(e.From.Key, set.New[string]()) {
-			continue
-		}
-		if g.Scope == resource.TypeBuiltin {
-			remove(e, RemovedWithGroup)
-			continue
-		}
-		if s, ok := memberScopes[e.To.Type]; !ok || s != g.Scope {
-			remove(e, RemovedUnheld)
-			continue
-		}
-		// The member migrations remove a pinned member from its group.
-		if pinned(*g, e.To.Type, values) {
+		if !g.heldMember(e, values, s) {
 			continue
 		}
 		if _, ok := candidates[e.To]; !ok {
@@ -312,7 +352,7 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			continue
 		}
 		slices.SortFunc(c, func(a, b ontology.Relationship) int {
-			x, y := byKey[a.From.Key].Name, byKey[b.From.Key].Name
+			x, y := g.byKey[a.From.Key].Name, g.byKey[b.From.Key].Name
 			return cmp.Or(
 				strings.Compare(strings.ToLower(x), strings.ToLower(y)),
 				strings.Compare(x, y),
@@ -320,21 +360,37 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			)
 		})
 		for _, e := range c[1:] {
-			remove(e, RemovedDuplicate)
+			s.remove(e, RemovedDuplicate)
 		}
 		overruled = append(overruled, c[1:]...)
 	}
-	converted := slices.DeleteFunc(into, func(e ontology.Relationship) bool {
-		return underRanges(e.To.Key, set.New[string]())
-	})
-	if err = ontology.DeleteRelationships(
-		ctx,
-		tx,
-		append(converted, overruled...)...,
-	); err != nil {
-		return err
+	return overruled, s.removals
+}
+
+// heldMember reports whether the edge e from a group to a member stays a candidate
+// membership. It records a removal in s for a group that cannot hold the member.
+func (g *groupGraph) heldMember(
+	e ontology.Relationship, values map[string]Group, s *memberSweep,
+) bool {
+	if e.From.Type != resource.TypeGroup || e.To.Type == resource.TypeGroup {
+		return false
 	}
-	return StageRemovals(ctx, tx, removals...)
+	grp, ok := g.byKey[e.From.Key]
+	if !ok ||
+		g.parents[e.From.Key] == ontology.RootID ||
+		g.underRanges(e.From.Key, set.New[string]()) {
+		return false
+	}
+	if grp.Scope == resource.TypeBuiltin {
+		s.remove(e, RemovedWithGroup)
+		return false
+	}
+	if sc, ok := memberScopes[e.To.Type]; !ok || sc != grp.Scope {
+		s.remove(e, RemovedUnheld)
+		return false
+	}
+	// The member migrations remove a pinned member from its group.
+	return !pinned(*grp, e.To.Type, values)
 }
 
 // MembersConfig configures a migration that moves the members of type Type out of the
@@ -392,16 +448,76 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	for _, g := range groups {
 		byKey[g.Key.String()] = g
 	}
+	memberGroups, removals := memberGroupsOf(edges, byKey, cfg.Type, ins)
+	var members []E
+	if err = gorp.NewRetrieve[K, E]().
+		Where(gorp.Match(func(_ gorp.Context, e *E) (bool, error) {
+			_, ok := memberGroups[gorp.FormatKey((*e).GorpKey())]
+			return ok, nil
+		})).
+		Entries(&members).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	owners := setMemberGroups(members, memberGroups, byKey, cfg)
+	if err = gorp.WrapWriter[K, E](tx).Set(ctx, members...); err != nil {
+		return err
+	}
+	if err = ontology.DeleteRelationships(ctx, tx, edges...); err != nil {
+		return err
+	}
+	if err = StageRemovals(ctx, tx, removals...); err != nil {
+		return err
+	}
+	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, owners...)
+}
+
+// setMemberGroups sets the group of each of members from memberGroups. It returns a
+// parent edge to each member from the project at the top of its group's chain when cfg
+// asks for one.
+func setMemberGroups[K gorp.Key, E gorp.Entry[K]](
+	members []E,
+	memberGroups, byKey map[string]Group,
+	cfg MembersConfig[K, E],
+) []ontology.Relationship {
+	var owners []ontology.Relationship
+	for i := range members {
+		id := gorp.FormatKey(members[i].GorpKey())
+		g := memberGroups[id]
+		cfg.SetGroup(&members[i], g.Key)
+		if !cfg.ProjectOwned {
+			continue
+		}
+		if top, ok := TopParent(g, byKey); ok && top.Type == resource.TypeProject {
+			owners = append(owners, ontology.Relationship{
+				From: top,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   resource.ID{Type: cfg.Type, Key: id},
+			})
+		}
+	}
+	return owners
+}
+
+// memberGroupsOf returns the group of each member of type t that edges place in a group
+// whose scope holds t, keyed by member key, and a removal for each member that sits in
+// a group outside its pinned parent.
+func memberGroupsOf(
+	edges []ontology.Relationship,
+	byKey map[string]Group,
+	t resource.Type,
+	ins alamos.Instrumentation,
+) (map[string]Group, []Removal) {
 	var (
 		memberGroups = make(map[string]Group, len(edges))
 		removals     []Removal
 	)
 	for _, e := range edges {
 		g, ok := byKey[e.From.Key]
-		if !ok || g.Scope != memberScopes[cfg.Type] {
+		if !ok || g.Scope != memberScopes[t] {
 			continue
 		}
-		if pinned(g, cfg.Type, byKey) {
+		if pinned(g, t, byKey) {
 			ins.L.Warn(
 				"dropped a member from a group outside its pinned parent",
 				zap.Stringer("group", g.Key),
@@ -420,42 +536,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 			memberGroups[e.To.Key] = g
 		}
 	}
-	var members []E
-	if err = gorp.NewRetrieve[K, E]().
-		Where(gorp.Match(func(_ gorp.Context, e *E) (bool, error) {
-			_, ok := memberGroups[gorp.FormatKey((*e).GorpKey())]
-			return ok, nil
-		})).
-		Entries(&members).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	var owners []ontology.Relationship
-	for i := range members {
-		id := gorp.FormatKey(members[i].GorpKey())
-		g := memberGroups[id]
-		cfg.SetGroup(&members[i], g.Key)
-		if !cfg.ProjectOwned {
-			continue
-		}
-		if top, ok := TopParent(g, byKey); ok && top.Type == resource.TypeProject {
-			owners = append(owners, ontology.Relationship{
-				From: top,
-				Type: ontology.RelationshipTypeParentOf,
-				To:   resource.ID{Type: cfg.Type, Key: id},
-			})
-		}
-	}
-	if err = gorp.WrapWriter[K, E](tx).Set(ctx, members...); err != nil {
-		return err
-	}
-	if err = ontology.DeleteRelationships(ctx, tx, edges...); err != nil {
-		return err
-	}
-	if err = StageRemovals(ctx, tx, removals...); err != nil {
-		return err
-	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, owners...)
+	return memberGroups, removals
 }
 
 // TopParent returns the parent of the group at the top of g's chain, if it has one.

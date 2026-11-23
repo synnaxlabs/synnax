@@ -1,0 +1,23 @@
+{
+  "description": "A bytes default must be canonical base64.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "blob",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/blob",
+          "type": "bytes",
+          "default": "AQI"
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "error": "message command: field blob: default: must be base64: validation error"
+}

@@ -367,6 +367,104 @@ var _ = Describe("Relay", func() {
 				Expect(warnings()).To(Equal(2))
 			},
 		)
+
+		It(
+			"Should send one missed marker per drop episode after the buffered frames",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				DeferCleanup(r.Close)
+				key := channel.NewKey(node.KeyFree, 1)
+				openStreamer := func(
+					buffer int,
+					missedRequested bool,
+				) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+						Keys:            channel.Keys{key},
+						SendOpenAck:     new(true),
+						MissedRequested: new(missedRequested),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				stalled := openStreamer(0, true)
+				unrequested := openStreamer(0, false)
+				live := openStreamer(10, false)
+				send := func(n int) {
+					GinkgoHelper()
+					for v := range int64(n) {
+						freeWrites.Inlet() <- relay.Response{
+							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+						}
+						Eventually(live.Outlet()).Should(Receive())
+					}
+				}
+				// drain reads the outlet until it stays empty. It returns the frames
+				// read and the number of frames read before each marker.
+				drain := func(
+					out confluence.Outlet[relay.Response],
+				) (frames int, markers []int) {
+					GinkgoHelper()
+					for {
+						var res relay.Response
+						select {
+						case res = <-out.Outlet():
+						case <-time.After(200 * time.Millisecond):
+							return frames, markers
+						}
+						if res.Missed {
+							Expect(res.Frame.Empty()).To(BeTrue())
+							markers = append(markers, frames)
+						} else {
+							frames++
+						}
+					}
+				}
+				// A stalled streamer holds one frame and buffers four, so it drops
+				// three.
+				send(8)
+				frames, markers := drain(stalled)
+				Expect(frames).To(Equal(5))
+				Expect(markers).To(Equal([]int{5}))
+				frames, markers = drain(unrequested)
+				Expect(frames).To(Equal(5))
+				Expect(markers).To(BeEmpty())
+				send(2)
+				frames, markers = drain(stalled)
+				Expect(frames).To(Equal(2))
+				Expect(markers).To(BeEmpty())
+				drain(unrequested)
+				send(8)
+				_, markers = drain(stalled)
+				Expect(markers).To(Equal([]int{5}))
+				// Reading during the drops lets the streamer take the signal of the
+				// first drop before the next ones, which must not add a marker.
+				for range 10 {
+					send(8)
+					for range 2 {
+						Eventually(stalled.Outlet()).Should(Receive())
+					}
+					send(8)
+					frames, markers = drain(stalled)
+					Expect(markers).To(Equal([]int{frames}))
+				}
+			},
+		)
 	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(

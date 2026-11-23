@@ -428,6 +428,9 @@ public:
         poll_interval(cfg.poll_interval),
         shutdown_timeout(cfg.shutdown_timeout),
         worker_count(cfg.worker_count) {
+        // The bus forwards nothing until the first read of the control state. The
+        // mirror then stays in force through outages and runs.
+        this->control_states->close();
         this->ctx->set_rack_name(this->rack.name);
     }
 
@@ -545,6 +548,14 @@ private:
     std::unique_ptr<synnax::framer::Streamer> streamer;
     /// @brief signals early shutdown before streamer is opened.
     std::atomic<bool> exit_early{false};
+    /// @brief notified by stop, under mu, to end a wait between runs.
+    std::condition_variable stopped;
+    /// @brief set by the streamer when the Core dropped task changes. Read and written
+    /// only on the thread that runs the streamer.
+    bool missed = false;
+    /// @brief true while the monitor loop's read of the control state runs.
+    std::shared_ptr<std::atomic<bool>>
+        control_reading = std::make_shared<std::atomic<bool>>(false);
 
     /// @brief channels used to receive task events.
     struct {
@@ -560,11 +571,15 @@ private:
     x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
-    /// @brief replaces the control state mirror with the cluster's current state.
-    /// Best-effort: a failed read is logged and leaves the mirror empty.
-    void retrieve_initial_control_states();
+    /// @brief reads the control state. A failed read ends a hold with the last mirror
+    /// and leaves the read to the monitor loop, which tries again each poll.
+    void read_control_states_or_retry();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
+    /// @brief removes the tasks the Core no longer has and deploys each task it has.
+    /// With known_kept set, a task that already has an entry only gets its row
+    /// updated, so its instance runs on, as it does after a set event.
+    x::errors::Error sync_tasks(bool known_kept);
     /// @brief stops all running tasks and cancels their running starts.
     void stop_all_tasks();
     /// @brief re-reads this rack's name so a rename made before the streamer opened

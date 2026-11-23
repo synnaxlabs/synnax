@@ -624,7 +624,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/device/retrieve",
 		),
-		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, nidevice.UpdateResponse](
 			router,
 			"/api/v1/ni/device/update",
 		),
@@ -642,7 +642,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/chassis/retrieve",
 		),
-		NIChassisUpdate: unary[nichassis.UpdateRequest, struct{}](
+		NIChassisUpdate: unary[nichassis.UpdateRequest, nichassis.UpdateResponse](
 			router,
 			"/api/v1/ni/chassis/update",
 		),

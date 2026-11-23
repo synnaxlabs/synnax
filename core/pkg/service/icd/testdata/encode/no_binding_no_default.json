@@ -1,0 +1,22 @@
+{
+  "description": "A field with no binding needs a default.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "error": "message command: field temp: needs a channel or a default: validation error"
+}

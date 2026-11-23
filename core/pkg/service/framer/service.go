@@ -221,8 +221,9 @@ func (s *Service) NewStreamWriter(
 }
 
 // OpenIterator opens a buffered Iterator that reads telemetry from the channels in cfg
-// over cfg.Bounds. The caller must Close the returned Iterator. It returns an error if
-// cfg is invalid or any channel in cfg.Keys cannot be resolved.
+// over cfg.Bounds. The caller must Close the returned Iterator, which stops when ctx
+// ends. It returns an error if cfg is invalid or any channel in cfg.Keys cannot be
+// resolved.
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {

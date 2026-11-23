@@ -12,7 +12,7 @@ import { Staleness } from "@/vis/staleness";
 
 /** Indicator shows the stale indicator in the bottom slot of a symbol. */
 export const Indicator = Grid.createItem(() => (
-  <Grid.Item itemKey="stale" location="bottom">
+  <Grid.Item itemKey="stale" location="bottom" fixed>
     <Staleness.Badge />
   </Grid.Item>
 ));
