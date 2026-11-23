@@ -31,6 +31,8 @@ type JSONEncoder struct {
 	name     string
 	template xjson.Template
 	slots    encodeSlots
+	// checked holds the text that the last Check wrote, for the next Check to reuse.
+	checked []byte
 }
 
 // encodeSlots fills the slots of a JSONEncoder's template with the samples of one
@@ -529,6 +531,18 @@ func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 // for a nil sample.
 func (e *JSONEncoder) HasDefault(i int) bool {
 	return e.slots.fields[i].fallback.defined()
+}
+
+// Check returns the error that Encode returns when binding i holds sample, or nil when
+// the field of binding i can hold sample.
+func (e *JSONEncoder) Check(i int, sample []byte) error {
+	f := &e.slots.fields[i]
+	out, err := f.encode(e.checked[:0], sample)
+	if err != nil {
+		return errors.Wrapf(err, "message %s: field %s", e.name, f.name)
+	}
+	e.checked = out
+	return nil
 }
 
 // AppendSlot implements xjson.Slots.
