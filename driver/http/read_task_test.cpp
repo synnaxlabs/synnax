@@ -1579,6 +1579,42 @@ TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
     EXPECT_EQ(cfg.endpoints[1].path, "/api/pressure");
 }
 
+/// @brief parse() should drop a disabled endpoint without checking its fields.
+TEST_F(HTTPReadTaskParseTest, DisabledEndpointSkipped) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("temp"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {
+             {
+                 {"method", "GET"},
+                 {"path", "/api/temp"},
+                 {"fields", {{{"pointer", "/temp"}, {"channel", ch.key}}}},
+             },
+             {
+                 {"method", "GET"},
+                 {"path", "/api/off"},
+                 {"disabled", true},
+                 {"fields", {{{"pointer", "off"}, {"channel", 0}}}},
+             },
+         }},
+    };
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].path, "/api/temp");
+}
+
 /// @brief it should successfully read 10 times in succession from the same endpoint.
 TEST(HTTPReadTask, RepeatedReads) {
     testutil::Server server(
