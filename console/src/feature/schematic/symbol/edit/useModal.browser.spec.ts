@@ -484,6 +484,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("shows the paint that the whole drawing gives a part with none", async () => {
+      await openPainted({ looks: [{ key: "node", fill: { type: "node" } }] });
+      const fill = screen.getByLabelText("Fill");
+      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+    });
+
     it("clears the paint of a part at the value when Drawing is picked", async () => {
       const symbol = await openPainted({
         states: [createState()],
