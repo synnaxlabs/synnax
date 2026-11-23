@@ -62,7 +62,7 @@ func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	if err := validateParents(*s); err != nil {
 		return err
 	}
-	if err := w.checkBindings(ctx, *s); err != nil {
+	if err := w.checkBindings(ctx, *s, nil); err != nil {
 		return err
 	}
 	if err := project.CheckMember(s.Project); err != nil {
@@ -163,6 +163,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err != nil {
 				return Schematic{}, err
 			}
+			only, err := rebound(acts)
+			if err != nil {
+				return Schematic{}, err
+			}
 			var placed project.Placement
 			if placed, added, err = project.Place(
 				ctx,
@@ -182,7 +186,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = validateParents(next); err != nil {
 				return Schematic{}, err
 			}
-			if err = w.checkBindings(ctx, next); err != nil {
+			if err = w.checkBindings(ctx, next, only); err != nil {
 				return Schematic{}, err
 			}
 			return next, project.CheckMember(next.Project)

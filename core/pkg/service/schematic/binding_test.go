@@ -14,75 +14,28 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Symbol node bindings", func() {
-	var heater symbol.Symbol
-
+	var sym symbol.Symbol
 	BeforeEach(func(ctx SpecContext) {
-		active := "active"
-		heater = defaults.Fill(symbol.Symbol{
-			Name: "Heater",
-			Data: symbol.Spec{
-				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-				Variant: "static",
-				States: []symbol.State{
-					{Variant: symbol.EnumerationState{
-						BaseState: symbol.BaseState{Key: "active", Name: "Active"},
-					}},
-					{Variant: symbol.NumberState{
-						BaseState: symbol.BaseState{Key: "level", Name: "Level"},
-						Bounds:    spatial.Bounds{Lower: 0, Upper: 100},
-					}},
-				},
-				Commands: []symbol.Command{
-					{
-						Key:   "activate",
-						Name:  "On",
-						State: &active,
-						Value: symbol.CommandValue{
-							Variant: symbol.FixedCommandValue{Value: 1},
-						},
-					},
-					{
-						Key:  "reset",
-						Name: "Reset",
-						Value: symbol.CommandValue{
-							Variant: symbol.FixedCommandValue{Value: 0},
-						},
-					},
-				},
-			},
-		})
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Symbol.NewWriter(tx).Create(ctx, &heater)
-		})).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Symbol.NewWriter(tx).Delete(ctx, heater.Key)
-			})).To(Succeed())
-		})
+		sym = heater()
+		createSymbol(ctx, &sym)
 	})
 
-	custom := func() symbol.Ref {
-		return symbol.Ref{Variant: symbol.CustomRef{Key: heater.Key}}
-	}
-	builtin := func(name string) symbol.Ref {
-		return symbol.Ref{Variant: symbol.BuiltinRef{Name: name}}
-	}
-	// fits returns a node of the custom symbol that binds each of its states and its
-	// command with no state.
+	// fits returns a node of sym that binds each of its states and its command with no
+	// state.
 	fits := func() schematic.SymbolNodeConfig {
 		return schematic.SymbolNodeConfig{
-			Spec: custom(),
+			Spec: customRef(sym),
 			States: []schematic.StateBinding{
 				{Key: "active", Source: &schematic.Source{
 					Variant: schematic.ChannelSource{Key: new(channel.Key(1))},
@@ -92,15 +45,8 @@ var _ = Describe("Symbol node bindings", func() {
 			Commands: []schematic.CommandBinding{{Key: "reset", Channel: 2}},
 		}
 	}
-	diagram := func(cfg schematic.SymbolNodeConfig) schematic.Schematic {
-		return schematic.Schematic{
-			Project: &proj.Key,
-			Name:    "symbols",
-			Nodes: []schematic.Node{configured(
-				node("n", 0, 0),
-				defaults.Fill(schematic.NodeConfig{Variant: cfg}),
-			)},
-		}
+	diagram := func(nodes ...schematic.Node) schematic.Schematic {
+		return schematic.Schematic{Project: &proj.Key, Name: "symbols", Nodes: nodes}
 	}
 	create := func(ctx SpecContext, s *schematic.Schematic) error {
 		GinkgoHelper()
@@ -117,34 +63,33 @@ var _ = Describe("Symbol node bindings", func() {
 		return err
 	}
 
-	It(
-		"Should save a node whose bindings fit its custom symbol",
-		func(ctx SpecContext) {
-			s := diagram(fits())
-			Expect(create(ctx, &s)).To(Succeed())
-		},
-	)
+	It("Should save a node whose bindings fit its custom symbol", func(
+		ctx SpecContext,
+	) {
+		s := diagram(symbolNode("n", fits()))
+		Expect(create(ctx, &s)).To(Succeed())
+	})
 
 	It("Should save a node whose bindings fit its built-in symbol", func(
 		ctx SpecContext,
 	) {
-		s := diagram(schematic.SymbolNodeConfig{
-			Spec: builtin("valve"),
+		s := diagram(symbolNode("n", schematic.SymbolNodeConfig{
+			Spec: builtinRef("valve"),
 			States: []schematic.StateBinding{{
 				Key:     "active",
 				Match:   &symbol.Matcher{Variant: symbol.ExactMatcher{}},
 				Default: new(1.0),
 			}},
-		})
+		}))
 		Expect(create(ctx, &s)).To(Succeed())
 	})
 
 	It("Should save the bindings of a missing symbol unchecked", func(ctx SpecContext) {
-		s := diagram(schematic.SymbolNodeConfig{
+		s := diagram(symbolNode("n", schematic.SymbolNodeConfig{
 			Spec:     symbol.Ref{Variant: symbol.MissingRef{Key: "gone"}},
 			States:   []schematic.StateBinding{{Key: "anything"}},
 			Commands: []schematic.CommandBinding{{Key: "anything", Channel: 2}},
-		})
+		}))
 		Expect(create(ctx, &s)).To(Succeed())
 	})
 
@@ -153,7 +98,7 @@ var _ = Describe("Symbol node bindings", func() {
 		func(ctx SpecContext, edit func(*schematic.SymbolNodeConfig), msg string) {
 			cfg := fits()
 			edit(&cfg)
-			s := diagram(cfg)
+			s := diagram(symbolNode("n", cfg))
 			Expect(create(ctx, &s)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(msg)),
@@ -162,12 +107,12 @@ var _ = Describe("Symbol node bindings", func() {
 		Entry(
 			"a built-in name that the Core lacks",
 			func(c *schematic.SymbolNodeConfig) {
-				c.Spec = builtin("warp_drive")
+				c.Spec = builtinRef("warp_drive")
 			},
 			`nodes.0.config.spec.name: "warp_drive" names no built-in symbol`,
 		),
 		Entry("a state that the built-in lacks", func(c *schematic.SymbolNodeConfig) {
-			c.Spec = builtin("valve")
+			c.Spec = builtinRef("valve")
 		}, `nodes.0.config.states.1.key: "level" names no state of the symbol`),
 		Entry("a repeated state binding", func(c *schematic.SymbolNodeConfig) {
 			c.States = append(c.States, c.States[0])
@@ -212,7 +157,7 @@ var _ = Describe("Symbol node bindings", func() {
 			cfg := fits()
 			gone := uuid.New()
 			cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: gone}}
-			s := diagram(cfg)
+			s := diagram(symbolNode("n", cfg))
 			Expect(create(ctx, &s)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
@@ -224,15 +169,14 @@ var _ = Describe("Symbol node bindings", func() {
 	)
 
 	It("Should check the bindings that an action sets", func(ctx SpecContext) {
-		s := diagram(fits())
+		s := diagram(symbolNode("n", fits()))
 		Expect(create(ctx, &s)).To(Succeed())
 		cfg := fits()
 		cfg.States[0].Key = "speed"
 		Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
-			schematic.NewSetNodeAction(schematic.SetNodePayload{Node: configured(
-				node("n", 0, 0),
-				defaults.Fill(schematic.NodeConfig{Variant: cfg}),
-			)}),
+			schematic.NewSetNodeAction(schematic.SetNodePayload{
+				Node: symbolNode("n", cfg),
+			}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(
@@ -241,17 +185,121 @@ var _ = Describe("Symbol node bindings", func() {
 		))
 	})
 
-	It("Should refuse the delete of a custom symbol that a node draws", func(
-		ctx SpecContext,
-	) {
-		s := diagram(fits())
-		Expect(create(ctx, &s)).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Symbol.NewWriter(tx).Delete(ctx, heater.Key)
-		})).To(MatchError(gorp.RestrictError{
-			Target:    gorp.NewTarget("schematic_symbol", heater.Key),
-			Holder:    gorp.NewTarget("schematic", s.Key),
-			Reference: "nodes.config.spec.key",
-		}))
+	Describe("A node that a symbol edit leaves stale", func() {
+		var s schematic.Schematic
+		BeforeEach(func(ctx SpecContext) {
+			s = diagram(
+				symbolNode("stale", fits()),
+				symbolNode("other", schematic.SymbolNodeConfig{
+					Spec: builtinRef("valve"),
+				}),
+			)
+			Expect(create(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Symbol.NewWriter(tx).Apply(
+					ctx,
+					sym.Key,
+					symbol.NewRemoveAction(symbol.RemovePayload{
+						Path: []string{"data", "states"},
+						Key:  "level",
+					}),
+				)
+			})).To(Succeed())
+		})
+		refused := func(index string) types.GomegaMatcher {
+			return SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					`nodes.0.config.states.%s.key: "level" names no state of the symbol`,
+					index,
+				)),
+			)
+		}
+
+		DescribeTable(
+			"Should check the stale node only when an action rebinds it",
+			func(
+				ctx SpecContext,
+				act func() schematic.Action,
+				match types.GomegaMatcher,
+			) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{act()})).
+					To(match)
+			},
+			Entry("a label of another node", func() schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", "other", "config", "label", "label"},
+					Value: "Inlet",
+				})
+			}, Succeed()),
+			Entry("a label of the stale node", func() schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", "stale", "config", "label", "label"},
+					Value: "Heater",
+				})
+			}, Succeed()),
+			Entry("a position of the stale node", func() schematic.Action {
+				return schematic.NewSetNodePositionAction(
+					schematic.SetNodePositionPayload{Key: "stale"},
+				)
+			}, Succeed()),
+			Entry("a remove of the stale binding", func() schematic.Action {
+				return schematic.NewRemoveAction(schematic.RemovePayload{
+					Path: []string{"nodes", "stale", "config", "states"},
+					Key:  "level",
+				})
+			}, Succeed()),
+			Entry("a set into the states of the stale node", func() schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path: []string{
+						"nodes", "stale", "config", "states", "active", "units",
+					},
+					Value: "C",
+				})
+			}, refused("1")),
+			Entry(
+				"a remove from the commands of the stale node",
+				func() schematic.Action {
+					return schematic.NewRemoveAction(schematic.RemovePayload{
+						Path: []string{"nodes", "stale", "config", "commands"},
+						Key:  "reset",
+					})
+				},
+				refused("1"),
+			),
+			Entry(
+				"an insert into the states of the stale node",
+				func() schematic.Action {
+					return schematic.NewInsertAction(schematic.InsertPayload{
+						Path:  []string{"nodes", "stale", "config", "states"},
+						Value: map[string]any{"key": "active"},
+					})
+				},
+				refused("1"),
+			),
+			Entry("a move in the states of the stale node", func() schematic.Action {
+				return schematic.NewMoveAction(schematic.MovePayload{
+					Path: []string{"nodes", "stale", "config", "states"},
+					Key:  "level",
+				})
+			}, refused("0")),
+			Entry("a set of the spec of the stale node", func() schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", "stale", "config", "spec"},
+					Value: map[string]any{"type": "builtin", "name": "valve"},
+				})
+			}, refused("1")),
+			Entry("a set of the config of the stale node", func() schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", "stale", "config"},
+					Value: fields(s.Nodes[0].Config),
+				})
+			}, refused("1")),
+			Entry("a set of the stale node", func() schematic.Action {
+				return schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node: s.Nodes[0],
+				})
+			}, refused("1")),
+		)
 	})
 })

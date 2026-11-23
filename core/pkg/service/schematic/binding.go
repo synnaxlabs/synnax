@@ -17,19 +17,33 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // checkBindings returns an error wrapping validate.ErrValidation at the first binding
-// of a symbol node of s that its symbol refuses. It does not check the bindings of a
-// missing symbol.
-func (w Writer) checkBindings(ctx context.Context, s Schematic) error {
-	custom, err := w.customSymbols(ctx, s)
+// of a symbol node of s that its symbol refuses. A nil only checks every node, and
+// otherwise it checks the nodes whose keys only holds. It does not check the bindings
+// of a missing symbol.
+func (w Writer) checkBindings(
+	ctx context.Context,
+	s Schematic,
+	only set.Set[string],
+) error {
+	var keys []symbol.Key
+	for _, n := range s.Nodes {
+		if cfg, ok := checked(n, only); ok {
+			if ref, ok := cfg.Spec.Variant.(symbol.CustomRef); ok {
+				keys = append(keys, ref.Key)
+			}
+		}
+	}
+	custom, err := w.customSymbols(ctx, lo.Uniq(keys))
 	if err != nil {
 		return err
 	}
 	for i, n := range s.Nodes {
-		cfg, ok := n.Config.Variant.(SymbolNodeConfig)
+		cfg, ok := checked(n, only)
 		if !ok {
 			continue
 		}
@@ -68,31 +82,79 @@ func (w Writer) checkBindings(ctx context.Context, s Schematic) error {
 	return nil
 }
 
-// customSymbols returns the custom symbols that the symbol nodes of s draw, by key.
+// checked returns the config of n when n is a symbol node that checkBindings checks.
+func checked(n Node, only set.Set[string]) (SymbolNodeConfig, bool) {
+	cfg, ok := n.Config.Variant.(SymbolNodeConfig)
+	return cfg, ok && (only == nil || only.Contains(n.Key))
+}
+
+// customSymbols returns the custom symbols with the keys that tx holds, by key.
 func (w Writer) customSymbols(
 	ctx context.Context,
-	s Schematic,
+	keys []symbol.Key,
 ) (map[symbol.Key]symbol.Symbol, error) {
-	var keys []symbol.Key
-	for _, n := range s.Nodes {
-		if cfg, ok := n.Config.Variant.(SymbolNodeConfig); ok {
-			if ref, ok := cfg.Spec.Variant.(symbol.CustomRef); ok {
-				keys = append(keys, ref.Key)
-			}
-		}
-	}
 	if len(keys) == 0 {
 		return nil, nil
 	}
 	var symbols []symbol.Symbol
 	if err := w.symbols.NewRetrieve().
-		Where(symbol.MatchKeys(lo.Uniq(keys)...)).
+		Where(symbol.MatchKeys(keys...)).
 		SkipMissingKeys().
 		Entries(&symbols).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
 	return lo.KeyBy(symbols, func(s symbol.Symbol) symbol.Key { return s.Key }), nil
+}
+
+// rebound returns the keys of the nodes whose symbol or bindings acts can change.
+// Reduce
+// must accept acts first, so that each path into a node goes into a field of it.
+func rebound(acts []Action) (set.Set[string], error) {
+	keys := set.Set[string]{}
+	for _, a := range acts {
+		var path []string
+		switch a.Type {
+		case ActionTypeSetNode:
+			keys.Add(a.SetNode.Node.Key)
+			continue
+		case ActionTypeSetNodePosition,
+			ActionTypeRemoveNode,
+			ActionTypeAddEdge,
+			ActionTypeRemoveEdge:
+			continue
+		case ActionTypeSet:
+			path = a.Set.Path
+		case ActionTypeRemove:
+			path = append(slices.Clone(a.Remove.Path), a.Remove.Key)
+		case ActionTypeInsert:
+			path = a.Insert.Path
+		case ActionTypeMove:
+			path = a.Move.Path
+		default:
+			return nil, errors.Newf("unknown action type %q", a.Type)
+		}
+		if path[0] == "nodes" && rebinds(path) {
+			keys.Add(path[1])
+		}
+	}
+	return keys, nil
+}
+
+// rebinds reports whether a patch at path, into a field of the node path[1], can change
+// the symbol or bindings of the node.
+func rebinds(path []string) bool {
+	if path[2] != "config" {
+		return false
+	}
+	if len(path) == 3 {
+		return true
+	}
+	switch path[3] {
+	case "spec", "states", "commands":
+		return true
+	}
+	return false
 }
 
 func checkStateBindings(
