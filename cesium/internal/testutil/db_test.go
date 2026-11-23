@@ -104,7 +104,7 @@ var _ = Describe("ReadUnary", func() {
 		w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
 			Start: 10 * telem.SecondTS,
 		}))
-		MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
+		MustSucceed2(w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11, 12), nil))
 		MustSucceed(w.Commit(ctx))
 		Expect(w.Close()).To(Succeed())
 		frame := MustSucceed(testutil.ReadUnary(

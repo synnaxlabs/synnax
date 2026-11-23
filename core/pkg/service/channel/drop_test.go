@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -81,7 +82,9 @@ var _ = Describe("Delete Order", func() {
 				Expect(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  []channel.Key{ch.Key()},
 					Start: 10 * telem.SecondTS,
-				})).Error().To(MatchError(framer.ErrChannelDeleting))
+				})).Error().To(MatchError(
+					fmt.Sprintf("channel %v: channel is being deleted", ch.Key()),
+				))
 				return rollback
 			})).To(MatchError(rollback))
 			Expect(MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{

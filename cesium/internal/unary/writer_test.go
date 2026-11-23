@@ -67,15 +67,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
-					v := MustSucceed(
-						w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)),
-					)
-					Expect(v).To(Equal(telem.LeadingAlignment(1, 0)))
-					Expect(
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21)),
+					v, _ := MustSucceed2(
+						w.WriteUnless(
+							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
+							nil,
 						),
-					).To(Equal(telem.LeadingAlignment(1, 6)))
+					)
+					Expect(v).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+					Expect(
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21),
+								nil,
+							),
+						),
+					).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(21*telem.SecondTS + 1))
 					Expect(w.Close()).To(Succeed())
 				})
@@ -83,23 +89,31 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By(
 						"Reserving a fresh leading domain when nothing controls the channel",
 					)
-					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(1, 0)))
-					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(2, 0)))
+					Expect(db.WriteCursor(0)).
+						To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+					Expect(db.WriteCursor(0)).
+						To(Equal(telem.NewAlignment(telem.LeadingDomain+2, 0)))
 					w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
 
 					By("Tracking the controlling writer's next write position")
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10)))).
-						To(Equal(telem.LeadingAlignment(3, 0)))
+					Expect(
+						MustSucceed2(w.WriteUnless(telem.NewSeriesSecondsTSV(10), nil)),
+					).
+						To(Equal(telem.NewAlignment(telem.LeadingDomain+3, 0)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(telem.LeadingAlignment(3, 1)))
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(11, 12)))).
-						To(Equal(telem.LeadingAlignment(3, 1)))
+					).To(Equal(telem.NewAlignment(telem.LeadingDomain+3, 1)))
+					Expect(
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(11, 12), nil),
+						),
+					).
+						To(Equal(telem.NewAlignment(telem.LeadingDomain+3, 1)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(telem.LeadingAlignment(3, 3)))
+					).To(Equal(telem.NewAlignment(telem.LeadingDomain+3, 3)))
 
 					Expect(w.Close()).To(Succeed())
 				})
@@ -110,19 +124,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 							End:   15 * telem.SecondTS,
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11, 12), nil),
+						)
 
 						By("Tracking the bounded region for a timestamp inside it")
 						Expect(
 							db.WriteCursor(11 * telem.SecondTS),
-						).To(Equal(telem.LeadingAlignment(1, 3)))
+						).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 3)))
 
 						By(
 							"Reserving a fresh domain for a timestamp the region does not cover",
 						)
 						Expect(
 							db.WriteCursor(20 * telem.SecondTS),
-						).To(Equal(telem.LeadingAlignment(2, 0)))
+						).To(Equal(telem.NewAlignment(telem.LeadingDomain+2, 0)))
 						Expect(w.Close()).To(Succeed())
 					},
 				)
@@ -154,11 +170,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext, prior, rejected telem.Series) {
 							w := open(ctx, config(10*telem.SecondTS))
 							if prior.Len() > 0 {
-								MustSucceed(w.Write(prior))
+								MustSucceed2(w.WriteUnless(prior, nil))
 								MustSucceed(w.Commit(ctx))
 							}
-							Expect(w.Write(rejected)).Error().To(outOfOrder)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(w.WriteUnless(rejected, nil)).Error().To(outOfOrder)
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(20), nil),
+							)
 							Expect(MustSucceed(w.Commit(ctx))).
 								To(Equal(20*telem.SecondTS + 1))
 							Expect(w.Close()).To(Succeed())
@@ -180,8 +198,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					)
 					It("Should allow equal timestamps", func(ctx SpecContext) {
 						w := open(ctx, config(10*telem.SecondTS))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 10)))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(10, 10), nil),
+						)
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
+						)
 						Expect(MustSucceed(w.Commit(ctx))).
 							To(Equal(11*telem.SecondTS + 1))
 						Expect(w.Close()).To(Succeed())
@@ -191,15 +213,23 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should not check the order of stream only writes",
 						func(ctx SpecContext) {
 							live := open(ctx, config(10*telem.SecondTS))
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+							MustSucceed2(
+								live.WriteUnless(telem.NewSeriesSecondsTSV(10), nil),
+							)
 							MustSucceed(live.Commit(ctx))
 							cfg := config(10 * telem.SecondTS)
 							cfg.Persist = new(false)
 							stream := open(ctx, cfg)
-							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(100)))
-							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(99)))
+							MustSucceed2(
+								stream.WriteUnless(telem.NewSeriesSecondsTSV(100), nil),
+							)
+							MustSucceed2(
+								stream.WriteUnless(telem.NewSeriesSecondsTSV(99), nil),
+							)
 							Expect(stream.Close()).To(Succeed())
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(11)))
+							MustSucceed2(
+								live.WriteUnless(telem.NewSeriesSecondsTSV(11), nil),
+							)
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
 							Expect(live.Close()).To(Succeed())
@@ -210,13 +240,29 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should reject a writer that writes behind the data of another",
 						func(ctx SpecContext) {
 							live := open(ctx, config(100*telem.SecondTS))
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(100, 101)))
+							MustSucceed2(
+								live.WriteUnless(
+									telem.NewSeriesSecondsTSV(100, 101),
+									nil,
+								),
+							)
 							MustSucceed(live.Commit(ctx))
 							high := open(ctx, config(10*telem.SecondTS))
-							Expect(high.Write(telem.NewSeriesSecondsTSV(10, 11))).
-								Error().To(outOfOrder)
+							Expect(
+								high.WriteUnless(
+									telem.NewSeriesSecondsTSV(10, 11),
+									nil,
+								),
+							).
+								Error().
+								To(outOfOrder)
 							Expect(high.Close()).To(Succeed())
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(102, 103)))
+							MustSucceed2(
+								live.WriteUnless(
+									telem.NewSeriesSecondsTSV(102, 103),
+									nil,
+								),
+							)
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(103*telem.SecondTS + 1))
 							Expect(live.Close()).To(Succeed())
@@ -230,7 +276,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should commit to the last sample of any writer after a handoff",
 						func(ctx SpecContext) {
 							live := open(ctx, config(10*telem.SecondTS))
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed2(
+								live.WriteUnless(
+									telem.NewSeriesSecondsTSV(10, 11),
+									nil,
+								),
+							)
 							high := open(ctx, config(10*telem.SecondTS))
 							Expect(MustSucceed(high.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
@@ -258,14 +309,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should start a new domain in a new alignment domain",
 						func(ctx SpecContext) {
 							w := open(ctx)
-							first := MustSucceed(
-								w.Write(telem.NewSeriesSecondsTSV(10, 11)),
+							first, _ := MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
 							)
 							MustSucceed(w.Commit(ctx))
 							Expect(w.EndDomain(ctx)).To(Succeed())
 							w.SetDomainStart(20 * telem.SecondTS)
-							second := MustSucceed(
-								w.Write(telem.NewSeriesSecondsTSV(20, 21)),
+							second, _ := MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(20, 21), nil),
 							)
 							Expect(
 								second.DomainIndex(),
@@ -286,7 +337,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should hold the time between the domains until the next write",
 						func(ctx SpecContext) {
 							w := open(ctx)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							Expect(w.EndDomain(ctx)).To(Succeed())
 							Expect(db.OpenWriter(
@@ -299,16 +352,26 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								)),
 							))
 							w.SetDomainStart(20 * telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(20), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							backfill := MustSucceed(
 								db.OpenWriter(ctx, boundedConfig(15*telem.SecondTS)),
 							)
-							MustSucceed(
-								backfill.Write(telem.NewSeriesSecondsTSV(15, 16)),
+							MustSucceed2(
+								backfill.WriteUnless(
+									telem.NewSeriesSecondsTSV(15, 16),
+									nil,
+								),
 							)
 							MustSucceed(backfill.Commit(ctx))
-							MustSucceed(backfill.Write(telem.NewSeriesSecondsTSV(21)))
+							MustSucceed2(
+								backfill.WriteUnless(
+									telem.NewSeriesSecondsTSV(21),
+									nil,
+								),
+							)
 							Expect(backfill.Commit(ctx)).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
@@ -325,8 +388,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := open(ctx)
 							Expect(w.EndDomain(ctx)).To(Succeed())
 							Expect(db.WriteCursor(10 * telem.SecondTS)).
-								To(Equal(telem.LeadingAlignment(1, 0)))
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+								To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 						},
@@ -346,7 +411,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(20 * telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(20), nil),
+							)
 							Expect(deleteRange(
 								ctx,
 								db,
@@ -368,14 +435,18 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									Start: 10 * telem.SecondTS,
 								}),
 							)
-							MustSucceed(low.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed2(
+								low.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
+							)
 							high := MustSucceed(
 								db.OpenWriter(ctx, unary.WriterConfig{
 									Start: 10 * telem.SecondTS,
 								}),
 							)
 							high.SetDomainStart(20 * telem.SecondTS)
-							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(20)))
+							MustSucceed2(
+								high.WriteUnless(telem.NewSeriesSecondsTSV(20), nil),
+							)
 							Expect(deleteRange(
 								ctx,
 								db,
@@ -411,14 +482,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}
 					It("Should write behind a live writer", func(ctx SpecContext) {
 						live := openLive(ctx, 10*telem.SecondTS)
-						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+						MustSucceed2(
+							live.WriteUnless(telem.NewSeriesSecondsTSV(10, 11), nil),
+						)
 						Expect(MustSucceed(live.Commit(ctx))).
 							To(Equal(11*telem.SecondTS + 1))
 						w := openBounded(ctx, 1*telem.SecondTS)
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 3)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2, 3), nil),
+						)
 						Expect(MustSucceed(w.Commit(ctx))).
 							To(Equal(3*telem.SecondTS + 1))
-						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(12)))
+						MustSucceed2(
+							live.WriteUnless(telem.NewSeriesSecondsTSV(12), nil),
+						)
 						Expect(MustSucceed(live.Commit(ctx))).
 							To(Equal(12*telem.SecondTS + 1))
 						Expect(w.Close()).To(Succeed())
@@ -431,9 +508,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It("Should let a live writer open after it", func(ctx SpecContext) {
 						w := openBounded(ctx, 1*telem.SecondTS)
 						live := openLive(ctx, 10*telem.SecondTS)
-						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+						MustSucceed2(
+							live.WriteUnless(telem.NewSeriesSecondsTSV(10), nil),
+						)
 						MustSucceed(live.Commit(ctx))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2), nil),
+						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 						Expect(live.Close()).To(Succeed())
@@ -444,9 +525,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w1 := openBounded(ctx, 1*telem.SecondTS)
 							cfg := boundedConfig(5 * telem.SecondTS)
 							w2 := MustSucceed(db.OpenWriter(ctx, cfg))
-							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(5, 6)))
+							MustSucceed2(
+								w2.WriteUnless(telem.NewSeriesSecondsTSV(5, 6), nil),
+							)
 							MustSucceed(w2.Commit(ctx))
-							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(1, 2)))
+							MustSucceed2(
+								w1.WriteUnless(telem.NewSeriesSecondsTSV(1, 2), nil),
+							)
 							MustSucceed(w1.Commit(ctx))
 							Expect(w1.Close()).To(Succeed())
 							Expect(w2.Close()).To(Succeed())
@@ -463,7 +548,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									"cannot access time range",
 								)),
 							))
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+							MustSucceed2(
+								live.WriteUnless(telem.NewSeriesSecondsTSV(10), nil),
+							)
 							MustSucceed(live.Commit(ctx))
 							Expect(live.Close()).To(Succeed())
 						},
@@ -486,7 +573,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext) {
 							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 10)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2, 10), nil),
+							)
 							Expect(w.Commit(ctx)).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
@@ -494,7 +583,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								),
 							))
 							Expect(w.Close()).To(Succeed())
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed2(
+								live.WriteUnless(
+									telem.NewSeriesSecondsTSV(10, 11),
+									nil,
+								),
+							)
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
 							Expect(live.Close()).To(Succeed())
@@ -505,10 +599,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext) {
 							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
-							Expect(
-								w.CommitWithEnd(ctx, 10*telem.SecondTS, nil),
-							).To(Succeed())
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1), nil),
+							)
+							MustSucceed(
+								w.CommitWithEndUnless(ctx, 10*telem.SecondTS, nil, nil),
+							)
 							Expect(w.Close()).To(Succeed())
 							Expect(live.Close()).To(Succeed())
 						},
@@ -518,10 +614,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext) {
 							var g domain.Group
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
-							Expect(
-								w.CommitWithEnd(ctx, 2*telem.SecondTS, &g),
-							).To(Succeed())
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1), nil),
+							)
+							MustSucceed(
+								w.CommitWithEndUnless(ctx, 2*telem.SecondTS, &g, nil),
+							)
 							it := DeferClose(MustSucceed(db.OpenIterator(
 								unary.IterRange(telem.TimeRangeMax),
 							)))
@@ -541,7 +639,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								telem.NewSeriesSecondsTSV(10, 11),
 							)).To(Succeed())
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 12)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2, 12), nil),
+							)
 							Expect(w.Commit(ctx)).Error().To(And(
 								MatchError(domain.ErrWriteConflict),
 								MatchError(
@@ -556,9 +656,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext) {
 							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 8)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2, 8), nil),
+							)
 							live.SetDomainStart(5 * telem.SecondTS)
-							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(5, 6)))
+							MustSucceed2(
+								live.WriteUnless(telem.NewSeriesSecondsTSV(5, 6), nil),
+							)
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(6*telem.SecondTS + 1))
 							Expect(w.Commit(ctx)).Error().To(And(
@@ -576,7 +680,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						func(ctx SpecContext) {
 							w := MustSucceed(db.OpenWriter(ctx, boundedConfig(0)))
 							w.SetDomainStart(1 * telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							live := openLive(ctx, 10*telem.SecondTS)
 							Expect(w.Close()).To(Succeed())
@@ -587,7 +693,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should protect the time it has committed",
 						func(ctx SpecContext) {
 							w := openBounded(ctx, 1*telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 3)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(1, 2, 3), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							Expect(deleteRange(
 								ctx,
@@ -638,7 +746,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
 							first := now.Add(2 * telem.Hour)
 							w.SetDomainStart(first)
-							MustSucceed(w.Write(telem.NewSeriesV(first)))
+							MustSucceed2(w.WriteUnless(telem.NewSeriesV(first), nil))
 							Expect(MustSucceed(w.Commit(ctx))).To(Equal(first + 1))
 							Expect(w.Close()).To(Succeed())
 						},
@@ -655,7 +763,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							w2.SetDomainStart(2 * telem.SecondTS)
 							Expect(
-								w2.Write(telem.NewSeriesSecondsTSV(2, 3)),
+								w2.WriteUnless(telem.NewSeriesSecondsTSV(2, 3), nil),
 							).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
@@ -673,7 +781,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(5 * telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(5, 6, 7), nil),
+							)
 							MustSucceed(w.Commit(ctx))
 							Expect(deleteRange(
 								ctx,
@@ -700,7 +810,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(5 * telem.SecondTS)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
+							MustSucceed2(
+								w.WriteUnless(telem.NewSeriesSecondsTSV(5, 6, 7), nil),
+							)
 							Expect(
 								MustSucceed(w.Commit(ctx)),
 							).To(Equal(7*telem.SecondTS + 1))
@@ -725,7 +837,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							w.SetDomainStart(12 * telem.SecondTS)
 							Expect(
-								w.Write(telem.NewSeriesSecondsTSV(12, 20)),
+								w.WriteUnless(telem.NewSeriesSecondsTSV(12, 20), nil),
 							).Error().To(And(
 								MatchError(domain.ErrWriteConflict),
 								MatchError(ContainSubstring("cannot start writer")),
@@ -817,14 +929,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start: 10 * telem.SecondTS,
 					}))
 					Expect(
-						MustSucceed(
-							w.Write(
+						MustSucceed2(
+							w.WriteUnless(
 								telem.NewSeries(
 									[]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 								),
+								nil,
 							),
 						),
-					).To(Equal(telem.LeadingAlignment(1, 0)))
+					).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					Expect(w.Close()).To(Succeed())
 					By("Releasing control of the DB")
@@ -841,14 +954,18 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w1 := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						}))
-						MustSucceed(w1.Write(telem.NewSeries([]int64{0, 1})))
+						MustSucceed2(
+							w1.WriteUnless(telem.NewSeries([]int64{0, 1}), nil),
+						)
 						Expect(
 							MustSucceed(w1.Commit(ctx)),
 						).To(Equal(11*telem.SecondTS + 1))
 						w2 := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
 							Start: 12 * telem.SecondTS,
 						}))
-						MustSucceed(w2.Write(telem.NewSeries([]int64{2, 3})))
+						MustSucceed2(
+							w2.WriteUnless(telem.NewSeries([]int64{2, 3}), nil),
+						)
 						Expect(
 							MustSucceed(w2.Commit(ctx)),
 						).To(Equal(13*telem.SecondTS + 1))
@@ -881,8 +998,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start: 10 * telem.SecondTS,
 					}))
 					Expect(
-						MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4}))),
-					).To(Equal(telem.LeadingAlignment(1, 0)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeries([]int64{0, 1, 2, 3, 4}), nil),
+						),
+					).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					Expect(w.Close()).To(Succeed())
 
@@ -915,8 +1034,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)
 
 							By("Writing telemetry")
-							MustSucceed(
-								w1.Write(
+							MustSucceed2(
+								w1.WriteUnless(
 									telem.NewSeriesSecondsTSV(
 										10,
 										11,
@@ -926,10 +1045,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										16,
 										17,
 									),
+									nil,
 								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](
 										100,
 										101,
@@ -939,6 +1059,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										106,
 										107,
 									),
+									nil,
 								),
 							)
 
@@ -962,13 +1083,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 							By("Writing more telemetry")
-							MustSucceed(
-								w1.Write(
+							MustSucceed2(
+								w1.WriteUnless(
 									telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43),
+									nil,
 								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](
 										203,
 										209,
@@ -977,6 +1099,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										401,
 										403,
 									),
+									nil,
 								),
 							)
 
@@ -1000,7 +1123,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 							By("Writing more telemetry")
-							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(47, 53)))
+							MustSucceed2(
+								w1.WriteUnless(telem.NewSeriesSecondsTSV(47, 53), nil),
+							)
 
 							By(
 								"Asserting that the first writer is now writing to a different file",
@@ -1060,8 +1185,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)
 
 							By("Writing telemetry")
-							MustSucceed(
-								w1.Write(
+							MustSucceed2(
+								w1.WriteUnless(
 									telem.NewSeriesSecondsTSV(
 										10,
 										11,
@@ -1071,10 +1196,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										16,
 										17,
 									),
+									nil,
 								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](
 										100,
 										101,
@@ -1084,6 +1210,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										106,
 										107,
 									),
+									nil,
 								),
 							)
 
@@ -1107,13 +1234,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 							By("Writing more telemetry")
-							MustSucceed(
-								w1.Write(
+							MustSucceed2(
+								w1.WriteUnless(
 									telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43),
+									nil,
 								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](
 										203,
 										209,
@@ -1122,6 +1250,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										401,
 										403,
 									),
+									nil,
 								),
 							)
 
@@ -1145,7 +1274,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 							By("Writing more telemetry")
-							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(47, 53)))
+							MustSucceed2(
+								w1.WriteUnless(telem.NewSeriesSecondsTSV(47, 53), nil),
+							)
 
 							By(
 								"Asserting that the first writer is now writing to a different file",
@@ -1206,8 +1337,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)
 
 							By("Writing telemetry")
-							MustSucceed(
-								w1.Write(
+							MustSucceed2(
+								w1.WriteUnless(
 									telem.NewSeriesSecondsTSV(
 										10,
 										11,
@@ -1221,10 +1352,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										23,
 										25,
 									),
+									nil,
 								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](
 										100,
 										101,
@@ -1238,6 +1370,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										203,
 										205,
 									),
+									nil,
 								),
 							)
 
@@ -1246,12 +1379,16 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w2.Commit(ctx)).To(Equal(25*telem.SecondTS + 1))
 
 							By("Writing more telemetry")
-							MustSucceed(
-								w1.Write(telem.NewSeriesSecondsTSV(29, 31, 37, 41, 43)),
+							MustSucceed2(
+								w1.WriteUnless(
+									telem.NewSeriesSecondsTSV(29, 31, 37, 41, 43),
+									nil,
+								),
 							)
-							MustSucceed(
-								w2.Write(
+							MustSucceed2(
+								w2.WriteUnless(
 									telem.NewSeriesV[int64](209, 301, 307, 401, 403),
+									nil,
 								),
 							)
 
@@ -1321,16 +1458,16 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 
 						By("Writing telemetry")
-						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10)))
-						MustSucceed(w2.Write(telem.NewSeriesV[int64](100)))
+						MustSucceed2(w1.WriteUnless(telem.NewSeriesSecondsTSV(10), nil))
+						MustSucceed2(w2.WriteUnless(telem.NewSeriesV[int64](100), nil))
 
 						By("Committing the data")
 						Expect(w1.Commit(ctx)).To(Equal(10*telem.SecondTS + 1))
 						Expect(w2.Commit(ctx)).To(Equal(10*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						MustSucceed(
-							w1.Write(
+						MustSucceed2(
+							w1.WriteUnless(
 								telem.NewSeriesSecondsTSV(
 									11,
 									12,
@@ -1342,10 +1479,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									18,
 									19,
 								),
+								nil,
 							),
 						)
-						MustSucceed(
-							w2.Write(
+						MustSucceed2(
+							w2.WriteUnless(
 								telem.NewSeriesV[int64](
 									101,
 									102,
@@ -1357,6 +1495,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									108,
 									109,
 								),
+								nil,
 							),
 						)
 
@@ -1477,9 +1616,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						}()
 						Consistently(cursor, 50*time.Millisecond).ShouldNot(Receive())
 						Expect(writers[0].Close()).To(Succeed())
-						Eventually(
-							cursor,
-						).Should(Receive(Equal(telem.LeadingAlignment(101, 0))))
+						Eventually(cursor).Should(Receive(Equal(
+							telem.NewAlignment(telem.LeadingDomain+101, 0),
+						)))
 						closeWriters()
 					})
 				})
@@ -1518,7 +1657,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MatchError(ContainSubstring("channel <%d>", key)),
 						),
 						)
-						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
+						Expect(w.WriteUnless(telem.Series{Data: []byte{1, 2, 3}}, nil)).
 							Error().To(MatchError(unary.ErrWriterClosed))
 						Expect(w.Close()).To(Succeed())
 					},

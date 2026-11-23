@@ -390,12 +390,12 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						// First batch: enough length-prefixed bytes to push the data
 						// file past the 40-byte rollover threshold on the next commit.
-						MustSucceed(iw.Write(telem.NewSeriesV(
+						MustSucceed2(iw.WriteUnless(telem.NewSeriesV(
 							"sampleA", "sampleB", "sampleC", "sampleD", "sampleE",
-						)))
+						), nil))
 						MustSucceed(iw.Commit(ctx))
 						// Second batch lands in the second domain.
-						MustSucceed(iw.Write(telem.NewSeriesV("sampleF")))
+						MustSucceed2(iw.WriteUnless(telem.NewSeriesV("sampleF"), nil))
 						MustSucceed(iw.Commit(ctx))
 						Expect(iw.Close()).To(Succeed())
 
@@ -468,12 +468,14 @@ var _ = Describe("Variable-length channel", func() {
 						iw := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 1000 * telem.SecondTS,
 						}))
-						MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
+						MustSucceed2(
+							iw.WriteUnless(telem.NewSeriesV("a", "b", "c"), nil),
+						)
 						MustSucceed(iw.Commit(ctx))
 						// Second commit on the same domain: publish should replace
 						// the cache entry rather than waiting for the next read to
 						// invalidate it via the size gate.
-						MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
+						MustSucceed2(iw.WriteUnless(telem.NewSeriesV("d", "e"), nil))
 						MustSucceed(iw.Commit(ctx))
 						Expect(iw.Close()).To(Succeed())
 
@@ -534,7 +536,9 @@ var _ = Describe("Variable-length channel", func() {
 						iw := MustSucceed(data2.OpenWriter(ctx, unary.WriterConfig{
 							Start: 600 * telem.SecondTS,
 						}))
-						MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
+						MustSucceed2(
+							iw.WriteUnless(telem.NewSeriesV("a", "b", "c"), nil),
+						)
 						MustSucceed(iw.Commit(ctx))
 
 						// First read populates the cache for this domain with
@@ -550,7 +554,7 @@ var _ = Describe("Variable-length channel", func() {
 							To(Equal([]string{"a", "b", "c"}))
 
 						// Append two more samples against the same domain and commit.
-						MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
+						MustSucceed2(iw.WriteUnless(telem.NewSeriesV("d", "e"), nil))
 						MustSucceed(iw.Commit(ctx))
 						Expect(iw.Close()).To(Succeed())
 
@@ -584,9 +588,13 @@ var _ = Describe("Variable-length channel", func() {
 						w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
 							Start: 60 * telem.SecondTS,
 						}))
-						a1 := MustSucceed(w.Write(telem.NewSeriesV("a", "b")))
+						a1, _ := MustSucceed2(
+							w.WriteUnless(telem.NewSeriesV("a", "b"), nil),
+						)
 						Expect(a1.SampleIndex()).To(Equal(uint32(0)))
-						a2 := MustSucceed(w.Write(telem.NewSeriesV("c", "d", "e")))
+						a2, _ := MustSucceed2(
+							w.WriteUnless(telem.NewSeriesV("c", "d", "e"), nil),
+						)
 						Expect(a2.SampleIndex()).To(Equal(uint32(2)))
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -597,7 +605,7 @@ var _ = Describe("Variable-length channel", func() {
 						Start: 70 * telem.SecondTS,
 					}))
 					Expect(
-						w.Write(telem.NewSeriesV[int64](1, 2, 3)),
+						w.WriteUnless(telem.NewSeriesV[int64](1, 2, 3), nil),
 					).Error().
 						To(MatchError(validate.ErrValidation))
 					Expect(w.Close()).To(Succeed())
@@ -643,7 +651,9 @@ var _ = Describe("Variable-length channel", func() {
 						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 700 * telem.SecondTS,
 						}))
-						a1 := MustSucceed(w1.Write(telem.NewSeriesV("a", "b", "c")))
+						a1, _ := MustSucceed2(
+							w1.WriteUnless(telem.NewSeriesV("a", "b", "c"), nil),
+						)
 						Expect(a1.SampleIndex()).To(Equal(uint32(0)))
 						MustSucceed(w1.Commit(ctx))
 
@@ -654,7 +664,9 @@ var _ = Describe("Variable-length channel", func() {
 						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 700 * telem.SecondTS,
 						}))
-						a2 := MustSucceed(w2.Write(telem.NewSeriesV("d", "e")))
+						a2, _ := MustSucceed2(
+							w2.WriteUnless(telem.NewSeriesV("d", "e"), nil),
+						)
 						Expect(a2.SampleIndex()).To(Equal(uint32(3)))
 						MustSucceed(w2.Commit(ctx))
 						Expect(w2.Close()).To(Succeed())
@@ -719,7 +731,7 @@ var _ = Describe("Variable-length channel", func() {
 						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 800 * telem.SecondTS,
 						}))
-						MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
+						MustSucceed2(w1.WriteUnless(telem.NewSeriesV("a", "b"), nil))
 
 						// Handoff happens before w1 commits. w2's first write must
 						// continue from w1's cumulative byte position so the on-
@@ -727,7 +739,9 @@ var _ = Describe("Variable-length channel", func() {
 						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 800 * telem.SecondTS,
 						}))
-						a := MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
+						a, _ := MustSucceed2(
+							w2.WriteUnless(telem.NewSeriesV("c", "d"), nil),
+						)
 						Expect(a.SampleIndex()).To(Equal(uint32(2)))
 						MustSucceed(w2.Commit(ctx))
 						Expect(w2.Close()).To(Succeed())
@@ -780,20 +794,22 @@ var _ = Describe("Variable-length channel", func() {
 						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 900 * telem.SecondTS,
 						}))
-						MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
+						MustSucceed2(w1.WriteUnless(telem.NewSeriesV("a", "b"), nil))
 						MustSucceed(w1.Commit(ctx))
 
 						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
 							Start: 900 * telem.SecondTS,
 						}))
-						MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
+						MustSucceed2(w2.WriteUnless(telem.NewSeriesV("c", "d"), nil))
 						MustSucceed(w2.Commit(ctx))
 						Expect(w2.Close()).To(Succeed())
 
 						// w1 regains control. Its next write must continue from
 						// the post-handoff cumulative count, not reset back to its
 						// own pre-handoff position.
-						a := MustSucceed(w1.Write(telem.NewSeriesV("e", "f")))
+						a, _ := MustSucceed2(
+							w1.WriteUnless(telem.NewSeriesV("e", "f"), nil),
+						)
 						Expect(a.SampleIndex()).To(Equal(uint32(4)))
 						MustSucceed(w1.Commit(ctx))
 						Expect(w1.Close()).To(Succeed())
