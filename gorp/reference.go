@@ -481,6 +481,11 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 
 func (r *reference[K, E, T]) canRetarget() bool { return r.retarget != nil }
 
+func (r *reference[K, E, T]) retargetsKeys(m moves) bool {
+	_, ok := m.keys.(map[T]T)
+	return ok
+}
+
 func (r *reference[K, E, T]) retargetTargets(e *E, m moves) (bool, error) {
 	if !slices.Contains(r.tables, m.table) {
 		return false, errors.Newf(
@@ -492,6 +497,9 @@ func (r *reference[K, E, T]) retargetTargets(e *E, m moves) (bool, error) {
 	}
 	typed, ok := m.keys.(map[T]T)
 	if !ok {
+		if m.targets == nil {
+			panic("[gorp] - a retarget plan gave a reference moves with no targets")
+		}
 		typed, ok = any(m.targets).(map[T]T)
 	}
 	if !ok {
