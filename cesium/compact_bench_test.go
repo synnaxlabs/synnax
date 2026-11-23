@@ -52,7 +52,7 @@ func (f *unlinkFS) Remove(name string) error {
 }
 
 // BenchmarkCompact rewrites one sealed segment of int64 samples whose middle half a
-// delete took out, per iteration, on a memory file system with no rate limit. The time
+// delete took out, per iteration, on the OS file system with no rate limit. The time
 // of an iteration runs from the delete to the unlink of the old file, and its bytes are
 // the live bytes of the copy.
 func BenchmarkCompact(b *testing.B) {
@@ -65,7 +65,11 @@ func BenchmarkCompact(b *testing.B) {
 
 func benchmarkCompact(b *testing.B, size int) {
 	b.Helper()
-	fs := &unlinkFS{FS: xfs.NewMem(), unlinked: make(chan struct{}, 1)}
+	root, err := xfs.Default.Sub(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
+	fs := &unlinkFS{FS: root, unlinked: make(chan struct{}, 1)}
 	db := runCompactDB(b, "", cesium.WithFS(fs), cesium.WithGCConfig(cesium.GCConfig{
 		Rate: 1 << 50,
 	}))
