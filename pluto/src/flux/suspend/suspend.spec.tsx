@@ -14,10 +14,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { ensureFetch, type LocalCache, subscribeReader } from "@/flux/suspend";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Suspend } from "@/flux/suspend";
+import { createSynnaxWrapper } from "@/testutil";
 
-const newLocal = (): LocalCache<number> => ({
+const newLocal = (): Suspend.LocalCache<number> => ({
   epoch: 0,
   inFlight: new Map(),
   settled: new Map(),
@@ -27,15 +27,15 @@ const newLocal = (): LocalCache<number> => ({
 });
 
 // settle lands a fetch of key that answers data in local's settled entries.
-const settle = async (local: LocalCache<number>, key: string, data: number) =>
-  await ensureFetch(
+const settle = async (local: Suspend.LocalCache<number>, key: string, data: number) =>
+  await Suspend.ensureFetch(
     { client, query: { key } },
     { name: "Number", retrieve: async () => data, local },
   );
 
 const hashOf = (key: string): string => query.hash({ key });
 
-describe("ensureFetch", () => {
+describe("Suspend.ensureFetch", () => {
   it("evicts the oldest settled entry once the cap is exceeded", async () => {
     const local = newLocal();
     for (let i = 0; i < 257; i++) await settle(local, `q${i}`, i);
@@ -59,7 +59,7 @@ describe("ensureFetch", () => {
     const listener = vi.fn(() =>
       expect(local.settled.get(hashOf("q"))).toEqual({ data: 1 }),
     );
-    subscribeReader(local, hashOf("q"), listener);
+    Suspend.subscribeReader(local, hashOf("q"), listener);
     await settle(local, "q", 1);
     expect(listener).toHaveBeenCalledTimes(1);
   });
@@ -67,16 +67,16 @@ describe("ensureFetch", () => {
   it("notifies only the readers of the settled query", async () => {
     const local = newLocal();
     const listener = vi.fn();
-    subscribeReader(local, hashOf("other"), listener);
+    Suspend.subscribeReader(local, hashOf("other"), listener);
     await settle(local, "q", 1);
     expect(listener).not.toHaveBeenCalled();
   });
 });
 
-describe("subscribeReader", () => {
+describe("Suspend.subscribeReader", () => {
   it("drops the hash once its last reader leaves", () => {
     const local = newLocal();
-    const release = subscribeReader(local, "q", vi.fn());
+    const release = Suspend.subscribeReader(local, "q", vi.fn());
     release();
     expect(local.listeners.has("q")).toBe(false);
   });

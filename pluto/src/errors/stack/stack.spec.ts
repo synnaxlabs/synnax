@@ -10,9 +10,9 @@
 import { SourceMapGenerator } from "source-map-js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveStack } from "@/errors/resolveStack";
+import { stack } from "@/errors/stack";
 
-// The consumer cache inside resolveStack is keyed by script URL and lives for the
+// The consumer cache inside stack.resolve is keyed by script URL and lives for the
 // whole session, so every spec uses a distinct script URL to stay isolated.
 const HOST = "https://app.test";
 
@@ -54,7 +54,7 @@ const fetchMock = vi.fn(async (url: string) => {
   return new Response("not found", { status: 404 });
 });
 
-describe("resolveStack", () => {
+describe("stack.resolve", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(() => {
@@ -93,7 +93,7 @@ describe("resolveStack", () => {
     const error = new Error("boom");
     // Stack columns are 1-based, so generated column 10 is stack column 11.
     error.stack = `Error: boom\n    at yte (${url}:1:11)`;
-    const result = await resolveStack(error, `    at Cmp (${url}:1:21)`);
+    const result = await stack.resolve(error, `    at Cmp (${url}:1:21)`);
     expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
     expect(result.componentStack).toBe(
       "  at SchematicLayout (console/src/schematic/Schematic.tsx:155:5)",
@@ -113,7 +113,7 @@ describe("resolveStack", () => {
     );
     const error = new Error("boom");
     error.stack = `Error: boom\n    at yte (${url}:1:11)`;
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe("  at yte (console/src/foo.ts:7:3)");
     expect(result.componentStack).toBeNull();
   });
@@ -132,7 +132,7 @@ describe("resolveStack", () => {
     );
     const error = new Error("boom");
     error.stack = `Error: boom\n    at yte (${url}:1:11)`;
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
     expect(result.componentStack).toBeNull();
   });
@@ -154,7 +154,7 @@ describe("resolveStack", () => {
     const error = new Error("boom");
     error.stack = `Error: boom\n    at yte (${bundleURL}:1:11)`;
     fetchMock.mockClear();
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe("  at inlineFn (console/src/inline.ts:3:7)");
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([bundleURL]);
   });
@@ -163,14 +163,14 @@ describe("resolveStack", () => {
     const url = addFixture("no-map", null);
     const error = new Error("boom");
     error.stack = `Error: boom\n    at fn (${url}:1:11)`;
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe(`  at fn (${HOST}/no-map.js:1:11)`);
   });
 
   it("keeps raw frames and warns when the script cannot be fetched", async () => {
     const error = new Error("boom");
     error.stack = `Error: boom\n    at fn (${HOST}/missing.js:1:11)`;
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe(`  at fn (${HOST}/missing.js:1:11)`);
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("no usable sourcemap"),
@@ -187,7 +187,7 @@ describe("resolveStack", () => {
       "    at gn (file:///repo/src/gn.ts:2:3)",
       "    at tick (node:internal/process/task_queues:105:5)",
     ].join("\n");
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe(
       [
         "  at fn (/repo/src/fn.ts:1:11)",
@@ -202,7 +202,7 @@ describe("resolveStack", () => {
   it("keeps the raw stack and warns when the stack cannot be parsed", async () => {
     const error = new Error("boom");
     error.stack = "";
-    const result = await resolveStack(error, null);
+    const result = await stack.resolve(error, null);
     expect(result.stack).toBe("");
     expect(warnSpy).toHaveBeenCalledWith(
       "resolveStack: failed to resolve error stack",
@@ -225,7 +225,7 @@ describe("resolveStack", () => {
     const error = new Error("boom");
     error.stack = `Error: boom\n    at yte (${url}:1:11)`;
     // An unparseable component stack fails its leg while the error leg resolves.
-    const result = await resolveStack(error, "");
+    const result = await stack.resolve(error, "");
     expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
     expect(result.componentStack).toBe("");
     expect(warnSpy).toHaveBeenCalledWith(
@@ -252,8 +252,8 @@ describe("resolveStack", () => {
       return error;
     };
     fetchMock.mockClear();
-    await resolveStack(makeError(), `    at Cmp (${url}:1:11)`);
-    await resolveStack(makeError(), null);
+    await stack.resolve(makeError(), `    at Cmp (${url}:1:11)`);
+    await stack.resolve(makeError(), null);
     const fetched = fetchMock.mock.calls.map((call) => call[0]);
     expect(fetched).toEqual([url, url.replace(/\.js$/, ".js.map")]);
   });

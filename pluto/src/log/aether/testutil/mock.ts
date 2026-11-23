@@ -14,7 +14,7 @@ import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/type
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
-export class MockLogSource implements LogSource {
+export class MockSource implements LogSource {
   static readonly TYPE = telemTest.TEST_SOURCE_TYPE;
   status: status.Status = telem.SUCCESS_STATUS;
   private _entries: LogEntry[] = [];
@@ -81,12 +81,12 @@ export class MockLogSource implements LogSource {
   }
 }
 
-export const registerMockLogSource = (
+export const registerMockSource = (
   testId: string,
-  source: MockLogSource,
+  source: MockSource,
 ): destructor.Destructor => telemTest.registerInstance(testId, source);
 
-export const mockLogSourceSpec = (testId: string): LogSourceSpec => ({
+export const mockSourceSpec = (testId: string): LogSourceSpec => ({
   type: telemTest.TEST_SOURCE_TYPE,
   props: { testId },
   variant: "source",

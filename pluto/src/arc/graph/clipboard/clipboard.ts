@@ -19,7 +19,7 @@ import { Diagram } from "@/vis/diagram";
 // the clipboard without it.
 const MIME = "web application/synnax-arc+json";
 
-export interface UseClipboardParams {
+export interface UseParams {
   key: arc.Key;
   selected?: string[];
   onCut?: (remaining: string[]) => void;
@@ -27,13 +27,13 @@ export interface UseClipboardParams {
   container?: RefObject<HTMLDivElement | null>;
 }
 
-export const useClipboard = ({
+export const use = ({
   key,
   selected,
   onCut,
   onPaste,
   container,
-}: UseClipboardParams): Diagram.UseClipboardReturn => {
+}: UseParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
   const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {

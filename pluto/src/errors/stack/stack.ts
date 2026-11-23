@@ -13,7 +13,7 @@ import type { RawSourceMap, SourceMapConsumer } from "source-map-js";
 
 type StackFrame = ReturnType<typeof ErrorStackParser.parse>[number];
 
-export interface ResolvedStack {
+export interface Resolved {
   stack: string;
   componentStack: string | null;
 }
@@ -80,10 +80,10 @@ const consumerFor = (scriptURL: string): Promise<SourceMapConsumer | null> =>
  * would mask real deployment problems (missing maps, broken middleware, etc.), so
  * failures are always logged.
  */
-export const resolveStack = async (
+export const resolve = async (
   error: Error,
   componentStack: string | null,
-): Promise<ResolvedStack> => {
+): Promise<Resolved> => {
   const [stack, resolvedComponentStack] = await Promise.all([
     resolveFromStack(error).catch((cause: unknown) => {
       console.warn("resolveStack: failed to resolve error stack", cause);
