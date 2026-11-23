@@ -383,6 +383,8 @@ const (
 	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
 	GroupBoxNodeConfigType NodeConfigType = versions.GroupBoxNodeConfigType
+	// SymbolNodeConfigType is the configuration for a node that draws a symbol.
+	SymbolNodeConfigType NodeConfigType = versions.SymbolNodeConfigType
 )
 
 type CapNodeConfig = versions.CapNodeConfig
@@ -535,6 +537,9 @@ type CustomStaticNodeConfig = versions.CustomStaticNodeConfig
 // of grouped symbols. Groups nest: a member may itself be a group.
 type GroupBoxNodeConfig = versions.GroupBoxNodeConfig
 
+// SymbolNodeConfig is the configuration for a node that draws a symbol.
+type SymbolNodeConfig = versions.SymbolNodeConfig
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -571,6 +576,37 @@ type NumericTelemConfig = versions.NumericTelemConfig
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
 type ScaledConfig = versions.ScaledConfig
+
+// FormatConfig is how a node shows a number.
+type FormatConfig = versions.FormatConfig
+
+// StateBinding is how one node reads one state of its symbol.
+type StateBinding = versions.StateBinding
+
+// Source is where a state reads its value.
+type Source = versions.Source
+
+// SourceVariant is implemented by every Source variant.
+type SourceVariant = versions.SourceVariant
+
+// SourceType is the "type" value that selects a variant of Source.
+type SourceType = versions.SourceType
+
+const (
+	// ChannelSourceType reads a channel.
+	ChannelSourceType SourceType = versions.ChannelSourceType
+	// LocalSourceType holds a value in the node.
+	LocalSourceType SourceType = versions.LocalSourceType
+)
+
+// ChannelSource reads a channel.
+type ChannelSource = versions.ChannelSource
+
+// LocalSource holds a value in the node.
+type LocalSource = versions.LocalSource
+
+// CommandBinding is the channel of a command that has no state.
+type CommandBinding = versions.CommandBinding
 
 // Where is a filter that selects schematics.
 type Where struct {

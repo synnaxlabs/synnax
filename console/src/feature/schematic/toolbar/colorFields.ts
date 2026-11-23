@@ -139,4 +139,5 @@ export const VALUE_COLOR_FIELDS: Partial<
   tank: { stalenessColor: true },
   t_junction: { strokeColor: true },
   custom_actuator: { stalenessColor: true },
+  symbol: { stalenessColor: true },
 } satisfies ValueColorFields;
