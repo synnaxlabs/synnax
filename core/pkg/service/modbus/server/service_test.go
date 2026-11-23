@@ -264,6 +264,11 @@ var _ = Describe("Service", func() {
 			Entry("no group", func(server.Server) server.Update {
 				return server.Update{}
 			}),
+			Entry("an identity on rack 0", func(s server.Server) server.Update {
+				i := identity(s)
+				i.Rack = 0
+				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
+			}),
 			Entry("an identity without a name", func(s server.Server) server.Update {
 				i := identity(s)
 				i.Name = ""

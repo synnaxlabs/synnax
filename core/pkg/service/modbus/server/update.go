@@ -87,9 +87,6 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:
-		if err := v.Validate(); err != nil {
-			return err
-		}
 		return w.update(ctx, key, func(s Server) (Server, error) {
 			s.Rack = v.Rack
 			s.Name = v.Name
