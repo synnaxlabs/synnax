@@ -52,7 +52,13 @@ import {
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
-import { type LinePlot, linePlotZ } from "@/lineplot/types.gen";
+import {
+  type LinePlot,
+  linePlotZ,
+  type TimeMode,
+  X_AXIS_KEYS,
+  type XAxisKey,
+} from "@/lineplot/types.gen";
 import type { ranger } from "@/ranger";
 
 const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult =>
@@ -85,6 +91,48 @@ const rangeTarget = (range: AnyRef): string =>
 const sameRange = (a: AnyRef, b: AnyRef): boolean => {
   if (a.variant === "key") return b.variant === "key" && a.key === b.key;
   return b.variant === "window" && deep.equal(a.window, b.window);
+};
+
+/**
+ * @returns whether a relative x axis draws the range: a saved range and a fixed window
+ * have a zero, and a rolling window has none.
+ */
+export const hasZero = (ref: ranger.Ref | Draft<ranger.Ref>): boolean =>
+  ref.variant === "key" || ref.window.variant === "static";
+
+// setTimeMode sets the time mode of the x axis and returns the inverse. A change of
+// mode returns the bounds to auto: bounds in one mode mean nothing in the other.
+const setTimeMode = (
+  state: Draft<LinePlot>,
+  key: XAxisKey,
+  timeMode: TimeMode | undefined,
+): Action[] => {
+  const axis = state.axes[key];
+  const inverse: Action[] = [setAxisTimeMode({ key, timeMode: axis.timeMode })];
+  if ((axis.timeMode === "relative") !== (timeMode === "relative")) {
+    inverse.push(
+      setAxisBounds({
+        key,
+        bounds: actions.snapshotDraft(axis.bounds),
+        manualBounds: actions.snapshotDraft(axis.manualBounds),
+      }),
+    );
+    axis.bounds = { lower: 0, upper: 0 };
+    axis.manualBounds = { lower: false, upper: false };
+  }
+  axis.timeMode = timeMode;
+  return inverse;
+};
+
+// absoluteWithoutZero sets each relative x axis to absolute time when no range of the
+// plot has a zero, as a relative axis would draw nothing.
+const absoluteWithoutZero = (state: Draft<LinePlot>): HandlerResult => {
+  if (state.ranges.some(hasZero)) return actions.NO_OP_RESULT;
+  const keys = X_AXIS_KEYS.filter((k) => state.axes[k].timeMode === "relative");
+  return {
+    inverse: keys.flatMap((k) => setTimeMode(state, k, undefined)),
+    targets: keys.map((k) => `axis:${k}`),
+  };
 };
 
 // sameSettings reports whether a and b, which refer to the same range or window, have
@@ -234,13 +282,18 @@ const handlers: Handlers = {
   },
 
   // removeRange drops the reference to the same range or window as the payload's.
-  // addRange, with the removed T0 and color, is its inverse.
+  // addRange, with the removed T0 and color, is its inverse. Relative x axes return to
+  // absolute time when no range left has a zero.
   removeRange: (state, payload) => {
     const idx = state.ranges.findIndex((r) => sameRange(r, payload.range));
     if (idx === -1) return actions.NO_OP_RESULT;
     const range = plainRef(state.ranges[idx]);
     state.ranges.splice(idx, 1);
-    return { inverse: [addRange({ range })], targets: [rangeTarget(range)] };
+    const absolute = absoluteWithoutZero(state);
+    return {
+      inverse: [addRange({ range }), ...absolute.inverse],
+      targets: [rangeTarget(range), ...absolute.targets],
+    };
   },
 
   // setRanges replaces the whole set of range references in one edit, such as when
@@ -249,7 +302,7 @@ const handlers: Handlers = {
   // its T0 and color unless the new reference sets them. The inverse and the targets
   // cover only the references that changed, a new T0 or color included, so undo leaves
   // another user's later edits in place. Undo appends a restored reference at the end
-  // of the set.
+  // of the set. Relative x axes return to absolute time when no range left has a zero.
   setRanges: (state, payload) => {
     const prev = state.ranges.map(plainRef);
     const next = payload.ranges
@@ -264,12 +317,17 @@ const handlers: Handlers = {
     const added = next.filter((n) => !kept(n, prev));
     if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
     state.ranges = next;
+    const absolute = absoluteWithoutZero(state);
     return {
       inverse: [
         ...added.map((range) => removeRange({ range })),
         ...removed.map((range) => addRange({ range })),
+        ...absolute.inverse,
       ],
-      targets: [...new Set([...removed, ...added].map(rangeTarget))],
+      targets: [
+        ...new Set([...removed, ...added].map(rangeTarget)),
+        ...absolute.targets,
+      ],
     };
   },
 
@@ -348,27 +406,10 @@ const handlers: Handlers = {
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
-  // A change of mode returns the bounds to auto: bounds in one mode mean nothing in the
-  // other.
-  setAxisTimeMode: (state, payload) => {
-    const axis = state.axes[payload.key];
-    const inverse: Action[] = [
-      setAxisTimeMode({ key: payload.key, timeMode: axis.timeMode }),
-    ];
-    if ((axis.timeMode === "relative") !== (payload.timeMode === "relative")) {
-      inverse.push(
-        setAxisBounds({
-          key: payload.key,
-          bounds: actions.snapshotDraft(axis.bounds),
-          manualBounds: actions.snapshotDraft(axis.manualBounds),
-        }),
-      );
-      axis.bounds = { lower: 0, upper: 0 };
-      axis.manualBounds = { lower: false, upper: false };
-    }
-    axis.timeMode = payload.timeMode;
-    return { inverse, targets: [`axis:${payload.key}`] };
-  },
+  setAxisTimeMode: (state, payload) => ({
+    inverse: setTimeMode(state, payload.key, payload.timeMode),
+    targets: [`axis:${payload.key}`],
+  }),
 
   setAxisType: (state, payload) => {
     const axis = state.axes[payload.key];

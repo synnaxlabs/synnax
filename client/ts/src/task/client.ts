@@ -29,12 +29,7 @@ import { actions } from "@/actions";
 import { DisconnectedError } from "@/errors";
 import type { framer } from "@/framer";
 import { query } from "@/query";
-import {
-  type Key as RackKey,
-  resourceID as rackResourceID,
-  statusDetailsZ as rackStatusDetailsZ,
-  statusZ as rackStatusZ,
-} from "@/rack/types.gen";
+import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
@@ -106,7 +101,7 @@ const LOADING_COMMANDS = ["start", "stop"];
 
 // A rack is healthy while its Driver runs and reports no error.
 const isRackHealthy = (stat: status.Status): boolean =>
-  rackStatusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
+  rack.statusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
   stat.variant !== "error";
 
 /** How long a command waits for the Driver before the wait is called off. */
@@ -178,7 +173,7 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
  */
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
-  readonly rack: RackKey;
+  readonly rack: rack.Key;
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
@@ -696,9 +691,9 @@ export class Client extends query.Retriever<
     return this.sugar({ ...payload, status: st });
   }
 
-  private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
-    if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
+  private downRackStatus(key: rack.Key | undefined): status.Status | undefined {
+    if (key == null || primitive.isZero(key)) return undefined;
+    const stat = this.cfg.statuses.ownedBy(rack.resourceID(key));
     if (stat == null || isRackHealthy(stat)) return undefined;
     return stat;
   }
@@ -1013,7 +1008,7 @@ export class Client extends query.Retriever<
   };
 
   // Reads only cached tasks: a fetch would make a command need read access to its task.
-  private racksOf(tasks: Key[]): RackKey[] {
+  private racksOf(tasks: Key[]): rack.Key[] {
     return tasks.flatMap((t) => this.store.get(t)?.rack ?? []);
   }
 }
@@ -1160,7 +1155,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   openStatuses: StatusOpener;
   commands: NewCommand[];
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
-  racks: RackKey[];
+  racks: rack.Key[];
   timeout?: CrudeTimeSpan;
   timer?: timer.Start;
   statusDataZ: StatusData;
@@ -1181,7 +1176,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const rackOwners = new Set(
     racks
       .filter((r) => primitive.isNonZero(r))
-      .map((r) => resource.idToString(rackResourceID(r))),
+      .map((r) => resource.idToString(rack.resourceID(r))),
   );
   const cmds = keyCommands(commands);
   const cmdKeys = cmds.map((c) => c.key);
@@ -1215,7 +1210,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   // Statuses for other tasks and racks arrive too. Rack details parse as task details,
   // so the owner tells a rack status apart.
   const onStatus = (decoded: unknown): void => {
-    const rackRes = rackStatusZ.safeParse(decoded);
+    const rackRes = rack.statusZ.safeParse(decoded);
     if (
       rackRes.success &&
       rackRes.data.owner != null &&

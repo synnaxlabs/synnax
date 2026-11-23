@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
@@ -1201,7 +1202,8 @@ func collectValidation(
 	if requiredString && !isString && rules.MinLength == nil {
 		constraints = append(constraints, "min_length=1")
 	}
-	if isString {
+	// Pydantic bounds bytes after the base64 decode, so the bound counts bytes.
+	if isString || primitive == "bytes" {
 		constraints = appendLengthConstraints(constraints, rules, requiredString)
 	}
 	if resolution.IsNumberPrimitive(primitive) {
@@ -1274,7 +1276,7 @@ func boundConstraint(name string, n validation.Number) string {
 	if n.IsInt {
 		return fmt.Sprintf("%s=%d", name, n.Int)
 	}
-	return fmt.Sprintf("%s=%f", name, n.Float)
+	return fmt.Sprintf("%s=%s", name, literal.Float(n.Float))
 }
 
 // appendDefault appends the default= or default_factory= constraints for the default
@@ -1308,7 +1310,13 @@ func appendDefault(
 	case resolution.ValueKindFloat:
 		return append(
 			constraints,
-			distinctDefault("%f", defaultVal.FloatValue, typeRef, table, data),
+			distinctDefault(
+				"%s",
+				literal.Float(defaultVal.FloatValue),
+				typeRef,
+				table,
+				data,
+			),
 		)
 	case resolution.ValueKindString:
 		return append(
@@ -1454,7 +1462,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", val.FloatValue)
+		return literal.Float(val.FloatValue)
 	case resolution.ValueKindBool:
 		if val.BoolValue {
 			return "True"

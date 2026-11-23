@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { CSV } from "@/feature/opcua/task/csv";
 
-const convertRead = (node: OPCUA.Task.ScannedNode): OPCUA.Task.ReadChannel => ({
-  key: OPCUA.Task.nodeIdentity(node),
+const convertRead = (node: OPCUA.Device.ScannedNode): OPCUA.Task.ReadChannel => ({
+  key: OPCUA.Device.nodeIdentity(node),
   nodeName: node.name,
   nodeId: node.nodeId,
   field: node.field,
@@ -24,7 +24,9 @@ const convertRead = (node: OPCUA.Task.ScannedNode): OPCUA.Task.ReadChannel => ({
   name: "",
 });
 
-const convertWrite = (node: OPCUA.Task.ScannedNode): OPCUA.Task.WriteChannel | null =>
+const convertWrite = (
+  node: OPCUA.Device.ScannedNode,
+): OPCUA.Task.WriteChannel | null =>
   node.field !== ""
     ? null
     : {
@@ -62,7 +64,7 @@ const createReadChannel = (
     name: "",
     ...overrides,
   };
-  return { ...ch, key: OPCUA.Task.nodeIdentity(ch) };
+  return { ...ch, key: OPCUA.Device.nodeIdentity(ch) };
 };
 
 interface CreateWriteChannelOverrides

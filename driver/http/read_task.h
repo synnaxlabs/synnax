@@ -27,6 +27,7 @@
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
+#include "driver/icd/reader.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -130,6 +131,20 @@ public:
 /// never reaches the wire or sets a content type.
 [[nodiscard]] std::vector<Request> build_requests(
     const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+);
+
+/// @brief builds the message reader of each read endpoint from the messages of its ICD.
+/// @param client the client that retrieves the ICDs and the channels of the endpoints.
+/// @param endpoints the endpoints to build readers for.
+/// @returns one reader per enabled endpoint, in order. Returns CONFIGURATION_ERROR that
+/// names the endpoint when it reads no messages, when its ICD does not exist, or when
+/// driver::icd::Reader rejects its messages, and that names both endpoints when two of
+/// them write to one channel (an index channel included). Returns the error of a failed
+/// retrieve as is.
+[[nodiscard]] std::pair<std::vector<driver::icd::Reader>, x::errors::Error>
+build_readers(
+    const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints
 );
 

@@ -20,13 +20,7 @@ import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
 import { ReleaseNotes } from "@/ui/auth/ReleaseNotes";
-import {
-  backupCode,
-  choose,
-  type CodeFactor,
-  prepare,
-  prompt,
-} from "@/ui/auth/secondFactor";
+import { secondFactor } from "@/ui/auth/secondFactor";
 import { start } from "@/ui/auth/session";
 import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
@@ -58,8 +52,8 @@ export interface LoginProps {
 export const Login = ({ target, invited }: LoginProps): ReactElement => {
   const clerk = useClerk();
   // factor is the second step Clerk asked for, or null while on the password step.
-  const [factor, setFactor] = useState<CodeFactor | null>(null);
-  const [backup, setBackup] = useState<CodeFactor | null>(null);
+  const [factor, setFactor] = useState<secondFactor.CodeFactor | null>(null);
+  const [backup, setBackup] = useState<secondFactor.CodeFactor | null>(null);
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const methods = Form.use({
     values: { email: invited?.invitation.email ?? "", password: "" },
@@ -72,12 +66,12 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
     if (res.status === "complete")
       return await start(loaded, res.createdSessionId, target);
     if (res.status === "needs_second_factor" || res.status === "needs_client_trust") {
-      const next = choose(res.supportedSecondFactors);
+      const next = secondFactor.choose(res.supportedSecondFactors);
       if (next == null)
         throw new Error("This account needs a step the portal cannot do");
-      await prepare(res, next);
+      await secondFactor.prepare(res, next);
       setFactor(next);
-      setBackup(backupCode(res.supportedSecondFactors));
+      setBackup(secondFactor.backupCode(res.supportedSecondFactors));
       return;
     }
     throw new Error(`Login needs ${res.status ?? "another step"}`);
@@ -105,7 +99,7 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
     return (
       <Card
         title="Two-step verification"
-        description={prompt(factor)}
+        description={secondFactor.prompt(factor)}
         error={verify.error}
         footer={
           backup != null &&

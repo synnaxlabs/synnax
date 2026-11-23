@@ -24,7 +24,7 @@ import { aether } from "@/aether/aether";
 import { Layout } from "@/lineplot/aether/layout";
 import { range } from "@/lineplot/range/aether";
 import { ranger } from "@/ranger/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 

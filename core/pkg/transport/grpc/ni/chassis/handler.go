@@ -40,8 +40,8 @@ type (
 	updateServer = grpc.UnaryServer[
 		chassis.UpdateRequest,
 		*UpdateRequest,
-		struct{},
-		*emptypb.Empty,
+		chassis.UpdateResponse,
+		*UpdateResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		chassis.DeleteRequest,
@@ -57,6 +57,7 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	updateRequestTranslator    struct{}
+	updateResponseTranslator   struct{}
 	deleteRequestTranslator    struct{}
 )
 
@@ -66,6 +67,7 @@ var (
 	_ grpc.BackwardTranslator[chassis.RetrieveRequest, *pb.RetrieveRequest]  = retrieveRequestTranslator{}
 	_ grpc.ForwardTranslator[chassis.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.BackwardTranslator[chassis.UpdateRequest, *UpdateRequest]         = updateRequestTranslator{}
+	_ grpc.ForwardTranslator[chassis.UpdateResponse, *UpdateResponse]        = updateResponseTranslator{}
 	_ grpc.BackwardTranslator[chassis.DeleteRequest, *DeleteRequest]         = deleteRequestTranslator{}
 )
 
@@ -120,6 +122,17 @@ func (updateRequestTranslator) Backward(
 	return chassis.UpdateRequest{Key: key, Update: update}, nil
 }
 
+func (updateResponseTranslator) Forward(
+	_ context.Context,
+	res chassis.UpdateResponse,
+) (*UpdateResponse, error) {
+	stored, err := chassispb.ChassisToPB(res.Chassis)
+	if err != nil {
+		return nil, err
+	}
+	return &UpdateResponse{Chassis: stored}, nil
+}
+
 func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
@@ -151,7 +164,7 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	t.NIChassisRetrieve = retrieve
 	update := &updateServer{
 		RequestTranslator:  updateRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: updateResponseTranslator{},
 		ServiceDesc:        &NIChassisUpdateService_ServiceDesc,
 		Errors:             errs,
 	}

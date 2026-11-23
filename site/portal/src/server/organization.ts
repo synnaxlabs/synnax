@@ -11,8 +11,7 @@ import { errors } from "@synnaxlabs/x";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { schema } from "@/server/db";
-import type { Query, Store, Tx } from "@/server/db/db";
+import { type Query, schema, type Store, type Tx } from "@/server/db";
 import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { invite } from "@/server/invitation";
