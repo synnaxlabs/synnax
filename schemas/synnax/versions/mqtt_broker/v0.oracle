@@ -56,7 +56,9 @@ Auth union on type {
             @doc value "is the user name to authenticate with."
         }
         password secret.Key? {
-            @doc value "is the secret that holds the password. Absent sends no password."
+            @doc value """
+                is the secret that holds the password. Absent sends no password.
+            """
         }
 
         @doc value "sends a user name and an optional password."
@@ -72,7 +74,9 @@ SparkplugMode union on type {
     }
     primary {
         host_id string {
-            @doc value "is the ID that the Core publishes its host application state as."
+            @doc value """
+                is the ID that the Core publishes its host application state as.
+            """
         }
 
         @doc value "publishes the state of a primary host application."
@@ -115,16 +119,16 @@ Read union on type {
         @doc value "binds a value in the JSON payloads of a topic to a channel."
     }
     sparkplug {
-        group     string {
+        group     string      {
             @doc value "is the Sparkplug group ID of the edge node."
         }
-        edge_node string {
+        edge_node string      {
             @doc value "is the Sparkplug edge node ID."
         }
         device    string = "" {
             @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
         }
-        tag       string {
+        tag       string      {
             @doc value "is the name of the tag."
         }
         index     channel.Key {
@@ -156,16 +160,16 @@ Write union on type {
         @doc value "binds a field of a message published to a topic to a channel."
     }
     sparkplug {
-        group     string {
+        group     string      {
             @doc value "is the Sparkplug group ID of the edge node."
         }
-        edge_node string {
+        edge_node string      {
             @doc value "is the Sparkplug edge node ID."
         }
         device    string = "" {
             @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
         }
-        tag       string {
+        tag       string      {
             @doc value "is the name of the tag."
         }
         channel   channel.Key {
@@ -180,13 +184,13 @@ Write union on type {
 }
 
 EdgeCommand struct {
-    group     string {
+    group     string      {
         @doc value "is the Sparkplug group ID of the edge node."
     }
-    edge_node string {
+    edge_node string      {
         @doc value "is the Sparkplug edge node ID that the Core publishes as."
     }
-    tag       string {
+    tag       string      {
         @doc value "is the name of the tag."
     }
     channel   channel.Key {
@@ -222,16 +226,16 @@ Broker struct {
         @doc value "uniquely identifies the broker."
         @key
     }
-    rack          rack.Key      {
+    rack          rack.Key       {
         @doc value "is the key of the rack that connects to the broker."
     }
-    name          string        {
+    name          string         {
         @doc value "is a human-readable name for the broker."
     }
-    host          string        {
+    host          string         {
         @doc value "is the hostname or IP address of the broker."
     }
-    port          uint16?       {
+    port          uint16?        {
         @doc value """
             is the TCP port. Absent takes 1883, or 8883 when the transport is TLS.
         """
@@ -242,7 +246,7 @@ Broker struct {
     auth          Auth = none {
         @doc value "holds the credentials that the Core connects to the broker with."
     }
-    client_id     string?       {
+    client_id     string?        {
         @doc value """
             is the MQTT client ID. Absent derives one from the key of the broker.
         """
@@ -262,7 +266,7 @@ Broker struct {
     edge_commands EdgeCommand[] = [] {
         @doc value "bind the tags that the Core publishes as an edge node to channels."
     }
-    status        Status?       {
+    status        Status?        {
         @doc value  "is the current connection status of the broker."
         @go marshal omit
     }
