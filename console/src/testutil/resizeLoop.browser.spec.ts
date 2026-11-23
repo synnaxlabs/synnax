@@ -16,7 +16,7 @@ const frames = async (count: number): Promise<void> => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
 };
 
-const box = (parent: Element, className: string, height: number): HTMLDivElement => {
+const box = (parent: ParentNode, className: string, height: number): HTMLDivElement => {
   const element = document.createElement("div");
   element.className = className;
   element.style.height = `${height}px`;
@@ -25,7 +25,7 @@ const box = (parent: Element, className: string, height: number): HTMLDivElement
 };
 
 // Nests levels boxes under the parent and returns the deepest.
-const nest = (parent: Element, levels: number): HTMLDivElement => {
+const nest = (parent: ParentNode, levels: number): HTMLDivElement => {
   let element = box(parent, "level", 10);
   for (let i = 1; i < levels; i++) element = box(element, "level", 10);
   return element;
@@ -376,6 +376,40 @@ describe("traceResizeLoops", () => {
     expect(reports.length).toBeGreaterThan(0);
     expect(reports[0]).toContain("div.shallow changed");
     expect(reports[0]).not.toContain("div.leaf");
+  });
+
+  it("should count depth through shadow roots and slots", async () => {
+    const shallow = box(root, "shallow", 10);
+    observe(shallow, () => {});
+    const shadow = box(root, "host", 10).attachShadow({ mode: "open" });
+    const hidden = box(nest(shadow, 4), "hidden", 10);
+    const slotHost = box(root, "slot-host", 10);
+    nest(slotHost.attachShadow({ mode: "open" }), 4).append(
+      document.createElement("slot"),
+    );
+    const slotted = box(slotHost, "slotted", 10);
+    const watcher = new ResizeObserver(() => {});
+    watcher.observe(hidden);
+    watcher.observe(slotted);
+    onTestFinished(() => watcher.disconnect());
+    const trigger = box(nest(root, 3), "trigger", 10);
+    let armed = false;
+    // In the flat tree, both elements sit below the trigger.
+    observe(trigger, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+      hidden.style.height = "20px";
+      slotted.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    trigger.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.hidden");
+    expect(reports[0]).not.toContain("div.slotted");
   });
 
   it("should report nothing for a resize outside a callback", async () => {
