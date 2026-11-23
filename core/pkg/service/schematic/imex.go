@@ -93,11 +93,11 @@ func (s *Service) fitNodes(ctx context.Context, tx gorp.Tx, sch *Schematic) erro
 		switch ref := cfg.Spec.Variant.(type) {
 		case symbol.BuiltinRef:
 			if b, ok := s.builtins[ref.Name]; ok {
-				cfg = dropOrphans(cfg, b.States, b.Commands)
+				cfg, _ = dropOrphans(cfg, b.States, b.Commands)
 			}
 		case symbol.CustomRef:
 			if sym, ok := held[ref.Key]; ok {
-				cfg = dropOrphans(cfg, sym.Data.States, sym.Data.Commands)
+				cfg, _ = dropOrphans(cfg, sym.Data.States, sym.Data.Commands)
 			} else {
 				cfg.Spec = symbol.Ref{Variant: symbol.MissingRef{Key: ref.Key.String()}}
 			}
