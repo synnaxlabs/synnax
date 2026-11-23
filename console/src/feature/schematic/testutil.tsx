@@ -226,6 +226,23 @@ export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => 
   return button;
 };
 
+/** Returns the inspector of the symbol editor. */
+export const getInspector = (): HTMLElement => {
+  const inspector = document.querySelector<HTMLElement>(".console-schematic-inspector");
+  assertDefined(inspector, "no symbol-edit inspector");
+  return inspector;
+};
+
+/** Returns the item in the symbol-edit part list that shows name. */
+export const getPartListItem = (name: string): HTMLElement => {
+  const item = screen
+    .getAllByText(name)
+    .map((el) => el.closest<HTMLElement>(".console-schematic-part-list-item"))
+    .find((el) => el != null);
+  assertDefined(item, `no part list item ${name}`);
+  return item;
+};
+
 /** Returns the symbol-edit preview overlay handles with the given orientation. */
 export const getOverlayHandles = (
   container: ParentNode,

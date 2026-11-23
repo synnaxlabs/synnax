@@ -1369,6 +1369,12 @@ Node union on variant {
 					max float64
 				}
 			`),
+			Entry("in a generic struct whose type parameters have defaults", `
+				Range struct<T extends numeric = float64> {
+					lower T { @go validate lt upper }
+					upper T
+				}
+			`),
 		)
 
 		DescribeTable(

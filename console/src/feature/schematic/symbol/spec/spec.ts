@@ -168,7 +168,7 @@ export const variesByValue = (
 /**
  * @returns spec in which field of target varies by the values of state, with each value
  * starting from the field on every value. With varies false, it returns spec in which
- * every value takes the field that target shows at the first value.
+ * every value takes the field that target sets at the first value.
  */
 export const setVariesByValue = (
   spec: Spec,
@@ -180,11 +180,11 @@ export const setVariesByValue = (
 ): Spec => {
   const at = (value: number): At => ({ state, value });
   if (varies) {
-    const base = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
-    if (base == null) return spec;
+    const shared = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
+    if (shared == null) return spec;
     const cleared = setOwn(spec, target, field, undefined);
     return values.reduce(
-      (s, v) => setOwn(s, target, field, base[field], at(v)),
+      (s, v) => setOwn(s, target, field, shared[field], at(v)),
       cleared,
     );
   }
@@ -290,10 +290,9 @@ const holds = (doc: Document, outer: string, inner: string): boolean => {
 
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, and selector covers the shapes inside its
- * shape, so every part drops their selectors, and the other parts drop selector. A
- * shape inside a group that part holds takes the group out of part, and a shape inside
- * a group that another part holds stays there, so the parts stay the same.
+ * already did. The other parts drop selector. Every part drops the shapes inside its
+ * shape. A shape inside a group that part holds takes the group out of part. A shape
+ * inside a group that another part holds changes nothing.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,

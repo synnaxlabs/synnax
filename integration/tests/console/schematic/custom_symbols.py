@@ -141,18 +141,18 @@ class CustomSymbols(ConsoleCase):
         assert editor.part_count() == 2, (
             f"expected 2 parts (clip-path excluded), got {editor.part_count()}"
         )
-        assert editor.part_rows_fit(), "part rows overflow the editor sidebar"
+        assert editor.part_rows_fit(), "part items overflow the editor sidebar"
 
         editor.set_part_fill_color("#FF0000", part_index=0)
         editor.assert_preview_fill("#body", "rgb(255, 0, 0)")
 
-        # Drawing drops the override, so the preview and the swatch both show the
+        # Drawing drops the override, so the preview and the fill button both show the
         # SVG's own fill again.
         editor.clear_part_fill_color(part_index=0)
         editor.assert_preview_fill("#body", "rgb(90, 135, 197)")
-        swatch_color = editor.get_part_fill_swatch_color(part_index=0)
-        assert swatch_color == "#5a87c5", (
-            f"Drawing fill swatch should show the SVG's fill, got {swatch_color}"
+        fill_color = editor.get_part_fill_button_color(part_index=0)
+        assert fill_color == "#5a87c5", (
+            f"Drawing fill button should show the SVG's fill, got {fill_color}"
         )
 
         # The circle's green fill comes from a <style> class rule; overriding it must
