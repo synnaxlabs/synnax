@@ -12,6 +12,7 @@ package signals_test
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"time"
 	"uuid"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/telem"
@@ -87,6 +89,72 @@ var _ = Describe("Actions", func() {
 				"resource",
 			),
 		)
+	})
+
+	Describe("BatchCheck", func() {
+		var (
+			sigs     *signals.Provider
+			state    *actions.State[uuid.UUID, action]
+			ch       channel.Channel
+			received confluence.Outlet[framer.StreamerResponse]
+			checks   int
+			marker   = resource.ID{Type: "marker", Key: "batch"}
+		)
+		BeforeEach(func(ctx SpecContext) {
+			checks = 0
+			sigs = MustSucceed(signals.New(signals.Config{
+				DB:      db,
+				Channel: channelSvc,
+				Framer:  nodeFramer,
+			}))
+			state = actions.NewState[uuid.UUID, action](db)
+			name := nextName()
+			Expect(sigs.PublishActions(ctx, signals.ActionConfig[uuid.UUID, action]{
+				Name:     name,
+				Actions:  state,
+				Resource: testResource[uuid.UUID],
+				BatchChecks: func(
+					gorp.Commit,
+				) func(uuid.UUID, uint64) (signals.Check, bool) {
+					checks++
+					return func(uuid.UUID, uint64) (signals.Check, bool) {
+						return func(allowed func(resource.ID) bool) bool {
+							return allowed(marker)
+						}, true
+					}
+				},
+			})).To(Succeed())
+			MustOpen(sigs.Start(ctx))
+			ch = retrieveChannel(ctx, name)
+			received = openStreamer(ctx, ch.Key())
+		})
+
+		It("Should check each batch by the lookup that its commit made once", func(
+			ctx SpecContext,
+		) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().Attach(tx, uuid.New(), action{Type: "rename"})
+				return nil
+			})).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(received.Outlet(), 5*time.Second).Should(Receive(&res))
+			sample := slices.Collect(res.Frame.SeriesAt(0).Samples())[0]
+			record := sigs.Records()[ch.Key()]
+			check := MustSucceed(record.Check(sample))
+			Expect(
+				check(func(id resource.ID) bool { return id == marker }),
+			).To(BeTrue())
+			Expect(MustSucceed(record.Check(sample))(
+				func(resource.ID) bool { return false },
+			)).To(BeFalse())
+			Expect(checks).To(Equal(1))
+		})
+
+		It("Should fail the check of a batch whose check it does not hold", func() {
+			sample := MustSucceed(json.Marshal(scoped{Key: uuid.New(), Seq: 1 << 40}))
+			Expect(sigs.Records()[ch.Key()].Check(sample)).Error().
+				To(MatchError("[signals] - the check of a change is gone"))
+		})
 	})
 
 	Describe("PublishActions", func() {

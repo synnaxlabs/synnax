@@ -1,22 +1,26 @@
 ---
-title: "Version 0.46 release notes"
+title: "Arc beta"
+version: "0.46.0"
+date: "Sep 29, 2025"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-<Release
-    version="0.46.0"
-    date="Sep 29, 2025"
-    title="Arc beta"
->
-<Hero.Hero image="releases/0-46-0/thumbnail" extension="webp" themed={false} layout="framed" tone="deep" palette="green-blue" alt="An Arc graph that changes a status when the pressure stays high" />
+<Hero.Hero
+  image="releases/0-46-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="framed"
+  tone="deep"
+  palette="green-blue"
+  alt="An Arc graph that changes a status when the pressure stays high"
+/>
 
 Synnax v0.46 introduces the first release of our new automation language, Arc. We've
 also redesigned the browsing experience for ranges in the Console, added a new gauge
@@ -61,7 +65,7 @@ active and which have been completed.
     id="releases/0-46-0/gauge"
     extension="webp"
     themed={false}
-    style={{ width: 350 }}
+    style={{ width: "350px" }}
     alt="A gauge symbol that shows CPU use"
   />
 </Flex.Box>
@@ -83,5 +87,3 @@ the value of a gauge. To use it, simply drag and drop it into a schematic.
   purposes.
 - Significantly improved Core storage engine performance by increasing meta-data cache
   sizes.
-
-</Release>

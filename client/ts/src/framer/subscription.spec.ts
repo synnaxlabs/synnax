@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { domainOf, offsetOf, RAW_LEVEL, rawTile } from "@/framer/cache/block";
 import { tileAt, tileRange, tileSpan } from "@/framer/cache/grid";

@@ -1,23 +1,18 @@
 ---
-title: "Version 0.51 release notes"
+title: "EtherCAT support and Arc improvements"
+version: "0.51.0"
+npmVersion: null
+date: "Feb 10, 2026"
 ---
 
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import Release from "@/components/releases/Release.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import EtherCAT from "@/components/releases/EtherCAT.astro";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.51.0"
-    npmVersion={null}
-    date="Feb 10, 2026"
-    title="EtherCAT support and Arc improvements"
->
 
 <EtherCAT />
 
@@ -130,5 +125,3 @@ coordination, see the
 - Fixed an issue where the TypeScript client would incorrectly block the creation of
   channels with invalid names even when the Core was started with
   `--disable-channel-name-validation`.
-
-</Release>

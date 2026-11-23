@@ -13,17 +13,17 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v0.Version
+const Latest = v1.Version
 
 // ScanConfigLadder decodes ScanConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -37,11 +37,16 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[ScanConfig](data, "kafka.ScanConfig", version, opts...)
+		t0, err := imex.DecodeBlob[v0.ScanConfig](data, "kafka.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t0, nil
+	case v1.Version:
+		return imex.DecodeBlob[ScanConfig](data, "kafka.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("kafka.ScanConfig", version, Latest)
 }
@@ -58,11 +63,20 @@ func decodeReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (ReadConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[ReadConfig](data, "kafka.ReadConfig", version, opts...)
+		t0, err := imex.DecodeBlob[v0.ReadConfig](data, "kafka.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		t1, err := v1.MigrateReadConfig(ctx, t0)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t1, nil
+	case v1.Version:
+		return imex.DecodeBlob[ReadConfig](data, "kafka.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("kafka.ReadConfig", version, Latest)
 }
@@ -79,11 +93,16 @@ func decodeWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (WriteConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[WriteConfig](data, "kafka.WriteConfig", version, opts...)
+		t0, err := imex.DecodeBlob[v0.WriteConfig](data, "kafka.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t0, nil
+	case v1.Version:
+		return imex.DecodeBlob[WriteConfig](data, "kafka.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("kafka.WriteConfig", version, Latest)
 }

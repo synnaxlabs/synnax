@@ -1,19 +1,14 @@
 ---
-title: "Version 0.54 release notes"
+title: "PagerDuty integration"
+version: "0.54.0"
+date: "Apr 6, 2026"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.54.0"
-    date="Apr 6, 2026"
-    title="PagerDuty integration"
->
 
 <Hero.Hero
   image="releases/0-54-0/pagerduty-alert-task-trimmed"
@@ -123,5 +118,3 @@ navigate large NI installations.
 
 - The calculated channel engine is now more resilient to compilation errors, preventing
   cascading failures when an Arc program contains syntax issues.
-
-</Release>

@@ -11,7 +11,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type payload } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const SelectTimeFormat = (
   p: Omit<Select.SingleSimpleProps<payload.TimeFormat>, "children" | "resourceName">,

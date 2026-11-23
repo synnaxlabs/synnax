@@ -50,6 +50,7 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
+	wordChars lsp.WordChars
 	// names is shared by every snapshot of the document.
 	names *nameTokens
 }
@@ -59,6 +60,7 @@ type document struct {
 // dotted names. It lexes the content on first use and keeps them until the content
 // changes, so a lookup by position costs the same at any document length.
 type nameTokens struct {
+	cfg     parser.Config
 	mu      sync.Mutex
 	content string
 	lexed   bool
@@ -86,7 +88,7 @@ func (n *nameTokens) lex(content string) {
 	if n.lexed && n.content == content {
 		return
 	}
-	tokens := tokenizeContent(content)
+	tokens := tokenizeContent(content, n.cfg)
 	n.content, n.lexed = content, true
 	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
 }
@@ -178,11 +180,11 @@ func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *document) getWordAtPosition(pos protocol.Position) string {
-	return lsp.GetWordAtPosition(d.displayContent(), pos)
+	return lsp.GetWordAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 // findScopeAtPosition returns the scope at pos, a protocol position in UTF-16 units.
@@ -263,7 +265,7 @@ func (d *document) channelNameAt(
 	i := sort.Search(len(ts), func(i int) bool { return ts[i].GetLine() > line })
 	for j := i - 1; j >= 0; j-- {
 		// A name token sits on the line of pos.
-		if n, r, ok := channelNameIn(ts[j], at); ok {
+		if n, r, ok := channelNameIn(ts[j], at, d.names.cfg); ok {
 			return n, protocol.Range{
 				Start: toUTF16In(text, r.Start),
 				End:   toUTF16In(text, r.End),
@@ -310,9 +312,10 @@ func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
 func channelNameIn(
 	t antlr.Token,
 	pos protocol.Position,
+	cfg parser.Config,
 ) (parser.Name, protocol.Range, bool) {
 	if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
-		return placeholderChannelNameAt(t, pos)
+		return placeholderChannelNameAt(t, pos, cfg)
 	}
 	if r := tokenRange(t); holds(r, pos) {
 		return parser.TokenName(t), r, true
@@ -325,6 +328,7 @@ func channelNameIn(
 func placeholderChannelNameAt(
 	t antlr.Token,
 	pos protocol.Position,
+	cfg parser.Config,
 ) (parser.Name, protocol.Range, bool) {
 	f, ok := parseFormatString(t)
 	if !ok {
@@ -334,7 +338,7 @@ func placeholderChannelNameAt(
 		if !seg.IsPlaceholder {
 			continue
 		}
-		inner, spans := f.innerTokens(seg)
+		inner, spans := f.innerTokens(seg, cfg)
 		for i, it := range inner {
 			if it.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
 				continue

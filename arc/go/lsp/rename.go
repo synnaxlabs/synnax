@@ -138,7 +138,7 @@ func (s *Server) renameTextEdits(
 	}
 	var (
 		channel = targetSym.Kind == symbol.KindChannel
-		cfg     = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+		cfg     = s.parserConfig()
 		lines   = newLineText(doc.Content)
 		edits   []protocol.TextEdit
 	)
@@ -173,7 +173,7 @@ func (s *Server) renameTextEdits(
 		return parser.ChannelText(newName, taken), true, nil
 	}
 	sites := channelSites(doc.Content, doc.isBlock(), cfg)
-	tokens := tokenizeContent(doc.Content)
+	tokens := tokenizeContent(doc.Content, cfg)
 	paths := pathChannelIdents(ctx, tokens, importContextIdents(tokens), doc.IR)
 	for i, t := range tokens {
 		// A segment of a dotted name that names a channel is part of that name.
@@ -190,7 +190,7 @@ func (s *Server) renameTextEdits(
 				if !seg.IsPlaceholder {
 					continue
 				}
-				inner, spans := f.innerTokens(seg)
+				inner, spans := f.innerTokens(seg, cfg)
 				innerSites := expressionSites(seg.Text, cfg)
 				for i, it := range inner {
 					if channel && !innerSites.Contains(it.GetStart()) {

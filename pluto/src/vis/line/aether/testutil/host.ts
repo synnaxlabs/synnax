@@ -20,9 +20,9 @@ import { render } from "@/vis/render";
 export class Host extends aether.Composite<typeof Host.stateZ> {
   static readonly TYPE = "line-test-host";
   static readonly stateZ = z.object({});
-  schema = Host.stateZ;
+  override schema = Host.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     Context.create(ctx, render.Context.use(ctx));
     render.control(ctx, () => {});
   }

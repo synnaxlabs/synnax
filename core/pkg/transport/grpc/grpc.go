@@ -47,16 +47,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	grpcicd "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd"
 	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/secret"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
 )
@@ -86,10 +89,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		control.New(&t, errs),
 		nidevice.New(&t, errs),
 		nichassis.New(&t, errs),
+		secret.New(&t, errs),
+		certificate.New(&t, errs),
+		grpcicd.New(&t, errs),
 	}
 
 	// AUTH
 	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
+	t.AuthOIDCLink = noop.UnaryServer[apiauth.OIDCLinkRequest, apiauth.OIDCLinkResponse]{}
+	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
+	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
@@ -173,6 +182,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}
+	t.SchematicSymbolRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		symbol.RetrieveBuiltinsResponse,
+	]{}
 
 	// LINE PLOT
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
@@ -181,8 +194,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
 
 	// ICD
-	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
-	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
 	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
 	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
 	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
@@ -256,13 +267,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	]{}
 	t.EnumerationDelete = noop.UnaryServer[enumeration.DeleteRequest, struct{}]{}
 	t.EnumerationDispatch = noop.UnaryServer[enumeration.DispatchRequest, struct{}]{}
+	t.EnumerationReplace = noop.UnaryServer[enumeration.ReplaceRequest, struct{}]{}
 	t.EnumerationRetrieveBuiltins = noop.UnaryServer[
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
-	]{}
-	t.EnumerationRetrieveDependents = noop.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
 	]{}
 
 	// ACCESS
@@ -277,15 +285,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// SECRET
 	t.SecretSet = noop.UnaryServer[apisecret.SetRequest, apisecret.SetResponse]{}
-	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
 	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
 	t.SecretDispatch = noop.UnaryServer[apisecret.DispatchRequest, struct{}]{}
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
-	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
 
 	// CERTIFICATE
-	t.CertificateSet = noop.UnaryServer[apicertificate.SetRequest, apicertificate.SetResponse]{}
-	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
 	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 

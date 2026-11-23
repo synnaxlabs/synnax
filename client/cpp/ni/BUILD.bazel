@@ -26,3 +26,13 @@ cc_library(
         "//x/cpp/uuid",
     ],
 )
+
+cc_library(
+    name = "client",
+    hdrs = ["client.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/ni/chassis",
+        "//client/cpp/ni/device",
+    ],
+)
