@@ -23,7 +23,7 @@ import type { FC, ReactElement } from "react";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
-import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { defaultDataType } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
@@ -217,6 +217,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
   const sourceDisabled = PForm.useFieldValue(path.disabled);
+  const formatted = PForm.useFieldValue(fieldsPath(message)[field.key], {
+    ctx: format,
+  });
   const i = bindings.findIndex(({ field: key }) => key === field.key);
   const preview =
     i < 0
@@ -247,8 +250,8 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
                 channel={preview.channel}
-                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-                hideDataTypes={hiddenDataTypes(field.type)}
+                defaultDataType={defaultDataType(formatted)}
+                hideDataTypes={hiddenDataTypes(formatted)}
               />
             </>
           )}

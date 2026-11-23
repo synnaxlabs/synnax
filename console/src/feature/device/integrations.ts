@@ -45,7 +45,7 @@ export type Integration = Network | Hardware;
 export const NETWORK: Network[] = [
   {
     ...OPCUA.Device.NETWORK,
-    ContextMenuItems: OPCUA.Device.ContextMenuItems,
+    ContextMenuItems: OPCUA.ContextMenuItems,
     RackMenuItems: OPCUA.Device.RackMenuItems,
   },
   { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.Device.ContextMenuItems },
