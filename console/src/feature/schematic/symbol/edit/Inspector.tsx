@@ -10,6 +10,7 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import type { schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -18,7 +19,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import type { color } from "@synnaxlabs/x";
-import type { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
@@ -42,8 +43,8 @@ const [InspectorContext, useInspectorContext] = context.create<InspectorContextV
 interface FieldContextValue {
   field: Spec.Field;
   label: string;
-  /** at is the value that the control edits. */
-  at: number;
+  /** at is the value that the control edits, or undefined for every value. */
+  at?: number;
 }
 
 const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
@@ -56,7 +57,7 @@ interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContex
   onChange: (value: Look[F] | undefined) => void;
 }
 
-// useScope returns the field that a control edits at its value.
+// useScope returns the field that a control edits, at its value or at every value.
 const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const inspector = useInspectorContext(name);
   const field = useFieldContext(name);
@@ -64,10 +65,14 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { get, set } = Form.useContext();
   const { part } = inspector;
   const { at } = field;
+  const value =
+    at == null
+      ? Spec.own({ looks }, part, field.field)
+      : Spec.effective({ looks }, part, field.field, at);
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, at) as Look[F] | undefined,
+    value: value as Look[F] | undefined,
     onChange: (v) =>
       set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
   };
@@ -79,16 +84,68 @@ interface PropertyProps extends PropsWithChildren {
   icon: ReactElement;
 }
 
-// Property shows its control at the value that the canvas draws.
+// Property shows its control once for every value, or once for each value when the
+// field varies by state.
 const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
-  const { preview } = useInspectorContext("Property");
+  const { part, values } = useInspectorContext("Property");
+  const looks = Form.useFieldValue(path.data.looks);
+  const { get, set } = Form.useContext();
+  const [split, setSplit] = useState(false);
+  const several = values.values.length > 1;
+  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const handleVariesChange = () => {
+    const keys = values.values.map((v) => v.value);
+    set(
+      path.data,
+      Spec.setVariesByValue(get(path.data).value, part, field, keys, !varies),
+    );
+    setSplit(!varies);
+  };
+  const name = label.toLowerCase();
   return (
-    <Flex.Box x align="center" justify="between">
-      <Text.Text level="small" weight={500} gap="small">
-        {icon}
-        {label}
-      </Text.Text>
-      <FieldContext value={{ field, label, at: preview }}>{children}</FieldContext>
+    <Flex.Box y gap="small">
+      <Flex.Box x align="center" justify="between">
+        <Text.Text level="small" weight={500} gap="small">
+          {icon}
+          {label}
+        </Text.Text>
+        <Flex.Box x align="center" gap="small">
+          {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
+          {several && (
+            <Button.Button
+              size="small"
+              variant={varies ? "filled" : "outlined"}
+              onClick={handleVariesChange}
+              tooltip={
+                varies
+                  ? `Use one ${name} in every state`
+                  : `Set the ${name} of each state`
+              }
+            >
+              By state
+            </Button.Button>
+          )}
+        </Flex.Box>
+      </Flex.Box>
+      {varies &&
+        values.values.map((v) => (
+          <Flex.Box
+            key={v.key}
+            x
+            align="center"
+            justify="between"
+            className={CSS.BE("schematic-inspector", "value")}
+          >
+            <Text.Text level="small" color={9}>
+              {v.name}
+            </Text.Text>
+            <FieldContext
+              value={{ field, label: `${label} while ${v.name}`, at: v.value }}
+            >
+              {children}
+            </FieldContext>
+          </Flex.Box>
+        ))}
     </Flex.Box>
   );
 };
@@ -98,7 +155,7 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, onChange, label, at, values } = useScope<"fill" | "stroke">(
+  const { value, onChange, label, at, preview, values } = useScope<"fill" | "stroke">(
     "PaintControl",
   );
   return (
@@ -108,7 +165,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(at)}
+      entryColor={values.entryColor(at ?? preview)}
     />
   );
 };

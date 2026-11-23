@@ -160,6 +160,39 @@ export const setOwn = <F extends Field>(
   };
 };
 
+/** @returns whether a look of target sets field on some values alone. */
+export const variesByValue = (
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: Field,
+): boolean =>
+  spec.looks.some(
+    (l) => l.part === target && l.when?.state === STATE && l[field] != null,
+  );
+
+/**
+ * @returns spec in which field of target varies by value, with each value starting from
+ * the field on every value. With varies false, it returns spec in which every value
+ * takes the field that target shows at the first value.
+ */
+export const setVariesByValue = (
+  spec: Spec,
+  target: Target,
+  field: Field,
+  values: number[],
+  varies: boolean,
+): Spec => {
+  if (varies) {
+    const base = own(spec, target, field);
+    if (base == null) return spec;
+    const cleared = setOwn(spec, target, field, undefined);
+    return values.reduce((s, v) => setOwn(s, target, field, base, v), cleared);
+  }
+  const first = effective(spec, target, field, values[0]);
+  const cleared = values.reduce((s, v) => setOwn(s, target, field, undefined, v), spec);
+  return setOwn(cleared, target, field, first);
+};
+
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,

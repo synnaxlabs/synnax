@@ -152,7 +152,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const created = await client.schematics.symbols.retrieve(createKey);
         const part = created.data.parts[0].key;
         const look = created.data.looks.find((l) => l.part === part);
-        expect(look?.when).toEqual({ type: "equals", state: "active", values: [0] });
+        expect(look?.when).toBeUndefined();
         expect(look?.stroke).toEqual({
           type: "color",
           value: { type: "fixed", value: color.construct("#ff0000") },
@@ -175,27 +175,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () => {
         const created = await client.schematics.symbols.retrieve(createKey);
         expect(created.data.looks).toEqual([
-          {
-            key: expect.any(String),
-            when: { type: "equals", state: "active", values: [0] },
-            fill: { type: "node" },
-          },
+          { key: expect.any(String), fill: { type: "node" } },
         ]);
       });
     });
 
-    it("saves a fill for the previewed state of an actuator", async () => {
+    it("saves a fill for one state of an actuator", async () => {
       const createKey = uuid.create();
       const { picker } = await openCreateModal(createKey);
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      fireEvent.click(await screen.findByText("Active"));
-      fireEvent.click(screen.getByLabelText("Fill"));
+      const [fill] = screen.getAllByText("By state");
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByLabelText("Fill while Active"));
       fireEvent.click(screen.getByText("Node color"));
       fireEvent.change(findNameInput(), {
-        target: { value: uniqueName("previewed_state_symbol") },
+        target: { value: uniqueName("by_state_symbol") },
       });
       fireEvent.click(findButton("Create"));
       await waitFor(async () => {
@@ -351,7 +348,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
-        expect(saved.data.states.map((s) => s.key)).toEqual(["active"]);
+        expect(saved.data.states).toEqual([]);
         const part = saved.data.parts.find((p) => p.name === "Part 1");
         assertDefined(part);
         expect(saved.data.looks.find((l) => l.part === part.key)?.stroke).toEqual({
