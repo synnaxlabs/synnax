@@ -90,7 +90,7 @@ TEST(Slave, ParsesStartupParameterByDataType) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.startup_parameters.size(), 1);
     const auto *param = std::get_if<Uint64StartupParameter>(
-        &parsed.startup_parameters[0]
+        parsed.startup_parameters.data()
     );
     ASSERT_NE(param, nullptr);
     ASSERT_EQ(param->value, 9223372036854775809ULL);
