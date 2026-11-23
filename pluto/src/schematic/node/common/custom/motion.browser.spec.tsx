@@ -681,6 +681,100 @@ describe("Custom.Drawing motion", () => {
     });
   });
 
+  describe("groups", () => {
+    const arm = (selectors: string[]): schematic.symbol.Part[] => [
+      ...PARTS,
+      { key: "arm", name: "Arm", selectors },
+    ];
+
+    it("should turn a group about the center of its shapes at rest", async () => {
+      const move: schematic.symbol.Look = {
+        key: "move",
+        part: "slider",
+        motion: {
+          type: "move",
+          state: "speed",
+          from: { x: 0, y: 0 },
+          to: { x: 0.5, y: 0 },
+        },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([move, { ...SPIN, part: "arm" }], arm([".arm"])),
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".arm", "transform")).toBe("rotate(90 1 1) scale(2)");
+    });
+
+    it("should turn an element in a selected group once, with the group", async () => {
+      const { frame, attr } = await setup({
+        spec: createSpec([{ ...SPIN, part: "arm" }], arm([".arm", ".slider"])),
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".arm", "transform")).toBe("rotate(90 1 1) scale(2)");
+      expect(attr(".slider", "transform")).toBeNull();
+    });
+
+    // setupBox spins a group with a nested svg from 2 to 6 and a rect from 6 to 8.
+    const setupBox = (props: Partial<Custom.DrawingProps> = {}) => {
+      const markup =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g class="box">' +
+        '<svg x="2" y="2" width="4" height="4" viewBox="0 0 1 1">' +
+        '<rect width="1" height="1"/></svg>' +
+        '<rect class="far" x="6" y="6" width="2" height="2"/></g></svg>';
+      const box = { key: "box", name: "Box", selectors: [".box"] };
+      const spec = createSpec([{ ...SPIN, part: "box" }], [box]);
+      return setup({ spec: { ...spec, drawing: { type: "svg", markup } }, ...props });
+    };
+
+    it("should turn a group about the center of a nested svg in it", async () => {
+      const { frame, attr } = await setupBox();
+      frame(0);
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
+    });
+
+    it("should turn a group about the center of a shape that a look hides", async () => {
+      const { frame, attr } = await setupBox({
+        paints: [{ selectors: [".far"], hidden: true }],
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
+      expect(attr(".far", "style")).toBe("display: none;");
+    });
+
+    it("should measure a group with a nested svg again when its tab shows", async () => {
+      const { frame, attr, container } = await setupBox();
+      container.style.display = "none";
+      frame(0);
+      container.style.display = "";
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
+    });
+
+    it("should flow a dashed element in a selected group", async () => {
+      const markup =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g class="line">' +
+        '<path class="dash" d="M0 5H10" stroke="black" stroke-dasharray="4 2"/></g></svg>';
+      const flow: schematic.symbol.Look = {
+        key: "flow",
+        part: "line",
+        motion: { type: "flow", rate: 0.5 },
+      };
+      const line = { key: "line", name: "Line", selectors: [".line", ".dash"] };
+      const spec = createSpec([flow], [line]);
+      const { frame, attr } = await setup({
+        spec: { ...spec, drawing: { type: "svg", markup } },
+      });
+      frame(0);
+      frame(1000);
+      expect(attr(".dash", "stroke-dashoffset")).toBe("-3");
+    });
+  });
+
   describe("shared elements", () => {
     const SHARED = [
       ...PARTS,
