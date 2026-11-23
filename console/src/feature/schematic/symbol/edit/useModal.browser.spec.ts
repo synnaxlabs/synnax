@@ -9,11 +9,26 @@
 
 import type { group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ symbolNodes: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const original = await importOriginal<{ FLAGS: typeof FLAGS }>();
+  return {
+    FLAGS: {
+      ...original.FLAGS,
+      get symbolNodes() {
+        return mocks.symbolNodes;
+      },
+    },
+  };
+});
 
 import { Schematic } from "@/feature/schematic";
 import {
@@ -25,6 +40,7 @@ import {
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
+import type { FLAGS } from "@/flags";
 import {
   findButton,
   pressSaveTrigger,
@@ -34,6 +50,7 @@ import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mocks.symbolNodes = true;
 });
 
 // A shapeless SVG exercises the production load path.
@@ -478,6 +495,36 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([node]),
       );
+    });
+
+    it("hides Node color on a static symbol while symbol nodes are off", async () => {
+      mocks.symbolNodes = false;
+      const { fill } = await openPainted({});
+      fireEvent.click(fill);
+      await screen.findByText("Contrast");
+      expect(screen.queryByText("Node color")).toBeNull();
+    });
+
+    it("offers Node color on an actuator while symbol nodes are off", async () => {
+      mocks.symbolNodes = false;
+      const { fill } = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(fill);
+      expect(await screen.findByText("Node color")).toBeDefined();
+    });
+
+    it("draws a node color paint in a sample color in the preview", async () => {
+      await openPainted({
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        looks: [{ key: "node", part: "body", fill: { type: "node" } }],
+      });
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        expect(shape?.getAttribute("fill")).toBe(color.hex(primary.z));
+      });
     });
 
     it("names the field and the kind in the tooltip of a paint", async () => {
