@@ -10,7 +10,7 @@
 import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { NotFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 import { recordColumn } from "@/framer/record";
@@ -19,19 +19,9 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
-/** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
-const retrieveRequired = async (
-  retrieve: ChannelRetriever,
-  channels: ReturnType<typeof channel.analyzeParams>["normalized"],
-): Promise<channel.Payload[]> => {
-  const results = await retrieve(channels);
-  const found = new Set<channel.Key | channel.Name>();
-  results.forEach(({ key, name }) => found.add(key).add(name));
-  const notFound = channels.filter((v) => !found.has(v));
-  if (notFound.length > 0)
-    throw new NotFoundError(`channels not found matching ${JSON.stringify(notFound)}`);
-  return results;
-};
+const uniqueByKey = (channels: channel.Payload[]): channel.Payload[] => [
+  ...new Map(channels.map((c) => [c.key, c])).values(),
+];
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, string> | null;
@@ -62,11 +52,16 @@ export class ReadAdapter {
    * @returns true when the keys changed.
    */
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = channel.analyzeParams(channels);
-    const fetched = await retrieveRequired(this.retrieveChannels, normalized);
+    const lookups = channel.toLookups(channels);
+    const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
+    const fetched = uniqueByKey(resolved);
     const newKeys = new Set(fetched.map((c) => c.key));
-    this.adapter =
-      variant === "keys" ? null : new Map(fetched.map((c) => [c.key, c.name]));
+    // Frames label a channel looked up by name or path with the caller's own text.
+    const labels = new Map<channel.Key, string>();
+    lookups.forEach((l, i) => {
+      if (typeof l === "string") labels.set(resolved[i].key, l);
+    });
+    this.adapter = labels.size === 0 ? null : labels;
     if (newKeys.size === this.keys.size && newKeys.isSubsetOf(this.keys)) return false;
     this.fetched = fetched;
     this.keys = newKeys;
@@ -97,29 +92,31 @@ export class ReadAdapter {
       if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
       return frm;
     }
-    const { adapter } = this;
+    const { adapter, keys } = this;
     return frm.mapFilter((col, arr) => {
-      if (typeof col === "number") {
-        const name = adapter.get(col);
-        if (name == null) return [col, arr, false];
-        return [name, arr, true];
-      }
-      return [col, arr, true];
+      if (typeof col !== "number") return [col, arr, true];
+      const label = adapter.get(col);
+      if (label != null) return [label, arr, true];
+      return [col, arr, keys.has(col)];
     });
   }
 }
 
 export class WriteAdapter {
-  private byName: Map<channel.Name, channel.Payload> | null;
+  /** The held channels by name, and by each path the writer opened with. */
+  private byText: Map<string, channel.Payload[]>;
   private byKey: Map<channel.Key, channel.Payload>;
+  /** The channel of each key of a record frame, resolved once until an update. */
+  private byRecordKey: Map<string, channel.Payload>;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
 
   private constructor(retrieveChannels: ChannelRetriever) {
     this.retrieveChannels = retrieveChannels;
-    this.byName = null;
+    this.byText = new Map();
     this.byKey = new Map();
+    this.byRecordKey = new Map();
     this.keys = [];
     this.codec = new Codec();
   }
@@ -142,15 +139,21 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const { normalized } = channel.analyzeParams(channels);
-    const results = await retrieveRequired(this.retrieveChannels, normalized);
+    const lookups = channel.toLookups(channels);
+    const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
+    const results = uniqueByKey(resolved);
+    this.byText = new Map();
+    for (const c of results) this.hold(c.name, c);
+    lookups.forEach((l, i) => {
+      if (typeof l === "string") this.hold(l, resolved[i]);
+    });
+    this.byKey = new Map(results.map((c) => [c.key, c]));
+    this.byRecordKey = new Map();
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === previousKeySet.size && newKeySet.isSubsetOf(previousKeySet))
       return false;
-    this.byName = new Map(results.map((c) => [c.name, c]));
-    this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;
     this.codec.update(
       this.keys,
@@ -180,7 +183,9 @@ export class WriteAdapter {
    */
   private recordKey(k: string): channel.Key | channel.Name {
     const col = recordColumn(k);
-    if (typeof col === "string" || this.byName?.has(k) !== true) return col;
+    if (typeof col === "string") return col;
+    const named = this.held(k);
+    if (named == null || named.key === col) return col;
     if (this.byKey.has(col))
       throw new ValidationError(
         `Record column "${k}" names both channel ${col} and the channel named "${k}"`,
@@ -188,18 +193,43 @@ export class WriteAdapter {
     return k;
   }
 
+  private hold(text: string, ch: channel.Payload): void {
+    const key = text.normalize("NFC");
+    const held = this.byText.get(key);
+    if (held == null) this.byText.set(key, [ch]);
+    else if (!held.some((c) => c.key === ch.key)) held.push(ch);
+  }
+
+  /**
+   * @returns the held channel that text names, or undefined.
+   * @throws {ValidationError} if the writer holds several channels with that name.
+   */
+  private held(text: string): channel.Payload | undefined {
+    const held = this.byText.get(text.normalize("NFC"));
+    if (held != null && held.length > 1)
+      throw new ValidationError(
+        `The writer holds ${held.length} channels named "${text}"`,
+      );
+    return held?.[0];
+  }
+
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
     // The channel set is fixed between updates, so cached payloads cannot go stale.
-    let cached: channel.Payload | undefined;
-    if (typeof ch === "number") cached = this.byKey.get(ch);
-    else if (typeof ch === "string") cached = this.byName?.get(ch);
-    else cached = this.byKey.get(ch.key);
+    const cached =
+      typeof ch === "string"
+        ? this.held(ch)
+        : this.byKey.get(typeof ch === "number" ? ch : ch.key);
     if (cached != null) return cached;
-    const res = await this.retrieveChannels(ch);
-    const where = channel.lookupWhere([typeof ch === "object" ? ch.key : ch]);
-    checkForMultipleOrNoResults("channel", { where }, res, true);
+    const lookups = channel.toLookups(ch);
+    const res = await this.retrieveChannels(lookups);
+    checkForMultipleOrNoResults(
+      "channel",
+      { where: channel.lookupWhere(lookups) },
+      res,
+      true,
+    );
     return res[0];
   }
 
@@ -264,9 +294,8 @@ export class WriteAdapter {
 
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
-      if (this.byName == null) return fr;
       const cols = fr.columns.map((col_) => {
-        const col = typeof col_ === "string" ? this.byName?.get(col_)?.key : col_;
+        const col = typeof col_ === "string" ? this.held(col_)?.key : col_;
         if (col == null)
           throw new ValidationError(`
           Channel ${col_} was not provided in the list of channels when opening the writer
@@ -281,7 +310,11 @@ export class WriteAdapter {
     const kvs = Object.entries(columnsOrData);
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
-      const pld = await this.fetchChannel(this.recordKey(k));
+      let pld = this.byRecordKey.get(k);
+      if (pld == null) {
+        pld = await this.fetchChannel(this.recordKey(k));
+        this.byRecordKey.set(k, pld);
+      }
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);

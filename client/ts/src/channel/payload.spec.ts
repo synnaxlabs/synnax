@@ -115,8 +115,8 @@ describe("escapeInvalidName", () => {
 });
 
 describe("lookupWhere", () => {
-  it("should look up a number as a key", () => {
-    expect(channel.lookupWhere([12])).toEqual({ key: { eq: 12 } });
+  it("should look up a number as a key in a list, which the record store serves", () => {
+    expect(channel.lookupWhere([12])).toEqual({ key: { in: [12] } });
   });
 
   it("should look up a string as a name", () => {

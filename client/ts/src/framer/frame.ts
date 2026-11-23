@@ -100,8 +100,14 @@ export class Frame {
   readonly columns: channel.Key[] | channel.Name[] = [];
   readonly series: Series[] = [];
 
+  /**
+   * @param columnsOrData - the columns of series, or the frame data. A record keys its
+   * series by string, and a frame has no writer to hold channel names, so a record key
+   * of all digits that fits a channel key is a key.
+   */
   constructor(
-    columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
+    columnsOrData:
+      channel.Key | channel.Name | channel.Key[] | channel.Name[] | CrudeFrame = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {

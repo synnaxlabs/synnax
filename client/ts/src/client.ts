@@ -9,7 +9,6 @@
 
 import { trustCA } from "@synnaxlabs/freighter";
 import {
-  array,
   breaker,
   type CrudeTimeSpan,
   observe,
@@ -326,17 +325,13 @@ export default class Synnax extends framer.Client {
     tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
-      const lookups = array
-        .toArray<channel.Key | channel.Name | channel.Payload>(toRetrieve)
-        .map((c) => (typeof c === "object" ? c.key : c));
+      const lookups = channel.toLookups(toRetrieve);
       if (lookups.length === 0) return [];
-      const where = channel.lookupWhere(lookups);
       // A writer, streamer, iterator, or reader names each channel once, so the Core
-      // refuses an ambiguous name or path. Any field beside where skips the record
-      // store, so keys alone send no strict field.
+      // refuses an ambiguous name.
       const named = lookups.some((l) => typeof l === "string");
       const result = await this.channels.retrieve(
-        named ? { where, strict: true } : { where },
+        channel.lookupRequest(lookups, named),
       );
       return result.map((ch) => ch.payload);
     };

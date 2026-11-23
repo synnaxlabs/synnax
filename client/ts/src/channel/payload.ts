@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { zod } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,21 +18,17 @@ import {
   payloadZ,
   type Where,
 } from "@/channel/types.gen";
-import {
-  analyzeParams as baseAnalyzeParams,
-  type ParamAnalysisResult,
-} from "@/util/retrieve";
+import { NotFoundError } from "@/errors";
 
 /** One or many channels, named by key or by name. */
-export type PrimitiveParams = Key | Name | Key[] | Name[];
+export type PrimitiveParams = Key | Name | Array<Key | Name>;
 
 /**
- * Zod schema for {@link Params}. A number is a key and a string is a name, digits
- * included.
+ * Zod schema for {@link Params}. A number is a key and a string is a name or a path,
+ * digits included. A list may mix them.
  */
 export const paramsZ = z.union([
-  zod.toArray(z.uint32()),
-  zod.toArray(nameZ),
+  zod.toArray(z.uint32().or(nameZ)),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
 /** Anything that names one or many channels. */
@@ -65,45 +61,100 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
 /** @returns whether a calculation writes the channel. */
 export const isCalculated = ({ calculated }: Payload): boolean => calculated;
 
-/**
- * Resolves channel params into a normalized array, reporting whether the caller named
- * one channel or many, and whether by key or by name.
- */
-export const analyzeParams = (
-  channels: Params,
-): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
-  if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
-    channels = (channels as Payload[]).map((c) => c.key);
-  else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
-  return baseAnalyzeParams(
-    channels as PrimitiveParams,
-    { number: "keys", string: "names" },
-    { convertNumericStrings: false },
-  );
-};
-
 /** A '.' joins the folders of a channel's path and its name, and no name holds one. */
 const PATH_SEPARATOR = ".";
+
+/** A channel named by its key, its name, or its path. */
+export type Lookup = Key | Name;
+
+/** @returns each channel of params as a lookup, a payload as its key. */
+export const toLookups = (params: Params): Lookup[] =>
+  array
+    .toArray<Key | Name | Payload>(params)
+    .map((p) => (typeof p === "object" ? p.key : p));
+
+/** The lookups of each kind, in the order given. */
+export interface SplitLookups {
+  keys: Key[];
+  names: Name[];
+  paths: string[];
+}
+
+/**
+ * @returns the lookups split by kind. A number is a key, a string that holds a '.' is a
+ * path, and any other string is a name, digits included.
+ */
+export const splitLookups = (lookups: Lookup[]): SplitLookups => {
+  const split: SplitLookups = { keys: [], names: [], paths: [] };
+  for (const lookup of lookups)
+    if (typeof lookup === "number") split.keys.push(lookup);
+    else if (lookup.includes(PATH_SEPARATOR)) split.paths.push(lookup);
+    else split.names.push(lookup);
+  return split;
+};
 
 const oneOrIn = <T>(values: T[]): { eq: T } | { in: T[] } =>
   values.length === 1 ? { eq: values[0] } : { in: values };
 
 /**
  * @returns the filter that looks up each channel in lookups, which must not be empty.
- * A number is a key, a string that holds a '.' is a path, and any other string is a
- * name, digits included. Lookups of several kinds join in an or.
+ * Lookups of several kinds join in an or. Keys are always a list, which the record
+ * store serves.
  */
-export const lookupWhere = (lookups: Array<Key | Name>): Where => {
-  const keys: Key[] = [];
-  const names: Name[] = [];
-  const paths: string[] = [];
-  for (const lookup of lookups)
-    if (typeof lookup === "number") keys.push(lookup);
-    else if (lookup.includes(PATH_SEPARATOR)) paths.push(lookup);
-    else names.push(lookup);
+export const lookupWhere = (lookups: Lookup[]): Where => {
+  const { keys, names, paths } = splitLookups(lookups);
   const branches: Where[] = [];
-  if (keys.length > 0) branches.push({ key: oneOrIn(keys) });
+  if (keys.length > 0) branches.push({ key: { in: keys } });
   if (names.length > 0) branches.push({ name: oneOrIn(names) });
   if (paths.length > 0) branches.push({ path: oneOrIn(paths) });
   return branches.length === 1 ? branches[0] : { or: branches };
+};
+
+/**
+ * @returns the request that retrieves the channels of lookups. A strict request makes
+ * the Core refuse an ambiguous name. A request that is not strict holds only its where,
+ * since any other field keeps the record store from serving it.
+ */
+export const lookupRequest = (
+  lookups: Lookup[],
+  strict: boolean,
+): { where: Where; strict?: true } => {
+  const where = lookupWhere(lookups);
+  return strict ? { where, strict: true } : { where };
+};
+
+/**
+ * Resolves each lookup to its channel. A path cannot be ambiguous, so each path is a
+ * request of its own, and its one channel is its match.
+ * @param retrieve - returns the channels that a list of lookups finds.
+ * @returns the channel of each lookup, in the order of lookups.
+ * @throws {NotFoundError} naming every lookup that finds no channel.
+ */
+export const resolveLookups = async <C extends { key: Key; name: Name }>(
+  lookups: Lookup[],
+  retrieve: (lookups: Lookup[]) => Promise<C[]>,
+): Promise<C[]> => {
+  const { keys, names, paths } = splitLookups(lookups);
+  const found = new Map<Key | string, C>();
+  const direct: Lookup[] = [...keys, ...names];
+  await Promise.all([
+    direct.length > 0 &&
+      retrieve(direct).then((res) =>
+        res.forEach((ch) => found.set(ch.key, ch).set(ch.name, ch)),
+      ),
+    ...paths.map(async (path) => {
+      const [ch] = await retrieve([path]);
+      if (ch != null) found.set(path.normalize("NFC"), ch);
+    }),
+  ]);
+  const missing: Lookup[] = [];
+  const resolved: C[] = [];
+  for (const lookup of lookups) {
+    const ch = found.get(typeof lookup === "number" ? lookup : lookup.normalize("NFC"));
+    if (ch == null) missing.push(lookup);
+    else resolved.push(ch);
+  }
+  if (missing.length > 0)
+    throw new NotFoundError(`channels not found matching ${JSON.stringify(missing)}`);
+  return resolved;
 };

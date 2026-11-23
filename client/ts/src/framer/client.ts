@@ -162,8 +162,7 @@ export class Client {
       const data_ = channels as Record<channel.Key | channel.Name, CrudeSeries>;
       const w = await this.openWriter({
         start,
-        channels: Object.keys(data_).map(recordColumn) as
-          channel.Key[] | channel.Name[],
+        channels: Object.keys(data_).map(recordColumn),
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
         autoIndexPersistInterval: TimeSpan.MAX,
@@ -211,9 +210,9 @@ export class Client {
     channels: channel.Params,
     opts?: ReadOptions,
   ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
     const fr = await this.reader.read(tr, channels, opts);
-    if (single) return fr.get(channels as channel.Key | channel.Name);
+    if (typeof channels === "number" || typeof channels === "string")
+      return fr.get(channels);
     return fr;
   }
 
@@ -277,9 +276,9 @@ export class Client {
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
-    if (single) return fr.get(channels as channel.Key | channel.Name);
+    if (typeof channels === "number" || typeof channels === "string")
+      return fr.get(channels);
     return fr;
   }
 
@@ -294,13 +293,18 @@ export class Client {
 
   /**
    * Deletes every sample in the time range from the given channels. Deletion is
-   * permanent.
+   * permanent. A number is a key, and a string is a path or a name. A list may mix
+   * them.
+   * @throws {NotFoundError} naming every name or path that finds no channel.
    */
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
-    const { normalized, variant } = channel.analyzeParams(channels);
-    const bounds = new TimeRange(timeRange);
-    if (variant === "keys")
-      return await this.deleter.delete({ keys: normalized, bounds });
-    return await this.deleter.delete({ names: normalized, bounds });
+    const { keys, names, paths } = channel.splitLookups(channel.toLookups(channels));
+    const named = [...names, ...paths];
+    // The Core intersects the keys and names of one request, so names go as keys.
+    if (named.length > 0) {
+      const resolved = await channel.resolveLookups(named, this.cfg.retrieveChannels);
+      keys.push(...resolved.map((ch) => ch.key));
+    }
+    await this.deleter.delete({ keys, bounds: new TimeRange(timeRange) });
   }
 }

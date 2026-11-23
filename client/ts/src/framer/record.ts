@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { math } from "@synnaxlabs/x";
+
 import { type channel } from "@/channel";
 
 /**
  * @returns the channel that a key of a record frame names. A record keys its columns
- * by string, so a key of all digits is a channel key, and any other key is a name.
+ * by string, so a key of all digits that fits a channel key is a key, and any other
+ * key is a name.
  */
-export const recordColumn = (key: string): channel.Key | channel.Name =>
-  /^\d+$/.test(key) ? Number(key) : key;
+export const recordColumn = (key: string): channel.Key | channel.Name => {
+  if (!/^\d+$/.test(key)) return key;
+  const n = Number(key);
+  return n <= math.MAX_UINT32 ? n : key;
+};

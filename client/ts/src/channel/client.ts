@@ -33,11 +33,14 @@ import {
   scopedActionZ,
 } from "@/channel/actions";
 import {
-  analyzeParams,
   isCalculated,
+  lookupRequest,
   lookupWhere,
   type Params,
   type PrimitiveParams,
+  resolveLookups,
+  splitLookups,
+  toLookups,
 } from "@/channel/payload";
 import { createOf, reduceAll } from "@/channel/reduce";
 import {
@@ -617,17 +620,12 @@ export class Client extends query.Retriever<
    * retrieves no channels. To retrieve every channel, pass `{}`.
    */
   async retrieve(
-    params:
-      | PrimitiveParams
-      | Array<Key | Name>
-      | Payload[]
-      | query.RequestInput<typeof retrieveParamsZ>,
+    params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
   async retrieve(
     params:
       | PrimitiveParams
-      | Array<Key | Name>
       | Payload[]
       | RetrieveSingleParams
       | OneParams
@@ -639,9 +637,7 @@ export class Client extends query.Retriever<
       return await super.retrieve(params);
     }
     const isSingle = !Array.isArray(params);
-    const raw = array
-      .toArray<Key | Name | Payload>(params)
-      .map((p) => (typeof p === "object" ? p.key : p));
+    const raw = toLookups(params);
     const lookups = raw.filter((p) => p !== 0);
     if (lookups.length === 0) {
       if (isSingle)
@@ -650,30 +646,35 @@ export class Client extends query.Retriever<
     }
     if (isSingle && typeof lookups[0] === "number")
       return await super.retrieve({ key: lookups[0] });
-    const where = lookupWhere(lookups);
-    // One lookup needs exactly one channel, so the Core refuses an ambiguous name. Any
-    // field beside where skips the record store, so a list sends no strict field.
-    const res = await super.retrieve(isSingle ? { where, strict: true } : { where });
-    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
+    // One lookup needs exactly one channel, so the Core refuses an ambiguous name.
+    const req = lookupRequest(lookups, isSingle);
+    const res = await super.retrieve(req);
+    checkForMultipleOrNoResults("channel", { where: req.where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
-  /** * Deletes channels from the database using the given keys or names. */
+  /**
+   * Deletes the channels that params name. A number is a key, and a string is a path or
+   * a name. A list may mix them.
+   * @throws {NotFoundError} naming every path that finds no channel.
+   */
   async delete(params: Params, opts: query.WriteOptions = {}): Promise<void> {
-    const { normalized, variant } = analyzeParams(params);
-    if (variant === "keys") {
-      const keys = normalized;
-      const drop = () => [this.store.delete(keys)];
-      await query.optimistic({
-        rollbacks: drop(),
-        onOptimistic: opts.onOptimistic,
-        commit: async () => await this.writer.delete({ keys }),
-      });
-      drop();
-      return;
+    const { keys, names, paths } = splitLookups(toLookups(params));
+    if (paths.length > 0) {
+      const resolved = await resolveLookups(
+        paths,
+        async (lookups) => await this.retrieve(lookupRequest(lookups, true)),
+      );
+      keys.push(...resolved.map((ch) => ch.key));
     }
-    const names = normalized;
-    await this.writer.delete({ names });
+    const drop = () => [this.store.delete(keys)];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.writer.delete({ keys, names }),
+    });
+    drop();
+    if (names.length === 0) return;
     const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
