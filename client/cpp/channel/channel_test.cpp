@@ -177,7 +177,7 @@ TEST(TestChannel, testRetrieveByPathNotFound) {
     const auto client = new_test_client();
     const auto path = make_unique_channel_name("folder") + ".channel";
     auto [ch, err] = client.channels.retrieve(path);
-    ASSERT_TRUE(err.matches(x::errors::NOT_FOUND));
+    ASSERT_OCCURRED_AS(err, x::errors::NOT_FOUND);
     EXPECT_NE(err.data.find("path"), std::string::npos) << err.message();
 }
 

@@ -297,13 +297,11 @@ class Client:
         leaves out, after the requested channels. A channel with no data in the time
         range gives an empty series.
         """
-        single = isinstance(channels, (channel.Key, str))
-        frame = self._reader.read(
-            tr, channels, reduction=reduction, timestamps_included=not single
-        )
-        if not isinstance(channels, (channel.Key, str)):
-            return frame
-        return frame[channels]
+        if not channel.is_single(channels):
+            return self._reader.read(
+                tr, channels, reduction=reduction, timestamps_included=True
+            )
+        return self._reader.read(tr, channels, reduction=reduction)[channels]
 
     @deprecate_positional("dest", "reduction")
     def read_csv(
@@ -392,7 +390,7 @@ class Client:
                 i.seek_last()
                 i.prev(AUTO_SPAN)
                 aggregate.append(i.value)
-        if not isinstance(channels, (channel.Key, str)):
+        if not channel.is_single(channels):
             return aggregate
         return aggregate[channels]
 

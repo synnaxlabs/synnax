@@ -97,12 +97,12 @@ bool is_path(const std::string &text) {
 
 std::pair<Channel, x::errors::Error>
 Client::retrieve(const std::string &text, const RetrieveOptions &options) const {
-    auto strict = options;
+    auto one = options;
     // One name or path needs exactly one channel, so the Core refuses an ambiguous
     // name.
-    strict.strict = true;
+    one.strict = true;
     const auto where = is_path(text) ? Where{.path = text} : Where{.name = text};
-    return this->retrieve(where, x::filter::one, strict);
+    return this->retrieve(where, x::filter::one, one);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
