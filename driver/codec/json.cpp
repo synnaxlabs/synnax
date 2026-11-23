@@ -545,7 +545,6 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     field.scale = b.scale;
     field.offset = b.offset;
     field.base = static_cast<const icd::BaseField &>(b);
-    field.narrow = dt == x::telem::FLOAT32_T;
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};
     field.kind = v.kind;
@@ -601,7 +600,7 @@ x::errors::Error JSONEncoder::Field::append(
     auto sample = s.at(static_cast<int>(i));
     // A boolean matches and converts as 0 or 1.
     if (s.data_type() == x::telem::BOOLEAN_T) sample = x::telem::BOOLEAN_T.cast(sample);
-    // An enum label writes a value that the ICD names, which takes no conversion.
+    // An enum label writes a value that the ICD names, with no conversion or check.
     if (const auto *label = this->encoder.label(sample)) {
         out += *label;
         return x::errors::NIL;
@@ -609,7 +608,10 @@ x::errors::Error JSONEncoder::Field::append(
     const auto n = x::json::to_number(sample).value();
     const auto v = n.to_float64();
     if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
-    if (auto err = check_limits(this->base, this->at_limit(v))) return err;
+    const auto *narrow = std::get_if<float>(&sample);
+    if (auto err = narrow != nullptr ? check_limits(this->base, *narrow)
+                                     : check_limits(this->base, v))
+        return err;
     if (this->kind == payload::KIND_FLOAT)
         return x::json::append_float((v - this->offset) / this->scale, out);
     if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
@@ -647,14 +649,6 @@ JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) c
         x::json::Number(v).to_string() + " is out of range for " +
         std::string(this->kind) + " values"
     );
-}
-
-double JSONEncoder::Field::at_limit(const double v) const {
-    if (!this->narrow) return v;
-    for (const auto &limit: {this->base.min, this->base.max})
-        if (limit.has_value() && static_cast<float>(v) == static_cast<float>(*limit))
-            return *limit;
-    return v;
 }
 
 std::pair<JSONEncoder, x::errors::Error>

@@ -81,4 +81,10 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, const double v) {
     if (b.max.has_value() && v > *b.max) return outside("above the max", *b.max);
     return x::errors::NIL;
 }
+
+x::errors::Error check_limits(const synnax::icd::BaseField &b, const float v) {
+    for (const auto &limit: {b.min, b.max})
+        if (limit.has_value() && static_cast<float>(*limit) == v) return x::errors::NIL;
+    return check_limits(b, static_cast<double>(v));
+}
 }

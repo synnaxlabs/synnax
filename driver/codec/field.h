@@ -36,7 +36,11 @@ x::errors::Error as_config(const x::errors::Error &err, const std::string &conte
 /// @brief reports whether inner is outer or a pointer into the value at outer.
 bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);
 
-/// @brief returns a VALIDATION error when v, a value after the scale and offset of b,
-/// is outside the min and max of b.
+/// @brief returns VALIDATION when v, a value after the scale and offset of b, is
+/// outside the min and max of b.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
+
+/// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
+/// A sample that equals a limit at float32 precision is at that limit.
+x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 }
