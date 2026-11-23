@@ -12,7 +12,7 @@ import { test } from "vitest";
 import z from "zod";
 
 import { query } from "@/query";
-import { Space } from "@/query/query";
+import { space } from "@/query/space";
 
 interface Thing extends record.Keyed<string> {
   key: string;
@@ -57,7 +57,7 @@ test("Retriever.getCached", async ({ bench }) => {
 
 const N = 100;
 const listTable = new query.Table<string, Thing>({ onError: () => {} });
-const listAnswers = new Space<{ minSize: number }, Thing[], string, Thing>({
+const listAnswers = new space.Space<{ minSize: number }, Thing[], string, Thing>({
   name: "things",
   table: listTable,
   fetch: async () =>

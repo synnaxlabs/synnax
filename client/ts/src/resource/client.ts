@@ -92,9 +92,9 @@ export interface ClientConfig {
 export class Client {
   private readonly client: UnaryClient;
   private readonly table: query.Table<string, Resource>;
-  private readonly searches: query.Space<Search, Resource[], string, Resource>;
-  private readonly byKey: query.Space<string, Resource, string, Resource>;
-  private readonly byKeys: query.Space<string[], Resource[], string, Resource>;
+  private readonly searches: query.space.Space<Search, Resource[], string, Resource>;
+  private readonly byKey: query.space.Space<string, Resource, string, Resource>;
+  private readonly byKeys: query.space.Space<string[], Resource[], string, Resource>;
   private readonly lists: query.Lists<
     ListQuery,
     Resource,
