@@ -61,17 +61,18 @@ secret or certificate names it, so no user can make the Driver read it for anoth
 ### 3.2 Keeping the records current
 
 The Driver matches records to its certificates by `certificate_path`, which it makes
-itself, so the paths need no normal form. On each scan, under the scan task lock, it
-compares its certificates and its rack name with those of its last sync that succeeded.
-On a change, it retrieves the file certificates of its rack and keeps one record for
-each certificate. It renames a record when its certificate becomes the current one, and
-deletes every other record in its folder, including a second record of one file. A sync
-that fails runs again at the next scan.
+itself, so the paths need no normal form. A record on its rack whose file has the name
+that the Driver gives its certificates, "Synnax Driver [<thumbprint>].der", is a Driver
+record, in any folder. On each scan, under the scan task lock, the Driver compares its
+certificates and its rack name with those of its last sync that succeeded. On a change,
+it retrieves the file certificates of its rack and keeps one record for each
+certificate. It renames a record when its certificate becomes the current one, and
+deletes every other Driver record, including a second record of one file. A sync that
+fails runs again at the next scan.
 
 So a switch that `Store::current()` makes when a read or write task connects shows at
-the next scan. A record that a user deletes comes back at the next change or start.
-Records outside the folder are not the Driver's: a Driver whose state directory moves
-leaves its old records for a user to delete.
+the next scan. A record that a user deletes comes back at the next change or start. A
+Driver whose state directory moves deletes the records of the old folder.
 
 ### 3.3 Permissions
 
@@ -121,10 +122,10 @@ a key. This also hides pinned server certificates, which the field lists today
    the secrets folder, so a user could make the key the value of an HTTP token and send
    it to a server that the user picks. The trade is real: the Driver keeps its key in a
    second folder.
-4. **Match by path, not by a stored mark**: The Driver knows its own folder, so no field
-   or fixed key marks its records. The trade is real: a file certificate that a user
-   points at that folder looks like a Driver record, and the Driver renames or deletes
-   it.
+4. **Match by file name, not by a stored mark**: The Driver names its own certificate
+   files, so no field or fixed key marks its records. The trade is real: a file
+   certificate that a user points at a Driver certificate file looks like a Driver
+   record, and the Driver renames or deletes it.
 
 ## 6 What this RFC does not cover
 
