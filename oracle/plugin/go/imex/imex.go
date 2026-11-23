@@ -602,7 +602,7 @@ func envelopeDecode(pkg, goName string) string {
 func blobDecode(name string) decodeExpr {
 	return func(pkg, goName string) string {
 		return fmt.Sprintf(
-			"imex.DecodeBlob[%s.%s](data, %q, version, opts...)",
+			"imex.DecodeBlob[%s.%s](data, %q, version)",
 			pkg,
 			goName,
 			name,
@@ -816,7 +816,6 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"{{.Runtime}}"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -842,7 +841,6 @@ func decode{{.Type}}(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) ({{.Type}}, error) {
 	switch version {
 {{- range .Arms}}
@@ -850,7 +848,7 @@ func decode{{.Type}}(
 {{.Body}}
 {{- end}}
 	case {{$.CurrentPkg}}.Version:
-		return imex.DecodeBlob[{{.Type}}](data, "{{.Name}}", version, opts...)
+		return imex.DecodeBlob[{{.Type}}](data, "{{.Name}}", version)
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion("{{.Name}}", version, Latest)
 }

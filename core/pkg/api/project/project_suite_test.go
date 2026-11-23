@@ -20,13 +20,11 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -38,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIProject(t *testing.T) {
@@ -78,8 +77,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
-	db = node.DB
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -130,14 +129,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Panel:    panelSvc,
 		ImEx:     imexSvc,
-		Channel: MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel: node.Channel,
-			TS:      node.Storage.TS,
-			DB:      db,
-			HostKey: node.Identity.HostKey,
-			Status:  statusSvc,
-		})),
-		DB: db,
 	}))
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		Project: projectSvc,

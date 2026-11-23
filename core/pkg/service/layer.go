@@ -1225,8 +1225,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:    l.Group,
 		Panel:    l.Panel,
 		ImEx:     l.ImEx,
-		Channel:  l.Channel,
-		DB:       cfg.Distribution.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}

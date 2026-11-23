@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -64,14 +63,13 @@ func (s *Service) Export(
 			"no config store registered for task type %q", t.Type,
 		)
 	}
-	body, err := store.Export(ctx, snap, t.Key)
-	if errors.Is(err, query.ErrNotFound) {
-		body, err = map[string]any{}, nil
+	body := map[string]any(t.Config)
+	if body == nil {
+		body = make(map[string]any)
 	}
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{Version: store.Version(), Type: t.Type, Name: t.Name}
+	body["type"] = t.Type
+	body["name"] = t.Name
+	env := imex.Envelope{Version: store.Version()}
 	if err = env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
@@ -117,12 +115,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	decoded, err := store.Decode(
-		ctx,
-		env.Version,
-		msgpack.EncodedJSON(body),
-		env.DecodeOptions()...,
-	)
+	decoded, err := store.Decode(ctx, env.Version, msgpack.EncodedJSON(body))
 	if err != nil {
 		return nil, err
 	}

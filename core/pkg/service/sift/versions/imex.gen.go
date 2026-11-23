@@ -13,7 +13,6 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/versions/v0"
@@ -37,11 +36,10 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[ScanConfig](data, "sift.ScanConfig", version, opts...)
+		return imex.DecodeBlob[ScanConfig](data, "sift.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("sift.ScanConfig", version, Latest)
 }
@@ -58,11 +56,10 @@ func decodeStreamConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (StreamConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[StreamConfig](data, "sift.StreamConfig", version, opts...)
+		return imex.DecodeBlob[StreamConfig](data, "sift.StreamConfig", version)
 	}
 	return StreamConfig{}, imex.NewErrUnsupportedVersion("sift.StreamConfig", version, Latest)
 }

@@ -68,10 +68,6 @@ type Store interface {
 		snap gorp.Snapshot,
 		key uuid.UUID,
 	) (msgpack.EncodedJSON, error)
-	// Export returns the record stored under key as the body of an exported file, or
-	// an error wrapping query.ErrNotFound when no record exists. The body keeps the
-	// Go types of the record, so the encoder options of an export apply to its fields.
-	Export(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) (any, error)
 	// Hash returns the hash of the record stored under key, as Record.Hash does, and of
 	// the referenced records that ServiceConfig.HashReferences reads through snap. It
 	// returns an error wrapping query.ErrNotFound when no record exists.
@@ -82,17 +78,14 @@ type Store interface {
 	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
 	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
-	// Decode converts a config blob at the given version, decoded with opts, to the
-	// current stored shape with defaults applied. It reads no stored data. A version
-	// that predates the type's ladder runs the type's legacy rewrite first. It returns
-	// a
-	// validation error when data does not decode at version or version is newer than
-	// the store's.
+	// Decode converts a config blob at the given version to the current stored shape
+	// with defaults applied. It reads no stored data. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
 	Decode(
 		ctx context.Context,
 		version imex.Version,
 		data msgpack.EncodedJSON,
-		opts ...json.Options,
 	) (Decoded, error)
 	// Normalize decodes data as Decode does, then normalizes the result on tx as
 	// Decoded.Normalize does.
@@ -484,15 +477,6 @@ func (s *Service[E]) Read(
 	return encode(e)
 }
 
-// Export implements Store.
-func (s *Service[E]) Export(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	key uuid.UUID,
-) (any, error) {
-	return s.retrieve(ctx, snap, key)
-}
-
 // Hash implements Store.
 func (s *Service[E]) Hash(
 	ctx context.Context,
@@ -564,7 +548,6 @@ func (s *Service[E]) Decode(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (Decoded, error) {
 	ladder := s.cfg.Ladder
 	// A legacy rewrite or a migration gives a field that its source lacks the zero
@@ -581,7 +564,7 @@ func (s *Service[E]) Decode(
 			s.cfg.Type, version, ladder.Latest,
 		)
 	}
-	e, err := ladder.Decode(ctx, version, data, opts...)
+	e, err := ladder.Decode(ctx, version, data)
 	if err != nil {
 		return Decoded{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,

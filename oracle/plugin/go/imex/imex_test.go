@@ -701,8 +701,7 @@ ScanConfig struct {
 					"var ScanConfigLadder = imex.Ladder[ScanConfig]{",
 					"case v1.Version:",
 					`return imex.DecodeBlob[ReadConfig](data, "modbus.ReadConfig", `+
-						"version, opts...)",
-					"opts ...json.Options,",
+						"version)",
 					`return ReadConfig{}, imex.NewErrUnsupportedVersion(`+
 						`"modbus.ReadConfig", version, Latest)`,
 				).ToNotContain("liftFirst").ToBeValidGoSource()
@@ -753,10 +752,10 @@ ScanConfig struct {
 					).ToContain(
 						"const Latest = v2.Version",
 						`t1, err := imex.DecodeBlob[v1.ReadConfig](data, `+
-							`"modbus.ReadConfig", version, opts...)`,
+							`"modbus.ReadConfig", version)`,
 						"t2, err := v2.MigrateReadConfig(ctx, t1)",
 						`t1, err := imex.DecodeBlob[v1.ScanConfig](data, `+
-							`"modbus.ScanConfig", version, opts...)`,
+							`"modbus.ScanConfig", version)`,
 						"return t1, nil",
 					).ToBeValidGoSource()
 				},

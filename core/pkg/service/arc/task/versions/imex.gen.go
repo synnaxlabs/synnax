@@ -13,7 +13,6 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -37,11 +36,10 @@ func decodeConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (Config, error) {
 	switch version {
 	case v4.Version:
-		return imex.DecodeBlob[Config](data, "arc_task.Config", version, opts...)
+		return imex.DecodeBlob[Config](data, "arc_task.Config", version)
 	}
 	return Config{}, imex.NewErrUnsupportedVersion("arc_task.Config", version, Latest)
 }

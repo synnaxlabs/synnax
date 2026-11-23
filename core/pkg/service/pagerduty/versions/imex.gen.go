@@ -13,7 +13,6 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
@@ -38,11 +37,10 @@ func decodeTaskConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (TaskConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.TaskConfig](data, "pagerduty.TaskConfig", version, opts...)
+		t1, err := imex.DecodeBlob[v1.TaskConfig](data, "pagerduty.TaskConfig", version)
 		if err != nil {
 			return TaskConfig{}, err
 		}
@@ -52,7 +50,7 @@ func decodeTaskConfig(
 		}
 		return t2, nil
 	case v2.Version:
-		return imex.DecodeBlob[TaskConfig](data, "pagerduty.TaskConfig", version, opts...)
+		return imex.DecodeBlob[TaskConfig](data, "pagerduty.TaskConfig", version)
 	}
 	return TaskConfig{}, imex.NewErrUnsupportedVersion("pagerduty.TaskConfig", version, Latest)
 }

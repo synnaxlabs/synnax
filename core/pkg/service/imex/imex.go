@@ -23,7 +23,6 @@ import (
 	"encoding/json/v2"
 	"math"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -89,14 +88,13 @@ type Ladder[T any] struct {
 	First Version
 	// Latest is the version stamped on exports and the newest version Decode accepts.
 	Latest Version
-	// Decode decodes data with opts as the type's shape at version and migrates it to
-	// the current shape. It returns a path-scoped validation error for a version the
-	// type never exported.
+	// Decode decodes data as the type's shape at version and migrates it to the current
+	// shape. It returns a path-scoped validation error for a version the type never
+	// exported.
 	Decode func(
 		ctx context.Context,
 		version Version,
 		data msgpack.EncodedJSON,
-		opts ...json.Options,
 	) (T, error)
 }
 
@@ -127,10 +125,6 @@ type Envelope struct {
 	codec encoding.Codec
 	raw   []byte
 	body  map[string]any
-	// encoded is the body as WithEncodeOptions wrote it, or nil.
-	encoded jsontext.Value
-	// decodeOptions are the options that WithDecodeOptions added.
-	decodeOptions []json.Options
 }
 
 // MarshalJSONTo writes the body built by Encode. It returns an error when the envelope
@@ -138,9 +132,6 @@ type Envelope struct {
 // instead of sending null. Indentation, member ordering and escaping come from the
 // encoder: the codec an export writes through owns them, not this method.
 func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if e.encoded != nil {
-		return enc.WriteValue(e.encoded)
-	}
 	if e.body == nil {
 		return errors.New(
 			"envelope has no body; build one with Encode before marshaling",
@@ -148,40 +139,6 @@ func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 	return json.MarshalEncode(enc, e.body)
 }
-
-// WithEncodeOptions returns e with its body written now with opts, in a deterministic
-// order. An exporter passes the encoder of its channel links, which reads the Core, so
-// the body is written while the exporter can read it. MarshalJSONTo then writes those
-// bytes. It returns an error when e has no body or opts fail to write it.
-func (e Envelope) WithEncodeOptions(opts ...json.Options) (Envelope, error) {
-	if e.body == nil {
-		return Envelope{}, errors.New(
-			"envelope has no body; build one with Encode before encoding",
-		)
-	}
-	encoded, err := json.Marshal(
-		e.body,
-		append([]json.Options{json.Deterministic(true)}, opts...)...,
-	)
-	if err != nil {
-		return Envelope{}, errors.Wrap(err, "encode envelope body")
-	}
-	e.encoded = encoded
-	return e, nil
-}
-
-// WithDecodeOptions returns e with opts added to each decode of its body. An importer
-// passes the decoder of its channel links. e must have been unmarshaled.
-func (e Envelope) WithDecodeOptions(opts ...json.Options) Envelope {
-	e.decodeOptions = append(slices.Clip(e.decodeOptions), opts...)
-	all := append([]json.Options{decodeOptions}, e.decodeOptions...)
-	e.codec = xjson.NewCodec(all...)
-	return e
-}
-
-// DecodeOptions returns the options that WithDecodeOptions added, for an importer that
-// decodes the body in a later step of its own.
-func (e Envelope) DecodeOptions() []json.Options { return e.decodeOptions }
 
 // decodeOptions are the JSON options every import decode uses.
 var decodeOptions = jsontext.AllowInvalidUTF8(true)

@@ -13,7 +13,6 @@ package versions
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
@@ -39,11 +38,10 @@ func decodeReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "modbus.ReadConfig", version, opts...)
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "modbus.ReadConfig", version)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -57,7 +55,7 @@ func decodeReadConfig(
 		}
 		return t3, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "modbus.ReadConfig", version, opts...)
+		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "modbus.ReadConfig", version)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -67,7 +65,7 @@ func decodeReadConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[ReadConfig](data, "modbus.ReadConfig", version, opts...)
+		return imex.DecodeBlob[ReadConfig](data, "modbus.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("modbus.ReadConfig", version, Latest)
 }
@@ -84,11 +82,10 @@ func decodeWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "modbus.WriteConfig", version, opts...)
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "modbus.WriteConfig", version)
 		if err != nil {
 			return WriteConfig{}, err
 		}
@@ -102,7 +99,7 @@ func decodeWriteConfig(
 		}
 		return t3, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "modbus.WriteConfig", version, opts...)
+		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "modbus.WriteConfig", version)
 		if err != nil {
 			return WriteConfig{}, err
 		}
@@ -112,7 +109,7 @@ func decodeWriteConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[WriteConfig](data, "modbus.WriteConfig", version, opts...)
+		return imex.DecodeBlob[WriteConfig](data, "modbus.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("modbus.WriteConfig", version, Latest)
 }
@@ -129,23 +126,22 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "modbus.ScanConfig", version, opts...)
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "modbus.ScanConfig", version)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "modbus.ScanConfig", version, opts...)
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "modbus.ScanConfig", version)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[ScanConfig](data, "modbus.ScanConfig", version, opts...)
+		return imex.DecodeBlob[ScanConfig](data, "modbus.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("modbus.ScanConfig", version, Latest)
 }

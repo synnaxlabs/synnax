@@ -1231,8 +1231,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
-		ImEx:    cfg.Service.ImEx,
-		Channel: cfg.Service.Channel,
+		ImEx: cfg.Service.ImEx,
 	}); err != nil {
 		return nil, err
 	}
