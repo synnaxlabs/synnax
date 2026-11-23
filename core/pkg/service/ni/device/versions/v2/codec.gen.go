@@ -34,7 +34,7 @@ func (aip AnalogInputPort) EncodeOrc(w *orc.Writer) error {
 	if aip.Types != nil {
 		w.Uint32(uint32(len(aip.Types)))
 		for i := range aip.Types {
-			w.String(aip.Types[i])
+			w.String(string(aip.Types[i]))
 		}
 	}
 	w.Uint16(uint16(aip.Negative))
@@ -86,10 +86,14 @@ func (aip *AnalogInputPort) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			aip.Types = make([]string, n)
+			aip.Types = make([]AIChannelType, n)
 			for i := range aip.Types {
-				if aip.Types[i], err = r.String(); err != nil {
-					return err
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					aip.Types[i] = AIChannelType(rawV)
 				}
 			}
 		}
@@ -114,7 +118,7 @@ func (aop AnalogOutputPort) EncodeOrc(w *orc.Writer) error {
 	if aop.Types != nil {
 		w.Uint32(uint32(len(aop.Types)))
 		for i := range aop.Types {
-			w.String(aop.Types[i])
+			w.String(string(aop.Types[i]))
 		}
 	}
 	return nil
@@ -158,10 +162,14 @@ func (aop *AnalogOutputPort) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			aop.Types = make([]string, n)
+			aop.Types = make([]AOChannelType, n)
 			for i := range aop.Types {
-				if aop.Types[i], err = r.String(); err != nil {
-					return err
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					aop.Types[i] = AOChannelType(rawV)
 				}
 			}
 		}
@@ -176,7 +184,7 @@ func (cp CounterPort) EncodeOrc(w *orc.Writer) error {
 	if cp.Types != nil {
 		w.Uint32(uint32(len(cp.Types)))
 		for i := range cp.Types {
-			w.String(cp.Types[i])
+			w.String(string(cp.Types[i]))
 		}
 	}
 	return nil
@@ -198,10 +206,14 @@ func (cp *CounterPort) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			cp.Types = make([]string, n)
+			cp.Types = make([]CIChannelType, n)
 			for i := range cp.Types {
-				if cp.Types[i], err = r.String(); err != nil {
-					return err
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					cp.Types[i] = CIChannelType(rawV)
 				}
 			}
 		}
@@ -515,10 +527,30 @@ func (h Hardware) EncodeOrc(w *orc.Writer) error {
 			w.String(h.Terminals[i])
 		}
 	}
-	w.Float64(float64(h.AiMinRate))
-	w.Float64(float64(h.AiMaxSingleChannelRate))
-	w.Float64(float64(h.AiMaxMultiChannelRate))
-	w.Float64(float64(h.AoMaxRate))
+	if h.AiMinRate != nil {
+		w.Bool(true)
+		w.Float64(float64(*h.AiMinRate))
+	} else {
+		w.Bool(false)
+	}
+	if h.AiMaxSingleChannelRate != nil {
+		w.Bool(true)
+		w.Float64(float64(*h.AiMaxSingleChannelRate))
+	} else {
+		w.Bool(false)
+	}
+	if h.AiMaxMultiChannelRate != nil {
+		w.Bool(true)
+		w.Float64(float64(*h.AiMaxMultiChannelRate))
+	} else {
+		w.Bool(false)
+	}
+	if h.AoMaxRate != nil {
+		w.Bool(true)
+		w.Float64(float64(*h.AoMaxRate))
+	} else {
+		w.Bool(false)
+	}
 	w.Bool(h.AiVoltageRanges != nil)
 	if h.AiVoltageRanges != nil {
 		w.Uint32(uint32(len(h.AiVoltageRanges)))
@@ -665,32 +697,72 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		rawV, err := r.Float64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		h.AiMinRate = telem.Rate(rawV)
+		if present {
+			var hv telem.Rate
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = telem.Rate(rawV)
+			}
+			h.AiMinRate = &hv
+		}
 	}
 	{
-		rawV, err := r.Float64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		h.AiMaxSingleChannelRate = telem.Rate(rawV)
+		if present {
+			var hv telem.Rate
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = telem.Rate(rawV)
+			}
+			h.AiMaxSingleChannelRate = &hv
+		}
 	}
 	{
-		rawV, err := r.Float64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		h.AiMaxMultiChannelRate = telem.Rate(rawV)
+		if present {
+			var hv telem.Rate
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = telem.Rate(rawV)
+			}
+			h.AiMaxMultiChannelRate = &hv
+		}
 	}
 	{
-		rawV, err := r.Float64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		h.AoMaxRate = telem.Rate(rawV)
+		if present {
+			var hv telem.Rate
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = telem.Rate(rawV)
+			}
+			h.AoMaxRate = &hv
+		}
 	}
 	{
 		present, err := r.Bool()

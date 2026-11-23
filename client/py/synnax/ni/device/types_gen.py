@@ -34,6 +34,172 @@ TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
 
 TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 
+AI_CHANNEL_TYPE_AI_VOLTAGE: Literal["ai_voltage"] = "ai_voltage"
+
+AI_CHANNEL_TYPE_AI_ACCEL: Literal["ai_accel"] = "ai_accel"
+
+AI_CHANNEL_TYPE_AI_BRIDGE: Literal["ai_bridge"] = "ai_bridge"
+
+AI_CHANNEL_TYPE_AI_CURRENT: Literal["ai_current"] = "ai_current"
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE: Literal["ai_force_bridge_table"] = (
+    "ai_force_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_force_bridge_two_point_lin"
+] = "ai_force_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_FORCE_IEPE: Literal["ai_force_iepe"] = "ai_force_iepe"
+
+AI_CHANNEL_TYPE_AI_MICROPHONE: Literal["ai_microphone"] = "ai_microphone"
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE: Literal["ai_pressure_bridge_table"] = (
+    "ai_pressure_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_pressure_bridge_two_point_lin"
+] = "ai_pressure_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_RESISTANCE: Literal["ai_resistance"] = "ai_resistance"
+
+AI_CHANNEL_TYPE_AI_RTD: Literal["ai_rtd"] = "ai_rtd"
+
+AI_CHANNEL_TYPE_AI_STRAIN_GAUGE: Literal["ai_strain_gauge"] = "ai_strain_gauge"
+
+AI_CHANNEL_TYPE_AI_TEMP_BUILTIN: Literal["ai_temp_builtin"] = "ai_temp_builtin"
+
+AI_CHANNEL_TYPE_AI_THERMOCOUPLE: Literal["ai_thermocouple"] = "ai_thermocouple"
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE: Literal["ai_torque_bridge_table"] = (
+    "ai_torque_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_torque_bridge_two_point_lin"
+] = "ai_torque_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_VELOCITY_IEPE: Literal["ai_velocity_iepe"] = "ai_velocity_iepe"
+
+AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE: Literal["ai_accel_4_wire_dc_voltage"] = (
+    "ai_accel_4_wire_dc_voltage"
+)
+
+AI_CHANNEL_TYPE_AI_ACCEL_CHARGE: Literal["ai_accel_charge"] = "ai_accel_charge"
+
+AI_CHANNEL_TYPE_AI_CHARGE: Literal["ai_charge"] = "ai_charge"
+
+AI_CHANNEL_TYPE_AI_CURRENT_RMS: Literal["ai_current_rms"] = "ai_current_rms"
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL: Literal["ai_force_bridge_polynomial"] = (
+    "ai_force_bridge_polynomial"
+)
+
+AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE: Literal["ai_freq_voltage"] = "ai_freq_voltage"
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL: Literal[
+    "ai_pressure_bridge_polynomial"
+] = "ai_pressure_bridge_polynomial"
+
+AI_CHANNEL_TYPE_AI_THERMISTOR_IEX: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
+
+AI_CHANNEL_TYPE_AI_THERMISTOR_VEX: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL: Literal["ai_torque_bridge_polynomial"] = (
+    "ai_torque_bridge_polynomial"
+)
+
+AI_CHANNEL_TYPE_AI_VOLTAGE_RMS: Literal["ai_voltage_rms"] = "ai_voltage_rms"
+
+AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT: Literal["ai_voltage_with_excit"] = (
+    "ai_voltage_with_excit"
+)
+
+
+AIChannelType = Literal[
+    "ai_voltage",
+    "ai_accel",
+    "ai_bridge",
+    "ai_current",
+    "ai_force_bridge_table",
+    "ai_force_bridge_two_point_lin",
+    "ai_force_iepe",
+    "ai_microphone",
+    "ai_pressure_bridge_table",
+    "ai_pressure_bridge_two_point_lin",
+    "ai_resistance",
+    "ai_rtd",
+    "ai_strain_gauge",
+    "ai_temp_builtin",
+    "ai_thermocouple",
+    "ai_torque_bridge_table",
+    "ai_torque_bridge_two_point_lin",
+    "ai_velocity_iepe",
+    "ai_accel_4_wire_dc_voltage",
+    "ai_accel_charge",
+    "ai_charge",
+    "ai_current_rms",
+    "ai_force_bridge_polynomial",
+    "ai_freq_voltage",
+    "ai_pressure_bridge_polynomial",
+    "ai_thermistor_iex",
+    "ai_thermistor_vex",
+    "ai_torque_bridge_polynomial",
+    "ai_voltage_rms",
+    "ai_voltage_with_excit",
+]
+
+AO_CHANNEL_TYPE_AO_CURRENT: Literal["ao_current"] = "ao_current"
+
+AO_CHANNEL_TYPE_AO_FUNC_GEN: Literal["ao_func_gen"] = "ao_func_gen"
+
+AO_CHANNEL_TYPE_AO_VOLTAGE: Literal["ao_voltage"] = "ao_voltage"
+
+
+AOChannelType = Literal["ao_current", "ao_func_gen", "ao_voltage"]
+
+CI_CHANNEL_TYPE_CI_FREQUENCY: Literal["ci_frequency"] = "ci_frequency"
+
+CI_CHANNEL_TYPE_CI_EDGE_COUNT: Literal["ci_edge_count"] = "ci_edge_count"
+
+CI_CHANNEL_TYPE_CI_PERIOD: Literal["ci_period"] = "ci_period"
+
+CI_CHANNEL_TYPE_CI_PULSE_WIDTH: Literal["ci_pulse_width"] = "ci_pulse_width"
+
+CI_CHANNEL_TYPE_CI_SEMI_PERIOD: Literal["ci_semi_period"] = "ci_semi_period"
+
+CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
+
+CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR: Literal["ci_velocity_linear"] = "ci_velocity_linear"
+
+CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR: Literal["ci_velocity_angular"] = (
+    "ci_velocity_angular"
+)
+
+CI_CHANNEL_TYPE_CI_POSITION_LINEAR: Literal["ci_position_linear"] = "ci_position_linear"
+
+CI_CHANNEL_TYPE_CI_POSITION_ANGULAR: Literal["ci_position_angular"] = (
+    "ci_position_angular"
+)
+
+CI_CHANNEL_TYPE_CI_DUTY_CYCLE: Literal["ci_duty_cycle"] = "ci_duty_cycle"
+
+
+CIChannelType = Literal[
+    "ci_frequency",
+    "ci_edge_count",
+    "ci_period",
+    "ci_pulse_width",
+    "ci_semi_period",
+    "ci_two_edge_sep",
+    "ci_velocity_linear",
+    "ci_velocity_angular",
+    "ci_position_linear",
+    "ci_position_angular",
+    "ci_duty_cycle",
+]
+
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
 
@@ -130,7 +296,7 @@ class AnalogInputPort(BaseModel):
     port: int = Field(ge=0, le=65535)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
     default_terminal_config: TerminalConfig = "Cfg_Default"
-    types: list[str] = Field(default_factory=list)
+    types: list[AIChannelType] = Field(default_factory=list)
     negative: int = Field(default=0, ge=0, le=65535)
 
 
@@ -145,7 +311,7 @@ class AnalogOutputPort(BaseModel):
 
     port: int = Field(ge=0, le=65535)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
-    types: list[str] = Field(default_factory=list)
+    types: list[AOChannelType] = Field(default_factory=list)
 
 
 class CounterPort(BaseModel):
@@ -157,7 +323,7 @@ class CounterPort(BaseModel):
     """
 
     port: int = Field(ge=0, le=65535)
-    types: list[str] = Field(default_factory=list)
+    types: list[CIChannelType] = Field(default_factory=list)
 
 
 class DigitalPort(BaseModel):
@@ -285,15 +451,15 @@ class Hardware(BaseModel):
         digital_ports: Are the digital ports of the device.
         terminals: Are the terminals of the device, such as PFI0, without the device
             name.
-        ai_min_rate: Is the lowest analog input sample rate, in Hz. 0 means that the
-            device does not support the attribute.
+        ai_min_rate: Is the lowest analog input sample rate. Absent when the device does
+            not support the attribute.
         ai_max_single_channel_rate: Is the highest analog input sample rate of one
-            channel, in Hz. 0 means that the device does not support the attribute.
+            channel. Absent when the device does not support the attribute.
         ai_max_multi_channel_rate: Is the highest analog input sample rate of the
-            device, in Hz. A task with several channels divides it by the channel count.
-            0 means that the device does not support the attribute.
-        ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
-            device does not support the attribute.
+            device. A task with several channels divides it by the channel count. Absent
+            when the device does not support the attribute.
+        ao_max_rate: Is the highest analog output sample rate. Absent when the device
+            does not support the attribute.
         ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
             included.
         ai_current_ranges: Are the analog input current ranges of the device, ends
@@ -310,14 +476,14 @@ class Hardware(BaseModel):
     counter_outputs: list[CounterPort] = Field(default_factory=list)
     digital_ports: list[DigitalPort] = Field(default_factory=list)
     terminals: list[str] = Field(default_factory=list)
-    ai_min_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
-    ai_max_single_channel_rate: telem.Rate = Field(
-        default=telem.Rate(0), ge=0, allow_inf_nan=False
+    ai_min_rate: telem.Rate | None = Field(default=None, gt=0, allow_inf_nan=False)
+    ai_max_single_channel_rate: telem.Rate | None = Field(
+        default=None, gt=0, allow_inf_nan=False
     )
-    ai_max_multi_channel_rate: telem.Rate = Field(
-        default=telem.Rate(0), ge=0, allow_inf_nan=False
+    ai_max_multi_channel_rate: telem.Rate | None = Field(
+        default=None, gt=0, allow_inf_nan=False
     )
-    ao_max_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
+    ao_max_rate: telem.Rate | None = Field(default=None, gt=0, allow_inf_nan=False)
     ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)

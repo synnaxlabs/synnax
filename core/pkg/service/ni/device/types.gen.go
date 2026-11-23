@@ -69,6 +69,68 @@ const (
 	TerminalConfigPseudoDiff TerminalConfig = versions.TerminalConfigPseudoDiff
 )
 
+// AIChannelType is the type of an analog input channel.
+type AIChannelType = versions.AIChannelType
+
+const (
+	AIChannelTypeAiVoltage                   AIChannelType = versions.AIChannelTypeAiVoltage
+	AIChannelTypeAiAccel                     AIChannelType = versions.AIChannelTypeAiAccel
+	AIChannelTypeAiBridge                    AIChannelType = versions.AIChannelTypeAiBridge
+	AIChannelTypeAiCurrent                   AIChannelType = versions.AIChannelTypeAiCurrent
+	AIChannelTypeAiForceBridgeTable          AIChannelType = versions.AIChannelTypeAiForceBridgeTable
+	AIChannelTypeAiForceBridgeTwoPointLin    AIChannelType = versions.AIChannelTypeAiForceBridgeTwoPointLin
+	AIChannelTypeAiForceIepe                 AIChannelType = versions.AIChannelTypeAiForceIepe
+	AIChannelTypeAiMicrophone                AIChannelType = versions.AIChannelTypeAiMicrophone
+	AIChannelTypeAiPressureBridgeTable       AIChannelType = versions.AIChannelTypeAiPressureBridgeTable
+	AIChannelTypeAiPressureBridgeTwoPointLin AIChannelType = versions.AIChannelTypeAiPressureBridgeTwoPointLin
+	AIChannelTypeAiResistance                AIChannelType = versions.AIChannelTypeAiResistance
+	AIChannelTypeAiRtd                       AIChannelType = versions.AIChannelTypeAiRtd
+	AIChannelTypeAiStrainGauge               AIChannelType = versions.AIChannelTypeAiStrainGauge
+	AIChannelTypeAiTempBuiltin               AIChannelType = versions.AIChannelTypeAiTempBuiltin
+	AIChannelTypeAiThermocouple              AIChannelType = versions.AIChannelTypeAiThermocouple
+	AIChannelTypeAiTorqueBridgeTable         AIChannelType = versions.AIChannelTypeAiTorqueBridgeTable
+	AIChannelTypeAiTorqueBridgeTwoPointLin   AIChannelType = versions.AIChannelTypeAiTorqueBridgeTwoPointLin
+	AIChannelTypeAiVelocityIepe              AIChannelType = versions.AIChannelTypeAiVelocityIepe
+	AIChannelTypeAiAccel4WireDcVoltage       AIChannelType = versions.AIChannelTypeAiAccel4WireDcVoltage
+	AIChannelTypeAiAccelCharge               AIChannelType = versions.AIChannelTypeAiAccelCharge
+	AIChannelTypeAiCharge                    AIChannelType = versions.AIChannelTypeAiCharge
+	AIChannelTypeAiCurrentRms                AIChannelType = versions.AIChannelTypeAiCurrentRms
+	AIChannelTypeAiForceBridgePolynomial     AIChannelType = versions.AIChannelTypeAiForceBridgePolynomial
+	AIChannelTypeAiFreqVoltage               AIChannelType = versions.AIChannelTypeAiFreqVoltage
+	AIChannelTypeAiPressureBridgePolynomial  AIChannelType = versions.AIChannelTypeAiPressureBridgePolynomial
+	AIChannelTypeAiThermistorIex             AIChannelType = versions.AIChannelTypeAiThermistorIex
+	AIChannelTypeAiThermistorVex             AIChannelType = versions.AIChannelTypeAiThermistorVex
+	AIChannelTypeAiTorqueBridgePolynomial    AIChannelType = versions.AIChannelTypeAiTorqueBridgePolynomial
+	AIChannelTypeAiVoltageRms                AIChannelType = versions.AIChannelTypeAiVoltageRms
+	AIChannelTypeAiVoltageWithExcit          AIChannelType = versions.AIChannelTypeAiVoltageWithExcit
+)
+
+// AOChannelType is the type of an analog output channel.
+type AOChannelType = versions.AOChannelType
+
+const (
+	AOChannelTypeAoCurrent AOChannelType = versions.AOChannelTypeAoCurrent
+	AOChannelTypeAoFuncGen AOChannelType = versions.AOChannelTypeAoFuncGen
+	AOChannelTypeAoVoltage AOChannelType = versions.AOChannelTypeAoVoltage
+)
+
+// CIChannelType is the type of a counter input channel.
+type CIChannelType = versions.CIChannelType
+
+const (
+	CIChannelTypeCiFrequency       CIChannelType = versions.CIChannelTypeCiFrequency
+	CIChannelTypeCiEdgeCount       CIChannelType = versions.CIChannelTypeCiEdgeCount
+	CIChannelTypeCiPeriod          CIChannelType = versions.CIChannelTypeCiPeriod
+	CIChannelTypeCiPulseWidth      CIChannelType = versions.CIChannelTypeCiPulseWidth
+	CIChannelTypeCiSemiPeriod      CIChannelType = versions.CIChannelTypeCiSemiPeriod
+	CIChannelTypeCiTwoEdgeSep      CIChannelType = versions.CIChannelTypeCiTwoEdgeSep
+	CIChannelTypeCiVelocityLinear  CIChannelType = versions.CIChannelTypeCiVelocityLinear
+	CIChannelTypeCiVelocityAngular CIChannelType = versions.CIChannelTypeCiVelocityAngular
+	CIChannelTypeCiPositionLinear  CIChannelType = versions.CIChannelTypeCiPositionLinear
+	CIChannelTypeCiPositionAngular CIChannelType = versions.CIChannelTypeCiPositionAngular
+	CIChannelTypeCiDutyCycle       CIChannelType = versions.CIChannelTypeCiDutyCycle
+)
+
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort = versions.AnalogInputPort
 

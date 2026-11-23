@@ -88,11 +88,20 @@ describe("Device", () => {
 });
 
 describe("hardwareZ", () => {
-  it.each([-1, Infinity, NaN])("should reject an analog input rate of %s", (rate) => {
-    expect(() => ni.device.hardwareZ.parse({ aiMinRate: rate })).toThrow();
+  it.each([0, -1, Infinity, NaN])(
+    "should reject an analog input rate of %s",
+    (rate) => {
+      expect(() => ni.device.hardwareZ.parse({ aiMinRate: rate })).toThrow();
+    },
+  );
+
+  it("should leave an unsupported analog input rate absent", () => {
+    expect(ni.device.hardwareZ.parse({}).aiMinRate).toBeUndefined();
   });
 
-  it("should accept an analog input rate of 0", () => {
-    expect(ni.device.hardwareZ.parse({ aiMinRate: 0 }).aiMinRate).toBe(0);
+  it("should reject an unknown analog input channel type", () => {
+    expect(() =>
+      ni.device.hardwareZ.parse({ analogInputs: [{ port: 0, types: ["ai_bogus"] }] }),
+    ).toThrow();
   });
 });

@@ -768,14 +768,20 @@ class TestNITask:
 
 @pytest.mark.ni
 class TestNIHardware:
-    @pytest.mark.parametrize("rate", [-1, math.inf, math.nan])
+    @pytest.mark.parametrize("rate", [0, -1, math.inf, math.nan])
     def test_reject_invalid_analog_input_rate(self, rate: float) -> None:
         with pytest.raises(ValidationError):
             sy.ni.device.Hardware.model_validate({"ai_min_rate": rate})
 
-    def test_accept_zero_analog_input_rate(self) -> None:
-        hardware = sy.ni.device.Hardware.model_validate({"ai_min_rate": 0})
-        assert hardware.ai_min_rate == sy.Rate(0)
+    def test_leave_unsupported_analog_input_rate_absent(self) -> None:
+        hardware = sy.ni.device.Hardware.model_validate({})
+        assert hardware.ai_min_rate is None
+
+    def test_reject_unknown_analog_input_channel_type(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.device.Hardware.model_validate(
+                {"analog_inputs": [{"port": 0, "types": ["ai_bogus"]}]}
+            )
 
 
 @pytest.mark.ni

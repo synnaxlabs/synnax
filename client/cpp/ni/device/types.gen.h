@@ -43,7 +43,6 @@ struct AnalogInputPorts;
 struct AnalogOutputChannels;
 struct CounterInputChannels;
 struct DigitalInputChannels;
-struct CounterPort;
 struct DigitalPort;
 struct Where;
 struct StatusDetails;
@@ -51,6 +50,7 @@ struct Cursor;
 struct DigitalOutputChannels;
 struct AnalogInputPort;
 struct AnalogOutputPort;
+struct CounterPort;
 struct Order;
 struct Configuration;
 struct Hardware;
@@ -64,6 +64,61 @@ constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
 constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
 constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
 constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
+
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE = "ai_voltage";
+constexpr const char *AI_CHANNEL_TYPE_AI_ACCEL = "ai_accel";
+constexpr const char *AI_CHANNEL_TYPE_AI_BRIDGE = "ai_bridge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CURRENT = "ai_current";
+constexpr const char *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE = "ai_force_bridge_table";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN = "ai_force_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_FORCE_IEPE = "ai_force_iepe";
+constexpr const char *AI_CHANNEL_TYPE_AI_MICROPHONE = "ai_microphone";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE = "ai_pressure_bridge_table";
+constexpr const char *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN =
+    "ai_pressure_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_RESISTANCE = "ai_resistance";
+constexpr const char *AI_CHANNEL_TYPE_AI_RTD = "ai_rtd";
+constexpr const char *AI_CHANNEL_TYPE_AI_STRAIN_GAUGE = "ai_strain_gauge";
+constexpr const char *AI_CHANNEL_TYPE_AI_TEMP_BUILTIN = "ai_temp_builtin";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMOCOUPLE = "ai_thermocouple";
+constexpr const char *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE = "ai_torque_bridge_table";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN = "ai_torque_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_VELOCITY_IEPE = "ai_velocity_iepe";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE = "ai_accel_4_wire_dc_voltage";
+constexpr const char *AI_CHANNEL_TYPE_AI_ACCEL_CHARGE = "ai_accel_charge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CHARGE = "ai_charge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CURRENT_RMS = "ai_current_rms";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL = "ai_force_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE = "ai_freq_voltage";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL = "ai_pressure_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMISTOR_IEX = "ai_thermistor_iex";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMISTOR_VEX = "ai_thermistor_vex";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL = "ai_torque_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE_RMS = "ai_voltage_rms";
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT = "ai_voltage_with_excit";
+
+constexpr const char *AO_CHANNEL_TYPE_AO_CURRENT = "ao_current";
+constexpr const char *AO_CHANNEL_TYPE_AO_FUNC_GEN = "ao_func_gen";
+constexpr const char *AO_CHANNEL_TYPE_AO_VOLTAGE = "ao_voltage";
+
+constexpr const char *CI_CHANNEL_TYPE_CI_FREQUENCY = "ci_frequency";
+constexpr const char *CI_CHANNEL_TYPE_CI_EDGE_COUNT = "ci_edge_count";
+constexpr const char *CI_CHANNEL_TYPE_CI_PERIOD = "ci_period";
+constexpr const char *CI_CHANNEL_TYPE_CI_PULSE_WIDTH = "ci_pulse_width";
+constexpr const char *CI_CHANNEL_TYPE_CI_SEMI_PERIOD = "ci_semi_period";
+constexpr const char *CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP = "ci_two_edge_sep";
+constexpr const char *CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR = "ci_velocity_linear";
+constexpr const char *CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR = "ci_velocity_angular";
+constexpr const char *CI_CHANNEL_TYPE_CI_POSITION_LINEAR = "ci_position_linear";
+constexpr const char *CI_CHANNEL_TYPE_CI_POSITION_ANGULAR = "ci_position_angular";
+constexpr const char *CI_CHANNEL_TYPE_CI_DUTY_CYCLE = "ci_duty_cycle";
 
 constexpr const char *ORDER_FIELD_NAME = "name";
 
@@ -162,24 +217,6 @@ struct DigitalInputChannels {
         to_proto() const;
     static std::pair<DigitalInputChannels, x::errors::Error>
     from_proto(const ::service::ni_device::pb::DigitalInputChannels &pb);
-};
-
-/// @brief CounterPort is a counter of an NI device.
-struct CounterPort {
-    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-    std::uint16_t port = 0;
-    /// @brief types are the channel types that the counter accepts, such as
-    /// ci_frequency.
-    std::vector<std::string> types = {};
-
-    static CounterPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::ni_device::pb::CounterPort;
-    [[nodiscard]] std::pair<::service::ni_device::pb::CounterPort, x::errors::Error>
-    to_proto() const;
-    static std::pair<CounterPort, x::errors::Error>
-    from_proto(const ::service::ni_device::pb::CounterPort &pb);
 };
 
 /// @brief DigitalPort is a digital port of an NI device.
@@ -360,6 +397,24 @@ struct AnalogOutputPort {
     from_proto(const ::service::ni_device::pb::AnalogOutputPort &pb);
 };
 
+/// @brief CounterPort is a counter of an NI device.
+struct CounterPort {
+    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+    std::uint16_t port = 0;
+    /// @brief types are the channel types that the counter accepts, such as
+    /// ci_frequency.
+    std::vector<std::string> types = {};
+
+    static CounterPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::CounterPort;
+    [[nodiscard]] std::pair<::service::ni_device::pb::CounterPort, x::errors::Error>
+    to_proto() const;
+    static std::pair<CounterPort, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::CounterPort &pb);
+};
+
 /// @brief Order is a sort of devices.
 struct Order {
     /// @brief field is the field to sort by. Records with equal values sort by key.
@@ -423,19 +478,19 @@ struct Hardware {
     /// @brief terminals are the terminals of the device, such as PFI0, without the
     /// device name.
     std::vector<std::string> terminals = {};
-    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
+    /// @brief ai_min_rate is the lowest analog input sample rate. Absent when the
+    /// device does not support the attribute.
+    std::optional<::x::telem::Rate> ai_min_rate;
     /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
-    /// channel, in Hz. 0 means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
+    /// channel. Absent when the device does not support the attribute.
+    std::optional<::x::telem::Rate> ai_max_single_channel_rate;
     /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
-    /// device, in Hz. A task with several channels divides it by the channel count. 0
-    /// means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
-    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
+    /// device. A task with several channels divides it by the channel count. Absent
+    /// when the device does not support the attribute.
+    std::optional<::x::telem::Rate> ai_max_multi_channel_rate;
+    /// @brief ao_max_rate is the highest analog output sample rate. Absent when the
+    /// device does not support the attribute.
+    std::optional<::x::telem::Rate> ao_max_rate;
     /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
     /// included.
     std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};

@@ -387,7 +387,7 @@ TEST(ProbeTest, testRoundTripsThroughJSON) {
     api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto j = probe_api(api).to_json();
-    EXPECT_EQ(j["ai_min_rate"], 0);
+    EXPECT_FALSE(j.contains("ai_min_rate"));
     EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
     EXPECT_EQ(::synnax::ni::device::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
@@ -407,7 +407,7 @@ TEST(ProbeTest, testParsesEarlierStoredHardware) {
     );
     const auto hw = ::synnax::ni::device::Hardware::parse(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 0);
+    EXPECT_FALSE(hw.ai_max_multi_channel_rate.has_value());
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(hw.analog_inputs[0].negative, 0);
     EXPECT_FALSE(is_complete(hw));
@@ -517,6 +517,30 @@ TEST(ProbeTest, testReadsCountersAndDigitalPorts) {
     EXPECT_TRUE(hw.digital_ports[2].output);
 }
 
+/// @brief it should leave a rate absent when DAQmx reports 0.
+TEST(ProbeTest, testLeavesZeroRateAbsent) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(1, DAQmx_Val_Bit_TermCfg_Diff, {DAQmx_Val_Voltage});
+    api->doubles[DAQmx_Dev_AI_MinRate] = 0;
+    api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
+    const auto hw = probe_api(api);
+    EXPECT_FALSE(hw.ai_min_rate.has_value());
+    EXPECT_EQ(hw.ai_max_single_channel_rate->hz(), 250000);
+}
+
+/// @brief it should drop a DAQmx type that no channel type reads.
+TEST(ProbeTest, testDropsUnknownType) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(
+        1,
+        DAQmx_Val_Bit_TermCfg_Diff,
+        {DAQmx_Val_Voltage, DAQmx_Val_Position_LVDT}
+    );
+    const auto hw = probe_api(api);
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(hw.analog_inputs[0].types, std::vector<std::string>({"ai_voltage"}));
+}
+
 /// @brief it should read the rates and ranges of each subsystem that has ports.
 TEST(ProbeTest, testReadsRatesAndRanges) {
     auto api = std::make_shared<FakeAPI>();
@@ -534,10 +558,10 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02};
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
-    EXPECT_DOUBLE_EQ(hw.ai_min_rate.hz(), 0.1);
-    EXPECT_EQ(hw.ai_max_single_channel_rate.hz(), 250000);
-    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 250000);
-    EXPECT_DOUBLE_EQ(hw.ao_max_rate.hz(), 833333.3333333334);
+    EXPECT_DOUBLE_EQ(hw.ai_min_rate->hz(), 0.1);
+    EXPECT_EQ(hw.ai_max_single_channel_rate->hz(), 250000);
+    EXPECT_EQ(hw.ai_max_multi_channel_rate->hz(), 250000);
+    EXPECT_DOUBLE_EQ(hw.ao_max_rate->hz(), 833333.3333333334);
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
     EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);
@@ -562,7 +586,7 @@ TEST(ProbeTest, testReadsChassis) {
     EXPECT_TRUE(hw.counter_inputs.empty());
     EXPECT_TRUE(hw.counter_outputs.empty());
     EXPECT_TRUE(hw.digital_ports.empty());
-    EXPECT_EQ(hw.ai_min_rate.hz(), 0);
+    EXPECT_FALSE(hw.ai_min_rate.has_value());
     EXPECT_EQ(
         hw.terminals,
         std::vector<std::string>({"PFI0", "PFI1", "20MHzTimebase"})

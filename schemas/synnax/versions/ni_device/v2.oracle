@@ -62,6 +62,65 @@ TerminalConfig enum {
     @doc value "selects the terminal configuration for an analog input channel."
 }
 
+AIChannelType enum {
+    ai_voltage                       = "ai_voltage"
+    ai_accel                         = "ai_accel"
+    ai_bridge                        = "ai_bridge"
+    ai_current                       = "ai_current"
+    ai_force_bridge_table            = "ai_force_bridge_table"
+    ai_force_bridge_two_point_lin    = "ai_force_bridge_two_point_lin"
+    ai_force_iepe                    = "ai_force_iepe"
+    ai_microphone                    = "ai_microphone"
+    ai_pressure_bridge_table         = "ai_pressure_bridge_table"
+    ai_pressure_bridge_two_point_lin = "ai_pressure_bridge_two_point_lin"
+    ai_resistance                    = "ai_resistance"
+    ai_rtd                           = "ai_rtd"
+    ai_strain_gauge                  = "ai_strain_gauge"
+    ai_temp_builtin                  = "ai_temp_builtin"
+    ai_thermocouple                  = "ai_thermocouple"
+    ai_torque_bridge_table           = "ai_torque_bridge_table"
+    ai_torque_bridge_two_point_lin   = "ai_torque_bridge_two_point_lin"
+    ai_velocity_iepe                 = "ai_velocity_iepe"
+    ai_accel_4_wire_dc_voltage       = "ai_accel_4_wire_dc_voltage"
+    ai_accel_charge                  = "ai_accel_charge"
+    ai_charge                        = "ai_charge"
+    ai_current_rms                   = "ai_current_rms"
+    ai_force_bridge_polynomial       = "ai_force_bridge_polynomial"
+    ai_freq_voltage                  = "ai_freq_voltage"
+    ai_pressure_bridge_polynomial    = "ai_pressure_bridge_polynomial"
+    ai_thermistor_iex                = "ai_thermistor_iex"
+    ai_thermistor_vex                = "ai_thermistor_vex"
+    ai_torque_bridge_polynomial      = "ai_torque_bridge_polynomial"
+    ai_voltage_rms                   = "ai_voltage_rms"
+    ai_voltage_with_excit            = "ai_voltage_with_excit"
+
+    @doc value "is the type of an analog input channel."
+}
+
+AOChannelType enum {
+    ao_current  = "ao_current"
+    ao_func_gen = "ao_func_gen"
+    ao_voltage  = "ao_voltage"
+
+    @doc value "is the type of an analog output channel."
+}
+
+CIChannelType enum {
+    ci_frequency        = "ci_frequency"
+    ci_edge_count       = "ci_edge_count"
+    ci_period           = "ci_period"
+    ci_pulse_width      = "ci_pulse_width"
+    ci_semi_period      = "ci_semi_period"
+    ci_two_edge_sep     = "ci_two_edge_sep"
+    ci_velocity_linear  = "ci_velocity_linear"
+    ci_velocity_angular = "ci_velocity_angular"
+    ci_position_linear  = "ci_position_linear"
+    ci_position_angular = "ci_position_angular"
+    ci_duty_cycle       = "ci_duty_cycle"
+
+    @doc value "is the type of a counter input channel."
+}
+
 AnalogInputPort struct {
     port                    uint16           {
         @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
@@ -76,7 +135,7 @@ AnalogInputPort struct {
             real configuration.
         """
     }
-    types                   string[] = [] {
+    types                   AIChannelType[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
     negative                uint16 = 0 {
@@ -97,7 +156,7 @@ AnalogOutputPort struct {
     terminal_configs TerminalConfig[] = [] {
         @doc value "are the terminal configurations that the port accepts."
     }
-    types            string[] = [] {
+    types            AOChannelType[] = [] {
         @doc value "are the channel types that the port accepts, such as ao_voltage."
     }
 
@@ -106,10 +165,10 @@ AnalogOutputPort struct {
 }
 
 CounterPort struct {
-    port  uint16   {
+    port  uint16          {
         @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
     }
-    types string[] = [] {
+    types CIChannelType[] = [] {
         @doc value """
             are the channel types that the counter accepts, such as ci_frequency.
         """
@@ -158,30 +217,34 @@ Hardware struct {
             are the terminals of the device, such as PFI0, without the device name.
         """
     }
-    ai_min_rate                telem.Rate = 0 {
-        @doc value """
-            is the lowest analog input sample rate, in Hz. 0 means that the device does
-            not support the attribute.
+    ai_min_rate                telem.Rate?        {
+        @doc value   """
+            is the lowest analog input sample rate. Absent when the device does not
+            support the attribute.
         """
+        @validate gt 0
     }
-    ai_max_single_channel_rate telem.Rate = 0 {
-        @doc value """
-            is the highest analog input sample rate of one channel, in Hz. 0 means that
-            the device does not support the attribute.
+    ai_max_single_channel_rate telem.Rate?        {
+        @doc value   """
+            is the highest analog input sample rate of one channel. Absent when the
+            device does not support the attribute.
         """
+        @validate gt 0
     }
-    ai_max_multi_channel_rate  telem.Rate = 0 {
-        @doc value """
-            is the highest analog input sample rate of the device, in Hz. A task with
-            several channels divides it by the channel count. 0 means that the device
-            does not support the attribute.
+    ai_max_multi_channel_rate  telem.Rate?        {
+        @doc value   """
+            is the highest analog input sample rate of the device. A task with several
+            channels divides it by the channel count. Absent when the device does not
+            support the attribute.
         """
+        @validate gt 0
     }
-    ao_max_rate                telem.Rate = 0 {
-        @doc value """
-            is the highest analog output sample rate, in Hz. 0 means that the device
-            does not support the attribute.
+    ao_max_rate                telem.Rate?        {
+        @doc value   """
+            is the highest analog output sample rate. Absent when the device does not
+            support the attribute.
         """
+        @validate gt 0
     }
     ai_voltage_ranges          spatial.Bounds[] = [] {
         @doc value "are the analog input voltage ranges of the device, ends included."

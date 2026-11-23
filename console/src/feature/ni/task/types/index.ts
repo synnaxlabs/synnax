@@ -116,7 +116,7 @@ export const createScale = (type: ScaleType): Scale =>
   SCALE_SCHEMAS[type].parse({ type });
 
 export type AIChannel = ni.AIChannel;
-export type AIChannelType = ni.AIChannelType;
+export type AIChannelType = ni.device.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
 const widest = (
@@ -245,7 +245,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
 };
 
 export type CIChannel = ni.CIChannel;
-export type CIChannelType = ni.CIChannelType;
+export type CIChannelType = ni.device.CIChannelType;
 export type CIFreqUnits = ni.CIFreqUnits;
 export type CITimeUnits = ni.CITimeUnits;
 export type CIPeriodUnits = ni.CITimeUnits;
@@ -298,9 +298,9 @@ export const AO_FUNC_GEN_CHAN_TYPE = "ao_func_gen";
 export const AO_VOLTAGE_CHAN_TYPE = "ao_voltage";
 
 export type AOChannel = ni.AOChannel;
-export type AOChannelType = ni.AOChannelType;
+export type AOChannelType = ni.device.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
-export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
+export const AO_CHANNEL_TYPES = ni.device.AO_CHANNEL_TYPES;
 
 /**
  * The range a channel switched to the type takes on the device: the widest current

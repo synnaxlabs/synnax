@@ -1109,7 +1109,7 @@ describe("AnalogRead ports", () => {
 
   it("should not mark a low sample rate on a device with no minimum", async () => {
     const hardware = createHardware();
-    hardware.aiMinRate = 0;
+    hardware.aiMinRate = undefined;
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
@@ -1134,9 +1134,9 @@ describe("AnalogRead ports", () => {
 
   it("should not mark the sample rate of a device that reports no rates", async () => {
     const hardware = createHardware();
-    hardware.aiMinRate = 0;
-    hardware.aiMaxSingleChannelRate = 0;
-    hardware.aiMaxMultiChannelRate = 0;
+    hardware.aiMinRate = undefined;
+    hardware.aiMaxSingleChannelRate = undefined;
+    hardware.aiMaxMultiChannelRate = undefined;
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),

@@ -28,6 +28,61 @@ export const TERMINAL_CONFIGS = [
 export const terminalConfigZ = z.enum(TERMINAL_CONFIGS);
 export type TerminalConfig = z.infer<typeof terminalConfigZ>;
 
+export const AI_CHANNEL_TYPES = [
+  "ai_voltage",
+  "ai_accel",
+  "ai_bridge",
+  "ai_current",
+  "ai_force_bridge_table",
+  "ai_force_bridge_two_point_lin",
+  "ai_force_iepe",
+  "ai_microphone",
+  "ai_pressure_bridge_table",
+  "ai_pressure_bridge_two_point_lin",
+  "ai_resistance",
+  "ai_rtd",
+  "ai_strain_gauge",
+  "ai_temp_builtin",
+  "ai_thermocouple",
+  "ai_torque_bridge_table",
+  "ai_torque_bridge_two_point_lin",
+  "ai_velocity_iepe",
+  "ai_accel_4_wire_dc_voltage",
+  "ai_accel_charge",
+  "ai_charge",
+  "ai_current_rms",
+  "ai_force_bridge_polynomial",
+  "ai_freq_voltage",
+  "ai_pressure_bridge_polynomial",
+  "ai_thermistor_iex",
+  "ai_thermistor_vex",
+  "ai_torque_bridge_polynomial",
+  "ai_voltage_rms",
+  "ai_voltage_with_excit",
+] as const;
+export const aiChannelTypeZ = z.enum(AI_CHANNEL_TYPES);
+export type AIChannelType = z.infer<typeof aiChannelTypeZ>;
+
+export const AO_CHANNEL_TYPES = ["ao_current", "ao_func_gen", "ao_voltage"] as const;
+export const aoChannelTypeZ = z.enum(AO_CHANNEL_TYPES);
+export type AOChannelType = z.infer<typeof aoChannelTypeZ>;
+
+export const CI_CHANNEL_TYPES = [
+  "ci_frequency",
+  "ci_edge_count",
+  "ci_period",
+  "ci_pulse_width",
+  "ci_semi_period",
+  "ci_two_edge_sep",
+  "ci_velocity_linear",
+  "ci_velocity_angular",
+  "ci_position_linear",
+  "ci_position_angular",
+  "ci_duty_cycle",
+] as const;
+export const ciChannelTypeZ = z.enum(CI_CHANNEL_TYPES);
+export type CIChannelType = z.infer<typeof ciChannelTypeZ>;
+
 export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
@@ -94,10 +149,7 @@ export const analogInputPortZ = z.object({
    */
   defaultTerminalConfig: terminalConfigZ.default("Cfg_Default"),
   /** types are the channel types that the port accepts, such as ai_voltage. */
-  types: z
-    .string()
-    .array()
-    .default(() => []),
+  types: aiChannelTypeZ.array().default(() => []),
   /**
    * negative is the port that a differential channel on this port uses as its negative
    * input. 0 means that the port has no pair. Port 0 is never a negative port.
@@ -113,10 +165,7 @@ export const analogOutputPortZ = z.object({
   /** terminalConfigs are the terminal configurations that the port accepts. */
   terminalConfigs: terminalConfigZ.array().default(() => []),
   /** types are the channel types that the port accepts, such as ao_voltage. */
-  types: z
-    .string()
-    .array()
-    .default(() => []),
+  types: aoChannelTypeZ.array().default(() => []),
 });
 export interface AnalogOutputPort extends z.infer<typeof analogOutputPortZ> {}
 
@@ -125,10 +174,7 @@ export const counterPortZ = z.object({
   /** port is the number in the DAQmx name of the counter, such as 0 for ctr0. */
   port: zod.uint16,
   /** types are the channel types that the counter accepts, such as ci_frequency. */
-  types: z
-    .string()
-    .array()
-    .default(() => []),
+  types: ciChannelTypeZ.array().default(() => []),
 });
 export interface CounterPort extends z.infer<typeof counterPortZ> {}
 
@@ -189,26 +235,26 @@ export const hardwareZ = z.object({
     .array()
     .default(() => []),
   /**
-   * aiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
-   * does not support the attribute.
+   * aiMinRate is the lowest analog input sample rate. Absent when the device does not
+   * support the attribute.
    */
-  aiMinRate: z.number().min(0).default(0),
+  aiMinRate: z.number().gt(0).optional(),
   /**
-   * aiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
-   * Hz. 0 means that the device does not support the attribute.
+   * aiMaxSingleChannelRate is the highest analog input sample rate of one channel.
+   * Absent when the device does not support the attribute.
    */
-  aiMaxSingleChannelRate: z.number().min(0).default(0),
+  aiMaxSingleChannelRate: z.number().gt(0).optional(),
   /**
-   * aiMaxMultiChannelRate is the highest analog input sample rate of the device, in Hz.
-   * A task with several channels divides it by the channel count. 0 means that the
-   * device does not support the attribute.
+   * aiMaxMultiChannelRate is the highest analog input sample rate of the device. A task
+   * with several channels divides it by the channel count. Absent when the device does
+   * not support the attribute.
    */
-  aiMaxMultiChannelRate: z.number().min(0).default(0),
+  aiMaxMultiChannelRate: z.number().gt(0).optional(),
   /**
-   * aoMaxRate is the highest analog output sample rate, in Hz. 0 means that the device
-   * does not support the attribute.
+   * aoMaxRate is the highest analog output sample rate. Absent when the device does not
+   * support the attribute.
    */
-  aoMaxRate: z.number().min(0).default(0),
+  aoMaxRate: z.number().gt(0).optional(),
   /**
    * aiVoltageRanges are the analog input voltage ranges of the device, ends included.
    */

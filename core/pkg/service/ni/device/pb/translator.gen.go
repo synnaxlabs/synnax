@@ -1192,12 +1192,16 @@ func AnalogInputPortToPB(r device.AnalogInputPort) (*AnalogInputPort, error) {
 	if err != nil {
 		return nil, err
 	}
+	typesVal, err := lo.MapErr(r.Types, func(v device.AIChannelType, _ int) (AIChannelType, error) { return AIChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
 	pb := &AnalogInputPort{
 		Port:                  uint32(r.Port),
-		Types:                 r.Types,
 		Negative:              uint32(r.Negative),
 		TerminalConfigs:       terminalConfigsVal,
 		DefaultTerminalConfig: defaultTerminalConfigVal,
+		Types:                 typesVal,
 	}
 	return pb, nil
 }
@@ -1221,8 +1225,11 @@ func AnalogInputPortFromPB(pb *AnalogInputPort) (device.AnalogInputPort, error) 
 	if err != nil {
 		return device.AnalogInputPort{}, err
 	}
+	r.Types, err = lo.MapErr(pb.Types, func(v AIChannelType, _ int) (device.AIChannelType, error) { return AIChannelTypeFromPB(v) })
+	if err != nil {
+		return device.AnalogInputPort{}, err
+	}
 	r.Port = uint16(pb.Port)
-	r.Types = pb.Types
 	r.Negative = uint16(pb.Negative)
 	defaults.FillGroups(&r)
 	return r, nil
@@ -1260,10 +1267,14 @@ func AnalogOutputPortToPB(r device.AnalogOutputPort) (*AnalogOutputPort, error) 
 	if err != nil {
 		return nil, err
 	}
+	typesVal, err := lo.MapErr(r.Types, func(v device.AOChannelType, _ int) (AOChannelType, error) { return AOChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
 	pb := &AnalogOutputPort{
 		Port:            uint32(r.Port),
-		Types:           r.Types,
 		TerminalConfigs: terminalConfigsVal,
+		Types:           typesVal,
 	}
 	return pb, nil
 }
@@ -1283,8 +1294,11 @@ func AnalogOutputPortFromPB(pb *AnalogOutputPort) (device.AnalogOutputPort, erro
 	if err != nil {
 		return device.AnalogOutputPort{}, err
 	}
+	r.Types, err = lo.MapErr(pb.Types, func(v AOChannelType, _ int) (device.AOChannelType, error) { return AOChannelTypeFromPB(v) })
+	if err != nil {
+		return device.AnalogOutputPort{}, err
+	}
 	r.Port = uint16(pb.Port)
-	r.Types = pb.Types
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -1317,9 +1331,13 @@ func AnalogOutputPortsFromPB(pbs []*AnalogOutputPort) ([]device.AnalogOutputPort
 
 // CounterPortToPB converts CounterPort to CounterPort.
 func CounterPortToPB(r device.CounterPort) (*CounterPort, error) {
+	typesVal, err := lo.MapErr(r.Types, func(v device.CIChannelType, _ int) (CIChannelType, error) { return CIChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
 	pb := &CounterPort{
 		Port:  uint32(r.Port),
-		Types: r.Types,
+		Types: typesVal,
 	}
 	return pb, nil
 }
@@ -1334,8 +1352,12 @@ func CounterPortFromPB(pb *CounterPort) (device.CounterPort, error) {
 		return r, nil
 	}
 	defaults.Prefill(&r)
+	var err error
+	r.Types, err = lo.MapErr(pb.Types, func(v CIChannelType, _ int) (device.CIChannelType, error) { return CIChannelTypeFromPB(v) })
+	if err != nil {
+		return device.CounterPort{}, err
+	}
 	r.Port = uint16(pb.Port)
-	r.Types = pb.Types
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -1460,20 +1482,32 @@ func HardwareToPB(r device.Hardware) (*Hardware, error) {
 		return nil, err
 	}
 	pb := &Hardware{
-		Terminals:              r.Terminals,
-		AiMinRate:              float64(r.AiMinRate),
-		AiMaxSingleChannelRate: float64(r.AiMaxSingleChannelRate),
-		AiMaxMultiChannelRate:  float64(r.AiMaxMultiChannelRate),
-		AoMaxRate:              float64(r.AoMaxRate),
-		AnalogInputs:           analogInputsVal,
-		AnalogOutputs:          analogOutputsVal,
-		CounterInputs:          counterInputsVal,
-		CounterOutputs:         counterOutputsVal,
-		DigitalPorts:           digitalPortsVal,
-		AiVoltageRanges:        aiVoltageRangesVal,
-		AiCurrentRanges:        aiCurrentRangesVal,
-		AoVoltageRanges:        aoVoltageRangesVal,
-		AoCurrentRanges:        aoCurrentRangesVal,
+		Terminals:       r.Terminals,
+		AnalogInputs:    analogInputsVal,
+		AnalogOutputs:   analogOutputsVal,
+		CounterInputs:   counterInputsVal,
+		CounterOutputs:  counterOutputsVal,
+		DigitalPorts:    digitalPortsVal,
+		AiVoltageRanges: aiVoltageRangesVal,
+		AiCurrentRanges: aiCurrentRangesVal,
+		AoVoltageRanges: aoVoltageRangesVal,
+		AoCurrentRanges: aoCurrentRangesVal,
+	}
+	if r.AiMinRate != nil {
+		v := float64(*r.AiMinRate)
+		pb.AiMinRate = &v
+	}
+	if r.AiMaxSingleChannelRate != nil {
+		v := float64(*r.AiMaxSingleChannelRate)
+		pb.AiMaxSingleChannelRate = &v
+	}
+	if r.AiMaxMultiChannelRate != nil {
+		v := float64(*r.AiMaxMultiChannelRate)
+		pb.AiMaxMultiChannelRate = &v
+	}
+	if r.AoMaxRate != nil {
+		v := float64(*r.AoMaxRate)
+		pb.AoMaxRate = &v
 	}
 	return pb, nil
 }
@@ -1526,10 +1560,22 @@ func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
 		return device.Hardware{}, err
 	}
 	r.Terminals = pb.Terminals
-	r.AiMinRate = telem.Rate(pb.AiMinRate)
-	r.AiMaxSingleChannelRate = telem.Rate(pb.AiMaxSingleChannelRate)
-	r.AiMaxMultiChannelRate = telem.Rate(pb.AiMaxMultiChannelRate)
-	r.AoMaxRate = telem.Rate(pb.AoMaxRate)
+	if pb.AiMinRate != nil {
+		v := telem.Rate(*pb.AiMinRate)
+		r.AiMinRate = &v
+	}
+	if pb.AiMaxSingleChannelRate != nil {
+		v := telem.Rate(*pb.AiMaxSingleChannelRate)
+		r.AiMaxSingleChannelRate = &v
+	}
+	if pb.AiMaxMultiChannelRate != nil {
+		v := telem.Rate(*pb.AiMaxMultiChannelRate)
+		r.AiMaxMultiChannelRate = &v
+	}
+	if pb.AoMaxRate != nil {
+		v := telem.Rate(*pb.AoMaxRate)
+		r.AoMaxRate = &v
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -1632,6 +1678,230 @@ func UpdatesFromPB(pbs []*Update) ([]device.Update, error) {
 		}
 	}
 	return result, nil
+}
+
+// AIChannelTypeToPB converts device.AIChannelType to AIChannelType.
+func AIChannelTypeToPB(v device.AIChannelType) (AIChannelType, error) {
+	switch v {
+	case device.AIChannelTypeAiVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE, nil
+	case device.AIChannelTypeAiAccel:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL, nil
+	case device.AIChannelTypeAiBridge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_BRIDGE, nil
+	case device.AIChannelTypeAiCurrent:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT, nil
+	case device.AIChannelTypeAiForceBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiForceBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiForceIepe:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_IEPE, nil
+	case device.AIChannelTypeAiMicrophone:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_MICROPHONE, nil
+	case device.AIChannelTypeAiPressureBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiPressureBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiResistance:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_RESISTANCE, nil
+	case device.AIChannelTypeAiRtd:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_RTD, nil
+	case device.AIChannelTypeAiStrainGauge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_STRAIN_GAUGE, nil
+	case device.AIChannelTypeAiTempBuiltin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TEMP_BUILTIN, nil
+	case device.AIChannelTypeAiThermocouple:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMOCOUPLE, nil
+	case device.AIChannelTypeAiTorqueBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiTorqueBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiVelocityIepe:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VELOCITY_IEPE, nil
+	case device.AIChannelTypeAiAccel4WireDcVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE, nil
+	case device.AIChannelTypeAiAccelCharge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_CHARGE, nil
+	case device.AIChannelTypeAiCharge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CHARGE, nil
+	case device.AIChannelTypeAiCurrentRms:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT_RMS, nil
+	case device.AIChannelTypeAiForceBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiFreqVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE, nil
+	case device.AIChannelTypeAiPressureBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiThermistorIex:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_IEX, nil
+	case device.AIChannelTypeAiThermistorVex:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_VEX, nil
+	case device.AIChannelTypeAiTorqueBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiVoltageRms:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_RMS, nil
+	case device.AIChannelTypeAiVoltageWithExcit:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT, nil
+	default:
+		return 0, errors.Newf("unrecognized device.AIChannelType value: %v", v)
+	}
+}
+
+// AIChannelTypeFromPB converts AIChannelType to device.AIChannelType.
+func AIChannelTypeFromPB(v AIChannelType) (device.AIChannelType, error) {
+	switch v {
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE:
+		return device.AIChannelTypeAiVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL:
+		return device.AIChannelTypeAiAccel, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_BRIDGE:
+		return device.AIChannelTypeAiBridge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT:
+		return device.AIChannelTypeAiCurrent, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiForceBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiForceBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_IEPE:
+		return device.AIChannelTypeAiForceIepe, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_MICROPHONE:
+		return device.AIChannelTypeAiMicrophone, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiPressureBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiPressureBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_RESISTANCE:
+		return device.AIChannelTypeAiResistance, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_RTD:
+		return device.AIChannelTypeAiRtd, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_STRAIN_GAUGE:
+		return device.AIChannelTypeAiStrainGauge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TEMP_BUILTIN:
+		return device.AIChannelTypeAiTempBuiltin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMOCOUPLE:
+		return device.AIChannelTypeAiThermocouple, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiTorqueBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiTorqueBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VELOCITY_IEPE:
+		return device.AIChannelTypeAiVelocityIepe, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE:
+		return device.AIChannelTypeAiAccel4WireDcVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_CHARGE:
+		return device.AIChannelTypeAiAccelCharge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CHARGE:
+		return device.AIChannelTypeAiCharge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT_RMS:
+		return device.AIChannelTypeAiCurrentRms, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiForceBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE:
+		return device.AIChannelTypeAiFreqVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiPressureBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_IEX:
+		return device.AIChannelTypeAiThermistorIex, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_VEX:
+		return device.AIChannelTypeAiThermistorVex, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiTorqueBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_RMS:
+		return device.AIChannelTypeAiVoltageRms, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT:
+		return device.AIChannelTypeAiVoltageWithExcit, nil
+	default:
+		return device.AIChannelType(""), errors.Newf("unrecognized AIChannelType value: %v", v)
+	}
+}
+
+// AOChannelTypeToPB converts device.AOChannelType to AOChannelType.
+func AOChannelTypeToPB(v device.AOChannelType) (AOChannelType, error) {
+	switch v {
+	case device.AOChannelTypeAoCurrent:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_CURRENT, nil
+	case device.AOChannelTypeAoFuncGen:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_FUNC_GEN, nil
+	case device.AOChannelTypeAoVoltage:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_VOLTAGE, nil
+	default:
+		return 0, errors.Newf("unrecognized device.AOChannelType value: %v", v)
+	}
+}
+
+// AOChannelTypeFromPB converts AOChannelType to device.AOChannelType.
+func AOChannelTypeFromPB(v AOChannelType) (device.AOChannelType, error) {
+	switch v {
+	case AOChannelType_AO_CHANNEL_TYPE_AO_CURRENT:
+		return device.AOChannelTypeAoCurrent, nil
+	case AOChannelType_AO_CHANNEL_TYPE_AO_FUNC_GEN:
+		return device.AOChannelTypeAoFuncGen, nil
+	case AOChannelType_AO_CHANNEL_TYPE_AO_VOLTAGE:
+		return device.AOChannelTypeAoVoltage, nil
+	default:
+		return device.AOChannelType(""), errors.Newf("unrecognized AOChannelType value: %v", v)
+	}
+}
+
+// CIChannelTypeToPB converts device.CIChannelType to CIChannelType.
+func CIChannelTypeToPB(v device.CIChannelType) (CIChannelType, error) {
+	switch v {
+	case device.CIChannelTypeCiFrequency:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_FREQUENCY, nil
+	case device.CIChannelTypeCiEdgeCount:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_EDGE_COUNT, nil
+	case device.CIChannelTypeCiPeriod:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_PERIOD, nil
+	case device.CIChannelTypeCiPulseWidth:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_PULSE_WIDTH, nil
+	case device.CIChannelTypeCiSemiPeriod:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_SEMI_PERIOD, nil
+	case device.CIChannelTypeCiTwoEdgeSep:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP, nil
+	case device.CIChannelTypeCiVelocityLinear:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR, nil
+	case device.CIChannelTypeCiVelocityAngular:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR, nil
+	case device.CIChannelTypeCiPositionLinear:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_LINEAR, nil
+	case device.CIChannelTypeCiPositionAngular:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_ANGULAR, nil
+	case device.CIChannelTypeCiDutyCycle:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_DUTY_CYCLE, nil
+	default:
+		return 0, errors.Newf("unrecognized device.CIChannelType value: %v", v)
+	}
+}
+
+// CIChannelTypeFromPB converts CIChannelType to device.CIChannelType.
+func CIChannelTypeFromPB(v CIChannelType) (device.CIChannelType, error) {
+	switch v {
+	case CIChannelType_CI_CHANNEL_TYPE_CI_FREQUENCY:
+		return device.CIChannelTypeCiFrequency, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_EDGE_COUNT:
+		return device.CIChannelTypeCiEdgeCount, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_PERIOD:
+		return device.CIChannelTypeCiPeriod, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_PULSE_WIDTH:
+		return device.CIChannelTypeCiPulseWidth, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_SEMI_PERIOD:
+		return device.CIChannelTypeCiSemiPeriod, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP:
+		return device.CIChannelTypeCiTwoEdgeSep, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR:
+		return device.CIChannelTypeCiVelocityLinear, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR:
+		return device.CIChannelTypeCiVelocityAngular, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_LINEAR:
+		return device.CIChannelTypeCiPositionLinear, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_ANGULAR:
+		return device.CIChannelTypeCiPositionAngular, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_DUTY_CYCLE:
+		return device.CIChannelTypeCiDutyCycle, nil
+	default:
+		return device.CIChannelType(""), errors.Newf("unrecognized CIChannelType value: %v", v)
+	}
 }
 
 // TerminalConfigToPB converts device.TerminalConfig to TerminalConfig.

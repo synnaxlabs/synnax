@@ -91,6 +91,261 @@ func (TerminalConfig) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{0}
 }
 
+// AIChannelType is the type of an analog input channel.
+type AIChannelType int32
+
+const (
+	AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE                       AIChannelType = 0
+	AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL                         AIChannelType = 1
+	AIChannelType_AI_CHANNEL_TYPE_AI_BRIDGE                        AIChannelType = 2
+	AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT                       AIChannelType = 3
+	AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE            AIChannelType = 4
+	AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN    AIChannelType = 5
+	AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_IEPE                    AIChannelType = 6
+	AIChannelType_AI_CHANNEL_TYPE_AI_MICROPHONE                    AIChannelType = 7
+	AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE         AIChannelType = 8
+	AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN AIChannelType = 9
+	AIChannelType_AI_CHANNEL_TYPE_AI_RESISTANCE                    AIChannelType = 10
+	AIChannelType_AI_CHANNEL_TYPE_AI_RTD                           AIChannelType = 11
+	AIChannelType_AI_CHANNEL_TYPE_AI_STRAIN_GAUGE                  AIChannelType = 12
+	AIChannelType_AI_CHANNEL_TYPE_AI_TEMP_BUILTIN                  AIChannelType = 13
+	AIChannelType_AI_CHANNEL_TYPE_AI_THERMOCOUPLE                  AIChannelType = 14
+	AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE           AIChannelType = 15
+	AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN   AIChannelType = 16
+	AIChannelType_AI_CHANNEL_TYPE_AI_VELOCITY_IEPE                 AIChannelType = 17
+	AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE       AIChannelType = 18
+	AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_CHARGE                  AIChannelType = 19
+	AIChannelType_AI_CHANNEL_TYPE_AI_CHARGE                        AIChannelType = 20
+	AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT_RMS                   AIChannelType = 21
+	AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL       AIChannelType = 22
+	AIChannelType_AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE                  AIChannelType = 23
+	AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL    AIChannelType = 24
+	AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_IEX                AIChannelType = 25
+	AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_VEX                AIChannelType = 26
+	AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL      AIChannelType = 27
+	AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_RMS                   AIChannelType = 28
+	AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT            AIChannelType = 29
+)
+
+// Enum value maps for AIChannelType.
+var (
+	AIChannelType_name = map[int32]string{
+		0:  "AI_CHANNEL_TYPE_AI_VOLTAGE",
+		1:  "AI_CHANNEL_TYPE_AI_ACCEL",
+		2:  "AI_CHANNEL_TYPE_AI_BRIDGE",
+		3:  "AI_CHANNEL_TYPE_AI_CURRENT",
+		4:  "AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE",
+		5:  "AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN",
+		6:  "AI_CHANNEL_TYPE_AI_FORCE_IEPE",
+		7:  "AI_CHANNEL_TYPE_AI_MICROPHONE",
+		8:  "AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE",
+		9:  "AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN",
+		10: "AI_CHANNEL_TYPE_AI_RESISTANCE",
+		11: "AI_CHANNEL_TYPE_AI_RTD",
+		12: "AI_CHANNEL_TYPE_AI_STRAIN_GAUGE",
+		13: "AI_CHANNEL_TYPE_AI_TEMP_BUILTIN",
+		14: "AI_CHANNEL_TYPE_AI_THERMOCOUPLE",
+		15: "AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE",
+		16: "AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN",
+		17: "AI_CHANNEL_TYPE_AI_VELOCITY_IEPE",
+		18: "AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE",
+		19: "AI_CHANNEL_TYPE_AI_ACCEL_CHARGE",
+		20: "AI_CHANNEL_TYPE_AI_CHARGE",
+		21: "AI_CHANNEL_TYPE_AI_CURRENT_RMS",
+		22: "AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL",
+		23: "AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE",
+		24: "AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL",
+		25: "AI_CHANNEL_TYPE_AI_THERMISTOR_IEX",
+		26: "AI_CHANNEL_TYPE_AI_THERMISTOR_VEX",
+		27: "AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL",
+		28: "AI_CHANNEL_TYPE_AI_VOLTAGE_RMS",
+		29: "AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT",
+	}
+	AIChannelType_value = map[string]int32{
+		"AI_CHANNEL_TYPE_AI_VOLTAGE":                       0,
+		"AI_CHANNEL_TYPE_AI_ACCEL":                         1,
+		"AI_CHANNEL_TYPE_AI_BRIDGE":                        2,
+		"AI_CHANNEL_TYPE_AI_CURRENT":                       3,
+		"AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE":            4,
+		"AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN":    5,
+		"AI_CHANNEL_TYPE_AI_FORCE_IEPE":                    6,
+		"AI_CHANNEL_TYPE_AI_MICROPHONE":                    7,
+		"AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE":         8,
+		"AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN": 9,
+		"AI_CHANNEL_TYPE_AI_RESISTANCE":                    10,
+		"AI_CHANNEL_TYPE_AI_RTD":                           11,
+		"AI_CHANNEL_TYPE_AI_STRAIN_GAUGE":                  12,
+		"AI_CHANNEL_TYPE_AI_TEMP_BUILTIN":                  13,
+		"AI_CHANNEL_TYPE_AI_THERMOCOUPLE":                  14,
+		"AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE":           15,
+		"AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN":   16,
+		"AI_CHANNEL_TYPE_AI_VELOCITY_IEPE":                 17,
+		"AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE":       18,
+		"AI_CHANNEL_TYPE_AI_ACCEL_CHARGE":                  19,
+		"AI_CHANNEL_TYPE_AI_CHARGE":                        20,
+		"AI_CHANNEL_TYPE_AI_CURRENT_RMS":                   21,
+		"AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL":       22,
+		"AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE":                  23,
+		"AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL":    24,
+		"AI_CHANNEL_TYPE_AI_THERMISTOR_IEX":                25,
+		"AI_CHANNEL_TYPE_AI_THERMISTOR_VEX":                26,
+		"AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL":      27,
+		"AI_CHANNEL_TYPE_AI_VOLTAGE_RMS":                   28,
+		"AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT":            29,
+	}
+)
+
+func (x AIChannelType) Enum() *AIChannelType {
+	p := new(AIChannelType)
+	*p = x
+	return p
+}
+
+func (x AIChannelType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIChannelType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[1].Descriptor()
+}
+
+func (AIChannelType) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[1]
+}
+
+func (x AIChannelType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIChannelType.Descriptor instead.
+func (AIChannelType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{1}
+}
+
+// AOChannelType is the type of an analog output channel.
+type AOChannelType int32
+
+const (
+	AOChannelType_AO_CHANNEL_TYPE_AO_CURRENT  AOChannelType = 0
+	AOChannelType_AO_CHANNEL_TYPE_AO_FUNC_GEN AOChannelType = 1
+	AOChannelType_AO_CHANNEL_TYPE_AO_VOLTAGE  AOChannelType = 2
+)
+
+// Enum value maps for AOChannelType.
+var (
+	AOChannelType_name = map[int32]string{
+		0: "AO_CHANNEL_TYPE_AO_CURRENT",
+		1: "AO_CHANNEL_TYPE_AO_FUNC_GEN",
+		2: "AO_CHANNEL_TYPE_AO_VOLTAGE",
+	}
+	AOChannelType_value = map[string]int32{
+		"AO_CHANNEL_TYPE_AO_CURRENT":  0,
+		"AO_CHANNEL_TYPE_AO_FUNC_GEN": 1,
+		"AO_CHANNEL_TYPE_AO_VOLTAGE":  2,
+	}
+)
+
+func (x AOChannelType) Enum() *AOChannelType {
+	p := new(AOChannelType)
+	*p = x
+	return p
+}
+
+func (x AOChannelType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AOChannelType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[2].Descriptor()
+}
+
+func (AOChannelType) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[2]
+}
+
+func (x AOChannelType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AOChannelType.Descriptor instead.
+func (AOChannelType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{2}
+}
+
+// CIChannelType is the type of a counter input channel.
+type CIChannelType int32
+
+const (
+	CIChannelType_CI_CHANNEL_TYPE_CI_FREQUENCY        CIChannelType = 0
+	CIChannelType_CI_CHANNEL_TYPE_CI_EDGE_COUNT       CIChannelType = 1
+	CIChannelType_CI_CHANNEL_TYPE_CI_PERIOD           CIChannelType = 2
+	CIChannelType_CI_CHANNEL_TYPE_CI_PULSE_WIDTH      CIChannelType = 3
+	CIChannelType_CI_CHANNEL_TYPE_CI_SEMI_PERIOD      CIChannelType = 4
+	CIChannelType_CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP     CIChannelType = 5
+	CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR  CIChannelType = 6
+	CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR CIChannelType = 7
+	CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_LINEAR  CIChannelType = 8
+	CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_ANGULAR CIChannelType = 9
+	CIChannelType_CI_CHANNEL_TYPE_CI_DUTY_CYCLE       CIChannelType = 10
+)
+
+// Enum value maps for CIChannelType.
+var (
+	CIChannelType_name = map[int32]string{
+		0:  "CI_CHANNEL_TYPE_CI_FREQUENCY",
+		1:  "CI_CHANNEL_TYPE_CI_EDGE_COUNT",
+		2:  "CI_CHANNEL_TYPE_CI_PERIOD",
+		3:  "CI_CHANNEL_TYPE_CI_PULSE_WIDTH",
+		4:  "CI_CHANNEL_TYPE_CI_SEMI_PERIOD",
+		5:  "CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP",
+		6:  "CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR",
+		7:  "CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR",
+		8:  "CI_CHANNEL_TYPE_CI_POSITION_LINEAR",
+		9:  "CI_CHANNEL_TYPE_CI_POSITION_ANGULAR",
+		10: "CI_CHANNEL_TYPE_CI_DUTY_CYCLE",
+	}
+	CIChannelType_value = map[string]int32{
+		"CI_CHANNEL_TYPE_CI_FREQUENCY":        0,
+		"CI_CHANNEL_TYPE_CI_EDGE_COUNT":       1,
+		"CI_CHANNEL_TYPE_CI_PERIOD":           2,
+		"CI_CHANNEL_TYPE_CI_PULSE_WIDTH":      3,
+		"CI_CHANNEL_TYPE_CI_SEMI_PERIOD":      4,
+		"CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP":     5,
+		"CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR":  6,
+		"CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR": 7,
+		"CI_CHANNEL_TYPE_CI_POSITION_LINEAR":  8,
+		"CI_CHANNEL_TYPE_CI_POSITION_ANGULAR": 9,
+		"CI_CHANNEL_TYPE_CI_DUTY_CYCLE":       10,
+	}
+)
+
+func (x CIChannelType) Enum() *CIChannelType {
+	p := new(CIChannelType)
+	*p = x
+	return p
+}
+
+func (x CIChannelType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CIChannelType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[3].Descriptor()
+}
+
+func (CIChannelType) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes[3]
+}
+
+func (x CIChannelType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CIChannelType.Descriptor instead.
+func (CIChannelType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{3}
+}
+
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
 type Device struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1237,7 +1492,7 @@ type AnalogInputPort struct {
 	// reads back a real configuration.
 	DefaultTerminalConfig TerminalConfig `protobuf:"varint,3,opt,name=default_terminal_config,json=defaultTerminalConfig,proto3,enum=service.ni_device.pb.TerminalConfig" json:"default_terminal_config,omitempty"`
 	// types are the channel types that the port accepts, such as ai_voltage.
-	Types []string `protobuf:"bytes,4,rep,name=types,proto3" json:"types,omitempty"`
+	Types []AIChannelType `protobuf:"varint,4,rep,packed,name=types,proto3,enum=service.ni_device.pb.AIChannelType" json:"types,omitempty"`
 	// negative is the port that a differential channel on this port uses as its negative
 	// input. 0 means that the port has no pair. Port 0 is never a negative port.
 	Negative      uint32 `protobuf:"varint,5,opt,name=negative,proto3" json:"negative,omitempty"`
@@ -1296,7 +1551,7 @@ func (x *AnalogInputPort) GetDefaultTerminalConfig() TerminalConfig {
 	return TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT
 }
 
-func (x *AnalogInputPort) GetTypes() []string {
+func (x *AnalogInputPort) GetTypes() []AIChannelType {
 	if x != nil {
 		return x.Types
 	}
@@ -1318,7 +1573,7 @@ type AnalogOutputPort struct {
 	// terminal_configs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `protobuf:"varint,2,rep,packed,name=terminal_configs,json=terminalConfigs,proto3,enum=service.ni_device.pb.TerminalConfig" json:"terminal_configs,omitempty"`
 	// types are the channel types that the port accepts, such as ao_voltage.
-	Types         []string `protobuf:"bytes,3,rep,name=types,proto3" json:"types,omitempty"`
+	Types         []AOChannelType `protobuf:"varint,3,rep,packed,name=types,proto3,enum=service.ni_device.pb.AOChannelType" json:"types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1367,7 +1622,7 @@ func (x *AnalogOutputPort) GetTerminalConfigs() []TerminalConfig {
 	return nil
 }
 
-func (x *AnalogOutputPort) GetTypes() []string {
+func (x *AnalogOutputPort) GetTypes() []AOChannelType {
 	if x != nil {
 		return x.Types
 	}
@@ -1380,7 +1635,7 @@ type CounterPort struct {
 	// port is the number in the DAQmx name of the counter, such as 0 for ctr0.
 	Port uint32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	// types are the channel types that the counter accepts, such as ci_frequency.
-	Types         []string `protobuf:"bytes,2,rep,name=types,proto3" json:"types,omitempty"`
+	Types         []CIChannelType `protobuf:"varint,2,rep,packed,name=types,proto3,enum=service.ni_device.pb.CIChannelType" json:"types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1422,7 +1677,7 @@ func (x *CounterPort) GetPort() uint32 {
 	return 0
 }
 
-func (x *CounterPort) GetTypes() []string {
+func (x *CounterPort) GetTypes() []CIChannelType {
 	if x != nil {
 		return x.Types
 	}
@@ -1518,19 +1773,19 @@ type Hardware struct {
 	DigitalPorts []*DigitalPort `protobuf:"bytes,5,rep,name=digital_ports,json=digitalPorts,proto3" json:"digital_ports,omitempty"`
 	// terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `protobuf:"bytes,6,rep,name=terminals,proto3" json:"terminals,omitempty"`
-	// ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that the device
+	// ai_min_rate is the lowest analog input sample rate. Absent when the device does not
+	// support the attribute.
+	AiMinRate *float64 `protobuf:"fixed64,7,opt,name=ai_min_rate,json=aiMinRate,proto3,oneof" json:"ai_min_rate,omitempty"`
+	// ai_max_single_channel_rate is the highest analog input sample rate of one channel.
+	// Absent when the device does not support the attribute.
+	AiMaxSingleChannelRate *float64 `protobuf:"fixed64,8,opt,name=ai_max_single_channel_rate,json=aiMaxSingleChannelRate,proto3,oneof" json:"ai_max_single_channel_rate,omitempty"`
+	// ai_max_multi_channel_rate is the highest analog input sample rate of the device. A
+	// task with several channels divides it by the channel count. Absent when the device
 	// does not support the attribute.
-	AiMinRate float64 `protobuf:"fixed64,7,opt,name=ai_min_rate,json=aiMinRate,proto3" json:"ai_min_rate,omitempty"`
-	// ai_max_single_channel_rate is the highest analog input sample rate of one channel,
-	// in Hz. 0 means that the device does not support the attribute.
-	AiMaxSingleChannelRate float64 `protobuf:"fixed64,8,opt,name=ai_max_single_channel_rate,json=aiMaxSingleChannelRate,proto3" json:"ai_max_single_channel_rate,omitempty"`
-	// ai_max_multi_channel_rate is the highest analog input sample rate of the device, in
-	// Hz. A task with several channels divides it by the channel count. 0 means that the
-	// device does not support the attribute.
-	AiMaxMultiChannelRate float64 `protobuf:"fixed64,9,opt,name=ai_max_multi_channel_rate,json=aiMaxMultiChannelRate,proto3" json:"ai_max_multi_channel_rate,omitempty"`
-	// ao_max_rate is the highest analog output sample rate, in Hz. 0 means that the
-	// device does not support the attribute.
-	AoMaxRate float64 `protobuf:"fixed64,10,opt,name=ao_max_rate,json=aoMaxRate,proto3" json:"ao_max_rate,omitempty"`
+	AiMaxMultiChannelRate *float64 `protobuf:"fixed64,9,opt,name=ai_max_multi_channel_rate,json=aiMaxMultiChannelRate,proto3,oneof" json:"ai_max_multi_channel_rate,omitempty"`
+	// ao_max_rate is the highest analog output sample rate. Absent when the device does
+	// not support the attribute.
+	AoMaxRate *float64 `protobuf:"fixed64,10,opt,name=ao_max_rate,json=aoMaxRate,proto3,oneof" json:"ao_max_rate,omitempty"`
 	// ai_voltage_ranges are the analog input voltage ranges of the device, ends included.
 	AiVoltageRanges []*pb2.Bounds `protobuf:"bytes,11,rep,name=ai_voltage_ranges,json=aiVoltageRanges,proto3" json:"ai_voltage_ranges,omitempty"`
 	// ai_current_ranges are the analog input current ranges of the device, ends included.
@@ -1618,29 +1873,29 @@ func (x *Hardware) GetTerminals() []string {
 }
 
 func (x *Hardware) GetAiMinRate() float64 {
-	if x != nil {
-		return x.AiMinRate
+	if x != nil && x.AiMinRate != nil {
+		return *x.AiMinRate
 	}
 	return 0
 }
 
 func (x *Hardware) GetAiMaxSingleChannelRate() float64 {
-	if x != nil {
-		return x.AiMaxSingleChannelRate
+	if x != nil && x.AiMaxSingleChannelRate != nil {
+		return *x.AiMaxSingleChannelRate
 	}
 	return 0
 }
 
 func (x *Hardware) GetAiMaxMultiChannelRate() float64 {
-	if x != nil {
-		return x.AiMaxMultiChannelRate
+	if x != nil && x.AiMaxMultiChannelRate != nil {
+		return *x.AiMaxMultiChannelRate
 	}
 	return 0
 }
 
 func (x *Hardware) GetAoMaxRate() float64 {
-	if x != nil {
-		return x.AoMaxRate
+	if x != nil && x.AoMaxRate != nil {
+		return *x.AoMaxRate
 	}
 	return 0
 }
@@ -1895,41 +2150,45 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2*.service.ni_device.pb.DigitalInputChannelsR\x05value:\x028\x01\x1am\n" +
 	"\x12DigitalOutputEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12A\n" +
-	"\x05value\x18\x02 \x01(\v2+.service.ni_device.pb.DigitalOutputChannelsR\x05value:\x028\x01\"\x86\x02\n" +
+	"\x05value\x18\x02 \x01(\v2+.service.ni_device.pb.DigitalOutputChannelsR\x05value:\x028\x01\"\xab\x02\n" +
 	"\x0fAnalogInputPort\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12O\n" +
 	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x12\\\n" +
-	"\x17default_terminal_config\x18\x03 \x01(\x0e2$.service.ni_device.pb.TerminalConfigR\x15defaultTerminalConfig\x12\x14\n" +
-	"\x05types\x18\x04 \x03(\tR\x05types\x12\x1a\n" +
-	"\bnegative\x18\x05 \x01(\rR\bnegative\"\x8d\x01\n" +
+	"\x17default_terminal_config\x18\x03 \x01(\x0e2$.service.ni_device.pb.TerminalConfigR\x15defaultTerminalConfig\x129\n" +
+	"\x05types\x18\x04 \x03(\x0e2#.service.ni_device.pb.AIChannelTypeR\x05types\x12\x1a\n" +
+	"\bnegative\x18\x05 \x01(\rR\bnegative\"\xb2\x01\n" +
 	"\x10AnalogOutputPort\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12O\n" +
-	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x12\x14\n" +
-	"\x05types\x18\x03 \x03(\tR\x05types\"7\n" +
+	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x129\n" +
+	"\x05types\x18\x03 \x03(\x0e2#.service.ni_device.pb.AOChannelTypeR\x05types\"\\\n" +
 	"\vCounterPort\x12\x12\n" +
-	"\x04port\x18\x01 \x01(\rR\x04port\x12\x14\n" +
-	"\x05types\x18\x02 \x03(\tR\x05types\"e\n" +
+	"\x04port\x18\x01 \x01(\rR\x04port\x129\n" +
+	"\x05types\x18\x02 \x03(\x0e2#.service.ni_device.pb.CIChannelTypeR\x05types\"e\n" +
 	"\vDigitalPort\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x14\n" +
 	"\x05lines\x18\x02 \x01(\rR\x05lines\x12\x14\n" +
 	"\x05input\x18\x03 \x01(\bR\x05input\x12\x16\n" +
-	"\x06output\x18\x04 \x01(\bR\x06output\"\xdf\x06\n" +
+	"\x06output\x18\x04 \x01(\bR\x06output\"\xd0\a\n" +
 	"\bHardware\x12J\n" +
 	"\ranalog_inputs\x18\x01 \x03(\v2%.service.ni_device.pb.AnalogInputPortR\fanalogInputs\x12M\n" +
 	"\x0eanalog_outputs\x18\x02 \x03(\v2&.service.ni_device.pb.AnalogOutputPortR\ranalogOutputs\x12H\n" +
 	"\x0ecounter_inputs\x18\x03 \x03(\v2!.service.ni_device.pb.CounterPortR\rcounterInputs\x12J\n" +
 	"\x0fcounter_outputs\x18\x04 \x03(\v2!.service.ni_device.pb.CounterPortR\x0ecounterOutputs\x12F\n" +
 	"\rdigital_ports\x18\x05 \x03(\v2!.service.ni_device.pb.DigitalPortR\fdigitalPorts\x12\x1c\n" +
-	"\tterminals\x18\x06 \x03(\tR\tterminals\x12\x1e\n" +
-	"\vai_min_rate\x18\a \x01(\x01R\taiMinRate\x12:\n" +
-	"\x1aai_max_single_channel_rate\x18\b \x01(\x01R\x16aiMaxSingleChannelRate\x128\n" +
-	"\x19ai_max_multi_channel_rate\x18\t \x01(\x01R\x15aiMaxMultiChannelRate\x12\x1e\n" +
+	"\tterminals\x18\x06 \x03(\tR\tterminals\x12#\n" +
+	"\vai_min_rate\x18\a \x01(\x01H\x00R\taiMinRate\x88\x01\x01\x12?\n" +
+	"\x1aai_max_single_channel_rate\x18\b \x01(\x01H\x01R\x16aiMaxSingleChannelRate\x88\x01\x01\x12=\n" +
+	"\x19ai_max_multi_channel_rate\x18\t \x01(\x01H\x02R\x15aiMaxMultiChannelRate\x88\x01\x01\x12#\n" +
 	"\vao_max_rate\x18\n" +
-	" \x01(\x01R\taoMaxRate\x12@\n" +
+	" \x01(\x01H\x03R\taoMaxRate\x88\x01\x01\x12@\n" +
 	"\x11ai_voltage_ranges\x18\v \x03(\v2\x14.x.spatial.pb.BoundsR\x0faiVoltageRanges\x12@\n" +
 	"\x11ai_current_ranges\x18\f \x03(\v2\x14.x.spatial.pb.BoundsR\x0faiCurrentRanges\x12@\n" +
 	"\x11ao_voltage_ranges\x18\r \x03(\v2\x14.x.spatial.pb.BoundsR\x0faoVoltageRanges\x12@\n" +
-	"\x11ao_current_ranges\x18\x0e \x03(\v2\x14.x.spatial.pb.BoundsR\x0faoCurrentRanges\"\x9e\x01\n" +
+	"\x11ao_current_ranges\x18\x0e \x03(\v2\x14.x.spatial.pb.BoundsR\x0faoCurrentRangesB\x0e\n" +
+	"\f_ai_min_rateB\x1d\n" +
+	"\x1b_ai_max_single_channel_rateB\x1c\n" +
+	"\x1a_ai_max_multi_channel_rateB\x0e\n" +
+	"\f_ao_max_rate\"\x9e\x01\n" +
 	"\x06Update\x12<\n" +
 	"\bidentity\x18\x01 \x01(\v2\x1e.service.ni_device.pb.IdentityH\x00R\bidentity\x12K\n" +
 	"\rconfiguration\x18\x02 \x01(\v2#.service.ni_device.pb.ConfigurationH\x00R\rconfigurationB\t\n" +
@@ -1939,7 +2198,56 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x13TERMINAL_CONFIG_RSE\x10\x01\x12\x18\n" +
 	"\x14TERMINAL_CONFIG_NRSE\x10\x02\x12\x18\n" +
 	"\x14TERMINAL_CONFIG_DIFF\x10\x03\x12\x1f\n" +
-	"\x1bTERMINAL_CONFIG_PSEUDO_DIFF\x10\x04B\xce\x01\n" +
+	"\x1bTERMINAL_CONFIG_PSEUDO_DIFF\x10\x04*\xb6\t\n" +
+	"\rAIChannelType\x12\x1e\n" +
+	"\x1aAI_CHANNEL_TYPE_AI_VOLTAGE\x10\x00\x12\x1c\n" +
+	"\x18AI_CHANNEL_TYPE_AI_ACCEL\x10\x01\x12\x1d\n" +
+	"\x19AI_CHANNEL_TYPE_AI_BRIDGE\x10\x02\x12\x1e\n" +
+	"\x1aAI_CHANNEL_TYPE_AI_CURRENT\x10\x03\x12)\n" +
+	"%AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE\x10\x04\x121\n" +
+	"-AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN\x10\x05\x12!\n" +
+	"\x1dAI_CHANNEL_TYPE_AI_FORCE_IEPE\x10\x06\x12!\n" +
+	"\x1dAI_CHANNEL_TYPE_AI_MICROPHONE\x10\a\x12,\n" +
+	"(AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE\x10\b\x124\n" +
+	"0AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN\x10\t\x12!\n" +
+	"\x1dAI_CHANNEL_TYPE_AI_RESISTANCE\x10\n" +
+	"\x12\x1a\n" +
+	"\x16AI_CHANNEL_TYPE_AI_RTD\x10\v\x12#\n" +
+	"\x1fAI_CHANNEL_TYPE_AI_STRAIN_GAUGE\x10\f\x12#\n" +
+	"\x1fAI_CHANNEL_TYPE_AI_TEMP_BUILTIN\x10\r\x12#\n" +
+	"\x1fAI_CHANNEL_TYPE_AI_THERMOCOUPLE\x10\x0e\x12*\n" +
+	"&AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE\x10\x0f\x122\n" +
+	".AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN\x10\x10\x12$\n" +
+	" AI_CHANNEL_TYPE_AI_VELOCITY_IEPE\x10\x11\x12.\n" +
+	"*AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE\x10\x12\x12#\n" +
+	"\x1fAI_CHANNEL_TYPE_AI_ACCEL_CHARGE\x10\x13\x12\x1d\n" +
+	"\x19AI_CHANNEL_TYPE_AI_CHARGE\x10\x14\x12\"\n" +
+	"\x1eAI_CHANNEL_TYPE_AI_CURRENT_RMS\x10\x15\x12.\n" +
+	"*AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL\x10\x16\x12#\n" +
+	"\x1fAI_CHANNEL_TYPE_AI_FREQ_VOLTAGE\x10\x17\x121\n" +
+	"-AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL\x10\x18\x12%\n" +
+	"!AI_CHANNEL_TYPE_AI_THERMISTOR_IEX\x10\x19\x12%\n" +
+	"!AI_CHANNEL_TYPE_AI_THERMISTOR_VEX\x10\x1a\x12/\n" +
+	"+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL\x10\x1b\x12\"\n" +
+	"\x1eAI_CHANNEL_TYPE_AI_VOLTAGE_RMS\x10\x1c\x12)\n" +
+	"%AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT\x10\x1d*p\n" +
+	"\rAOChannelType\x12\x1e\n" +
+	"\x1aAO_CHANNEL_TYPE_AO_CURRENT\x10\x00\x12\x1f\n" +
+	"\x1bAO_CHANNEL_TYPE_AO_FUNC_GEN\x10\x01\x12\x1e\n" +
+	"\x1aAO_CHANNEL_TYPE_AO_VOLTAGE\x10\x02*\xa5\x03\n" +
+	"\rCIChannelType\x12 \n" +
+	"\x1cCI_CHANNEL_TYPE_CI_FREQUENCY\x10\x00\x12!\n" +
+	"\x1dCI_CHANNEL_TYPE_CI_EDGE_COUNT\x10\x01\x12\x1d\n" +
+	"\x19CI_CHANNEL_TYPE_CI_PERIOD\x10\x02\x12\"\n" +
+	"\x1eCI_CHANNEL_TYPE_CI_PULSE_WIDTH\x10\x03\x12\"\n" +
+	"\x1eCI_CHANNEL_TYPE_CI_SEMI_PERIOD\x10\x04\x12#\n" +
+	"\x1fCI_CHANNEL_TYPE_CI_TWO_EDGE_SEP\x10\x05\x12&\n" +
+	"\"CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR\x10\x06\x12'\n" +
+	"#CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR\x10\a\x12&\n" +
+	"\"CI_CHANNEL_TYPE_CI_POSITION_LINEAR\x10\b\x12'\n" +
+	"#CI_CHANNEL_TYPE_CI_POSITION_ANGULAR\x10\t\x12!\n" +
+	"\x1dCI_CHANNEL_TYPE_CI_DUTY_CYCLE\x10\n" +
+	"B\xce\x01\n" +
 	"\x18com.service.ni_device.pbB\rNiDeviceProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/ni/device/pb\xa2\x02\x03SNP\xaa\x02\x13Service.NiDevice.Pb\xca\x02\x13Service\\NiDevice\\Pb\xe2\x02\x1fService\\NiDevice\\Pb\\GPBMetadata\xea\x02\x15Service::NiDevice::Pbb\x06proto3"
 
 var (
@@ -1954,104 +2262,110 @@ func file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_ni_device_pb_ni_device_proto_rawDescData
 }
 
-var file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_ni_device_pb_ni_device_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_core_pkg_service_ni_device_pb_ni_device_proto_goTypes = []any{
 	(TerminalConfig)(0),           // 0: service.ni_device.pb.TerminalConfig
-	(*Device)(nil),                // 1: service.ni_device.pb.Device
-	(*WhereList)(nil),             // 2: service.ni_device.pb.WhereList
-	(*UuidList)(nil),              // 3: service.ni_device.pb.UuidList
-	(*UuidSet)(nil),               // 4: service.ni_device.pb.UuidSet
-	(*RackKeyList)(nil),           // 5: service.ni_device.pb.RackKeyList
-	(*RackKeySet)(nil),            // 6: service.ni_device.pb.RackKeySet
-	(*Where)(nil),                 // 7: service.ni_device.pb.Where
-	(*CommandStatePair)(nil),      // 8: service.ni_device.pb.CommandStatePair
-	(*AnalogInputPorts)(nil),      // 9: service.ni_device.pb.AnalogInputPorts
-	(*AnalogOutputChannels)(nil),  // 10: service.ni_device.pb.AnalogOutputChannels
-	(*CounterInputChannels)(nil),  // 11: service.ni_device.pb.CounterInputChannels
-	(*DigitalInputChannels)(nil),  // 12: service.ni_device.pb.DigitalInputChannels
-	(*DigitalOutputChannels)(nil), // 13: service.ni_device.pb.DigitalOutputChannels
-	(*StatusDetails)(nil),         // 14: service.ni_device.pb.StatusDetails
-	(*Identity)(nil),              // 15: service.ni_device.pb.Identity
-	(*Configuration)(nil),         // 16: service.ni_device.pb.Configuration
-	(*AnalogInputPort)(nil),       // 17: service.ni_device.pb.AnalogInputPort
-	(*AnalogOutputPort)(nil),      // 18: service.ni_device.pb.AnalogOutputPort
-	(*CounterPort)(nil),           // 19: service.ni_device.pb.CounterPort
-	(*DigitalPort)(nil),           // 20: service.ni_device.pb.DigitalPort
-	(*Hardware)(nil),              // 21: service.ni_device.pb.Hardware
-	(*Update)(nil),                // 22: service.ni_device.pb.Update
-	nil,                           // 23: service.ni_device.pb.Device.AnalogOutputEntry
-	nil,                           // 24: service.ni_device.pb.Device.CounterInputEntry
-	nil,                           // 25: service.ni_device.pb.Device.DigitalInputEntry
-	nil,                           // 26: service.ni_device.pb.Device.DigitalOutputEntry
-	nil,                           // 27: service.ni_device.pb.AnalogInputPorts.ChannelsEntry
-	nil,                           // 28: service.ni_device.pb.DigitalInputChannels.LinesEntry
-	nil,                           // 29: service.ni_device.pb.DigitalOutputChannels.LinesEntry
-	nil,                           // 30: service.ni_device.pb.Configuration.AnalogOutputEntry
-	nil,                           // 31: service.ni_device.pb.Configuration.CounterInputEntry
-	nil,                           // 32: service.ni_device.pb.Configuration.DigitalInputEntry
-	nil,                           // 33: service.ni_device.pb.Configuration.DigitalOutputEntry
-	(*pb.Status)(nil),             // 34: service.status.pb.Status
-	(*pb1.String)(nil),            // 35: x.filter.pb.String
-	(*pb2.Bounds)(nil),            // 36: x.spatial.pb.Bounds
+	(AIChannelType)(0),            // 1: service.ni_device.pb.AIChannelType
+	(AOChannelType)(0),            // 2: service.ni_device.pb.AOChannelType
+	(CIChannelType)(0),            // 3: service.ni_device.pb.CIChannelType
+	(*Device)(nil),                // 4: service.ni_device.pb.Device
+	(*WhereList)(nil),             // 5: service.ni_device.pb.WhereList
+	(*UuidList)(nil),              // 6: service.ni_device.pb.UuidList
+	(*UuidSet)(nil),               // 7: service.ni_device.pb.UuidSet
+	(*RackKeyList)(nil),           // 8: service.ni_device.pb.RackKeyList
+	(*RackKeySet)(nil),            // 9: service.ni_device.pb.RackKeySet
+	(*Where)(nil),                 // 10: service.ni_device.pb.Where
+	(*CommandStatePair)(nil),      // 11: service.ni_device.pb.CommandStatePair
+	(*AnalogInputPorts)(nil),      // 12: service.ni_device.pb.AnalogInputPorts
+	(*AnalogOutputChannels)(nil),  // 13: service.ni_device.pb.AnalogOutputChannels
+	(*CounterInputChannels)(nil),  // 14: service.ni_device.pb.CounterInputChannels
+	(*DigitalInputChannels)(nil),  // 15: service.ni_device.pb.DigitalInputChannels
+	(*DigitalOutputChannels)(nil), // 16: service.ni_device.pb.DigitalOutputChannels
+	(*StatusDetails)(nil),         // 17: service.ni_device.pb.StatusDetails
+	(*Identity)(nil),              // 18: service.ni_device.pb.Identity
+	(*Configuration)(nil),         // 19: service.ni_device.pb.Configuration
+	(*AnalogInputPort)(nil),       // 20: service.ni_device.pb.AnalogInputPort
+	(*AnalogOutputPort)(nil),      // 21: service.ni_device.pb.AnalogOutputPort
+	(*CounterPort)(nil),           // 22: service.ni_device.pb.CounterPort
+	(*DigitalPort)(nil),           // 23: service.ni_device.pb.DigitalPort
+	(*Hardware)(nil),              // 24: service.ni_device.pb.Hardware
+	(*Update)(nil),                // 25: service.ni_device.pb.Update
+	nil,                           // 26: service.ni_device.pb.Device.AnalogOutputEntry
+	nil,                           // 27: service.ni_device.pb.Device.CounterInputEntry
+	nil,                           // 28: service.ni_device.pb.Device.DigitalInputEntry
+	nil,                           // 29: service.ni_device.pb.Device.DigitalOutputEntry
+	nil,                           // 30: service.ni_device.pb.AnalogInputPorts.ChannelsEntry
+	nil,                           // 31: service.ni_device.pb.DigitalInputChannels.LinesEntry
+	nil,                           // 32: service.ni_device.pb.DigitalOutputChannels.LinesEntry
+	nil,                           // 33: service.ni_device.pb.Configuration.AnalogOutputEntry
+	nil,                           // 34: service.ni_device.pb.Configuration.CounterInputEntry
+	nil,                           // 35: service.ni_device.pb.Configuration.DigitalInputEntry
+	nil,                           // 36: service.ni_device.pb.Configuration.DigitalOutputEntry
+	(*pb.Status)(nil),             // 37: service.status.pb.Status
+	(*pb1.String)(nil),            // 38: x.filter.pb.String
+	(*pb2.Bounds)(nil),            // 39: x.spatial.pb.Bounds
 }
 var file_core_pkg_service_ni_device_pb_ni_device_proto_depIdxs = []int32{
-	21, // 0: service.ni_device.pb.Device.hardware:type_name -> service.ni_device.pb.Hardware
-	9,  // 1: service.ni_device.pb.Device.analog_input:type_name -> service.ni_device.pb.AnalogInputPorts
-	23, // 2: service.ni_device.pb.Device.analog_output:type_name -> service.ni_device.pb.Device.AnalogOutputEntry
-	24, // 3: service.ni_device.pb.Device.counter_input:type_name -> service.ni_device.pb.Device.CounterInputEntry
-	25, // 4: service.ni_device.pb.Device.digital_input:type_name -> service.ni_device.pb.Device.DigitalInputEntry
-	26, // 5: service.ni_device.pb.Device.digital_output:type_name -> service.ni_device.pb.Device.DigitalOutputEntry
-	34, // 6: service.ni_device.pb.Device.status:type_name -> service.status.pb.Status
-	7,  // 7: service.ni_device.pb.WhereList.values:type_name -> service.ni_device.pb.Where
-	3,  // 8: service.ni_device.pb.UuidSet.in:type_name -> service.ni_device.pb.UuidList
-	5,  // 9: service.ni_device.pb.RackKeySet.in:type_name -> service.ni_device.pb.RackKeyList
-	2,  // 10: service.ni_device.pb.Where.and:type_name -> service.ni_device.pb.WhereList
-	2,  // 11: service.ni_device.pb.Where.or:type_name -> service.ni_device.pb.WhereList
-	7,  // 12: service.ni_device.pb.Where.not:type_name -> service.ni_device.pb.Where
-	4,  // 13: service.ni_device.pb.Where.key:type_name -> service.ni_device.pb.UuidSet
-	35, // 14: service.ni_device.pb.Where.name:type_name -> x.filter.pb.String
-	35, // 15: service.ni_device.pb.Where.serial:type_name -> x.filter.pb.String
-	35, // 16: service.ni_device.pb.Where.resource_name:type_name -> x.filter.pb.String
-	35, // 17: service.ni_device.pb.Where.model:type_name -> x.filter.pb.String
-	6,  // 18: service.ni_device.pb.Where.rack:type_name -> service.ni_device.pb.RackKeySet
-	27, // 19: service.ni_device.pb.AnalogInputPorts.channels:type_name -> service.ni_device.pb.AnalogInputPorts.ChannelsEntry
-	28, // 20: service.ni_device.pb.DigitalInputChannels.lines:type_name -> service.ni_device.pb.DigitalInputChannels.LinesEntry
-	29, // 21: service.ni_device.pb.DigitalOutputChannels.lines:type_name -> service.ni_device.pb.DigitalOutputChannels.LinesEntry
-	21, // 22: service.ni_device.pb.Identity.hardware:type_name -> service.ni_device.pb.Hardware
-	9,  // 23: service.ni_device.pb.Configuration.analog_input:type_name -> service.ni_device.pb.AnalogInputPorts
-	30, // 24: service.ni_device.pb.Configuration.analog_output:type_name -> service.ni_device.pb.Configuration.AnalogOutputEntry
-	31, // 25: service.ni_device.pb.Configuration.counter_input:type_name -> service.ni_device.pb.Configuration.CounterInputEntry
-	32, // 26: service.ni_device.pb.Configuration.digital_input:type_name -> service.ni_device.pb.Configuration.DigitalInputEntry
-	33, // 27: service.ni_device.pb.Configuration.digital_output:type_name -> service.ni_device.pb.Configuration.DigitalOutputEntry
+	24, // 0: service.ni_device.pb.Device.hardware:type_name -> service.ni_device.pb.Hardware
+	12, // 1: service.ni_device.pb.Device.analog_input:type_name -> service.ni_device.pb.AnalogInputPorts
+	26, // 2: service.ni_device.pb.Device.analog_output:type_name -> service.ni_device.pb.Device.AnalogOutputEntry
+	27, // 3: service.ni_device.pb.Device.counter_input:type_name -> service.ni_device.pb.Device.CounterInputEntry
+	28, // 4: service.ni_device.pb.Device.digital_input:type_name -> service.ni_device.pb.Device.DigitalInputEntry
+	29, // 5: service.ni_device.pb.Device.digital_output:type_name -> service.ni_device.pb.Device.DigitalOutputEntry
+	37, // 6: service.ni_device.pb.Device.status:type_name -> service.status.pb.Status
+	10, // 7: service.ni_device.pb.WhereList.values:type_name -> service.ni_device.pb.Where
+	6,  // 8: service.ni_device.pb.UuidSet.in:type_name -> service.ni_device.pb.UuidList
+	8,  // 9: service.ni_device.pb.RackKeySet.in:type_name -> service.ni_device.pb.RackKeyList
+	5,  // 10: service.ni_device.pb.Where.and:type_name -> service.ni_device.pb.WhereList
+	5,  // 11: service.ni_device.pb.Where.or:type_name -> service.ni_device.pb.WhereList
+	10, // 12: service.ni_device.pb.Where.not:type_name -> service.ni_device.pb.Where
+	7,  // 13: service.ni_device.pb.Where.key:type_name -> service.ni_device.pb.UuidSet
+	38, // 14: service.ni_device.pb.Where.name:type_name -> x.filter.pb.String
+	38, // 15: service.ni_device.pb.Where.serial:type_name -> x.filter.pb.String
+	38, // 16: service.ni_device.pb.Where.resource_name:type_name -> x.filter.pb.String
+	38, // 17: service.ni_device.pb.Where.model:type_name -> x.filter.pb.String
+	9,  // 18: service.ni_device.pb.Where.rack:type_name -> service.ni_device.pb.RackKeySet
+	30, // 19: service.ni_device.pb.AnalogInputPorts.channels:type_name -> service.ni_device.pb.AnalogInputPorts.ChannelsEntry
+	31, // 20: service.ni_device.pb.DigitalInputChannels.lines:type_name -> service.ni_device.pb.DigitalInputChannels.LinesEntry
+	32, // 21: service.ni_device.pb.DigitalOutputChannels.lines:type_name -> service.ni_device.pb.DigitalOutputChannels.LinesEntry
+	24, // 22: service.ni_device.pb.Identity.hardware:type_name -> service.ni_device.pb.Hardware
+	12, // 23: service.ni_device.pb.Configuration.analog_input:type_name -> service.ni_device.pb.AnalogInputPorts
+	33, // 24: service.ni_device.pb.Configuration.analog_output:type_name -> service.ni_device.pb.Configuration.AnalogOutputEntry
+	34, // 25: service.ni_device.pb.Configuration.counter_input:type_name -> service.ni_device.pb.Configuration.CounterInputEntry
+	35, // 26: service.ni_device.pb.Configuration.digital_input:type_name -> service.ni_device.pb.Configuration.DigitalInputEntry
+	36, // 27: service.ni_device.pb.Configuration.digital_output:type_name -> service.ni_device.pb.Configuration.DigitalOutputEntry
 	0,  // 28: service.ni_device.pb.AnalogInputPort.terminal_configs:type_name -> service.ni_device.pb.TerminalConfig
 	0,  // 29: service.ni_device.pb.AnalogInputPort.default_terminal_config:type_name -> service.ni_device.pb.TerminalConfig
-	0,  // 30: service.ni_device.pb.AnalogOutputPort.terminal_configs:type_name -> service.ni_device.pb.TerminalConfig
-	17, // 31: service.ni_device.pb.Hardware.analog_inputs:type_name -> service.ni_device.pb.AnalogInputPort
-	18, // 32: service.ni_device.pb.Hardware.analog_outputs:type_name -> service.ni_device.pb.AnalogOutputPort
-	19, // 33: service.ni_device.pb.Hardware.counter_inputs:type_name -> service.ni_device.pb.CounterPort
-	19, // 34: service.ni_device.pb.Hardware.counter_outputs:type_name -> service.ni_device.pb.CounterPort
-	20, // 35: service.ni_device.pb.Hardware.digital_ports:type_name -> service.ni_device.pb.DigitalPort
-	36, // 36: service.ni_device.pb.Hardware.ai_voltage_ranges:type_name -> x.spatial.pb.Bounds
-	36, // 37: service.ni_device.pb.Hardware.ai_current_ranges:type_name -> x.spatial.pb.Bounds
-	36, // 38: service.ni_device.pb.Hardware.ao_voltage_ranges:type_name -> x.spatial.pb.Bounds
-	36, // 39: service.ni_device.pb.Hardware.ao_current_ranges:type_name -> x.spatial.pb.Bounds
-	15, // 40: service.ni_device.pb.Update.identity:type_name -> service.ni_device.pb.Identity
-	16, // 41: service.ni_device.pb.Update.configuration:type_name -> service.ni_device.pb.Configuration
-	10, // 42: service.ni_device.pb.Device.AnalogOutputEntry.value:type_name -> service.ni_device.pb.AnalogOutputChannels
-	11, // 43: service.ni_device.pb.Device.CounterInputEntry.value:type_name -> service.ni_device.pb.CounterInputChannels
-	12, // 44: service.ni_device.pb.Device.DigitalInputEntry.value:type_name -> service.ni_device.pb.DigitalInputChannels
-	13, // 45: service.ni_device.pb.Device.DigitalOutputEntry.value:type_name -> service.ni_device.pb.DigitalOutputChannels
-	8,  // 46: service.ni_device.pb.DigitalOutputChannels.LinesEntry.value:type_name -> service.ni_device.pb.CommandStatePair
-	10, // 47: service.ni_device.pb.Configuration.AnalogOutputEntry.value:type_name -> service.ni_device.pb.AnalogOutputChannels
-	11, // 48: service.ni_device.pb.Configuration.CounterInputEntry.value:type_name -> service.ni_device.pb.CounterInputChannels
-	12, // 49: service.ni_device.pb.Configuration.DigitalInputEntry.value:type_name -> service.ni_device.pb.DigitalInputChannels
-	13, // 50: service.ni_device.pb.Configuration.DigitalOutputEntry.value:type_name -> service.ni_device.pb.DigitalOutputChannels
-	51, // [51:51] is the sub-list for method output_type
-	51, // [51:51] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	1,  // 30: service.ni_device.pb.AnalogInputPort.types:type_name -> service.ni_device.pb.AIChannelType
+	0,  // 31: service.ni_device.pb.AnalogOutputPort.terminal_configs:type_name -> service.ni_device.pb.TerminalConfig
+	2,  // 32: service.ni_device.pb.AnalogOutputPort.types:type_name -> service.ni_device.pb.AOChannelType
+	3,  // 33: service.ni_device.pb.CounterPort.types:type_name -> service.ni_device.pb.CIChannelType
+	20, // 34: service.ni_device.pb.Hardware.analog_inputs:type_name -> service.ni_device.pb.AnalogInputPort
+	21, // 35: service.ni_device.pb.Hardware.analog_outputs:type_name -> service.ni_device.pb.AnalogOutputPort
+	22, // 36: service.ni_device.pb.Hardware.counter_inputs:type_name -> service.ni_device.pb.CounterPort
+	22, // 37: service.ni_device.pb.Hardware.counter_outputs:type_name -> service.ni_device.pb.CounterPort
+	23, // 38: service.ni_device.pb.Hardware.digital_ports:type_name -> service.ni_device.pb.DigitalPort
+	39, // 39: service.ni_device.pb.Hardware.ai_voltage_ranges:type_name -> x.spatial.pb.Bounds
+	39, // 40: service.ni_device.pb.Hardware.ai_current_ranges:type_name -> x.spatial.pb.Bounds
+	39, // 41: service.ni_device.pb.Hardware.ao_voltage_ranges:type_name -> x.spatial.pb.Bounds
+	39, // 42: service.ni_device.pb.Hardware.ao_current_ranges:type_name -> x.spatial.pb.Bounds
+	18, // 43: service.ni_device.pb.Update.identity:type_name -> service.ni_device.pb.Identity
+	19, // 44: service.ni_device.pb.Update.configuration:type_name -> service.ni_device.pb.Configuration
+	13, // 45: service.ni_device.pb.Device.AnalogOutputEntry.value:type_name -> service.ni_device.pb.AnalogOutputChannels
+	14, // 46: service.ni_device.pb.Device.CounterInputEntry.value:type_name -> service.ni_device.pb.CounterInputChannels
+	15, // 47: service.ni_device.pb.Device.DigitalInputEntry.value:type_name -> service.ni_device.pb.DigitalInputChannels
+	16, // 48: service.ni_device.pb.Device.DigitalOutputEntry.value:type_name -> service.ni_device.pb.DigitalOutputChannels
+	11, // 49: service.ni_device.pb.DigitalOutputChannels.LinesEntry.value:type_name -> service.ni_device.pb.CommandStatePair
+	13, // 50: service.ni_device.pb.Configuration.AnalogOutputEntry.value:type_name -> service.ni_device.pb.AnalogOutputChannels
+	14, // 51: service.ni_device.pb.Configuration.CounterInputEntry.value:type_name -> service.ni_device.pb.CounterInputChannels
+	15, // 52: service.ni_device.pb.Configuration.DigitalInputEntry.value:type_name -> service.ni_device.pb.DigitalInputChannels
+	16, // 53: service.ni_device.pb.Configuration.DigitalOutputEntry.value:type_name -> service.ni_device.pb.DigitalOutputChannels
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_ni_device_pb_ni_device_proto_init() }
@@ -2064,6 +2378,7 @@ func file_core_pkg_service_ni_device_pb_ni_device_proto_init() {
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[5].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[14].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[20].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[21].OneofWrappers = []any{
 		(*Update_Identity)(nil),
 		(*Update_Configuration)(nil),
@@ -2073,7 +2388,7 @@ func file_core_pkg_service_ni_device_pb_ni_device_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc), len(file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      4,
 			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,

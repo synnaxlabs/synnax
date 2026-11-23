@@ -229,9 +229,15 @@ x::errors::Error read_types(
     );
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
-    for (const auto code: codes)
-        if (const auto it = table.find(code); it != table.end())
-            types.insert(types.end(), it->second.begin(), it->second.end());
+    for (const auto code: codes) {
+        const auto it = table.find(code);
+        if (it == table.end()) {
+            VLOG(1) << "[ni] skipping DAQmx type " << code << " of " << port.name
+                    << " that no channel type reads";
+            continue;
+        }
+        types.insert(types.end(), it->second.begin(), it->second.end());
+    }
     return x::errors::NIL;
 }
 
@@ -258,13 +264,13 @@ x::errors::Error read_rate(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
     const int32 attribute,
-    x::telem::Rate &rate
+    std::optional<x::telem::Rate> &rate
 ) {
     float64 value = 0;
     const auto err = dmx.GetDeviceAttributeDouble(device.c_str(), attribute, &value);
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
-    rate = x::telem::Rate(value);
+    if (value > 0) rate = x::telem::Rate(value);
     return x::errors::NIL;
 }
 

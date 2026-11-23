@@ -422,81 +422,6 @@ type AIChannel = versions.AIChannel
 // AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = versions.AIChannelVariant
 
-// AIChannelType is the "type" value that selects a variant of AIChannel.
-type AIChannelType = versions.AIChannelType
-
-const (
-	// AIVoltageChannelType reads a voltage.
-	AIVoltageChannelType AIChannelType = versions.AIVoltageChannelType
-	// AIAccelChannelType reads acceleration from an accelerometer.
-	AIAccelChannelType AIChannelType = versions.AIAccelChannelType
-	// AIBridgeChannelType reads a generic bridge-based sensor.
-	AIBridgeChannelType AIChannelType = versions.AIBridgeChannelType
-	// AICurrentChannelType reads a current.
-	AICurrentChannelType AIChannelType = versions.AICurrentChannelType
-	// AIForceBridgeTableChannelType reads force from a bridge with a calibration table.
-	AIForceBridgeTableChannelType AIChannelType = versions.AIForceBridgeTableChannelType
-	// AIForceBridgeTwoPointLinChannelType reads force from a bridge with two-point
-	// linear calibration.
-	AIForceBridgeTwoPointLinChannelType AIChannelType = versions.AIForceBridgeTwoPointLinChannelType
-	// AIForceIEPEChannelType reads force from an IEPE sensor.
-	AIForceIEPEChannelType AIChannelType = versions.AIForceIEPEChannelType
-	// AIMicrophoneChannelType reads sound pressure from a microphone.
-	AIMicrophoneChannelType AIChannelType = versions.AIMicrophoneChannelType
-	// AIPressureBridgeTableChannelType reads pressure from a bridge with a calibration
-	// table.
-	AIPressureBridgeTableChannelType AIChannelType = versions.AIPressureBridgeTableChannelType
-	// AIPressureBridgeTwoPointLinChannelType reads pressure from a bridge with
-	// two-point linear calibration.
-	AIPressureBridgeTwoPointLinChannelType AIChannelType = versions.AIPressureBridgeTwoPointLinChannelType
-	// AIResistanceChannelType reads a resistance.
-	AIResistanceChannelType AIChannelType = versions.AIResistanceChannelType
-	// AIRTDChannelType reads temperature from an RTD.
-	AIRTDChannelType AIChannelType = versions.AIRTDChannelType
-	// AIStrainGaugeChannelType reads strain from a strain gauge.
-	AIStrainGaugeChannelType AIChannelType = versions.AIStrainGaugeChannelType
-	// AITempBuiltinChannelType reads temperature from the device's built-in sensor.
-	AITempBuiltinChannelType AIChannelType = versions.AITempBuiltinChannelType
-	// AIThermocoupleChannelType reads temperature from a thermocouple.
-	AIThermocoupleChannelType AIChannelType = versions.AIThermocoupleChannelType
-	// AITorqueBridgeTableChannelType reads torque from a bridge with a calibration
-	// table.
-	AITorqueBridgeTableChannelType AIChannelType = versions.AITorqueBridgeTableChannelType
-	// AITorqueBridgeTwoPointLinChannelType reads torque from a bridge with two-point
-	// linear calibration.
-	AITorqueBridgeTwoPointLinChannelType AIChannelType = versions.AITorqueBridgeTwoPointLinChannelType
-	// AIVelocityIEPEChannelType reads velocity from an IEPE sensor.
-	AIVelocityIEPEChannelType AIChannelType = versions.AIVelocityIEPEChannelType
-	// AIAccel4WireDCVoltageChannelType reads acceleration from a 4-wire DC-voltage
-	// accelerometer.
-	AIAccel4WireDCVoltageChannelType AIChannelType = versions.AIAccel4WireDCVoltageChannelType
-	// AIAccelChargeChannelType reads acceleration from a charge-mode accelerometer.
-	AIAccelChargeChannelType AIChannelType = versions.AIAccelChargeChannelType
-	// AIChargeChannelType reads a raw charge.
-	AIChargeChannelType AIChannelType = versions.AIChargeChannelType
-	// AICurrentRMSChannelType reads RMS current.
-	AICurrentRMSChannelType AIChannelType = versions.AICurrentRMSChannelType
-	// AIForceBridgePolynomialChannelType reads force from a bridge with polynomial
-	// calibration.
-	AIForceBridgePolynomialChannelType AIChannelType = versions.AIForceBridgePolynomialChannelType
-	// AIFreqVoltageChannelType reads frequency from a voltage signal.
-	AIFreqVoltageChannelType AIChannelType = versions.AIFreqVoltageChannelType
-	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
-	// polynomial calibration.
-	AIPressureBridgePolynomialChannelType AIChannelType = versions.AIPressureBridgePolynomialChannelType
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = versions.AIThermistorIexChannelType
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = versions.AIThermistorVexChannelType
-	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
-	// calibration.
-	AITorqueBridgePolynomialChannelType AIChannelType = versions.AITorqueBridgePolynomialChannelType
-	// AIVoltageRMSChannelType reads RMS voltage.
-	AIVoltageRMSChannelType AIChannelType = versions.AIVoltageRMSChannelType
-	// AIVoltageWithExcitChannelType reads a voltage with excitation.
-	AIVoltageWithExcitChannelType AIChannelType = versions.AIVoltageWithExcitChannelType
-)
-
 // AIVoltageChannel reads a voltage.
 type AIVoltageChannel = versions.AIVoltageChannel
 
@@ -738,34 +663,6 @@ type CIChannel = versions.CIChannel
 // CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = versions.CIChannelVariant
 
-// CIChannelType is the "type" value that selects a variant of CIChannel.
-type CIChannelType = versions.CIChannelType
-
-const (
-	// CIFrequencyChannelType measures signal frequency.
-	CIFrequencyChannelType CIChannelType = versions.CIFrequencyChannelType
-	// CIEdgeCountChannelType counts signal edges.
-	CIEdgeCountChannelType CIChannelType = versions.CIEdgeCountChannelType
-	// CIPeriodChannelType measures signal period.
-	CIPeriodChannelType CIChannelType = versions.CIPeriodChannelType
-	// CIPulseWidthChannelType measures pulse width.
-	CIPulseWidthChannelType CIChannelType = versions.CIPulseWidthChannelType
-	// CISemiPeriodChannelType measures semi-period.
-	CISemiPeriodChannelType CIChannelType = versions.CISemiPeriodChannelType
-	// CITwoEdgeSepChannelType measures the separation between two edges.
-	CITwoEdgeSepChannelType CIChannelType = versions.CITwoEdgeSepChannelType
-	// CIVelocityLinearChannelType measures linear velocity from an encoder.
-	CIVelocityLinearChannelType CIChannelType = versions.CIVelocityLinearChannelType
-	// CIVelocityAngularChannelType measures angular velocity from an encoder.
-	CIVelocityAngularChannelType CIChannelType = versions.CIVelocityAngularChannelType
-	// CIPositionLinearChannelType measures linear position from an encoder.
-	CIPositionLinearChannelType CIChannelType = versions.CIPositionLinearChannelType
-	// CIPositionAngularChannelType measures angular position from an encoder.
-	CIPositionAngularChannelType CIChannelType = versions.CIPositionAngularChannelType
-	// CIDutyCycleChannelType measures the duty cycle of a signal.
-	CIDutyCycleChannelType CIChannelType = versions.CIDutyCycleChannelType
-)
-
 // CIFrequencyChannel measures signal frequency.
 type CIFrequencyChannel = versions.CIFrequencyChannel
 
@@ -822,19 +719,6 @@ type AOChannel = versions.AOChannel
 
 // AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = versions.AOChannelVariant
-
-// AOChannelType is the "type" value that selects a variant of AOChannel.
-type AOChannelType = versions.AOChannelType
-
-const (
-	// AOCurrentChannelType drives a current output.
-	AOCurrentChannelType AOChannelType = versions.AOCurrentChannelType
-	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
-	// commands.
-	AOFuncGenChannelType AOChannelType = versions.AOFuncGenChannelType
-	// AOVoltageChannelType drives a voltage output.
-	AOVoltageChannelType AOChannelType = versions.AOVoltageChannelType
-)
 
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = versions.AOCurrentChannel

@@ -43,21 +43,21 @@ var _ = Describe("Codec", func() {
 				Port:                  2,
 				TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 				DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-				Types:                 []string{"test_4"},
+				Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 				Negative:              6,
 			}),
 			Entry("zero values", v2.AnalogInputPort{
 				Port:                  0,
 				TerminalConfigs:       []v2.TerminalConfig{},
 				DefaultTerminalConfig: v2.TerminalConfig(""),
-				Types:                 []string{},
+				Types:                 []v2.AIChannelType{},
 				Negative:              0,
 			}),
 			Entry("empty collections", v2.AnalogInputPort{
 				Port:                  2,
 				TerminalConfigs:       []v2.TerminalConfig{},
 				DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-				Types:                 []string{},
+				Types:                 []v2.AIChannelType{},
 				Negative:              6,
 			}),
 		)
@@ -76,17 +76,17 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v2.AnalogOutputPort{
 				Port:            2,
 				TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-				Types:           []string{"test_3"},
+				Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 			}),
 			Entry("zero values", v2.AnalogOutputPort{
 				Port:            0,
 				TerminalConfigs: []v2.TerminalConfig{},
-				Types:           []string{},
+				Types:           []v2.AOChannelType{},
 			}),
 			Entry("empty collections", v2.AnalogOutputPort{
 				Port:            2,
 				TerminalConfigs: []v2.TerminalConfig{},
-				Types:           []string{},
+				Types:           []v2.AOChannelType{},
 			}),
 		)
 	})
@@ -101,9 +101,12 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.CounterPort{Port: 2, Types: []string{"test_2"}}),
-			Entry("zero values", v2.CounterPort{Port: 0, Types: []string{}}),
-			Entry("empty collections", v2.CounterPort{Port: 2, Types: []string{}}),
+			Entry("fully populated", v2.CounterPort{
+				Port:  2,
+				Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+			}),
+			Entry("zero values", v2.CounterPort{Port: 0, Types: []v2.CIChannelType{}}),
+			Entry("empty collections", v2.CounterPort{Port: 2, Types: []v2.CIChannelType{}}),
 		)
 	})
 	Describe("Device", func() {
@@ -131,7 +134,7 @@ var _ = Describe("Codec", func() {
 							Port:                  11,
 							TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 							DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-							Types:                 []string{"test_13"},
+							Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 							Negative:              15,
 						},
 					},
@@ -139,11 +142,21 @@ var _ = Describe("Codec", func() {
 						{
 							Port:            17,
 							TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-							Types:           []string{"test_18"},
+							Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 						},
 					},
-					CounterInputs:  []v2.CounterPort{{Port: 21, Types: []string{"test_21"}}},
-					CounterOutputs: []v2.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+					CounterInputs: []v2.CounterPort{
+						{
+							Port:  21,
+							Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+						},
+					},
+					CounterOutputs: []v2.CounterPort{
+						{
+							Port:  24,
+							Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+						},
+					},
 					DigitalPorts: []v2.DigitalPort{
 						{
 							Port:   27,
@@ -153,10 +166,10 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					Terminals:              []string{"test_30"},
-					AiMinRate:              telem.Rate(31.5),
-					AiMaxSingleChannelRate: telem.Rate(32.5),
-					AiMaxMultiChannelRate:  telem.Rate(33.5),
-					AoMaxRate:              telem.Rate(34.5),
+					AiMinRate:              new(telem.Rate(31.5)),
+					AiMaxSingleChannelRate: new(telem.Rate(32.5)),
+					AiMaxMultiChannelRate:  new(telem.Rate(33.5)),
+					AoMaxRate:              new(telem.Rate(34.5)),
 					AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
 					AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
 					AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
@@ -224,10 +237,10 @@ var _ = Describe("Codec", func() {
 					CounterOutputs:         []v2.CounterPort{},
 					DigitalPorts:           []v2.DigitalPort{},
 					Terminals:              []string{},
-					AiMinRate:              telem.Rate(15.5),
-					AiMaxSingleChannelRate: telem.Rate(16.5),
-					AiMaxMultiChannelRate:  telem.Rate(17.5),
-					AoMaxRate:              telem.Rate(18.5),
+					AiMinRate:              new(telem.Rate(15.5)),
+					AiMaxSingleChannelRate: new(telem.Rate(16.5)),
+					AiMaxMultiChannelRate:  new(telem.Rate(17.5)),
+					AoMaxRate:              new(telem.Rate(18.5)),
 					AiVoltageRanges:        []spatial.Bounds{},
 					AiCurrentRanges:        []spatial.Bounds{},
 					AoVoltageRanges:        []spatial.Bounds{},
@@ -288,7 +301,7 @@ var _ = Describe("Codec", func() {
 						Port:                  3,
 						TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 						DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-						Types:                 []string{"test_5"},
+						Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 						Negative:              7,
 					},
 				},
@@ -296,11 +309,21 @@ var _ = Describe("Codec", func() {
 					{
 						Port:            9,
 						TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-						Types:           []string{"test_10"},
+						Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 					},
 				},
-				CounterInputs:  []v2.CounterPort{{Port: 13, Types: []string{"test_13"}}},
-				CounterOutputs: []v2.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+				CounterInputs: []v2.CounterPort{
+					{
+						Port:  13,
+						Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+					},
+				},
+				CounterOutputs: []v2.CounterPort{
+					{
+						Port:  16,
+						Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+					},
+				},
 				DigitalPorts: []v2.DigitalPort{
 					{
 						Port:   19,
@@ -310,10 +333,10 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Terminals:              []string{"test_22"},
-				AiMinRate:              telem.Rate(23.5),
-				AiMaxSingleChannelRate: telem.Rate(24.5),
-				AiMaxMultiChannelRate:  telem.Rate(25.5),
-				AoMaxRate:              telem.Rate(26.5),
+				AiMinRate:              new(telem.Rate(23.5)),
+				AiMaxSingleChannelRate: new(telem.Rate(24.5)),
+				AiMaxMultiChannelRate:  new(telem.Rate(25.5)),
+				AoMaxRate:              new(telem.Rate(26.5)),
 				AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
 				AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
 				AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
@@ -326,10 +349,10 @@ var _ = Describe("Codec", func() {
 				CounterOutputs:         []v2.CounterPort{},
 				DigitalPorts:           []v2.DigitalPort{},
 				Terminals:              []string{},
-				AiMinRate:              telem.Rate(0),
-				AiMaxSingleChannelRate: telem.Rate(0),
-				AiMaxMultiChannelRate:  telem.Rate(0),
-				AoMaxRate:              telem.Rate(0),
+				AiMinRate:              nil,
+				AiMaxSingleChannelRate: nil,
+				AiMaxMultiChannelRate:  nil,
+				AoMaxRate:              nil,
 				AiVoltageRanges:        []spatial.Bounds{},
 				AiCurrentRanges:        []spatial.Bounds{},
 				AoVoltageRanges:        []spatial.Bounds{},
@@ -342,10 +365,10 @@ var _ = Describe("Codec", func() {
 				CounterOutputs:         []v2.CounterPort{},
 				DigitalPorts:           []v2.DigitalPort{},
 				Terminals:              []string{},
-				AiMinRate:              telem.Rate(7.5),
-				AiMaxSingleChannelRate: telem.Rate(8.5),
-				AiMaxMultiChannelRate:  telem.Rate(9.5),
-				AoMaxRate:              telem.Rate(10.5),
+				AiMinRate:              new(telem.Rate(7.5)),
+				AiMaxSingleChannelRate: new(telem.Rate(8.5)),
+				AiMaxMultiChannelRate:  new(telem.Rate(9.5)),
+				AoMaxRate:              new(telem.Rate(10.5)),
 				AiVoltageRanges:        []spatial.Bounds{},
 				AiCurrentRanges:        []spatial.Bounds{},
 				AoVoltageRanges:        []spatial.Bounds{},
@@ -360,7 +383,7 @@ func BenchmarkEncodeDecodeAnalogInputPort(b *testing.B) {
 		Port:                  2,
 		TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 		DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-		Types:                 []string{"test_4"},
+		Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 		Negative:              6,
 	}
 	w := orc.NewWriter(0)
@@ -382,7 +405,7 @@ func BenchmarkEncodeDecodeAnalogOutputPort(b *testing.B) {
 	seed := v2.AnalogOutputPort{
 		Port:            2,
 		TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-		Types:           []string{"test_3"},
+		Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -400,7 +423,10 @@ func BenchmarkEncodeDecodeAnalogOutputPort(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCounterPort(b *testing.B) {
-	seed := v2.CounterPort{Port: 2, Types: []string{"test_2"}}
+	seed := v2.CounterPort{
+		Port:  2,
+		Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -431,7 +457,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 					Port:                  11,
 					TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 					DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-					Types:                 []string{"test_13"},
+					Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 					Negative:              15,
 				},
 			},
@@ -439,11 +465,21 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 				{
 					Port:            17,
 					TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-					Types:           []string{"test_18"},
+					Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 				},
 			},
-			CounterInputs:  []v2.CounterPort{{Port: 21, Types: []string{"test_21"}}},
-			CounterOutputs: []v2.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+			CounterInputs: []v2.CounterPort{
+				{
+					Port:  21,
+					Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+				},
+			},
+			CounterOutputs: []v2.CounterPort{
+				{
+					Port:  24,
+					Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+				},
+			},
 			DigitalPorts: []v2.DigitalPort{
 				{
 					Port:   27,
@@ -453,10 +489,10 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 				},
 			},
 			Terminals:              []string{"test_30"},
-			AiMinRate:              telem.Rate(31.5),
-			AiMaxSingleChannelRate: telem.Rate(32.5),
-			AiMaxMultiChannelRate:  telem.Rate(33.5),
-			AoMaxRate:              telem.Rate(34.5),
+			AiMinRate:              new(telem.Rate(31.5)),
+			AiMaxSingleChannelRate: new(telem.Rate(32.5)),
+			AiMaxMultiChannelRate:  new(telem.Rate(33.5)),
+			AoMaxRate:              new(telem.Rate(34.5)),
 			AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
 			AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
 			AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
@@ -533,7 +569,7 @@ func BenchmarkEncodeDecodeHardware(b *testing.B) {
 				Port:                  3,
 				TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 				DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-				Types:                 []string{"test_5"},
+				Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 				Negative:              7,
 			},
 		},
@@ -541,11 +577,21 @@ func BenchmarkEncodeDecodeHardware(b *testing.B) {
 			{
 				Port:            9,
 				TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-				Types:           []string{"test_10"},
+				Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 			},
 		},
-		CounterInputs:  []v2.CounterPort{{Port: 13, Types: []string{"test_13"}}},
-		CounterOutputs: []v2.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+		CounterInputs: []v2.CounterPort{
+			{
+				Port:  13,
+				Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+			},
+		},
+		CounterOutputs: []v2.CounterPort{
+			{
+				Port:  16,
+				Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+			},
+		},
 		DigitalPorts: []v2.DigitalPort{
 			{
 				Port:   19,
@@ -555,10 +601,10 @@ func BenchmarkEncodeDecodeHardware(b *testing.B) {
 			},
 		},
 		Terminals:              []string{"test_22"},
-		AiMinRate:              telem.Rate(23.5),
-		AiMaxSingleChannelRate: telem.Rate(24.5),
-		AiMaxMultiChannelRate:  telem.Rate(25.5),
-		AoMaxRate:              telem.Rate(26.5),
+		AiMinRate:              new(telem.Rate(23.5)),
+		AiMaxSingleChannelRate: new(telem.Rate(24.5)),
+		AiMaxMultiChannelRate:  new(telem.Rate(25.5)),
+		AoMaxRate:              new(telem.Rate(26.5)),
 		AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
 		AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
 		AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
@@ -585,7 +631,7 @@ func FuzzDecodeAnalogInputPort(f *testing.F) {
 			Port:                  2,
 			TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 			DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-			Types:                 []string{"test_4"},
+			Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 			Negative:              6,
 		}
 		w := orc.NewWriter(0)
@@ -599,7 +645,7 @@ func FuzzDecodeAnalogInputPort(f *testing.F) {
 			Port:                  0,
 			TerminalConfigs:       []v2.TerminalConfig{},
 			DefaultTerminalConfig: v2.TerminalConfig(""),
-			Types:                 []string{},
+			Types:                 []v2.AIChannelType{},
 			Negative:              0,
 		}
 		w := orc.NewWriter(0)
@@ -613,7 +659,7 @@ func FuzzDecodeAnalogInputPort(f *testing.F) {
 			Port:                  2,
 			TerminalConfigs:       []v2.TerminalConfig{},
 			DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-			Types:                 []string{},
+			Types:                 []v2.AIChannelType{},
 			Negative:              6,
 		}
 		w := orc.NewWriter(0)
@@ -649,7 +695,7 @@ func FuzzDecodeAnalogOutputPort(f *testing.F) {
 		seed := v2.AnalogOutputPort{
 			Port:            2,
 			TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-			Types:           []string{"test_3"},
+			Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -661,7 +707,7 @@ func FuzzDecodeAnalogOutputPort(f *testing.F) {
 		seed := v2.AnalogOutputPort{
 			Port:            0,
 			TerminalConfigs: []v2.TerminalConfig{},
-			Types:           []string{},
+			Types:           []v2.AOChannelType{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -673,7 +719,7 @@ func FuzzDecodeAnalogOutputPort(f *testing.F) {
 		seed := v2.AnalogOutputPort{
 			Port:            2,
 			TerminalConfigs: []v2.TerminalConfig{},
-			Types:           []string{},
+			Types:           []v2.AOChannelType{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -705,7 +751,10 @@ func FuzzDecodeAnalogOutputPort(f *testing.F) {
 
 func FuzzDecodeCounterPort(f *testing.F) {
 	{
-		seed := v2.CounterPort{Port: 2, Types: []string{"test_2"}}
+		seed := v2.CounterPort{
+			Port:  2,
+			Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -713,7 +762,7 @@ func FuzzDecodeCounterPort(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.CounterPort{Port: 0, Types: []string{}}
+		seed := v2.CounterPort{Port: 0, Types: []v2.CIChannelType{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -721,7 +770,7 @@ func FuzzDecodeCounterPort(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.CounterPort{Port: 2, Types: []string{}}
+		seed := v2.CounterPort{Port: 2, Types: []v2.CIChannelType{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -766,7 +815,7 @@ func FuzzDecodeDevice(f *testing.F) {
 						Port:                  11,
 						TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 						DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-						Types:                 []string{"test_13"},
+						Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 						Negative:              15,
 					},
 				},
@@ -774,11 +823,21 @@ func FuzzDecodeDevice(f *testing.F) {
 					{
 						Port:            17,
 						TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-						Types:           []string{"test_18"},
+						Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 					},
 				},
-				CounterInputs:  []v2.CounterPort{{Port: 21, Types: []string{"test_21"}}},
-				CounterOutputs: []v2.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+				CounterInputs: []v2.CounterPort{
+					{
+						Port:  21,
+						Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+					},
+				},
+				CounterOutputs: []v2.CounterPort{
+					{
+						Port:  24,
+						Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+					},
+				},
 				DigitalPorts: []v2.DigitalPort{
 					{
 						Port:   27,
@@ -788,10 +847,10 @@ func FuzzDecodeDevice(f *testing.F) {
 					},
 				},
 				Terminals:              []string{"test_30"},
-				AiMinRate:              telem.Rate(31.5),
-				AiMaxSingleChannelRate: telem.Rate(32.5),
-				AiMaxMultiChannelRate:  telem.Rate(33.5),
-				AoMaxRate:              telem.Rate(34.5),
+				AiMinRate:              new(telem.Rate(31.5)),
+				AiMaxSingleChannelRate: new(telem.Rate(32.5)),
+				AiMaxMultiChannelRate:  new(telem.Rate(33.5)),
+				AoMaxRate:              new(telem.Rate(34.5)),
 				AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
 				AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
 				AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
@@ -873,10 +932,10 @@ func FuzzDecodeDevice(f *testing.F) {
 				CounterOutputs:         []v2.CounterPort{},
 				DigitalPorts:           []v2.DigitalPort{},
 				Terminals:              []string{},
-				AiMinRate:              telem.Rate(15.5),
-				AiMaxSingleChannelRate: telem.Rate(16.5),
-				AiMaxMultiChannelRate:  telem.Rate(17.5),
-				AoMaxRate:              telem.Rate(18.5),
+				AiMinRate:              new(telem.Rate(15.5)),
+				AiMaxSingleChannelRate: new(telem.Rate(16.5)),
+				AiMaxMultiChannelRate:  new(telem.Rate(17.5)),
+				AoMaxRate:              new(telem.Rate(18.5)),
 				AiVoltageRanges:        []spatial.Bounds{},
 				AiCurrentRanges:        []spatial.Bounds{},
 				AoVoltageRanges:        []spatial.Bounds{},
@@ -978,7 +1037,7 @@ func FuzzDecodeHardware(f *testing.F) {
 					Port:                  3,
 					TerminalConfigs:       []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
 					DefaultTerminalConfig: v2.TerminalConfig("Cfg_Default"),
-					Types:                 []string{"test_5"},
+					Types:                 []v2.AIChannelType{v2.AIChannelType("ai_voltage")},
 					Negative:              7,
 				},
 			},
@@ -986,11 +1045,21 @@ func FuzzDecodeHardware(f *testing.F) {
 				{
 					Port:            9,
 					TerminalConfigs: []v2.TerminalConfig{v2.TerminalConfig("Cfg_Default")},
-					Types:           []string{"test_10"},
+					Types:           []v2.AOChannelType{v2.AOChannelType("ao_current")},
 				},
 			},
-			CounterInputs:  []v2.CounterPort{{Port: 13, Types: []string{"test_13"}}},
-			CounterOutputs: []v2.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+			CounterInputs: []v2.CounterPort{
+				{
+					Port:  13,
+					Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+				},
+			},
+			CounterOutputs: []v2.CounterPort{
+				{
+					Port:  16,
+					Types: []v2.CIChannelType{v2.CIChannelType("ci_frequency")},
+				},
+			},
 			DigitalPorts: []v2.DigitalPort{
 				{
 					Port:   19,
@@ -1000,10 +1069,10 @@ func FuzzDecodeHardware(f *testing.F) {
 				},
 			},
 			Terminals:              []string{"test_22"},
-			AiMinRate:              telem.Rate(23.5),
-			AiMaxSingleChannelRate: telem.Rate(24.5),
-			AiMaxMultiChannelRate:  telem.Rate(25.5),
-			AoMaxRate:              telem.Rate(26.5),
+			AiMinRate:              new(telem.Rate(23.5)),
+			AiMaxSingleChannelRate: new(telem.Rate(24.5)),
+			AiMaxMultiChannelRate:  new(telem.Rate(25.5)),
+			AoMaxRate:              new(telem.Rate(26.5)),
 			AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
 			AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
 			AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
@@ -1023,10 +1092,10 @@ func FuzzDecodeHardware(f *testing.F) {
 			CounterOutputs:         []v2.CounterPort{},
 			DigitalPorts:           []v2.DigitalPort{},
 			Terminals:              []string{},
-			AiMinRate:              telem.Rate(0),
-			AiMaxSingleChannelRate: telem.Rate(0),
-			AiMaxMultiChannelRate:  telem.Rate(0),
-			AoMaxRate:              telem.Rate(0),
+			AiMinRate:              nil,
+			AiMaxSingleChannelRate: nil,
+			AiMaxMultiChannelRate:  nil,
+			AoMaxRate:              nil,
 			AiVoltageRanges:        []spatial.Bounds{},
 			AiCurrentRanges:        []spatial.Bounds{},
 			AoVoltageRanges:        []spatial.Bounds{},
@@ -1046,10 +1115,10 @@ func FuzzDecodeHardware(f *testing.F) {
 			CounterOutputs:         []v2.CounterPort{},
 			DigitalPorts:           []v2.DigitalPort{},
 			Terminals:              []string{},
-			AiMinRate:              telem.Rate(7.5),
-			AiMaxSingleChannelRate: telem.Rate(8.5),
-			AiMaxMultiChannelRate:  telem.Rate(9.5),
-			AoMaxRate:              telem.Rate(10.5),
+			AiMinRate:              new(telem.Rate(7.5)),
+			AiMaxSingleChannelRate: new(telem.Rate(8.5)),
+			AiMaxMultiChannelRate:  new(telem.Rate(9.5)),
+			AoMaxRate:              new(telem.Rate(10.5)),
 			AiVoltageRanges:        []spatial.Bounds{},
 			AiCurrentRanges:        []spatial.Bounds{},
 			AoVoltageRanges:        []spatial.Bounds{},

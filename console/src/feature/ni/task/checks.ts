@@ -93,13 +93,13 @@ const checkAnalogRate = (
     const enabled = config.channels.filter((c) => c.device === key && !c.disabled);
     if (enabled.length === 0) return;
     const min = hardware.aiMinRate;
-    if (min !== 0 && config.sampleRate < min)
+    if (min != null && config.sampleRate < min)
       return report(["sampleRate"], `${model} samples at least ${formatMinRate(min)}`);
     const single = hardware.aiMaxSingleChannelRate;
-    if (single !== 0 && config.sampleRate > single)
+    if (single != null && config.sampleRate > single)
       return report(["sampleRate"], `${model} samples at most ${formatRate(single)}`);
     const multi = hardware.aiMaxMultiChannelRate;
-    if (multi === 0) return;
+    if (multi == null) return;
     let count = enabled.length;
     if (enabled.some((c) => c.type === THERMOCOUPLE))
       count += SCAN_CHANNELS_PER_THERMOCOUPLE_DEVICE;

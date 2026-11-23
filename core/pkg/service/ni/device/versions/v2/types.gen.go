@@ -89,6 +89,101 @@ func (t TerminalConfig) IsValid() bool {
 	}
 }
 
+// AIChannelType is the type of an analog input channel.
+type AIChannelType string
+
+const (
+	AIChannelTypeAiVoltage                   AIChannelType = "ai_voltage"
+	AIChannelTypeAiAccel                     AIChannelType = "ai_accel"
+	AIChannelTypeAiBridge                    AIChannelType = "ai_bridge"
+	AIChannelTypeAiCurrent                   AIChannelType = "ai_current"
+	AIChannelTypeAiForceBridgeTable          AIChannelType = "ai_force_bridge_table"
+	AIChannelTypeAiForceBridgeTwoPointLin    AIChannelType = "ai_force_bridge_two_point_lin"
+	AIChannelTypeAiForceIepe                 AIChannelType = "ai_force_iepe"
+	AIChannelTypeAiMicrophone                AIChannelType = "ai_microphone"
+	AIChannelTypeAiPressureBridgeTable       AIChannelType = "ai_pressure_bridge_table"
+	AIChannelTypeAiPressureBridgeTwoPointLin AIChannelType = "ai_pressure_bridge_two_point_lin"
+	AIChannelTypeAiResistance                AIChannelType = "ai_resistance"
+	AIChannelTypeAiRtd                       AIChannelType = "ai_rtd"
+	AIChannelTypeAiStrainGauge               AIChannelType = "ai_strain_gauge"
+	AIChannelTypeAiTempBuiltin               AIChannelType = "ai_temp_builtin"
+	AIChannelTypeAiThermocouple              AIChannelType = "ai_thermocouple"
+	AIChannelTypeAiTorqueBridgeTable         AIChannelType = "ai_torque_bridge_table"
+	AIChannelTypeAiTorqueBridgeTwoPointLin   AIChannelType = "ai_torque_bridge_two_point_lin"
+	AIChannelTypeAiVelocityIepe              AIChannelType = "ai_velocity_iepe"
+	AIChannelTypeAiAccel4WireDcVoltage       AIChannelType = "ai_accel_4_wire_dc_voltage"
+	AIChannelTypeAiAccelCharge               AIChannelType = "ai_accel_charge"
+	AIChannelTypeAiCharge                    AIChannelType = "ai_charge"
+	AIChannelTypeAiCurrentRms                AIChannelType = "ai_current_rms"
+	AIChannelTypeAiForceBridgePolynomial     AIChannelType = "ai_force_bridge_polynomial"
+	AIChannelTypeAiFreqVoltage               AIChannelType = "ai_freq_voltage"
+	AIChannelTypeAiPressureBridgePolynomial  AIChannelType = "ai_pressure_bridge_polynomial"
+	AIChannelTypeAiThermistorIex             AIChannelType = "ai_thermistor_iex"
+	AIChannelTypeAiThermistorVex             AIChannelType = "ai_thermistor_vex"
+	AIChannelTypeAiTorqueBridgePolynomial    AIChannelType = "ai_torque_bridge_polynomial"
+	AIChannelTypeAiVoltageRms                AIChannelType = "ai_voltage_rms"
+	AIChannelTypeAiVoltageWithExcit          AIChannelType = "ai_voltage_with_excit"
+)
+
+// IsValid reports whether a is one of the defined AIChannelType
+// values.
+func (a AIChannelType) IsValid() bool {
+	switch a {
+	case AIChannelTypeAiVoltage, AIChannelTypeAiAccel, AIChannelTypeAiBridge, AIChannelTypeAiCurrent, AIChannelTypeAiForceBridgeTable, AIChannelTypeAiForceBridgeTwoPointLin, AIChannelTypeAiForceIepe, AIChannelTypeAiMicrophone, AIChannelTypeAiPressureBridgeTable, AIChannelTypeAiPressureBridgeTwoPointLin, AIChannelTypeAiResistance, AIChannelTypeAiRtd, AIChannelTypeAiStrainGauge, AIChannelTypeAiTempBuiltin, AIChannelTypeAiThermocouple, AIChannelTypeAiTorqueBridgeTable, AIChannelTypeAiTorqueBridgeTwoPointLin, AIChannelTypeAiVelocityIepe, AIChannelTypeAiAccel4WireDcVoltage, AIChannelTypeAiAccelCharge, AIChannelTypeAiCharge, AIChannelTypeAiCurrentRms, AIChannelTypeAiForceBridgePolynomial, AIChannelTypeAiFreqVoltage, AIChannelTypeAiPressureBridgePolynomial, AIChannelTypeAiThermistorIex, AIChannelTypeAiThermistorVex, AIChannelTypeAiTorqueBridgePolynomial, AIChannelTypeAiVoltageRms, AIChannelTypeAiVoltageWithExcit:
+		return true
+	default:
+		return false
+	}
+}
+
+// AOChannelType is the type of an analog output channel.
+type AOChannelType string
+
+const (
+	AOChannelTypeAoCurrent AOChannelType = "ao_current"
+	AOChannelTypeAoFuncGen AOChannelType = "ao_func_gen"
+	AOChannelTypeAoVoltage AOChannelType = "ao_voltage"
+)
+
+// IsValid reports whether a is one of the defined AOChannelType
+// values.
+func (a AOChannelType) IsValid() bool {
+	switch a {
+	case AOChannelTypeAoCurrent, AOChannelTypeAoFuncGen, AOChannelTypeAoVoltage:
+		return true
+	default:
+		return false
+	}
+}
+
+// CIChannelType is the type of a counter input channel.
+type CIChannelType string
+
+const (
+	CIChannelTypeCiFrequency       CIChannelType = "ci_frequency"
+	CIChannelTypeCiEdgeCount       CIChannelType = "ci_edge_count"
+	CIChannelTypeCiPeriod          CIChannelType = "ci_period"
+	CIChannelTypeCiPulseWidth      CIChannelType = "ci_pulse_width"
+	CIChannelTypeCiSemiPeriod      CIChannelType = "ci_semi_period"
+	CIChannelTypeCiTwoEdgeSep      CIChannelType = "ci_two_edge_sep"
+	CIChannelTypeCiVelocityLinear  CIChannelType = "ci_velocity_linear"
+	CIChannelTypeCiVelocityAngular CIChannelType = "ci_velocity_angular"
+	CIChannelTypeCiPositionLinear  CIChannelType = "ci_position_linear"
+	CIChannelTypeCiPositionAngular CIChannelType = "ci_position_angular"
+	CIChannelTypeCiDutyCycle       CIChannelType = "ci_duty_cycle"
+)
+
+// IsValid reports whether c is one of the defined CIChannelType
+// values.
+func (c CIChannelType) IsValid() bool {
+	switch c {
+	case CIChannelTypeCiFrequency, CIChannelTypeCiEdgeCount, CIChannelTypeCiPeriod, CIChannelTypeCiPulseWidth, CIChannelTypeCiSemiPeriod, CIChannelTypeCiTwoEdgeSep, CIChannelTypeCiVelocityLinear, CIChannelTypeCiVelocityAngular, CIChannelTypeCiPositionLinear, CIChannelTypeCiPositionAngular, CIChannelTypeCiDutyCycle:
+		return true
+	default:
+		return false
+	}
+}
+
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
@@ -100,7 +195,7 @@ type AnalogInputPort struct {
 	// reads back a real configuration.
 	DefaultTerminalConfig TerminalConfig `json:"default_terminal_config" msgpack:"default_terminal_config"`
 	// Types are the channel types that the port accepts, such as ai_voltage.
-	Types []string `json:"types" msgpack:"types"`
+	Types []AIChannelType `json:"types" msgpack:"types"`
 	// Negative is the port that a differential channel on this port uses as its
 	// negative input. 0 means that the port has no pair. Port 0 is never a negative
 	// port.
@@ -146,7 +241,7 @@ type AnalogOutputPort struct {
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// Types are the channel types that the port accepts, such as ao_voltage.
-	Types []string `json:"types" msgpack:"types"`
+	Types []AOChannelType `json:"types" msgpack:"types"`
 }
 
 // CounterPort is a counter of an NI device.
@@ -154,7 +249,7 @@ type CounterPort struct {
 	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
 	Port uint16 `json:"port" msgpack:"port"`
 	// Types are the channel types that the counter accepts, such as ci_frequency.
-	Types []string `json:"types" msgpack:"types"`
+	Types []CIChannelType `json:"types" msgpack:"types"`
 }
 
 // DigitalPort is a digital port of an NI device.
@@ -192,19 +287,19 @@ type Hardware struct {
 	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
 	// Terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `json:"terminals" msgpack:"terminals"`
-	// AiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
-	// does not support the attribute.
-	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
-	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
-	// Hz. 0 means that the device does not support the attribute.
-	AiMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
-	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
-	// Hz. A task with several channels divides it by the channel count. 0 means that
-	// the device does not support the attribute.
-	AiMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
-	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
+	// AiMinRate is the lowest analog input sample rate. Absent when the device does not
+	// support the attribute.
+	AiMinRate *telem.Rate `json:"ai_min_rate,omitzero" msgpack:"ai_min_rate,omitempty"`
+	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel.
+	// Absent when the device does not support the attribute.
+	AiMaxSingleChannelRate *telem.Rate `json:"ai_max_single_channel_rate,omitzero" msgpack:"ai_max_single_channel_rate,omitempty"`
+	// AiMaxMultiChannelRate is the highest analog input sample rate of the device. A
+	// task with several channels divides it by the channel count. Absent when the
 	// device does not support the attribute.
-	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
+	AiMaxMultiChannelRate *telem.Rate `json:"ai_max_multi_channel_rate,omitzero" msgpack:"ai_max_multi_channel_rate,omitempty"`
+	// AoMaxRate is the highest analog output sample rate. Absent when the device does
+	// not support the attribute.
+	AoMaxRate *telem.Rate `json:"ao_max_rate,omitzero" msgpack:"ao_max_rate,omitempty"`
 	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
 	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
 	// AiCurrentRanges are the analog input current ranges of the device, ends included.
@@ -221,10 +316,18 @@ type Hardware struct {
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
-	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
-	v.GreaterThanEq("ai_max_single_channel_rate", h.AiMaxSingleChannelRate, 0)
-	v.GreaterThanEq("ai_max_multi_channel_rate", h.AiMaxMultiChannelRate, 0)
-	v.GreaterThanEq("ao_max_rate", h.AoMaxRate, 0)
+	if h.AiMinRate != nil {
+		v.GreaterThan("ai_min_rate", *h.AiMinRate, 0)
+	}
+	if h.AiMaxSingleChannelRate != nil {
+		v.GreaterThan("ai_max_single_channel_rate", *h.AiMaxSingleChannelRate, 0)
+	}
+	if h.AiMaxMultiChannelRate != nil {
+		v.GreaterThan("ai_max_multi_channel_rate", *h.AiMaxMultiChannelRate, 0)
+	}
+	if h.AoMaxRate != nil {
+		v.GreaterThan("ao_max_rate", *h.AoMaxRate, 0)
+	}
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {
 			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))

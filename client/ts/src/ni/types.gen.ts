@@ -1122,41 +1122,6 @@ export interface AIVoltageWithExcitChannel extends z.infer<
   typeof aiVoltageWithExcitChannelZ
 > {}
 
-export const AI_CHANNEL_TYPES = [
-  "ai_voltage",
-  "ai_accel",
-  "ai_bridge",
-  "ai_current",
-  "ai_force_bridge_table",
-  "ai_force_bridge_two_point_lin",
-  "ai_force_iepe",
-  "ai_microphone",
-  "ai_pressure_bridge_table",
-  "ai_pressure_bridge_two_point_lin",
-  "ai_resistance",
-  "ai_rtd",
-  "ai_strain_gauge",
-  "ai_temp_builtin",
-  "ai_thermocouple",
-  "ai_torque_bridge_table",
-  "ai_torque_bridge_two_point_lin",
-  "ai_velocity_iepe",
-  "ai_accel_4_wire_dc_voltage",
-  "ai_accel_charge",
-  "ai_charge",
-  "ai_current_rms",
-  "ai_force_bridge_polynomial",
-  "ai_freq_voltage",
-  "ai_pressure_bridge_polynomial",
-  "ai_thermistor_iex",
-  "ai_thermistor_vex",
-  "ai_torque_bridge_polynomial",
-  "ai_voltage_rms",
-  "ai_voltage_with_excit",
-] as const;
-export const aiChannelTypeZ = z.enum(AI_CHANNEL_TYPES);
-export type AIChannelType = z.infer<typeof aiChannelTypeZ>;
-
 /**
  * AIChannel is a single NI analog input channel. The type field selects the measurement
  * mode and the fields that accompany it.
@@ -1226,7 +1191,7 @@ export type AIChannel =
   | AIVoltageWithExcitChannel;
 
 export const AI_CHANNEL_SCHEMAS: {
-  [K in AIChannelType]: z.ZodType<Extract<AIChannel, { type: K }>>;
+  [K in niDevice.AIChannelType]: z.ZodType<Extract<AIChannel, { type: K }>>;
 } = {
   ai_voltage: aiVoltageChannelZ,
   ai_accel: aiAccelChannelZ,
@@ -1500,22 +1465,6 @@ export const ciDutyCycleChannelZ = baseCIChannelZ
   });
 export interface CIDutyCycleChannel extends z.infer<typeof ciDutyCycleChannelZ> {}
 
-export const CI_CHANNEL_TYPES = [
-  "ci_frequency",
-  "ci_edge_count",
-  "ci_period",
-  "ci_pulse_width",
-  "ci_semi_period",
-  "ci_two_edge_sep",
-  "ci_velocity_linear",
-  "ci_velocity_angular",
-  "ci_position_linear",
-  "ci_position_angular",
-  "ci_duty_cycle",
-] as const;
-export const ciChannelTypeZ = z.enum(CI_CHANNEL_TYPES);
-export type CIChannelType = z.infer<typeof ciChannelTypeZ>;
-
 /**
  * CIChannel is a single NI counter input channel. The type field selects the
  * measurement mode and the fields that accompany it.
@@ -1547,7 +1496,7 @@ export type CIChannel =
   | CIDutyCycleChannel;
 
 export const CI_CHANNEL_SCHEMAS: {
-  [K in CIChannelType]: z.ZodType<Extract<CIChannel, { type: K }>>;
+  [K in niDevice.CIChannelType]: z.ZodType<Extract<CIChannel, { type: K }>>;
 } = {
   ci_frequency: ciFrequencyChannelZ,
   ci_edge_count: ciEdgeCountChannelZ,
@@ -1598,10 +1547,6 @@ export const aoVoltageChannelZ = baseAOChannelZ
   });
 export interface AOVoltageChannel extends z.infer<typeof aoVoltageChannelZ> {}
 
-export const AO_CHANNEL_TYPES = ["ao_current", "ao_func_gen", "ao_voltage"] as const;
-export const aoChannelTypeZ = z.enum(AO_CHANNEL_TYPES);
-export type AOChannelType = z.infer<typeof aoChannelTypeZ>;
-
 /**
  * AOChannel is a single NI analog output channel. The type field selects the output
  * mode and the fields that accompany it.
@@ -1614,7 +1559,7 @@ export const aoChannelZ = z.discriminatedUnion("type", [
 export type AOChannel = AOCurrentChannel | AOFuncGenChannel | AOVoltageChannel;
 
 export const AO_CHANNEL_SCHEMAS: {
-  [K in AOChannelType]: z.ZodType<Extract<AOChannel, { type: K }>>;
+  [K in niDevice.AOChannelType]: z.ZodType<Extract<AOChannel, { type: K }>>;
 } = {
   ao_current: aoCurrentChannelZ,
   ao_func_gen: aoFuncGenChannelZ,

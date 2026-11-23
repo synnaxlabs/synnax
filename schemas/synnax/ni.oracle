@@ -670,7 +670,7 @@ BaseAIChannel struct {
     @go marshal
 }
 
-AIChannel union on type extends BaseAIChannel {
+AIChannel union on type ni_device.AIChannelType extends BaseAIChannel {
     ai_voltage extends MinMaxVal, Terminal, CustomScale {
         @doc value "reads a voltage."
     }
@@ -1192,7 +1192,7 @@ BaseCIChannel struct {
     @go marshal
 }
 
-CIChannel union on type extends BaseCIChannel {
+CIChannel union on type ni_device.CIChannelType extends BaseCIChannel {
     ci_frequency extends CustomScale, MinMaxVal {
         min_val     float64 = 2 {
             @default group "range"
@@ -1502,7 +1502,7 @@ BaseAOChannel struct {
     @go marshal
 }
 
-AOChannel union on type extends BaseAOChannel {
+AOChannel union on type ni_device.AOChannelType extends BaseAOChannel {
     ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a current output."
     }

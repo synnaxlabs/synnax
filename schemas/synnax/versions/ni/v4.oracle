@@ -98,7 +98,7 @@ BaseAIChannel struct extends v3.BaseAIChannel {
     }
 }
 
-AIChannel union on type extends v3.AIChannel {}
+AIChannel union on type ni_device.AIChannelType extends v3.AIChannel {}
 
 CIEdge = v2.CIEdge
 
@@ -130,7 +130,7 @@ BaseCIChannel struct extends v3.BaseCIChannel {
     }
 }
 
-CIChannel union on type extends v3.CIChannel {
+CIChannel union on type ni_device.CIChannelType extends v3.CIChannel {
     ci_frequency {
         meas_time telem.TimeSpan = 6us {
             @doc value    "is the averaging window for high-frequency measurement."
@@ -157,7 +157,7 @@ BaseAOChannel struct extends v3.BaseAOChannel {
 
 CommandedAOChannel = v3.CommandedAOChannel
 
-AOChannel union on type extends BaseAOChannel {
+AOChannel union on type ni_device.AOChannelType extends BaseAOChannel {
     ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a current output."
     }

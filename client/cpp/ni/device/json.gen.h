@@ -488,18 +488,14 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
             "terminals",
             std::vector<std::string>{}
         ),
-        .ai_min_rate = parser
-                           .field<::x::telem::Rate>("ai_min_rate", ::x::telem::Rate(0)),
-        .ai_max_single_channel_rate = parser.field<::x::telem::Rate>(
-            "ai_max_single_channel_rate",
-            ::x::telem::Rate(0)
+        .ai_min_rate = parser.field<std::optional<::x::telem::Rate>>("ai_min_rate"),
+        .ai_max_single_channel_rate = parser.field<std::optional<::x::telem::Rate>>(
+            "ai_max_single_channel_rate"
         ),
-        .ai_max_multi_channel_rate = parser.field<::x::telem::Rate>(
-            "ai_max_multi_channel_rate",
-            ::x::telem::Rate(0)
+        .ai_max_multi_channel_rate = parser.field<std::optional<::x::telem::Rate>>(
+            "ai_max_multi_channel_rate"
         ),
-        .ao_max_rate = parser
-                           .field<::x::telem::Rate>("ao_max_rate", ::x::telem::Rate(0)),
+        .ao_max_rate = parser.field<std::optional<::x::telem::Rate>>("ao_max_rate"),
         .ai_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ai_voltage_ranges",
             std::vector<::x::spatial::Bounds>{}
@@ -527,10 +523,12 @@ inline x::json::json Hardware::to_json() const {
     j["counter_outputs"] = x::json::to_array(this->counter_outputs);
     j["digital_ports"] = x::json::to_array(this->digital_ports);
     j["terminals"] = this->terminals;
-    j["ai_min_rate"] = this->ai_min_rate;
-    j["ai_max_single_channel_rate"] = this->ai_max_single_channel_rate;
-    j["ai_max_multi_channel_rate"] = this->ai_max_multi_channel_rate;
-    j["ao_max_rate"] = this->ao_max_rate;
+    if (this->ai_min_rate.has_value()) j["ai_min_rate"] = *this->ai_min_rate;
+    if (this->ai_max_single_channel_rate.has_value())
+        j["ai_max_single_channel_rate"] = *this->ai_max_single_channel_rate;
+    if (this->ai_max_multi_channel_rate.has_value())
+        j["ai_max_multi_channel_rate"] = *this->ai_max_multi_channel_rate;
+    if (this->ao_max_rate.has_value()) j["ao_max_rate"] = *this->ao_max_rate;
     j["ai_voltage_ranges"] = x::json::to_array(this->ai_voltage_ranges);
     j["ai_current_ranges"] = x::json::to_array(this->ai_current_ranges);
     j["ao_voltage_ranges"] = x::json::to_array(this->ao_voltage_ranges);

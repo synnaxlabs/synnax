@@ -28,6 +28,62 @@ enum TerminalConfig {
   TERMINAL_CONFIG_PSEUDO_DIFF = 4;
 }
 
+// AIChannelType is the type of an analog input channel.
+enum AIChannelType {
+  AI_CHANNEL_TYPE_AI_VOLTAGE = 0;
+  AI_CHANNEL_TYPE_AI_ACCEL = 1;
+  AI_CHANNEL_TYPE_AI_BRIDGE = 2;
+  AI_CHANNEL_TYPE_AI_CURRENT = 3;
+  AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE = 4;
+  AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN = 5;
+  AI_CHANNEL_TYPE_AI_FORCE_IEPE = 6;
+  AI_CHANNEL_TYPE_AI_MICROPHONE = 7;
+  AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE = 8;
+  AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN = 9;
+  AI_CHANNEL_TYPE_AI_RESISTANCE = 10;
+  AI_CHANNEL_TYPE_AI_RTD = 11;
+  AI_CHANNEL_TYPE_AI_STRAIN_GAUGE = 12;
+  AI_CHANNEL_TYPE_AI_TEMP_BUILTIN = 13;
+  AI_CHANNEL_TYPE_AI_THERMOCOUPLE = 14;
+  AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE = 15;
+  AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN = 16;
+  AI_CHANNEL_TYPE_AI_VELOCITY_IEPE = 17;
+  AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE = 18;
+  AI_CHANNEL_TYPE_AI_ACCEL_CHARGE = 19;
+  AI_CHANNEL_TYPE_AI_CHARGE = 20;
+  AI_CHANNEL_TYPE_AI_CURRENT_RMS = 21;
+  AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL = 22;
+  AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE = 23;
+  AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL = 24;
+  AI_CHANNEL_TYPE_AI_THERMISTOR_IEX = 25;
+  AI_CHANNEL_TYPE_AI_THERMISTOR_VEX = 26;
+  AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL = 27;
+  AI_CHANNEL_TYPE_AI_VOLTAGE_RMS = 28;
+  AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT = 29;
+}
+
+// AOChannelType is the type of an analog output channel.
+enum AOChannelType {
+  AO_CHANNEL_TYPE_AO_CURRENT = 0;
+  AO_CHANNEL_TYPE_AO_FUNC_GEN = 1;
+  AO_CHANNEL_TYPE_AO_VOLTAGE = 2;
+}
+
+// CIChannelType is the type of a counter input channel.
+enum CIChannelType {
+  CI_CHANNEL_TYPE_CI_FREQUENCY = 0;
+  CI_CHANNEL_TYPE_CI_EDGE_COUNT = 1;
+  CI_CHANNEL_TYPE_CI_PERIOD = 2;
+  CI_CHANNEL_TYPE_CI_PULSE_WIDTH = 3;
+  CI_CHANNEL_TYPE_CI_SEMI_PERIOD = 4;
+  CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP = 5;
+  CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR = 6;
+  CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR = 7;
+  CI_CHANNEL_TYPE_CI_POSITION_LINEAR = 8;
+  CI_CHANNEL_TYPE_CI_POSITION_ANGULAR = 9;
+  CI_CHANNEL_TYPE_CI_DUTY_CYCLE = 10;
+}
+
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
 message Device {
   // key uniquely identifies the device.
@@ -222,7 +278,7 @@ message AnalogInputPort {
   // reads back a real configuration.
   TerminalConfig default_terminal_config = 3;
   // types are the channel types that the port accepts, such as ai_voltage.
-  repeated string types = 4;
+  repeated AIChannelType types = 4;
   // negative is the port that a differential channel on this port uses as its negative
   // input. 0 means that the port has no pair. Port 0 is never a negative port.
   uint32 negative = 5;
@@ -235,7 +291,7 @@ message AnalogOutputPort {
   // terminal_configs are the terminal configurations that the port accepts.
   repeated TerminalConfig terminal_configs = 2;
   // types are the channel types that the port accepts, such as ao_voltage.
-  repeated string types = 3;
+  repeated AOChannelType types = 3;
 }
 
 // CounterPort is a counter of an NI device.
@@ -243,7 +299,7 @@ message CounterPort {
   // port is the number in the DAQmx name of the counter, such as 0 for ctr0.
   uint32 port = 1;
   // types are the channel types that the counter accepts, such as ci_frequency.
-  repeated string types = 2;
+  repeated CIChannelType types = 2;
 }
 
 // DigitalPort is a digital port of an NI device.
@@ -273,19 +329,19 @@ message Hardware {
   repeated DigitalPort digital_ports = 5;
   // terminals are the terminals of the device, such as PFI0, without the device name.
   repeated string terminals = 6;
-  // ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that the device
+  // ai_min_rate is the lowest analog input sample rate. Absent when the device does not
+  // support the attribute.
+  optional double ai_min_rate = 7;
+  // ai_max_single_channel_rate is the highest analog input sample rate of one channel.
+  // Absent when the device does not support the attribute.
+  optional double ai_max_single_channel_rate = 8;
+  // ai_max_multi_channel_rate is the highest analog input sample rate of the device. A
+  // task with several channels divides it by the channel count. Absent when the device
   // does not support the attribute.
-  double ai_min_rate = 7;
-  // ai_max_single_channel_rate is the highest analog input sample rate of one channel,
-  // in Hz. 0 means that the device does not support the attribute.
-  double ai_max_single_channel_rate = 8;
-  // ai_max_multi_channel_rate is the highest analog input sample rate of the device, in
-  // Hz. A task with several channels divides it by the channel count. 0 means that the
-  // device does not support the attribute.
-  double ai_max_multi_channel_rate = 9;
-  // ao_max_rate is the highest analog output sample rate, in Hz. 0 means that the
-  // device does not support the attribute.
-  double ao_max_rate = 10;
+  optional double ai_max_multi_channel_rate = 9;
+  // ao_max_rate is the highest analog output sample rate. Absent when the device does
+  // not support the attribute.
+  optional double ao_max_rate = 10;
   // ai_voltage_ranges are the analog input voltage ranges of the device, ends included.
   repeated .x.spatial.pb.Bounds ai_voltage_ranges = 11;
   // ai_current_ranges are the analog input current ranges of the device, ends included.
