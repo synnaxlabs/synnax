@@ -35,7 +35,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
-import { renderThemed } from "@/styletest";
+import { renderThemed, treatment } from "@/styletest";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
@@ -496,15 +496,20 @@ describe("Picker", () => {
       expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
     });
 
-    it("should draw the # of the Custom tab in the code font of the digits", async () => {
+    it("should fit a full alpha percentage beside the hex", async () => {
       await renderLibrary({ value: "#cccccc" });
-      const hex = page.getByRole("textbox", { name: "Hex" }).element();
-      const hash = hex
-        .closest(`.${CSS.B("color-hex-text")}`)
-        ?.querySelector(`.${CSS.BE("input", "start-content")}`);
-      assert(hash != null);
-      expect(hash.textContent).toBe("#");
-      expect(getComputedStyle(hash).fontFamily).toBe(getComputedStyle(hex).fontFamily);
+      const alpha = page.getByRole("textbox", { name: "Alpha percentage" }).element();
+      assert(alpha instanceof HTMLInputElement);
+      expect(alpha.value).toBe("100");
+      expect(alpha.scrollWidth).toBeLessThanOrEqual(alpha.clientWidth);
+    });
+
+    it("should draw the hex of the Custom tab and its # in the text font", async () => {
+      await renderLibrary({ value: "#cccccc" });
+      expect(treatment(page.getByRole("textbox", { name: "Hex" }).element())).toBe(
+        "prose",
+      );
+      expect(treatment(page.getByText("#", { exact: true }).element())).toBe("prose");
     });
 
     it("should start the tabs, the search icon, and the swatches on one inset", async () => {

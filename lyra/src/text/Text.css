@@ -34,6 +34,10 @@ span.lyra-text {
         align-items: center;
     }
 
+    &.lyra-text--numeric {
+        font-variant-numeric: tabular-nums;
+    }
+
     &.lyra-text--code {
         font-family: var(--pluto-code-font-family);
     }

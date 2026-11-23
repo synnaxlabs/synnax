@@ -125,7 +125,10 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- Text is Inter. Data components (live values, times, tables, axis ticks) use
+  `variant="numeric"`, which adds tabular digits. Names, IDs, and static counts do not.
+- Monospace (`variant="code"`) is only for code editors, logs, pasted machine blocks
+  such as a PEM certificate, and code inside a sentence.
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 

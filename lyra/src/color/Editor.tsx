@@ -117,7 +117,6 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
           value={Math.round(alpha * 100)}
           bounds={{ lower: 0, upper: 100 }}
           endContent="%"
-          startContent={<Icon.Opacity />}
           showDragHandle={false}
           onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
         />
