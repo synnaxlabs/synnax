@@ -1253,8 +1253,76 @@ describe("LinePlot", () => {
       };
       const lastDropped = (): Haul.Item["key"][] =>
         onSuccessfulDrop.mock.lastCall?.[0].dropped.map(({ key }: Haul.Item) => key);
-      return { ...result, drop, xAxis, yAxis, lastDropped };
+      return { ...result, drop, xAxis, yAxis, viewport, lastDropped };
     };
+
+    describe("drag over", () => {
+      const startDrag = async (): Promise<void> => {
+        await act(async () => {
+          fireEvent.dragStart(screen.getByTestId("source"));
+        });
+      };
+      const droppable = (el: Element): boolean => el.hasAttribute("data-droppable");
+      const dragOver = (el: Element): boolean => el.hasAttribute("data-drag-over");
+
+      it("should mark every target that can take a channel drag", async () => {
+        const [first] = channels;
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        expect(droppable(viewport)).toBe(false);
+        await startDrag();
+        expect(droppable(viewport)).toBe(true);
+        expect(droppable(xAxis)).toBe(true);
+        expect(droppable(yAxis)).toBe(true);
+      });
+
+      it("should not mark a Y axis for a range drag", async () => {
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Ranger.createHaulItem(rng.payload),
+        ]);
+        await startDrag();
+        expect(droppable(viewport)).toBe(true);
+        expect(droppable(xAxis)).toBe(true);
+        expect(droppable(yAxis)).toBe(false);
+        fireEvent.dragEnter(yAxis);
+        expect(dragOver(yAxis)).toBe(false);
+      });
+
+      it("should mark only the target under the cursor as dragged over", async () => {
+        const [first] = channels;
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await startDrag();
+        expect([viewport, xAxis, yAxis].some(dragOver)).toBe(false);
+        fireEvent.dragEnter(viewport);
+        expect(dragOver(viewport)).toBe(true);
+        expect(dragOver(xAxis)).toBe(false);
+        fireEvent.dragLeave(viewport, { relatedTarget: xAxis });
+        fireEvent.dragEnter(xAxis);
+        expect(dragOver(viewport)).toBe(false);
+        expect(dragOver(xAxis)).toBe(true);
+        expect(droppable(viewport)).toBe(true);
+        fireEvent.dragLeave(xAxis);
+        expect(dragOver(xAxis)).toBe(false);
+      });
+
+      it("should clear both marks when the drag ends", async () => {
+        const [first] = channels;
+        const { viewport, xAxis } = await renderPlot([
+          Channel.createHaulItem(first.key),
+        ]);
+        await startDrag();
+        fireEvent.dragEnter(viewport);
+        await act(async () => {
+          fireEvent.drop(viewport);
+        });
+        expect(dragOver(viewport)).toBe(false);
+        expect(droppable(viewport)).toBe(false);
+        expect(droppable(xAxis)).toBe(false);
+      });
+    });
 
     describe("range", () => {
       it("should add a range dropped on the plot area to the plot", async () => {
