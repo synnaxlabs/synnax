@@ -717,19 +717,42 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".slider", "transform")).toBeNull();
     });
 
-    it("should turn a group about the center of a nested svg in it", async () => {
+    // setupBox spins a group with a nested svg from 2 to 6 and a rect from 6 to 8.
+    const setupBox = (props: Partial<Custom.DrawingProps> = {}) => {
       const markup =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g class="box">' +
         '<svg x="2" y="2" width="4" height="4" viewBox="0 0 1 1">' +
-        '<rect width="1" height="1"/></svg></g></svg>';
+        '<rect width="1" height="1"/></svg>' +
+        '<rect class="far" x="6" y="6" width="2" height="2"/></g></svg>';
       const box = { key: "box", name: "Box", selectors: [".box"] };
       const spec = createSpec([{ ...SPIN, part: "box" }], [box]);
-      const { frame, attr } = await setup({
-        spec: { ...spec, drawing: { type: "svg", markup } },
+      return setup({ spec: { ...spec, drawing: { type: "svg", markup } }, ...props });
+    };
+
+    it("should turn a group about the center of a nested svg in it", async () => {
+      const { frame, attr } = await setupBox();
+      frame(0);
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
+    });
+
+    it("should turn a group about the center of a shape that a look hides", async () => {
+      const { frame, attr } = await setupBox({
+        paints: [{ selectors: [".far"], hidden: true }],
       });
       frame(0);
       frame(500);
-      expect(attr(".box", "transform")).toBe("rotate(90 4 4)");
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
+      expect(attr(".far", "style")).toBe("display: none;");
+    });
+
+    it("should measure a group with a nested svg again when its tab shows", async () => {
+      const { frame, attr, container } = await setupBox();
+      container.style.display = "none";
+      frame(0);
+      container.style.display = "";
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 5 5)");
     });
 
     it("should flow a dashed element in a selected group", async () => {

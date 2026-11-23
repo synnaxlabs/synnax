@@ -311,10 +311,21 @@ const boxOf = (leaf: SVGGraphicsElement): xy.XY & dimensions.Dimensions =>
     : leaf.getBBox();
 
 // center returns the center of the box around the shapes of elements at rest, as
-// fractions of the box, or undefined while no shape has a layout, as in a hidden tab.
+// fractions of the box, or undefined while the drawing has no layout, as in a hidden
+// tab.
 const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
+  const { drawing } = space;
+  if ((drawing.ownerSVGElement ?? drawing).getClientRects().length === 0)
+    return undefined;
   const graphics = elements.flatMap(leaves);
-  if (graphics.length === 0) return MIDDLE;
+  // A look hides an element with an inline display, and getBBox measures it as empty.
+  const hidden = new Set<SVGElement>();
+  for (const leaf of graphics)
+    for (let a: Element | null = leaf; a != null && a !== drawing.parentElement;) {
+      if (a instanceof SVGElement && a.style.display === "none") hidden.add(a);
+      a = a.parentElement;
+    }
+  for (const el of hidden) el.style.removeProperty("display");
   const min = { x: Infinity, y: Infinity };
   const max = { x: -Infinity, y: -Infinity };
   for (const el of graphics) {
@@ -336,7 +347,8 @@ const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
       max.y = Math.max(max.y, p.y);
     }
   }
-  if (min.x === Infinity) return undefined;
+  for (const el of hidden) el.style.setProperty("display", "none");
+  if (min.x === Infinity) return MIDDLE;
   return {
     x: (min.x + max.x) / 2 / space.box.width,
     y: (min.y + max.y) / 2 / space.box.height,
@@ -560,8 +572,8 @@ class Part implements Mover {
     return false;
   }
 
-  // A part with no pivot turns about the center of its own box. A part with no layout
-  // yet measures again on the next frame.
+  // A part with no pivot turns about the center of its own box. A drawing with no
+  // layout yet measures again on the next frame.
   private readonly pivotOf = (): xy.XY =>
     this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 
