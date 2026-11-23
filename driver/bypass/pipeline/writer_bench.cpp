@@ -28,6 +28,14 @@ public:
     x::errors::Error close() override { return x::errors::NIL; }
 };
 
+class NullFactory final : public driver::pipeline::WriterFactory {
+public:
+    std::pair<std::unique_ptr<driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        return {std::make_unique<NullWriter>(), x::errors::NIL};
+    }
+};
+
 x::telem::Frame make_frame(const synnax::channel::Key base, const uint32_t channels) {
     x::telem::Frame frame(channels);
     for (uint32_t ch = 0; ch < channels; ch++)
@@ -144,11 +152,15 @@ public:
 BENCHMARK_DEFINE_F(WriterBench, Write)(benchmark::State &state) {
     const auto rig = this->current();
     const auto t = state.thread_index();
+    const synnax::framer::WriterConfig cfg{.subject = writer_subject(t)};
     driver::bypass::pipeline::Writer writer(
-        std::make_unique<NullWriter>(),
+        std::make_unique<driver::bypass::pipeline::Forwarder>(
+            std::make_shared<NullFactory>(),
+            cfg
+        ),
         rig->bus,
         rig->states,
-        synnax::framer::WriterConfig{.subject = writer_subject(t)}
+        cfg
     );
     const auto frame = make_frame(base_key(t), static_cast<uint32_t>(state.range(0)));
     for (auto _: state) {

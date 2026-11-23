@@ -111,7 +111,7 @@ TEST(WriterTest, HoldDelaysBusUntilControlIsRead) {
     for (const double v: {1.0, 2.0})
         ASSERT_NIL(owned->write(x::telem::Frame(1, x::telem::Series(v))));
     ASSERT_NIL(unowned->write(x::telem::Frame(1, x::telem::Series(9.0))));
-    ASSERT_EQ(mock_factory->writes->size(), 3);
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 3);
     x::telem::Frame received;
     ASSERT_FALSE(sub->try_pop(received));
     states->set({{.subject = owner, .resource = 1, .authority = 200}});
