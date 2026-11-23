@@ -148,10 +148,10 @@ describe("Symbol node", () => {
       {
         spec: { type: "builtin", name: "valve" },
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
@@ -163,7 +163,7 @@ describe("Symbol node", () => {
     const { container, queryByRole } = renderNode({
       spec: { type: "builtin", name: "valve" },
       color: COLOR,
-      states: [createBinding({ key: "active", default: 1 })],
+      states: [{ key: "active", default: 1 }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     expect(queryByRole("img", { name: "Unknown" })).toBeNull();
@@ -179,11 +179,11 @@ describe("Symbol node", () => {
         spec: { type: "builtin", name: "valve" },
         // No enumeration has this key, so no value finds an entry.
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
             enumeration: "00000000-0000-0000-0000-000000000000",
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
