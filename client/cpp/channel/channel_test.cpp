@@ -318,7 +318,7 @@ TEST(TestChannel, testRetrieveManyByNameNotPattern) {
     );
     ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT32_T, true));
     const auto channels = ASSERT_NIL_P(
-        client.channels.retrieve(std::vector<std::string>{a.name, prefix + "_.*"})
+        client.channels.retrieve(std::vector<std::string>{a.name, prefix + "_[ab]"})
     );
     ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
 }

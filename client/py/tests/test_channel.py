@@ -389,7 +389,7 @@ class TestChannel:
                 sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float32"),
             ]
         )
-        res = client.channels.retrieve([a.name, f"{prefix}_.*"])
+        res = client.channels.retrieve([a.name, f"{prefix}_[ab]"])
         assert [ch.key for ch in res] == [a.key]
 
     def test_retrieve_where(self, client: sy.Synnax) -> None:
