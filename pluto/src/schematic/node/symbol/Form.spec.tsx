@@ -16,7 +16,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Form } from "@/schematic/node/symbol/Form";
 import { CreatePromptStub } from "@/schematic/node/testutil";
-import { createAsyncSynnaxWrapper, renderFormSuspended } from "@/testutil";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderForm,
+  renderFormSuspended,
+} from "@/testutil";
 
 const path = deep.path<schematic.SymbolNodeConfig>();
 
@@ -253,12 +258,17 @@ describe("Symbol form", () => {
 
   it.each(["telemetry", "control"] as const)(
     "should warn on the %s tab when the symbol is missing",
-    async (tab) => {
-      const { findByText } = await render(
-        { spec: { type: "missing", key: id.create() } },
-        tab,
+    (tab) => {
+      const { getByText } = renderForm(
+        <Form tab={tab} onTabChange={vi.fn()} />,
+        schematic.symbolNodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "missing", key: id.create() },
+        }),
+        schematic.symbolNodeConfigZ,
+        createSynnaxWrapper({ client: null }),
       );
-      expect(await findByText("The symbol of this node was not found.")).toBeDefined();
+      expect(getByText("The symbol of this node was not found.")).toBeDefined();
     },
   );
 
