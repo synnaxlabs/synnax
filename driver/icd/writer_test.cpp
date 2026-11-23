@@ -213,6 +213,31 @@ TEST(Writer, SendDefaults) {
     );
 }
 
+/// @brief it should take the commands of a channel from each of its series in a frame,
+/// in frame order.
+TEST(Writer, JoinSeriesOfOneChannel) {
+    auto w = ASSERT_NIL_P(setpoints().create());
+    x::telem::Frame fr(3);
+    fr.emplace(2, x::telem::Series(1.0));
+    fr.emplace(3, x::telem::Series(10.0));
+    fr.emplace(2, x::telem::Series(2.0));
+    EXPECT_EQ(sent(w, fr), (std::vector<std::string>{"1,10", "2,10"}));
+}
+
+/// @brief it should check a float32 command against the limits of its field as the
+/// shortest decimal that it encodes to.
+TEST(Writer, CheckFloat32CommandsAsWritten) {
+    auto c = message();
+    auto a = at("a", 0);
+    a.max = 0.1;
+    c.bind(a, 2, x::telem::FLOAT32_T);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(0.1F))),
+        (std::vector<std::string>{"0.1"})
+    );
+}
+
 /// @brief it should ignore the channels of other messages.
 TEST(Writer, IgnoreOtherChannels) {
     auto w = ASSERT_NIL_P(setpoints().create());
@@ -274,7 +299,8 @@ TEST(Writer, DropRefusedCommands) {
     );
 }
 
-/// @brief it should stop a write at the first error of send.
+/// @brief it should send nothing after the first error of send, and keep the last good
+/// command of each field for the next write.
 TEST(Writer, StopOnSendError) {
     auto w = ASSERT_NIL_P(setpoints().create());
     int calls = 0;
@@ -289,6 +315,10 @@ TEST(Writer, StopOnSendError) {
     EXPECT_EQ(error.data, "closed");
     EXPECT_NIL(refused);
     EXPECT_EQ(calls, 1);
+    EXPECT_EQ(
+        sent(w, frame(3, x::telem::Series(5.0))),
+        (std::vector<std::string>{"2,5"})
+    );
 }
 
 /// @brief it should refuse a default or a value whose decoded value is outside the

@@ -26,6 +26,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
+#include "driver/codec/field.h"
 #include "driver/codec/text.h"
 #include "driver/errors/errors.h"
 #include "driver/icd/writer.h"
@@ -150,14 +151,16 @@ std::pair<Writer, x::errors::Error> Writer::create(
     auto [encoder, err] = codec::TextEncoder::create(encoded);
     if (err) return {Writer{}, err};
     w.encoder = std::move(encoder);
-    w.rows.resize(w.bindings.size());
+    w.commands.resize(w.bindings.size());
     return {std::move(w), x::errors::NIL};
 }
 
 x::errors::Error
 Writer::check(const std::size_t binding, const x::telem::SampleValue &v) {
     const auto &b = this->bindings[binding];
-    if (auto err = check_limits(x::telem::cast<double>(v), b.min, b.max))
+    const auto *f = std::get_if<float>(&v);
+    const double d = f != nullptr ? codec::widen(*f) : x::telem::cast<double>(v);
+    if (auto err = check_limits(d, b.min, b.max))
         return x::errors::Error(err, "field " + b.field + ": " + err.data);
     return this->encoder.check(binding, v);
 }
@@ -168,23 +171,35 @@ bool Writer::ready() const {
     return true;
 }
 
+std::optional<x::telem::SampleValue>
+Writer::command(const std::size_t binding, std::size_t i) const {
+    for (const auto *s: this->commands[binding]) {
+        if (i < s->size()) return s->at(static_cast<int>(i));
+        i -= s->size();
+    }
+    return std::nullopt;
+}
+
 Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
-    std::ranges::fill(this->rows, nullptr);
-    std::size_t n = 0;
+    for (auto &series: this->commands)
+        series.clear();
     for (const auto &[key, s]: fr)
         for (std::size_t b = 0; b < this->bindings.size(); b++)
-            if (this->bindings[b].channel == key) {
-                this->rows[b] = &s;
-                n = std::max(n, s.size());
-            }
+            if (this->bindings[b].channel == key) this->commands[b].push_back(&s);
+    std::size_t n = 0;
+    for (const auto &series: this->commands) {
+        std::size_t size = 0;
+        for (const auto *s: series)
+            size += s->size();
+        n = std::max(n, size);
+    }
     Result result;
     for (std::size_t row = 0; row < n; row++) {
         bool good = false;
-        for (std::size_t b = 0; b < this->rows.size(); b++) {
-            const auto *s = this->rows[b];
-            if (s == nullptr || row >= s->size()) continue;
-            const auto v = s->at(static_cast<int>(row));
-            if (auto err = this->check(b, v)) {
+        for (std::size_t b = 0; b < this->bindings.size(); b++) {
+            const auto v = this->command(b, row);
+            if (!v.has_value()) continue;
+            if (auto err = this->check(b, *v)) {
                 if (!result.refused)
                     result.refused = x::errors::Error(
                         err,
@@ -193,18 +208,14 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
                 continue;
             }
             this->last[b].clear();
-            this->last[b].write(v);
+            this->last[b].write(*v);
             good = true;
         }
-        if (!good || !this->ready()) continue;
-        if (auto err = this->encoder.encode(this->last, this->payload)) {
+        if (result.error || !good || !this->ready()) continue;
+        if (auto err = this->encoder.encode(this->last, this->payload))
             result.error = err;
-            return result;
-        }
-        if (auto err = send(this->payload)) {
-            result.error = err;
-            return result;
-        }
+        else if (auto send_err = send(this->payload))
+            result.error = send_err;
     }
     return result;
 }

@@ -27,7 +27,7 @@ cc_library(
         "//driver/codec",
         "//driver/errors",
         "//x/cpp/errors",
-        "//x/cpp/json",
+        "//x/cpp/json:read",
         "//x/cpp/telem",
     ],
 )

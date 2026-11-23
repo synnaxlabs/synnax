@@ -49,8 +49,9 @@ class Writer {
     /// @brief last holds the last good command of each binding, or no sample before its
     /// first.
     std::vector<x::telem::Series> last;
-    /// @brief rows is scratch space that holds the commands of each binding in a frame.
-    std::vector<const x::telem::Series *> rows;
+    /// @brief commands is scratch space that holds the series of each binding in a
+    /// frame, in frame order.
+    std::vector<std::vector<const x::telem::Series *>> commands;
     /// @brief payload is scratch space for the payload to send.
     std::vector<std::uint8_t> payload;
 
@@ -59,6 +60,10 @@ class Writer {
     check(std::size_t binding, const x::telem::SampleValue &v);
     /// @brief returns true when each field with no default has a command.
     [[nodiscard]] bool ready() const;
+    /// @brief returns command i of binding in the frame of the current write, or
+    /// nothing when binding has fewer.
+    [[nodiscard]] std::optional<x::telem::SampleValue>
+    command(std::size_t binding, std::size_t i) const;
 
 public:
     /// @brief Send sends one payload.
@@ -89,9 +94,11 @@ public:
     );
 
     /// @brief encodes a payload for each row of commands in fr, and passes it to send.
-    /// Row i holds command i of each bound channel that has one. A command outside the
-    /// min and max of its field, or one that its field cannot hold, is dropped. A row
-    /// with no good command sends nothing.
+    /// The commands of a channel are the samples of its series in fr, in frame order,
+    /// and row i holds command i of each bound channel that has one. A command outside
+    /// the min and max of its field, or one that its field cannot hold, is dropped. A
+    /// row with no good command sends nothing. After an error, the write sends nothing
+    /// more, but each field still keeps its last good command in fr.
     [[nodiscard]] Result write(const x::telem::Frame &fr, const Send &send);
 };
 }

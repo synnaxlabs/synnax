@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
+#include <charconv>
+#include <cmath>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/number.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
@@ -58,5 +62,12 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
     return {CONFIG_ERROR, context + ": " + err.data};
+}
+
+double widen(const float v) {
+    if (!std::isfinite(v)) return v;
+    std::array<char, 32> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
+    return x::json::parse_float64({buf.data(), res.ptr}).first;
 }
 }
