@@ -276,6 +276,18 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
   );
 
 /**
+ * @returns looks as a static symbol draws them, with only Base: each look on Base
+ * reaches every value, and the looks on other values go.
+ */
+export const staticLooks = (looks: Look[]): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.when?.state !== STATE) return [l];
+    if (!l.when.values.includes(BASE)) return [];
+    const { when: _, ...rest } = l;
+    return [rest];
+  });
+
+/**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
  * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
  * migration gives a stored actuator. A static symbol keeps its Base looks on every
@@ -319,13 +331,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    // A static symbol has only Base, so a look of Base reaches every value.
-    looks: spec.looks.flatMap((l): Look[] => {
-      if (l.when?.state !== STATE) return [l];
-      if (!l.when.values.includes(BASE)) return [];
-      const { when: _, ...rest } = l;
-      return [rest];
-    }),
+    looks: staticLooks(spec.looks),
     commands: [],
     interactions: [],
   };
