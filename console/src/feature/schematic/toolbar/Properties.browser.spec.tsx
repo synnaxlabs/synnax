@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { color, location, uuid } from "@synnaxlabs/x";
+import { color, location, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -536,7 +536,7 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2", "n3"],
         createConfig: (key) => {
           if (key === "n1") return { ...createBoxConfig(), strokeColor: fixed(RED) };
-          if (key === "n2") return { ...createValveConfig(), stalenessColor: RED };
+          if (key === "n2") return { ...createValveConfig(), strokeColor: RED };
           return { ...createBoxConfig(), fillColor: fixed(GREEN) };
         },
       });
@@ -555,7 +555,7 @@ describe("Schematic toolbar Properties", () => {
           );
           return [
             fixedHexOf(n1.strokeColor),
-            hexOf(n2.stalenessColor),
+            hexOf(n2.strokeColor),
             fixedHexOf(n3.fillColor),
           ];
         })
@@ -631,17 +631,20 @@ describe("Schematic toolbar Properties", () => {
       expect(getSwatches("Selection")).toHaveLength(1);
     });
 
-    it("sets a staleness color only on the symbols that have staleness", async () => {
-      const { key } = await renderProperties({
+    it("sets a staleness timeout only on the symbols that have staleness", async () => {
+      const { key, result } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: (key) => (key === "n1" ? createValveConfig() : createBoxConfig()),
       });
       await screen.findByText("Staleness");
-      setRoleColor("Color", RED);
+      const input = getInputByItemLabel(result.container, "Timeout");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "7s" } });
+      fireEvent.blur(input);
       await expect
-        .poll(async () => hexOf((await retrieveConfig(key, "n1")).stalenessColor))
-        .toBe(RED);
-      expect((await retrieveConfig(key, "n2")).stalenessColor).toBeUndefined();
+        .poll(async () => (await retrieveConfig(key, "n1")).stalenessTimeout)
+        .toBe(TimeSpan.seconds(7).nanoseconds);
+      expect((await retrieveConfig(key, "n2")).stalenessTimeout).toBeUndefined();
     });
 
     it("hides the staleness group when no selected symbol has staleness", async () => {
