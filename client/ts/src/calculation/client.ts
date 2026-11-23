@@ -42,7 +42,7 @@ import {
 import type { channel } from "@/channel";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type status } from "@/status";
+import type { status } from "@/status";
 
 export const ACTION_CHANNEL_NAME = "sy_calculation_action_set";
 export const DELETE_CHANNEL_NAME = "sy_calculation_delete";
