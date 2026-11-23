@@ -265,9 +265,14 @@ class TestStateLookupBreaker:
 
 
 class TestPayloadLookupBreaker:
-    def test_one_key_selects_with_in(self) -> None:
-        """Should select keys with in, even for one key, as the design states."""
+    def test_one_key_selects_with_eq(self) -> None:
+        """Should select one key with eq, so a miss reads "key = 7", and several keys
+        with in.
+        """
         where = lookup_where([7])
         assert where.key is not None
-        assert where.key.in_ == [7]
-        assert where.key.eq is None
+        assert where.key.eq == 7
+        assert where.key.in_ is None
+        many = lookup_where([7, 8])
+        assert many.key is not None
+        assert many.key.in_ == [7, 8]

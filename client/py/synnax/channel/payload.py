@@ -101,13 +101,18 @@ def split_lookups(lookups: list[Lookup]) -> SplitLookups:
 
 
 def lookup_where(lookups: list[Lookup]) -> Where:
-    """Returns the filter that looks up each channel in lookups. Keys always select
-    with in. Lookups of several kinds join in an or. An empty list selects no channel.
+    """Returns the filter that looks up each channel in lookups. Lookups of several
+    kinds join in an or. An empty list selects no channel.
     """
     split = split_lookups(lookups)
     branches: list[Where] = []
     if split.keys or not lookups:
-        branches.append(Where(key=filter.Set[Key](in_=split.keys)))
+        keys = split.keys
+        branches.append(
+            Where(key=filter.Set[Key](eq=keys[0]))
+            if len(keys) == 1
+            else Where(key=filter.Set[Key](in_=keys))
+        )
     if split.names:
         names = split.names
         branches.append(
