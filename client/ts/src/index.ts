@@ -19,7 +19,6 @@ export { calculation } from "@/calculation";
 export { certificate } from "@/certificate";
 export { channel } from "@/channel";
 export { Channel } from "@/channel/client";
-export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   type ConstructorParams,
