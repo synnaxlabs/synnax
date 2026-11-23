@@ -2799,6 +2799,9 @@ func (p *Plugin) applyValidation(
 	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
 	}
+	if effectiveType == "bytes" {
+		zodType = applyBytesRules(zodType, rules, data)
+	}
 	if isNumber {
 		zodType = applyNumberRules(zodType, rules, fieldName)
 	}
@@ -2861,6 +2864,23 @@ func validationType(
 		}
 	}
 	return effectiveType
+}
+
+// applyBytesRules bounds the decoded byte count, not the length of the base64 text.
+func applyBytesRules(
+	zodType string,
+	rules *validation.Rules,
+	data *templateData,
+) string {
+	if rules.MinLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.minBytes(%d))", zodType, *rules.MinLength)
+	}
+	if rules.MaxLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.maxBytes(%d))", zodType, *rules.MaxLength)
+	}
+	return zodType
 }
 
 func applyStringRules(

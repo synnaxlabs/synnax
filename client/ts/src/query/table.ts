@@ -22,14 +22,10 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
-import {
-  AccessDeniedError,
-  DisconnectedError,
-  isConnectionError,
-  NotFoundError,
-} from "@/errors";
+import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import type { LookupIndex } from "@/query/indexes";
+import { isOffline } from "@/query/offline";
 import type { Listener } from "@/query/streamer";
 
 /**
@@ -907,7 +903,7 @@ export class Table<
     this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
       // The reconcile after the next reconnect fetches them, and a delete tombstones a
       // vanished one.
-      if (isConnectionError(exc) || NotFoundError.matches(exc)) return;
+      if (isOffline(exc) || NotFoundError.matches(exc)) return;
       this.onError(new Error("failed to refetch entries", { cause: exc }));
     });
   }

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import type { ReactElement } from "react";
 
 import { Color } from "@/color";
@@ -35,7 +34,6 @@ export const Symbol = ({
     fillColor,
     commandChannel,
     stateChannel,
-    stalenessColor,
     stalenessTimeout,
     options: ownOptions,
     enumeration,
@@ -46,8 +44,6 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const theme = Theming.use();
-  const badged = Staleness.useBadged();
   const options = Options.use({ enumeration, options: ownOptions });
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
@@ -70,7 +66,7 @@ export const Symbol = ({
         channel={commandChannel}
         onChange={onConfigChange}
       >
-        {stale && badged ? <Staleness.Badge /> : null}
+        {stale ? <Staleness.Badge /> : null}
       </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
       <Select
@@ -88,11 +84,6 @@ export const Symbol = ({
             <Primitive.Readout
               size={size}
               value={readback == null ? "-" : optionName(readback)}
-              color={
-                stale && !badged
-                  ? Staleness.resolveColor(stalenessColor, theme)
-                  : undefined
-              }
             />
           )
         }
