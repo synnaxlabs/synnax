@@ -722,6 +722,7 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
   const isPreview = Task.useIsPreview();
   const path = root.config.endpoints[endpoint];
   const reads = PForm.useFieldValue(path.messages);
+  const icdKey = PForm.useFieldValue(icdPath(endpoint).icd);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
     { optional: true, ctx: format },
@@ -747,7 +748,8 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
         >
           {reads.length === 1 && (
             <ICD.MessageFormatField
-              path={icdPath(endpoint)}
+              icdKey={icdKey}
+              message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
             />
