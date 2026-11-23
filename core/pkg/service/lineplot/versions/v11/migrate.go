@@ -11,6 +11,7 @@ package v11
 
 import (
 	"context"
+	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
@@ -51,12 +52,16 @@ func MigrateAxis(ctx context.Context, old v10.Axis) (Axis, error) {
 	case m.Lower && m.Upper:
 		lower, upper = min(lower, upper), max(lower, upper)
 	case m.Lower && upper <= lower:
-		upper = lower + 1
+		upper = lower + step(lower)
 	case m.Upper && lower >= upper:
-		lower = upper - 1
+		lower = upper - step(upper)
 	}
 	a.Bounds = &spatial.ClosedBounds{Lower: lower, Upper: upper}
 	return a, nil
 }
 
 var Migration = migrate.NewEntry("v63_lineplot_range_compare", MigrateLinePlot)
+
+// step returns an amount that changes v when added to it. A step of 1 is lost above
+// 2^53, which nanosecond timestamps pass.
+func step(v float64) float64 { return max(1, math.Abs(v)*0x1p-51) }

@@ -64,9 +64,13 @@ const setManualEdge = (
   if (next.lower < next.upper) return next;
   if (edge === "lower" ? manualBounds.upper : manualBounds.lower) return undefined;
   return edge === "lower"
-    ? { lower: value, upper: value + 1 }
-    : { lower: value - 1, upper: value };
+    ? { lower: value, upper: value + step(value) }
+    : { lower: value - step(value), upper: value };
 };
+
+// A step of 1 is lost above 2^53, which nanosecond timestamps pass.
+const step = (value: number): number =>
+  Math.max(1, Math.abs(value) * 2 * Number.EPSILON);
 
 /** @returns the bounds after returning the given edge to auto. */
 const setAutoEdge = (

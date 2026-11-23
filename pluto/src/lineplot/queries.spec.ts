@@ -994,7 +994,7 @@ describe("lineplot queries", () => {
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.key).toEqual("x1");
-      expect(result.current.xAxis.bounds).toBeDefined();
+      expect(result.current.xAxis.bounds).toBeUndefined();
       expect(result.current.xAxis.type).toEqual("time");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
