@@ -93,6 +93,60 @@ func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
 	return nil
 }
 
+// ReadChecked reads the blocks from block b of the segment in r, of committed length
+// and tail checksum tailCRC, as many whole blocks as buf holds with their trailers. It
+// checks the checksums of each block, then moves its stream bytes to the start of buf,
+// and returns their number. It returns an error that wraps place.ErrCorrupt for a
+// checksum that fails.
+func (c Config) ReadChecked(
+	r io.ReaderAt,
+	buf []byte,
+	b, length int64,
+	tailCRC uint32,
+) (int, error) {
+	slot := BlockSize + int(c.trailer())
+	end, size := b, 0
+	for ; end*BlockSize < length; end++ {
+		n := slot
+		if (end+1)*BlockSize > length {
+			n = int(length - end*BlockSize)
+		}
+		if size+n > len(buf) {
+			break
+		}
+		size += n
+	}
+	if _, err := r.ReadAt(buf[:size], c.FileOffset(b*BlockSize)); err != nil {
+		return 0, errors.Wrapf(err, "read of segment blocks %d to %d", b, end)
+	}
+	out := 0
+	for k := b; k < end; k++ {
+		block := buf[(k-b)*int64(slot):]
+		n := min(BlockSize, int(length-k*BlockSize))
+		sum := place.Update(c.place(c.FileOffset(k*BlockSize)).Start(), block[:n])
+		want := tailCRC
+		if n == BlockSize {
+			trailer := block[BlockSize:slot]
+			if c.Variable {
+				at := c.FileOffset((k+1)*BlockSize) - VariableTrailer
+				tcrc := binary.LittleEndian.Uint32(trailer[12:])
+				if c.place(at).Sum(trailer[:12]) != tcrc {
+					return 0, errors.Wrapf(place.ErrCorrupt, "trailer of segment "+
+						"block %d fails its checksum", k)
+				}
+				trailer = trailer[8:]
+			}
+			want = binary.LittleEndian.Uint32(trailer)
+		}
+		if sum != want {
+			return 0, errors.Wrapf(place.ErrCorrupt, "segment block %d fails its "+
+				"checksum", k)
+		}
+		out += copy(buf[out:], block[:n])
+	}
+	return out, nil
+}
+
 // cursor is the position of a writer in its stream.
 type cursor struct {
 	// length is the stream length, and crc the running checksum of the unfinished
@@ -105,6 +159,12 @@ type cursor struct {
 	samples  uint32
 	blockPos uint32
 	blockOff uint32
+	// rest is the number of bytes from length to the next sample start, past a sample
+	// that a Copy left unfinished. head holds the split first bytes of its length when
+	// split is above zero, and rest is not known until a Copy brings the others.
+	rest  uint32
+	head  [lengthSize]byte
+	split uint8
 }
 
 // Writer appends samples to one open segment. It is not safe for concurrent use.
@@ -130,17 +190,26 @@ func NewWriter(h *Handle, cfg Config) *Writer {
 // its last commit. A write that ends inside a variable-density sample, or that would
 // grow the stream past 4 GiB, fails and changes nothing.
 func (w *Writer) Write(p []byte) error {
+	if w.cfg.Variable {
+		if err := wholeSamples(p); err != nil {
+			return err
+		}
+	}
+	return w.write(p)
+}
+
+// Copy is Write for p that may start or end inside a variable-density sample, whose
+// other bytes the Copy before or after it holds. The bytes up to a commit must hold
+// whole samples.
+func (w *Writer) Copy(p []byte) error { return w.write(p) }
+
+func (w *Writer) write(p []byte) error {
 	if w.at.length+int64(len(p)) > math.MaxUint32 {
 		return errors.Newf(
 			"segment of %d stream bytes cannot grow by %d past 4 GiB",
 			w.at.length,
 			len(p),
 		)
-	}
-	if w.cfg.Variable {
-		if err := wholeSamples(p); err != nil {
-			return err
-		}
 	}
 	at := w.cfg.FileOffset(w.at.length)
 	w.buf = w.buf[:0]
@@ -158,6 +227,9 @@ func (w *Writer) Write(p []byte) error {
 	}
 	// next is the offset in p of the next variable-density sample.
 	next := 0
+	if w.cfg.Variable {
+		next = w.start(p)
+	}
 	for i := 0; i < len(p); {
 		inBlock := int(w.at.length % BlockSize)
 		n := min(BlockSize-inBlock, len(p)-i)
@@ -188,16 +260,38 @@ func (w *Writer) Write(p []byte) error {
 	return flush()
 }
 
+// start returns the offset in p of the first variable-density sample that starts in p
+// or after it, past the sample that the last Copy left unfinished.
+func (w *Writer) start(p []byte) int {
+	if w.at.split == 0 {
+		return int(w.at.rest)
+	}
+	n := copy(w.at.head[w.at.split:], p)
+	if int(w.at.split)+n < lengthSize {
+		w.at.split += uint8(n)
+		return len(p)
+	}
+	w.at.split = 0
+	return n + int(binary.LittleEndian.Uint32(w.at.head[:]))
+}
+
 // countStarts counts the variable-density samples that start in the piece p[i:i+n] of
 // one block, from the sample at next, and returns the offset of the sample after them.
 func (w *Writer) countStarts(p []byte, next, i, n int) int {
 	inBlock := int(w.at.length % BlockSize)
-	for ; next < i+n; w.at.samples++ {
+	for next < i+n {
+		w.at.samples++
 		if w.at.blockOff == NoStart {
 			w.at.blockOff = uint32(inBlock + next - i)
 		}
+		if next+lengthSize > len(p) {
+			w.at.split = uint8(copy(w.at.head[:], p[next:]))
+			next = len(p)
+			break
+		}
 		next += lengthSize + int(binary.LittleEndian.Uint32(p[next:]))
 	}
+	w.at.rest = uint32(max(next-len(p), 0))
 	return next
 }
 

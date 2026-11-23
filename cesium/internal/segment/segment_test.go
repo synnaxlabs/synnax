@@ -393,6 +393,113 @@ var _ = Describe("Segment", func() {
 						Expect(got).To(Equal(stream[1000 : 1000+2*segment.BlockSize]))
 					},
 				)
+
+				DescribeTable(
+					"Should give a stream that Copy cuts inside samples and lengths "+
+						"the trailers of Write",
+					func(sizes []int, step int) {
+						stream, starts := samples(sizes...)
+						w := create(varCfg)
+						for at := 0; at < len(stream); at += step {
+							Expect(w.Copy(stream[at:min(at+step, len(stream))])).
+								To(Succeed())
+						}
+						length, _ := w.Commit()
+						Expect(h.Close()).To(Succeed())
+						Expect(length).To(Equal(uint32(len(stream))))
+						expectVariableTrailers(fileBytes(), stream, starts)
+					},
+					Entry("in pieces of one byte", []int{5, 0, 2, 66_000, 1}, 1),
+					Entry("in pieces of three bytes", []int{70_000, 10, 70_000, 9}, 3),
+					Entry(
+						"in pieces over samples and blocks",
+						[]int{70_000, 10, 200_000, 9},
+						100_003,
+					),
+				)
+			})
+
+			Describe("Checked reads", func() {
+				// write writes stream to a segment of c, and returns its tail checksum.
+				write := func(c segment.Config, stream []byte) uint32 {
+					GinkgoHelper()
+					w := create(c)
+					Expect(w.Write(stream)).To(Succeed())
+					_, tail := w.Commit()
+					Expect(h.Close()).To(Succeed())
+					return tail
+				}
+				open := func() xfs.File {
+					GinkgoHelper()
+					f := MustSucceed(fs.Open("3.seg", os.O_RDWR))
+					DeferCleanup(f.Close)
+					return f
+				}
+				variable, _ := samples(70_000, 10, 120_000, 9)
+
+				DescribeTable(
+					"Should read the stream bytes of the whole blocks that fit",
+					func(c segment.Config, stream []byte) {
+						tail := write(c, stream)
+						f := open()
+						slot := int(c.FileOffset(segment.BlockSize))
+						buf := make([]byte, 2*slot+slot/2)
+						length := int64(len(stream))
+						n := MustSucceed(c.ReadChecked(f, buf, 0, length, tail))
+						Expect(buf[:n]).To(Equal(stream[:2*segment.BlockSize]))
+						n = MustSucceed(c.ReadChecked(f, buf, 2, length, tail))
+						Expect(buf[:n]).To(Equal(stream[2*segment.BlockSize:]))
+					},
+					Entry("of fixed density", cfg, pattern(3*segment.BlockSize+500)),
+					Entry("of variable density", varCfg, variable),
+				)
+
+				DescribeTable(
+					"Should refuse a block that fails its checksum",
+					func(c segment.Config, stream []byte, at int64, message string) {
+						tail := write(c, stream)
+						f := open()
+						b := make([]byte, 1)
+						MustSucceed(f.ReadAt(b, at))
+						b[0] ^= 0xFF
+						MustSucceed(f.WriteAt(b, at))
+						buf := make([]byte, 4*int(c.FileOffset(segment.BlockSize)))
+						Expect(
+							c.ReadChecked(f, buf, 0, int64(len(stream)), tail),
+						).Error().To(SatisfyAll(
+							MatchError(place.ErrCorrupt),
+							MatchError(ContainSubstring(message)),
+						))
+					},
+					Entry(
+						"by a stream byte of a full block",
+						cfg,
+						pattern(2*segment.BlockSize+100),
+						cfg.FileOffset(segment.BlockSize+10),
+						"segment block 1 fails its checksum",
+					),
+					Entry(
+						"by a byte of the tail",
+						cfg,
+						pattern(2*segment.BlockSize+100),
+						cfg.FileOffset(2*segment.BlockSize+10),
+						"segment block 2 fails its checksum",
+					),
+					Entry(
+						"by the checksum in a trailer",
+						cfg,
+						pattern(2*segment.BlockSize+100),
+						cfg.FileOffset(segment.BlockSize)-1,
+						"segment block 0 fails its checksum",
+					),
+					Entry(
+						"by the sample position in a variable-density trailer",
+						varCfg,
+						variable,
+						varCfg.FileOffset(segment.BlockSize)-segment.VariableTrailer,
+						"trailer of segment block 0 fails its checksum",
+					),
+				)
 			})
 
 			It("Should refuse to create a segment file that exists", func() {

@@ -197,8 +197,7 @@ func (db *DB) Size() telem.Size {
 
 // MarkClosed marks the DB closed, so that it refuses new writers. It returns an error
 // wrapping resource.ErrOpen and leaves the DB open if a writer or iterator is open, or
-// ErrDBClosed if the DB is already closed. After a nil error, call Release or
-// UnmarkClosed.
+// ErrDBClosed if the DB is already closed. After a nil error, call Release.
 func (db *DB) MarkClosed() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return ErrDBClosed
@@ -255,9 +254,6 @@ func (db *DB) free(free func() error) error {
 	}
 	return free()
 }
-
-// UnmarkClosed opens a DB that MarkClosed marked closed.
-func (db *DB) UnmarkClosed() { db.closed.Store(false) }
 
 // Release frees the files of a DB that MarkClosed marked closed.
 func (db *DB) Release() error { return errors.Join(db.fc.close(), db.idx.close()) }

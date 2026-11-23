@@ -353,7 +353,16 @@ var _ = Describe("Replay", func() {
 			state.ErrRefused, "drop of key 5, the clock of segment 3 of key 6"),
 		Entry("a clear of a key with no intent", &log.Intent{Key: 9, Cleared: true},
 			state.ErrRefused, "intent of key 9 cleared, but it has none"),
-		Entry("a replace", &log.Replace{Old: 2, New: 5}, log.ErrUnknown, "Replace"),
+		Entry("a replace of a segment that is not sealed", &log.Replace{Old: 4, New: 5},
+			state.ErrRefused, "replace of segment 4, which is not sealed"),
+		Entry(
+			"a replace by a segment that no create made",
+			&log.Replace{Old: 2, New: 5},
+			state.ErrRefused,
+			"replace of segment 2 by 5, which is not a new segment",
+		),
+		Entry("a replace by a segment with data", &log.Replace{Old: 2, New: 4},
+			state.ErrRefused, "replace of segment 2 by 4, which is not a new segment"),
 		Entry("a check of a version 1 segment", &log.Check{Segment: 2},
 			state.ErrRefused, "check of segment 2, which is not a sealed version 0 "+
 				"segment"),

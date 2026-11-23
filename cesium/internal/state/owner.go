@@ -33,6 +33,9 @@ type Config struct {
 	Versions set.Set[uint16]
 	// Version is the segment format version of new segments, one of Versions.
 	Version uint16
+	// Threshold is the dead share of a sealed segment of Version above which the
+	// segment is a candidate for a rewrite.
+	Threshold float32
 	// Append queues an entry for the log and returns at once. The state appends a
 	// Reserve with it before it gives out a value above the durable limit.
 	Append func(e *log.Entry)
@@ -50,6 +53,7 @@ type Config struct {
 func (c Config) Validate() error {
 	v := validate.New("state.Config")
 	v.Ternary("versions", !c.Versions.Contains(c.Version), "must hold version")
+	v.Ternary("threshold", c.Threshold <= 0 || c.Threshold >= 1, "must be in (0, 1)")
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_head", c.OnHead)
@@ -96,6 +100,8 @@ type State struct {
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
+	// rep is the Replace in flight, or nil.
+	rep *replacing
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
@@ -107,7 +113,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 	}
 	s := &State{
 		cfg:     cfg,
-		core:    newCore(cfg.Versions),
+		core:    newCore(cfg),
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
@@ -183,7 +189,7 @@ func (s *State) drain() {
 	for _, r := range queue {
 		r.fail(err)
 	}
-	s.failParked(err)
+	s.failWaiting(err)
 }
 
 // run is one step of the owner: it runs every queued request.
@@ -200,9 +206,9 @@ func (s *State) run() {
 		r.run(s)
 	}
 	if err := s.Err(); err != nil {
-		s.failParked(err)
+		s.failWaiting(err)
 	} else if closed {
-		s.failParked(ErrClosed)
+		s.failWaiting(ErrClosed)
 	}
 	s.core.count.end()
 	s.stepped <- closed
@@ -327,6 +333,9 @@ func (r *durableRequest) run(s *State) {
 	}
 	if invariants.Enabled {
 		s.checkCommits(r.records)
+	}
+	if s.rep != nil {
+		s.replaced(r.records)
 	}
 	if len(s.parked) > 0 {
 		s.unpark()

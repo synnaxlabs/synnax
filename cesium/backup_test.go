@@ -161,11 +161,10 @@ var _ = Describe("Meta backup", func() {
 				db = openDBOnFS(ctx, fs)
 				renamed := metaDataCh
 				renamed.Name = "renamed"
-				Expect(meta.Create(
-					ctx,
+				Expect(xfs.WriteFile(
 					MustSucceed(fs.Sub(channelKeyToPath(metaDataCh.Key))),
-					json.Codec,
-					renamed,
+					meta.File,
+					MustSucceed(json.Codec.Encode(renamed)),
 				)).To(Succeed())
 				Expect(db.CreateChannel(ctx, metaAddedCh)).To(Succeed())
 				writeSamples(

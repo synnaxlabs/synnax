@@ -36,13 +36,6 @@ type (
 	ChannelError = channel.Error
 )
 
-const (
-	// ConcurrencyExclusive lets one writer write a channel at a time.
-	ConcurrencyExclusive = channel.ConcurrencyExclusive
-	// ConcurrencyShared lets many writers write a channel at once.
-	ConcurrencyShared = channel.ConcurrencyShared
-)
-
 // ClaimError is the refusal of a writer, a commit, or a delete that reaches the time
 // range another writer claims. It names the time range, never the writer.
 type ClaimError = claim.Error
@@ -50,8 +43,6 @@ type ClaimError = claim.Error
 var (
 	ErrDBClosed        = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound = channel.ErrNotFound
-	// ErrClaimed is wrapped by a ClaimError that refuses an open or a delete.
-	ErrClaimed = claim.ErrClaimed
 )
 
 // Metrics contains statistics about the cesium database.

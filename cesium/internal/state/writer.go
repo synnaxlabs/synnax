@@ -404,10 +404,16 @@ func (*refusedRequest) fail(error) {}
 
 func (r *refusedRequest) run(s *State) {
 	for _, rec := range r.records {
-		if _, ok := rec.(*log.Reserve); ok {
+		switch rec := rec.(type) {
+		case *log.Reserve:
 			s.core.reserved = s.core.limits
 			s.idBlocks, s.alignBlocks = s.refusedBlocks[0], s.refusedBlocks[1]
 			s.failParked(r.err)
+			return
+		case *log.Replace:
+			if s.rep != nil && rec.Old == s.rep.old {
+				s.endReplace(r.err)
+			}
 			return
 		}
 	}
@@ -415,7 +421,7 @@ func (r *refusedRequest) run(s *State) {
 
 // Refused queues the refusal of an entry of records by the log, with the error err that
 // refused it. A refused Reserve fails every request that waits for its values, with
-// err. Refused returns at once.
+// err, and Replace returns err for a refused Replace. Refused returns at once.
 func (s *State) Refused(records []log.Record, err error) error {
 	return s.enqueue(&refusedRequest{records: records, err: err})
 }

@@ -106,6 +106,9 @@ type beginDropRequest struct {
 func (r *beginDropRequest) fail(err error) { r.done <- err }
 
 func (r *beginDropRequest) run(s *State) {
+	if s.deferred(r, r.key) {
+		return
+	}
 	if i, found := search(r.pre, r.key); found && r.pre[i].Generation != s.core.head {
 		r.done <- errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
 			r.key, s.core.head, r.pre[i].Generation)
@@ -118,7 +121,8 @@ func (r *beginDropRequest) run(s *State) {
 
 // BeginDrop holds the part records of key and the part records that name key as their
 // clock, from the preload of key in pre, for the durable apply of the Drop of key that
-// the caller logs next. It returns ErrStale when the preload is stale.
+// the caller logs next. It returns ErrStale when the preload is stale. It waits for a
+// Replace in flight of a segment of key or one that key times.
 func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 	r := &beginDropRequest{key: key, pre: pre, done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {

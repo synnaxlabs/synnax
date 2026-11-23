@@ -50,12 +50,11 @@ func (c Config) Override(other Config) Config {
 }
 
 // Controller controls access to a specified resource type over discrete time regions. A
-// Controller maintains a set of regions that occupy non-overlapping time ranges, except
-// that an unbounded region can overlap a bounded one. If the controller is open with
-// ConcurrencyExclusive, each region can only have one subject, managed by a Gate,
-// controlling it at a single time. Each region manages an independent set of gates that
-// bid for control over the resource using a mix of both first-come-first-serve
-// precedence and specified control authorities (Authority).
+// Controller maintains a set of regions that occupy non-overlapping time ranges. If the
+// controller is open with ConcurrencyExclusive, each region can only have one subject,
+// managed by a Gate, controlling it at a single time. Each region manages an
+// independent set of gates that bid for control over the resource using a mix of both
+// first-come-first-serve precedence and specified control authorities (Authority).
 type Controller[K comparable, R Resource[K]] struct {
 	Config
 	regions []*region[K, R]
@@ -90,14 +89,6 @@ type GateConfig[K comparable, R Resource[K]] struct {
 	//
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
-	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
-	// bounded gate is alone in its region: it fails to open with ErrUnauthorized where
-	// another region holds TimeRange, and no gate joins it. An unbounded region can
-	// open or extend over it, and its next Gate.Reach into that region fails. A bounded
-	// region does not count toward LeadingState.
-	//
-	// [OPTIONAL] Defaults to false.
-	Bounded *bool
 	// Subject sets the identity of the gate, and names it in control states and
 	// transfers.
 	//
@@ -122,7 +113,6 @@ func defaultGateConfig[K comparable, R Resource[K]]() GateConfig[K, R] {
 	return GateConfig[K, R]{
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: new(false),
-		Bounded:               new(false),
 	}
 }
 
@@ -134,7 +124,6 @@ func (c GateConfig[K, R]) Validate() error {
 	v.NotNil("open_resource", c.OpenResource)
 	v.NotNil("err_if_controlled", c.ErrIfControlled)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
-	v.NotNil("bounded", c.Bounded)
 	return v.Error()
 }
 
@@ -151,12 +140,11 @@ func (c GateConfig[K, R]) Override(other GateConfig[K, R]) GateConfig[K, R] {
 		c.ErrOnUnauthorizedOpen,
 		other.ErrOnUnauthorizedOpen,
 	)
-	c.Bounded = override.Nil(c.Bounded, other.Bounded)
 	return c
 }
 
 // LeadingState returns the current control State of the leading region in the
-// controller, skipping bounded regions. Returns nil if no regions are under control.
+// controller. Returns nil if no regions are under control.
 func (c *Controller[K, R]) LeadingState() *State[K] {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -168,8 +156,8 @@ func (c *Controller[K, R]) LeadingState() *State[K] {
 	return nil
 }
 
-// HolderAt returns the subject that controls a region that tr reaches, bounded regions
-// included, and false when no gate controls such a region.
+// HolderAt returns the subject that controls a region that tr reaches, and false when
+// no gate controls such a region.
 func (c *Controller[K, R]) HolderAt(tr telem.TimeRange) (Subject, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -187,44 +175,6 @@ func (c *Controller[K, R]) HolderAt(tr telem.TimeRange) (Subject, bool) {
 	return Subject{}, false
 }
 
-// ResourceAt returns the resource held by the region overlapping tr, reporting false
-// when no region covers it. A bounded region takes precedence over an unbounded region
-// that overlaps it. ResourceAt waits for a region that is opening unless an open
-// bounded region covers tr, so a caller must not hold a lock that the resource's opener
-// needs. The returned resource is safe to read only through fields that are themselves
-// safe for concurrent access, as the controller's lock is released before the caller
-// touches it.
-func (c *Controller[K, R]) ResourceAt(tr telem.TimeRange) (R, bool) {
-	for {
-		res, ok, opening := c.resourceAt(tr)
-		if opening == nil {
-			return res, ok
-		}
-		<-opening
-	}
-}
-
-func (c *Controller[K, R]) resourceAt(
-	tr telem.TimeRange,
-) (res R, ok bool, opening <-chan struct{}) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, reg := range c.regions {
-		if !reg.timeRange.OverlapsWith(tr) {
-			continue
-		}
-		if reg.opening != nil {
-			opening = reg.opening
-			continue
-		}
-		res, ok = reg.resource, true
-		if reg.bounded {
-			return res, ok, nil
-		}
-	}
-	return res, ok, opening
-}
-
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region exists, the new gate joins its authority chain. If not, OpenGate creates the
 // region and calls cfg.OpenResource, which can block, while it holds no locks. Gates
@@ -235,9 +185,6 @@ func (c *Controller[K, R]) OpenGate(
 ) (g *Gate[K, R], t Transfer[K], err error) {
 	if cfg, err = config.New(defaultGateConfig[K, R](), cfg); err != nil {
 		return g, t, err
-	}
-	if *cfg.Bounded {
-		cfg.ErrIfControlled = new(true)
 	}
 	for {
 		g, t, created, opening, err := c.joinOrCreate(cfg)
@@ -266,9 +213,6 @@ func (c *Controller[K, R]) joinOrCreate(cfg GateConfig[K, R]) (
 	defer c.mu.Unlock()
 	var exists bool
 	for _, reg := range c.regions {
-		if reg.bounded && !*cfg.ErrIfControlled {
-			continue
-		}
 		// Check if there is an existing region that overlaps with that time range.
 		if reg.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given
@@ -294,7 +238,7 @@ func (c *Controller[K, R]) joinOrCreate(cfg GateConfig[K, R]) (
 	if exists {
 		return g, t, nil, nil, nil
 	}
-	return nil, t, c.unsafeInsertOpeningRegion(cfg.TimeRange, *cfg.Bounded), nil, nil
+	return nil, t, c.unsafeInsertOpeningRegion(cfg.TimeRange), nil, nil
 }
 
 // finishOpening opens the resource of a region from joinOrCreate and its first gate. If
@@ -325,53 +269,11 @@ func (c *Controller[K, R]) finishOpening(
 	return g, t, err
 }
 
-func (c *Controller[K, R]) moveStart(r *region[K, R], start telem.TimeStamp) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if start.Before(r.timeRange.Start) {
-		return c.unsafeResize(r, start.Range(r.timeRange.End))
-	}
-	r.Lock()
-	defer r.Unlock()
-	if !r.bounded && start.Before(r.timeRange.End) {
-		r.timeRange.Start = start
-	}
-	return nil
-}
-
-func (c *Controller[K, R]) reach(r *region[K, R], end telem.TimeStamp) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !end.After(r.timeRange.End) {
-		return nil
-	}
-	return c.unsafeResize(r, r.timeRange.Start.Range(end))
-}
-
-func (c *Controller[K, R]) unsafeResize(r *region[K, R], grown telem.TimeRange) error {
-	for _, reg := range c.regions {
-		if reg == r || (reg.bounded && !r.bounded) {
-			continue
-		}
-		if reg.timeRange.OverlapsWith(grown) {
-			return reg.overlapError(grown)
-		}
-	}
-	r.Lock()
-	defer r.Unlock()
-	r.timeRange = grown
-	return nil
-}
-
-func (c *Controller[K, R]) unsafeInsertOpeningRegion(
-	t telem.TimeRange,
-	bounded bool,
-) *region[K, R] {
+func (c *Controller[K, R]) unsafeInsertOpeningRegion(t telem.TimeRange) *region[K, R] {
 	r := &region[K, R]{
 		gates:      make(set.Set[*Gate[K, R]]),
 		timeRange:  t,
 		controller: c,
-		bounded:    bounded,
 		opening:    make(chan struct{}),
 	}
 	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a, b *region[K, R]) int {

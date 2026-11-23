@@ -138,6 +138,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 				st := MustSucceed(state.Open(state.Config{
 					Versions:   config(&appended{}).Versions,
 					Version:    1,
+					Threshold:  0.2,
 					Append:     func(e *log.Entry) { l.Append(e) },
 					Executor:   goExe,
 					OnHead:     func(uint64, *state.Snapshot) {},

@@ -133,6 +133,23 @@ func (e *engine) pin(id uint64) {
 	e.pins.mu.Unlock()
 }
 
+// pinSegment pins segment id of key for a reader, and returns its visible record, or
+// false when the state no longer holds it.
+func (e *engine) pinSegment(key ChannelKey, id uint64) (state.Segment, bool) {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	ch := e.state.Channel(key)
+	if ch == nil {
+		return state.Segment{}, false
+	}
+	i := slices.IndexFunc(ch.Segments, func(s state.Segment) bool { return s.ID == id })
+	if i < 0 {
+		return state.Segment{}, false
+	}
+	e.pins.readers[id]++
+	return ch.Segments[i], true
+}
+
 // unpin drops a reader's pins of h, and unlinks each dead segment that no reader pins
 // after it.
 func (e *engine) unpin(h held) error {

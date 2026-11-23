@@ -135,6 +135,18 @@ var _ = Describe("Parts", func() {
 		Expect(*s.Channels[0].Parts).To(Equal(state.Parts{Oldest: 1, Newest: 1}))
 	})
 
+	It("Should keep a candidate of a rewrite in the head at a switch", func() {
+		s := withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30))
+		s.Candidates = []uint64{2}
+		h := switchTo(2, s)
+		Expect(partedIDs(h)).To(Equal([]uint64{1, 3}))
+		_, head := MustSucceed2(checkpoint.Read(fs, 2))
+		Expect(head.Channels).To(HaveLen(1))
+		Expect(head.Channels[0].Segments).To(HaveLen(2))
+		Expect(head.Channels[0].Segments[0].ID).To(Equal(uint64(2)))
+		Expect(head.Channels[0].Segments[1].ID).To(Equal(uint64(100)))
+	})
+
 	It("Should give a key that only parts hold a channel with its part range", func() {
 		s := withSealed(sealed(1, 10))
 		s.Channels = append(

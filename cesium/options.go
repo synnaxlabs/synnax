@@ -97,6 +97,7 @@ func mergeAndValidateOptions(o *options) error {
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
 		Threshold:    0.2,
+		Rate:         64 << 20,
 	}.Override(o.gcCfg)
 	if err := gcCfg.Validate(); err != nil {
 		return err

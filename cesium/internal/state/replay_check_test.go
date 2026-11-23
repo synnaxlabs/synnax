@@ -69,7 +69,7 @@ func canonOf[T any](v T) T {
 }
 
 // durableEntry is a durable entry of the log, encoded, so each replay decodes its own
-// records.
+// records. A decoder reuses its record of each type, so records clones each one.
 type durableEntry struct {
 	seq uint64
 	b   []byte
@@ -85,7 +85,7 @@ func (e durableEntry) records() []log.Record {
 		if !ok {
 			return records
 		}
-		records = append(records, r)
+		records = append(records, log.Clone(r))
 	}
 }
 

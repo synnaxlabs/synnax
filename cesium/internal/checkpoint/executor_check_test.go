@@ -111,6 +111,7 @@ var _ = Describe("Check: executor", func() {
 		st := MustSucceed(state.Open(state.Config{
 			Versions:   set.New[uint16](1),
 			Version:    1,
+			Threshold:  0.2,
 			Append:     func(*log.Entry) {},
 			Executor:   ex,
 			OnHead:     func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
@@ -146,6 +147,7 @@ var _ = Describe("Check: executor", func() {
 		st := MustSucceed(state.Open(state.Config{
 			Versions:   set.New[uint16](1),
 			Version:    1,
+			Threshold:  0.2,
 			Append:     func(e *log.Entry) { l.Append(e) },
 			Executor:   ex,
 			OnHead:     func(uint64, *state.Snapshot) {},

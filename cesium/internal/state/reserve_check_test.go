@@ -62,6 +62,7 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 		st := MustSucceed(state.Open(state.Config{
 			Versions:   set.New[uint16](1),
 			Version:    1,
+			Threshold:  0.2,
 			Append:     func(e *log.Entry) { l.Append(e) },
 			Executor:   goExe,
 			OnHead:     func(uint64, *state.Snapshot) {},

@@ -51,6 +51,7 @@ func (c *core) load(s *Snapshot, generation uint64) error {
 			}}
 			c.segments[seg.ID] = st
 			cs.segs = append(cs.segs, st)
+			c.test(st)
 		}
 		if err := checkApart(ch); err != nil {
 			return err
@@ -186,5 +187,9 @@ func (c *core) snapshot() *Snapshot {
 		s.Kills = append(s.Kills, c.channels[k].kills...)
 	}
 	s.Kills = append(s.Kills, c.dropped...)
+	if len(c.candidates) > 0 {
+		s.Candidates = c.candidates.Slice()
+		slices.Sort(s.Candidates)
+	}
 	return s
 }

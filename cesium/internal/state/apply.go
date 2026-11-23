@@ -29,6 +29,12 @@ func refuse(format string, args ...any) error {
 // core is the data of the state and the rules that change it. Only the owner uses it.
 type core struct {
 	versions set.Set[uint16]
+	// version and threshold are the format version and the dead share of the candidate
+	// test.
+	version   uint16
+	threshold float32
+	// candidates holds the segments that pass the candidate test.
+	candidates set.Set[uint64]
 	// count counts the publishes of the owner for readers of more than one Channel.
 	count    *pubCount
 	channels map[uint32]*chanState
@@ -69,9 +75,12 @@ type core struct {
 	checked map[uint64][]Segment
 }
 
-func newCore(versions set.Set[uint16]) *core {
+func newCore(cfg Config) *core {
 	return &core{
-		versions:    versions,
+		versions:    cfg.Versions,
+		version:     cfg.Version,
+		threshold:   cfg.Threshold,
+		candidates:  set.Set[uint64]{},
 		count:       &pubCount{},
 		channels:    map[uint32]*chanState{},
 		segments:    map[uint64]*segState{},
@@ -128,6 +137,8 @@ func (c *core) record(r log.Record, pre []Preload) error {
 		return c.intent(r)
 	case *log.Tombstone:
 		return c.tombstone(r, pre)
+	case *log.Replace:
+		return c.replace(r)
 	case *log.Check:
 		return c.check(r)
 	default:
@@ -326,9 +337,100 @@ func (c *core) seal(r *log.Seal) error {
 	if s.vis.Sealed && s.vis.Length == s.dur.length {
 		s.dur.pointers = s.vis.Pointers
 	}
+	c.test(s)
 	c.bury(s)
 	return nil
 }
+
+// test adds s to the candidates when it is sealed in the durable view, untagged, of the
+// format version of new segments, and its dead share is above the threshold, and takes
+// it out when not. A segment that a part holds gets no test until a Tombstone puts its
+// record back in the head.
+func (c *core) test(s *segState) {
+	var live uint64
+	for _, p := range s.dur.pointers {
+		live += uint64(p.Length)
+	}
+	length := uint64(s.dur.length)
+	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
+		float64(length-live) > float64(c.threshold)*float64(length) {
+		c.candidates.Add(s.vis.ID)
+		return
+	}
+	c.candidates.Remove(s.vis.ID)
+}
+
+// replace takes the old segment of r out of the state, and seals in its place the new
+// segment that the entry of r created, with the pointers of r. The copy keeps the time
+// range, the alignment, the samples, and the length of each pointer.
+func (c *core) replace(r *log.Replace) error {
+	old, s := c.segments[r.Old], c.segments[r.New]
+	switch {
+	case old == nil || !old.dur.sealed:
+		return refuse("replace of segment %d, which is not sealed", r.Old)
+	case s == nil || !s.dur.created || s.dur.length != 0 || s.holder != nil:
+		return refuse("replace of segment %d by %d, which is not a new segment",
+			r.Old, r.New)
+	case s.key != old.key || s.vis.Clock != old.vis.Clock ||
+		s.vis.DataType != old.vis.DataType:
+		return refuse("replace of segment %d by %d, which differs in key, clock, or "+
+			"type", r.Old, r.New)
+	case !copied(old.dur.pointers, r.Pointers):
+		return refuse("replace of segment %d, whose pointers differ from the copy",
+			r.Old)
+	case !rising(r.Pointers):
+		return refuse("replace of segment %d by %d, whose pointers overlap or fall "+
+			"out of stream order", r.Old, r.New)
+	case end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
+		return refuse("replace of segment %d by %d, whose pointers end past its "+
+			"length %d", r.Old, r.New, r.Length)
+	// A candidate is never in a part, and live and replay name the same candidates,
+	// while a part that a switch writes may still take a segment that is none.
+	case !c.candidates.Contains(r.Old):
+		return refuse("replace of segment %d, which is no candidate of a rewrite",
+			r.Old)
+	}
+	ptrs := make([]Pointer, len(r.Pointers))
+	for i, p := range r.Pointers {
+		ptrs[i] = Pointer{
+			First:     telem.TimeStamp(p.First),
+			Last:      telem.TimeStamp(p.Last),
+			Alignment: telem.Alignment(p.Alignment),
+			Offset:    p.Offset,
+			Length:    p.Length,
+			Samples:   p.Samples,
+		}
+	}
+	s.dur.sealed, s.dur.length, s.dur.tailCRC, s.dur.pointers = true, r.Length,
+		r.TailCRC, ptrs
+	s.vis.Sealed, s.vis.Length, s.vis.TailCRC, s.vis.Pointers = true, r.Length,
+		r.TailCRC, ptrs
+	old.dur.pointers = nil
+	c.bury(old)
+	return nil
+}
+
+// copied reports whether ptrs, the durable pointers of a segment, and dst, the pointers
+// of its copy, name the same ranges at any offsets.
+func copied(ptrs []Pointer, dst []log.Pointer) bool {
+	return slices.EqualFunc(ptrs, dst, func(p Pointer, q log.Pointer) bool {
+		return int64(p.First) == q.First && int64(p.Last) == q.Last &&
+			uint64(p.Alignment) == q.Alignment && p.Length == q.Length &&
+			p.Samples == q.Samples
+	})
+}
+
+// rising reports whether ptrs rise in stream order with no overlap.
+func rising(ptrs []log.Pointer) bool {
+	for i := 1; i < len(ptrs); i++ {
+		if uint64(ptrs[i].Offset) < end(ptrs[i-1]) {
+			return false
+		}
+	}
+	return true
+}
+
+func end(p log.Pointer) uint64 { return uint64(p.Offset) + uint64(p.Length) }
 
 // bury takes s out of the state when it is sealed in the durable view with no durable
 // pointer, and gives it to TakeDead: its file holds no live byte. It reads only the
@@ -340,6 +442,7 @@ func (c *core) bury(s *segState) {
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
+	c.candidates.Remove(s.vis.ID)
 	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key, File: s.vis.File})
 	ch.publish()
 }
@@ -389,6 +492,7 @@ func (c *core) drop(key uint32, pre []Preload) error {
 		}
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
+			c.candidates.Remove(s.vis.ID)
 			c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: key, File: s.vis.File})
 		}
 		delete(c.channels, key)
@@ -404,6 +508,7 @@ func (c *core) restart() {
 	for _, s := range c.segments {
 		if s.dur.created && !s.dur.sealed {
 			s.dur.sealed = true
+			c.test(s)
 			c.bury(s)
 		}
 	}

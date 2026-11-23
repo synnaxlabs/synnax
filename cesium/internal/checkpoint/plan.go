@@ -34,12 +34,12 @@ type partWrite struct {
 	channels []*state.Channel
 }
 
-// plan folds the kills of s, the state at a switch, into the dead marks of the parts
-// of the last head. A part with half its records dead is written again under a new
+// plan folds the kills of s, the state at a switch, into the dead marks of the parts of
+// the last head. A part with half its records dead is written again under a new
 // identity. A segment of s whose record a part holds live stays there. Sealed segments
-// that no part holds go to a new part once their records pass the part size. The head
-// holds the rest. Both s and each part keep their records in rising order of key, then
-// identity, so plan walks them side by side.
+// that no part holds and that are no candidates of a rewrite go to a new part once
+// their records pass the part size. The head holds the rest. Both s and each part keep
+// their records in rising order of key, then identity, so plan walks them side by side.
 func (c *Checkpointer) plan(s *state.Snapshot) plan {
 	pl := plan{index: &Index{limit: max(c.index.limit, s.Limits.Parts, 1)}}
 	f := flatten(s)
@@ -125,12 +125,13 @@ func (pl *plan) add(channels []*state.Channel) {
 }
 
 // flat numbers the segments of a state in record order, and marks the ones that a part
-// holds.
+// holds and the candidates of a rewrite, which the head holds.
 type flat struct {
 	s *state.Snapshot
 	// first holds the number of the first segment of each channel.
-	first  []int
-	parted []bool
+	first     []int
+	parted    []bool
+	candidate []bool
 }
 
 func flatten(s *state.Snapshot) *flat {
@@ -139,7 +140,22 @@ func flatten(s *state.Snapshot) *flat {
 		f.first[i+1] = f.first[i] + len(ch.Segments)
 	}
 	f.parted = make([]bool, f.first[len(s.Channels)])
+	if len(s.Candidates) == 0 {
+		return f
+	}
+	f.candidate = make([]bool, len(f.parted))
+	for i, ch := range s.Channels {
+		for k, seg := range ch.Segments {
+			_, f.candidate[f.first[i]+k] = slices.BinarySearch(s.Candidates, seg.ID)
+		}
+	}
 	return f
+}
+
+// partable reports whether segment number j, seg, may go to a new part: sealed, held by
+// no part, and no candidate of a rewrite.
+func (f *flat) partable(j int, seg state.Segment) bool {
+	return seg.Sealed && !f.parted[j] && (f.candidate == nil || !f.candidate[j])
 }
 
 // match returns the number of the segment of each live record of p, or -1 for a dead
@@ -184,12 +200,15 @@ func (f *flat) part(at []int) {
 	}
 }
 
-// keep returns the segments that no part holds, the sealed ones alone when sealed is
-// true, as channels. A channel that keeps every segment is the state's channel, and the
-// rest come from one slab of channels and one of segments.
-func (f *flat) keep(sealed bool) []*state.Channel {
+// keep returns the segments that no part holds, the partable ones alone when partable
+// is true, as channels. A channel that keeps every segment is the state's channel, and
+// the rest come from one slab of channels and one of segments.
+func (f *flat) keep(partable bool) []*state.Channel {
 	want := func(j int, seg state.Segment) bool {
-		return !f.parted[j] && (seg.Sealed || !sealed)
+		if partable {
+			return f.partable(j, seg)
+		}
+		return !f.parted[j]
 	}
 	counts := make([]int, len(f.s.Channels))
 	var emitted, cut, cutSegs int
@@ -230,12 +249,12 @@ func (f *flat) keep(sealed bool) []*state.Channel {
 	return out
 }
 
-// sealedAt returns the numbers of the sealed segments that no part holds.
+// sealedAt returns the numbers of the partable segments.
 func (f *flat) sealedAt() []int {
 	var at []int
 	for i, ch := range f.s.Channels {
 		for k, seg := range ch.Segments {
-			if j := f.first[i] + k; seg.Sealed && !f.parted[j] {
+			if j := f.first[i] + k; f.partable(j, seg) {
 				at = append(at, j)
 			}
 		}
@@ -243,14 +262,13 @@ func (f *flat) sealedAt() []int {
 	return at
 }
 
-// sealedSize returns the size in a head of the records of the sealed segments that no
-// part holds.
+// sealedSize returns the size in a head of the records of the partable segments.
 func (f *flat) sealedSize() int {
 	size := 0
 	for i, ch := range f.s.Channels {
 		held := false
 		for k, seg := range ch.Segments {
-			if seg.Sealed && !f.parted[f.first[i]+k] {
+			if f.partable(f.first[i]+k, seg) {
 				held = true
 				size += recordSize(seg)
 			}

@@ -110,4 +110,7 @@ type Snapshot struct {
 	Intents []uint32
 	// Kills are the kills that no head holds as dead marks yet.
 	Kills []Kill
+	// Candidates are the segments that pass the candidate test of a rewrite, in rising
+	// order. The head holds each one.
+	Candidates []uint64
 }

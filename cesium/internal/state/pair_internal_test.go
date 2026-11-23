@@ -34,6 +34,7 @@ var _ = Describe("Pair between its loads", func() {
 				Versions:   set.New[uint16](1),
 				Version:    1,
 				Generation: 1,
+				Threshold:  0.2,
 				Append:     func(*log.Entry) {},
 				Executor:   func(f func()) { go f() },
 				OnHead:     func(uint64, *Snapshot) {},
