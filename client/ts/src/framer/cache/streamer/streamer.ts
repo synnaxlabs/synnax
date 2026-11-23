@@ -28,7 +28,7 @@ import { UnexpectedError } from "@/errors";
 import type { join } from "@/framer/cache/join";
 import type { store as cacheStore } from "@/framer/cache/store";
 import { isDefinitive } from "@/framer/retry";
-import type { Streamer } from "@/framer/streamer";
+import type { MissedHandler, Streamer } from "@/framer/streamer";
 import { status } from "@/status";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
@@ -38,7 +38,7 @@ export interface Hooks {
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop: (error: Error) => void;
   /** Called when the Core drops frames for the stream. The stream stays open. */
-  onMissed: () => void;
+  onMissed: MissedHandler;
   /** Aborts when the streamer closes while this stream is current. A stream still
    * opening or retrying must stop. */
   signal: AbortSignal;
@@ -151,11 +151,11 @@ export class Multiplexed {
   private readonly scheduleReconcile = scheduler.throttle(() => {
     void this.reconcile();
   }, RECONCILE_INTERVAL);
-  // The start of the open block of each stored channel when a marker arrived, kept
-  // until the throttled outdate runs.
-  private missedFrom = new Map<channel.Key, TimeStamp>();
+  // The span of each stored channel that markers outdated, kept until the throttled
+  // outdate runs.
+  private missed = new Map<channel.Key, TimeRange>();
   private readonly scheduleOutdate = scheduler.throttle(() => {
-    this.outdateTails();
+    this.outdateMissed();
   }, MISSED_INTERVAL);
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
@@ -409,32 +409,38 @@ export class Multiplexed {
     });
   }
 
-  // Records where the open block of each streamed channel that the Core stores starts
-  // when a marker arrives, since the stream can move to the next block before the
-  // throttled outdate runs.
-  private recordMiss(): void {
+  // Records the span a marker outdates for each streamed channel that the Core stores:
+  // the time range of its lost samples, or from the start of its open block on when
+  // the range is zero or the Core sent none. The open block is read now, since the
+  // stream can move to the next block before the throttled outdate runs.
+  private recordMiss(ranges?: Map<channel.Key, TimeRange>): void {
     const { store } = this.props;
     for (const key of this.sentKeys) {
-      const start = store.open(key)?.range.start;
-      if (start == null || !store.stored(key)) continue;
-      const held = this.missedFrom.get(key);
-      if (held == null || start.before(held)) this.missedFrom.set(key, start);
+      if (!store.stored(key)) continue;
+      let tr = ranges?.get(key);
+      if (ranges != null && tr == null) continue;
+      if (tr == null || tr.isZero) {
+        const start = store.open(key)?.range.start;
+        if (start == null) continue;
+        tr = new TimeRange(start, TimeStamp.MAX);
+      }
+      const held = this.missed.get(key);
+      this.missed.set(key, held == null ? tr : TimeRange.merge(held, tr));
     }
     this.scheduleOutdate();
   }
 
-  // Outdates each stored channel from the start of the open block that a marker found
-  // to the end of time, since the dropped frames can hold its samples. Dropped history
-  // signals can name closed data of any channel, so a sealed block stays valid only
-  // until the stale threshold, or until a reader releases it when it is held. Virtual
-  // channels keep their held samples, since the Core stores none to read again.
-  private outdateTails(): void {
+  // Outdates the span that markers recorded for each stored channel, since the dropped
+  // frames can hold its samples. Dropped history signals can name closed data of any
+  // channel, so a sealed block stays valid only until the stale threshold, or until a
+  // reader releases it when it is held. Virtual channels keep their held samples, since
+  // the Core stores none to read again.
+  private outdateMissed(): void {
     const { joins, store, onWait } = this.props;
     store.restartSignals();
-    const missed = this.missedFrom;
-    this.missedFrom = new Map();
-    for (const [key, start] of missed)
-      onWait(joins.invalidate(key, new TimeRange(start, TimeStamp.MAX), true));
+    const missed = this.missed;
+    this.missed = new Map();
+    for (const [key, tr] of missed) onWait(joins.invalidate(key, tr, true));
     // A latest reader reads the samples after its newest one again on a drop, which
     // also reaches a stored channel that has no open block.
     this.entries.forEach((e) => {
@@ -497,7 +503,7 @@ export class Multiplexed {
                 this.drop();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
-              onMissed: () => this.recordMiss(),
+              onMissed: (ranges) => this.recordMiss(ranges),
             },
           );
           this.streamer = streamer;

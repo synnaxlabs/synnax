@@ -348,7 +348,7 @@ export class Store {
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
    * when the channel is null. Set missed when the stream missed frames, not when
-   * history changed.
+   * history changed. A missed span keeps the samples of a raw block before its start.
    */
   invalidate(
     ch: channel.Key | null = null,
@@ -360,8 +360,24 @@ export class Store {
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
       if (!(block instanceof cacheBlock.Raw)) this.delete(key);
+      else if (missed && this.truncate(block, tr.start)) this.set(key, block);
       else if (block.expire()) this.set(key, block);
     this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
+  }
+
+  // Cuts the raw block at the time, using the index block of the same index to count
+  // the index samples before it. Returns false when the block cannot be cut there.
+  private truncate(block: cacheBlock.Raw, at: TimeStamp): boolean {
+    if (block.joined || !at.after(block.coveredStart)) return false;
+    if (!at.before(block.coveredEnd)) return true;
+    const index = this.indexOf.get(block.channel);
+    if (index == null) return false;
+    const indexBlock =
+      index === block.channel ? block : this.peekRaw(index, block.index);
+    const offset = indexBlock?.indexOffset(at);
+    if (offset == null) return false;
+    block.truncate(cacheBlock.alignmentOf(block.index, offset), at);
+    return true;
   }
 
   /** @returns the data type of the channel's cached samples. */
