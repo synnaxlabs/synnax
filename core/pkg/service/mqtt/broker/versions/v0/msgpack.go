@@ -69,7 +69,11 @@ func (u *Transport) DecodeMsgpack(dec *msgpack.Decoder) error {
 		}
 		u.Variant = v
 	default:
-		return errors.Wrapf(validate.ErrValidation, "unknown transport type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"unknown transport type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -185,7 +189,11 @@ func (u *SparkplugMode) DecodeMsgpack(dec *msgpack.Decoder) error {
 		}
 		u.Variant = v
 	default:
-		return errors.Wrapf(validate.ErrValidation, "unknown Sparkplug mode type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"unknown Sparkplug mode type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

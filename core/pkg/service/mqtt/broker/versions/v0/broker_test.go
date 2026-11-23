@@ -386,7 +386,8 @@ var _ = Describe("msgpack", func() {
 		Entry("write", &v0.Write{}),
 	)
 
-	DescribeTable("Should reject a variant whose fields have the wrong type",
+	DescribeTable(
+		"Should reject a variant whose fields have the wrong type",
 		func(target any, fields map[string]any) {
 			raw := MustSucceed(msgpack.Marshal(fields))
 			Expect(msgpack.Unmarshal(raw, target)).
@@ -396,7 +397,11 @@ var _ = Describe("msgpack", func() {
 			"type":                            "tls",
 			"certificate_validation_disabled": "yes",
 		}),
-		Entry("user name", &v0.Auth{}, map[string]any{"type": "username", "username": 1}),
+		Entry(
+			"user name",
+			&v0.Auth{},
+			map[string]any{"type": "username", "username": 1},
+		),
 		Entry("primary", &v0.SparkplugMode{}, map[string]any{
 			"type":    "primary",
 			"host_id": 1,
