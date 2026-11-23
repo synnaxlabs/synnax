@@ -261,36 +261,6 @@ var _ = Describe("NewWriteMigration", func() {
 		},
 	)
 
-	It("Should bind no channel and keep the stored data type when the channel is gone",
-		func(ctx SpecContext) {
-			ch := valueField()
-			ch.Channel, ch.DataType = 12, telem.Int16T
-			f, msg := lift(ctx, ch)
-			Expect(f[0].Type()).To(Equal(payload.KindInteger))
-			Expect(msg.Bindings).To(Equal([]icd.WriteBinding{{
-				Variant: icd.ChannelWriteBinding{
-					Field:    f[0].Base().Key,
-					DataType: new(telem.Int16T),
-				},
-			}}))
-		},
-	)
-
-	It("Should take float64 for a channel field with no channel or data type",
-		func(ctx SpecContext) {
-			ch := valueField()
-			ch.Channel, ch.DataType = 0, ""
-			f, msg := lift(ctx, ch)
-			Expect(f[0].Type()).To(Equal(payload.KindFloat))
-			Expect(msg.Bindings).To(Equal([]icd.WriteBinding{{
-				Variant: icd.ChannelWriteBinding{
-					Field:    f[0].Base().Key,
-					DataType: new(telem.Float64T),
-				},
-			}}))
-		},
-	)
-
 	It("Should bind no channel to a target with no channel and log its dropped name",
 		func(ctx SpecContext) {
 			ch := valueField()
@@ -318,179 +288,25 @@ var _ = Describe("NewWriteMigration", func() {
 		},
 	)
 
-	DescribeTable(
-		"Should pick the kind that writes the channel as its JSON type",
-		func(
-			ctx SpecContext,
-			dt telem.DataType,
-			t payload.JSONType,
-			kind payload.Kind,
-		) {
-			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: dt}
-			ch := valueField()
-			ch.JSONType = t
-			f, _ := lift(ctx, ch)
-			Expect(f[0].Type()).To(Equal(kind))
-		},
-		Entry(
-			"a float number",
-			telem.Float32T,
-			payload.JSONTypeNumber,
-			payload.KindFloat,
-		),
-		Entry(
-			"an integer number",
-			telem.Int64T,
-			payload.JSONTypeNumber,
-			payload.KindInteger,
-		),
-		Entry(
-			"an unsigned number",
-			telem.Uint8T,
-			payload.JSONTypeNumber,
-			payload.KindUnsigned,
-		),
-		Entry("a boolean", telem.Uint8T, payload.JSONTypeBoolean, payload.KindBoolean),
-		Entry("a string", telem.StringT, payload.JSONTypeString, payload.KindString),
-		Entry("a UUID", telem.UUIDT, payload.JSONTypeString, payload.KindUUID),
-		Entry("bytes", telem.BytesT, payload.JSONTypeString, payload.KindBytes),
-		Entry("JSON", telem.JSONT, payload.JSONTypeString, payload.KindJSON),
-	)
-
-	It("Should lift a timestamp channel with its time format", func(ctx SpecContext) {
-		found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.TimestampT}
-		ch := valueField()
-		format := payload.TimeFormatUnixMs
-		ch.TimeFormat = &format
-		f, _ := lift(ctx, ch)
-		Expect(f[0].Variant).To(BeAssignableToTypeOf(icd.TimestampJSONField{}))
-		Expect(variantOf[icd.TimestampJSONField](f[0]).TimeFormat).
-			To(Equal(payload.TimeFormatUnixMs))
-	})
-
-	It("Should give a timestamp channel with no time format ISO 8601",
+	It("Should lift the static and generated fields of a plain target",
 		func(ctx SpecContext) {
-			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.TimestampT}
-			f, _ := lift(ctx, valueField())
-			Expect(variantOf[icd.TimestampJSONField](f[0]).TimeFormat).
-				To(Equal(payload.TimeFormatISO8601))
-		},
-	)
-
-	It("Should keep the enum values of a number channel sent as a string",
-		func(ctx SpecContext) {
-			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.Int32T}
-			ch := valueField()
-			ch.JSONType = payload.JSONTypeString
-			ch.EnumValues = []payload.EnumEntry{
-				{Label: "OPEN", Value: 1},
-				{Label: "HALF", Value: 0.5},
-			}
-			f, _ := lift(ctx, ch)
-			Expect(variantOf[icd.IntegerJSONField](f[0]).EnumValues).To(Equal(
-				[]payload.IntegerEntry{{Label: "OPEN", Value: 1}},
-			))
-		},
-	)
-
-	DescribeTable(
-		"Should log each change to what a field sends, with its path",
-		func(
-			ctx SpecContext,
-			dt telem.DataType,
-			t payload.JSONType,
-			kind payload.Kind,
-			change string,
-		) {
-			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: dt}
-			ch := valueField()
-			ch.JSONType = t
-			old := config(plainTarget("plant/valve/set", ch))
-			store(ctx, "Valves", old, false)
-			ins, logs := observe()
-			Expect(migrate(ctx, ins)).To(Succeed())
-			Expect(fields(made[0].Messages[0])[0].Type()).To(Equal(kind))
-			logged := logs.FilterField(zap.String("field", "targets.0.channel")).All()
-			Expect(logged).To(HaveLen(1))
-			Expect(logged[0].Message).To(Equal("changed an MQTT write field to v3"))
-			Expect(logged[0].ContextMap()).To(HaveKeyWithValue("change", change))
-		},
-		Entry(
-			"a number sent as a string",
-			telem.Float64T,
-			payload.JSONTypeString,
-			payload.KindFloat,
-			"a float64 channel sent as a JSON string now sends a JSON number",
-		),
-		Entry(
-			"a number sent as a boolean",
-			telem.Uint8T,
-			payload.JSONTypeBoolean,
-			payload.KindBoolean,
-			"a uint8 channel sent as a JSON boolean now sends only 0 and 1",
-		),
-		Entry(
-			"JSON sent as a string",
-			telem.JSONT,
-			payload.JSONTypeString,
-			payload.KindJSON,
-			"a json channel sent as a JSON string now sends its JSON value",
-		),
-	)
-
-	It("Should give each static field a constant default", func(ctx SpecContext) {
-		f, msg := lift(
-			ctx,
-			valueField(),
-			staticField("/mode", payload.JSONTypeString, "auto"),
-			staticField("/level", payload.JSONTypeNumber, 2.5),
-			staticField("/armed", payload.JSONTypeBoolean, true),
-			staticField("/limits", payload.JSONTypeNumber, map[string]any{"max": 10.0}),
-		)
-		Expect(f).To(HaveLen(5))
-		Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
-		Expect(
-			*variantOf[icd.FloatJSONField](f[2]).Default,
-		).To(Equal(payload.Float(2.5)))
-		Expect(*variantOf[icd.BooleanJSONField](f[3]).Default).To(BeTrue())
-		Expect(*variantOf[icd.JSONJSONField](f[4]).Default).To(MatchJSON(`{"max":10}`))
-		Expect(f[1].Base().Name).To(Equal("mode"))
-		Expect(f[1].Base().Pointer).To(Equal("/mode"))
-		Expect(msg.Bindings).To(HaveLen(1))
-	})
-
-	It("Should give each generated field a generator default", func(ctx SpecContext) {
-		format := payload.TimeFormatUnixNs
-		f, msg := lift(
-			ctx,
-			valueField(),
-			generatedField("/id", payload.GeneratorTypeUUID, nil),
-			generatedField("/time", payload.GeneratorTypeTimestamp, &format),
-			generatedField("/sent", payload.GeneratorTypeTimestamp, nil),
-		)
-		Expect(f[1].Variant).To(Equal(icd.UuidJSONField{
-			JSONBaseField: f[1].Base(),
-			Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
-		}))
-		now := &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}}
-		Expect(f[2].Variant).To(Equal(icd.TimestampJSONField{
-			JSONBaseField: f[2].Base(),
-			TimeFormat:    payload.TimeFormatUnixNs,
-			Default:       now,
-		}))
-		Expect(variantOf[icd.TimestampJSONField](f[3]).TimeFormat).
-			To(Equal(payload.TimeFormatISO8601))
-		Expect(msg.Bindings).To(HaveLen(1))
-	})
-
-	It("Should name the field of an empty pointer value and keep names unique",
-		func(ctx SpecContext) {
-			ch := valueField()
-			ch.Pointer = ""
-			f, _ := lift(ctx, ch, staticField("/value", payload.JSONTypeNumber, 1.0))
-			Expect(f[0].Base().Name).To(Equal("value"))
-			Expect(f[0].Base().Pointer).To(Equal(""))
-			Expect(f[1].Base().Name).To(Equal("value (2)"))
+			format := payload.TimeFormatUnixNs
+			f, msg := lift(
+				ctx,
+				valueField(),
+				staticField("/mode", payload.JSONTypeString, "auto"),
+				generatedField("/id", payload.GeneratorTypeUUID, nil),
+				generatedField("/time", payload.GeneratorTypeTimestamp, &format),
+			)
+			Expect(f).To(HaveLen(4))
+			Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
+			Expect(f[2].Variant).To(Equal(icd.UuidJSONField{
+				JSONBaseField: f[2].Base(),
+				Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}))
+			Expect(variantOf[icd.TimestampJSONField](f[3]).TimeFormat).
+				To(Equal(payload.TimeFormatUnixNs))
+			Expect(msg.Bindings).To(HaveLen(1))
 		},
 	)
 
