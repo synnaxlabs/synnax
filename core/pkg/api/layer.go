@@ -60,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -951,6 +952,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Mirrors:     svcchannel.MirrorTables(),
 		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err
@@ -1002,6 +1004,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
+		Impact:  cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}
@@ -1039,7 +1042,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		Group: cfg.Service.Group,
+		Group:  cfg.Service.Group,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}
@@ -1056,6 +1060,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
 		Symbol: cfg.Service.Schematic.Symbol,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}

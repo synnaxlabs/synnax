@@ -11,11 +11,13 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -25,10 +27,22 @@ func (t *Table[K, E]) register(named bool) error {
 	if !named && len(t.references) == 0 {
 		return nil
 	}
+	names := make(set.Set[string], len(t.references))
 	for i, r := range t.references {
-		if err := r.validate(t.name); err != nil {
+		err := r.validate(t.name)
+		if err == nil && names.Contains(r.referenceName()) {
+			err = validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"names another reference of the table",
+				),
+				"name",
+			)
+		}
+		if err != nil {
 			return validate.PathedError(err, t.name, "references", strconv.Itoa(i))
 		}
+		names.Add(r.referenceName())
 		r.bind(t.name, i)
 	}
 	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {
@@ -38,16 +52,46 @@ func (t *Table[K, E]) register(named bool) error {
 	return nil
 }
 
-// registerReferences adds the table's references to its indexes and to its DB's
-// registry. Call it after the table's migrations: a delete that follows a reference
-// waits for its index to populate, which starts only after them.
-func (t *Table[K, E]) registerReferences() error {
+// registerIndexes adds the table's references to its indexes and to its DB's
+// registry, and its unique indexes to their spaces. Call it after the table's
+// migrations: a delete that follows a reference waits for its index to populate, which
+// starts only after them.
+func (t *Table[K, E]) registerIndexes() error {
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	return t.db.registry.addReferences(refs)
+	if err := t.db.registry.addReferences(refs); err != nil {
+		return err
+	}
+	return t.joinSpaces()
+}
+
+// joinSpaces adds the table's unique indexes to their spaces, all of them or none, so
+// that no check waits for the index of a table that failed to open.
+func (t *Table[K, E]) joinSpaces() error {
+	r := t.db.registry
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	spaces := make(set.Set[string], len(t.uniques))
+	for _, u := range t.uniques {
+		if spaces.Contains(u.spaceName()) {
+			return errors.Newf(
+				"[gorp] - table %s already has an index in space %q",
+				t.name,
+				u.spaceName(),
+			)
+		}
+		spaces.Add(u.spaceName())
+		if err := u.canJoin(r); err != nil {
+			return err
+		}
+	}
+	for _, u := range t.uniques {
+		u.join(r, t.name)
+	}
+	return nil
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -55,21 +99,39 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
+	for _, u := range t.uniques {
+		u.leave()
+	}
 	t.db.registry.unregister(t.name, t.keyPrefix)
 	t.registered = false
 }
 
+// writerChecks are the checks that a Writer of a Table runs on each entry it sets.
+type writerChecks uint8
+
+const (
+	// checkReferences checks the references of each entry.
+	checkReferences writerChecks = 1 << iota
+	// checkUnique checks the values of the unique indexes of the table.
+	checkUnique
+	// checkAll runs every check.
+	checkAll = checkReferences | checkUnique
+)
+
 // writer returns a Writer that stages against the indexes of every open table of E on
-// the table's key prefix and checks the table's references when checked is true. A
-// table outside the registry writes as a Writer with no table does.
-func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
+// the table's key prefix and runs checks on each entry it sets. A table outside the
+// registry writes as a Writer with no table does.
+func (t *Table[K, E]) writer(tx Tx, checks writerChecks) Writer[K, E] {
 	if !t.registered {
 		return wrapWriter[K, E](tx, "", t.keyPrefix, nil)
 	}
 	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, nil)
 	w.references = t.references
-	if checked && len(t.references) > 0 {
+	if checks&checkReferences != 0 && len(t.references) > 0 {
 		w.table = t
+	}
+	if checks&checkUnique != 0 {
+		w.uniques = t.uniques
 	}
 	return w
 }
@@ -90,8 +152,12 @@ func (t *Table[K, E]) exists(
 	if err != nil {
 		return false, err
 	}
-	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(codec.Encode(pk))
+	return t.has(snap, key.NewCodec[K](t.keyPrefix), pk)
+}
+
+// has reports whether snap holds the entry with key k, which codec encodes.
+func (t *Table[K, E]) has(snap Snapshot, codec key.Codec[K], k K) (bool, error) {
+	_, closer, err := snap.Get(codec.Encode(k))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}
@@ -134,9 +200,19 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 	if err != nil {
 		return err
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	w.derived = true
 	return w.Delete(ctx, pks...)
+}
+
+// release implements registeredTable.
+func (t *Table[K, E]) release(tx Tx, keys []string) error {
+	for _, u := range t.uniques {
+		if err := u.release(tx, keys); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // issues implements registeredTable.
@@ -179,7 +255,8 @@ func (t *Table[K, E]) detach(
 			return err
 		}
 	}
-	w := t.writer(tx, false)
+	// A detach moves the values of e, so it checks them.
+	w := t.writer(tx, checkUnique)
 	w.derived = true
 	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
@@ -187,24 +264,129 @@ func (t *Table[K, E]) detach(
 	return t.onRewrite(ctx, tx, e)
 }
 
-// delete deletes the entries with keys and applies the OnDelete of every reference
-// that points at them.
-func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
+// delete deletes entries and applies the OnDelete of every reference that points at
+// them, from planned when it is not nil. Before it changes anything, it calls held,
+// when not nil, with each entry that a Weak reference holds and those holders.
+func (t *Table[K, E]) delete(
+	ctx context.Context,
+	tx Tx,
+	entries []E,
+	planned *DeleteEffects,
+	held HeldFunc[K, E],
+) error {
+	keys := make([]K, len(entries))
+	for i, e := range entries {
+		keys[i] = e.GorpKey()
+	}
 	if t.registered {
-		formatted := make([]string, len(keys))
-		for i, k := range keys {
-			formatted[i] = FormatKey(k)
+		var (
+			plan *deletePlan
+			err  error
+		)
+		weak := held != nil
+		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
+			plan, err = t.db.registry.planned(tx, t.name, *planned, weak)
+		} else {
+			formatted := make([]string, len(keys))
+			for i, k := range keys {
+				formatted[i] = FormatKey(k)
+			}
+			plan, err = t.db.registry.plan(
+				ctx,
+				tx,
+				t.name,
+				formatted,
+				t.db.MaxDeleteSize,
+				weak,
+			)
 		}
-		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
 		if err != nil {
 			return err
+		}
+		if len(plan.weak) > 0 {
+			if err = t.callHeld(ctx, tx, entries, plan, held); err != nil {
+				return err
+			}
 		}
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
 			return err
 		}
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
+}
+
+// callHeld calls held with each entry of the table that the delete of plan removes and
+// that a Weak reference of an entry the delete keeps holds, and with those holders: the
+// entries the caller asked to delete first, then, in key order, those that a cascade
+// deletes.
+func (t *Table[K, E]) callHeld(
+	ctx context.Context,
+	tx Tx,
+	entries []E,
+	plan *deletePlan,
+	held HeldFunc[K, E],
+) error {
+	requested := make(set.Set[string], len(entries))
+	for _, e := range entries {
+		requested.Add(FormatKey(e.GorpKey()))
+	}
+	// A plan from PlanDelete lists no requested key, so they are checked here.
+	removed := func(d Dependent) bool {
+		return plan.contains(d.Holder) ||
+			(d.Holder.Table == t.name && requested.Contains(d.Holder.Key))
+	}
+	holders := func(text string) []Dependent {
+		deps := plan.weak[text]
+		if !slices.ContainsFunc(deps, removed) {
+			return deps
+		}
+		return slices.DeleteFunc(slices.Clone(deps), removed)
+	}
+	for _, e := range entries {
+		if deps := holders(FormatKey(e.GorpKey())); len(deps) > 0 {
+			if err := held(ctx, tx, e, deps); err != nil {
+				return err
+			}
+		}
+	}
+	var cascaded []K
+	for text := range plan.weak {
+		if requested.Contains(text) || len(holders(text)) == 0 {
+			continue
+		}
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return err
+		}
+		cascaded = append(cascaded, k)
+	}
+	if len(cascaded) == 0 {
+		return nil
+	}
+	slices.SortFunc(cascaded, key.Order[K]())
+	var more []E
+	// An entry that tx removed after the plan is not one this delete removes.
+	if err := t.NewRetrieve().
+		Where(MatchKeys[K, E](cascaded...)).
+		Entries(&more).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	for _, e := range more {
+		if err := held(ctx, tx, e, holders(FormatKey(e.GorpKey()))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// referenceIndex implements registeredTable.
+func (t *Table[K, E]) referenceIndex(name string) (int, bool) {
+	i := slices.IndexFunc(t.references, func(r Reference[K, E]) bool {
+		return r.referenceName() == name
+	})
+	return i, i >= 0
 }
 
 // watches implements registeredTable.

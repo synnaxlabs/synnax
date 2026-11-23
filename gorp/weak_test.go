@@ -10,6 +10,7 @@
 package gorp_test
 
 import (
+	"context"
 	"slices"
 	"sync/atomic"
 
@@ -139,6 +140,101 @@ var _ = Describe("Weak reference", func() {
 				Tag:       weakTag,
 			}}))
 		})
+	})
+
+	Describe("Delete with Held", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should fail on a Delete that no table built", func(ctx SpecContext) {
+			Expect(gorp.NewDelete[uint32, weakChannel]().
+				Where(gorp.MatchKeys[uint32, weakChannel](1)).
+				Held(func(context.Context, gorp.Tx, weakChannel, []gorp.Dependent) error {
+					return nil
+				}).
+				Exec(ctx, db)).To(MatchError(ContainSubstring("Held needs a Delete")))
+		})
+
+		type call struct {
+			entry weakChannel
+			held  []gorp.Dependent
+		}
+		deleteHeld := func(
+			ctx SpecContext,
+			planned bool,
+			fail error,
+			keys ...uint32,
+		) ([]call, error) {
+			GinkgoHelper()
+			var calls []call
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				d := channels.NewDelete().
+					Where(gorp.MatchKeys[uint32, weakChannel](keys...)).
+					Held(func(_ context.Context, htx gorp.Tx, e weakChannel, held []gorp.Dependent) error {
+						Expect(htx).To(BeIdenticalTo(tx))
+						calls = append(calls, call{entry: e, held: held})
+						return fail
+					})
+				if planned {
+					d = d.Planned(MustSucceed(channels.PlanDelete(ctx, tx, keys)))
+				}
+				return d.Exec(ctx, tx)
+			})
+			return calls, err
+		}
+		held := []gorp.Dependent{{
+			Holder:    gorp.Target{Table: "symbol", Key: "s"},
+			Reference: "channels",
+			Kind:      gorp.Use,
+			Tag:       weakTag,
+		}}
+
+		DescribeTable("Should call f with each held entry and its holders",
+			func(ctx SpecContext, planned bool) {
+				createChannel(ctx, 1)
+				createChannel(ctx, 2)
+				Expect(symbols.NewCreate().
+					Entry(&weakSymbol{Key: "s", Channels: []uint32{1}}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(deleteHeld(ctx, planned, nil, 1, 2)).
+					To(Equal([]call{{entry: weakChannel{Key: 1}, held: held}}))
+				Expect(channels.NewRetrieve().Count(ctx, db)).To(Equal(0))
+			},
+			Entry("walking the references", false),
+			Entry("from a plan", true),
+		)
+
+		It("Should fail the delete and keep the entry when f fails", func(
+			ctx SpecContext,
+		) {
+			createChannel(ctx, 1)
+			Expect(symbols.NewCreate().
+				Entry(&weakSymbol{Key: "s", Channels: []uint32{1}}).
+				Exec(ctx, db)).To(Succeed())
+			calls, err := deleteHeld(ctx, false, validate.ErrValidation, 1)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(calls).To(HaveLen(1))
+			Expect(channels.NewRetrieve().Count(ctx, db)).To(Equal(1))
+		})
+
+		It("Should not call f when nothing holds the entries", func(ctx SpecContext) {
+			createChannel(ctx, 1)
+			Expect(deleteHeld(ctx, false, nil, 1)).To(BeEmpty())
+		})
+	})
+
+	Describe("Dependents through an ended transaction", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should refuse them even when nothing holds the table",
+			func(ctx SpecContext) {
+				createChannel(ctx, 1)
+				tx := db.OpenTx()
+				Expect(tx.Close()).To(Succeed())
+				Expect(channels.Dependents(ctx, tx, 1)).Error().
+					To(MatchError("[gorp] - the transaction has ended"))
+			},
+		)
 	})
 
 	Describe("Write", func() {

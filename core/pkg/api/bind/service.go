@@ -46,6 +46,11 @@ type ServiceConfig struct {
 	// OwnedPlaces names the tables that an owned record can be placed in, or taken
 	// out of, with retrieve in place of update on the target, such as projects.
 	OwnedPlaces []string
+	// Mirrors names the tables of the records that a change to another record writes
+	// beside it, such as the tombstone of a deleted channel. A change to one needs
+	// nothing, since the change that it mirrors is checked. A write that changes
+	// mirror records and no other record fails.
+	Mirrors []string
 	// Vouched reports whether only a user can make a record on a rack use target, such
 	// as a secret, because the user who saves a record vouches for what it uses. A
 	// rack's write cannot add a use of one, or move a record that uses one onto a rack.
@@ -62,6 +67,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Held = override.Slice(c.Held, other.Held)
 	c.Owned = override.Slice(c.Owned, other.Owned)
 	c.OwnedPlaces = override.Slice(c.OwnedPlaces, other.OwnedPlaces)
+	c.Mirrors = override.Slice(c.Mirrors, other.Mirrors)
 	c.Vouched = override.Nil(c.Vouched, other.Vouched)
 	return c
 }

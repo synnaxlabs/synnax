@@ -87,14 +87,16 @@ func benchRetrieve(
 		RBAC:    layer.RBAC,
 		Channel: layer.Channel,
 		Status:  layer.Status,
+		Impact:  layer.Impact,
 	})
 	if err != nil {
 		b.Fatalf("failed to open the API service: %v", err)
 	}
 	binder, err := bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: layer.RBAC,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    layer.RBAC,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	})
 	if err != nil {
 		b.Fatalf("failed to open the binder: %v", err)

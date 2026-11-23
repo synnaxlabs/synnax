@@ -10,8 +10,6 @@
 package index_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
@@ -235,18 +233,102 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should be staged with no allocation", func() {
-			txn.cleanups = make([]func(bool), 0, 1)
 			key := 100
-			stage := func() {
+			Expect(allocsPerScope(txn, func() {
 				key++
 				m.Stage(txn, key, nil)
-				for _, fn := range txn.cleanups {
-					fn(false)
-				}
-				txn.cleanups = txn.cleanups[:0]
-			}
-			stage()
-			Expect(testing.AllocsPerRun(100, stage)).To(BeZero())
+			})).To(BeZero())
+		})
+	})
+
+	Describe("A key in none that a scope deletes", func() {
+		BeforeEach(func() { m.Set(7, nil) })
+
+		It("Should hold none only outside its scope until the scope commits", func() {
+			m.StageDelete(txn, 7)
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+			Expect(m.Current(txn, 7, nil)).To(BeFalse())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+		})
+
+		It("Should stay in none when the scope does not commit", func() {
+			m.StageDelete(txn, 7)
+			txn.end(false)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold none when the scope stages it with no value later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, nil)
+			Expect(m.Holding(txn, false)).To(ConsistOf(7))
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold the values that the scope stages for it later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, []string{"g"})
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Get(nil, "g")).To(ConsistOf(7))
+		})
+
+		It("Should be deleted with no allocation", func() {
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 7) })).To(BeZero())
+		})
+	})
+
+	Describe("Empty", func() {
+		var empty *index.Multi[*scope, int, string]
+		BeforeEach(func() {
+			empty = index.NewMulti[*scope, int, string]()
+			insert, finish := empty.Populate()
+			insert(1, nil)
+			finish(nil)
+		})
+
+		It("Should be true when no key holds a value", func() {
+			Expect(empty.Empty(txn)).To(BeTrue())
+			Expect(m.Empty(txn)).To(BeFalse())
+		})
+
+		It("Should be false for a scope that staged a value", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			Expect(empty.Empty(txn)).To(BeFalse())
+			Expect(empty.Empty(&scope{})).To(BeTrue())
+		})
+
+		It("Should be false for every scope while a staged value commits", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			txn.committing = true
+			Expect(empty.Empty(&scope{})).To(BeFalse())
+		})
+
+		It("Should be false once a staged value commits", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			txn.end(true)
+			Expect(empty.Empty(&scope{})).To(BeFalse())
+		})
+
+		It("Should be false before the bulk load finishes", func() {
+			Expect(index.NewMulti[*scope, int, string]().Empty(txn)).To(BeFalse())
+		})
+	})
+
+	Describe("Changes of a scope", func() {
+		It("Should allocate nothing for a scope that stages nothing", func() {
+			values := []string{"a", "b"}
+			var current bool
+			Expect(allocsPerScope(txn, func() {
+				current = m.Current(txn, 1, values)
+			})).To(BeZero())
+			Expect(current).To(BeTrue())
+		})
+
+		It("Should reuse its changes, allocating nothing to stage a delete", func() {
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 2) })).To(BeZero())
 		})
 	})
 

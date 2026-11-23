@@ -52,6 +52,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,
+		Impact:  svc.Impact,
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {

@@ -126,7 +126,11 @@ type Service struct {
 	builtIns atomic.Pointer[builtInSet]
 	// builtInFilters holds the filters of MatchInternal.
 	builtInFilters builtInFilters
-	mu             struct {
+	// names keeps channel names unique across the Core.
+	names *gorp.UniqueIndex[Key, Channel, string]
+	// tombstones holds the paths of deleted channels that a display still holds.
+	tombstones *tombstones
+	mu         struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -151,6 +155,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.names = newNameIndex()
 	s.builtIns.Store(&builtInSet{})
 	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -162,11 +167,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.names),
 		References:      append(s.indexes.references(), s.index),
 		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if s.tombstones, err = openTombstones(ctx, cfg.DB); !ok(err, s.tombstones.table) {
 		return nil, err
 	}
 	// The channel limit counts each non-virtual channel. Declare takes the built-ins

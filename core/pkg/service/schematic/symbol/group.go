@@ -17,10 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
-// DeleteGroup deletes the group identified by key and every symbol in it. It returns
-// query.ErrNotFound when no group has key, and a validation error when the group holds
-// anything other than symbols.
-func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) error {
+// DeleteSymbolsIn deletes every symbol in the group identified by key, and leaves the
+// group. It returns query.ErrNotFound when no group has key.
+func (s *Service) DeleteSymbolsIn(
+	ctx context.Context,
+	tx gorp.Tx,
+	key group.Key,
+) error {
 	if err := s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
 		Entry(&group.Group{}).
@@ -35,8 +38,5 @@ func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) er
 		return err
 	}
 	keys := lo.Map(symbols, func(sym Symbol, _ int) Key { return sym.Key })
-	if err := s.NewWriter(tx).Delete(ctx, keys...); err != nil {
-		return err
-	}
-	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)
+	return s.NewWriter(tx).Delete(ctx, keys...)
 }

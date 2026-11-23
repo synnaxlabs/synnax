@@ -560,6 +560,9 @@ func (r *reference[K, E, T]) Referenced(
 	in func(K) bool,
 	targets ...T,
 ) (set.Set[T], error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 		return r.scanReferenced(ctx, snap, in, targets)
 	} else if err != nil {
@@ -676,6 +679,12 @@ func (r *reference[K, E, T]) dependents(
 	targets []Target,
 	typed any,
 ) ([][]string, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
+	if r.store.Empty(scopeOf(snap)) {
+		return nil, nil
+	}
 	values, positions := r.values(targets, typed)
 	keys, err := probeEach(ctx, r.store, snap, values)
 	if err != nil || keys == nil {
@@ -711,11 +720,17 @@ func (r *reference[K, E, T]) dependentsOf(
 	snap Snapshot,
 	target Target,
 ) ([]string, error) {
+	if r.store.Empty(scopeOf(snap)) {
+		return nil, nil
+	}
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probeEach(ctx, r.store, snap, []T{t})
+	if err := r.store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	keys, err := r.store.GetEach(scopeOf(snap), []T{t})
 	if err != nil || keys == nil {
 		return nil, err
 	}
@@ -723,6 +738,7 @@ func (r *reference[K, E, T]) dependentsOf(
 	for i, k := range keys[0] {
 		out[i] = FormatKey(k)
 	}
+	slices.Sort(out)
 	return out, nil
 }
 

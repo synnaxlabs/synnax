@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -33,6 +34,12 @@ type registeredTable interface {
 	issued(k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
+	// referenceIndex returns the index of the reference named name among the references
+	// of the table, and false when the table has none of that name.
+	referenceIndex(name string) (int, bool)
+	// release stages, in tx, the removal of the unique values of the entries with the
+	// text keys keys.
+	release(tx Tx, keys []string) error
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
@@ -75,7 +82,9 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
-	// dependentsOf returns the text keys of the entries that hold target.
+	// dependentsOf returns the sorted text keys of the entries that hold target, as
+	// snap holds them, so a delete meets them in a fixed order. A transaction holds the
+	// DB lock, so it sees no commit in flight.
 	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
@@ -88,7 +97,9 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
-	// mu guards tables, names, referencing, and indexed.
+	// version counts the changes to the registered tables and their references.
+	version atomic.Uint64
+	// mu guards tables, names, referencing, indexed, and spaces.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// names maps a key prefix to the name of the registered table that stores under it.
@@ -97,6 +108,8 @@ type registry struct {
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
 	indexed map[string][]any
+	// spaces maps the name of a space of unique indexes to its *uniqueSpace.
+	spaces map[string]any
 }
 
 func newRegistry() *registry {
@@ -105,6 +118,7 @@ func newRegistry() *registry {
 		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
+		spaces:      make(map[string]any),
 	}
 }
 
@@ -144,6 +158,7 @@ func (r *registry) indexedTables(prefix []byte) []any {
 func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
@@ -178,6 +193,7 @@ func (r *registry) tableName(prefix []byte) (string, bool) {
 func (r *registry) addReferences(refs []registeredReference) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	for _, ref := range refs {
 		for _, target := range ref.targetTables() {
 			if t, ok := r.tables[target]; ok {
@@ -212,6 +228,7 @@ func checkIssues(ref registeredReference, name string, table registeredTable) er
 func (r *registry) unregister(name string, prefix []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	delete(r.tables, name)
 	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
@@ -367,13 +384,35 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
+	// heldWanted is true when the delete asks for the Weak holders of its entries.
+	heldWanted bool
+	// weak holds, by text key, the Weak holders of each entry of table when heldWanted
+	// is true. It is nil until the first such holder.
+	weak map[string][]Dependent
+}
+
+// holdWeakly records that dep holds t through a Weak reference, when the delete asks
+// for Weak holders and t is in table.
+func (p *deletePlan) holdWeakly(t Target, dep Dependent) {
+	if !p.heldWanted || t.Table != p.table {
+		return
+	}
+	if p.weak == nil {
+		p.weak = make(map[string][]Dependent)
+	}
+	p.weak[t.Key] = append(p.weak[t.Key], dep)
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
 func (p *deletePlan) changes() int { return p.size + len(p.detaches) }
 
+// isRequested reports whether the caller asked to delete t.
+func (p *deletePlan) isRequested(t Target) bool {
+	return t.Table == p.table && p.requested.Contains(t.Key)
+}
+
 func (p *deletePlan) contains(t Target) bool {
-	if t.Table == p.table && p.requested.Contains(t.Key) {
+	if p.isRequested(t) {
 		return true
 	}
 	keys, ok := p.cascades[t.Table]
@@ -420,31 +459,99 @@ func (r *registry) plan(
 	table string,
 	keys []string,
 	limit int,
+	weak bool,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
-	if w.plan.changes() > limit {
-		return nil, w.tooLarge()
-	}
-	for len(w.queue) > 0 {
-		target := w.queue[0]
-		w.queue = w.queue[1:]
-		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependentsOf(ctx, tx, target)
-			if err != nil {
-				return nil, err
-			}
-			for _, k := range deps {
-				dep := Target{Table: ref.ownerTable(), Key: k}
-				if err := w.visit(ref, dep, target); err != nil {
-					return nil, err
-				}
-			}
-		}
+	w.plan.heldWanted = weak
+	if err := r.walk(ctx, tx, w); err != nil {
+		return nil, err
 	}
 	if err := w.checkRestrictions(); err != nil {
 		return nil, err
 	}
 	return w.plan, nil
+}
+
+// walk visits, breadth-first, each entry that holds an entry the delete of w removes,
+// as seen by snap.
+func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
+	if w.plan.changes() > w.limit {
+		return w.tooLarge()
+	}
+	for len(w.queue) > 0 {
+		target := w.queue[0]
+		w.queue = w.queue[1:]
+		for _, ref := range r.referencesTo(target.Table) {
+			deps, err := ref.dependentsOf(ctx, snap, target)
+			if err != nil {
+				return err
+			}
+			for _, k := range deps {
+				dep := Target{Table: ref.ownerTable(), Key: k}
+				if err := w.visit(ref, dep, target); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// planned returns the plan that effects describe, for a delete from the table named
+// table that PlanDelete planned in tx and that is still current. It fails with the
+// RestrictError of a holder in effects.Restricts that tx has not deleted since, and on
+// a detach through a reference that its holder's table does not have.
+func (r *registry) planned(
+	tx Tx,
+	table string,
+	effects DeleteEffects,
+	weak bool,
+) (*deletePlan, error) {
+	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
+	// since still exists.
+	for _, e := range effects.Restricts {
+		if !deletedIn(tx, e.Holder) {
+			return nil, RestrictError{
+				Target:    e.Target,
+				Holder:    e.Holder,
+				Reference: e.Reference,
+			}
+		}
+	}
+	p := &deletePlan{
+		table:      table,
+		cascades:   make(map[string]set.Set[string], len(effects.Cascades)),
+		detaches:   make(map[Target][]detachOp, len(effects.Detaches)),
+		heldWanted: weak,
+	}
+	for _, e := range effects.Cascades {
+		p.cascade(e.Holder)
+	}
+	for _, e := range effects.Weak {
+		p.holdWeakly(e.Target, e.Dependent)
+	}
+	for _, e := range effects.Detaches {
+		if deletedIn(tx, e.Holder) {
+			continue
+		}
+		holder, err := r.table(e.Holder.Table)
+		if err != nil {
+			return nil, err
+		}
+		i, ok := holder.referenceIndex(e.Reference)
+		if !ok {
+			return nil, errors.Newf(
+				"[gorp] - table %s has no reference %s",
+				e.Holder.Table,
+				e.Reference,
+			)
+		}
+		p.detaches[e.Holder] = append(
+			p.detaches[e.Holder],
+			detachOp{ref: i, target: e.Target},
+		)
+	}
+	return p, nil
 }
 
 // restriction is a Restrict reference through which dependent holds target.
@@ -470,16 +577,35 @@ type planWalk struct {
 	queue        []Target
 	restrictions []restriction
 	restricted   set.Set[Target]
+	// effects holds, by OnDelete, the effect of the walk on each entry it meets, for
+	// PlanDelete. It is nil for a delete.
+	effects *[Weak + 1][]DeleteEffect
+}
+
+// record adds the effect of the delete of target on dep, which holds it through ref,
+// when the walk is for PlanDelete.
+func (w *planWalk) record(ref registeredReference, dep, target Target) {
+	if w.effects != nil {
+		p := ref.onDeletePolicy()
+		if p == Inline {
+			p = Detach
+		}
+		w.effects[p] = append(w.effects[p], newDeleteEffect(ref, dep, target))
+	}
+}
+
+func newDeletePlan(table string) *deletePlan {
+	return &deletePlan{
+		table:     table,
+		requested: set.New[string](),
+		cascades:  make(map[string]set.Set[string]),
+		detaches:  make(map[Target][]detachOp),
+	}
 }
 
 func newPlanWalk(table string, keys []string, limit int) *planWalk {
 	w := &planWalk{
-		plan: &deletePlan{
-			table:     table,
-			requested: set.New[string](),
-			cascades:  make(map[string]set.Set[string]),
-			detaches:  make(map[Target][]detachOp),
-		},
+		plan:       newDeletePlan(table),
 		keys:       keys,
 		limit:      limit,
 		restricted: set.New[Target](),
@@ -492,16 +618,29 @@ func newPlanWalk(table string, keys []string, limit int) *planWalk {
 	return w
 }
 
-func (w *planWalk) tooLarge() error {
-	named := w.plan.table + " " + w.keys[0]
+// named returns the entries that the caller asked to delete, in words.
+func (w *planWalk) named() string {
 	if len(w.keys) > 1 {
-		named = strconv.Itoa(len(w.keys)) + " entries of " + w.plan.table
+		return strconv.Itoa(len(w.keys)) + " entries of " + w.plan.table
 	}
+	return w.plan.table + " " + w.keys[0]
+}
+
+func (w *planWalk) tooLarge() error {
 	return errors.Wrapf(
 		validate.ErrValidation,
 		"deleting %s would change more than %d entries",
-		named,
+		w.named(),
 		w.limit,
+	)
+}
+
+func (w *planWalk) tooManyRestricts() error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"more than %d entries refuse deleting %s",
+		w.limit,
+		w.named(),
 	)
 }
 
@@ -510,12 +649,18 @@ func (w *planWalk) tooLarge() error {
 func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 	switch ref.onDeletePolicy() {
 	case Cascade:
+		if !w.plan.isRequested(dep) {
+			w.record(ref, dep, target)
+		}
 		if !w.plan.cascade(dep) {
 			return nil
 		}
 		w.queue = append(w.queue, dep)
 	case Restrict:
-		if w.plan.contains(dep) || w.restricted.Contains(dep) {
+		if w.plan.contains(dep) {
+			return nil
+		}
+		if w.restricted.Contains(dep) {
 			return nil
 		}
 		w.restricted.Add(dep)
@@ -527,10 +672,15 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		// dependent stays outside it.
 		if len(w.restrictions) > w.limit {
 			if err := w.checkRestrictions(); err != nil {
+				if w.effects != nil {
+					return w.tooManyRestricts()
+				}
 				return err
 			}
 		}
 	case Weak:
+		w.record(ref, dep, target)
+		w.plan.holdWeakly(target, newDeleteEffect(ref, dep, target).Dependent)
 		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {
@@ -540,6 +690,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 			w.plan.detaches[dep],
 			detachOp{ref: ref.index(), target: target},
 		)
+		w.record(ref, dep, target)
 	}
 	if w.plan.changes() > w.limit {
 		return w.tooLarge()
@@ -560,14 +711,20 @@ func (w *planWalk) checkRestrictions() error {
 
 // apply carries out what p adds to the delete that the caller asked for: it detaches
 // first, then cascades, so each Inline reads a target that still exists. It leaves the
-// entries the caller asked to delete in place.
+// entries the caller asked to delete in place. Before the detaches, it releases the
+// unique values of every entry that p deletes, so a detached entry can take one.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
+	if len(p.detaches) > 0 {
+		if err := r.release(tx, p); err != nil {
+			return err
+		}
+	}
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)
 		if err != nil {
 			return err
 		}
-		if err := t.detach(ctx, tx, dep.Key, ops); err != nil {
+		if err = t.detach(ctx, tx, dep.Key, ops); err != nil {
 			return err
 		}
 	}
@@ -581,4 +738,26 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		}
 	}
 	return nil
+}
+
+// release stages, in tx, the removal of the unique values of every entry that p
+// deletes.
+func (r *registry) release(tx Tx, p *deletePlan) error {
+	if err := r.releaseKeys(tx, p.table, p.requested); err != nil {
+		return err
+	}
+	for name, keys := range p.cascades {
+		if err := r.releaseKeys(tx, name, keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *registry) releaseKeys(tx Tx, table string, keys set.Set[string]) error {
+	t, err := r.table(table)
+	if err != nil {
+		return err
+	}
+	return t.release(tx, keys.Slice())
 }

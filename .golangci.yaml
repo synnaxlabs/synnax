@@ -91,9 +91,13 @@ linters:
         - ^encoding/json/jsontext\.Kind$
         - ^golang\.org/x/crypto/cryptobyte/asn1\.Tag$
     forbidigo:
+      analyze-types: true
       forbid:
         - pattern: ^fmt\.Errorf$
           msg: use errors.Newf or errors.Wrapf from github.com/synnaxlabs/x/errors
+        - pattern: ^group\.Writer\.Delete$
+          pkg: ^github\.com/synnaxlabs/synnax/pkg/service/group$
+          msg: delete groups through impact.Apply, which removes what they hold first
     ginkgolinter:
       forbid-focus-container: true
       force-expect-to: true
@@ -189,6 +193,12 @@ linters:
       - path: analyzers/[^/]+/plugin\.go$
         linters:
           - gochecknoinits
+      # impact.Apply is the one group delete. The ranger migration and specs call the
+      # writer directly.
+      - path: (pkg/service/impact/[^/]+|pkg/service/ranger/versions/v0/migrate|_test)\.go$
+        linters:
+          - forbidigo
+        text: delete groups through impact\.Apply
 formatters:
   enable:
     - gci

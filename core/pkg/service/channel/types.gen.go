@@ -55,6 +55,13 @@ const (
 // by a reset channel.
 type Operation = versions.Operation
 
+// Rewire is one past holder of a channel's path.
+type Rewire = versions.Rewire
+
+// Tombstone keeps the path of a deleted channel that a display still holds, so a
+// channel made at the path later can take its place.
+type Tombstone = versions.Tombstone
+
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
