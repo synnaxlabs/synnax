@@ -11,66 +11,154 @@ package lsp
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
 )
 
-// orphan is a rune of a text that no token holds, at its code point offset.
+// lineState is the construct that a line starts in.
+type lineState uint8
+
+const (
+	stCode lineState = iota
+	// stString is inside a multi-line string.
+	stString
+	// stComment is inside a block comment.
+	stComment
+)
+
+// orphan is a rune that no token holds, at its column.
 type orphan struct {
-	at int
-	r  rune
+	col int
+	r   rune
 }
 
-// quoteScan holds the lexical facts of one text that a quoted channel name needs.
-// Offsets count code points.
-type quoteScan struct {
-	// names holds the quoted channel name and string literal tokens, in order.
-	names []antlr.Token
-	// orphans holds the runes that no token holds, in order, such as the quote of an
-	// unclosed name or string.
+// span is a quoted channel name or a one-line string of a line. end is exclusive, and
+// prefix is the length of a string's r and f letters.
+type span struct {
+	kind               int
+	start, end, prefix int
+}
+
+// quoteLine holds the quote facts of one line. Columns count code points. Facts are
+// relative to their line, so an edit keeps the facts of the lines it does not change.
+type quoteLine struct {
+	// start is the construct that the line starts in. closes is the column after its
+	// end, or -1 when it runs past the line.
+	start  lineState
+	closes int
+	// names and orphans hold the spans and the runes that no token holds, after closes
+	// and before opens, in order.
+	names   []span
 	orphans []orphan
-	// open is the offset of an unclosed block comment or multi-line string, which runs
-	// to the end of the text, or -1.
-	open int
-	// lines holds the offset of each line start.
-	lines []int
+	// opens is the column of a multi-line string or block comment that the line does
+	// not close, or -1. end is the construct that the next line starts in.
+	opens int
+	end   lineState
 }
 
-// scanQuotes lexes text once into its quote facts.
-func scanQuotes(text string) *quoteScan {
-	return scanTokens(text, tokenizeContent(text))
+// quoteScan holds the quote facts of each line of one text.
+type quoteScan struct {
+	lines []*quoteLine
 }
 
-// scanTokens returns the quote facts of text from tokens, the tokens of text.
-func scanTokens(text string, tokens []antlr.Token) *quoteScan {
-	runes := []rune(text)
-	q := &quoteScan{open: -1, lines: []int{0}}
-	for i, r := range runes {
-		if r == '\n' {
-			q.lines = append(q.lines, i+1)
-		}
+// scanQuotes returns the quote facts of text, lexed by s.
+func scanQuotes(text string, s *lineScanner) *quoteScan {
+	q := &quoteScan{}
+	state := stCode
+	for line := range strings.SplitSeq(text, "\n") {
+		ql := s.line(line, state)
+		q.lines = append(q.lines, ql)
+		state = ql.end
 	}
-	next := 0
-	var prev antlr.Token
-	for _, t := range tokens {
-		if t.GetTokenType() == antlr.TokenEOF {
-			break
+	return q
+}
+
+// update returns the quote facts of text, which was old when q was scanned, lexed by
+// scanner. It scans again from the first changed line until a line starts as it did
+// before, and keeps the facts of the other lines.
+func (q *quoteScan) update(old, text string, scanner *lineScanner) *quoteScan {
+	p := 0
+	for p < len(old) && p < len(text) && old[p] == text[p] {
+		p++
+	}
+	s := 0
+	for s < len(old)-p && s < len(text)-p && old[len(old)-1-s] == text[len(text)-1-s] {
+		s++
+	}
+	first := strings.Count(text[:p], "\n")
+	last := strings.Count(text[:len(text)-s], "\n")
+	delta := last - strings.Count(old[:len(old)-s], "\n")
+	out := make([]*quoteLine, first, len(q.lines)+max(delta, 0))
+	copy(out, q.lines[:first])
+	state := q.lines[first].start
+	rest := text[strings.LastIndexByte(text[:p], '\n')+1:]
+	for i := first; ; i++ {
+		if i > last && i-delta < len(q.lines) && q.lines[i-delta].start == state {
+			return &quoteScan{lines: append(out, q.lines[i-delta:]...)}
 		}
-		q.addOrphans(runes, next, t.GetStart())
-		next = t.GetStop() + 1
+		line, after, more := strings.Cut(rest, "\n")
+		ql := scanner.line(line, state)
+		out = append(out, ql)
+		if !more {
+			return &quoteScan{lines: out}
+		}
+		state, rest = ql.end, after
+	}
+}
+
+// lineScanner lexes one line at a time with one lexer. It is not safe for concurrent
+// use.
+type lineScanner struct {
+	lexer *parser.ArcLexer
+}
+
+func newLineScanner() *lineScanner {
+	l := parser.NewArcLexer(antlr.NewInputStream(""))
+	l.RemoveErrorListeners()
+	return &lineScanner{lexer: l}
+}
+
+// line returns the quote facts of the text of a line that starts in start.
+func (s *lineScanner) line(text string, start lineState) *quoteLine {
+	runes := []rune(text)
+	q := &quoteLine{start: start, opens: -1}
+	from := 0
+	if start != stCode {
+		if from = closeOf(runes, start); from < 0 {
+			q.closes, q.end = -1, start
+			return q
+		}
+		q.closes = from
+	}
+	s.lexer.SetInputStream(antlr.NewInputStream(string(runes[from:])))
+	next := from
+	var prev antlr.Token
+	for _, t := range s.lexer.GetAllTokens() {
+		a, b := from+t.GetStart(), from+t.GetStop()+1
+		if q.addOrphans(runes, next, a) {
+			return q
+		}
+		next = b
 		switch t.GetTokenType() {
 		case parser.ArcLexerCHANNEL_NAME,
 			parser.ArcLexerSTR_LITERAL,
 			parser.ArcLexerSTR_LITERAL_MULTI:
-			q.names = append(q.names, t)
+			text := t.GetText()
+			q.names = append(q.names, span{
+				kind:   t.GetTokenType(),
+				start:  a,
+				end:    b,
+				prefix: len(text) - len(trimStringPrefix(text)),
+			})
 		case parser.ArcLexerSTAR, parser.ArcLexerSTAR_ASSIGN:
 			// A closed comment lexes as one token, so an adjacent "/*" opens a comment
-			// that never closes.
-			if q.open < 0 && prev != nil &&
-				prev.GetTokenType() == parser.ArcLexerSLASH &&
+			// that the line does not close.
+			if prev != nil && prev.GetTokenType() == parser.ArcLexerSLASH &&
 				prev.GetStop()+1 == t.GetStart() {
-				q.open = prev.GetStart()
+				q.opens, q.end = from+prev.GetStart(), stComment
+				return q
 			}
 		}
 		prev = t
@@ -79,13 +167,34 @@ func scanTokens(text string, tokens []antlr.Token) *quoteScan {
 	return q
 }
 
-func (q *quoteScan) addOrphans(runes []rune, from, to int) {
+// addOrphans adds the runes of [from, to) as orphans. An orphan backtick opens a
+// multi-line string, which ends the line's facts, and then addOrphans returns true.
+func (q *quoteLine) addOrphans(runes []rune, from, to int) bool {
 	for i := from; i < to; i++ {
-		q.orphans = append(q.orphans, orphan{at: i, r: runes[i]})
-		if runes[i] == '`' && (q.open < 0 || i < q.open) {
-			q.open = i
+		if runes[i] == '`' {
+			q.opens, q.end = i, stString
+			return true
+		}
+		q.orphans = append(q.orphans, orphan{col: i, r: runes[i]})
+	}
+	return false
+}
+
+// closeOf returns the column after the end of the construct state that runes start in,
+// or -1 when it runs past them.
+func closeOf(runes []rune, state lineState) int {
+	for i := 0; i < len(runes); i++ {
+		switch {
+		case state == stString && runes[i] == '\\':
+			i++
+		case state == stString && runes[i] == '`':
+			return i + 1
+		case state == stComment && runes[i] == '*' && i+1 < len(runes) &&
+			runes[i+1] == '/':
+			return i + 2
 		}
 	}
+	return -1
 }
 
 // cursorPlace is where a cursor sits among the quotes and strings of a text.
@@ -100,51 +209,81 @@ const (
 	inLiteral
 )
 
-// at returns where the cursor at offset c sits. In a quoted name, it also returns the
-// offset of the opening quote. In a complete string, it also returns its token.
-func (q *quoteScan) at(c int) (cursorPlace, int, antlr.Token) {
-	if q.open >= 0 && c > q.open {
-		return inLiteral, 0, nil
+// cursorAt is where a cursor sits. quote is the column of the opening quote of a quoted
+// name. str is a one-line string that holds the cursor, and multi reports a cursor in a
+// string that spans lines.
+type cursorAt struct {
+	place cursorPlace
+	quote int
+	str   *span
+	multi bool
+}
+
+// at returns where the cursor at col of line sits.
+func (q *quoteScan) at(line, col int) cursorAt {
+	ql := q.lines[line]
+	if ql.start != stCode && (ql.closes < 0 || col < ql.closes) {
+		return cursorAt{place: inLiteral, multi: ql.start == stString}
 	}
-	i := sort.Search(len(q.names), func(i int) bool {
-		return q.names[i].GetStart() >= c
+	if ql.opens >= 0 && col > ql.opens {
+		return cursorAt{place: inLiteral, multi: ql.end == stString}
+	}
+	i := sort.Search(len(ql.names), func(i int) bool {
+		return ql.names[i].start >= col
 	})
-	if i > 0 && c <= q.names[i-1].GetStop() {
-		t := q.names[i-1]
-		if t.GetTokenType() == parser.ArcLexerCHANNEL_NAME {
-			return inQuote, t.GetStart(), nil
+	if i > 0 && col < ql.names[i-1].end {
+		n := &ql.names[i-1]
+		switch {
+		case n.kind == parser.ArcLexerCHANNEL_NAME:
+			return cursorAt{place: inQuote, quote: n.start}
+		case col > n.start+n.prefix:
+			return cursorAt{place: inLiteral, str: n}
 		}
-		// The prefix of a string precedes its opening delimiter.
-		if c > t.GetStart()+len(t.GetText())-len(trimStringPrefix(t.GetText())) {
-			return inLiteral, 0, t
-		}
-		return inCode, 0, nil
+		return cursorAt{place: inCode}
 	}
-	lineStart := q.lines[sort.SearchInts(q.lines, c+1)-1]
 	quote, backslash := -1, -2
-	j := sort.Search(len(q.orphans), func(j int) bool {
-		return q.orphans[j].at >= lineStart
-	})
-	for ; j < len(q.orphans) && q.orphans[j].at < c; j++ {
-		o := q.orphans[j]
+	for _, o := range ql.orphans {
+		if o.col >= col {
+			break
+		}
 		switch {
 		case o.r == '\\':
-			backslash = o.at
+			backslash = o.col
 		case quote >= 0:
-			if o.r == '\'' && backslash != o.at-1 {
+			if o.r == '\'' && backslash != o.col-1 {
 				quote = -1
 			}
 		case o.r == '\'':
-			quote = o.at
+			quote = o.col
 		case o.r == '"':
 			// A string that never closes runs to the end of its line.
-			return inLiteral, 0, nil
+			return cursorAt{place: inLiteral}
 		}
 	}
 	if quote >= 0 {
-		return inQuote, quote, nil
+		return cursorAt{place: inQuote, quote: quote}
 	}
-	return inCode, 0, nil
+	return cursorAt{place: inCode}
+}
+
+// multiString returns the line and column of the delimiter that opens the multi-line
+// string that holds the cursor at col of line, and the line and column after its end.
+// endCol is -1 when the string does not close.
+func (q *quoteScan) multiString(
+	line, col int,
+) (startLine, startCol, endLine, endCol int) {
+	startLine = line
+	if ql := q.lines[line]; ql.opens < 0 || col <= ql.opens {
+		for startLine--; q.lines[startLine].opens < 0; startLine-- {
+		}
+	}
+	endLine, endCol = startLine+1, -1
+	for ; endLine < len(q.lines); endLine++ {
+		if endCol = q.lines[endLine].closes; endCol >= 0 {
+			break
+		}
+	}
+	return startLine, q.lines[startLine].opens, min(endLine, len(q.lines)-1), endCol
 }
 
 // trimStringPrefix returns text without the r and f letters before its opening

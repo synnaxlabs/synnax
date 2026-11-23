@@ -10,6 +10,8 @@
 package lsp_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -984,6 +986,65 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, docURI, 2, 11)
 			Expect(completions.Items).To(HaveLen(1))
 			Expect(completions.Items[0].Label).To(Equal("ox-pt-1"))
+		})
+
+		Describe("after an edit", func() {
+			const code = "func f() {\n    o_local f64 := 1.0\n    y := 1\n    x := o\n}"
+
+			It("should offer nothing in a backtick string that an edit opens", func(
+				ctx SpecContext,
+			) {
+				OpenArcDocument(server, ctx, docURI, code)
+				Expect(HasCompletion(
+					Completion(server, ctx, docURI, 3, 10).Items,
+					"ox-pt-1",
+				)).To(BeTrue())
+				ChangeDocument(
+					server,
+					ctx,
+					docURI,
+					strings.Replace(code, "y := 1", "y := `", 1),
+					2,
+				)
+				Expect(Completion(server, ctx, docURI, 3, 10).Items).To(BeEmpty())
+			})
+
+			It("should complete in code again after an edit closes the string", func(
+				ctx SpecContext,
+			) {
+				open := strings.Replace(code, "y := 1", "y := `", 1)
+				OpenArcDocument(server, ctx, docURI, open)
+				Expect(Completion(server, ctx, docURI, 3, 10).Items).To(BeEmpty())
+				ChangeDocument(
+					server,
+					ctx,
+					docURI,
+					strings.Replace(open, "y := `", "y := ``", 1),
+					2,
+				)
+				Expect(HasCompletion(
+					Completion(server, ctx, docURI, 3, 10).Items,
+					"ox-pt-1",
+				)).To(BeTrue())
+			})
+
+			It("should offer nothing after a block comment that an edit opens", func(
+				ctx SpecContext,
+			) {
+				OpenArcDocument(server, ctx, docURI, code+"\n// `")
+				Expect(HasCompletion(
+					Completion(server, ctx, docURI, 3, 10).Items,
+					"ox-pt-1",
+				)).To(BeTrue())
+				ChangeDocument(
+					server,
+					ctx,
+					docURI,
+					strings.Replace(code, "y := 1", "y := 1 /*", 1)+"\n// `",
+					2,
+				)
+				Expect(Completion(server, ctx, docURI, 3, 10).Items).To(BeEmpty())
+			})
 		})
 
 		Describe("in a format string", func() {
