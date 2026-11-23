@@ -431,6 +431,18 @@ describe("Custom.useRender", () => {
         expect(strokeColor(container.querySelector("#g") as SVGElement)).toBe("");
       });
 
+      it("should restore the own fill of each element when the paint goes", () => {
+        const container = document.createElement("div");
+        const { rerender } = renderAttached(
+          { paints: [createPaint(["#g"], undefined, "#00ff00")], spec },
+          container,
+        );
+        rerender({ paints: [], spec });
+        const [shape, use] = inside(container);
+        expect(shape.getAttribute("fill")).toBe("white");
+        expect(use.hasAttribute("fill")).toBe(false);
+      });
+
       it("should hide each element inside a hidden group and show them again", () => {
         const container = document.createElement("div");
         const hidden = [{ selectors: ["#g"], hidden: true }];

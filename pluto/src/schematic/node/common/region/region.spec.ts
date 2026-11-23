@@ -350,6 +350,16 @@ describe("Region.paint", () => {
     });
   });
 
+  it("should skip a use at the start of a group", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><defs><rect id="t"/></defs><g id="g">' +
+      '<use href="#t" /><rect stroke="#ff0000" fill="#0000ff" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
   it("should return transparent when no selector matches", () => {
     expect(Region.paint(SVG, ["#missing"])).toEqual({
       stroke: color.TRANSPARENT,

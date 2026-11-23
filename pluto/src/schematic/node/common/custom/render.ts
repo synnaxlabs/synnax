@@ -60,13 +60,13 @@ const setStroke = (el: SVGElement, strokeColor: color.Crude | undefined) => {
 };
 
 const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
-  if (!el.hasAttribute(ORIGINAL_FILL_ATTRIBUTE)) {
-    const originalFill = el.getAttribute("fill");
-    if (originalFill != null) el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, originalFill);
-  }
-  const fill =
-    fillColor != null ? color.hex(fillColor) : el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
-  if (fill != null) el.setAttribute("fill", fill);
+  // An empty original marks an element with no fill of its own, such as a <use>.
+  const original =
+    el.getAttribute(ORIGINAL_FILL_ATTRIBUTE) ?? el.getAttribute("fill") ?? "";
+  el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, original);
+  if (fillColor != null) el.setAttribute("fill", color.hex(fillColor));
+  else if (original === "") el.removeAttribute("fill");
+  else el.setAttribute("fill", original);
 };
 
 const setHidden = (el: SVGElement, hidden: boolean) => {

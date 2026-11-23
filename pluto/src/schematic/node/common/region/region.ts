@@ -221,12 +221,14 @@ export const graphics = (root: Element, selectors: string[]): SVGElement[] =>
 
 /**
  * Returns the colors a normalized SVG paints a region with when the region sets none:
- * the stroke and fill attributes of the first element that {@link graphics} returns. A
- * missing element or attribute reads as transparent.
+ * the stroke and fill attributes of the first shape that {@link graphics} returns. A
+ * missing shape or attribute reads as transparent.
  */
 export const paint = (svg: string, selectors: string[]): ColorPair => {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  const [el] = graphics(doc.documentElement, selectors);
+  const [el] = graphics(doc.documentElement, selectors).filter((g) =>
+    VISUAL_ELEMENTS.includes(g.tagName),
+  );
   if (el == null) return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
   return {
     stroke: normalizeColor(el.getAttribute("stroke")),
