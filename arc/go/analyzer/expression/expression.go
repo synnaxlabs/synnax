@@ -364,8 +364,7 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
-		var buf [2]string
-		head := parser.AppendQualifiedNameParts(buf[:0], qid)[0]
+		head, _ := parser.QualifiedNameParts(qid)
 		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
@@ -571,10 +570,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	var buf [2]string
-	parts := parser.AppendPrimaryNameParts(buf[:0], primary)
+	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	scope, err := ctx.ResolveQualified(parts)
+	scope, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 		return
@@ -696,27 +694,9 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
-// recordChannelRead records that the function that encloses scope reads the channel
-// resolved.
-func recordChannelRead(scope, resolved *symbol.Symbol) {
-	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-		panic(fnErr)
-	}
-	if fn != nil {
-		// Use SourceID if available, otherwise use symbol's own ID
-		readID := uint32(resolved.ID)
-		if resolved.SourceID != nil {
-			readID = uint32(*resolved.SourceID)
-		}
-		fn.Channels.Read[readID] = resolved.Name
-	}
-}
-
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	var buf [2]string
-	if parts := parser.AppendPrimaryNameParts(buf[:0], ctx.AST); len(parts) > 0 {
-		resolved, err := ctx.ResolveQualified(parts)
+	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
+		resolved, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -729,7 +709,18 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			)
 		}
 		if tracksChannelRead(resolved) {
-			recordChannelRead(ctx.Scope, resolved)
+			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+				panic(fnErr)
+			}
+			if fn != nil {
+				// Use SourceID if available, otherwise use symbol's own ID
+				readID := uint32(resolved.ID)
+				if resolved.SourceID != nil {
+					readID = uint32(*resolved.SourceID)
+				}
+				fn.Channels.Read[readID] = resolved.Name
+			}
 		}
 		return
 	}
@@ -844,12 +835,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, parts)
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}

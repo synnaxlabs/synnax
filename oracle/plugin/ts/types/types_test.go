@@ -685,8 +685,21 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("float32", "float32", "z.number()"),
 				Entry("float64", "float64", "z.number()"),
 				Entry("record", "record", "record.unknownZ().default(() => ({}))"),
-				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
+				Entry("bytes", "bytes", "binary.bytesZ"),
 			)
+
+			It("Should import binary from X for a bytes field", func() {
+				source := `
+					@ts output "out"
+
+					Test struct {
+						field bytes
+					}
+				`
+				resp := MustGenerate(source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { binary } from "@synnaxlabs/x";`)
+			})
 		})
 
 		Context("@ts to_number directive", func() {

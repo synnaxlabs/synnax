@@ -41,6 +41,10 @@
             transition: top 0.15s ease-in-out;
             animation: var(--pluto-modal-animation);
 
+            @media (height <= 800px) {
+                top: 10%;
+            }
+
             &.lyra-dialog--modal-position-shifted {
                 top: 8%;
             }
@@ -51,10 +55,13 @@
         }
     }
 
-    &:not(.lyra--modal) {
+    /* The entrance animation sets opacity, so it starts once the dialog is placed. */
+    &:not(.lyra--modal, .lyra--hidden) {
         animation: var(--pluto-dialog-animation);
+    }
+
+    &:not(.lyra--modal) {
         box-shadow: var(--pluto-shadow-overlay);
-        z-index: 6;
 
         /* The frame writes the space left between the trigger and the window edges. */
         max-height: min(
@@ -82,12 +89,10 @@
 
     &.lyra--hidden {
         opacity: 0;
-        z-index: -1;
         pointer-events: none;
     }
 
     &.lyra--visible {
-        z-index: 5;
         opacity: 1;
     }
 }
@@ -101,38 +106,41 @@
     display: contents;
 }
 
+/* The native modal dialog. It fills the window, and its surface is the modal. */
 .lyra-dialog__bg {
+    -webkit-user-select: none;
+    user-select: none;
+    position: fixed;
+    inset: 0;
     width: 100%;
     height: 100%;
-    background: transparent;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    padding: 3rem 5rem;
+    overflow: visible;
+    color: inherit;
+    outline: none;
+    transition: background 0.15s ease-in-out;
+    background: var(--pluto-gray-l8-40);
 
-    &.lyra--visible {
-        -webkit-user-select: none;
-        user-select: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 4;
-        padding: 3rem 5rem;
-        transition: background 0.15s ease-in-out;
-        background: var(--pluto-gray-l8-40);
+    /* Flex sets a display, which would show the dialog before showModal(). */
+    &:not([open]) {
+        display: none;
+    }
 
-        @media (height <= 800px) {
-            .lyra-dialog__dialog {
-                top: 10%;
-            }
-        }
+    &::backdrop {
+        background: transparent;
     }
 }
 
-.lyra-theme-synnax-dark .lyra-dialog__bg.lyra--visible {
+.lyra-theme-synnax-dark .lyra-dialog__bg {
     background: var(--pluto-gray-l1-60);
 }
 
 @media (prefers-color-scheme: dark) {
-    .lyra-dialog__bg.lyra--visible {
+    .lyra-dialog__bg {
         background: var(--pluto-gray-l1-60);
     }
 }

@@ -10,12 +10,12 @@
 import type { device, rack, secret, Synnax } from "@synnaxlabs/client";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 
-import { MAKE, type Properties } from "@/feature/sift/device/types";
+import { Device } from "@/feature/sift/device";
 import { createTestDevice } from "@/platform/device/testutil";
 
 export interface CreateSiftDeviceOptions {
   rack?: rack.Key;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /** Creates a stored secret that holds a Sift API key on the live Core. */
@@ -33,7 +33,7 @@ export const createSiftDevice = async (
 ): Promise<device.Device> =>
   await createTestDevice(client, {
     name: uniqueName("sift"),
-    make: MAKE,
+    make: Device.MAKE,
     model: "sift",
     rack,
     properties: {

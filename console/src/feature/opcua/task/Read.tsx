@@ -17,12 +17,7 @@ import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
 
-import { Select } from "@/feature/opcua/device/Select";
-import {
-  type Device,
-  type Properties as DeviceProperties,
-  SCHEMAS,
-} from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import {
   type ChannelKeyAndIDGetter,
   createForm,
@@ -30,12 +25,10 @@ import {
 } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
-  nodeIdentity,
   READ_SCHEMAS,
   type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
-  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -45,10 +38,10 @@ const path = deep.path<Task.Values<ReadSchemas>>();
 
 type ChannelSource = Pick<ReadChannel, "nodeId" | "field">;
 
-const findField = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
+const findField = (props: Device.Properties, { nodeId, field }: ChannelSource) =>
   props.read.fields.find((f) => f.nodeId === nodeId && f.field === field);
 
-const getChannel = (props: DeviceProperties, source: ChannelSource) =>
+const getChannel = (props: Device.Properties, source: ChannelSource) =>
   source.field === ""
     ? (props.read.channels[source.nodeId] ??
       props.read.channels[caseconv.snakeToCamel(source.nodeId)] ??
@@ -56,7 +49,7 @@ const getChannel = (props: DeviceProperties, source: ChannelSource) =>
     : (findField(props, source)?.channel ?? 0);
 
 const setChannel = (
-  props: DeviceProperties,
+  props: Device.Properties,
   source: ChannelSource,
   key: channel.Key,
 ) => {
@@ -90,7 +83,7 @@ const Properties = (): ReactElement => {
   const samplingType = PForm.useFieldValue(path.config.sampling.type);
   return (
     <>
-      <Select />
+      <Device.Select />
       <Flex.Box x wrap>
         <PForm.Field<opcua.Sampling>
           label="Sampling mode"
@@ -127,8 +120,8 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertNodeToChannel = (node: ScannedNode): ReadChannel => ({
-  key: node.field === "" ? node.nodeId : nodeIdentity(node),
+const convertNodeToChannel = (node: Device.ScannedNode): ReadChannel => ({
+  key: node.field === "" ? node.nodeId : Device.nodeIdentity(node),
   nodeName: node.name,
   nodeId: node.nodeId,
   field: node.field,
@@ -144,7 +137,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
-const resolve = (device: Device, ch: ReadChannel) => ({
+const resolve = (device: Device.Device, ch: ReadChannel) => ({
   channel: getChannel(device.properties, ch),
 });
 
@@ -162,7 +155,7 @@ const TaskForm: FC = createForm<ReadChannel>({
 interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
-  device: Device;
+  device: Device.Device;
   taskName: string;
 }
 
@@ -230,7 +223,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 ) => {
   const device = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(device.properties);
 
@@ -275,7 +268,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannel(device.properties, c),
   }));
-  await PlatformDevice.setProperties(client, device, before, SCHEMAS);
+  await PlatformDevice.setProperties(client, device, before, Device.SCHEMAS);
   return [config, device.rack];
 };
 
