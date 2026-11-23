@@ -476,8 +476,8 @@ func desugarPartialOverrides(c *analysisCtx) {
 	}
 }
 
-// desugarFields returns a copy of fields with each typeless override completed from
-// its parent field, and whether any field changed.
+// desugarFields returns a copy of fields with each typeless override completed from its
+// parent field, and whether any field changed.
 func desugarFields(
 	fields []resolution.Field, parents map[string]resolution.Field,
 ) ([]resolution.Field, bool) {
@@ -940,8 +940,8 @@ func (u *unionVariants) add(parentName string, v resolution.UnionVariant) bool {
 	return true
 }
 
-// unionParent resolves a union's extends target and its form. It returns false and
-// adds a diagnostic when the target is unresolved, not a union, or uses a different
+// unionParent resolves a union's extends target and its form. It returns false and adds
+// a diagnostic when the target is unresolved, not a union, or uses a different
 // discriminator.
 func unionParent(
 	c *analysisCtx,
@@ -2881,8 +2881,8 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateVariantValues checks that no union variant value repeats or collides with
-// the discriminator field name.
+// validateVariantValues checks that no union variant value repeats or collides with the
+// discriminator field name.
 func validateVariantValues(
 	c *analysisCtx,
 	typ resolution.Type,
