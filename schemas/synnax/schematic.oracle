@@ -1303,9 +1303,6 @@ StalenessConfig struct {
         @validate max 9007199254740991
         @validate min 1000000000
     }
-    staleness_color   color.Color?   {
-        @doc value "is the color applied when the value is stale."
-    }
 
     @doc value  """
         is the staleness detection shared by every symbol that reads a channel.

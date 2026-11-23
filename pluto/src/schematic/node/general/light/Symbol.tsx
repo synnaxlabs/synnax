@@ -30,7 +30,6 @@ export const Symbol = ({
     threshold,
     orientation = "left",
     stalenessTimeout,
-    stalenessColor,
     ...rest
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
