@@ -121,13 +121,7 @@ func ResolveWriteConfig(
 	}
 	names := make(set.Set[string])
 	for i, t := range staged {
-		msg, write, err := icd.LiftWrite(
-			ctx,
-			inlineWrite(t),
-			found,
-			"targets."+strconv.Itoa(int(t.At)),
-			note,
-		)
+		msg, write, err := icd.LiftWrite(ctx, inlineWrite(t, note), found, note)
 		if err != nil {
 			return icd.ICD{}, false, err
 		}
@@ -235,27 +229,48 @@ func retrieveTasks(
 	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }
 
-// inlineWrite returns the write that t held inline.
-func inlineWrite(t InlineTarget) icd.InlineWrite {
-	fields := make([]icd.InlineWriteField, len(t.Fields))
+// inlineWrite returns the write that t held inline. Each field takes its path in the
+// config. A null field is dropped, and note receives its path.
+func inlineWrite(t InlineTarget, note func(path, change string)) icd.InlineWrite {
+	var (
+		path   = "targets." + strconv.Itoa(int(t.At))
+		c      = t.Channel
+		fields = make([]icd.InlineWriteField, 0, len(t.Fields))
+	)
 	for i, f := range t.Fields {
+		fieldPath := path + ".fields." + strconv.Itoa(i)
 		switch v := f.Variant.(type) {
 		case v1.StaticWriteField:
-			fields[i] = icd.StaticInlineField{Pointer: v.Pointer, Value: v.Value}
+			fields = append(fields, icd.StaticInlineField{
+				Path:    fieldPath,
+				Pointer: v.Pointer,
+				Value:   v.Value,
+			})
 		case v1.GeneratedWriteField:
-			fields[i] = icd.GeneratedInlineField{
+			fields = append(fields, icd.GeneratedInlineField{
+				Path:       fieldPath,
 				Pointer:    v.Pointer,
 				Generator:  v.Generator,
 				TimeFormat: v.TimeFormat,
-			}
+			})
 		case nil:
+			note(fieldPath, "a null field was dropped")
 		default:
 			panic(fmt.Sprintf("unknown write field variant %T", f.Variant))
 		}
 	}
 	return icd.InlineWrite{
-		Target:  "topic " + t.Topic,
-		Channel: icd.InlineChannelField(t.Channel),
-		Fields:  fields,
+		Target: "topic " + t.Topic,
+		Channel: icd.InlineChannelField{
+			Path:       path + ".channel",
+			Pointer:    c.Pointer,
+			JSONType:   c.JSONType,
+			Channel:    c.Channel,
+			Name:       c.Name,
+			DataType:   c.DataType,
+			TimeFormat: c.TimeFormat,
+			EnumValues: c.EnumValues,
+		},
+		Fields: fields,
 	}
 }

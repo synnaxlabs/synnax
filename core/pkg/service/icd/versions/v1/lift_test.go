@@ -35,9 +35,11 @@ func liftedFields(msg icd.Message) []icd.JSONField {
 	return MustBeOk(p, ok).Fields
 }
 
-// valueChannel returns a channel field at /value that sends channel 7 as a number.
+// valueChannel returns a channel field at /value and path targets.0.channel that sends
+// channel 7 as a number.
 func valueChannel() icd.InlineChannelField {
 	return icd.InlineChannelField{
+		Path:     "targets.0.channel",
 		Pointer:  "/value",
 		JSONType: payload.JSONTypeNumber,
 		Channel:  7,
@@ -57,8 +59,8 @@ var _ = Describe("LiftWrite", func() {
 		}
 	})
 
-	// lift lifts the write of ch and fields on topic plant/valve/set at path targets.0,
-	// and returns the fields of its message, the write, and each note.
+	// lift lifts the write of ch and fields on topic plant/valve/set, and returns the
+	// fields of its message, the write, and each note.
 	lift := func(
 		ctx SpecContext,
 		ch icd.InlineChannelField,
@@ -74,7 +76,6 @@ var _ = Describe("LiftWrite", func() {
 				Fields:  fields,
 			},
 			found,
-			"targets.0",
 			func(path, change string) { notes = append(notes, note{path, change}) },
 		))
 		Expect(write.Message).To(Equal(msg.Key))
@@ -316,6 +317,7 @@ var _ = Describe("LiftWrite", func() {
 		func(ctx SpecContext) {
 			format := payload.TimeFormat("weekday")
 			f, _, notes := lift(ctx, valueChannel(), icd.GeneratedInlineField{
+				Path:       "record.fields.2",
 				Pointer:    "/sent",
 				Generator:  payload.GeneratorTypeTimestamp,
 				TimeFormat: &format,
@@ -323,20 +325,11 @@ var _ = Describe("LiftWrite", func() {
 			Expect(variantOf[icd.TimestampJSONField](f[1]).TimeFormat).
 				To(Equal(payload.TimeFormatISO8601))
 			Expect(notes).To(Equal([]note{{
-				path:   "targets.0.fields.0",
+				path:   "record.fields.2",
 				change: `time format "weekday" is not valid and became iso8601`,
 			}}))
 		},
 	)
-
-	It("Should drop a null field and note it", func(ctx SpecContext) {
-		f, _, notes := lift(ctx, valueChannel(), nil)
-		Expect(f).To(HaveLen(1))
-		Expect(notes).To(Equal([]note{{
-			path:   "targets.0.fields.0",
-			change: "a null field was dropped",
-		}}))
-	})
 
 	It("Should name the field of an empty pointer value and keep names unique",
 		func(ctx SpecContext) {
@@ -353,21 +346,28 @@ var _ = Describe("LiftWrite", func() {
 		},
 	)
 
-	It("Should fail on a static value that is not JSON", func(ctx SpecContext) {
-		Expect(icd.LiftWrite(
-			ctx,
-			icd.InlineWrite{
-				Channel: valueChannel(),
-				Fields: []icd.InlineWriteField{
-					icd.StaticInlineField{Pointer: "/bad", Value: make(chan int)},
+	It(
+		"Should fail with the path of a static field whose value is not JSON",
+		func(ctx SpecContext) {
+			Expect(icd.LiftWrite(
+				ctx,
+				icd.InlineWrite{
+					Channel: valueChannel(),
+					Fields: []icd.InlineWriteField{
+						icd.StaticInlineField{
+							Path:    "targets.0.fields.0",
+							Pointer: "/bad",
+							Value:   make(chan int),
+						},
+					},
 				},
-			},
-			found,
-			"targets.0",
-			func(string, string) {},
-		)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("unsupported type")),
-		))
-	})
+				found,
+				func(string, string) {},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("targets.0.fields.0: json: unsupported type: chan int: "+
+					"validation error"),
+			))
+		},
+	)
 })

@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"uuid"
 
@@ -41,9 +40,10 @@ type InlineWrite struct {
 }
 
 // InlineChannelField is the field of an inline write that sends the commands of a
-// channel. It holds the fields of each stored channel field, in order, so a config
-// converts its own to it.
+// channel.
 type InlineChannelField struct {
+	// Path names the field in its config, such as targets.0.channel, in notes.
+	Path string
 	// Pointer is the JSON Pointer to the value of the field.
 	Pointer string
 	// JSONType is the JSON type that the write sent each command as.
@@ -60,12 +60,14 @@ type InlineChannelField struct {
 	EnumValues []payload.EnumEntry
 }
 
-// InlineWriteField is a field of an inline write: a StaticInlineField, a
-// GeneratedInlineField, or nil for a null field.
+// InlineWriteField is a field of an inline write: a StaticInlineField or a
+// GeneratedInlineField.
 type InlineWriteField interface{ isInlineWriteField() }
 
 // StaticInlineField is a field of an inline write that sends a fixed value.
 type StaticInlineField struct {
+	// Path names the field in its config, such as targets.0.fields.1, in notes.
+	Path string
 	// Pointer is the JSON Pointer to the value of the field.
 	Pointer string
 	// Value is the value that the field sends.
@@ -77,6 +79,8 @@ func (StaticInlineField) isInlineWriteField() {}
 // GeneratedInlineField is a field of an inline write that sends a new value in each
 // message.
 type GeneratedInlineField struct {
+	// Path names the field in its config, such as targets.0.fields.1, in notes.
+	Path string
 	// Pointer is the JSON Pointer to the value of the field.
 	Pointer string
 	// Generator makes the value of the field.
@@ -91,13 +95,13 @@ func (GeneratedInlineField) isInlineWriteField() {}
 // write of that message. The channel field takes the kind of its channel in found. When
 // found lacks that channel, the stored data type picks the kind, and the binding holds
 // no channel but the data type of a new one. A static field sends its value as a
-// constant default, and a generated field sends a generator default. note receives
-// path.channel or path.fields.<i> and each change to what that field sends.
+// constant default, and a generated field sends a generator default. note receives the
+// path of a field and each change to what that field sends. LiftWrite returns a
+// validation error that names the path of a static field whose value is not JSON.
 func LiftWrite(
 	ctx context.Context,
 	w InlineWrite,
 	found map[channel.Key]v0.Channel,
-	path string,
 	note func(path, change string),
 ) (Message, WriteMessage, error) {
 	var (
@@ -118,7 +122,7 @@ func LiftWrite(
 		ch,
 		exists,
 		base,
-		notef(path+".channel"),
+		notef(w.Channel.Path),
 	)
 	if err != nil {
 		return Message{}, WriteMessage{}, err
@@ -128,7 +132,7 @@ func LiftWrite(
 	if !exists {
 		binding.Channel, binding.DataType = 0, dataType
 		if w.Channel.Name != "" {
-			note(path+".channel", fmt.Sprintf(
+			note(w.Channel.Path, fmt.Sprintf(
 				"channel name %q of field %s on %s was dropped, so a client names "+
 					"the new channel",
 				w.Channel.Name, base.Name, w.Target,
@@ -136,18 +140,12 @@ func LiftWrite(
 		}
 	}
 	write.Bindings = []WriteBinding{{Variant: binding}}
-	for i, wf := range w.Fields {
-		f, ok, err := liftWriteField(
-			wf,
-			names,
-			notef(path+".fields."+strconv.Itoa(i)),
-		)
+	for _, wf := range w.Fields {
+		f, err := liftWriteField(wf, names, notef)
 		if err != nil {
 			return Message{}, WriteMessage{}, err
 		}
-		if ok {
-			fields = append(fields, f)
-		}
+		fields = append(fields, f)
 	}
 	return Message{
 		Key:     write.Message,
@@ -231,37 +229,34 @@ func numeric(k payload.Kind) bool {
 }
 
 // liftWriteField returns the JSON field that sends what old sent, named apart from the
-// names in taken, and false when old is null. A static field sends its value as a
-// constant default, and a generated field sends a generator default.
+// names in taken. A static field sends its value as a constant default, and a generated
+// field sends a generator default. notef returns the note of a field path.
 func liftWriteField(
 	old InlineWriteField,
 	taken set.Set[string],
-	note func(format string, args ...any),
-) (JSONField, bool, error) {
+	notef func(path string) func(format string, args ...any),
+) (JSONField, error) {
 	switch v := old.(type) {
 	case StaticInlineField:
 		f, err := liftStatic(v.Value, writeBase(taken, v.Pointer))
-		return f, err == nil, err
+		return f, errors.Wrap(err, v.Path)
 	case GeneratedInlineField:
 		base := writeBase(taken, v.Pointer)
 		if v.Generator != payload.GeneratorTypeTimestamp {
 			return JSONField{Variant: UuidJSONField{
 				JSONBaseField: base,
 				Default:       &UUIDDefault{Variant: RandomUUIDDefault{}},
-			}}, true, nil
+			}}, nil
 		}
 		format := payload.TimeFormatISO8601
-		if f := validFormat(v.TimeFormat, note); f != nil {
+		if f := validFormat(v.TimeFormat, notef(v.Path)); f != nil {
 			format = *f
 		}
 		return JSONField{Variant: TimestampJSONField{
 			JSONBaseField: base,
 			TimeFormat:    format,
 			Default:       &TimestampDefault{Variant: NowTimestampDefault{}},
-		}}, true, nil
-	case nil:
-		note("a null field was dropped")
-		return JSONField{}, false, nil
+		}}, nil
 	}
 	panic(fmt.Sprintf("unknown inline write field %T", old))
 }

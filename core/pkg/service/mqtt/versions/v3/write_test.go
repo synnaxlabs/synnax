@@ -524,6 +524,38 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
+	It("Should note each change at the path of its field in the config",
+		func(ctx SpecContext) {
+			weekday := payload.TimeFormat("weekday")
+			target := staged(2, "plant/one")
+			target.Channel.Channel = 9
+			target.Fields = []v1.WriteField{
+				{},
+				generatedField("/time", payload.GeneratorTypeTimestamp, &weekday),
+			}
+			cfg := v3.WriteConfig{
+				Targets: []v3.WriteTarget{tag("a"), tag("b")},
+				Inline:  &v3.InlineWrite{Targets: []v3.InlineTarget{target}},
+			}
+			notes := make(map[string]string)
+			MustSucceed2(v3.ResolveWriteConfig(
+				ctx,
+				db,
+				channels,
+				"Valves",
+				&cfg,
+				func(path, change string) { notes[path] = change },
+			))
+			Expect(notes).To(Equal(map[string]string{
+				"targets.2.channel": `channel name "valve_cmd" of field value on ` +
+					"topic plant/one was dropped, so a client names the new channel",
+				"targets.2.fields.0": "a null field was dropped",
+				"targets.2.fields.1": `time format "weekday" is not valid and became ` +
+					"iso8601",
+			}))
+		},
+	)
+
 	It("Should append an inline target whose index is past the last target",
 		func(ctx SpecContext) {
 			cfg := v3.WriteConfig{
