@@ -24,6 +24,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
+#include "driver/codec/field.h"
 
 namespace driver::codec {
 /// @brief TextMessage is a text message and the fields of its lines that take samples.
@@ -134,9 +135,6 @@ public:
 /// @brief TextEncoder encodes samples into the line of one text message. It is not safe
 /// for concurrent use.
 class TextEncoder {
-    /// @brief Number is the kind of the samples of a field's channel.
-    enum class Number : std::uint8_t { FLOAT32, FLOAT64, SIGNED, UNSIGNED };
-
     struct Field {
         synnax::icd::TextBaseField base;
         /// @brief tag is the text before the value of a tagged field, or empty for a

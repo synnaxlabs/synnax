@@ -334,30 +334,9 @@ std::pair<TextEncoder::Field, x::errors::Error> TextEncoder::Field::create(
             x::errors::Error(CONFIG_ERROR, "needs a channel or a default")
         };
     }
-    const auto kind = kind_of(*dt);
-    if (*dt == x::telem::FLOAT32_T)
-        field.number = Number::FLOAT32;
-    else if (kind == x::payload::KIND_INTEGER)
-        field.number = Number::SIGNED;
-    else if (kind == x::payload::KIND_UNSIGNED || kind == x::payload::KIND_BOOLEAN)
-        field.number = Number::UNSIGNED;
-    else if (kind != x::payload::KIND_FLOAT)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "cannot write " + dt->name() + " channels to " +
-                    std::string(x::payload::KIND_FLOAT) + " fields"
-            ),
-        };
-    if (field.scaled && kind != x::payload::KIND_FLOAT)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt->name()
-            ),
-        };
+    const auto [number, err] = number_of(*dt, x::payload::KIND_FLOAT, field.scaled);
+    if (err) return {Field{}, err};
+    field.number = number;
     return {std::move(field), x::errors::NIL};
 }
 
@@ -373,17 +352,8 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
     std::map<icd::FieldKey, const icd::TextField *> by_key;
     for (const auto &f: m.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < m.bindings.size(); i++) {
-        const auto &key = m.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return refuse("field " + key.to_string() + " does not exist");
-        if (!bound.try_emplace(key, i).second)
-            return refuse(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            );
-    }
+    auto [bound, bind_err] = index_bindings(m.bindings, by_key);
+    if (bind_err) return {TextEncoder{}, as_config(bind_err, "message " + m.name)};
     TextEncoder enc;
     enc.delimiter = delimiter;
     enc.bound.resize(m.bindings.size());
