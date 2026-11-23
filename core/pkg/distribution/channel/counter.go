@@ -13,7 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"slices"
-	"sync/atomic"
+	"sync"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -26,10 +26,9 @@ import (
 const firstOpenSuffix = ".firstOpen"
 
 type counter struct {
+	// mu makes the key cap check and the add one step.
+	mu  sync.Mutex
 	ctr *kv.AtomicInt64Counter
-	// durable is the highest value that storage holds. A failed write moves ctr but not
-	// durable.
-	durable atomic.Int64
 	// atFirstOpen is the value that storage held at the first open of the counter.
 	atFirstOpen int64
 }
@@ -40,7 +39,6 @@ func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, er
 		return nil, err
 	}
 	c := &counter{ctr: ctr}
-	c.durable.Store(ctr.Value())
 	if c.atFirstOpen, err = firstOpenValue(ctx, db, key, ctr.Value()); err != nil {
 		return nil, err
 	}
@@ -78,21 +76,18 @@ func (c *counter) issuedAtFirstOpen(local LocalKey) bool {
 // issued reports whether storage holds a value of the counter at or past local, so no
 // later add returns local.
 func (c *counter) issued(local LocalKey) bool {
-	return local != 0 && int64(local) <= c.durable.Load()
+	return local != 0 && int64(local) <= c.ctr.Value()
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctr.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
 	next, err := c.ctr.Add(ctx, int64(delta))
 	if err != nil {
 		return 0, err
-	}
-	for cur := c.durable.Load(); next > cur; cur = c.durable.Load() {
-		if c.durable.CompareAndSwap(cur, next) {
-			break
-		}
 	}
 	return LocalKey(next), nil
 }

@@ -14,7 +14,7 @@ import { channel } from "@/channel";
 import { group } from "@/group";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 import { createTestClient, expectLive, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();

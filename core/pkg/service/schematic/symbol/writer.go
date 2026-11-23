@@ -40,12 +40,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Create creates the given symbol in s.Group, assigning a new key when s.Key is zero.
 // The commit carries a create action that holds the stored symbol. Create returns an
-// error wrapping validate.ErrValidation when a symbol with s.Key exists.
+// error wrapping validate.ErrValidation when a symbol with s.Key exists or s breaks a
+// rule of the symbol model.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
 	if err := validateScale(nil, *s); err != nil {
+		return err
+	}
+	if err := checkSpec(s.Data); err != nil {
 		return err
 	}
 	if s.Key == uuid.Nil() {
@@ -70,8 +74,9 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 // Apply applies the actions to the symbol with the given key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
 // returns an error wrapping validate.ErrValidation when an action is a create, the
-// result fails to decode or validate, or the new group cannot hold a symbol, and an
-// error wrapping query.ErrNotFound when no symbol has the key.
+// result fails to decode or validate or breaks a rule of the symbol model, or the new
+// group cannot hold a symbol, and an error wrapping query.ErrNotFound when no symbol
+// has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Symbol](key)).
@@ -84,6 +89,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 				return Symbol{}, err
 			}
 			if err = validateScale(&s, next); err != nil {
+				return Symbol{}, err
+			}
+			if err = checkSpec(next.Data); err != nil {
 				return Symbol{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {

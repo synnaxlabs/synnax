@@ -10,9 +10,9 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type ContextMenuProps } from "@/platform/tree/types";
+import type { ContextMenuProps } from "@/platform/tree/types";
 import { useCopy } from "@/platform/tree/useCopy";
 import { useResources } from "@/platform/tree/useResource";
 

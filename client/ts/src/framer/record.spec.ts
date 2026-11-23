@@ -10,7 +10,7 @@
 import { DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import {
   createProxiedTestClient,

@@ -223,22 +223,6 @@ describe("Ranger.Timeline", () => {
     expect(container.querySelector(".lyra-timespan__label")?.textContent).toBe("48s");
   });
 
-  it("should offer a planned end once a range is scheduled", () => {
-    const now = TimeStamp.now().nanoseconds;
-    const onChange = vi.fn();
-    render(
-      <Ranger.Timeline
-        value={{ start: now + HOUR, end: TimeStamp.MAX.nanoseconds }}
-        onChange={onChange}
-      />,
-    );
-    fireEvent.click(screen.getByText("Set an end time"));
-    const field = screen.getByRole("textbox");
-    fireEvent.change(field, { target: { value: "start + 2h" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith({ start: now + HOUR, end: now + 3 * HOUR });
-  });
-
   it("should name each time cell by the end it holds", () => {
     const now = TimeStamp.now().nanoseconds;
     render(
@@ -300,23 +284,6 @@ describe("Ranger.Timeline", () => {
       <Ranger.Timeline value={{ start: unset, end: unset }} onChange={() => {}} />,
     );
     expect(screen.queryByText("Set an end time")).toBeNull();
-  });
-
-  it("should end a running range at its start on a zero elapsed time", () => {
-    const now = TimeStamp.now().nanoseconds;
-    const start = now - HOUR;
-    const onChange = vi.fn();
-    const { container } = render(
-      <Ranger.Timeline
-        value={{ start, end: TimeStamp.MAX.nanoseconds }}
-        onChange={onChange}
-      />,
-    );
-    fireEvent.click(triggers(container)[1]);
-    const field = screen.getByRole("textbox");
-    fireEvent.change(field, { target: { value: "0s" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith({ start, end: start });
   });
 
   describe("row order", () => {

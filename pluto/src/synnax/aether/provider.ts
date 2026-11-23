@@ -12,7 +12,7 @@ import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { useErrorHandler } from "@/status/aether/aggregator";
+import { status } from "@/status/aether";
 
 const stateZ = z.object({ props: synnaxParamsZ.nullable() });
 
@@ -27,9 +27,9 @@ export const ZERO_CONTEXT_VALUE: ContextValue = {
 export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   static readonly TYPE = "synnax.Provider";
   static readonly stateZ = stateZ;
-  schema = Provider.stateZ;
+  override schema = Provider.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
       this.closeClient();
@@ -45,7 +45,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       return;
 
     this.closeClient();
-    const handleError = useErrorHandler(ctx);
+    const handleError = status.useErrorHandler(ctx);
     const heading = {
       message: "Failed to sync with Core",
       name: this.state.props.name ?? "",
@@ -57,7 +57,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     set(ctx, this.internal);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.closeClient();
   }
 

@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
 import { recordColumn } from "@/framer/record";
 
@@ -125,9 +125,7 @@ export class Frame {
 
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
-        const data_ = columnsOrData as Payload;
-        data_.series ??= [];
-        data_.keys ??= [];
+        const data_ = frameZ.parse(columnsOrData);
         const series = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndSeries(data_.keys, series);
         this.columns = data_.keys.slice();
@@ -503,7 +501,10 @@ export const seriesToPayload = (series: Series): SeriesPayload => {
   return {
     timeRange: series.timeRange,
     dataType: series.dataType,
-    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    data:
+      data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+        ? data.buffer
+        : data.slice().buffer,
     alignment: series.alignment,
     alignmentMultiple: series.alignmentMultiple,
   };

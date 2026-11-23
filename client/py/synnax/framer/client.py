@@ -260,7 +260,7 @@ class Client:
     @overload
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Key | str,
         *,
         reduction: Reduction | None = None,
@@ -269,7 +269,7 @@ class Client:
     @overload
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: _FrameParams,
         *,
         reduction: Reduction | None = None,
@@ -278,14 +278,15 @@ class Client:
     @deprecate_positional("reduction")
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
         """Reads telemetry from the channels between the two timestamps.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The samples of every range arrive in time order.
         :param channels: A single channel key or name, or a sequence of channel keys or
         names.
         :param reduction: How the Core reduces the samples of each channel. A
@@ -307,7 +308,7 @@ class Client:
     @deprecate_positional("dest", "reduction")
     def read_csv(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -317,7 +318,8 @@ class Client:
         Reads telemetry from the channels between the two timestamps into a CSV file.
         The Core writes the CSV, so the client never holds the whole export in memory.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The CSV has one header, then the rows of every range in time order.
         :param channels: The keys or names of the channels to read from.
         :param dest: The path of the CSV file to write. It must end in .csv.
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
@@ -328,7 +330,7 @@ class Client:
     @deprecate_positional("dest", "reduction")
     def read_tdms(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -339,7 +341,8 @@ class Client:
         file. The Core writes the file, so the client never holds the whole export in
         memory.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The file holds the samples of every range in time order.
         :param channels: The keys or names of the channels to read from.
         :param dest: The path of the TDMS file to write. It must end in .tdms.
         :param reduction: Keeps every factor-th sample of each channel. Defaults to

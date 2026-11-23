@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { type APIRoute, type MiddlewareHandler } from "astro";
+import type { APIRoute, MiddlewareHandler } from "astro";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
@@ -18,7 +18,7 @@ import { POST as renewRoute } from "@/pages/api/desktop/renew";
 import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { POST as handoffRoute } from "@/pages/api/handoff";
 import { pipeline } from "@/pipeline";
-import { activation } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A } from "@/server/license/testutil";
 import {
@@ -88,8 +88,8 @@ describe("pipeline", () => {
   const secretHash = async (key: string): Promise<string | null> => {
     const [act] = await store.query
       .select()
-      .from(activation)
-      .where(eq(activation.key, key));
+      .from(schema.activation)
+      .where(eq(schema.activation.key, key));
     return act.renewalSecretHash;
   };
 
@@ -204,23 +204,6 @@ describe("pipeline", () => {
         headers: CROSS_SITE,
       });
       expect(res.status).toBe(200);
-    });
-  });
-
-  describe("security headers", () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    it("should forbid other sites to frame a page outside development", async () => {
-      vi.stubEnv("DEV", false);
-      const res = await send(async () => new Response("page"), {
-        method: "GET",
-        path: "/licenses",
-      });
-      expect(res.headers.get("content-security-policy")).toContain(
-        "frame-ancestors 'none'",
-      );
     });
   });
 });

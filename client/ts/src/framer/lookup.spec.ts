@@ -10,7 +10,7 @@
 import { DataType, id, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import {
@@ -300,6 +300,63 @@ describe("Framer lookups", () => {
       try {
         await writer.write(new Map([[path, float([1, 2, 3])]]));
       } finally {
+        await writer.close();
+      }
+    });
+  });
+
+  describe("a record path that moves", () => {
+    it("should write a record path to the channel that holds the path now", async () => {
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      const create = async () =>
+        await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT64,
+          virtual: true,
+          group: g.key,
+        });
+      const a = await create();
+      const b = await create();
+      const path = `${g.name}.${a.name}`;
+      const streamer = await client.openStreamer([a.key, b.key]);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [a.key, b.key],
+      });
+      const written = async (): Promise<channel.Key[]> => {
+        const fr = await streamer.read();
+        return [a.key, b.key].filter((k) => fr.get(k).length > 0);
+      };
+      try {
+        await writer.write({ [path]: [1] });
+        expect(await written()).toEqual([a.key]);
+        const old = a.name;
+        await client.channels.rename(a.key, id.create());
+        await client.channels.rename(b.key, old);
+        await writer.write({ [path]: [2] });
+        expect(await written()).toEqual([b.key]);
+      } finally {
+        await writer.close();
+        streamer.close();
+      }
+    });
+
+    it("should retrieve a record path that the writer did not open with on each write", async () => {
+      const [ch, path] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.key],
+      });
+      const send = spyOnSend(client);
+      try {
+        await writer.write({ [path]: [1] });
+        await writer.write({ [path]: [2] });
+        expect(channelRetrieves(send, [path])).toHaveLength(2);
+      } finally {
+        send.mockRestore();
         await writer.close();
       }
     });

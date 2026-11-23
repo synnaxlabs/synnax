@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query, type Synnax } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 interface WatchParams {

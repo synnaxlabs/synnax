@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <filesystem>
-#include <fstream>
-
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
-#include "x/cpp/uuid/uuid.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/errors/errors.h"
@@ -22,11 +18,6 @@ namespace driver::opcua::certificate {
 namespace {
 const std::string URI = "urn:synnax:test:certificate";
 
-void write(const std::filesystem::path &path, const std::string &data) {
-    std::ofstream out(path, std::ios::binary);
-    out << data;
-}
-
 class CertificateTest : public ::testing::Test {
 protected:
     /// @brief an identity that the tests share, since making a key takes seconds.
@@ -34,20 +25,10 @@ protected:
     /// @brief an identity with the same name as identity and a different key.
     static inline Identity other;
 
-    std::filesystem::path dir;
-
     static void SetUpTestSuite() {
         identity = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
         other = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
     }
-
-    void SetUp() override {
-        this->dir = std::filesystem::temp_directory_path() /
-                    ("opcua-certificate-" + x::uuid::create().to_string());
-        std::filesystem::create_directories(this->dir);
-    }
-
-    void TearDown() override { std::filesystem::remove_all(this->dir); }
 };
 }
 
@@ -84,54 +65,43 @@ TEST_F(CertificateTest, InfoToJson) {
     ASSERT_EQ(j["not_after"], identity.certificate.not_after().iso8601());
 }
 
-/// @brief it should load an identity from certificate and key files.
-TEST_F(CertificateTest, LoadFromFiles) {
-    write(this->dir / "cert.pem", identity.certificate.pem());
-    write(this->dir / "key.pem", identity.private_key);
-    const auto loaded = ASSERT_NIL_P(
-        Identity::load(this->dir / "cert.pem", this->dir / "key.pem")
+/// @brief it should read an identity from a PEM certificate and its key.
+TEST_F(CertificateTest, ParsePem) {
+    const auto parsed = ASSERT_NIL_P(
+        Identity::parse(identity.certificate.pem(), identity.private_key)
     );
-    ASSERT_EQ(loaded.certificate, identity.certificate);
-    ASSERT_EQ(loaded.private_key, identity.private_key);
+    ASSERT_EQ(parsed.certificate, identity.certificate);
+    ASSERT_EQ(parsed.private_key, identity.private_key);
 }
 
-/// @brief it should load a DER certificate file.
-TEST_F(CertificateTest, LoadDerCertificate) {
-    write(this->dir / "cert.der", identity.certificate.der());
-    write(this->dir / "key.pem", identity.private_key);
-    const auto loaded = ASSERT_NIL_P(
-        Identity::load(this->dir / "cert.der", this->dir / "key.pem")
+/// @brief it should read an identity from a DER certificate.
+TEST_F(CertificateTest, ParseDer) {
+    const auto parsed = ASSERT_NIL_P(
+        Identity::parse(identity.certificate.der(), identity.private_key)
     );
-    ASSERT_EQ(loaded.certificate, identity.certificate);
+    ASSERT_EQ(parsed.certificate, identity.certificate);
 }
 
-/// @brief it should reject a certificate file that does not exist.
-TEST_F(CertificateTest, LoadMissingCertificate) {
+/// @brief it should reject data that is not a certificate.
+TEST_F(CertificateTest, ParseInvalidCertificate) {
     ASSERT_OCCURRED_AS_P(
-        Identity::load(this->dir / "missing.pem", this->dir / "key.pem"),
+        Identity::parse("not a certificate", identity.private_key),
         errors::CLIENT_CERTIFICATE_INVALID
     );
 }
 
-/// @brief it should reject a key file that does not exist.
-TEST_F(CertificateTest, LoadMissingKey) {
-    write(this->dir / "cert.pem", identity.certificate.pem());
-    ASSERT_OCCURRED_AS_P(
-        Identity::load(this->dir / "cert.pem", this->dir / "missing.pem"),
-        errors::CLIENT_CERTIFICATE_INVALID
-    );
+/// @brief it should reject a certificate with no private key.
+TEST_F(CertificateTest, ParseNoKey) {
+    const auto err = Identity::parse(identity.certificate.pem(), "").second;
+    ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_INVALID);
+    ASSERT_EQ(err.data, "The client certificate has no private key.");
 }
 
 /// @brief it should reject a key that does not match the certificate.
-TEST_F(CertificateTest, LoadMismatchedKey) {
-    write(this->dir / "cert.pem", identity.certificate.pem());
-    write(this->dir / "key.pem", other.private_key);
-    const auto key = this->dir / "key.pem";
-    const auto err = Identity::load(this->dir / "cert.pem", key).second;
+TEST_F(CertificateTest, ParseMismatchedKey) {
+    const auto err = Identity::parse(identity.certificate.pem(), other.private_key)
+                         .second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_INVALID);
-    ASSERT_EQ(
-        err.data,
-        key.string() + ": The private key does not match the certificate."
-    );
+    ASSERT_EQ(err.data, "The private key does not match the certificate.");
 }
 }

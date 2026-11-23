@@ -9,7 +9,7 @@
 
 import { math } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 
 /**
  * @returns the channel that a key of a record frame names. A record keys its columns

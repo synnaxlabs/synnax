@@ -106,6 +106,14 @@ describe("framer.Frame", () => {
           expect(f.columns.length).toEqual(1);
           expect(f.series.length).toEqual(1);
         });
+
+        it("should read a byte view in a series payload as raw bytes", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: "float32", data: new Uint8Array(8) }],
+          });
+          expect(f.length.valueOf()).toEqual(2);
+        });
       });
 
       test("from record", () => {
@@ -351,6 +359,12 @@ describe("framer.Frame", () => {
       const pld = f.toPayload();
       expect(pld.keys).toEqual([12, 13]);
       expect(pld.series?.[0].data.byteLength).toEqual(12);
+    });
+
+    it("should send only the bytes inside a series' view", () => {
+      const data = new Float32Array([1, 2, 3, 4]).subarray(1, 3);
+      const pld = new framer.Frame(12, new Series({ data })).toPayload();
+      expect(Array.from(new Float32Array(pld.series[0].data))).toEqual([2, 3]);
     });
   });
 

@@ -398,6 +398,17 @@ describe("Input", () => {
         fireEvent.keyDown(input, { key: "Escape" });
         expect(onKeyDown).toHaveBeenCalled();
       });
+
+      it("should stop Escape at an input outside a modal", () => {
+        const onKeyDown = vi.fn();
+        render(
+          <div onKeyDown={onKeyDown}>
+            <Input.Text value="" onChange={vi.fn()} />
+          </div>,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+        expect(onKeyDown).not.toHaveBeenCalled();
+      });
     });
 
     describe("custom color", () => {

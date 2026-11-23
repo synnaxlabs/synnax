@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 import { Indicator } from "@/status/Indicator";
-import { type Status } from "@/status/status";
+import type { Status } from "@/status/status";
 import { Text as BaseText } from "@/text";
 
 /** Props for {@link Summary}. Pass a whole `status`, or its parts one by one. */
