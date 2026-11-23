@@ -261,7 +261,7 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
     const copies = spec.looks
-      .filter((l) => l.part != null && only(l, l.part, BASE))
+      .filter((l) => only(l, l.part, BASE))
       .map((l) => ({
         ...l,
         key: `look-${id.create()}`,
@@ -296,7 +296,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE)),
+    looks: spec.looks.filter((l) => !only(l, l.part, ACTIVE)),
     commands: [],
     interactions: [],
   };
