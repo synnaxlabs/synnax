@@ -460,6 +460,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("names the field and the kind in the tooltip of a paint", async () => {
+      const { fill } = await openPainted({});
+      fireEvent.pointerEnter(fill);
+      const tip = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(".lyra-tooltip");
+        assertDefined(el);
+        return el;
+      });
+      expect(tip.textContent).toBe("Fill: Drawing");
+    });
+
     it("saves the state color and shows the default entry where no entry matches", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
