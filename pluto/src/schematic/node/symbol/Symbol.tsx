@@ -93,7 +93,7 @@ interface DrawnProps
     Resolved,
     Pick<Config, "color" | "orientation" | "scale">,
     Partial<Pick<Config, "onClickDelay">> {
-  value: Custom.StateValue;
+  value: Custom.StateValues;
   /** onClick makes the drawing a button. */
   onClick?: (e: MouseEvent<HTMLElement>) => void;
 }
@@ -307,7 +307,7 @@ export const Node = ({
   );
 };
 
-const NO_VALUES: Custom.StateValue = new Map();
+const NO_VALUES: Custom.StateValues = new Map();
 
 export const Preview = ({
   color,
