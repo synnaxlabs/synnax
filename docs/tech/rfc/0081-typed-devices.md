@@ -388,17 +388,18 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
    `master` set to the new key. An OPC UA row is fixed so it passes the typed rules.
    Timeouts in milliseconds become `TimeSpan` values; 0 takes the default and a smaller
-   value rises to the minimum. A user name or password becomes `username` auth,
-   otherwise `anonymous`. Mode `None` with a real policy becomes `sign`, and a secured
-   mode with policy `None` takes `Basic256Sha256`, so the migration never lowers
-   security. A secured row trusts `validation_disabled` when validation was off, else
-   `pinned` with its server certificate, else `first_use`. Each read takes the index of
-   its channel from the channel table; a binding whose channel is gone is dropped with a
-   warning. A binding whose node ID names a namespace index other than 0 cannot be
-   resolved without the server, so it is parked in KV under
-   `sy_opcua_unresolved/<server key>` and the server gets a warning status. An endpoint
-   without a scheme gains `opc.tcp://`; any other endpoint that is not an `opc.tcp` URL
-   is quarantined.
+   value rises to the minimum. A user name becomes `username` auth with its password. A
+   password without a user name becomes `anonymous` with a warning, because an OPC UA
+   user name login needs a user name; otherwise the row is `anonymous`. Mode `None` with
+   a real policy becomes `sign`, and a secured mode with policy `None` takes
+   `Basic256Sha256`, so the migration never lowers security. A secured row trusts
+   `validation_disabled` when validation was off, else `pinned` with its server
+   certificate, else `first_use`. Each read takes the index of its channel from the
+   channel table; a binding whose channel is gone is dropped with a warning. A binding
+   whose node ID names a namespace index other than 0 cannot be resolved without the
+   server, so it is parked in KV under `sy_opcua_unresolved/<server key>` and the server
+   gets a warning status. An endpoint without a scheme gains `opc.tcp://`; any other
+   endpoint that is not an `opc.tcp` URL is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.
@@ -456,8 +457,11 @@ green at every step. The migration brings 0.59 data forward near the end.
   client. Phase 9 also adds `common::Sync<D>`. The OPC UA phase logs in with a user
   certificate (`UA_ClientConfig_setAuthenticationCert`), and its scanner resolves the
   bindings parked under `sy_opcua_unresolved/<server key>` against the server's
-  `NamespaceArray` on its next connect, writes them through the configuration update,
-  deletes the entry, and clears the warning.
+  `NamespaceArray` on its next connect and hands them to a Core route that appends them
+  to `reads` and `writes` in one transaction. The route keeps every binding a task form
+  wrote and skips a resolved binding that duplicates one, so it is a narrow exception to
+  principle 5: it adds to the configuration group and never replaces it. The route
+  deletes the entry and clears the warning.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
