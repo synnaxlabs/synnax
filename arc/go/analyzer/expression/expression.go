@@ -768,7 +768,7 @@ func analyzeTypeCast(
 	}
 	Analyze(ctx.Child(expr))
 	// Validate that the cast is allowed
-	sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
+	sourceType := types.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 	typeCtx := typeCast.Type_()
 	if typeCtx == nil {
 		return
@@ -918,6 +918,10 @@ func ResolveArgChannels(
 }
 
 func isValidCast(source, target basetypes.Type) bool {
+	if source.Kind == basetypes.KindSeries || target.Kind == basetypes.KindSeries ||
+		target.Kind == basetypes.KindChan {
+		return false
+	}
 	// Constraint unification will handle type variables
 	if source.Kind == basetypes.KindVariable || target.Kind == basetypes.KindVariable {
 		return true

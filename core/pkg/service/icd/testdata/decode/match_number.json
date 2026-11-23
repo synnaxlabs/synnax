@@ -121,6 +121,10 @@
       "samples": [1]
     },
     {
+      "document": { "id": -3, "v": "hot" },
+      "error": "message small: field v: unknown enum label \"hot\": validation error"
+    },
+    {
       "document": { "id": -3.0, "v": 2 },
       "message": "small",
       "samples": [2]

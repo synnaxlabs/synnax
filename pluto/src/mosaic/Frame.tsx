@@ -11,8 +11,8 @@ import "@/mosaic/Mosaic.css";
 
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type location, type record } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement } from "react";
+import type { location, record } from "@synnaxlabs/x";
+import type { DragEvent, ReactElement } from "react";
 
 import { CSS } from "@/css";
 

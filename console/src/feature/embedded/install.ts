@@ -10,7 +10,7 @@
 import { errors } from "@synnaxlabs/x";
 
 import { restart, stop } from "@/feature/embedded/supervisor";
-import { type Version } from "@/platform/version";
+import type { Version } from "@/platform/version";
 
 /**
  * Stops the embedded Core while an update installs. An installer cannot replace the

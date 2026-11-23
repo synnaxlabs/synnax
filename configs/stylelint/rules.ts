@@ -9,7 +9,7 @@
 
 import fs from "fs";
 import path from "path";
-import { type Document, type Root, type Rule as Node } from "postcss";
+import type { Document, Root, Rule as Node } from "postcss";
 import selectorParser from "postcss-selector-parser";
 import valueParser from "postcss-value-parser";
 import stylelint, { type Plugin, type PostcssResult, type Rule } from "stylelint";
