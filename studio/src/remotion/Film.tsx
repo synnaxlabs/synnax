@@ -30,7 +30,7 @@ import {
   project,
   type StagePlan,
 } from "@/director";
-import { type Card as CardShot, type End as EndShot } from "@/film";
+import type { Card as CardShot, End as EndShot } from "@/film";
 import { Cursor } from "@/remotion/Cursor";
 import {
   type Box,
@@ -43,7 +43,7 @@ import {
   ScopeView,
 } from "@/remotion/Overlay";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
-import { type Event, type Meta, type Point } from "@/timeline";
+import type { Event, Meta, Point } from "@/timeline";
 
 // A type alias, not an interface: Remotion requires props assignable to a record.
 export type FilmProps = {

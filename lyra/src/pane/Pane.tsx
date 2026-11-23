@@ -9,7 +9,7 @@
 
 import "@/pane/Pane.css";
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";

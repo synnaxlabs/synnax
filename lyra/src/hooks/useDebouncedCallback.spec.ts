@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { useDebouncedCallback } from "@/hooks";
 
 const WAIT = TimeSpan.milliseconds(10);
 

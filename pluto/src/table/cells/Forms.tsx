@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type table } from "@synnaxlabs/client";
-import { Color } from "@synnaxlabs/lyra/color";
+import type { channel, table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, deep, notation, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { Notation } from "@/notation";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
@@ -36,6 +36,7 @@ export const colorFallbacks = {
 export interface FormProps extends Properties.SelectionProps {}
 
 const TelemForm = () => {
+  const theme = Theming.use();
   const { value, onChange } = Form.useField(path);
   return (
     <>
@@ -76,7 +77,11 @@ const TelemForm = () => {
         </Input.Item>
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields unit={TimeSpan.SECOND} />
+        <Color.Field
+          path={path.stalenessColor}
+          fallback={Staleness.resolveColor(undefined, theme)}
+        />
+        <Staleness.TimeoutField unit={TimeSpan.SECOND} />
       </Form.Section>
     </>
   );
@@ -84,6 +89,8 @@ const TelemForm = () => {
 
 export const ValueForm = ({ tab, onTabChange }: FormProps) => {
   const theme = Theming.use();
+  const resolve = Color.useResolve();
+  const fill = Form.useFieldValue(path.fillColor, { optional: true });
   return (
     <Properties.Tabs
       tabs={["telemetry", "style", "redline"]}
@@ -115,7 +122,10 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
         </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <Value.RedlineForm path={path.redline} />
+        <Value.RedlineForm
+          path={path.redline}
+          background={resolve(fill ?? undefined)}
+        />
       </Tabs.Content>
     </Properties.Tabs>
   );

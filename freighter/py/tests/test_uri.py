@@ -51,6 +51,28 @@ class TestURL:
     @pytest.mark.parametrize(
         ("raw", "expected"),
         [
+            ("http://[::1]", "http://[::1]:80/"),
+            ("https://[2001:db8::10]/api", "https://[2001:db8::10]:443/api/"),
+            ("ws://[::1]:9090/stream", "ws://[::1]:9090/stream/"),
+            ("wss://[fe80::1%25en0]:9443", "wss://[fe80::1%25en0]:9443/"),
+        ],
+    )
+    def test_parse_ipv6(self, raw: str, expected: str) -> None:
+        """Should keep IPv6 brackets when a parsed endpoint is used again."""
+        url = URL.parse(raw)
+        assert url.stringify() == expected
+        reparsed = URL.parse(url.stringify())
+        assert (reparsed.host, reparsed.port) == (url.host, url.port)
+
+    @pytest.mark.parametrize("host", ["::1", "[::1]"])
+    def test_child_ipv6(self, host: str) -> None:
+        """Should bracket an IPv6 host once when adding a route."""
+        url = URL(host=host, port=9090, path="api", protocol="http")
+        assert url.child("read").stringify() == "http://[::1]:9090/api/read/"
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
             ("http://localhost/api", "http://localhost:80/api/"),
             ("https://localhost", "https://localhost:443/"),
             ("ws://localhost", "ws://localhost:80/"),

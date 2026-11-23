@@ -591,10 +591,12 @@ const (
 )
 
 // orphans removes each segment and check file of a channel directory that snapshot does
-// not name, and cuts each named segment file to its committed length. On an open that
-// loaded a head, it also removes the leftovers of the old layout that hold no data, and
-// moves each old file that the conversion read from its compaction file into place.
-// The checkpointer cleans the root.
+// not name, and cuts each named segment file to its committed length. A segment file
+// that a live record in the parts of the opened head names stays, unless snapshot lacks
+// its key, which a Drop then took. On an open that loaded a head, it also removes the
+// leftovers of the old layout that hold no data, and moves each old file that the
+// conversion read from its compaction file into place. The checkpointer cleans the
+// root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
@@ -619,7 +621,12 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		if err = e.orphansOf(ChannelKey(key), named); err != nil {
+		_, stored := slices.BinarySearchFunc(
+			snapshot.Channels,
+			ChannelKey(key),
+			func(ch *state.Channel, key ChannelKey) int { return cmp.Compare(ch.Key, key) },
+		)
+		if err = e.orphansOf(ChannelKey(key), named, stored); err != nil {
 			return err
 		}
 	}
@@ -629,13 +636,17 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 	return nil
 }
 
-func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error {
+func (e *engine) orphansOf(
+	key ChannelKey,
+	named map[string]state.Segment,
+	stored bool,
+) error {
 	dir := strconv.FormatUint(uint64(key), 10)
 	infos, err := e.fs.List(dir)
 	if err != nil {
 		return err
 	}
-	d := &orphanDir{e: e, key: key, named: named}
+	d := &orphanDir{e: e, key: key, named: named, stored: stored}
 	changed := false
 	for _, info := range infos {
 		name := dir + "/" + info.Name()
@@ -672,16 +683,18 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 // orphanDir is the channel directory of key in the orphan pass, with the segments of
 // key that the head names.
 type orphanDir struct {
-	e      *engine
-	key    ChannelKey
-	named  map[string]state.Segment
+	e     *engine
+	key   ChannelKey
+	named map[string]state.Segment
+	// stored is true when the snapshot holds key.
+	stored bool
 	parted map[uint64]state.Segment
 }
 
 // live returns the segments of the key that the parts of the head that open loaded
-// hold, or nil.
+// hold, or nil when the snapshot lacks the key.
 func (d *orphanDir) live() map[uint64]state.Segment {
-	if d.parted == nil && d.e.opened != nil {
+	if d.parted == nil && d.stored && d.e.opened != nil {
 		d.parted = d.e.opened.Live(d.key)
 	}
 	return d.parted

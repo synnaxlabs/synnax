@@ -44,12 +44,8 @@ type held struct {
 	parts    []checkpoint.Part
 }
 
-// load returns the visible Channel of key from e and the parts of its range, or the
-// error of parts that e no longer holds. It pins each segment and part under the same
-// lock that release takes, so release never unlinks a segment that a Channel it
-// returned still names, and a switch keeps each part. It unpins prev, the pins of an
-// earlier load, and returns the new pins and the error of the unlinks that the unpin
-// frees.
+// load returns the visible Channel of key and the parts of its range, and pins them, as
+// loadView does for a key and its clock. It unpins prev, the pins of an earlier load.
 func (e *engine) load(
 	key ChannelKey,
 	prev held,
@@ -62,11 +58,15 @@ func (e *engine) load(
 	return ch, h, err, e.unlink(free)
 }
 
-// loadView loads key and its clock as load does, from one step of the state, so the
-// samples of key and their stamps come from one state. It puts the segments that it
-// pins in the arrays of buf when they have room, which must not share an array with
-// prev. For an index, clock is key, and the clock half of the view is the same Channel
-// with no pins of its own.
+// loadView returns the visible Channels of key and of its clock from one step of the
+// state, so the samples of key and their stamps come from one state, with the parts of
+// their ranges, or the error of parts that e no longer holds. It pins each segment and
+// part under the same lock that release takes, so release never unlinks a segment that
+// a Channel it returned still names, and a switch keeps each part. It unpins prev, the
+// pins of an earlier load, and returns the new pins and the error of the unlinks that
+// the unpin frees. It puts the segments that it pins in the arrays of buf when they
+// have room, which must not share an array with prev. For an index, clock is key, and
+// the clock half of the view is the same Channel with no pins of its own.
 func (e *engine) loadView(
 	key, clock ChannelKey,
 	prev [2]held,

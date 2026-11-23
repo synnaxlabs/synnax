@@ -9,7 +9,7 @@
 
 import "@/input/HelpText.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Status } from "@/status";

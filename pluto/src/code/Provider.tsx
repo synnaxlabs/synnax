@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { Status } from "@synnaxlabs/lyra/status";
 import { errors, TimeSpan } from "@synnaxlabs/x";

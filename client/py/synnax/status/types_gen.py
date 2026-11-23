@@ -11,15 +11,7 @@
 
 from __future__ import annotations
 
-from typing import (
-    Any,
-    Generic,
-    Literal,
-    TypeAlias,
-    TypedDict,
-    TypeVar,
-    override as _override,
-)
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
@@ -49,8 +41,6 @@ ORDER_FIELD_NAME: Literal["name"] = "name"
 
 OrderField = Literal["name"]
 
-Details = TypeVar("Details", default=JsonValue)
-
 Key: TypeAlias = str
 
 
@@ -66,7 +56,7 @@ class Order(BaseModel):
     descending: bool = False
 
 
-class Status(BaseModel, Generic[Details]):
+class Status[Details = JsonValue](BaseModel):
     """Is a standardized message used to communicate state across the Synnax platform.
     Statuses support different severity variants and can carry component-specific
     details. A status is uniquely identified by a key, may name the resource that owns

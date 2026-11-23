@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 interface TypeFormProps<V extends { type: string }, K extends V["type"]> {
   path: deep.Path<Extract<V, { type: K }>>;

@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { color, type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Flux } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color as xcolor, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
 import { createItemCounter } from "@/feature/range/tree/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -79,14 +81,20 @@ const createRanges = async (): Promise<{
   label: label.Key;
   ranges: ranger.Range[];
 }> => {
-  const { key } = await client.labels.create({ name: "tree", color: "#000000" });
+  const { key } = await createTestLabel(client, {
+    name: "tree",
+    color: { type: "fixed", value: "#000000" },
+  });
   const end = TimeStamp.now().sub(TimeSpan.days(1));
-  const ranges = await client.ranges.create(
-    ["a", "b", "c"].map((name) => ({
-      name,
-      timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
-      labels: [key],
-    })),
+  const ranges = await Promise.all(
+    ["a", "b", "c"].map(
+      async (name) =>
+        await createTestRange(client, {
+          name,
+          timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+          labels: [key],
+        }),
+    ),
   );
   return { label: key, ranges };
 };
@@ -108,18 +116,24 @@ const renderTree = async (
 
 describe("range tree", () => {
   it("should show a short start for a narrow list", async () => {
-    const { key } = await client.labels.create({ name: "short", color: "#000000" });
+    const { key } = await createTestLabel(client, {
+      name: "short",
+      color: { type: "fixed", value: "#000000" },
+    });
     const now = TimeStamp.now();
     const old = now.sub(TimeSpan.days(400));
-    const ranges = await client.ranges.create(
+    const ranges = await Promise.all(
       [
         { name: "new", start: now },
         { name: "old", start: old },
-      ].map(({ name, start }) => ({
-        name,
-        timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
-        labels: [key],
-      })),
+      ].map(
+        async ({ name, start }) =>
+          await createTestRange(client, {
+            name,
+            timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
+            labels: [key],
+          }),
+      ),
     );
     await renderTree(key, ranges, "list");
     // A narrow list shows this form in place of the full start.
@@ -169,6 +183,29 @@ describe("range tree", () => {
     expect(Object.fromEntries(counts)).toEqual({ [c.key]: 1 });
   });
 
+  it("should repaint a bar when its named color changes", async () => {
+    const named = await client.colors.create({ name: "tree", light: "#123456" });
+    const { key } = await createTestLabel(client, {
+      name: "tree",
+      color: { type: "fixed", value: "#000000" },
+    });
+    const end = TimeStamp.now().sub(TimeSpan.days(1));
+    const rng = await createTestRange(client, {
+      name: "a",
+      timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+      labels: [key],
+      color: { type: "named", key: named.key },
+    });
+    await renderTree(key, [rng], "timeline");
+    const bar = screen.getByLabelText("Zoom to a");
+    const painted = () => bar.style.getPropertyValue("--console-range-color");
+    await waitFor(() => expect(painted()).toBe("#123456"));
+    await client.colors.dispatch(named.key, [
+      color.set({ path: ["light"], value: xcolor.construct("#654321") }),
+    ]);
+    await waitFor(() => expect(painted()).toBe("#654321"));
+  });
+
   it("should change no lane when the timeline zooms", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges, "timeline");
@@ -193,7 +230,7 @@ describe("range tree", () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
     const end = TimeStamp.now().sub(TimeSpan.days(1));
-    await client.ranges.create({
+    await createTestRange(client, {
       name: "d",
       timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
       labels: [label],

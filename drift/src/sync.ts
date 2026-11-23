@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import type { Dispatch, PayloadAction } from "@reduxjs/toolkit";
 import { dimensions, unique } from "@synnaxlabs/x";
 
 import { group, groupEnd, log } from "@/debug";
-import { type MainChecker, type Manager, type Properties } from "@/runtime";
+import type { MainChecker, Manager, Properties } from "@/runtime";
 import {
   closeWindow,
   type CloseWindowPayload,

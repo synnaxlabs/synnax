@@ -48,6 +48,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Password *password.Service
+	// Auth reports the login methods the Core accepts.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
 }
 
 var (
@@ -62,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
 	c.Password = override.Nil(c.Password, other.Password)
+	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -72,6 +77,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
 	v.NotNil("password", c.Password)
+	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
@@ -81,6 +87,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
+	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -95,6 +102,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
+		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -118,8 +126,8 @@ type (
 )
 
 // PrepareCreate hashes the password of each new user in req. It returns
-// access.ErrDenied when the subject cannot create users, and a validation error when a
-// password is empty.
+// access.ErrDenied when the subject cannot create users, and a validation error when
+// the password method is off or a password is empty.
 func (s *Service) PrepareCreate(
 	ctx context.Context,
 	req CreateRequest,
@@ -132,6 +140,9 @@ func (s *Service) PrepareCreate(
 			Objects: []resource.ID{{Type: resource.TypeUser}},
 		})
 	}); err != nil {
+		return nil, err
+	}
+	if err := s.auth.Accepts(svcauth.MethodPassword); err != nil {
 		return nil, err
 	}
 	hashes := make([]password.Hash, len(req.Users))
