@@ -21,7 +21,10 @@ export interface Values {
   values: Schematic.Node.Custom.Value[];
   /** entryState is the key of the state when it has an enumeration to color it. */
   entryState?: string;
-  /** @returns the color of the entry for value, if the enumeration gives it one. */
+  /**
+   * @returns the color of the entry for value, or of the entry for the default value of
+   * the state when value has none.
+   */
   entryColor: (value: number) => color.Color | undefined;
 }
 
@@ -30,6 +33,8 @@ export const useValues = (): Values => {
   const states = Form.useFieldValue(path.data.states);
   const variant = Form.useFieldValue(path.data.variant);
   const key = Spec.enumerationKey({ states });
+  const state = states.find((s) => s.key === Spec.STATE);
+  const fallback = state?.type === "enumeration" ? state.default : undefined;
   const res = Enumeration.useResult(key == null ? null : { key });
   const resolve = Color.useResolve();
   const entries = res.variant === "success" ? res.data.entries : undefined;
@@ -37,8 +42,10 @@ export const useValues = (): Values => {
     values: Schematic.Node.Custom.listValues({ variant }, entries),
     entryState: key == null ? undefined : Spec.STATE,
     entryColor: (value) => {
-      const c = entries?.find((e) => e.value === value)?.color;
-      return c == null ? undefined : resolve(c);
+      const entry =
+        entries?.find((e) => e.value === value) ??
+        entries?.find((e) => e.value === fallback);
+      return entry?.color == null ? undefined : resolve(entry.color);
     },
   };
 };
