@@ -34,7 +34,7 @@ namespace driver::icd {
 namespace {
 namespace icd = synnax::icd;
 
-std::string text(const double v) {
+std::string format(const double v) {
     return x::json::Number(v).to_string();
 }
 
@@ -52,18 +52,14 @@ x::errors::Error check_limits(
     if (min.has_value() && v < *min)
         return x::errors::Error(
             x::errors::VALIDATION,
-            text(v) + " is below the min of " + text(*min)
+            format(v) + " is below the min of " + format(*min)
         );
     if (max.has_value() && v > *max)
         return x::errors::Error(
             x::errors::VALIDATION,
-            text(v) + " is above the max of " + text(*max)
+            format(v) + " is above the max of " + format(*max)
         );
     return x::errors::NIL;
-}
-
-x::errors::Error config_error(const std::string &message) {
-    return x::errors::Error(driver::errors::CONFIGURATION_ERROR, message);
 }
 }
 
@@ -76,15 +72,19 @@ std::pair<Writer, x::errors::Error> Writer::create(
     if (msg == ic.messages.end())
         return {
             Writer{},
-            config_error(
+            x::errors::Error(
+                driver::errors::CONFIGURATION_ERROR,
                 "message " + wm.message.to_string() + " does not exist in ICD " +
-                ic.name
+                    ic.name
             ),
         };
     const auto refuse = [&msg](const std::string &message) {
         return std::pair{
             Writer{},
-            config_error("message " + msg->name + ": " + message)
+            x::errors::Error(
+                driver::errors::CONFIGURATION_ERROR,
+                "message " + msg->name + ": " + message
+            ),
         };
     };
     const auto *text_payload = std::get_if<icd::TextPayload>(&msg->payload);
