@@ -216,7 +216,7 @@ const usesNodeProxy = (): boolean =>
  * Returns the connector a client uses when it is given none: the runtime's global
  * fetch and WebSocket. In Node, when HTTP_PROXY or HTTPS_PROXY is set, the connector
  * sends connections through that proxy, except to the hosts in NO_PROXY.
- * @throws {Error} in Node, if a proxy variable is not a valid URL.
+ * @throws {Error} in Node, if a proxy variable is not an http or https URL.
  */
 export const defaultConnector = (): Connector =>
   usesNodeProxy() ? nodeConnector() : GLOBAL_CONNECTOR;
@@ -229,7 +229,7 @@ export const defaultConnector = (): Connector =>
  * @param caCert - The PEM text of the CA certificate.
  * @throws {Error} in a browser, which trusts only the operating system or browser
  * certificate store.
- * @throws {Error} in Node, if a proxy variable is not a valid URL.
+ * @throws {Error} in Node, if a proxy variable is not an http or https URL.
  */
 export const trustCA = (caCert: string): Connector => {
   const deno: unknown = Reflect.get(globalThis, "Deno");

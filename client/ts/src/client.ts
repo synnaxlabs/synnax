@@ -335,7 +335,7 @@ export default class Synnax extends framer.Client {
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
    * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
-   * a URL.
+   * an http or https URL.
    */
   constructor(params: ConstructorParams = {}) {
     const system = env.nodeSystem();
