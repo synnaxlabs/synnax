@@ -307,8 +307,8 @@ real adapter (§6.16).
     release first was rejected, so ICDs and the bus integrations reach the Console in
     0.63.0, not 0.64.0.
 20. **An HTTP endpoint with two timestamp fields fails to configure**: The user splits
-    it into two endpoints (2026-11-22). Only a script can make one, since the Console
-    form holds one timestamp per endpoint. Keeping only the first timestamp was
-    rejected: the other channels would take the arrival time with no warning. Several
-    timestamps per message was rejected: it changes a read rule that MQTT and Kafka
-    share, for a case that may not exist.
+    it into two endpoints (2026-11-22). The Console form holds one timestamp per
+    endpoint, so only a script or the API can make one. Keeping only the first timestamp
+    was rejected: the other channels would take the arrival time with no warning.
+    Several timestamps per message was rejected: it changes a read rule that MQTT and
+    Kafka share, for a case that may not exist.
