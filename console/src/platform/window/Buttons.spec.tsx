@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Window } from "@/platform/window";
@@ -38,19 +38,6 @@ describe("Window.Buttons", () => {
     expect(screen.queryByRole("button", { name: "Maximize" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     expect(onMaximize).toHaveBeenCalledTimes(1);
-  });
-
-  it("should dim the buttons while the window has no focus", () => {
-    render(<Window.Buttons />);
-    const group = screen.getByRole("group", { name: "Window controls" });
-    act(() => {
-      window.dispatchEvent(new Event("blur"));
-    });
-    expect(group.classList.contains("console--inactive")).toBe(true);
-    act(() => {
-      window.dispatchEvent(new Event("focus"));
-    });
-    expect(group.classList.contains("console--inactive")).toBe(false);
   });
 
   it("should leave out a disabled button", () => {

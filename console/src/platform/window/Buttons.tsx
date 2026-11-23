@@ -11,7 +11,7 @@ import "@/platform/window/Buttons.css";
 
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -21,25 +21,12 @@ export interface ButtonsProps extends Flex.BoxProps {
   /** The buttons to leave out. */
   disabled?: Action[];
   maximized?: boolean;
+  /** Dims the glyphs, as for a window without focus. */
+  inactive?: boolean;
   onMinimize?: () => void;
   onMaximize?: () => void;
   onClose?: () => void;
 }
-
-const useWindowFocused = (): boolean => {
-  const [focused, setFocused] = useState(() => document.hasFocus());
-  useEffect(() => {
-    const handleFocus = () => setFocused(true);
-    const handleBlur = () => setFocused(false);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("blur", handleBlur);
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, []);
-  return focused;
-};
 
 interface GlyphProps {
   children: ReactNode;
@@ -88,13 +75,13 @@ const CLOSE = (
 export const Buttons = ({
   disabled = [],
   maximized = false,
+  inactive = false,
   onMinimize,
   onMaximize,
   onClose,
   className,
   ...rest
 }: ButtonsProps): ReactElement => {
-  const focused = useWindowFocused();
   const maximizeLabel = maximized ? "Restore" : "Maximize";
   return (
     <Flex.Box
@@ -104,7 +91,7 @@ export const Buttons = ({
       aria-label="Window controls"
       className={CSS.cls(
         CSS.BE("window", "buttons"),
-        !focused && CSS.M("inactive"),
+        inactive && CSS.M("inactive"),
         className,
       )}
       {...rest}

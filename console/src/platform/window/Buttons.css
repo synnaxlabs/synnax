@@ -23,7 +23,6 @@
     padding: 0;
     border-radius: 0;
     justify-content: center;
-    color: var(--pluto-gray-l10);
 
     &::before {
         content: "";
@@ -37,12 +36,8 @@
         transition: var(--pluto-btn-transition);
     }
 
-    &:hover {
-        color: var(--pluto-gray-l11);
-
-        &::before {
-            background: var(--pluto-fill-hover);
-        }
+    &:hover::before {
+        background: var(--pluto-fill-hover);
     }
 
     &:active::before {
@@ -61,10 +56,11 @@
     color: var(--pluto-text-disabled);
 }
 
-/* The Windows close red, with a lighter press. */
+/* The Windows close red, with a lighter press. Lyra's text button hover rule draws the
+   glyph in --pluto-text-color. */
 .console-window__button--close {
     &:hover {
-        color: var(--pluto-white);
+        --pluto-text-color: var(--pluto-white);
 
         &::before {
             background: var(--pluto-error-m1);
@@ -72,7 +68,7 @@
     }
 
     &:active {
-        color: color-mix(in srgb, var(--pluto-white) 70%, transparent);
+        --pluto-text-color: color-mix(in srgb, var(--pluto-white) 70%, transparent);
 
         &::before {
             background: color-mix(in srgb, var(--pluto-error-m1) 90%, transparent);
