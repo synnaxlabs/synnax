@@ -7,27 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { math } from "@/math";
-import { type numeric } from "@/numeric";
+import type { numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
-import { type Box, isBox } from "@/spatial/box/box";
-import { type dimensions } from "@/spatial/dimensions";
+import type { dimensions } from "@/spatial/dimensions";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
 
-export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
-export type XYTransformT = z.infer<typeof crudeXYTransform>;
+export interface XYTransformT {
+  offset: xy.Crude;
+  scale: xy.Crude;
+}
 
-export const transform = z.object({ offset: z.number(), scale: z.number() });
-export type TransformT<T extends numeric.Value = number> = {
+interface TransformT<T extends numeric.Value> {
   offset: T;
   scale: T;
-};
-
-export type BoundVariant = "domain" | "range";
+}
 
 type ValueType = "position" | "dimension";
 
@@ -101,13 +97,12 @@ const curriedClamp =
  * A scale can either operate on standard JS numbers or on BigInts, but not both.
  */
 export class Scale<T extends numeric.Value = number> {
-  ops: TypedOperation<T>[] = [];
-  currBounds: bounds.Bounds<T> | null = null;
-  currType: ValueType | null = null;
-  private reversed = false;
+  private readonly ops: TypedOperation<T>[];
+  private readonly reversed: boolean;
 
-  constructor() {
-    this.ops = [];
+  private constructor(ops: TypedOperation<T>[] = [], reversed: boolean = false) {
+    this.ops = ops;
+    this.reversed = reversed;
   }
 
   /** @returns a new scale whose first operation translates by value. */
@@ -220,14 +215,10 @@ export class Scale<T extends numeric.Value = number> {
   }
 
   private new(): Scale<T> {
-    const scale = new Scale<T>();
-    scale.ops = this.ops.slice();
-    scale.reversed = this.reversed;
-    return scale;
+    return new Scale<T>(this.ops.slice(), this.reversed);
   }
 
   private exec(vt: ValueType, v: T): T {
-    this.currBounds = null;
     return this.ops.reduce<OperationReturn<T>>(
       ([b, v]: OperationReturn<T>, op: Operation<T>): OperationReturn<T> =>
         op(b, vt, v, this.reversed),
@@ -236,27 +227,24 @@ export class Scale<T extends numeric.Value = number> {
   }
 
   reverse(): Scale<T> {
-    const scale = this.new();
-    scale.ops.reverse();
+    const ops = this.ops.slice().reverse();
     // Switch the order of the operations to place scale operation 'BEFORE' the
     // subsequent non - scale operations for example, if we have a reversed [scale A,
     // scale B, translate A, magnify, translate B, scale C] we want to reverse it to
     // [scale C, scale B, translate B, magnify, translate A, scale A]
     const swaps: Array<[number, number]> = [];
-    scale.ops.forEach((op, i) => {
+    ops.forEach((op, i) => {
       if (op.type === "scale" || swaps.some(([low, high]) => i >= low && i <= high))
         return;
-      const nextScale = scale.ops.findIndex((op, j) => op.type === "scale" && j > i);
+      const nextScale = ops.findIndex((op, j) => op.type === "scale" && j > i);
       if (nextScale === -1) return;
       swaps.push([i, nextScale]);
     });
     swaps.forEach(([low, high]) => {
-      const s = scale.ops.slice(low, high);
-      s.unshift(scale.ops[high]);
-      scale.ops.splice(low, high - low + 1, ...s);
+      const s = [...ops.slice(high, high + 1), ...ops.slice(low, high)];
+      ops.splice(low, high - low + 1, ...s);
     });
-    scale.reversed = !scale.reversed;
-    return scale;
+    return new Scale<T>(ops, !this.reversed);
   }
 
   get transform(): TransformT<T> {
@@ -267,13 +255,13 @@ export class Scale<T extends numeric.Value = number> {
 }
 
 export class XY {
-  x: Scale<number>;
-  y: Scale<number>;
-  currRoot: location.Corner | null;
+  readonly x: Scale<number>;
+  readonly y: Scale<number>;
+  private readonly currRoot: location.Corner | null;
 
   constructor(
-    x: Scale<number> = new Scale<number>(),
-    y: Scale<number> = new Scale<number>(),
+    x: Scale<number> = Scale.IDENTITY,
+    y: Scale<number> = Scale.IDENTITY,
     root: location.Corner | null = null,
   ) {
     this.x = x;
@@ -293,94 +281,73 @@ export class XY {
     return new XY().translateY(y);
   }
 
-  static clamp(box: Box): XY {
-    return new XY().clamp(box);
+  static clamp(b: box.Box): XY {
+    return new XY().clamp(b);
   }
 
   static magnify(xy: xy.XY): XY {
     return new XY().magnify(xy);
   }
 
-  static scale(box: dimensions.Dimensions | Box): XY {
-    return new XY().scale(box);
+  static scale(b: dimensions.Dimensions | box.Box): XY {
+    return new XY().scale(b);
   }
 
-  static reBound(box: Box): XY {
-    return new XY().reBound(box);
+  static reBound(b: box.Box): XY {
+    return new XY().reBound(b);
   }
 
   translate(cp: number | xy.Crude, y?: number): XY {
     const _xy = xy.construct(cp, y);
-    const next = this.copy();
-    next.x = this.x.translate(_xy.x);
-    next.y = this.y.translate(_xy.y);
-    return next;
+    return new XY(this.x.translate(_xy.x), this.y.translate(_xy.y), this.currRoot);
   }
 
   translateX(x: number): XY {
-    const next = this.copy();
-    next.x = this.x.translate(x);
-    return next;
+    return new XY(this.x.translate(x), this.y, this.currRoot);
   }
 
   translateY(y: number): XY {
-    const next = this.copy();
-    next.y = this.y.translate(y);
-    return next;
+    return new XY(this.x, this.y.translate(y), this.currRoot);
   }
 
   magnify(xy: xy.XY): XY {
-    const next = this.copy();
-    next.x = this.x.magnify(xy.x);
-    next.y = this.y.magnify(xy.y);
-    return next;
+    return new XY(this.x.magnify(xy.x), this.y.magnify(xy.y), this.currRoot);
   }
 
-  scale(b: Box | dimensions.Dimensions): XY {
-    const next = this.copy();
-    if (isBox(b)) {
-      const prevRoot = this.currRoot;
-      next.currRoot = b.root;
-      if (prevRoot != null && !location.xyEquals(prevRoot, b.root)) {
-        if (prevRoot.x !== b.root.x) next.x = next.x.invert();
-        if (prevRoot.y !== b.root.y) next.y = next.y.invert();
-      }
-      next.x = next.x.scale(box.xBounds(b));
-      next.y = next.y.scale(box.yBounds(b));
-      return next;
+  scale(b: box.Box | dimensions.Dimensions): XY {
+    if (!("root" in b))
+      return new XY(this.x.scale(b.width), this.y.scale(b.height), this.currRoot);
+    let { x, y } = this;
+    const prevRoot = this.currRoot;
+    if (prevRoot != null && !location.xyEquals(prevRoot, b.root)) {
+      if (prevRoot.x !== b.root.x) x = x.invert();
+      if (prevRoot.y !== b.root.y) y = y.invert();
     }
-    next.x = next.x.scale(b.width);
-    next.y = next.y.scale(b.height);
-    return next;
+    return new XY(x.scale(box.xBounds(b)), y.scale(box.yBounds(b)), b.root);
   }
 
-  reBound(b: Box): XY {
-    const next = this.copy();
-    next.x = this.x.reBound(box.xBounds(b));
-    next.y = this.y.reBound(box.yBounds(b));
-    return next;
+  reBound(b: box.Box): XY {
+    return new XY(
+      this.x.reBound(box.xBounds(b)),
+      this.y.reBound(box.yBounds(b)),
+      this.currRoot,
+    );
   }
 
-  clamp(b: Box): XY {
-    const next = this.copy();
-    next.x = this.x.clamp(box.xBounds(b));
-    next.y = this.y.clamp(box.yBounds(b));
-    return next;
+  clamp(b: box.Box): XY {
+    return new XY(
+      this.x.clamp(box.xBounds(b)),
+      this.y.clamp(box.yBounds(b)),
+      this.currRoot,
+    );
   }
 
   copy(): XY {
-    const n = new XY();
-    n.currRoot = this.currRoot;
-    n.x = this.x;
-    n.y = this.y;
-    return n;
+    return new XY(this.x, this.y, this.currRoot);
   }
 
   reverse(): XY {
-    const next = this.copy();
-    next.x = this.x.reverse();
-    next.y = this.y.reverse();
-    return next;
+    return new XY(this.x.reverse(), this.y.reverse(), this.currRoot);
   }
 
   pos(xy: xy.XY): xy.XY {
@@ -391,7 +358,7 @@ export class XY {
     return { x: this.x.dim(xy.x), y: this.y.dim(xy.y) };
   }
 
-  box(b: Box): Box {
+  box(b: box.Box): box.Box {
     return box.construct(
       this.pos(b.one),
       this.pos(b.two),

@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

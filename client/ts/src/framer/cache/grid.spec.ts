@@ -128,7 +128,7 @@ describe("grid", () => {
     ])("should give a tile its share of %d points", (points, expected) => {
       expect(
         pointLimit({
-          level: 9,
+          tile: { level: 9, tile: 0 },
           view,
           points,
           drawn: "min_max",
@@ -144,15 +144,21 @@ describe("grid", () => {
     ] as const)(
       "should give a %s line's %s tile the points of its own aggregation",
       (drawn, aggregation, expected) => {
-        expect(pointLimit({ level: 9, view, points: 1000, drawn, aggregation })).toBe(
-          expected,
-        );
+        expect(
+          pointLimit({
+            tile: { level: 9, tile: 0 },
+            view,
+            points: 1000,
+            drawn,
+            aggregation,
+          }),
+        ).toBe(expected);
       },
     );
 
     it("should keep the same limit across a small resize", () => {
       const props = {
-        level: 9,
+        tile: { level: 9, tile: 0 },
         view,
         drawn: "min_max",
         aggregation: "min_max",
@@ -162,10 +168,29 @@ describe("grid", () => {
       );
     });
 
+    it.each([
+      ["end", { end: ms(128) }, 128],
+      ["start", { start: ms(384) }, 128],
+      ["both ends", { start: ms(100), end: ms(200) }, 100],
+    ] as const)(
+      "should give a tile cut at %s the part it covers",
+      (_, cut, expected) => {
+        expect(
+          pointLimit({
+            tile: { level: 9, tile: 0, ...cut },
+            view,
+            points: 1000,
+            drawn: "min_max",
+            aggregation: "min_max",
+          }),
+        ).toBe(expected);
+      },
+    );
+
     it("should never return a limit under one", () => {
       expect(
         pointLimit({
-          level: 0,
+          tile: { level: 0, tile: 0 },
           view,
           points: 1,
           drawn: "min_max",

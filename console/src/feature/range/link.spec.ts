@@ -9,10 +9,10 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
+import { createTestRange } from "@/platform/range/testutil";
 import {
   renderLinkHook,
   resolveFocusedTab,
@@ -24,10 +24,7 @@ const client = createTestClient();
 
 describe("Range.useLink", () => {
   it("should open the range without adding it to the favorites", async () => {
-    const range = await client.ranges.create({
-      name: "Burn Test",
-      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-    });
+    const range = await createTestRange(client, { name: "Burn Test" });
     const { handler, store } = await renderLinkHook(Range.useLink, { client });
     await selectTestProject(store, client);
     await handler({ client, key: range.key });

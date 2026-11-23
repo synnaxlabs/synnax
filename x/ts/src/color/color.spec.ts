@@ -52,6 +52,17 @@ describe("color.Color", () => {
     test("rejects a fractional tuple alpha", () => {
       expect(() => color.construct([255, 0, 0, 0.5])).toThrow(zod.ParseError);
     });
+    test("rejects an RGBA tuple with a value outside 0 to 255", () => {
+      expect(() => color.construct([256, 0, 0, 255])).toThrow(zod.ParseError);
+      expect(() => color.construct([0, -1, 0, 255])).toThrow(zod.ParseError);
+      expect(() => color.construct([0, 0, 0, 256])).toThrow(zod.ParseError);
+    });
+    test("returns a copy of a valid RGBA tuple", () => {
+      const rgba: color.RGBA = [122, 44, 38, 128];
+      const c = color.construct(rgba);
+      expect(c).toEqual(rgba);
+      expect(c).not.toBe(rgba);
+    });
 
     test.each<[string, unknown]>([
       ["the empty string", ""],
@@ -156,6 +167,11 @@ describe("color.Color", () => {
     test("pick black text on a mid blue", () => {
       expect(color.pickByContrast("#20a4f3", "#ffffff", "#000000")).toEqual(
         color.construct("#000000"),
+      );
+    });
+    test("throw when no colors are given", () => {
+      expect(() => color.pickByContrast("#000000")).toThrow(
+        "must provide at least one color",
       );
     });
   });
@@ -295,9 +311,12 @@ describe("color.Color", () => {
 
     tests.forEach(([name, rgba, expected]) => {
       test(name, () => {
-        const result = color.hsla(rgba);
-        for (let i = 0; i < 3; i++) expect(result[i]).toBeCloseTo(expected[i], 0);
-        expect(result[3]).toBeCloseTo(expected[3]);
+        const [h, s, l, a] = color.hsla(rgba);
+        const [eh, es, el, ea] = expected;
+        expect(h).toBeCloseTo(eh, 0);
+        expect(s).toBeCloseTo(es, 0);
+        expect(l).toBeCloseTo(el, 0);
+        expect(a).toBeCloseTo(ea);
       });
     });
 
@@ -314,9 +333,12 @@ describe("color.Color", () => {
         [255, 255, 255, 1],
       ];
       for (const original of originalColors) {
-        const converted = color.fromHSLA(color.hsla(original));
-        for (let i = 0; i < 3; i++) expect(converted[i]).toBeCloseTo(original[i], 0);
-        expect(converted[3]).toEqual(original[3]);
+        const [r, g, b, a] = color.fromHSLA(color.hsla(original));
+        const [or, og, ob, oa] = original;
+        expect(r).toBeCloseTo(or, 0);
+        expect(g).toBeCloseTo(og, 0);
+        expect(b).toBeCloseTo(ob, 0);
+        expect(a).toEqual(oa);
       }
     });
   });
@@ -573,7 +595,10 @@ describe("color.Color", () => {
       ["#0000ff", [0.4520137, -0.032457, -0.3115281]],
     ])("should convert %s to its published OKLab value", (hex, expected) => {
       const [l, a, b, alpha] = color.oklab(hex);
-      [l, a, b].forEach((v, i) => expect(v).toBeCloseTo(expected[i], 5));
+      const [el, ea, eb] = expected;
+      expect(l).toBeCloseTo(el, 5);
+      expect(a).toBeCloseTo(ea, 5);
+      expect(b).toBeCloseTo(eb, 5);
       expect(alpha).toEqual(1);
     });
     test("should keep the alpha", () => {

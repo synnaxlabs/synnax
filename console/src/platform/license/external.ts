@@ -8,6 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/license/Details";
-export * from "@/platform/license/hub";
 export * from "@/platform/license/term";
-export * from "@/platform/license/urls";

@@ -18,6 +18,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Flux, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -43,7 +44,6 @@ import {
   createTestClientWithGrants,
   findEditableText,
   renderWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -290,6 +290,22 @@ describe("Panel tab", () => {
       const load = vi.fn(async () => ({ Content: () => <p>Loaded</p> }));
       const Content = Panel.lazyComponent(load, "Content");
       expect(load).not.toHaveBeenCalled();
+      await act(async () => {
+        render(
+          <Suspense fallback={<p>Loading</p>}>
+            <Content />
+          </Suspense>,
+        );
+      });
+      expect(await screen.findByText("Loaded")).toBeTruthy();
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+
+    it("shares one load between preload and the first render", async () => {
+      const load = vi.fn(async () => ({ Content: () => <p>Loaded</p> }));
+      const Content = Panel.lazyComponent(load, "Content");
+      await Promise.all([Content.preload(), Content.preload()]);
+      expect(load).toHaveBeenCalledTimes(1);
       await act(async () => {
         render(
           <Suspense fallback={<p>Loading</p>}>

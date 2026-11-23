@@ -11,12 +11,8 @@ import { array, type compare, deep, type record, state } from "@synnaxlabs/x";
 import { useRef, useSyncExternalStore } from "react";
 
 import { type ContextValue, useContext } from "@/form/Context";
-import {
-  type FieldState,
-  type GetOptions,
-  type RequiredGetOptions,
-} from "@/form/state";
-import { type Status } from "@/status";
+import type { FieldState, GetOptions, RequiredGetOptions } from "@/form/state";
+import type { Status } from "@/status";
 
 export type ContextOptions = {
   ctx?: ContextValue<any>;
@@ -204,7 +200,7 @@ export const fieldListUtils = <E extends record.Keyed<string>>(
       const kept = new Set(array.toArray(key));
       return removeWhere((k) => !kept.has(k));
     },
-    set: (values) => ctx.set(path, state.executeSetter(values, value())),
+    set: (values) => ctx.set(path, state.resolve(values, value())),
     sort: (compareFn) => ctx.batch(() => reorder(value().toSorted(compareFn))),
   };
 };

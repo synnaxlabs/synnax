@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -32,6 +33,10 @@ class Process:
         """:param stop_timeout: Seconds stop waits for the Driver before it kills it."""
         self._stop_timeout = stop_timeout
         self._state = Path(tempfile.mkdtemp(prefix="synnax-driver-"))
+        secrets = self._state / "secrets"
+        secrets.mkdir()
+        config = self._state / "config.json"
+        config.write_text(json.dumps({"secrets_dir": str(secrets)}))
         log_path.parent.mkdir(parents=True, exist_ok=True)
         self._log = open(log_path, "wb")
         args = [str(binary), "start", "--standalone", "--disable-sig-stop"]
@@ -41,6 +46,7 @@ class Process:
         args += ["--password", connection.password]
         args += [f"--secure={str(connection.secure).lower()}"]
         args += ["--state-file", str(self._state / "state.json")]
+        args += ["--config", str(config)]
         args += ["--disable-integrations", "ni"]
         # Unbuffered, so a write to a Driver that exited fails at once.
         self._popen = subprocess.Popen(

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type role } from "@/access/role";
+import type { role } from "@/access/role";
 import { actions } from "@/actions";
 import { group } from "@/group";
 import { query } from "@/query";
@@ -47,8 +47,8 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/rack/where.gen";
-import { type status } from "@/status";
-import { type task } from "@/task";
+import type { status } from "@/status";
+import type { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const ACTION_CHANNEL_NAME = "sy_rack_action_set";
@@ -201,8 +201,8 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = group.createMoveRequest("/rack/dispatch", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/rack/dispatch", key, acts, dispatchResZ),
     );
   }
 

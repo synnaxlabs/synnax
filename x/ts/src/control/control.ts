@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { type Authority, type State, stateZ } from "@/control/types.gen";
-import { type bounds } from "@/spatial";
+import type { bounds } from "@/spatial";
 
 export const ABSOLUTE_AUTHORITY: Authority = 255;
 export const ZERO_AUTHORITY: Authority = 0;
@@ -20,22 +20,12 @@ export const AUTHORITY_BOUNDS: bounds.Bounds<Authority> = {
   upper: ABSOLUTE_AUTHORITY,
 };
 
-export const filterTransfersByChannelKey =
-  <R extends z.ZodType>(...resources: z.infer<R>[]) =>
-  (transfers: Transfer<R>[]): Transfer<R>[] =>
-    transfers.filter((t) => {
-      let ok = false;
-      if (t.to != null) ok = resources.includes(t.to.resource);
-      if (t.from != null && !ok) ok = resources.includes(t.from.resource);
-      return ok;
-    });
-
 interface Release<R extends z.ZodType> {
   from: State<R>;
   to?: null;
 }
 
-export const releaseZ = <R extends z.ZodType>(resource: R) =>
+const releaseZ = <R extends z.ZodType>(resource: R) =>
   z.object({
     from: stateZ(resource),
     to: z.null().optional(),
@@ -46,7 +36,7 @@ interface Acquire<R extends z.ZodType> {
   to: State<R>;
 }
 
-export const acquireZ = <R extends z.ZodType>(resource: R) =>
+const acquireZ = <R extends z.ZodType>(resource: R) =>
   z.object({
     from: z.null().optional(),
     to: stateZ(resource),

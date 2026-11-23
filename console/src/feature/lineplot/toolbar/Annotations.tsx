@@ -19,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Color, LinePlot } from "@synnaxlabs/pluto";
 import { bounds, id } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -248,7 +248,7 @@ export const Annotations = (): ReactElement => {
     setSelectedRuleKeys(newSelectedRuleKey == null ? [] : [newSelectedRuleKey]);
   };
 
-  const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
+  const shownRuleKey = selectedRuleKeys.at(-1);
   if (shownRuleKey == null || !rules.some((rule) => rule.key === shownRuleKey))
     return <EmptyContent onCreateRule={handleCreateRule} />;
   return (

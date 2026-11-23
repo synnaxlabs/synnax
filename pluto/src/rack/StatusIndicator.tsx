@@ -9,7 +9,7 @@
 
 import "@/rack/StatusIndicator.css";
 
-import { type rack } from "@synnaxlabs/client";
+import type { rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";

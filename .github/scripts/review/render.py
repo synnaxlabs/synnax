@@ -11,9 +11,7 @@
 
 import json
 import re
-import sys
 from collections import Counter
-from typing import Any
 from urllib.parse import quote
 
 from review.findings import SEVERITIES, Finding, Review
@@ -26,14 +24,6 @@ LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
 RULES = "<!-- sedosaur_rules:2 -->"
 """Marks a check run whose review counts every finding against the score."""
-RECORD_START = "<!-- sedosaur_record -->"
-RECORD_END = "<!-- /sedosaur_record -->"
-TEXT_CHARS = 65_535
-"""The most characters that the text of a check run holds."""
-# JSON keeps a record on one line, and its backtick runs are shorter than the fence.
-_RECORD = re.compile(
-    rf"{re.escape(RECORD_START)}\n(`{{3,}})json\n(.*)\n\1\n{re.escape(RECORD_END)}"
-)
 # Comments on pull requests reviewed before every finding blocked mark some titles
 # " (follow-up)".
 _OUTSIDE_ITEM = re.compile(
@@ -84,12 +74,15 @@ def title(body: str) -> str | None:
     return m[1] if m else None
 
 
-def comment(f: Finding, *, blob: str) -> str:
-    """Renders a finding as an inline review comment.
+def comment(f: Finding, *, blob: str, located: bool = False) -> str:
+    """Renders a finding as a review comment.
 
     :param blob: The URL that a repository path appends to, at the reviewed commit.
+    :param located: The comment links the finding's line, for a thread on a whole file.
     """
     parts = [heading(f), f.body]
+    if located:
+        parts.insert(1, link(blob, f.path, f.line))
     if f.suggestion is not None:
         parts.append(fence(f.suggestion, "suggestion"))
     if f.rule is not None:
@@ -99,13 +92,14 @@ def comment(f: Finding, *, blob: str) -> str:
 
 
 def outside(findings: list[Finding], *, blob: str) -> str:
-    """Renders the comment that lists findings on lines outside the diff."""
+    """Renders the comment that lists findings on files outside the diff."""
     lines = [OUTSIDE, "", "<h3>Comments Outside Diff</h3>", ""]
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
     lines += [
         "These findings could not be posted inline. To dismiss one, someone with write "
-        "access comments `@sedosaur dismiss`, its title, and a reason.",
+        "access runs `gh workflow run dismiss.sedosaur.yaml -f pr=<number> "
+        "-f finding='<title>' -f reason='<why>'`.",
         "",
     ]
     for f in findings:
@@ -131,7 +125,7 @@ def subject(message: str) -> str:
 
 def reviews(body: str) -> int:
     """Returns how many reviews the summary in a pull request body counts."""
-    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.S)
+    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.DOTALL)
     return int(m[1]) if m else 0
 
 
@@ -188,53 +182,17 @@ def splice(body: str, block: str) -> str:
     return body[:start] + block + body[end + len(SUMMARY_END) :]
 
 
-def check(review: Review, rec: dict[str, Any]) -> dict[str, str]:
-    """Renders the output of the review's check run. Its text carries RULES, lists the
-    findings so a dismissal can tell when none is left, and holds the record of the run
-    when it fits. It warns when the record does not fit.
+def check(review: Review) -> dict[str, str]:
+    """Renders the output of the review's check run. Its text carries RULES and lists
+    the findings so a dismissal can tell when none is left.
     """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
-    text = f"{RULES}\n{listing(review.findings)}"
-    full = f"{text}\n\n{record(rec)}"
-    if len(full) <= TEXT_CHARS:
-        text = full
-    else:
-        print(
-            f"::warning::Omitted the record from the check run, as its text of "
-            f"{len(full)} chars is over {TEXT_CHARS}.",
-            file=sys.stderr,
-        )
     return {
         "title": scored(review.score),
         "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
-        "text": text,
+        "text": f"{RULES}\n{listing(review.findings)}",
     }
-
-
-def record(rec: dict[str, Any]) -> str:
-    """Renders the record of a review run as a collapsed block of JSON."""
-    return "\n".join(
-        [
-            "<details><summary>Record</summary>",
-            "",
-            RECORD_START,
-            fence(json.dumps(rec, separators=(",", ":")), "json"),
-            RECORD_END,
-            "",
-            "</details>",
-        ]
-    )
-
-
-def recorded(text: str) -> dict[str, Any] | None:
-    """Reads the record that `record` rendered in a text, or returns None when the text
-    holds no record."""
-    m = _RECORD.search(text)
-    if m is None:
-        return None
-    rec: dict[str, Any] = json.loads(m[2])
-    return rec
 
 
 def scored(score: int) -> str:

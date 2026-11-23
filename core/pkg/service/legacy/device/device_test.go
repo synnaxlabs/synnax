@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -1458,7 +1459,7 @@ var _ = Describe("References", func() {
 	}
 
 	It("Should create a device whose reference names a target", func(ctx SpecContext) {
-		l := label.Label{Name: "Label"}
+		l := label.Label{Name: "Label", Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return labels.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -1481,3 +1482,6 @@ var _ = Describe("References", func() {
 		)))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

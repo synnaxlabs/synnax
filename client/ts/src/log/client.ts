@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -122,15 +122,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = project.createGroupMoveRequest(
-      "/log/dispatch",
-      store,
-      dispatchResZ,
-      reduceAll,
-    );
-    this.setProjectRequest = project.createMoveRequest("/log/dispatch", (keys, to) =>
-      project.moveCached(store, keys, to),
-    );
+    const build: group.EntryBuilder<Key> = (key, acts) =>
+      dispatcher.request("/log/dispatch", key, acts, dispatchResZ);
+    this.setGroupRequest = group.createMoveRequest(build);
+    this.setProjectRequest = project.createMoveRequest(build);
     this.dispatcher = dispatcher;
   }
 
@@ -169,8 +164,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
 
   /**
    * Applies actions to the cached log and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the log isn't cached. Rolls
-   * back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the log isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -214,7 +209,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }

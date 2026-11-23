@@ -275,15 +275,9 @@ SOEM_LIBRARY_HDRS = SOEM_HDRS + [
     "@platforms//os:windows": WIN32_PLATFORM_HDRS,
 })
 
-SOEM_COPTS = select({
-    "@platforms//os:windows": [
-        "/D_CRT_SECURE_NO_WARNINGS",
-        "/DWIN32",
-    ],
-    "//conditions:default": [
-        "-Wno-unused-parameter",
-        "-Wno-sign-compare",
-    ],
+SOEM_LOCAL_DEFINES = select({
+    "@platforms//os:windows": ["WIN32"],
+    "//conditions:default": [],
 })
 
 SOEM_INCLUDES = [
@@ -332,9 +326,9 @@ cc_library(
         ],
     }),
     hdrs = SOEM_LIBRARY_HDRS,
-    copts = SOEM_COPTS,
     includes = SOEM_INCLUDES,
     linkopts = SOEM_LINKOPTS,
+    local_defines = SOEM_LOCAL_DEFINES,
     visibility = ["//visibility:public"],
 )
 
@@ -348,9 +342,9 @@ cc_library(
         "//conditions:default": [],
     }),
     hdrs = SOEM_LIBRARY_HDRS,
-    copts = SOEM_COPTS,
     includes = SOEM_INCLUDES,
     linkopts = SOEM_LINKOPTS,
+    local_defines = SOEM_LOCAL_DEFINES,
     target_compatible_with = select({
         "@platforms//os:linux": [],
         "@platforms//os:macos": [],

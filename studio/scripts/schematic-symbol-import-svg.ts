@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1800);
 
-  await session.click(capture.toolbarButton(page, "schematic", "add"), { zoom: false });
+  await session.click(capture.toolbarButton(page, "schematic-create"), { zoom: false });
   const modal = page.locator(capture.MODAL).first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);

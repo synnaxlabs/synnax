@@ -70,15 +70,23 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(() => tank.pressure > 125, 3600);
     await session.hold(1500);
     await session.click(toggle(vent));
-    await session.moveTo(rest);
+    // The test runs on wall time, which outpaces the capture. A release after the
+    // 10 s hold ends blocks the vent command, and the test stalls, so the cursor
+    // waits beside the chip, clear of the valve's tooltip.
+    const chipBox = await chip(vent).boundingBox();
+    if (chipBox == null) throw new Error("the vent valve has no control chip");
+    await session.moveTo({
+      x: ventBox.x - 24,
+      y: chipBox.y + chipBox.height / 2,
+    });
     await session.waitFor(() => tank.vent === 0);
-    await session.hold(600);
     await session.click(chip(vent));
     await session.waitFor(lostChip(vent));
     session.endZoom();
     await session.moveTo(capture.PARK);
-    // The test goes on: the sequence closes the press valve to hold at 300 psi.
+    // The test goes on: the sequence holds at 300 psi, then vents.
     await session.waitFor(() => tank.press === 0, 3600);
+    await session.waitFor(() => tank.vent === 1, 3600);
     await session.hold(2500);
   } finally {
     await tank.stop();

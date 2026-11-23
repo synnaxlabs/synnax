@@ -113,12 +113,12 @@ class MiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        def _next(ctx_: Context) -> Context:
-            if len(middleware) == 0:
+        def _dispatch(i: int, ctx_: Context) -> Context:
+            if i == len(middleware):
                 return finalizer(ctx_)
-            return middleware.pop(0)(ctx_, _next)
+            return middleware[i](ctx_, lambda c: _dispatch(i + 1, c))
 
-        return _next(ctx)
+        return _dispatch(0, ctx)
 
 
 class AsyncMiddlewareCollector:
@@ -145,9 +145,9 @@ class AsyncMiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        async def _next(_md: Context) -> Context:
-            if len(middleware) == 0:
-                return await finalizer(_md)
-            return await middleware.pop(0)(_md, _next)
+        async def _dispatch(i: int, md_: Context) -> Context:
+            if i == len(middleware):
+                return await finalizer(md_)
+            return await middleware[i](md_, lambda c: _dispatch(i + 1, c))
 
-        return await _next(md)
+        return await _dispatch(0, md)

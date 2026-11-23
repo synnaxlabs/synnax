@@ -22,9 +22,6 @@ inputs:
   app:
     description: The app product name, such as Synnax or Synnax Desktop
     required: true
-  linux:
-    description: Whether the release carries a signed Linux AppImage and .deb
-    default: "false"
 
 runs:
   using: composite
@@ -34,9 +31,8 @@ runs:
     # name with dashes. The updater looks up {os}-{arch}-{installer} before {os}-{arch},
     # so each Windows install updates with the installer it came from, and an install
     # that cannot name its installer gets NSIS, the one the download page offers. The
-    # macOS bundle is arm64 only, so an Intel Mac gets no entry. A .deb install updates
-    # with the .deb, and any other Linux install with the AppImage. An app without a
-    # Linux build gets a placeholder Linux entry that no install can apply.
+    # macOS bundle is arm64 only, so an Intel Mac gets no entry. There is no Linux build,
+    # so Linux gets a placeholder entry that no install can apply.
     - name: Write updater manifest
       shell: bash
       working-directory: ${{ runner.temp }}
@@ -46,7 +42,6 @@ runs:
         TAG: ${{ inputs.tag }}
         VERSION: ${{ inputs.version }}
         APP: ${{ inputs.app }}
-        LINUX: ${{ inputs.linux }}
       run: |
         APP_VERSION="${VERSION/-rc./-}"
         NAME="${APP// /-}"
@@ -54,26 +49,14 @@ runs:
         MAC="${NAME}.app.tar.gz"
         NSIS="${NAME}_${APP_VERSION}_x64-setup.exe"
         MSI="${NAME}_${APP_VERSION}_x64_en-US.msi"
-        APPIMAGE="${NAME}_${APP_VERSION}_amd64.AppImage"
-        DEB="${NAME}_${APP_VERSION}_amd64.deb"
         gh release download "$TAG" \
           --pattern "$MAC.sig" --pattern "$NSIS.sig" --pattern "$MSI.sig"
-        if [ "$LINUX" = true ]; then
-          gh release download "$TAG" --pattern "$APPIMAGE.sig" --pattern "$DEB.sig"
-          LINUX_ENTRIES=$(jq -n --rawfile appimage_sig "$APPIMAGE.sig" \
-            --rawfile deb_sig "$DEB.sig" \
-            --arg appimage "$BASE/$APPIMAGE" --arg deb "$BASE/$DEB" '{
-              "linux-x86_64": {signature: $appimage_sig, url: $appimage},
-              "linux-x86_64-deb": {signature: $deb_sig, url: $deb}
-            }')
-        else
-          LINUX_ENTRIES=$(jq -n --arg url "$BASE/$MAC" '{
-            "linux-x86_64": {
-              signature: "not_supported_and_tauri_requires_an_entry",
-              url: $url
-            }
-          }')
-        fi
+        LINUX_ENTRIES=$(jq -n --arg url "$BASE/$MAC" '{
+          "linux-x86_64": {
+            signature: "not_supported_and_tauri_requires_an_entry",
+            url: $url
+          }
+        }')
         jq -n --arg version "v${APP_VERSION}" --arg notes "${APP} Update" \
           --arg mac "$BASE/$MAC" --arg nsis "$BASE/$NSIS" --arg msi "$BASE/$MSI" \
           --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

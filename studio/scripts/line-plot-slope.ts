@@ -25,9 +25,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
     await capture.hideBottomToolbar(session);
     // The measurement pins to data on screen, so stop the rolling window first.
-    // A hold snapshots the axis as it turns on, so wait for real samples first;
-    // otherwise it pins the empty hour-wide default window.
-    await session.settleWall(9000);
+    // A hold snapshots the axis as it turns on, so wait until samples fill the
+    // 30-second window; otherwise the window starts before the data.
+    await session.settleWall(30000);
     await session.settle(1000);
     await session.click(capture.control(page, "pause"), { zoom: false });
     await session.settle(500);
@@ -40,6 +40,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       y: box.y + y * box.height,
     });
     await session.drag(at(0.3, 0.7), at(0.97, 0.71), { zoom: false });
+    // The finer data of the zoomed view loads on wall time and fills gaps in the lines.
+    await session.settleWall(2000);
     await session.settle(800);
     // Off the plot, so no hover tooltip shows before the first click.
     await session.moveTo(capture.PARK);

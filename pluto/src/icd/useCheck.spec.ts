@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { icd, PathError, ValidationError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ICD } from "@/icd";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -110,14 +110,15 @@ describe("ICD.useCheck", () => {
   });
 
   it("should drop a result when the form changed while the check ran", async () => {
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const check = vi.spyOn(client.icds, "check");
     const { result } = renderHook(() => useChecked(values), { wrapper });
     await waitFor(() => expect(check).toHaveBeenCalledOnce());
     check.mockImplementationOnce(async () => {
       await gate;
-      return [{ path: "messages.1.name", message: "out of date" }];
+      return [
+        new PathError(["messages", "1", "name"], new ValidationError("out of date")),
+      ];
     });
     act(() => result.current.set(mode, "A"));
     await waitFor(() => expect(check).toHaveBeenCalledTimes(2));

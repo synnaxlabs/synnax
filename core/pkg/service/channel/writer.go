@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -430,6 +431,9 @@ func (w Writer) validateCreate(
 		if err := ch.Validate(); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
+		if err := validateConcurrency(ch); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
 		if err := group.CheckMember(
 			ctx,
 			w.tx,
@@ -732,6 +736,33 @@ func (w Writer) linkStoredIndexes(
 		linked = append(linked, ch.Key())
 	}
 	return linked, nil
+}
+
+func validateConcurrency(ch Channel) error {
+	switch ch.Concurrency {
+	case control.ConcurrencyExclusive:
+		return nil
+	case control.ConcurrencyShared:
+		if ch.Virtual || ch.IsCalculated() {
+			return nil
+		}
+		return validate.PathedError(
+			errors.Wrap(
+				validate.ErrValidation,
+				"only virtual channels can have shared concurrency",
+			),
+			"concurrency",
+		)
+	default:
+		return validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation,
+				"%d is not a valid concurrency",
+				ch.Concurrency,
+			),
+			"concurrency",
+		)
+	}
 }
 
 func sameGroup(a, b *group.Key) bool {

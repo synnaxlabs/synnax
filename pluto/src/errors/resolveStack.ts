@@ -9,7 +9,7 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import ErrorStackParser from "error-stack-parser";
-import { type RawSourceMap, type SourceMapConsumer } from "source-map-js";
+import type { RawSourceMap, SourceMapConsumer } from "source-map-js";
 
 type StackFrame = ReturnType<typeof ErrorStackParser.parse>[number];
 
@@ -55,7 +55,7 @@ const loadConsumer = async (scriptURL: string): Promise<SourceMapConsumer | null
   if (mappingURL == null) return null;
   const raw = await readRawMap(new URL(mappingURL, scriptURL).toString());
   // Yield a macrotask so the crash screen paints before the one-time decode below.
-  await scheduler.flushTaskQueue();
+  await scheduler.nextTask();
   // Imported here so source-map-js loads on a crash, not at startup.
   const sourceMap = await import("source-map-js");
   const consumer = new sourceMap.SourceMapConsumer(JSON.parse(raw) as RawSourceMap);

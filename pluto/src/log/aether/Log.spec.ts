@@ -18,7 +18,7 @@ import {
   mockLogSourceSpec,
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
-import { type LogEntry } from "@/log/aether/telem/types";
+import type { LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { render } from "@/vis/render";
@@ -364,7 +364,7 @@ describe("log/aether/Log", () => {
         channels: [
           clientLog.channelEntryZ.parse({
             channel: 1,
-            color: color.construct("#ff0000"),
+            color: { type: "fixed", value: "#ff0000" },
             precision: 3,
           }),
           clientLog.channelEntryZ.parse({ channel: 2 }),
@@ -375,7 +375,10 @@ describe("log/aether/Log", () => {
       expect(parsed.channelNamesHidden).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
-      expect(parsed.channels[0].color).toEqual([255, 0, 0, 255]);
+      expect(parsed.channels[0].color).toEqual({
+        type: "fixed",
+        value: [255, 0, 0, 255],
+      });
       expect(parsed.channels[0].precision).toBe(3);
     });
   });
@@ -1757,12 +1760,8 @@ describe("log/aether/Log", () => {
     it("should include the color of a channel with a custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
-        channels: [
-          clientLog.channelEntryZ.parse({
-            channel: 1,
-            color: color.construct("#ff0000"),
-          }),
-        ],
+        channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
+        channelColors: { 1: color.construct("#ff0000") },
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1907,6 +1906,18 @@ describe("log/aether/Log", () => {
       expect(thumb.height).toBe(32);
     });
 
+    it("should keep the thumb inside a region shorter than its minimum height", () => {
+      const region = box.construct({ x: 0, y: 0 }, { width: 400, height: 30 });
+      const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, region);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBeLessThanOrEqual(30);
+    });
+
     it("should pin the thumb to the bottom of the region at the newest entry", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
       const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
@@ -1974,19 +1985,14 @@ describe("log/aether/Log", () => {
       expect(selectedText(log)).toContain("Humidity");
     });
 
-    it("should apply per-channel colors from channelConfigs", () => {
+    it("should apply the resolved color of each channel", () => {
       const entries = [makeEntry(0, 1), makeEntry(1, 2)];
       const { log } = setup(entries, REGION_500, {
         channels: [
-          clientLog.channelEntryZ.parse({
-            channel: 1,
-            color: color.construct("#ff0000"),
-          }),
-          clientLog.channelEntryZ.parse({
-            channel: 2,
-            color: color.construct("#00ff00"),
-          }),
+          clientLog.channelEntryZ.parse({ channel: 1 }),
+          clientLog.channelEntryZ.parse({ channel: 2 }),
         ],
+        channelColors: { 1: color.construct("#ff0000"), 2: color.construct("#00ff00") },
         selectionStart: 0,
         selectionEnd: 1,
       });

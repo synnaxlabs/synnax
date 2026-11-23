@@ -24,9 +24,9 @@ const createRecorder = () => {
   const states: unknown[] = [];
   class Recorder extends aether.Leaf<typeof log.logStateZ> {
     static readonly TYPE = log.Log.TYPE;
-    schema = log.logStateZ;
+    override schema = log.logStateZ;
 
-    afterUpdate(): void {
+    override afterUpdate(): void {
       states.push(this.state);
     }
   }

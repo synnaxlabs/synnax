@@ -14,7 +14,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: format-${{ github.workflow }}-${{ github.ref }}
+  group:
+    format-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,8 +25,11 @@ jobs:
   test:
     name: Check formatting
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-pnpm
 
       - name: Check formatting

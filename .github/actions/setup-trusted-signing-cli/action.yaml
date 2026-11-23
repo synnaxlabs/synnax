@@ -8,7 +8,7 @@
 # included in the file licenses/APL.txt.
 
 name: Set up trusted-signing-cli
-description: Puts trusted-signing-cli on the PATH of a Windows runner
+description: Installs trusted-signing-cli on a Windows runner
 
 inputs:
   version:
@@ -17,6 +17,9 @@ inputs:
     default: 0.11.0
 
 outputs:
+  path:
+    description: The path of the trusted-signing-cli executable
+    value: ${{ github.workspace }}\.trusted-signing-cli\bin\trusted-signing-cli.exe
   cache-hit:
     description: Whether the binary came from the Actions cache
     value: ${{ steps.cache.outputs.cache-hit }}
@@ -60,7 +63,3 @@ runs:
       with:
         path: .trusted-signing-cli/bin
         key: ${{ steps.cache.outputs.cache-primary-key }}
-
-    - name: Add trusted-signing-cli to the PATH
-      shell: bash
-      run: echo "$GITHUB_WORKSPACE\.trusted-signing-cli\bin" >> "$GITHUB_PATH"

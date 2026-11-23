@@ -50,7 +50,7 @@ class Run:
 
 
 def parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return datetime.fromisoformat(value)
 
 
 def login(author: dict[str, str]) -> str:

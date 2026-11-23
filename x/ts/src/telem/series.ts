@@ -13,8 +13,9 @@ import { array } from "@/array";
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { id } from "@/id";
-import { instance } from "@/instance";
 import { math } from "@/math";
+import type { numeric } from "@/numeric";
+import { primitive } from "@/primitive";
 import { bounds } from "@/spatial";
 import {
   type GLBufferController,
@@ -22,11 +23,9 @@ import {
   glBufferUsageZ,
 } from "@/telem/gl";
 import {
-  convertDataType,
   type CrudeDataType,
   type CrudeTimeStamp,
   DataType,
-  isTelemValue,
   type NumberArray,
   Size,
   type TelemValue,
@@ -48,10 +47,8 @@ interface GL {
   copy: Float32Array<ArrayBuffer> | null;
   /** The number of samples converted into copy. */
   copied: number;
-  offset: math.Numeric | null;
+  offset: numeric.Value | null;
 }
-
-interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
 /**
  * Shortest decimal string that round-trips through f32 — JS analogue of Go's
@@ -71,7 +68,7 @@ const stringifyFloat32 = (value: number): string => {
 export interface SeriesDigest {
   key: string;
   dataType: string;
-  sampleOffset: math.Numeric;
+  sampleOffset: numeric.Value;
   alignment: {
     lower: AlignmentDigest;
     upper: AlignmentDigest;
@@ -85,7 +82,7 @@ export interface SeriesDigest {
 interface BaseSeriesParams {
   dataType?: CrudeDataType;
   timeRange?: TimeRange;
-  sampleOffset?: math.Numeric;
+  sampleOffset?: numeric.Value;
   glBufferUsage?: GLBufferUsage;
   alignment?: bigint;
   alignmentMultiple?: bigint;
@@ -115,7 +112,7 @@ const elementsPerSample = (dt: DataType): number =>
   dt.isVariable ? 1 : dt.density.valueOf() / dt.Array.BYTES_PER_ELEMENT;
 
 /** Arguments for allocating a {@link Series} with a given capacity and data type. */
-export interface SeriesAllocParams extends BaseSeriesParams {
+interface SeriesAllocParams extends BaseSeriesParams {
   capacity: number;
   dataType: CrudeDataType;
 }
@@ -125,19 +122,7 @@ const EMPTY_RANGES: readonly bounds.Bounds[] = [];
 /** Samples summarized per cached min/max block in boundsFor. */
 const BOUNDS_BLOCK_SIZE = 4096;
 
-const noopIterableIterator: IterableIterator<never> = {
-  [Symbol.iterator]: () => noopIterableIterator,
-  next: () => ({ done: true, value: undefined }),
-};
-
-const stringArrayZ = z.string().transform(
-  (s) =>
-    new Uint8Array(
-      atob(s)
-        .split("")
-        .map((c) => c.charCodeAt(0)),
-    ).buffer,
-);
+const stringArrayZ = z.string().transform((s) => binary.decodeBase64(s).buffer);
 
 const nullArrayZ = z
   .union([z.null(), z.undefined()])
@@ -158,13 +143,16 @@ const checkAsType = (jsType: JSType, dataType: DataType) => {
 
 const SERIES_DISCRIMINATOR = "sy_x_telem_series";
 
+// Checks the tag instead of instanceof, which fails for an ArrayBuffer from another
+// realm, such as the buffer of a BigInt64Array under jsdom.
+const isArrayBuffer = (value: unknown): value is ArrayBuffer =>
+  Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
-export class Series<T extends TelemValue = TelemValue>
-  implements instance.Discriminated
-{
+export class Series<T extends TelemValue = TelemValue> {
   /**
    * A unique identifier for the series. If specified by the user, it is their
    * responsibility to ensure that it is unique. If not specified, a new ID will be
@@ -183,11 +171,11 @@ export class Series<T extends TelemValue = TelemValue>
    * downwards. Useful to convert series to lower precision data types while preserving
    * the relative range of actual values.
    */
-  sampleOffset: math.Numeric;
+  sampleOffset: numeric.Value;
   /** Stores information about the buffer state of this array into a WebGL buffer. */
   private readonly gl: GL;
-  /** The underlying data. */
-  private readonly _data: ArrayBuffer;
+  /** The underlying data. A typed array always matches the data type. */
+  private readonly _data: ArrayBuffer | TypedArray;
   /** The time range occupied by the series' data. */
   readonly timeRange: TimeRange = TimeRange.ZERO;
   /**
@@ -202,9 +190,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   readonly alignmentMultiple: bigint = 1n;
   /** A cached minimum value. */
-  private cachedMin?: math.Numeric;
+  private cachedMin?: numeric.Value;
   /** A cached maximum value. */
-  private cachedMax?: math.Numeric;
+  private cachedMax?: numeric.Value;
   /** Cached per-block minimums for boundsFor. Blocks are append-only. */
   private blockMins?: number[];
   /** Cached per-block maximums for boundsFor. Blocks are append-only. */
@@ -245,7 +233,7 @@ export class Series<T extends TelemValue = TelemValue>
         stringArrayZ,
         nullArrayZ,
         z.instanceof(ArrayBuffer),
-        z.instanceof(Uint8Array),
+        z.instanceof(Uint8Array).transform((b) => b.slice().buffer),
       ])
       .default(() => new Uint8Array().buffer),
     glBufferUsage: glBufferUsageZ.default("static").optional(),
@@ -264,6 +252,8 @@ export class Series<T extends TelemValue = TelemValue>
    *
    * @throws Error when the data type is neither given nor inferable, which is the case
    * for an ArrayBuffer and for an empty JS array.
+   * @throws RangeError when an ArrayBuffer's byte length is not a multiple of the
+   * data type's density.
    */
   constructor(props: SeriesParams | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
@@ -299,7 +289,7 @@ export class Series<T extends TelemValue = TelemValue>
     const isArray = Array.isArray(data);
 
     if (dataType != null) this.dataType = new DataType(dataType);
-    else if (data instanceof ArrayBuffer)
+    else if (isArrayBuffer(data))
       throw new Error(
         "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
       );
@@ -319,7 +309,7 @@ export class Series<T extends TelemValue = TelemValue>
       else if (
         first instanceof TimeStamp ||
         first instanceof Date ||
-        first instanceof TimeStamp
+        first instanceof TimeSpan
       )
         this.dataType = DataType.TIMESTAMP;
       else if (typeof first === "object") this.dataType = DataType.JSON;
@@ -329,11 +319,22 @@ export class Series<T extends TelemValue = TelemValue>
         );
     } else this.dataType = new DataType(data);
 
-    if (!isArray && !isSingle) this._data = data as ArrayBuffer;
+    if (isArrayBuffer(data)) {
+      const density = this.dataType.density.valueOf();
+      if (density > 0 && data.byteLength % density !== 0)
+        throw new RangeError(
+          `cannot construct a ${this.dataType.toString()} Series from ${data.byteLength} bytes: the byte length is not a multiple of the density ${density}`,
+        );
+      this._data = data;
+    } else if (data instanceof this.dataType.Array) this._data = data;
     else if (isArray && data.length === 0)
       this._data = new this.dataType.Array([]).buffer;
     else {
-      let data_ = isSingle ? [data] : data;
+      let data_ = isSingle
+        ? [data]
+        : isArray
+          ? data
+          : Array.from<number | bigint>(data);
       const first = data_[0];
       if (
         first instanceof TimeStamp ||
@@ -517,17 +518,14 @@ export class Series<T extends TelemValue = TelemValue>
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBuffer {
-    if (typeof this._data === "object" && "buffer" in this._data)
-      return (this._data as unknown as Uint8Array).buffer as ArrayBuffer;
-    return this._data;
+    if (isArrayBuffer(this._data)) return this._data;
+    return this._data.buffer;
   }
 
-  // The backing store and data type never change after construction, so views and
-  // type conversions are cached. A typed-array constructor given a typed array
-  // copies every element, so an already-matching array is returned as is.
+  // The backing store and data type never change after construction, so the view is
+  // cached.
   private get underlyingData(): TypedArray {
-    const data = this._data as ArrayBuffer | TypedArray;
-    if (data instanceof this.dataType.Array) return data;
+    if (!isArrayBuffer(this._data)) return this._data;
     return (this.cachedUnderlyingView ??= new this.dataType.Array(this._data));
   }
 
@@ -538,7 +536,8 @@ export class Series<T extends TelemValue = TelemValue>
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
+    if (!isArrayBuffer(this._data))
+      throw new Error("a partially written series must be backed by an ArrayBuffer");
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
       const length = this.writePos * elementsPerSample(this.dataType);
@@ -654,11 +653,13 @@ export class Series<T extends TelemValue = TelemValue>
    * expensive and copies the entire underlying array. There also may be untimely
    * precision issues when converting between data types.
    */
-  convert(target: DataType, sampleOffset: math.Numeric = 0): Series {
+  convert(target: DataType, sampleOffset: numeric.Value = 0): Series {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
+    // Indexed loops over typed arrays run several times faster than for...of. Each
+    // index in this file stays below the length of the array it reads.
     for (let i = 0; i < this.length; i++)
-      data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
+      data[i] = convertDataType(this.dataType, target, this.data[i]!, sampleOffset);
     return new Series({
       data: data.buffer,
       dataType: target,
@@ -670,10 +671,10 @@ export class Series<T extends TelemValue = TelemValue>
     });
   }
 
-  private calcRawMax(): math.Numeric {
+  private calcRawMax(): numeric.Value {
     if (this.length === 0) return -Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP))
-      this.cachedMax = this.data[this.data.length - 1];
+      this.cachedMax = this.data.at(-1) ?? -Infinity;
     else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
       this.cachedMax = d.reduce((a, b) => (a > b ? a : b));
@@ -681,7 +682,7 @@ export class Series<T extends TelemValue = TelemValue>
       const d = this.data as Float64Array;
       let max = -Infinity;
       for (let i = 0; i < d.length; i++) {
-        const v = d[i];
+        const v = d[i]!;
         if (v > max && v < Infinity) max = v;
       }
       this.cachedMax = max;
@@ -690,11 +691,11 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /** @returns the maximum finite value in the array. */
-  get max(): math.Numeric {
+  get max(): numeric.Value {
     return this.calcMax();
   }
 
-  private calcMax(): math.Numeric {
+  private calcMax(): numeric.Value {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
@@ -702,9 +703,10 @@ export class Series<T extends TelemValue = TelemValue>
     return this.applyOffset(this.cachedMax);
   }
 
-  private calcRawMin(): math.Numeric {
+  private calcRawMin(): numeric.Value {
     if (this.length === 0) return Infinity;
-    if (this.dataType.equals(DataType.TIMESTAMP)) this.cachedMin = this.data[0];
+    if (this.dataType.equals(DataType.TIMESTAMP))
+      this.cachedMin = this.data[0] ?? Infinity;
     else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
       this.cachedMin = d.reduce((a, b) => (a < b ? a : b));
@@ -712,7 +714,7 @@ export class Series<T extends TelemValue = TelemValue>
       const d = this.data as Float64Array;
       let min = Infinity;
       for (let i = 0; i < d.length; i++) {
-        const v = d[i];
+        const v = d[i]!;
         if (v < min && v > -Infinity) min = v;
       }
       this.cachedMin = min;
@@ -721,11 +723,11 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /** @returns the minimum finite value in the array. */
-  get min(): math.Numeric {
+  get min(): numeric.Value {
     return this.calcMin();
   }
 
-  private calcMin(): math.Numeric {
+  private calcMin(): numeric.Value {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
@@ -782,7 +784,7 @@ export class Series<T extends TelemValue = TelemValue>
       let max = -Infinity;
       const blockEnd = (b + 1) * BOUNDS_BLOCK_SIZE;
       for (let i = b * BOUNDS_BLOCK_SIZE; i < blockEnd; i++) {
-        const v = d[i];
+        const v = d[i]!;
         if (v < min && v > -Infinity) min = v;
         if (v > max && v < Infinity) max = v;
       }
@@ -797,14 +799,14 @@ export class Series<T extends TelemValue = TelemValue>
       const blockEnd = (block + 1) * BOUNDS_BLOCK_SIZE;
       const aligned = i === block * BOUNDS_BLOCK_SIZE;
       if (aligned && blockEnd <= hi && block < mins.length) {
-        if (mins[block] < lower) lower = mins[block];
-        if (maxs[block] > upper) upper = maxs[block];
+        if (mins[block]! < lower) lower = mins[block]!;
+        if (maxs[block]! > upper) upper = maxs[block]!;
         i = blockEnd;
         continue;
       }
       const stop = Math.min(hi, blockEnd);
       for (; i < stop; i++) {
-        const v = d[i];
+        const v = d[i]!;
         if (v < lower && v > -Infinity) lower = v;
         if (v > upper && v < Infinity) upper = v;
       }
@@ -837,7 +839,8 @@ export class Series<T extends TelemValue = TelemValue>
   atAlignment(alignment: bigint, required?: false): T | undefined;
 
   atAlignment(alignment: bigint, required?: boolean): T | undefined {
-    const index = Number((alignment - this.alignment) / this.alignmentMultiple);
+    const offset = alignment - this.alignment;
+    const index = offset < 0n ? -1 : Number(offset / this.alignmentMultiple);
     if (index < 0 || index >= this.length) {
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
@@ -879,7 +882,7 @@ export class Series<T extends TelemValue = TelemValue>
   // For huge bigint offsets (i64 timestamps narrowed to float32 for GL), math.add would
   // coerce through Number() and lose precision above 2^53; do the addition in bigint
   // space when the offset is a bigint.
-  private applyOffset(v: math.Numeric): math.Numeric {
+  private applyOffset(v: numeric.Value): numeric.Value {
     if (typeof this.sampleOffset === "bigint" && typeof v === "number")
       return BigInt(Math.round(v)) + this.sampleOffset;
     return math.add(v, this.sampleOffset);
@@ -897,15 +900,14 @@ export class Series<T extends TelemValue = TelemValue>
 
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
-    const uuidString = uuid.parse(
-      this.data as Uint8Array,
-      index * this.dataType.density.valueOf(),
-    );
-    if (uuidString == null) {
+    if (index < 0 || index >= this.length) {
       if (required) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return uuidString;
+    return uuid.fromBytes(
+      this.data as Uint8Array,
+      index * this.dataType.density.valueOf(),
+    );
   }
 
   asString(index: number, required: true): string;
@@ -932,11 +934,12 @@ export class Series<T extends TelemValue = TelemValue>
     const view = new DataView(buf);
     if (this._cachedIndexes != null) {
       if (index < 0) index = this._cachedIndexes.length + index;
-      if (index < 0 || index >= this._cachedIndexes.length) {
+      const cached = index < 0 ? undefined : this._cachedIndexes[index];
+      if (cached == null) {
         if (required) throw new Error(`[series] - no value at index ${index}`);
         return undefined;
       }
-      start = this._cachedIndexes[index];
+      start = cached;
       len = view.getUint32(start - UINT32_SIZE, true);
     } else {
       if (index < 0) index = this.length + index;
@@ -970,13 +973,13 @@ export class Series<T extends TelemValue = TelemValue>
    * method is undefined.
    * @param value - the value to search for.
    */
-  binarySearch(value: math.Numeric): number {
+  binarySearch(value: numeric.Value): number {
     // A NaN sample orders after every value. A bigint sample becomes a number when the
     // value is one, so a timestamp past 2^53 matches the number it rounds to. Babel
     // prints `(x as T) < y` without its parentheses, and the Console build then reads
     // `T < y` as type arguments.
     return array.partitionPoint(this.length, (i) => {
-      let sample = this.at(i, true) as math.Numeric;
+      let sample = this.at(i, true) as numeric.Value;
       if (typeof sample === "bigint" && typeof value === "number")
         sample = Number(sample);
       return !(sample < value);
@@ -1051,9 +1054,9 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns the value that glData and the GPU buffer hold each sample relative to. A
    * bigint series counts from its first sample, so its samples fit a float32.
    */
-  get glOffset(): math.Numeric {
+  get glOffset(): numeric.Value {
     if (!this.dataType.usesBigInt || this.length === 0) return this.sampleOffset;
-    return (this.gl.offset ??= this.at(0, true) as math.Numeric);
+    return (this.gl.offset ??= this.at(0, true) as numeric.Value);
   }
 
   /**
@@ -1066,7 +1069,8 @@ export class Series<T extends TelemValue = TelemValue>
     const { length } = this;
     const data = this.data as BigInt64Array | BigUint64Array;
     const copy = (this.gl.copy ??= new Float32Array(this.capacity));
-    for (let i = this.gl.copied; i < length; i++) copy[i] = Number(data[i] - data[0]);
+    const base = data[0] ?? 0n;
+    for (let i = this.gl.copied; i < length; i++) copy[i] = Number(data[i]! - base);
     this.gl.copied = length;
     return copy.subarray(0, length);
   }
@@ -1207,30 +1211,6 @@ export class Series<T extends TelemValue = TelemValue>
     return this.sliceSub(true, start, end);
   }
 
-  /**
-   * Returns an iterator over a portion of the series.
-   * @param start - The start index (inclusive).
-   * @param end - The end index (exclusive).
-   * @returns An iterator over the specified range.
-   */
-  subIterator(start: number, end?: number): Iterator<T> {
-    return new SubIterator(this, start, end ?? this.length);
-  }
-
-  /**
-   * Returns an iterator over a portion of the series based on alignment.
-   * @returns An iterator over the specified alignment range.
-   */
-  subAlignmentIterator(start: bigint, end: bigint): Iterator<T> {
-    const startIdx = Math.ceil(
-      Number(start - this.alignment) / Number(this.alignmentMultiple),
-    );
-    const endIdx = Math.ceil(
-      Number(end - this.alignment) / Number(this.alignmentMultiple),
-    );
-    return new SubIterator(this, startIdx, endIdx);
-  }
-
   private subBytes(start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
     return this.derive(this.data.subarray(start, end), start);
@@ -1268,8 +1248,12 @@ export class Series<T extends TelemValue = TelemValue>
     if (this._cachedIndexes == null) this.calculateCachedLength();
     const indexes = this._cachedIndexes as number[];
     const byteLen = this.byteLength.valueOf();
-    const byteStart = start >= len ? byteLen : indexes[start] - UINT32_SIZE;
-    const byteEnd = end >= len ? byteLen : indexes[end] - UINT32_SIZE;
+    const byteOffset = (i: number): number => {
+      const index = i >= len ? undefined : indexes[i];
+      return index == null ? byteLen : index - UINT32_SIZE;
+    };
+    const byteStart = byteOffset(start);
+    const byteEnd = byteOffset(end);
     return this.derive(this.data.slice(byteStart, byteEnd), start);
   }
 
@@ -1332,39 +1316,59 @@ export class Series<T extends TelemValue = TelemValue>
   }
 }
 
+const isTelemValue = (value: unknown): value is TelemValue => {
+  const ot = typeof value;
+  return (
+    ot === "string" ||
+    ot === "number" ||
+    ot === "boolean" ||
+    ot === "bigint" ||
+    value instanceof TimeStamp ||
+    value instanceof TimeSpan ||
+    value instanceof Date
+  );
+};
+
+const roundToBigInt = (value: numeric.Value): bigint =>
+  typeof value === "bigint" ? value : BigInt(Math.round(value.valueOf()));
+
+const convertDataType = (
+  source: DataType,
+  target: DataType,
+  value: numeric.Value,
+  offset: numeric.Value = 0,
+): numeric.Value => {
+  if (target.equals(DataType.BOOLEAN)) return primitive.isZero(value) ? 0 : 1;
+  if (source.usesBigInt && !target.usesBigInt)
+    return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
+  if (!source.usesBigInt && target.usesBigInt)
+    return roundToBigInt(value) - roundToBigInt(offset);
+  return math.sub(value, offset);
+};
+
 /**
  * @returns true if a Series can be constructed from the given value, and false
  * otherwise.
  */
-export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
+const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   if (value == null) return false;
   if (Array.isArray(value)) return true;
-  if (value instanceof ArrayBuffer) return true;
+  if (isArrayBuffer(value)) return true;
   if (ArrayBuffer.isView(value) && !(value instanceof DataView)) return true;
   if (value instanceof Series) return true;
   return isTelemValue(value);
 };
 
-/** @returns true if the given value is an instance of the series class. */
-const isSeries = instance.createMatcher<Series>(SERIES_DISCRIMINATOR, Series);
-
-class SubIterator<T> implements Iterator<T> {
-  private readonly series: Series;
-  private readonly end: number;
-  private index: number;
-
-  constructor(series: Series, start: number, end: number) {
-    this.series = series;
-    const bound = bounds.construct(0, series.length);
-    this.end = bounds.clamp(bound, end);
-    this.index = bounds.clamp(bound, start);
-  }
-
-  next(): IteratorResult<T> {
-    if (this.index >= this.end) return { done: true, value: undefined };
-    return { done: false, value: this.series.at(this.index++, true) as T };
-  }
-}
+/**
+ * @returns true if the given value is an instance of the series class, or carries its
+ * discriminator because a bundler duplicated the class.
+ */
+const isSeries = (value: unknown): value is Series =>
+  value instanceof Series ||
+  (typeof value === "object" &&
+    value !== null &&
+    "discriminator" in value &&
+    value.discriminator === SERIES_DISCRIMINATOR);
 
 class StringSeriesIterator implements Iterator<string> {
   private readonly series: Series;
@@ -1432,13 +1436,13 @@ class UUIDSeriesIterator implements Iterator<string> {
 
   next(): IteratorResult<string> {
     if (this.index >= this.series.length) return { done: true, value: undefined };
-    const uuidString = uuid.parse(this.data, this.index * this.density);
+    const uuidString = uuid.fromBytes(this.data, this.index * this.density);
     this.index++;
     return { done: false, value: uuidString };
   }
 }
 
-class FixedSeriesIterator implements Iterator<math.Numeric> {
+class FixedSeriesIterator implements Iterator<numeric.Value> {
   series: Series;
   index: number;
   constructor(series: Series) {
@@ -1446,11 +1450,11 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
     this.index = 0;
   }
 
-  next(): IteratorResult<math.Numeric> {
+  next(): IteratorResult<numeric.Value> {
     if (this.index >= this.series.length) return { done: true, value: undefined };
     return {
       done: false,
-      value: this.series.at(this.index++, true) as math.Numeric,
+      value: this.series.at(this.index++, true) as numeric.Value,
     };
   }
 }
@@ -1500,12 +1504,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * @throws Error if attempting to add a series with a different data type
    */
   constructor(series: Array<Series<T>> = []) {
-    if (series.length !== 0) {
-      const type = series[0].dataType;
-      for (let i = 1; i < series.length; i++)
-        if (!series[i].dataType.equals(type))
-          throw new Error("[multi-series] - series must have the same data type");
-    }
+    const first = series[0];
+    if (first != null && series.some((s) => !s.dataType.equals(first.dataType)))
+      throw new Error("[multi-series] - series must have the same data type");
     this.series = series;
   }
 
@@ -1544,8 +1545,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * returns DataType.UNKNOWN.
    */
   get dataType(): DataType {
-    if (this.series.length === 0) return DataType.UNKNOWN;
-    return this.series[0].dataType;
+    return this.series[0]?.dataType ?? DataType.UNKNOWN;
   }
 
   /**
@@ -1554,11 +1554,10 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * series to the end of the last series.
    */
   get timeRange(): TimeRange {
-    if (this.series.length === 0) return TimeRange.ZERO;
-    return new TimeRange(
-      this.series[0].timeRange.start,
-      this.series[this.series.length - 1].timeRange.end,
-    );
+    const first = this.series[0];
+    const last = this.series.at(-1);
+    if (first == null || last == null) return TimeRange.ZERO;
+    return new TimeRange(first.timeRange.start, last.timeRange.end);
   }
 
   /**
@@ -1566,8 +1565,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * empty, returns 0n.
    */
   get alignment(): bigint {
-    if (this.series.length === 0) return 0n;
-    return this.series[0].alignment;
+    return this.series[0]?.alignment ?? 0n;
   }
 
   /**
@@ -1576,11 +1574,10 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * series + its length. If the collection is empty, returns bounds.construct(0n, 0n).
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    if (this.series.length === 0) return bounds.construct(0n, 0n);
-    return bounds.construct(
-      this.series[0].alignmentBounds.lower,
-      this.series[this.series.length - 1].alignmentBounds.upper,
-    );
+    const first = this.series[0];
+    const last = this.series.at(-1);
+    if (first == null || last == null) return bounds.construct(0n, 0n);
+    return bounds.construct(first.alignmentBounds.lower, last.alignmentBounds.upper);
   }
 
   /**
@@ -1637,77 +1634,13 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   at(index: number, required?: false): T | undefined;
   at(index: number, required: boolean = false): T | undefined {
     if (index < 0) index = this.length + index;
-    for (const ser of this.series) {
-      if (index < ser.length) return ser.at(index, required as true);
-      index -= ser.length;
-    }
+    if (index >= 0)
+      for (const ser of this.series) {
+        if (index < ser.length) return ser.at(index, required as true);
+        index -= ser.length;
+      }
     if (required) throw new Error(`[series] - no value at index ${index}`);
     return undefined;
-  }
-
-  /**
-   * Returns an iterator over a portion of the multi-series.
-   * @param start - The start index (inclusive).
-   * @param end - The end index (exclusive).
-   * @returns An iterator over the specified range.
-   */
-  subIterator(start: number, end?: number): IterableIterator<T> {
-    return new MultiSubIterator(this, start, end ?? this.length);
-  }
-
-  /**
-   * Returns an iterator over a portion of the multi-series based on alignment.
-   * @returns An iterator over the specified alignment range.
-   */
-  subAlignmentIterator(start: bigint, end: bigint): IterableIterator<T> {
-    if (start >= this.alignmentBounds.upper || end <= this.alignmentBounds.lower)
-      return noopIterableIterator;
-    let startIdx = 0;
-    for (let i = 0; i < this.series.length; i++) {
-      const ser = this.series[i];
-      if (start < ser.alignment) break;
-      else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
-      else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Math.ceil(
-          Number(start - ser.alignment) / Number(ser.alignmentMultiple),
-        );
-        break;
-      }
-    }
-    let endIdx = 0;
-    for (let i = 0; i < this.series.length; i++) {
-      const ser = this.series[i];
-      if (end < ser.alignment) break;
-      else if (end >= ser.alignmentBounds.upper) endIdx += ser.length;
-      else if (bounds.contains(ser.alignmentBounds, end)) {
-        endIdx += Math.ceil(
-          Number(end - ser.alignment) / Number(ser.alignmentMultiple),
-        );
-        break;
-      }
-    }
-    return new MultiSubIterator(this, startIdx, endIdx);
-  }
-
-  /**
-   * @param start - The start alignment (inclusive).
-   * @param span - The number of samples to include.
-   * @returns An iterator over the specified range.
-   */
-  subAlignmentSpanIterator(start: bigint, span: number): IterableIterator<T> {
-    if (start >= this.alignmentBounds.upper) return noopIterableIterator;
-    span = Math.min(span, Number(this.distance(start, this.alignmentBounds.upper)));
-    let startIdx = 0;
-    for (let i = 0; i < this.series.length; i++) {
-      const ser = this.series[i];
-      if (start < ser.alignment) break;
-      else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
-      else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Number(start - ser.alignment);
-        break;
-      }
-    }
-    return new MultiSubIterator(this, startIdx, startIdx + span);
   }
 
   /** Updates the WebGL buffer for all series in the collection. */
@@ -1717,7 +1650,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** Returns the bounds containing the minimum and maximum values across all series. */
   get bounds(): bounds.Bounds {
-    return bounds.max(this.series.map((s) => s.bounds));
+    return bounds.union(this.series.map((s) => s.bounds));
   }
 
   /** Returns the sum of the byte lengths of all series. */
@@ -1738,15 +1671,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new this.dataType.Array(buf.buffer);
   }
 
-  /**
-   * Traverses the alignment space by a given distance from a start point.
-   * @returns The resulting alignment after traversal.
-   */
-  traverseAlignment(start: bigint, dist: bigint): bigint {
-    const b = this.series.map((s) => s.alignmentBounds);
-    return bounds.traverse(b, start, dist);
-  }
-
   /** Acquires a reference to the WebGL buffer for all series. */
   acquire(gl?: GLBufferController): void {
     this.series.forEach((s) => s.acquire(gl));
@@ -1755,15 +1679,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   /** Releases the WebGL buffer reference for all series. */
   release(): void {
     this.series.forEach((s) => s.release());
-  }
-
-  /**
-   * Calculates the number of samples between two alignments in the multi-series.
-   * @returns The distance between the alignments.
-   */
-  distance(start: bigint, end: bigint): bigint {
-    const b = this.series.map((s) => s.alignmentBounds);
-    return bounds.distance(b, start, end);
   }
 
   /**
@@ -1806,42 +1721,19 @@ class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator
   constructor(series: Array<Series<T>>) {
     this.series = series;
     this.seriesIndex = 0;
-    this.internal = series[0][Symbol.iterator]();
+    this.internal = (series[0] ?? [])[Symbol.iterator]();
   }
 
   next(): IteratorResult<T> {
     const next = this.internal.next();
     if (next.done === false) return next;
-    if (this.seriesIndex === this.series.length - 1)
-      return { done: true, value: undefined };
-    this.internal = this.series[++this.seriesIndex][Symbol.iterator]();
+    const series = this.series[++this.seriesIndex];
+    if (series == null) return { done: true, value: undefined };
+    this.internal = series[Symbol.iterator]();
     return this.next();
   }
 
   [Symbol.iterator](): Iterator<TelemValue | unknown> {
-    return this;
-  }
-}
-
-class MultiSubIterator<
-  T extends TelemValue = TelemValue,
-> implements IterableIterator<T> {
-  private readonly series: MultiSeries<T>;
-  private index: number;
-  private end: number;
-
-  constructor(series: MultiSeries<T>, start: number, end: number) {
-    this.series = series;
-    this.end = end;
-    this.index = start;
-  }
-
-  next(): IteratorResult<T> {
-    if (this.index >= this.end) return { done: true, value: undefined };
-    return { done: false, value: this.series.at(this.index++, true) };
-  }
-
-  [Symbol.iterator](): Iterator<T> {
     return this;
   }
 }
