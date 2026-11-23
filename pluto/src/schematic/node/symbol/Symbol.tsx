@@ -11,7 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type FC, memo, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -21,12 +21,10 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Stale } from "@/schematic/node/common/stale";
-import type { NodeProps, PreviewProps, Spec } from "@/schematic/node/spec";
+import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bindSpec, sources, values } from "@/schematic/node/symbol/bind";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
-
-export const SYMBOL_VARIANT = "symbol";
 
 type Config = schematic.SymbolNodeConfig;
 
@@ -68,7 +66,7 @@ const Drawn = ({
   const { spec, builtIn, missing } = useSpec(ref);
   const bound = spec == null ? undefined : bindSpec(spec, states);
   const [nodeColor] = Color.useValues([color]);
-  const paints = Custom.usePaints(bound, value, undefined, nodeColor);
+  const paints = Custom.usePaints(bound, value, { nodeColor, builtIn });
   const invalid = bound != null && !builtIn && !Custom.isValidSVG(bound.drawing.markup);
   if (missing || invalid)
     return (
@@ -94,7 +92,7 @@ const Drawn = ({
   );
 };
 
-const Node = ({
+export const Node = ({
   nodeKey,
   config,
   selected,
@@ -133,7 +131,7 @@ const Node = ({
 
 const NO_VALUES: Custom.StateValue = new Map();
 
-const Preview = ({
+export const Preview = ({
   spec,
   color,
   states,
@@ -149,16 +147,3 @@ const Preview = ({
     value={NO_VALUES}
   />
 );
-
-/**
- * symbolSpec draws a symbol node: its symbol, with the looks that the values of its
- * bound states give it, and the stale indicator while a state is stale.
- */
-export const symbolSpec: Spec<typeof SYMBOL_VARIANT, Config> = {
-  key: SYMBOL_VARIANT,
-  name: "Symbol",
-  Form: () => null,
-  Node: memo(Node) as FC<NodeProps<Config>>,
-  Preview,
-  zIndex: 4,
-};
