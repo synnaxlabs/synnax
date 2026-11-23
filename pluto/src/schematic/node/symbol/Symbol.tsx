@@ -22,7 +22,13 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Stale } from "@/schematic/node/common/stale";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import { bindSpec, sources, values } from "@/schematic/node/symbol/bind";
+import {
+  bindSpec,
+  sources,
+  stale,
+  stateChannels,
+  values,
+} from "@/schematic/node/symbol/bind";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -101,11 +107,10 @@ export const Node = ({
   const { label, orientation, scale, spec, color, states, stalenessTimeout } = config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(states),
+    sources: sources(stateChannels(states)),
     sinks: {},
     stalenessTimeout,
   });
-  const stale = Object.values(readings).some((r) => r.stale);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
     <Grid.Grid
@@ -116,7 +121,7 @@ export const Node = ({
       {...scaleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      {stale(states, readings) && <Stale.Indicator />}
       <Drawn
         spec={spec}
         color={color}
