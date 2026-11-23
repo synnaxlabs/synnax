@@ -146,9 +146,9 @@ class TextEncoder {
         double scale = 1;
         double offset = 0;
         Number number = Number::FLOAT64;
-        /// @brief binding is the index of the field's sample, or -1 for a field that
-        /// takes its default.
-        int binding = -1;
+        /// @brief binding is the index of the field's sample, or nothing for a field
+        /// that takes its default.
+        std::optional<std::size_t> binding;
         std::optional<double> fallback;
 
         /// @brief creates a field that writes f. dt is the data type of the field's
@@ -190,10 +190,10 @@ public:
     /// sample, in sample order, and every other field takes its default.
     /// @returns CONFIG_ERROR when the delimiter is empty, a binding names no field, a
     /// field has two bindings, a tag is empty, contains the delimiter, or starts with
-    /// whitespace, two fields have the same position or tag, the prefix fills the
-    /// position of a field, a default is not finite, a field's channel does not hold
-    /// numbers, a scaled field's channel does not hold floats, or a field has no
-    /// binding and no default.
+    /// whitespace, two fields have the same position or tag, a position is past 65535,
+    /// the prefix fills the position of a field, a default is not finite, a field's
+    /// channel does not hold numbers, a scaled field's channel does not hold floats, or
+    /// a field has no binding and no default.
     static std::pair<TextEncoder, x::errors::Error> create(const TextMessage &message);
 
     /// @brief encodes samples into payload, a line that starts with the prefix. The

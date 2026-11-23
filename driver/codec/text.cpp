@@ -40,6 +40,10 @@ namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
 
+/// @brief MAX_POSITION is the largest position of a delimited field. A line with more
+/// items does not fit in a 64 KiB frame.
+constexpr std::uint32_t MAX_POSITION = 65535;
+
 /// @returns CONFIG_ERROR when tag is empty, contains delimiter, or starts with
 /// whitespace.
 x::errors::Error check_tag(const std::string &tag, const std::string_view delimiter) {
@@ -265,8 +269,8 @@ x::errors::Error TextEncoder::Field::append(
     const std::span<const x::telem::Series> samples,
     std::string &out
 ) const {
-    if (this->binding >= 0) {
-        const auto &s = samples[static_cast<std::size_t>(this->binding)];
+    if (this->binding.has_value()) {
+        const auto &s = samples[*this->binding];
         if (!s.empty()) return this->append(s.at(0), out);
     }
     if (!this->fallback.has_value())
@@ -409,7 +413,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             };
         const auto index = enc.fields.size();
         if (found != bound.end()) {
-            field.binding = static_cast<int>(found->second);
+            field.binding = found->second;
             enc.bound[found->second] = index;
         }
         if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
@@ -422,6 +426,11 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             enc.tagged.push_back(index);
         } else {
             const auto position = std::get<icd::DelimitedTextField>(f).position;
+            if (position > MAX_POSITION)
+                return refuse(
+                    context + ": position " + std::to_string(position) +
+                    " is past the last position " + std::to_string(MAX_POSITION)
+                );
             if (position < fixed)
                 return refuse(
                     context + ": the prefix fills position " + std::to_string(position)
