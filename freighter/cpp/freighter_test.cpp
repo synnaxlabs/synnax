@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <optional>
+
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
@@ -93,5 +96,31 @@ TEST(testFreighter, testContextAssignReplacesParams) {
     target = source;
     ASSERT_FALSE(target.has("stale"));
     ASSERT_TRUE(target.has("fresh"));
+}
+
+/// @brief records the deadline of the context it gets.
+class DeadlineFinalizer final : public Finalizer<int, int> {
+public:
+    std::optional<std::chrono::system_clock::time_point> deadline;
+
+    freighter::FinalizerReturn<int>
+    operator()(const freighter::Context context, int &req) override {
+        this->deadline = context.deadline;
+        return {context, x::errors::NIL, req};
+    }
+};
+
+/// @brief it should give each request a deadline the timeout after it starts.
+TEST(testFreighter, testDeadline) {
+    auto collector = MiddlewareCollector<int, int>();
+    collector.use(std::make_shared<Deadline>(std::chrono::seconds(10)));
+    auto f = DeadlineFinalizer();
+    const auto ctx = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
+    auto req = 1;
+    const auto start = std::chrono::system_clock::now();
+    ASSERT_NIL_P(collector.exec(ctx, &f, req));
+    ASSERT_TRUE(f.deadline.has_value());
+    EXPECT_GE(f.deadline.value(), start + std::chrono::seconds(10));
+    EXPECT_LE(f.deadline.value(), start + std::chrono::seconds(11));
 }
 }

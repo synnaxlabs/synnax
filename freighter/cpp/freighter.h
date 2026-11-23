@@ -136,6 +136,20 @@ public:
     }
 };
 
+/// @brief gives each request a deadline a fixed time after it starts.
+class Deadline final : public PassthroughMiddleware {
+    std::chrono::milliseconds timeout;
+
+public:
+    explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
+
+    std::pair<Context, x::errors::Error>
+    operator()(Context context, Next &next) override {
+        context.deadline = std::chrono::system_clock::now() + this->timeout;
+        return next(context);
+    }
+};
+
 template<typename RS>
 struct FinalizerReturn {
     Context context;

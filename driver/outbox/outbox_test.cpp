@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -91,6 +92,23 @@ protected:
             .dir = this->dir,
             .statuses = synnax::status::Client(nullptr, nullptr, nullptr, transport),
             .cap = cap,
+        };
+        cfg.retry.base_interval = retry;
+        cfg.retry.max_interval = retry;
+        return ASSERT_NIL_P(Outbox::open(cfg));
+    }
+
+    /// @brief opens an outbox that passes the result of each segment sync through
+    /// on_sync.
+    [[nodiscard]] std::unique_ptr<Outbox> open_with(
+        const std::shared_ptr<Transport> &transport,
+        const x::telem::TimeSpan retry,
+        std::function<x::errors::Error(const x::errors::Error &)> on_sync
+    ) const {
+        Config cfg{
+            .dir = this->dir,
+            .statuses = synnax::status::Client(nullptr, nullptr, nullptr, transport),
+            .on_sync = std::move(on_sync),
         };
         cfg.retry.base_interval = retry;
         cfg.retry.max_interval = retry;
@@ -462,7 +480,127 @@ TEST_F(OutboxTest, RemovesSentSegments) {
         std::chrono::seconds(10),
         std::chrono::milliseconds(5)
     );
-    ASSERT_FALSE(std::filesystem::exists(this->segment()));
+    ASSERT_EVENTUALLY_FALSE(std::filesystem::exists(this->segment()));
     ASSERT_TRUE(std::filesystem::exists(this->dir / "1.calls"));
+}
+
+/// @brief it should hold a call whose write succeeded before a failed sync, and
+/// refuse the next call that the failed segment cannot take.
+TEST_F(OutboxTest, MovesToNewSegmentAfterFailedSync) {
+    std::atomic<bool> failing = false;
+    std::atomic<int> failed_syncs = 0;
+    {
+        const auto outbox = this->open_with(
+            transport_of({freighter::UNREACHABLE}),
+            x::telem::HOUR,
+            [&](const x::errors::Error &err) {
+                if (!failing) return err;
+                ++failed_syncs;
+                return x::errors::Error(journal::BASE_ERROR, "disk failed");
+            }
+        );
+        failing = true;
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+        ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+            failed_syncs.load(),
+            1,
+            std::chrono::seconds(5),
+            std::chrono::milliseconds(10)
+        );
+        ASSERT_OCCURRED_AS(
+            outbox->set_status(set_of("second"), nullptr),
+            journal::BASE_ERROR
+        );
+        ASSERT_NIL(outbox->set_status(set_of("third"), nullptr));
+        ASSERT_EQ(outbox->size(), 2);
+        failing = false;
+    }
+    const auto transport = transport_of({x::errors::NIL, x::errors::NIL});
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"first", "third"}));
+}
+
+/// @brief it should keep sending when it fails to save its offset, and send the calls
+/// again after a reopen.
+TEST_F(OutboxTest, KeepsSendingAfterFailedOffsetSave) {
+    {
+        const auto transport = transport_of({x::errors::NIL, x::errors::NIL});
+        const auto outbox = this->open_outbox(transport);
+        std::filesystem::create_directories(this->dir / "offset" / "blocker");
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+        ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+        ASSERT_NIL(outbox->set_status(set_of("second"), nullptr));
+        ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    }
+    std::filesystem::remove_all(this->dir / "offset");
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 2);
+}
+
+/// @brief it should never save an offset past the bytes of a segment that are on
+/// the disk.
+TEST_F(OutboxTest, SavesOffsetOnlyAfterSync) {
+    std::atomic<bool> failing = false;
+    {
+        const auto outbox = this->open_with(
+            transport_of({x::errors::NIL}),
+            x::telem::MILLISECOND,
+            [&](const x::errors::Error &err) {
+                if (!failing) return err;
+                return x::errors::Error(journal::BASE_ERROR, "disk failed");
+            }
+        );
+        failing = true;
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+        ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    }
+    const auto offset = ASSERT_NIL_P(
+        journal::read_offset(this->dir / "offset", OFFSET_MAGIC)
+    );
+    ASSERT_TRUE(offset.has_value());
+    EXPECT_EQ(offset.value().segment, 0);
+    EXPECT_EQ(offset.value().pos, journal::HEADER_SIZE);
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 1);
+}
+
+/// @brief it should sync a call to the disk while it waits to retry a send.
+TEST_F(OutboxTest, SyncsDuringRetryWait) {
+    std::atomic<int> syncs = 0;
+    const auto outbox = this->open_with(
+        transport_of({freighter::UNREACHABLE}),
+        x::telem::HOUR,
+        [&](const x::errors::Error &err) {
+            ++syncs;
+            return err;
+        }
+    );
+    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        syncs.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+}
+
+/// @brief it should tell how to recover from a saved offset past the end of its
+/// segment.
+TEST_F(OutboxTest, RefusesOffsetPastSegmentEnd) {
+    {
+        const auto outbox = this->open_unreachable();
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    }
+    ASSERT_NIL(
+        journal::commit_offset(
+            this->dir / "offset",
+            OFFSET_MAGIC,
+            {.segment = 0, .pos = 1000}
+        )
+    );
+    auto [outbox, err] = Outbox::open({.dir = this->dir});
+    ASSERT_OCCURRED_AS(err, journal::CORRUPT);
+    EXPECT_TRUE(err.message().contains("Delete"));
 }
 }
