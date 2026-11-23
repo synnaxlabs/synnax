@@ -107,6 +107,20 @@ describe("symbol editor spec", () => {
       ]);
     });
 
+    it("should change the blink of a part that a whole drawing blink follows", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", when: equals(0), blink: { period: 1e9 } },
+          { key: "b", when: equals(0), blink: { period: 2e9 } },
+        ],
+      });
+      const blink: schematic.symbol.Blink = { period: 3e9 };
+      expect(Spec.setOwn(spec, "body", "blink", blink, 0).looks).toEqual([
+        { ...spec.looks[0], blink },
+        spec.looks[1],
+      ]);
+    });
+
     it("should clear a field at every value and keep it on single values", () => {
       const spec = createSpec({
         looks: [
@@ -191,12 +205,10 @@ describe("symbol editor spec", () => {
         fixed(RED),
         0,
       );
-      expect(next.slice(0, 1)).toEqual([looks[1]]);
-      expect(next[1]).toMatchObject({
-        part: "body",
-        when: equals(0),
-        stroke: fixed(RED),
-      });
+      expect(next).toEqual([
+        looks[1],
+        { key: expect.any(String), part: "body", when: equals(0), stroke: fixed(RED) },
+      ]);
     });
 
     it("should take an old motion of another kind off the owned look", () => {
@@ -481,14 +493,14 @@ describe("symbol editor spec", () => {
       state: "fill",
       side: "bottom",
     };
-    const drawn = (shape: string): schematic.symbol.Spec["drawing"] => ({
+    const createDrawing = (shape: string): schematic.symbol.Spec["drawing"] => ({
       type: "svg",
       markup: `<svg xmlns="http://www.w3.org/2000/svg">${shape}<rect id="seat"/></svg>`,
     });
 
     it("should return a part with a level motion and a shape with a clip-path", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
         looks: [{ key: "a", part: "body", motion: LEVEL }],
       });
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
@@ -496,7 +508,7 @@ describe("symbol editor spec", () => {
 
     it("should skip a level motion on a state that the editor does not edit", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
         looks: [
           {
             key: "a",
@@ -511,7 +523,9 @@ describe("symbol editor spec", () => {
 
     it("should count a clip-path in the style of a shape", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body" style="fill: red; clip-path: inset(0)"/>'),
+        drawing: createDrawing(
+          '<rect id="body" style="fill: red; clip-path: inset(0)"/>',
+        ),
         looks: [{ key: "a", part: "body", motion: LEVEL }],
       });
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
@@ -519,7 +533,7 @@ describe("symbol editor spec", () => {
 
     it("should not count a clip-path of none", () => {
       const spec = createSpec({
-        drawing: drawn(
+        drawing: createDrawing(
           '<rect id="body" clip-path="none" style="clip-path: none; fill: red"/>',
         ),
         looks: [{ key: "a", part: "body", motion: LEVEL }],
@@ -529,7 +543,7 @@ describe("symbol editor spec", () => {
 
     it("should return a part with a level motion and more than one shape", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body"/>'),
+        drawing: createDrawing('<rect id="body"/>'),
         parts: [{ key: "body", name: "Body", selectors: ["#body", "#seat"] }],
         looks: [{ key: "a", part: "body", motion: LEVEL }],
       });
@@ -538,7 +552,7 @@ describe("symbol editor spec", () => {
 
     it("should count a shape that two selectors match once", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body" class="tank"/>'),
+        drawing: createDrawing('<rect id="body" class="tank"/>'),
         parts: [{ key: "body", name: "Body", selectors: ["#body", ".tank"] }],
         looks: [{ key: "a", part: "body", motion: LEVEL }],
       });
@@ -547,7 +561,7 @@ describe("symbol editor spec", () => {
 
     it("should count a group of shapes as one shape", () => {
       const spec = createSpec({
-        drawing: drawn('<g id="body"><rect/><rect/></g>'),
+        drawing: createDrawing('<g id="body"><rect/><rect/></g>'),
         looks: [{ key: "a", part: "body", motion: LEVEL }],
       });
       expect(Spec.levelIssues(spec).size).toBe(0);
@@ -555,7 +569,7 @@ describe("symbol editor spec", () => {
 
     it("should count only the outermost shapes of a part", () => {
       const spec = createSpec({
-        drawing: drawn(
+        drawing: createDrawing(
           '<g id="body"><rect id="inner" clip-path="url(#c)"/><rect/></g>',
         ),
         parts: [{ key: "body", name: "Body", selectors: ["#body", "#inner"] }],
@@ -566,7 +580,7 @@ describe("symbol editor spec", () => {
 
     it("should return no part when the clipped part has no level motion", () => {
       const spec = createSpec({
-        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
         looks: [
           { key: "a", part: "body", motion: { type: "spin", rate: 1 } },
           { key: "b", part: "seat", motion: LEVEL },

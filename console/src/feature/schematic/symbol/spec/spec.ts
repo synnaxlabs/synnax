@@ -166,7 +166,7 @@ export const variesByValue = (
 /**
  * @returns spec in which field of target varies by value, with each value starting from
  * the field on every value. With varies false, it returns spec in which every value
- * takes the field that target shows at the first value.
+ * takes the field that target sets at the first value.
  */
 export const setVariesByValue = (
   spec: Spec,
@@ -176,10 +176,10 @@ export const setVariesByValue = (
   varies: boolean,
 ): Spec => {
   if (varies) {
-    const base = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
-    if (base == null) return spec;
+    const shared = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
+    if (shared == null) return spec;
     const cleared = setOwn(spec, target, field, undefined);
-    return values.reduce((s, v) => setOwn(s, target, field, base[field], v), cleared);
+    return values.reduce((s, v) => setOwn(s, target, field, shared[field], v), cleared);
   }
   // Looks of the whole drawing stay out, so target takes no field that it did not set.
   const mine = spec.looks.filter((l) => l.part === target);
