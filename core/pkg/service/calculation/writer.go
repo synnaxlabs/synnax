@@ -47,6 +47,13 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// Announce attaches a set of the expression and the operations of c for its output to
+// the transaction of w on the channel stream, as one batch that goes only to a subject
+// who reads c.
+func (w Writer) Announce(c Calculation) {
+	w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, true)...)
+}
+
 func (w Writer) channelWriter() channel.Writer {
 	return w.channels.NewWriter(w.tx).WithDispatchKey(w.dispatchKey)
 }
@@ -81,7 +88,7 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 		return err
 	}
 	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
-	w.svc.announce(w.tx, w.channelWriter(), c.Output, *c, fieldsOf(*c, true)...)
+	w.Announce(*c)
 	return nil
 }
 
@@ -207,28 +214,39 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	_, computed, err := w.ApplyTo(ctx, c, acts...)
+	return computed, err
+}
+
+// ApplyTo applies the actions to c, which the caller read in the transaction of w, as
+// Apply does. It also returns the calculation that it stores.
+func (w Writer) ApplyTo(
+	ctx context.Context,
+	c Calculation,
+	acts ...Action,
+) (Calculation, []Action, error) {
 	next, err := Reduce(c, acts...)
 	if err != nil {
-		return nil, err
+		return Calculation{}, nil, err
 	}
 	if err = next.Validate(); err != nil {
-		return nil, err
+		return Calculation{}, nil, err
 	}
 	var output channel.Channel
 	if err = w.channels.NewRetrieve().
 		Where(channel.MatchKeys(next.Output)).
 		Entry(&output).
 		Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return Calculation{}, nil, err
 	}
 	if err = w.compile(ctx, output, &next); err != nil {
-		return nil, err
+		return Calculation{}, nil, err
 	}
 	if err = w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Calculation](key)).
+		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
 		Change(func(gorp.Context, Calculation) Calculation { return next }).
 		Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return Calculation{}, nil, err
 	}
 	var computed []Action
 	if !slices.Equal(next.Reads, c.Reads) {
@@ -238,7 +256,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}))
 	}
 	w.attach(next, slices.Concat(acts, computed)...)
-	return computed, nil
+	return next, computed, nil
 }
 
 // compile analyzes c as the calculation that writes output. It returns the analysis

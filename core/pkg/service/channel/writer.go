@@ -46,7 +46,7 @@ type Writer struct {
 
 // Announce attaches acts to the transaction of w for the channel with key without
 // applying them, as one batch, and returns the number of the batch. They carry fields
-// the channel no longer stores to the clients that read them from it.
+// that the channel does not store to the clients that read them from it.
 func (w Writer) Announce(key Key, acts ...Action) uint64 {
 	return w.dispatcher.Attach(w.tx, key, acts...)
 }

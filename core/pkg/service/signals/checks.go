@@ -33,6 +33,8 @@ type commitChecks struct {
 
 func newCommitChecks(size int) *commitChecks { return &commitChecks{size: size} }
 
+// add adds the checks of one commit and drops the oldest commit past the size. It keeps
+// the bytes of each key, so the caller must never write them again.
 func (c *commitChecks) add(checks map[string]Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -22,9 +22,16 @@ describe("live virtual lists", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    // The output keeps the data type of the input, so no data type set reaches it.
-    const calc = await admin.calculations.create({
+    const output = await admin.channels.create({
       name: `${prefix}_output`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    // A calculation on a stored output creates and deletes no other channel, and its
+    // expression keeps the data type, so only the announce of its delete can reach the
+    // list.
+    const calc = await admin.calculations.create({
+      output: output.key,
       expression: `return ${input.name} * 2`,
     });
     const client = createTestClient();
@@ -40,7 +47,7 @@ describe("live virtual lists", () => {
       const keys = () => (list.getCached()?.records ?? []).map(({ key }) => key);
       expect(keys()).toEqual([]);
       await admin.calculations.delete(calc.key);
-      await expect.poll(keys).toEqual([calc.output]);
+      await expect.poll(keys).toEqual([output.key]);
     } finally {
       off();
     }

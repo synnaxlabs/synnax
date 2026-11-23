@@ -420,6 +420,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				createdOf(rec)[plain.Key()],
 			).To(Equal(channel.Created{Channel: plain}))
+			Expect(announcedOf(rec)).To(BeEmpty())
 		})
 	})
 

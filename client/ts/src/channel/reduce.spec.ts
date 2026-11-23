@@ -67,8 +67,7 @@ describe("channel reduce", () => {
 
     it("should keep calculated with no expression through operations set", () => {
       const hidden = { ...created, calculated: true };
-      // An old API edit can give a subject who cannot read the expression a set of
-      // the operations alone.
+      // Only a set of the expression recomputes calculated.
       const operations = set({
         path: ["operations"],
         value: [{ type: "max", reset_channel: 0, duration: "1000000000" }],
