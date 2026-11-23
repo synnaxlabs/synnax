@@ -1913,6 +1913,40 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
+    it("keeps the identity of the parts that a create echo leaves equal", async () => {
+      interface Plot {
+        name: string;
+        rules: Array<{ key: string; position: number }>;
+      }
+      type PlotAction = { type: "create"; plot: Plot };
+      const reduce = actions.createReduceAll<Plot, PlotAction>((draft, a) => {
+        Object.assign(draft, a.plot);
+        return { inverse: [], targets: [] };
+      });
+      const docs = new query.Table<string, Plot>({ onError: () => {} });
+      const epochs = new observe.Observer<number>();
+      const controller = new actions.Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError: () => {},
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [],
+      });
+      epochs.notify(1);
+      docs.set("k", { name: "local", rules: [{ key: "a", position: 1 }] });
+      const { rules } = docs.get("k") ?? {};
+      let dispatchKey = "";
+      await controller.create(["k"], async (key) => {
+        dispatchKey = key;
+      });
+      controller.applyRemote("k", 1, dispatchKey, [
+        { type: "create", plot: { name: "core", rules: [{ key: "a", position: 1 }] } },
+      ]);
+      expect(docs.get("k")?.name).toEqual("core");
+      expect(docs.get("k")?.rules).toBe(rules);
+    });
+
     it("removes the pending create and rethrows when the send fails", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
