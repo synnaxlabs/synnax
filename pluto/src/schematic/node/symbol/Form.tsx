@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, notation } from "@synnaxlabs/x";
+import { bounds, deep, notation } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -22,6 +23,7 @@ import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { Telem } from "@/schematic/node/common/telem";
 import type { FormProps } from "@/schematic/node/spec";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { Properties } from "@/vis/properties";
@@ -127,6 +129,76 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
   </>
 );
 
+interface BoundsInputsProps {
+  value: bounds.Bounds;
+  onChange: (next: bounds.Bounds) => void;
+}
+
+const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => (
+  <>
+    <Input.Item label="Min value" padHelpText={false}>
+      <Input.Numeric
+        value={value.lower}
+        bounds={{ ...bounds.INFINITE, upper: value.upper }}
+        onChange={(lower) => onChange({ ...value, lower })}
+      />
+    </Input.Item>
+    <Input.Item label="Max value" padHelpText={false}>
+      <Input.Numeric
+        value={value.upper}
+        bounds={{ ...bounds.INFINITE, lower: value.lower }}
+        onChange={(upper) => onChange({ ...value, upper })}
+      />
+    </Input.Item>
+  </>
+);
+
+interface EnumerationOverridesProps extends BindingProps {
+  state: schematic.symbol.EnumerationState;
+}
+
+const EnumerationOverrides = ({
+  state,
+  binding,
+  onChange,
+}: EnumerationOverridesProps): ReactElement => {
+  const match = binding.match ?? state.match;
+  const setMatch = (next: schematic.symbol.Matcher): void =>
+    onChange({ ...binding, match: next });
+  return (
+    <>
+      <Input.Item label="Match" padHelpText={false}>
+        <Select.Buttons
+          value={match.type}
+          onChange={(type: schematic.symbol.MatcherType) =>
+            setMatch(
+              type === "exact" ? { type } : { type, bounds: Telem.DEFAULT_THRESHOLD },
+            )
+          }
+        >
+          <Select.Item itemKey="exact">Exact</Select.Item>
+          <Select.Item itemKey="within">Within</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {match.type === "within" && (
+        <BoundsInputs
+          value={match.bounds}
+          onChange={(b) => setMatch({ ...match, bounds: b })}
+        />
+      )}
+      <Input.Item label="Default" padHelpText={false}>
+        <Input.Numeric
+          value={binding.default ?? state.default}
+          onChange={(d) => onChange({ ...binding, default: d })}
+        />
+      </Input.Item>
+    </>
+  );
+};
+
+const overridden = (b: Binding): boolean =>
+  b.enumeration != null || b.match != null || b.bounds != null || b.default != null;
+
 interface StateSectionProps {
   state: schematic.symbol.State;
 }
@@ -141,8 +213,33 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
   return (
     <Base.Section title={state.name}>
       <SourceFields binding={binding} onChange={handleChange} />
-      {state.type === "number" && (
-        <FormatFields binding={binding} onChange={handleChange} />
+      {state.type === "number" ? (
+        <>
+          <FormatFields binding={binding} onChange={handleChange} />
+          <BoundsInputs
+            value={binding.bounds ?? state.bounds}
+            onChange={(b) => handleChange({ ...binding, bounds: b })}
+          />
+        </>
+      ) : (
+        <EnumerationOverrides state={state} binding={binding} onChange={handleChange} />
+      )}
+      {overridden(binding) && (
+        <Button.Button
+          variant="text"
+          onClick={() =>
+            handleChange({
+              ...binding,
+              enumeration: undefined,
+              match: undefined,
+              bounds: undefined,
+              default: undefined,
+            })
+          }
+        >
+          <Icon.Reset />
+          Reset to symbol
+        </Button.Button>
       )}
     </Base.Section>
   );
@@ -242,8 +339,8 @@ const StyleForm = (): ReactElement => (
 );
 
 /**
- * Edits a symbol node: the source and format of each state of its symbol, the channel
- * of each command with no state, its clicks, and its style.
+ * Edits a symbol node: the source, format, and overrides of each state of its symbol,
+ * the channel of each command with no state, its clicks, and its style.
  */
 export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => (
   <Properties.Tabs

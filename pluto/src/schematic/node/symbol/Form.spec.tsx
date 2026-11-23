@@ -24,6 +24,11 @@ const parse = (
 ): schematic.SymbolNodeConfig =>
   schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config });
 
+const commit = (input: HTMLElement, value: string): void => {
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
+
 describe("Symbol form", () => {
   describe("built-in symbol", () => {
     const valve: schematic.symbol.Ref = { type: "builtin", name: "valve" };
@@ -62,6 +67,49 @@ describe("Symbol form", () => {
       fireEvent.click(getByText("None"));
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({ key: "active" }),
+      ]);
+    });
+  });
+
+  describe("overrides", () => {
+    const valve: schematic.symbol.Ref = { type: "builtin", name: "valve" };
+    const render = (states: schematic.StateBinding[] = []) =>
+      renderForm(
+        <Form tab="telemetry" onTabChange={vi.fn()} />,
+        parse({ spec: valve, states }),
+        schematic.symbolNodeConfigZ,
+        createSynnaxWrapper({ client: null }),
+      );
+
+    it("should replace the match of an enumeration state", () => {
+      const { getByText, value } = render();
+      fireEvent.click(getByText("Exact"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", match: { type: "exact" } }),
+      ]);
+    });
+
+    it("should replace the default of an enumeration state", () => {
+      const { getByLabelText, value } = render();
+      commit(getByLabelText("Default"), "1");
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", default: 1 }),
+      ]);
+    });
+
+    it("should clear the overrides and keep the source on a reset", () => {
+      const source = { type: "channel" } as const;
+      const { getByText, value } = render([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source,
+          match: { type: "exact" },
+          default: 1,
+        }),
+      ]);
+      fireEvent.click(getByText("Reset to symbol"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", source }),
       ]);
     });
   });
@@ -123,6 +171,22 @@ describe("Symbol form", () => {
       );
       await findByText("Level");
       expect(getAllByLabelText("Units")).toHaveLength(1);
+    });
+
+    it("should replace the bounds of a number state", async () => {
+      const { findByLabelText, value } = renderForm(
+        <Form tab="telemetry" onTabChange={vi.fn()} />,
+        parse({ spec: ref }),
+        schematic.symbolNodeConfigZ,
+        wrapper,
+      );
+      commit(await findByLabelText("Max value"), "50");
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "level",
+          bounds: { lower: 0, upper: 50 },
+        }),
+      ]);
     });
 
     it("should list only the commands with no state", async () => {
