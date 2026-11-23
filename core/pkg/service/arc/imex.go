@@ -45,7 +45,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	if err != nil {
 		return nil, err
 	}
-	if err = s.readChannelInputs(ctx, &a, env.DecodeOptions()); err != nil {
+	if err = s.readChannelInputs(&a, env.DecodeOptions()); err != nil {
 		return nil, err
 	}
 	// The text of an Arc exported before v5 reads a dashed channel name bare.

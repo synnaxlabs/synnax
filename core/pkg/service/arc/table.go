@@ -70,6 +70,9 @@ type Table struct {
 	directories *directory.Table
 	root        directory.Key
 	drifts      *gorp.Table[drift.Key, drift.Record]
+	// params returns the channel params of each standard flow function, built at its
+	// first call, since only a graph Arc reads them.
+	params func() channelParams
 }
 
 // OpenTable opens the Arc table and migrates the stored Arcs. Close the table after the
@@ -79,7 +82,12 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Table{indexes: newIndexes()}
+	t := &Table{
+		indexes: newIndexes(),
+		params: sync.OnceValue(func() channelParams {
+			return newChannelParams(standardSymbols())
+		}),
+	}
 	if t.directories, err = directory.OpenTable(ctx, directory.TableConfig{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
@@ -95,10 +103,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		Indexes: t.indexes.all(),
 		References: append(
 			[]gorp.Reference[Key, Arc]{newDirectoryReference()},
-			// Only a graph Arc reads the params, so text Arcs never build them.
-			newChannelReferences(sync.OnceValue(func() channelParams {
-				return newChannelParams(standardSymbols())
-			}))...,
+			newChannelReferences(t.params)...,
 		),
 		Migrations:      versions.NewMigrations(t.root),
 		Instrumentation: cfg.Instrumentation,

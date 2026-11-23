@@ -105,13 +105,31 @@ func channelKey(v any) (k channel.Key, ok bool) {
 }
 
 // eachNodeKey calls f with the inputs, param name, and channel of each channel param in
-// direction that a node of g sets. A param with no direction reads. A function of g
-// shadows a flow function of the same name, and a value that is no channel key counts
-// for nothing.
+// direction that a node of g sets, as eachNodeParam finds them. A value that is no
+// channel key counts for nothing.
 func (c channelParams) eachNodeKey(
 	g graph.Graph,
 	direction types.ChanDirection,
 	f func(inputs msgpack.EncodedJSON, param string, k channel.Key),
+) {
+	c.eachNodeParam(
+		g,
+		direction,
+		func(_ string, inputs msgpack.EncodedJSON, param string) {
+			if k, ok := channelKey(inputs[param]); ok {
+				f(inputs, param, k)
+			}
+		},
+	)
+}
+
+// eachNodeParam calls f with the key and inputs of a node of g and the name of each
+// channel param in direction that the node sets, whatever its value. A param with no
+// direction reads. A function of g shadows a flow function of the same name.
+func (c channelParams) eachNodeParam(
+	g graph.Graph,
+	direction types.ChanDirection,
+	f func(node string, inputs msgpack.EncodedJSON, param string),
 ) {
 	for _, n := range g.Nodes {
 		inputs := g.Inputs[n.Key]
@@ -126,7 +144,7 @@ func (c channelParams) eachNodeKey(
 			continue
 		}
 		for _, p := range params {
-			v, set := inputs[p.Name]
+			_, set := inputs[p.Name]
 			d := p.Type.ChanDirection
 			if d == types.ChanDirectionNone {
 				d = types.ChanDirectionRead
@@ -134,9 +152,7 @@ func (c channelParams) eachNodeKey(
 			if !set || p.Type.Kind != types.KindChan || d&direction == 0 {
 				continue
 			}
-			if k, ok := channelKey(v); ok {
-				f(inputs, p.Name, k)
-			}
+			f(n.Key, inputs, p.Name)
 		}
 	}
 }

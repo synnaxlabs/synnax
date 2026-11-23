@@ -14,18 +14,18 @@ import (
 	"encoding/json/v2"
 	"maps"
 
-	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 // prepareExport replaces each channel input of a graph Arc's nodes with its channel
 // key, so that the channel link options of an export write it as a path.
-func (s *Service) prepareExport(ctx context.Context, snap gorp.Snapshot, a *Arc) error {
-	return s.mapChannelInputs(ctx, snap, a, func(v any) (any, error) {
+func (s *Service) prepareExport(_ context.Context, _ gorp.Snapshot, a *Arc) error {
+	return s.mapChannelInputs(a, func(v any) (any, error) {
 		var k uint32
 		if err := zyn.Uint32().Coerce().Parse(v, &k); err != nil {
 			return nil, err
@@ -36,12 +36,8 @@ func (s *Service) prepareExport(ctx context.Context, snap gorp.Snapshot, a *Arc)
 
 // readChannelInputs decodes each channel input of a graph Arc's nodes with opts, so
 // that the channel link options of an import read a path or a raw key.
-func (s *Service) readChannelInputs(
-	ctx context.Context,
-	a *Arc,
-	opts []json.Options,
-) error {
-	return s.mapChannelInputs(ctx, s.cfg.DB, a, func(v any) (any, error) {
+func (s *Service) readChannelInputs(a *Arc, opts []json.Options) error {
+	return s.mapChannelInputs(a, func(v any) (any, error) {
 		b, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
@@ -55,39 +51,43 @@ func (s *Service) readChannelInputs(
 }
 
 // mapChannelInputs replaces each channel input of a graph Arc's nodes with f of its
-// value, resolving the node functions as snap sees them.
-func (s *Service) mapChannelInputs(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	a *Arc,
-	f func(any) (any, error),
-) error {
+// value. A node's function is a function of the graph or a standard flow function, as
+// the channel references read it, so a channel name never shadows a function.
+func (s *Service) mapChannelInputs(a *Arc, f func(any) (any, error)) error {
 	b := a.Base()
 	src, ok := b.Source.Variant.(GraphSource)
 	if !ok {
 		return nil
 	}
-	channels, err := graph.ChannelInputs(
-		ctx,
-		src.Graph,
-		s.NewRoot(snap, &resolver.Lookups{}),
+	var (
+		inputs = src.Graph.Inputs
+		cloned = make(map[string]bool)
+		err    error
 	)
-	if err != nil || len(channels) == 0 {
+	s.params().eachNodeParam(
+		src.Graph,
+		types.ChanDirectionReadWrite,
+		func(node string, values msgpack.EncodedJSON, param string) {
+			if err != nil {
+				return
+			}
+			if !cloned[node] {
+				if len(cloned) == 0 {
+					inputs = maps.Clone(inputs)
+				}
+				values = maps.Clone(values)
+				inputs[node] = values
+				cloned[node] = true
+			} else {
+				values = inputs[node]
+			}
+			if values[param], err = f(values[param]); err != nil {
+				err = errors.Wrapf(err, "input %s of node %s", param, node)
+			}
+		},
+	)
+	if err != nil || len(cloned) == 0 {
 		return err
-	}
-	inputs := maps.Clone(src.Graph.Inputs)
-	for node, names := range channels {
-		values := maps.Clone(inputs[node])
-		for _, name := range names {
-			v, ok := values[name]
-			if !ok {
-				continue
-			}
-			if values[name], err = f(v); err != nil {
-				return errors.Wrapf(err, "input %s of node %s", name, node)
-			}
-		}
-		inputs[node] = values
 	}
 	src.Graph.Inputs = inputs
 	b.Source.Variant = src

@@ -168,6 +168,8 @@ type Service struct {
 	indexes indexes
 	// drifts stores what changed in each deployed automation since its deploy.
 	drifts *gorp.Table[drift.Key, drift.Record]
+	// params returns the channel params of each standard flow function.
+	params func() channelParams
 	closer xio.MultiCloser
 	cfg    ServiceConfig
 	// directories stores the directories below root.
@@ -714,6 +716,7 @@ func newService(cfg ServiceConfig) *Service {
 		directories:   cfg.Table.directories,
 		root:          cfg.Table.root,
 		drifts:        cfg.Table.drifts,
+		params:        cfg.Table.params,
 		resyncs:       gorp.NewAttachment[Key](),
 		deletes:       gorp.NewAttachment[Key](),
 		editedModules: gorp.NewAttachment[Key](),
