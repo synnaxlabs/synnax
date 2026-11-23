@@ -14,6 +14,7 @@ import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v2"
 import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/telem/v0"
 import "schemas/x/versions/text/v0"
 
 Key = v0.Key
@@ -37,19 +38,24 @@ CellConfig union on variant extends v6.CellConfig {
         }
     }
     value {
-        fill_color      color.Ref? {
+        fill_color        color.Ref?     {
             @doc value """
                 is the fill behind the value where no redline band paints, a named color
                 or a fixed color. When absent the cell paints no fill.
             """
         }
-        text_color      color.Ref? {
+        text_color        color.Ref?     {
             @doc value """
                 is the color of the displayed text, a named color or a fixed color. When
                 absent the value renders with a theme-derived legible color.
             """
         }
-        staleness_color color.Ref? {
+        staleness_timeout telem.TimeSpan = 5000000000 {
+            @doc value    "is the span after which the value is considered stale."
+            @validate max 9007199254740991
+            @validate min 1000000000
+        }
+        staleness_color   color.Ref?     {
             @doc value """
                 is the color applied when the value is stale, a named color or a fixed
                 color. When absent the value renders with the theme warning color.

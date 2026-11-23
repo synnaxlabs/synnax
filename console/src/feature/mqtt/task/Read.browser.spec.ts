@@ -21,7 +21,13 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
-import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  removeField,
+  retype,
+  searchMessageFormats,
+  selectedIn,
+} from "@/platform/icd/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
@@ -30,8 +36,6 @@ import {
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
-import { Session } from "@/session";
-import { documentIn } from "@/session/window/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
@@ -196,39 +200,15 @@ const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
 const NOT_JSON_NOTE =
   "The format of this message is not JSON. Open it in the editor to change its format.";
 
-const selectedIn = (store: { getState: () => Session.State }, key: icd.Key) =>
-  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
-
-/** Gives a field of the entry's message a new kind, in the ICD. */
-const retype = async (
-  { icd: key, messages }: MQTT.Task.PlainReadEntry,
-  field: icd.JSONField,
-  kind: payload.Kind,
-  after?: string,
-) => {
-  const path = ["messages", messages[0].message, "payload", "fields"];
-  await client.icds.dispatch(key, [
-    icd.remove({ path, key: field.key }),
-    icd.insert({ path, value: { ...field, type: kind }, after }),
-  ]);
-};
+/** @returns the ICD and key of the first message that the entry reads. */
+const messageOf = ({ icd: key, messages }: MQTT.Task.PlainReadEntry) => ({
+  icd: key,
+  message: messages[0].message,
+});
 
 /** @returns the fields of the first message of an ICD. */
 const jsonFieldsOf = ({ messages: [first] }: icd.ICD): icd.JSONField[] =>
   first.payload.format === "json" ? first.payload.fields : [];
-
-/** Removes a field from the entry's message, in the ICD. */
-const removeField = async (
-  { icd: key, messages }: MQTT.Task.PlainReadEntry,
-  field: icd.JSONField,
-) =>
-  await client.icds.dispatch(
-    key,
-    icd.remove({
-      path: ["messages", messages[0].message, "payload", "fields"],
-      key: field.key,
-    }),
-  );
 
 /** Adds the number at /name in the topic through the Add data dialog. */
 const addField = async (rackKey: rack.Key, topic: string, name: string) => {
@@ -1788,7 +1768,7 @@ describe("MQTT read form", () => {
       });
       const { draft } = await renderRead({
         entries: [entry],
-        beforeRender: () => retype(entry, count, "float"),
+        beforeRender: () => retype(client, messageOf(entry), count, "float"),
       });
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
@@ -1860,7 +1840,12 @@ describe("MQTT read form", () => {
       const { draft } = await renderRead({
         entries: [entry],
         beforeRender: () =>
-          retype(entry, { ...createField("time", "float"), key: time.key }, "float"),
+          retype(
+            client,
+            messageOf(entry),
+            { ...createField("time", "float"), key: time.key },
+            "float",
+          ),
       });
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
@@ -1876,7 +1861,7 @@ describe("MQTT read form", () => {
       const entry = await createEntry({ fields: [temperature, pressure] });
       const { draft } = await renderRead({ entries: [entry] });
       await screen.findByRole("checkbox", { name: "Read pressure" });
-      await removeField(entry, pressure);
+      await removeField(client, messageOf(entry), pressure);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
           { field: temperature.key, channel: 0, dataType: "" },
@@ -1938,7 +1923,7 @@ describe("MQTT read form", () => {
       const { dev } = await renderRead({
         entries: [entry],
         beforeRender: async (dev) => {
-          await retype(entry, count, "float", temperature.key);
+          await retype(client, messageOf(entry), count, "float", temperature.key);
           await client.channels.rename(countCh.key, `${dev.name}_plant_oven_count`);
           await client.channels.create({
             name: `${dev.name}_plant_oven_temperature`,
@@ -2619,7 +2604,7 @@ describe("MQTT read form", () => {
       });
       const { container, draft } = await renderRead({
         entries: [entry],
-        beforeRender: () => retype(entry, mode, "float"),
+        beforeRender: () => retype(client, messageOf(entry), mode, "float"),
         properties: {
           read: { [TOPIC]: { index: 0, channels: { "/mode": streamed.key } } },
         },
@@ -2723,7 +2708,8 @@ describe("MQTT read form", () => {
       });
       const { container, dev, draft } = await renderRead({
         entries: [entry],
-        beforeRender: () => retype(entry, count, "float", temperature.key),
+        beforeRender: () =>
+          retype(client, messageOf(entry), count, "float", temperature.key),
         properties: {
           read: {
             [TOPIC]: {

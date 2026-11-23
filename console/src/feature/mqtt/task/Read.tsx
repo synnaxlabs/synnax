@@ -539,6 +539,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
               message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
+              preview={isPreview}
             />
           )}
           <QoSField path={path.qos} />
