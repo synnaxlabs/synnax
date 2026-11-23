@@ -23,9 +23,11 @@ import {
   removeField,
   retype,
   selectedIn,
+  setField,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
+  countFailedSaves,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
@@ -33,6 +35,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
+  toggleRefused,
 } from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
@@ -606,6 +609,89 @@ describe("MQTT Write form", () => {
             },
           }),
         );
+      });
+
+      it("should send a refused binding once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite([target], {
+          onStatuses: (s) => (statuses = s),
+        });
+        await fieldGroup(setpoint.name);
+        // Pointer "" reads the whole document, which holds the value of setpoint.
+        const whole = createField("whole", "float", { pointer: "" });
+        await client.icds.dispatch(
+          target.icd,
+          icd.insert({
+            path: ["messages", target.message.message, "payload", "fields"],
+            value: whole,
+            after: setpoint.key,
+          }),
+        );
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), { ...whole, pointer: "/whole" });
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: whole.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
+      });
+
+      it("should send a refused unbind once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite(
+          [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ],
+          { onStatuses: (s) => (statuses = s) },
+        );
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        // Pointer /count/x reads inside count, so the Core refuses each save.
+        await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
+        await retype(client, messageOf(target), count, "string", setpoint.key);
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), setpoint);
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
       });
     });
 

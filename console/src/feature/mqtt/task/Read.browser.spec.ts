@@ -27,14 +27,17 @@ import {
   retype,
   searchMessageFormats,
   selectedIn,
+  setField,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
+  countFailedSaves,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   START_FAILURE,
+  toggleRefused,
 } from "@/platform/task/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
@@ -821,6 +824,40 @@ describe("MQTT read form", () => {
     expect(option.textContent).toContain(
       "It has a default, so it cannot be the index.",
     );
+  });
+
+  it("should send a refused correction of a read once, and again on the next format change", async () => {
+    const time = createTimeField();
+    const temperature = createField("temperature", "float");
+    const mode = createField("mode", "string");
+    const entry = await createEntry({
+      fields: [time, temperature, mode],
+      index: time.key,
+    });
+    const { draft, statuses } = await renderRead({ entries: [entry] });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }));
+    const { message } = messageOf(entry);
+    const fields = ["messages", message, "payload", "fields"];
+    // The index field takes a default, so the Core refuses each save.
+    const defaulted = icd.jsonFieldZ.parse({
+      ...time,
+      default: { type: "constant", value: TimeStamp.milliseconds(1_700_000_000_000) },
+    });
+    await client.icds.dispatch(entry.icd, [
+      icd.remove({ path: fields, key: mode.key }),
+      icd.set({ path: [...fields, time.key], value: defaulted }),
+    ]);
+    await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+    await toggleRefused("Ignore retained");
+    expect(countFailedSaves(statuses)).toBe(2);
+    await setField(client, messageOf(entry), time);
+    await waitFor(async () =>
+      expect((await retrieveBindings(draft.key)).map(({ field }) => field)).toEqual([
+        time.key,
+        temperature.key,
+      ]),
+    );
+    expect(countFailedSaves(statuses)).toBe(2);
   });
 
   describe("messages", () => {
