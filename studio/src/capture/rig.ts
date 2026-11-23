@@ -20,6 +20,7 @@ import {
   type Page,
   type Worker,
 } from "playwright";
+import { z } from "zod";
 
 import {
   CLICK_DWELL_S,
@@ -70,14 +71,15 @@ export interface CaptureOptions {
    */
   desktop?: boolean;
   /**
-   * The OS the Console draws for, such as its window controls and shortcut keys. The
-   * Console reads it from the user agent, so a capture on a Mac can show Windows.
+   * The OS the Console draws for, such as its shortcut keys. The Console reads it from
+   * the user agent, so a capture on a Mac can show Windows.
    */
   os?: OS;
 }
 
 /** An OS that a capture can show the Console on. */
-export type OS = "macOS" | "Windows";
+export const osZ = z.enum(["macOS", "Windows"]);
+export type OS = z.infer<typeof osZ>;
 
 const PLATFORMS: Record<OS, string> = {
   macOS: "Macintosh; Intel Mac OS X 10_15_7",

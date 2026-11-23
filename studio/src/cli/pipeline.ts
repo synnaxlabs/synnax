@@ -14,7 +14,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 
-import type { CaptureSession, OS } from "@/capture";
+import type { CaptureSession } from "@/capture";
 import { direct, overlay, stage, synthesize } from "@/director";
 import type { Edit, Format, Overlays } from "@/film";
 import type { Core } from "@/fixtures";
@@ -84,8 +84,15 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     /** Shows the Console as Synnax Desktop. */
     desktop?: boolean;
     /** The OS the Console draws for. The OS of a Mac when left out. */
-    os?: OS;
+    os?: unknown;
   };
+  const { CaptureSession, osZ } = await import("@/capture");
+  const os = osZ.optional().safeParse(mod.os);
+  if (!os.success)
+    throw new Error(
+      `${opts.scriptPath} exports os = ${JSON.stringify(mod.os)}, ` +
+        `but os must be one of ${osZ.options.join(", ")}`,
+    );
   const desktop = mod.desktop ?? false;
   const { desktopUrl = DESKTOP_URL } = opts;
   let core: Core | undefined;
@@ -100,7 +107,6 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     });
   }
   try {
-    const { CaptureSession } = await import("@/capture");
     const width = opts.width ?? mod.viewport?.width;
     const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
@@ -109,7 +115,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       theme: opts.theme,
       corePort: port,
       desktop,
-      ...(mod.os != null && { os: mod.os }),
+      ...(os.data != null && { os: os.data }),
       headed: opts.headed ?? false,
       insecure: opts.insecure ?? false,
       hideCaret: opts.hideCaret ?? false,

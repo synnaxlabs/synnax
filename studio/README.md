@@ -54,7 +54,7 @@ a second dev server built for Desktop:
 it is not on localhost:5175. The page stands in for the Desktop shell and reports the
 capture core as the embedded one. A capture fails if the Console asks the shell for
 anything else. A script that exports `os = "Windows"` shows the Console as it looks on
-Windows, with its window controls and shortcut keys. The default is macOS.
+Windows, with its shortcut keys. The default is macOS.
 
 The studio manages the core itself. Each capture spawns a fresh in-memory one
 (`--no-driver`, logging to `<out>/core.log`) on the studio's port 9095, points the
