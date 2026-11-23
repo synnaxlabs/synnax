@@ -21,6 +21,7 @@ import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
 import { GroupBox } from "@/schematic/node/groupBox";
+import { SYMBOL_VARIANT, symbolSpec } from "@/schematic/node/placeholder";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
@@ -40,7 +41,22 @@ export const REGISTRY = {
   custom_actuator: customActuatorSpec,
   custom_static: customStaticSpec,
   group_box: GroupBox.spec,
+  symbol: symbolSpec,
 } as const satisfies Record<schematic.NodeConfigType, unknown>;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS: ReadonlyMap<string, schematic.symbol.Spec> = new Map(
+  Object.entries({
+    ...Fittings.BUILT_INS,
+    ...Flowmeters.BUILT_INS,
+    ...General.BUILT_INS,
+    ...Process.BUILT_INS,
+    ...Pumps.BUILT_INS,
+    ...Safety.BUILT_INS,
+    ...Valves.BUILT_INS,
+    ...Vessels.BUILT_INS,
+  }),
+);
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
@@ -138,8 +154,9 @@ export const changeConfig = <V extends Variant>(
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.
-// groupBox is excluded by key: it is created only by grouping, and a spec-level
-// hidden flag is not worth the plumbing for one symbol.
+// groupBox and symbol are excluded by key: grouping alone creates a group box, and
+// the symbol placeholder is not for placement.
 export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
-  (s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT,
+  (s) =>
+    !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
 );

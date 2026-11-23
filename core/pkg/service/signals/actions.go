@@ -54,7 +54,7 @@ type ActionConfig[K gorp.Key, A any] struct {
 	// in place of a check of Resource. A nil check leaves the batch to Resource.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	BatchChecks func(c gorp.Commit) func(key K, seq uint64) (Check, bool)
+	BatchChecks func(c gorp.Commit) func(key K, seq uint64) (check, bool)
 }
 
 // Validate checks that the required fields of c are set.
@@ -100,11 +100,11 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	}
 	samples := telem.Series{DataType: telem.JSONT}
 	var (
-		checks map[string]Check
-		lookup func(K, uint64) (Check, bool)
+		checks map[string]check
+		lookup func(K, uint64) (check, bool)
 	)
 	if f.cfg.BatchChecks != nil && len(batches) > 0 {
-		checks = make(map[string]Check, len(batches))
+		checks = make(map[string]check, len(batches))
 		lookup = f.cfg.BatchChecks(c)
 		defer func() { f.checks.add(checks) }()
 	}
@@ -142,7 +142,7 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 func (f *actionFeed[K, A]) records() map[channel.Key]Record {
 	r := Record{Of: recordOf(unmarshalKey[K], f.cfg.Resource)}
 	if f.cfg.BatchChecks != nil {
-		r.Check = func(sample []byte) (Check, error) { return f.checks.get(sample) }
+		r.Check = func(sample []byte) (check, error) { return f.checks.get(sample) }
 	}
 	return map[channel.Key]Record{f.ch.Key(): r}
 }

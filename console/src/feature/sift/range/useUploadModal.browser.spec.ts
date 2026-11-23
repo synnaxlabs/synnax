@@ -56,7 +56,7 @@ const createScanTask = async () => {
   const rack = await createRunningRack(client, "sift");
   const scan = await rack.createTask({
     name: uniqueName("sift_scan"),
-    type: Sift.Task.SCAN_TYPE,
+    type: Sift.Device.SCAN_TYPE,
     config: {},
   });
   return { rack, scan };
@@ -70,7 +70,7 @@ const fillAndUpload = async (
   answer: CommandAnswer = {},
 ) => {
   const { answered: listed } = await answerNextCommand(client, scan, {
-    type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+    type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
     data: { assets: ["pad", "stand"], last: "stand" },
   });
   await selectDevice(dev.name);
@@ -79,7 +79,7 @@ const fillAndUpload = async (
   fireEvent.click(screen.getByText("Select channels to upload"));
   await pickOption(ch.name, "Search channels...");
   const { answered } = await answerNextCommand(client, scan, {
-    type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    type: Sift.Device.UPLOAD_COMMAND_TYPE,
     ...answer,
   });
   clickUpload();
@@ -166,14 +166,14 @@ describe("Sift.Range.useUploadModal", () => {
       { client },
     );
     const { answered: listedFirst } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["stand"], last: "stand" },
     });
     await selectDevice(first.name);
     await listedFirst;
     expect(await screen.findByText("stand")).toBeTruthy();
     const { answered: listedSecond } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["pad"], last: "pad" },
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
@@ -198,14 +198,14 @@ describe("Sift.Range.useUploadModal", () => {
       },
     );
     const { answered: listedFirst } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["stand"], last: "stand" },
     });
     await selectDevice(first.name);
     await listedFirst;
     expect(await screen.findByText("stand")).toBeTruthy();
     const { answered: listedSecond } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       variant: "error",
       message: "Sift is unreachable",
     });
@@ -228,7 +228,7 @@ describe("Sift.Range.useUploadModal", () => {
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: [], last: "" },
     });
     await selectDevice(dev.name);
@@ -277,7 +277,7 @@ describe("Sift.Range.useUploadModal", () => {
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["stand"], last: "stand" },
     });
     await selectDevice(dev.name);
@@ -328,7 +328,7 @@ describe("Sift.Range.useUploadModal", () => {
       { client },
     );
     const { answered: listed } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["stand"], last: "stand" },
     });
     await selectDevice(dev.name);
@@ -337,7 +337,7 @@ describe("Sift.Range.useUploadModal", () => {
     fireEvent.click(screen.getByText("Select channels to upload"));
     await pickOption(data.name, "Search channels...");
     const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.UPLOAD_COMMAND_TYPE,
+      type: Sift.Device.UPLOAD_COMMAND_TYPE,
     });
     clickUpload();
     expect(

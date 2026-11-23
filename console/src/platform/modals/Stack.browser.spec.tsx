@@ -187,9 +187,11 @@ describe("Stack", () => {
       return null;
     };
 
+    // A browser sends a key to the focused element, which a modal holds while open.
     const press = (...codes: string[]): void => {
-      codes.forEach((code) => fireEvent.keyDown(window, { code }));
-      [...codes].reverse().forEach((code) => fireEvent.keyUp(window, { code }));
+      const target = document.activeElement ?? document.body;
+      codes.forEach((code) => fireEvent.keyDown(target, { code }));
+      [...codes].reverse().forEach((code) => fireEvent.keyUp(target, { code }));
     };
 
     /** Renders a page trigger inside the stack, as the window renders its page. */

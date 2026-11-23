@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, color, schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import {
@@ -119,7 +119,6 @@ describe("Tank.Symbol named colors", () => {
   ): Promise<HTMLElement> => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const { container } = render(
       <ReactFlowProvider>
         <Haul.Provider>

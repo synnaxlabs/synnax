@@ -98,7 +98,7 @@ func (w Writer) attach(c Calculation, acts ...Action) {
 	seq := w.dispatcher.Attach(w.tx, c.Key, acts...)
 	w.svc.checks.Add(w.tx, batchCheck[Key]{
 		id:    batchID[Key]{key: c.Key, seq: seq},
-		check: w.svc.Readable(c),
+		check: w.svc.readable(c),
 	})
 }
 

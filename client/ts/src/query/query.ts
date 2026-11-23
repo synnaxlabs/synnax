@@ -264,6 +264,8 @@ export interface SpaceHooks {
   ensureStreaming?: () => Promise<void>;
   /** Subscribes to connection-epoch changes; maintained answers refetch on bump. */
   onEpoch?: (callback: (epoch: number) => void) => destructor.Destructor;
+  /** Subscribes to misses of the open stream; maintained answers refetch on each. */
+  onMissed?: (callback: () => void) => destructor.Destructor;
   /**
    * The connection epoch: 0 until the change stream is live, then bumped on every
    * reconnect. Defaults to a stream that is always live.
@@ -401,6 +403,9 @@ export class Space<
     onError: NonNullable<SpaceHooks["onError"]>;
   };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly detachMissed?: destructor.Destructor;
+  private missRound: Promise<void> | null = null;
+  private missQueued = false;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
   private readonly clock: () => TimeStamp;
@@ -418,15 +423,41 @@ export class Space<
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
     });
-    this.detachEpoch = hooks.onEpoch?.((epoch) => {
-      // 0 is a return to cold (cluster replacement): the fresh stream's own
-      // epoch bump refetches, not the reset itself.
-      if (epoch === 0) return;
+    const refetchMaintained = (): void =>
       this.queries.forEach((query) => {
         if (query.teardown == null) return;
         if (query.state.variant === "loading") query.reconnected = true;
         else void this.refetch(query);
       });
+    this.detachEpoch = hooks.onEpoch?.((epoch) => {
+      // 0 is a return to cold (cluster replacement): the fresh stream's own
+      // epoch bump refetches, not the reset itself.
+      if (epoch !== 0) refetchMaintained();
+    });
+    this.detachMissed = hooks.onMissed?.(() => this.refetchOnMiss());
+  }
+
+  // Runs one refetch round of the maintained answers at a time. A miss during a round
+  // runs one more round after it, since the running one can have fetched before the
+  // change that the miss reports.
+  private refetchOnMiss(): void {
+    if (this.missRound != null) {
+      this.missQueued = true;
+      return;
+    }
+    const fetches: Promise<void>[] = [];
+    this.queries.forEach((query) => {
+      // An unmaintained answer can miss a record the table never held, so its next
+      // subscriber fetches again.
+      if (query.teardown == null) return this.markStale(query);
+      if (query.state.variant === "loading") query.reconnected = true;
+      else fetches.push(this.refetch(query));
+    });
+    this.missRound = Promise.allSettled(fetches).then(() => {
+      this.missRound = null;
+      if (!this.missQueued) return;
+      this.missQueued = false;
+      this.refetchOnMiss();
     });
   }
 
@@ -591,6 +622,7 @@ export class Space<
   close(): void {
     this.closed = true;
     this.detachEpoch?.();
+    this.detachMissed?.();
     this.release();
     if (this.sweepTimer != null) {
       clearTimeout(this.sweepTimer);

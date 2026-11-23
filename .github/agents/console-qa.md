@@ -48,8 +48,8 @@ Try everything a Console user can do, and push each one past the happy path:
 - Import and export of each kind of resource that has it.
 - Settings, and the light and dark themes. Check contrast in both themes.
 - Error states: bad input in every form, a deleted channel on a plot, an empty search, a
-  Core that stops (`kill` the Core PID in `/tmp/console-qa/pids` near the end only, then
-  start it again with the same command from `up.sh`).
+  Core that stops (near the end only, kill the PID in `/tmp/console-qa/core.pid`, then
+  start it again with `integration/qa/core.sh`; the data stays, and live data resumes).
 - Sizes: do the main pages at 1280x720, 1440x900, 1920x1080, 2560x1440, 800x900, and
   480x900.
 

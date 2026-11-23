@@ -47,7 +47,7 @@ func (s *Service) announce(
 	seq := cw.Announce(output, acts...)
 	s.outputChecks.Add(tx, batchCheck[channel.Key]{
 		id:    batchID[channel.Key]{key: output, seq: seq},
-		check: s.Readable(c),
+		check: s.readable(c),
 	})
 }
 
@@ -75,7 +75,7 @@ func (s *Service) AnnounceOutputs(
 // any other batch has no check of its own.
 func (s *Service) ChannelBatchChecks(
 	c gorp.Commit,
-) func(key channel.Key, seq uint64) (StreamCheck, bool) {
+) func(key channel.Key, seq uint64) (streamCheck, bool) {
 	attached := s.outputChecks.Of(c)
 	if len(attached) == 0 {
 		return noChannelCheck
@@ -84,7 +84,7 @@ func (s *Service) ChannelBatchChecks(
 	return func(
 		key channel.Key,
 		seq uint64,
-	) (StreamCheck, bool) {
+	) (streamCheck, bool) {
 		return byBatch[batchID[channel.Key]{key: key, seq: seq}], true
 	}
 }
@@ -92,6 +92,6 @@ func (s *Service) ChannelBatchChecks(
 func noChannelCheck(
 	channel.Key,
 	uint64,
-) (StreamCheck, bool) {
+) (streamCheck, bool) {
 	return nil, true
 }

@@ -185,7 +185,8 @@ type AddRangePayload struct {
 }
 
 // RemoveRangePayload removes the reference to the same range or window as range from
-// the plot's ranges. No-op when there is none.
+// the plot's ranges. No-op when there is none. Relative x axes return to absolute time
+// with auto bounds when no range left has a zero.
 type RemoveRangePayload struct {
 	Range ranger.Ref `json:"range" msgpack:"range"`
 }
@@ -193,7 +194,8 @@ type RemoveRangePayload struct {
 // SetRangesPayload replaces the plot's range references with ranges, such as when the
 // user edits a window. A reference to a range or window the plot already shows keeps
 // its T0 and color unless the new reference sets them. Lines style channels, so they
-// are unaffected.
+// are unaffected. Relative x axes return to absolute time with auto bounds when no
+// range left has a zero.
 type SetRangesPayload struct {
 	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
 }
