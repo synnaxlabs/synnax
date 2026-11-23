@@ -36,7 +36,7 @@ type Writer struct {
 // prepare validates b and refuses a rack that does not run MQTT and a client
 // certificate with no private key.
 func (w Writer) prepare(ctx context.Context, b Broker) error {
-	if err := Validate(b); err != nil {
+	if err := b.ValidateWrite(); err != nil {
 		return err
 	}
 	if err := w.checkRack(ctx, b); err != nil {
@@ -69,7 +69,7 @@ func (w Writer) setStatus(ctx context.Context, b Broker) error {
 
 // Create stores b and writes its unknown status. A broker with a nil key gets a new
 // one. It returns a validation error when a broker is stored under the key of b, when b
-// fails Validate, or when b names a rack that does not run MQTT, a missing client
+// fails ValidateWrite, or when b names a rack that does not run MQTT, a missing client
 // certificate or one with no private key, or a file certificate or secret of another
 // rack.
 func (w Writer) Create(ctx context.Context, b *Broker) error {
