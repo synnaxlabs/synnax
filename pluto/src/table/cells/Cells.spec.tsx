@@ -10,7 +10,7 @@
 import { color, DataType, table } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color as xcolor, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { box, color as xcolor, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -18,6 +18,8 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Cell } from "@/table/cells";
+import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
@@ -65,14 +67,36 @@ const renderValue = (config: Partial<table.ValueCellConfig>): void => {
 
 const client = createTestClient();
 
+const STREAM_VALUE_TYPE = telem.streamChannelValue({ channel: 0 }).type;
+
+// Serves each channel value samples a minute old, so a cell reads it as stale once
+// send delivers one.
+class OldSampleFactory implements telem.Factory {
+  type = "remote";
+  private readonly sources: telemTest.TestSource<number>[] = [];
+
+  create(spec: telem.Spec): telem.Telem | null {
+    if (spec.type !== STREAM_VALUE_TYPE) return null;
+    const source = telemTest.source<number>(1);
+    source.time = TimeStamp.now().sub(TimeSpan.minutes(1));
+    this.sources.push(source);
+    return source;
+  }
+
+  send(): void {
+    this.sources.forEach((s) => s.setValue(s.value().data + 1));
+  }
+}
+
 const renderLiveValue = async (
   channel: number,
   config: Partial<table.ValueCellConfig> = {},
+  telemFactories: telem.Factory[] = [],
 ) => {
   const Providers = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: value.REGISTRY,
-    telemFactories: [],
+    telemFactories,
     renderContext: canvasTest.record(),
   });
   return render(
@@ -107,23 +131,25 @@ describe("Cells.Value deleted channel", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const { findByText } = await renderLiveValue(ch.key, {
-      stalenessTimeout: 1,
-      stalenessColor: { type: "fixed", value: [255, 0, 0, 1] },
-    });
-    const writer = await client.openWriter({
-      start: TimeStamp.now(),
-      channels: [ch.key],
-    });
-    for (let i = 0; i < 10; i++) {
-      await writer.write({ [ch.key]: [i] });
-      await sleep.sleep(TimeSpan.milliseconds(100));
-    }
-    await writer.close();
     await client.channels.delete(ch.key);
+    const samples = new OldSampleFactory();
+    const { findByText } = await renderLiveValue(
+      ch.key,
+      {
+        stalenessTimeout: 1,
+        stalenessColor: { type: "fixed", value: [255, 0, 0, 255] },
+      },
+      [samples],
+    );
     const text = await findByText("Deleted channel");
     await expect
-      .poll(() => getComputedStyle(text).color, { timeout: 5000 })
+      .poll(
+        () => {
+          samples.send();
+          return getComputedStyle(text).color;
+        },
+        { timeout: 5000 },
+      )
       .toBe("rgb(255, 0, 0)");
   });
 
