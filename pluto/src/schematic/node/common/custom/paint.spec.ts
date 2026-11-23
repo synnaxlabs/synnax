@@ -355,6 +355,21 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
+    it.each([
+      [true, "#a0c2e3"],
+      [false, "#abcdef"],
+    ])(
+      "should band a node fill only on a built-in drawing: %s",
+      async (builtIn, hex) => {
+        const spec = createSpec({
+          looks: [{ key: "fill", part: "body", fill: { type: "node" } }],
+        });
+        expect(await renderPaints(spec, 0, { builtIn, nodeColor: "#abcdef" })).toEqual([
+          { selectors: [".body"], fill: color.construct(hex) },
+        ]);
+      },
+    );
+
     it("should draw contrast on the entry color as a built-in drawing shows it", async () => {
       const spec = createSpec({
         states: [{ type: "enumeration", key: "active", name: "Active" }],
