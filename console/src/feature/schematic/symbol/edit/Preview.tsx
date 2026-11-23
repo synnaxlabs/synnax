@@ -191,13 +191,6 @@ export const Preview = ({
         }
       }
 
-      el.addEventListener("mouseenter", () =>
-        el.classList.add(CSS.BEM("schematic", "svg-region", "hover")),
-      );
-      el.addEventListener("mouseleave", () =>
-        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover")),
-      );
-
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
         e.stopPropagation();

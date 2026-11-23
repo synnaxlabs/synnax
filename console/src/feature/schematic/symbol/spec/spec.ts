@@ -300,6 +300,24 @@ const holds = (doc: Document, outer: string, inner: string): boolean => {
   );
 };
 
+const holderOf = (
+  doc: Document,
+  parts: schematic.symbol.Part[],
+  selector: string,
+): schematic.symbol.Part | undefined =>
+  parts.find((p) => p.selectors.some((s) => holds(doc, s, selector)));
+
+/** @returns the part that holds a group around the shape of selector. */
+export const groupOwner = (
+  spec: Pick<Spec, "drawing" | "parts">,
+  selector: string,
+): schematic.symbol.Part | undefined =>
+  holderOf(
+    new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml"),
+    spec.parts,
+    selector,
+  );
+
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
  * already did. The other parts drop selector. Every part drops the shapes inside its
@@ -329,8 +347,7 @@ export const toggleSelector = (
         ? { ...p, selectors: p.selectors.filter((s) => !around.includes(s)) }
         : p,
     );
-  if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
-    return spec.parts;
+  if (holderOf(doc, spec.parts, selector) != null) return spec.parts;
   return spec.parts.map((p) => {
     const rest = p.selectors.filter((s) => !covered(s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
