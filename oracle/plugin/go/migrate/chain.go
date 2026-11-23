@@ -92,25 +92,7 @@ func chainFile(
 	if current {
 		foreign = foreignOutputs(req, livePath, origPath)
 	}
-	var oldEntries []resolution.Type
-	for _, t := range oldTable.TypesInNamespace(oldNS) {
-		if domain.HasExprFromType(t, "go", "migrate") && !foreign.Contains(t.Name) {
-			oldEntries = append(oldEntries, t)
-		}
-	}
-	roots := oldEntries
-	if len(roots) == 0 {
-		// Value-type paths have no migrate entries; their changed types still
-		// need auto-copies because other resources' migrations consume them.
-		for _, t := range newFile.Defined {
-			if t.Synthetic || foreign.Contains(t.Name) {
-				continue
-			}
-			if old, ok := oldTable.Get(oldNS + "." + t.Name); ok {
-				roots = append(roots, old)
-			}
-		}
-	}
+	roots := migrateRoots(oldTable, oldNS, newFile.Defined, foreign)
 	mapping := chainMapping{
 		resolver: req.Versions, livePath: livePath, newFile: newFile,
 	}
@@ -126,16 +108,7 @@ func chainFile(
 		return cmpStrings(a.Name, b.Name)
 	})
 	counterpart := mapping.counterpart
-	diff := make(map[string]schemadiff.TypeDiff)
-	for _, oe := range roots {
-		// Renamed or cross-resource-moved types have no same-name counterpart;
-		// their transforms are hand-written in migrate.go.
-		if ne, ok := newTable.Get(newNS + "." + oe.Name); ok {
-			maps.Copy(
-				diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable, counterpart),
-			)
-		}
-	}
+	diff := rootDiffs(roots, oldTable, newTable, newNS, counterpart)
 	if !needsAutoMigrate(roots, diff) {
 		return plugin.File{}, false, nil
 	}
@@ -155,6 +128,58 @@ func chainFile(
 	}
 	return plugin.File{Path: newPath + "/migrate.gen.go", Content: content},
 		true, nil
+}
+
+// rootDiffs returns the schema diffs from each root to its same-name counterpart in the
+// incoming version's namespace newNS.
+func rootDiffs(
+	roots []resolution.Type,
+	oldTable, newTable *resolution.Table,
+	newNS string,
+	counterpart func(string) string,
+) map[string]schemadiff.TypeDiff {
+	diff := make(map[string]schemadiff.TypeDiff)
+	for _, oe := range roots {
+		// Renamed or cross-resource-moved types have no same-name counterpart; their
+		// transforms are hand-written in migrate.go.
+		if ne, ok := newTable.Get(newNS + "." + oe.Name); ok {
+			maps.Copy(
+				diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable, counterpart),
+			)
+		}
+	}
+	return diff
+}
+
+// migrateRoots returns the outgoing version's types that the migration starts from: its
+// migrate entries, or else the outgoing counterparts of the incoming version's defined
+// types. Types in foreign stay out.
+func migrateRoots(
+	oldTable *resolution.Table,
+	oldNS string,
+	defined []resolution.Type,
+	foreign set.Set[string],
+) []resolution.Type {
+	var roots []resolution.Type
+	for _, t := range oldTable.TypesInNamespace(oldNS) {
+		if domain.HasExprFromType(t, "go", "migrate") && !foreign.Contains(t.Name) {
+			roots = append(roots, t)
+		}
+	}
+	if len(roots) > 0 {
+		return roots
+	}
+	// Value-type paths have no migrate entries; their changed types still need
+	// auto-copies because other resources' migrations consume them.
+	for _, t := range defined {
+		if t.Synthetic || foreign.Contains(t.Name) {
+			continue
+		}
+		if old, ok := oldTable.Get(oldNS + "." + t.Name); ok {
+			roots = append(roots, old)
+		}
+	}
+	return roots
 }
 
 // chainMapping relates the outgoing version's surface to the incoming one. Both
