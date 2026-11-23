@@ -37,9 +37,9 @@ interface InternalState {
 export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
   static readonly TYPE = "Chip";
 
-  schema = chipStateZ;
+  override schema = chipStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { sink, source } = this.state;
     i.source = telem.useSource(ctx, source, i.source);
@@ -57,7 +57,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.stopListening();
     this.internal.source.cleanup?.();
     this.internal.sink.cleanup?.();

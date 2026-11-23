@@ -42,8 +42,8 @@ const devConnection = (): ConnectionParams | null => {
   return { ...DEV_CONNECTION, port };
 };
 
-const pageConnection = (): ConnectionParams => {
-  const url = new URL(window.location.origin);
+const pageConnection = (origin: string): ConnectionParams => {
+  const url = new URL(origin);
   return {
     key: Session.Core.SERVED_KEY,
     name: "Core",
@@ -57,15 +57,15 @@ export const detectConnection = (): ConnectionParams | null => {
   if (Session.Runtime.ENGINE === "tauri") return null;
   if (new URLSearchParams(window.location.search).has("select-core")) return null;
   if (IS_DEV) return devConnection();
-  return pageConnection();
+  return pageConnection(window.location.origin);
 };
 
-/** Returns true when the browser page came from the Core at the given address. */
-export const servesPage = ({
-  host,
-  port,
-}: Pick<ConnectionParams, "host" | "port">): boolean => {
+/** Returns true when the browser page at the origin came from the Core. */
+export const servesPage = (
+  { host, port }: Pick<ConnectionParams, "host" | "port">,
+  origin: string,
+): boolean => {
   if (Session.Runtime.ENGINE === "tauri") return false;
-  const page = pageConnection();
+  const page = pageConnection(origin);
   return page.host === host && page.port === port;
 };

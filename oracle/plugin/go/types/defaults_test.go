@@ -516,14 +516,14 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should keep a defaulted type parameter at its default in an array default",
+			"Should give a defaulted type parameter its default in an array default",
 			func() {
 				source := `
 				@go output "core/pkg/service/x"
 
 				Box struct<T extends int64 = int32> { value T? }
 
-				Cfg struct { boxes Box<int64>[] = [{ value = 7 }] }
+				Cfg struct { boxes Box[] = [{ value = 7 }] }
 			`
 				resp := MustGenerate(source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(

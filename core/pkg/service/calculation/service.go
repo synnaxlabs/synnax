@@ -67,6 +67,16 @@ type Service struct {
 	indexes  indexes
 	state    *actions.State[Key, Action]
 	channels *channel.Service
+	// checks holds the check of each action batch that a transaction attaches.
+	checks *gorp.Attachment[batchCheck]
+}
+
+// batchCheck is the check of one action batch, from the calculation as the batch
+// leaves it.
+type batchCheck struct {
+	key   Key
+	seq   uint64
+	check func(allowed func(resource.ID) bool) bool
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -80,6 +90,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes:  newIndexes(),
 		state:    actions.NewState[Key, Action](cfg.DB),
 		channels: cfg.Channel,
+		checks:   gorp.NewAttachment[batchCheck](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -160,6 +171,117 @@ func (s *Service) Channels(c Calculation) []resource.ID {
 		ids[i] = resource.ID{Type: resource.Type(t.Table), Key: t.Key}
 	}
 	return ids
+}
+
+// Denied returns the first resource that a subject must retrieve to read c and that
+// allowed refuses, and false when allowed admits them all. The resources are c and
+// each channel that c links. The retrieve and the change channels of calculations both
+// decide by it.
+func (s *Service) Denied(
+	c Calculation,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	return s.denied(c, nil, allowed)
+}
+
+// Readable returns whether a subject reads c, given whether it can retrieve each
+// resource. It finds the channels of c once, so a check of many subjects reads them
+// once.
+func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
+	channels := s.Channels(c)
+	return func(allowed func(resource.ID) bool) bool {
+		_, refused := s.denied(c, channels, allowed)
+		return !refused
+	}
+}
+
+// denied implements Denied. channels holds the channels that c links when known, and
+// nil makes denied find them only when allowed admits c.
+func (s *Service) denied(
+	c Calculation,
+	channels []resource.ID,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	calc := ResourceID(c.Key)
+	if channels == nil {
+		if !allowed(calc) {
+			return calc, true
+		}
+		channels = s.Channels(c)
+	}
+	return refused(calc, channels, allowed)
+}
+
+// refused returns the first that allowed refuses of calc, the resource of a
+// calculation, and channels, the channels that the calculation links.
+func refused(
+	calc resource.ID,
+	channels []resource.ID,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	if !allowed(calc) {
+		return calc, true
+	}
+	for _, id := range channels {
+		if !allowed(id) {
+			return id, true
+		}
+	}
+	return resource.ID{}, false
+}
+
+// BatchChecks returns the lookup of the check of each action batch that the transaction
+// of c attached, by the key of its calculation and its number. Each check is Readable
+// of
+// the calculation as its batch left it, so a later batch in the commit does not change
+// who receives an earlier one.
+func (s *Service) BatchChecks(
+	c gorp.Commit,
+) func(key Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
+	attached := s.checks.Of(c)
+	byBatch := make(map[batchID]func(func(resource.ID) bool) bool, len(attached))
+	for _, b := range attached {
+		byBatch[batchID{key: b.key, seq: b.seq}] = b.check
+	}
+	return func(key Key, seq uint64) (func(func(resource.ID) bool) bool, bool) {
+		check, ok := byBatch[batchID{key: key, seq: seq}]
+		return check, ok
+	}
+}
+
+// batchID names one action batch.
+type batchID struct {
+	key Key
+	seq uint64
+}
+
+// DeleteChecks returns the lookup of the check of each calculation that c deleted, by
+// key. Only a subject that read the calculation before the delete passes it.
+func (s *Service) DeleteChecks(
+	c gorp.Commit,
+) func(key Key) (func(allowed func(resource.ID) bool) bool, bool) {
+	byKey := make(map[string]func(func(resource.ID) bool) bool)
+	for _, ch := range c.Changes {
+		if ch.Record.Table != tableName || ch.Kind != gorp.ChangeDelete {
+			continue
+		}
+		calc := resource.ID{Type: resource.TypeCalculation, Key: ch.Record.Key}
+		channels := make([]resource.ID, len(ch.Removed))
+		for i, l := range ch.Removed {
+			channels[i] = resource.ID{
+				Type: resource.Type(l.Target.Table),
+				Key:  l.Target.Key,
+			}
+		}
+		byKey[ch.Record.Key] = func(allowed func(resource.ID) bool) bool {
+			_, denied := refused(calc, channels, allowed)
+			return !denied
+		}
+	}
+	return func(key Key) (func(func(resource.ID) bool) bool, bool) {
+		check, ok := byKey[gorp.FormatKey(key)]
+		return check, ok
+	}
 }
 
 // NewWriter opens a Writer that changes calculations in tx.

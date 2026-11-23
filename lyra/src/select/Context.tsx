@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { destructor, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { context } from "@/context";
 import { Store } from "@/store";

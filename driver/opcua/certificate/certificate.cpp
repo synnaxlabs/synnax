@@ -16,8 +16,6 @@
 #include "open62541/types.h"
 #include "open62541/util.h"
 
-#include "x/cpp/fs/fs.h"
-
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/errors/errors.h"
 
@@ -40,49 +38,29 @@ Info info(const x::x509::Certificate &cert) {
     };
 }
 
-std::pair<Identity, x::errors::Error> Identity::load(
-    const std::filesystem::path &certificate,
-    const std::filesystem::path &key
-) {
-    auto [cert_data, cert_err] = x::fs::read_file(certificate.string());
-    if (cert_err)
-        return {
-            Identity{},
-            x::errors::Error(
-                errors::CLIENT_CERTIFICATE_INVALID,
-                "Failed to read " + certificate.string() + ". The path must exist " +
-                    "on the computer that runs the Driver."
-            )
-        };
-    auto [cert, parse_err] = x::x509::Certificate::parse(cert_data);
+std::pair<Identity, x::errors::Error>
+Identity::parse(const std::string &certificate, const std::string &private_key) {
+    auto [cert, parse_err] = x::x509::Certificate::parse(certificate);
     if (parse_err)
         return {
             Identity{},
-            x::errors::Error(
-                errors::CLIENT_CERTIFICATE_INVALID,
-                certificate.string() + ": " + parse_err.data
-            )
+            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, parse_err.data)
         };
-    auto [key_data, key_err] = x::fs::read_file(key.string());
-    if (key_err)
+    if (private_key.empty())
         return {
             Identity{},
             x::errors::Error(
                 errors::CLIENT_CERTIFICATE_INVALID,
-                "Failed to read " + key.string() + ". The path must exist on the " +
-                    "computer that runs the Driver."
+                "The client certificate has no private key."
             )
         };
-    if (const auto match_err = cert.check_key(key_data))
+    if (const auto match_err = cert.check_key(private_key))
         return {
             Identity{},
-            x::errors::Error(
-                errors::CLIENT_CERTIFICATE_INVALID,
-                key.string() + ": " + match_err.data
-            )
+            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, match_err.data)
         };
     return {
-        Identity{.certificate = std::move(cert), .private_key = key_data},
+        Identity{.certificate = std::move(cert), .private_key = private_key},
         x::errors::NIL
     };
 }

@@ -11,6 +11,8 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Text } from "@synnaxlabs/lyra/text";
 
+import { LOADER } from "./csp";
+
 interface Props {
     /** The privacy policy, as the site links to it. */
     privacy: string;
@@ -26,37 +28,7 @@ interface Props {
 const { privacy, userID, sensitive = false } = Astro.props;
 ---
 
-<script is:inline>
-    // PostHog's loader, rewritten to add its queueing methods at once instead of in
-    // init. The page waits to init, and a call made meanwhile is queued, not thrown.
-    (function (posthog) {
-        if (posthog.__SV) return;
-        window.posthog = posthog;
-        posthog._i = [];
-        posthog.people = [];
-        const queue = (name) => {
-            posthog[name] = (...args) => posthog.push([name, ...args]);
-        };
-        // The methods the sites call.
-        [
-            "capture",
-            "identify",
-            "opt_in_capturing",
-            "opt_out_capturing",
-            "reset",
-        ].forEach(queue);
-        posthog.init = (token, config) => {
-            const script = document.createElement("script");
-            script.async = true;
-            script.src = `${config.api_host}/static/array.js`;
-            document.head.append(script);
-            queue("init");
-            posthog._i.push([token, config]);
-        };
-        posthog.__SV = 1;
-    })(window.posthog || []);
-</script>
-
+<script is:inline set:html={LOADER} />
 <div
     class="consent"
     hidden

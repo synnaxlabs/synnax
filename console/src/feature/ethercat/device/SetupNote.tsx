@@ -15,11 +15,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { useResultSlave, useSetStandalone } from "@/feature/ethercat/device/queries";
 import { canSwitch, of } from "@/feature/ethercat/device/setup";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
 import { Docs } from "@/platform/docs";
 
 const SETUP_DOCS = "hardware/ethercat/dewesoft#set-up-a-module-in-synnax";

@@ -71,10 +71,6 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevPlacementRef.current != null)
       prefer = [prevPlacementRef.current, ...PREFERENCES];
-    // A fixed box near the right edge shrinks to the space left there, so it is
-    // measured at the origin, where the whole window is available.
-    el.style.left = "0px";
-    el.style.top = "0px";
     const { adjustedDialog, ...placement } = position.position({
       target,
       // offset* ignores the entrance animation's scale, unlike getBoundingClientRect.

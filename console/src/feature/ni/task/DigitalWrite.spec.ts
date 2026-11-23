@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
@@ -23,10 +23,13 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
 } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 interface CreateChannelOverrides extends Partial<NI.Task.DOChannel> {}
 

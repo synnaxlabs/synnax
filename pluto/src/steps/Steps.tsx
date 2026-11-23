@@ -12,7 +12,7 @@ import "@/steps/Steps.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Fragment, type ReactElement } from "react";
 
 import { CSS } from "@/css";

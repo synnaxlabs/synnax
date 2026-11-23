@@ -12,7 +12,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Button } from "@synnaxlabs/lyra/button";
 import logoNASA from "@/components/company/nasa.svg";
-import CdnPicture from "@/components/common/CdnPicture.astro";
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { cdn } from "@/cdn";
 import logoYC from "@/components/company/yc.svg";
 ---
 
@@ -69,14 +70,14 @@ import logoYC from "@/components/company/yc.svg";
                 className="company-credibility__logos"
             >
                 <img src={logoNASA.src} alt="NASA" width="508" height="142" />
-                <CdnPicture path="images/spacex.png" alt="SpaceX" sizes="280px" />
+                <CdnPicture src={cdn("images/spacex.png")} alt="SpaceX" sizes="280px" />
                 <CdnPicture
-                    path="images/lockheed.png"
+                    src={cdn("images/lockheed.png")}
                     alt="Lockheed Martin"
                     sizes="240px"
                 />
                 <CdnPicture
-                    path="images/firefly.png"
+                    src={cdn("images/firefly.png")}
                     alt="Firefly Aerospace"
                     sizes="220px"
                 />
@@ -86,7 +87,7 @@ import logoYC from "@/components/company/yc.svg";
     <Flex.Box className="company-founders" direction="x" justify="around" wrap gap={8}>
         <Flex.Box className="company-profile" direction="y" align="center">
             <CdnPicture
-                path="images/profile-eb.jpg"
+                src={cdn("images/profile-eb.jpg")}
                 alt="Emiliano Bonilla"
                 sizes="340px"
             />
@@ -104,7 +105,7 @@ import logoYC from "@/components/company/yc.svg";
         </Flex.Box>
         <Flex.Box className="company-profile" direction="y" align="center">
             <CdnPicture
-                path="images/profile-pd.jpg"
+                src={cdn("images/profile-pd.jpg")}
                 alt="Patrick Dotson"
                 sizes="340px"
             />

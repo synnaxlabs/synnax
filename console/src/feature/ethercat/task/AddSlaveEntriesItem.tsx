@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import type { ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   addressKey,
   type Channel,
@@ -24,7 +24,7 @@ import {
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export interface AddSlaveEntriesItemProps<
   C extends Channel,

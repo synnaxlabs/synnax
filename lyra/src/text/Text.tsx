@@ -9,7 +9,7 @@
 
 import "@/text/Text.css";
 
-import { type text } from "@synnaxlabs/x";
+import type { text } from "@synnaxlabs/x";
 import {
   Children,
   type ComponentPropsWithoutRef,
@@ -19,8 +19,8 @@ import {
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Generic } from "@/generic";
-import { type Status } from "@/status";
+import type { Generic } from "@/generic";
+import type { Status } from "@/status";
 import { renderHighlight } from "@/text/highlight";
 import { isValidElement } from "@/util/children";
 

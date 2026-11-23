@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
 

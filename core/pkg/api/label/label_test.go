@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -33,7 +34,7 @@ import (
 
 func createLabel(ctx SpecContext) label.Label {
 	GinkgoHelper()
-	l := label.Label{Name: "Nominal"}
+	l := label.Label{Name: "Nominal", Color: labelColor}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.Label.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())
@@ -161,7 +162,7 @@ var _ = Describe("Create", func() {
 			DeferCleanup(svc.Label.Actions().OnChange(rec.Record))
 			res := MustSucceed(
 				create(AuthedCtx(ctx, u), apilabel.CreateRequest{
-					Labels:      []label.Label{{Name: "Created"}},
+					Labels:      []label.Label{{Name: "Created", Color: labelColor}},
 					DispatchKey: "dk-create",
 				}),
 			)
@@ -174,7 +175,7 @@ var _ = Describe("Create", func() {
 
 	It("Should refuse a create without create on the label", func(ctx SpecContext) {
 		u := createUser(ctx)
-		l := label.Label{Key: uuid.New(), Name: "Denied"}
+		l := label.Label{Key: uuid.New(), Name: "Denied", Color: labelColor}
 		Expect(create(AuthedCtx(ctx, u), apilabel.CreateRequest{
 			Labels: []label.Label{l},
 		})).Error().To(denied(u, access.ActionCreate, l.ResourceID()))
@@ -188,7 +189,9 @@ var _ = Describe("Create", func() {
 		})
 		stored := createLabel(ctx)
 		Expect(create(AuthedCtx(ctx, u), apilabel.CreateRequest{
-			Labels: []label.Label{{Key: stored.Key, Name: "Overwritten"}},
+			Labels: []label.Label{
+				{Key: stored.Key, Name: "Overwritten", Color: labelColor},
+			},
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("label %s already exists", stored.Key)),
@@ -410,3 +413,6 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Labels).To(HaveExactElements(HaveField("Key", granted.Key)))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

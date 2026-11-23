@@ -51,6 +51,11 @@ func newIndexes() indexes {
 			Targets: func(e *Policy) []role.Key {
 				return []role.Key{e.Role}
 			},
+			Retarget: func(e *Policy, from, to role.Key) {
+				if e.Role == from {
+					e.Role = to
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Policy](
 			"search",

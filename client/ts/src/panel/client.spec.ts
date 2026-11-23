@@ -11,14 +11,14 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { panel } from "@/panel";
-import { type project } from "@/project";
+import type { project } from "@/project";
 import {
   createEmptyRole,
   createPanelProject,
   createTestClient,
   expectLive,
 } from "@/testutil";
-import { type user } from "@/user";
+import type { user } from "@/user";
 
 const client = createTestClient();
 

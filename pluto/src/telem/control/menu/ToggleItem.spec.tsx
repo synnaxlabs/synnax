@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { assert, describe, expect, it } from "vitest";
 
 import { Control } from "@/telem/control";
 import { control } from "@/telem/control/aether";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const CONTROLLER_NAME = "Valve Controller";
 const OPTIONS = {

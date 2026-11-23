@@ -10,12 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access as PAccess, Errors } from "@synnaxlabs/pluto";
-import {
-  type ComponentType,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { ComponentType, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 export interface PermissionsFallbackProps extends Errors.FallbackProps {
   /** Drops the cached permissions and loads them again. */
