@@ -21,6 +21,7 @@ import {
   interactionAt,
   pick,
   sinks,
+  stateOf,
   target,
 } from "@/schematic/node/symbol/command";
 
@@ -31,6 +32,7 @@ const [CLICK] = VALVE.interactions;
 const ASK: schematic.symbol.Command = {
   key: "set",
   name: "Set",
+  state: "active",
   value: { type: "ask" },
 };
 const PULSE: schematic.symbol.Command = {
@@ -142,14 +144,26 @@ describe("command", () => {
       );
     });
 
-    it("should drop an interaction that sends a command that asks", () => {
-      const spec: schematic.symbol.Spec = {
-        ...VALVE,
-        commands: [ASK],
-        interactions: [{ type: "fire", key: "set", command: "set" }],
+    it("should keep an interaction that sends a command that asks", () => {
+      const fire: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "set",
+        command: "set",
       };
-      const bindings = createBindings({ commands: [{ key: "set", channel: 3 }] });
-      expect(clickable(spec, bindings)).toEqual([]);
+      const spec = { ...VALVE, commands: [ASK], interactions: [fire] };
+      expect(clickable(spec, createBindings({ states: [localState(0)] }))).toEqual([
+        fire,
+      ]);
+    });
+  });
+
+  describe("stateOf", () => {
+    it("should return the state that a command writes", () => {
+      expect(stateOf(VALVE, ACTIVATE)).toEqual(VALVE.states[0]);
+    });
+
+    it("should throw for a command with no state", () => {
+      expect(() => stateOf(VALVE, PULSE)).toThrow("command pulse has no state");
     });
   });
 

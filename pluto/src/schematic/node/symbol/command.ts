@@ -68,17 +68,25 @@ export const commandsOf = (
   );
 
 /**
- * @returns the interactions of spec that take clicks: each of their commands writes a
- * fixed value somewhere.
+ * @returns the state that command writes.
+ * @throws {NotFoundError} if command has no state, or spec has no such state.
  */
+export const stateOf = (
+  spec: schematic.symbol.Spec,
+  command: schematic.symbol.Command,
+): schematic.symbol.State => {
+  if (command.state == null)
+    throw new NotFoundError(`command ${command.key} has no state`);
+  return find(spec.states, command.state, "state");
+};
+
+/** @returns the interactions of spec whose commands each have a target. */
 export const clickable = (
   spec: schematic.symbol.Spec,
   bindings: Bindings,
 ): schematic.symbol.Interaction[] =>
   spec.interactions.filter((i) =>
-    commandsOf(spec, i).every(
-      (c) => c.value.type === "fixed" && target(c, bindings) != null,
-    ),
+    commandsOf(spec, i).every((c) => target(c, bindings) != null),
   );
 
 /**

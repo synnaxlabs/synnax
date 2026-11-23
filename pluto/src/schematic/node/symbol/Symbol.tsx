@@ -27,6 +27,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
+import { Ask } from "@/schematic/node/symbol/Ask";
 import {
   bindSpec,
   commanded,
@@ -44,6 +45,7 @@ import {
   interactionAt,
   pick,
   sinks,
+  stateOf,
   target,
 } from "@/schematic/node/symbol/command";
 import { Symbol } from "@/schematic/symbol";
@@ -182,7 +184,14 @@ const CommandMenu = ({
   </Dialog.Frame>
 );
 
-type OpenMenu = Pick<CommandMenuProps, "commands" | "anchor">;
+type Open =
+  | { type: "menu"; anchor: HTMLElement; commands: schematic.symbol.Command[] }
+  | {
+      type: "ask";
+      anchor: HTMLElement;
+      command: schematic.symbol.Command;
+      state: schematic.symbol.State;
+    };
 
 export const Node = ({
   nodeKey,
@@ -211,7 +220,7 @@ export const Node = ({
     stalenessTimeout,
   });
   const value = values(states, readings);
-  const [menu, setMenu] = useState<OpenMenu | null>(null);
+  const [open, setOpen] = useState<Open | null>(null);
   const unmatched = Custom.useUnmatched(spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   const interactions = disabled || symbol == null ? [] : clickable(symbol, config);
@@ -232,8 +241,14 @@ export const Node = ({
     const interaction = interactionAt(symbol, interactions, root, el);
     if (interaction == null) return;
     const command = pick(symbol, spec, interaction, value, commanded(states, readings));
-    if (command != null) return send(command, fixedValue(command));
-    setMenu({ commands: commandsOf(symbol, interaction), anchor: root });
+    if (command == null)
+      return setOpen({
+        type: "menu",
+        anchor: root,
+        commands: commandsOf(symbol, interaction),
+      });
+    if (command.value.type === "fixed") return send(command, command.value.value);
+    setOpen({ type: "ask", anchor: root, command, state: stateOf(spec, command) });
   };
   const badges = {
     stale: stale(states, readings),
@@ -264,14 +279,28 @@ export const Node = ({
         onClick={interactions.length > 0 ? handleClick : undefined}
         onClickDelay={onClickDelay}
       />
-      {menu != null && (
+      {open?.type === "menu" && (
         <CommandMenu
-          {...menu}
+          commands={open.commands}
+          anchor={open.anchor}
           onSelect={(command) => {
-            setMenu(null);
+            setOpen(null);
             send(command, fixedValue(command));
           }}
-          onClose={() => setMenu(null)}
+          onClose={() => setOpen(null)}
+        />
+      )}
+      {open?.type === "ask" && (
+        <Ask
+          command={open.command}
+          state={open.state}
+          value={value.get(open.state.key)}
+          anchor={open.anchor}
+          onSend={(v) => {
+            setOpen(null);
+            send(open.command, v);
+          }}
+          onClose={() => setOpen(null)}
         />
       )}
     </Grid.Grid>
