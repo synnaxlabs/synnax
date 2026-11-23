@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	// ErrFull is the error of an entry that does not fit in the log file. An entry
+	// errFull is the error of an entry that does not fit in the log file. An entry
 	// that holds a Commit stops DeleteReserve bytes before the end of the file.
-	ErrFull = errors.New("log file is full")
+	errFull = errors.New("log file is full")
 	// errClosed is the error of an entry appended after Close.
 	errClosed = errors.New("log is closed")
 )
@@ -325,7 +325,7 @@ func (l *Log) write(queue []pending) {
 		}
 		if size > MaxFrame || start+size > limit {
 			p.done <- result{err: errors.Wrapf(
-				ErrFull,
+				errFull,
 				"an entry of %d bytes does not fit in log %d",
 				len(p.entry),
 				l.cfg.Generation,
