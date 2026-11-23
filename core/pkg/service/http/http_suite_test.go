@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,20 +18,26 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
+	node       testutil.Node
 	db         *gorp.DB
 	statusSvc  *status.Service
 	channelSvc *channel.Service
+	icdSvc     *icd.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
@@ -40,7 +47,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
+	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+		DB:   db,
+		ImEx: imex.NewService(),
+	}))
 })
+
+// createChannel creates a channel of data type dt, indexed by idx, or an index channel
+// when idx is the zero channel.
+func createChannel(
+	ctx context.Context,
+	dt telem.DataType,
+	idx channel.Channel,
+) channel.Channel {
+	GinkgoHelper()
+	ch := channel.Channel{
+		Name:        UniqueChannelName(),
+		DataType:    dt,
+		Leaseholder: node.Identity.HostKey,
+		IsIndex:     idx.LocalKey == 0,
+		LocalIndex:  idx.LocalKey,
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
+	return ch
+}
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -48,3 +80,11 @@ func TestHTTP(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// as returns v as a T, and fails the spec when v is not a T.
+func as[T any](v any) T {
+	GinkgoHelper()
+	t, ok := v.(T)
+	Expect(ok).To(BeTrue())
+	return t
+}
