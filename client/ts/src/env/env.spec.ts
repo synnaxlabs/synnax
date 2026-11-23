@@ -14,14 +14,7 @@ import { join } from "node:path";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  type Env,
-  type Given,
-  nodeSystem,
-  resolveParams,
-  type Run,
-  type System,
-} from "@/env";
+import { env } from "@/env";
 import { ValidationError } from "@/index";
 
 const ENV = {
@@ -38,7 +31,7 @@ const CODE = {
   redirectUri: "http://127.0.0.1:4242/callback",
 };
 
-const throwing = (error: Error): Env =>
+const throwing = (error: Error): env.Env =>
   new Proxy(
     {},
     {
@@ -55,7 +48,7 @@ const notCapable = (): Error => {
 };
 
 describe("resolveParams", () => {
-  it.each<[string, Given, Env, Given]>([
+  it.each<[string, env.Given, env.Env, env.Given]>([
     [
       "the variables fill every missing field",
       {},
@@ -128,8 +121,8 @@ describe("resolveParams", () => {
       throwing(notCapable()),
       { host: "rig", port: 9090, apiKey: undefined, secure: false },
     ],
-  ])("should resolve when %s", (_, params, env, expected) => {
-    expect(resolveParams(params, env)).toEqual(expected);
+  ])("should resolve when %s", (_, params, vars, expected) => {
+    expect(env.resolveParams(params, vars)).toEqual(expected);
   });
 
   it.each([
@@ -140,43 +133,43 @@ describe("resolveParams", () => {
     ["no", false],
     ["false", false],
   ])("should read SYNNAX_SECURE=%j as %s", (value, secure) => {
-    expect(resolveParams({ host: "rig" }, { SYNNAX_SECURE: value }).secure).toEqual(
+    expect(env.resolveParams({ host: "rig" }, { SYNNAX_SECURE: value }).secure).toEqual(
       secure,
     );
   });
 
-  it.each<[Given, Env, boolean]>([
+  it.each<[env.Given, env.Env, boolean]>([
     [{ caCert: "pem" }, {}, true],
     [{ caCert: "pem" }, { SYNNAX_SECURE: "false" }, true],
     [{ caCert: "pem", secure: false }, { SYNNAX_SECURE: "true" }, false],
     [{ secure: false }, { SYNNAX_SECURE: "true" }, false],
-  ])("should take secure and the CA from %j over %j", (params, env, secure) => {
-    expect(resolveParams({ host: "rig", ...params }, env).secure).toEqual(secure);
+  ])("should take secure and the CA from %j over %j", (params, vars, secure) => {
+    expect(env.resolveParams({ host: "rig", ...params }, vars).secure).toEqual(secure);
   });
 
   it("should read no variable for a field the params give", () => {
     const params = { host: "rig", port: 80, apiKey: "k", secure: false };
-    expect(resolveParams(params, throwing(new Error("read")))).toEqual(params);
+    expect(env.resolveParams(params, throwing(new Error("read")))).toEqual(params);
   });
 
-  it.each<[Given, Env, string]>([
+  it.each<[env.Given, env.Env, string]>([
     [{}, {}, "give a host, or set SYNNAX_HOST"],
     [{ apiKey: "k" }, { SYNNAX_HOST: " " }, "give a host, or set SYNNAX_HOST"],
     [{ host: "rig" }, { SYNNAX_PORT: "abc" }, "SYNNAX_PORT must be a port"],
     [{ host: "rig" }, { SYNNAX_PORT: "0" }, "SYNNAX_PORT must be a port"],
     [{ host: "rig" }, { SYNNAX_PORT: "65536" }, "SYNNAX_PORT must be a port"],
     [{ host: "rig" }, { SYNNAX_SECURE: "maybe" }, "SYNNAX_SECURE must be true or"],
-  ])("should reject %j with %j", (params, env, message) => {
-    expect(() => resolveParams(params, env)).toThrow(ValidationError);
-    expect(() => resolveParams(params, env)).toThrow(message);
+  ])("should reject %j with %j", (params, vars, message) => {
+    expect(() => env.resolveParams(params, vars)).toThrow(ValidationError);
+    expect(() => env.resolveParams(params, vars)).toThrow(message);
   });
 
   it("should reject a runtime with no environment variables and no host", () => {
-    expect(() => resolveParams({}, undefined)).toThrow(ValidationError);
+    expect(() => env.resolveParams({}, undefined)).toThrow(ValidationError);
   });
 
   it("should let errors other than NotCapable propagate", () => {
-    expect(() => resolveParams({}, throwing(new Error("read")))).toThrow("read");
+    expect(() => env.resolveParams({}, throwing(new Error("read")))).toThrow("read");
   });
 });
 
@@ -189,8 +182,8 @@ const DESKTOP_FILE = {
 
 const desktop = (
   file: object | null = DESKTOP_FILE,
-  run: Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
-): System => ({
+  run: env.Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
+): env.System => ({
   readFile: () => (file == null ? null : JSON.stringify(file)),
   run: vi.fn(() => run),
 });
@@ -198,7 +191,7 @@ const desktop = (
 describe("resolveParams with Synnax Desktop", () => {
   it("should fill every missing field from Synnax Desktop", () => {
     const system = desktop();
-    expect(resolveParams({}, {}, system)).toEqual({
+    expect(env.resolveParams({}, {}, system)).toEqual({
       host: "localhost",
       port: 9095,
       apiKey: "syk_desktop",
@@ -209,8 +202,8 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should let the params and variables win over Synnax Desktop", () => {
     const system = desktop();
-    const env = { SYNNAX_SECURE: "false", SYNNAX_API_KEY: "syk_env" };
-    expect(resolveParams({ port: 80 }, env, system)).toEqual({
+    const vars = { SYNNAX_SECURE: "false", SYNNAX_API_KEY: "syk_env" };
+    expect(env.resolveParams({ port: 80 }, vars, system)).toEqual({
       host: "localhost",
       port: 80,
       apiKey: "syk_env",
@@ -221,7 +214,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should take secure from caCert over Synnax Desktop", () => {
     const system = desktop({ ...DESKTOP_FILE, secure: false });
-    expect(resolveParams({ caCert: "pem" }, {}, system)).toMatchObject({
+    expect(env.resolveParams({ caCert: "pem" }, {}, system)).toMatchObject({
       host: "localhost",
       port: 9095,
       caCert: "pem",
@@ -232,12 +225,12 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should not run the key helper when the params give credentials", () => {
     const system = desktop();
     const params = { username: "u", password: "p" };
-    expect(resolveParams(params, {}, system).apiKey).toBeUndefined();
+    expect(env.resolveParams(params, {}, system).apiKey).toBeUndefined();
     expect(system.run).not.toHaveBeenCalled();
   });
 
   it("should not read Synnax Desktop when the params give a host", () => {
-    const system: System = {
+    const system: env.System = {
       readFile: () => {
         throw new Error("read");
       },
@@ -245,19 +238,19 @@ describe("resolveParams with Synnax Desktop", () => {
         throw new Error("run");
       },
     };
-    expect(resolveParams({ host: "rig" }, {}, system).host).toEqual("rig");
+    expect(env.resolveParams({ host: "rig" }, {}, system).host).toEqual("rig");
   });
 
-  const thrown = (system: System): unknown => {
+  const thrown = (system: env.System): unknown => {
     try {
-      resolveParams({}, {}, system);
+      env.resolveParams({}, {}, system);
     } catch (e) {
       return e;
     }
     throw new Error("resolveParams did not throw");
   };
 
-  const reading = (error: Error): System => ({
+  const reading = (error: Error): env.System => ({
     readFile: () => {
       throw error;
     },
@@ -291,7 +284,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should name Synnax Desktop when Deno cannot run the key helper", () => {
     const cause = notCapable();
-    const system: System = {
+    const system: env.System = {
       readFile: () => JSON.stringify(DESKTOP_FILE),
       run: () => {
         throw cause;
@@ -317,7 +310,7 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error.url.port).toEqual(9095);
   });
 
-  it.each<[string, System, string]>([
+  it.each<[string, env.System, string]>([
     [
       "an older Synnax Desktop saved the key in the file",
       desktop({ ...DESKTOP_FILE, api_key: "syk_old" }),
@@ -343,15 +336,15 @@ describe("resolveParams with Synnax Desktop", () => {
       "failed to read the Synnax Desktop API key: no keychain",
     ],
   ])("should reject when %s", (_, system, message) => {
-    expect(() => resolveParams({}, {}, system)).toThrow(ValidationError);
-    expect(() => resolveParams({}, {}, system)).toThrow(message);
+    expect(() => env.resolveParams({}, {}, system)).toThrow(ValidationError);
+    expect(() => env.resolveParams({}, {}, system)).toThrow(message);
   });
 
   describe.skipIf(process.platform === "win32")("with a real key helper", () => {
-    const withDir = (f: (dir: string, system: System) => void): void => {
+    const withDir = (f: (dir: string, system: env.System) => void): void => {
       const dir = mkdtempSync(join(tmpdir(), "synnax-desktop-"));
       try {
-        const system = nodeSystem();
+        const system = env.nodeSystem();
         if (system == null) throw new Error("no system");
         f(dir, system);
       } finally {
@@ -369,11 +362,11 @@ describe("resolveParams with Synnax Desktop", () => {
     it("should read the key from the helper", () =>
       withDir((dir, real) => {
         const helper = writeHelper(dir, 0o755);
-        const system: System = {
+        const system: env.System = {
           readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
           run: real.run,
         };
-        expect(resolveParams({}, {}, system).apiKey).toEqual("syk_real");
+        expect(env.resolveParams({}, {}, system).apiKey).toEqual("syk_real");
       }));
 
     it("should return null for a helper that is not there", () =>
@@ -395,7 +388,7 @@ describe("resolveParams with Synnax Desktop", () => {
 const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n";
 
 // Reads only the files in the map, and runs no program.
-const files = (map: Record<string, string>): System => ({
+const files = (map: Record<string, string>): env.System => ({
   readFile: (path) => map[path] ?? null,
   run: () => null,
 });
@@ -408,43 +401,45 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   });
 
   it("should turn on TLS with the PEM text of the file", () => {
-    const env = { SYNNAX_CA_CERT: " ~/ca.pem\n" };
-    expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
+    const vars = { SYNNAX_CA_CERT: " ~/ca.pem\n" };
+    expect(env.resolveParams({ host: "rig" }, vars, system)).toMatchObject({
       secure: true,
       caCert: PEM,
     });
   });
 
   it("should take SYNNAX_SECURE=true with the file", () => {
-    const env = { SYNNAX_SECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
-    expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
+    const vars = { SYNNAX_SECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(env.resolveParams({ host: "rig" }, vars, system)).toMatchObject({
       secure: true,
       caCert: PEM,
     });
   });
 
   it("should take caCert in the params over the variable", () => {
-    const env = { SYNNAX_CA_CERT: "/missing.pem" };
-    expect(resolveParams({ host: "rig", caCert: "pem" }, env, system)).toMatchObject({
+    const vars = { SYNNAX_CA_CERT: "/missing.pem" };
+    expect(
+      env.resolveParams({ host: "rig", caCert: "pem" }, vars, system),
+    ).toMatchObject({
       secure: true,
       caCert: "pem",
     });
   });
 
   it("should ignore the variable when the params give secure false", () => {
-    const env = { SYNNAX_CA_CERT: "/missing.pem" };
-    const resolved = resolveParams({ host: "rig", secure: false }, env, system);
+    const vars = { SYNNAX_CA_CERT: "/missing.pem" };
+    const resolved = env.resolveParams({ host: "rig", secure: false }, vars, system);
     expect(resolved.secure).toBe(false);
     expect(resolved.caCert).toBeUndefined();
   });
 
   it("should fill the rest from Synnax Desktop", () => {
-    const system: System = {
+    const system: env.System = {
       readFile: (path) =>
         path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, secure: false }),
       run: () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
     };
-    expect(resolveParams({}, { SYNNAX_CA_CERT: "~/ca.pem" }, system)).toEqual({
+    expect(env.resolveParams({}, { SYNNAX_CA_CERT: "~/ca.pem" }, system)).toEqual({
       host: "localhost",
       port: 9095,
       apiKey: "syk_desktop",
@@ -453,7 +448,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     });
   });
 
-  it.each<[string, Env, System | undefined, string]>([
+  it.each<[string, env.Env, env.System | undefined, string]>([
     [
       "SYNNAX_SECURE is false",
       { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" },
@@ -484,18 +479,20 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       undefined,
       'Cannot read SYNNAX_CA_CERT file "~/ca.pem": this runtime has no file access',
     ],
-  ])("should reject when %s", (_, env, system, message) => {
-    expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(ValidationError);
-    expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(message);
+  ])("should reject when %s", (_, vars, system, message) => {
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(
+      ValidationError,
+    );
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(message);
   });
 
   it("should turn on TLS without reading the file when the CA is unsupported", () => {
-    const deno: System = {
+    const deno: env.System = {
       readFile: vi.fn(() => PEM),
       run: () => null,
       caCertUnsupported: true,
     };
-    const resolved = resolveParams(
+    const resolved = env.resolveParams(
       { host: "rig" },
       { SYNNAX_CA_CERT: "~/ca.pem" },
       deno,
@@ -506,16 +503,16 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   });
 
   it("should reject SYNNAX_SECURE false when the CA is unsupported", () => {
-    const deno: System = { ...system, caCertUnsupported: true };
-    const env = { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
-    expect(() => resolveParams({ host: "rig" }, env, deno)).toThrow(
+    const deno: env.System = { ...system, caCertUnsupported: true };
+    const vars = { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(() => env.resolveParams({ host: "rig" }, vars, deno)).toThrow(
       "SYNNAX_CA_CERT requires SYNNAX_SECURE",
     );
   });
 
   it("should name the file when Deno cannot read it", () => {
     const cause = notCapable();
-    const system: System = {
+    const system: env.System = {
       readFile: () => {
         throw cause;
       },
@@ -523,7 +520,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     };
     let error: unknown;
     try {
-      resolveParams({ host: "rig" }, { SYNNAX_CA_CERT: "/ca.pem" }, system);
+      env.resolveParams({ host: "rig" }, { SYNNAX_CA_CERT: "/ca.pem" }, system);
     } catch (e) {
       error = e;
     }
@@ -541,8 +538,10 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       vi.stubEnv("HOME", home);
       try {
         writeFileSync(join(home, "ca.pem"), PEM);
-        const env = { SYNNAX_CA_CERT: "~/ca.pem" };
-        expect(resolveParams({ host: "rig" }, env, nodeSystem()).caCert).toEqual(PEM);
+        const vars = { SYNNAX_CA_CERT: "~/ca.pem" };
+        expect(
+          env.resolveParams({ host: "rig" }, vars, env.nodeSystem()).caCert,
+        ).toEqual(PEM);
       } finally {
         vi.unstubAllEnvs();
         rmSync(home, { recursive: true });
@@ -550,7 +549,9 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     });
 
     it("should return null for a file that is not there", () => {
-      expect(nodeSystem()?.readFile(join(tmpdir(), "synnax-missing.pem"))).toBeNull();
+      expect(
+        env.nodeSystem()?.readFile(join(tmpdir(), "synnax-missing.pem")),
+      ).toBeNull();
     });
   });
 });
