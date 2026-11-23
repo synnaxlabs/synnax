@@ -18,10 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -44,14 +41,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
-	// Password stores passwords and checks proofs of them.
-	//
-	// [REQUIRED]
-	Password *password.Service
-	// Auth reports the login methods the Core accepts.
-	//
-	// [REQUIRED]
-	Auth *svcauth.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -61,8 +50,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
-	c.Password = override.Nil(c.Password, other.Password)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -72,8 +59,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
-	v.NotNil("password", c.Password)
-	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
@@ -82,8 +67,6 @@ type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *user.Service
-	password *password.Service
-	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -97,91 +80,36 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.User,
-		password: cfg.Password,
-		auth:     cfg.Auth,
 	}, nil
-}
-
-// NewUser is the create-request payload for a single user. It bundles the user-record
-// fields and the credentials the auth service will store. An empty Name defaults to the
-// username.
-type NewUser struct {
-	svcauth.Credentials
-	Name string   `json:"name" msgpack:"name"`
-	Key  user.Key `json:"key"  msgpack:"key"`
-	Role role.Key `json:"role" msgpack:"role"`
 }
 
 type (
 	CreateRequest struct {
-		Users []NewUser `json:"users" msgpack:"users"`
+		Users []user.User `json:"users" msgpack:"users"`
 	}
 	CreateResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
 	}
 )
 
-// PrepareCreate hashes the password of each new user in req. It returns
-// access.ErrDenied when the subject cannot create users, and a validation error when
-// the password method is off or a password is empty.
-func (s *Service) PrepareCreate(
-	ctx context.Context,
-	req CreateRequest,
-) ([]password.Hash, error) {
-	// Each hash is slow, so a subject that cannot create users costs none.
-	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []resource.ID{{Type: resource.TypeUser}},
-		})
-	}); err != nil {
-		return nil, err
-	}
-	if err := s.auth.Accepts(svcauth.MethodPassword); err != nil {
-		return nil, err
-	}
-	hashes := make([]password.Hash, len(req.Users))
-	for i, nu := range req.Users {
-		var err error
-		if hashes[i], err = s.password.Hash(nu.Password); err != nil {
-			return nil, err
-		}
-	}
-	return hashes, nil
-}
-
-// Create creates the new users with the roles in req and the passwords that
-// PrepareCreate hashed, and returns them.
+// Create creates users and returns them. A user with a zero key gets a new one. It
+// returns a validation error for a root user, a missing role, or a key that already
+// exists. A new user has no login method until it is given a password, API key, or
+// provider link.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
-	hashes []password.Hash,
 ) (CreateResponse, error) {
-	passwordW := s.password.NewWriter(tx)
-	userW := s.internal.NewWriter(tx)
-	newUsers := make([]user.User, len(req.Users))
-	for i, nu := range req.Users {
-		name := nu.Name
-		if name == "" {
-			name = nu.Username
-		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Role: nu.Role})
-		if err != nil {
+	w := s.internal.NewWriter(tx)
+	created := make([]user.User, len(req.Users))
+	for i, u := range req.Users {
+		var err error
+		if created[i], err = w.Create(ctx, u); err != nil {
 			return CreateResponse{}, err
 		}
-		if err = passwordW.Set(
-			ctx,
-			u.ResourceID(),
-			nu.Username,
-			hashes[i],
-		); err != nil {
-			return CreateResponse{}, err
-		}
-		newUsers[i] = u
 	}
-	return CreateResponse{Users: newUsers}, nil
+	return CreateResponse{Users: created}, nil
 }
 
 // checkOtherUser returns an error when the user with key is the subject, as a subject

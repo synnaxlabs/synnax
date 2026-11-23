@@ -699,7 +699,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// USER
 	t.UserCreate.BindHandler(
-		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
+		bind.Write(l.binder, l.User.Create),
 	)
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
@@ -965,11 +965,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		RBAC:     cfg.Service.RBAC,
-		User:     cfg.Service.User,
-		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+		User: cfg.Service.User,
 	}); err != nil {
 		return nil, err
 	}

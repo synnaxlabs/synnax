@@ -17,6 +17,7 @@ import {
   createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
+  createTestUser,
   expectDeleted,
   expectLive,
   holdResponses,
@@ -31,60 +32,73 @@ const client = createTestClient();
 const empty = await createEmptyRole(client);
 
 const createUser = async (r: role.Key = empty.key): Promise<user.User> =>
-  await client.users.create({ username: id.create(), password: "test", role: r });
+  await client.users.create({ name: "test", role: r });
 
-const userOne: user.New = {
+interface Fixture extends user.New {
+  username: string;
+}
+
+const userOne: Fixture = {
   username: id.create(),
-  password: "test",
   name: "George Washington",
   role: empty.key,
 };
 
-const userTwo: user.New = { username: id.create(), password: "test", role: empty.key };
-
-const userThree: user.New = {
+const userTwo: Fixture = {
   username: id.create(),
-  password: "test",
+  name: "John Hancock",
+  role: empty.key,
+};
+
+const userThree: Fixture = {
+  username: id.create(),
   name: "John Adams",
   role: empty.key,
 };
 
-const userArray: user.New[] = [
-  { username: id.create(), password: "secondTest", name: "Steve", role: empty.key },
-  { username: id.create(), password: "testArray", role: empty.key },
+const userArray: Fixture[] = [
+  { username: id.create(), name: "Steve", role: empty.key },
+  { username: id.create(), name: "Martha", role: empty.key },
 ];
+
+/** Creates the users, then gives each its username and a password. */
+const createUsers = async (fixtures: Fixture[]): Promise<user.User[]> => {
+  const users = await client.users.create(
+    fixtures.map(({ key, name, role }) => ({ key, name, role })),
+  );
+  await Promise.all(
+    users.map(
+      async (u, i) =>
+        await client.auth.createPassword({
+          subject: user.resourceID(u.key),
+          username: fixtures[i].username,
+          password: "test",
+        }),
+    ),
+  );
+  return users;
+};
 
 /** Expects users to hold exactly the keys and names of the created users. */
 const expectUsers = (users: user.User[], created: user.New[]) =>
   expect(users.map(({ key, name }) => ({ key, name }))).toEqual(
-    expect.arrayContaining(
-      created.map((u) => ({ key: u.key, name: u.name ?? u.username })),
-    ),
+    expect.arrayContaining(created.map(({ key, name }) => ({ key, name }))),
   );
 
 describe("User", () => {
   describe("Create", () => {
     describe("One", () => {
       test("with a name", async () => {
-        const res = await client.users.create(userOne);
+        const [res] = await createUsers([userOne]);
         expect(res.key).not.toEqual("");
         expect(res.name).toEqual(userOne.name);
         userOne.key = res.key;
       });
-      test("with no name", async () => {
-        const res = await client.users.create(userTwo);
-        expect(res.key).not.toEqual("");
+      test("with a different name", async () => {
+        const [res] = await createUsers([userTwo]);
+        expect(res.name).toEqual(userTwo.name);
         userTwo.key = res.key;
-        expect(res.name).toEqual(userTwo.username);
       });
-      test("Repeated username", async () =>
-        await expect(
-          client.users.create({
-            username: userOne.username,
-            password: "test",
-            role: empty.key,
-          }),
-        ).rejects.toThrow(AuthError));
     });
     describe("Many", () => {
       test("array empty", async () => {
@@ -92,36 +106,24 @@ describe("User", () => {
         expect(res).toHaveLength(0);
       });
       test("array is one", async () => {
-        const res = await client.users.create([userThree]);
+        const res = await createUsers([userThree]);
         expect(res).toHaveLength(1);
         expect(res[0].key).not.toEqual("");
         userThree.key = res[0].key;
         expect(res[0].name).toEqual(userThree.name);
       });
       test("array not empty", async () => {
-        const res = await client.users.create(userArray);
+        const res = await createUsers(userArray);
         expect(res).toHaveLength(2);
         userArray.forEach((u, i) => {
           expect(res[i].key).not.toEqual("");
           userArray[i].key = res[i].key;
-          expect(res[i].name).toEqual(u.name ?? u.username);
+          expect(res[i].name).toEqual(u.name);
         });
       });
-      test("Repeated username", async () =>
-        await expect(
-          client.users.create([
-            { username: userOne.username, password: "test", role: empty.key },
-            { username: userTwo.username, password: "test", role: empty.key },
-          ]),
-        ).rejects.toThrow(AuthError));
       test("Repeated key", async () =>
         await expect(
-          client.users.create({
-            key: userOne.key,
-            username: id.create(),
-            password: "test",
-            role: empty.key,
-          }),
+          client.users.create({ key: userOne.key, name: "test", role: empty.key }),
         ).rejects.toThrow(ValidationError));
     });
   });
@@ -173,7 +175,7 @@ describe("User", () => {
           await expect(client.users.retrieve(userOne.key as string)).rejects.toThrow(
             NotFoundError,
           );
-          const u = await client.users.create(userOne);
+          const [u] = await createUsers([userOne]);
           userOne.key = u.key;
         });
       });
@@ -191,7 +193,7 @@ describe("User", () => {
           await expect(
             client.users.retrieve(userArray.map((u) => u.key as string)),
           ).rejects.toThrow(NotFoundError);
-          const users = await client.users.create(userArray);
+          const users = await createUsers(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
         test("all", async () => {
@@ -238,19 +240,17 @@ describe("User", () => {
         client.users.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
     test("Repeated usernames fail", async () => {
-      const oldUsername = id.create();
-      const user = await client.users.create({
-        username: oldUsername,
-        password: "test",
-        role: empty.key,
-      });
+      const [u] = await createUsers([
+        { username: id.create(), name: "test", role: empty.key },
+      ]);
       const newUsername = id.create();
-      await client.users.changeUsername(user.key, newUsername);
+      await client.users.changeUsername(u.key, newUsername);
+      const other = await createUser();
       await expect(
-        client.users.create({
+        client.auth.createPassword({
+          subject: user.resourceID(other.key),
           username: newUsername,
           password: "test",
-          role: empty.key,
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -461,7 +461,8 @@ describe("cached reads", () => {
 
   test("should keep a subscribed user unchanged on a remote username change", async () => {
     const r = await createEmptyRole(client);
-    const u = await createUser();
+    // a username belongs to a password, so the user needs one to be renamed
+    const { user: u } = await createTestUser(client, { role: empty.key });
     const seen: Array<query.Cached<user.User> | undefined> = [];
     const off = client.users.watch(u.key).onChange((res) => seen.push(res));
     try {
