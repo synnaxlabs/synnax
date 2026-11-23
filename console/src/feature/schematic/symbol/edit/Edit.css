@@ -89,12 +89,39 @@
         transition: all 0.2s ease;
     }
 
+    /* This rule owns the filter, so the hover and the selected mark both show. */
+    :is(
+        .console-schematic__svg-region--hoverable,
+        .console-schematic__svg-region--selected
+    ) {
+        filter: var(--console-schematic-selected-filter, brightness(1))
+            var(--console-schematic-hover-filter, brightness(1));
+    }
+
     .console-schematic__svg-region--hover {
-        cursor: pointer;
+        --console-schematic-hover-filter: brightness(1.3);
+    }
+
+    :is(line, polyline).console-schematic__svg-region--hover {
+        --console-schematic-hover-filter: drop-shadow(0 0 3px var(--pluto-primary-z));
+    }
+
+    /* A shape with no fill of its own takes a tint on hover. */
+    .console-schematic__svg-region--hover:not(line, polyline):is(
+            :not([fill]),
+            [fill="none"],
+            [fill="transparent"]
+        ) {
+        --console-schematic-hover-filter: brightness(1);
+
+        fill: var(--pluto-primary-z-20);
+        fill-opacity: 1;
     }
 
     .console-schematic__svg-region--selected {
-        filter: drop-shadow(0 0 2px var(--pluto-primary-z));
+        --console-schematic-selected-filter: drop-shadow(
+            0 0 2px var(--pluto-primary-z)
+        );
     }
 
     .console-schematic__handle-preview {

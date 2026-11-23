@@ -1103,6 +1103,21 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("keeps the mark of a filled selected shape under the pointer", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace('id="c"', 'id="c" fill="red"'),
+        },
+        parts: [{ ...BODY, selectors: ["#c"] }],
+      });
+      const shape = findShape("c");
+      fireEvent.mouseEnter(shape);
+      await waitFor(() =>
+        expect(getComputedStyle(shape).filter).toContain("drop-shadow"),
+      );
+    });
+
     it("selects the part that holds the group of a shape clicked", async () => {
       await openPainted({
         drawing: { type: "svg", markup: GROUPED },
