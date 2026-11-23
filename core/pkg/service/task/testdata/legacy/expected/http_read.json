@@ -5,6 +5,7 @@
   "endpoints": [
     {
       "body": "",
+      "disabled": false,
       "fields": [
         {
           "channel": 10010,
@@ -96,6 +97,7 @@
     },
     {
       "body": "{\"deviceId\": \"fixture-42\"}",
+      "disabled": false,
       "fields": [
         {
           "channel": 10040,
