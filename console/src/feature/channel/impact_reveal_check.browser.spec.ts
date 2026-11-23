@@ -15,6 +15,8 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
+import { CSS } from "@/platform/css";
+import { findSurface } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createHostItems,
@@ -76,13 +78,17 @@ describe("impact dialog reveal check", () => {
     act(() => tree.focus());
     await openTreeRowContextMenu(ch.name);
     fireEvent.click(await screen.findByText("Delete"));
-    const dialog = screen.getByRole("dialog", { hidden: true });
+    // The native dialog shows at once; the surface inside it waits unseen for the plan.
+    const surface = findSurface();
+    const unseen = CSS.BM("impact", "unpainted");
     const focused: string[] = [];
-    for (let frame = 0; frame < 60; frame++) {
+    let frame = 0;
+    for (; frame < 300; frame++) {
       if (tree.contains(document.activeElement)) focused.push(`frame ${frame}`);
-      if (frame > 0 && getComputedStyle(dialog).visibility === "visible") break;
+      if (!surface.classList.contains(unseen)) break;
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
+    expect(surface.classList.contains(unseen)).toBe(false);
     expect(focused).toEqual([]);
   });
 });
