@@ -13,12 +13,12 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
@@ -85,7 +85,7 @@ var _ = Describe("Round 2 check, random entries", func() {
 				for _, a := range acks {
 					if _, err := a.Wait(); err == nil {
 						acked++
-					} else if errors.Is(err, log.ErrFull) {
+					} else if strings.Contains(err.Error(), "log file is full") {
 						full++
 					} else {
 						failed = err
