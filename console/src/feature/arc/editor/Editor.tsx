@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Arc, Panel as PPanel } from "@synnaxlabs/pluto";
 
 import { Graph } from "@/feature/arc/editor/Graph";
-import { Path } from "@/feature/arc/editor/Path";
+import { Path } from "@/feature/arc/editor/path";
 import { Text } from "@/feature/arc/editor/Text";
 import { CSS } from "@/platform/css";
 import type { Panel } from "@/platform/panel";
@@ -28,7 +28,7 @@ export const Editor: Panel.Content = () => {
   return (
     <Arc.Suspended arcKey={key}>
       <Flex.Box y empty full>
-        <Path />
+        <Path.Path />
         <Flex.Box y empty grow className={CSS.BE("arc-editor", "body")}>
           <Internal />
         </Flex.Box>

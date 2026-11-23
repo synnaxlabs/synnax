@@ -88,13 +88,16 @@ public:
     /// value, and every other index channel takes received. An index channel and the
     /// channels it indexes take no sample when the multiplexors of payload select none
     /// of their fields.
+    /// @param cap the capacity of each series that read adds to fr. A series that fr
+    /// already holds for a channel takes the sample instead, and must have room for it.
     /// @returns the position in reads of the message, or nothing, adding nothing, when
     /// payload belongs to no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload.
     std::pair<std::optional<std::size_t>, x::errors::Error> read(
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp received,
-        x::telem::Frame &fr
+        x::telem::Frame &fr,
+        std::size_t cap = 1
     );
 };
 }
