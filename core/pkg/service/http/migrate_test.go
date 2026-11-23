@@ -245,6 +245,45 @@ var _ = Describe("ICDMigration", func() {
 		MustSucceed(svc.Read.Prepare(ctx, db, key, "Tank farm", data))
 	})
 
+	It("Should lift two index fields into reads that a later save refuses", func(
+		ctx SpecContext,
+	) {
+		sent := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		received := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		key := stageEndpoint(
+			ctx,
+			"Tank farm",
+			"sent",
+			http.ReadField{
+				Key:      "sent",
+				Name:     "sent",
+				Channel:  sent.Key(),
+				Pointer:  "/sent",
+				DataType: telem.TimestampT,
+			},
+			http.ReadField{
+				Key:      "received",
+				Name:     "received",
+				Channel:  received.Key(),
+				Pointer:  "/received",
+				DataType: telem.TimestampT,
+			},
+		)
+		Expect(run(ctx)).To(Succeed())
+		ep := read(ctx, key).Endpoints[0]
+		Expect(ep.Messages).To(HaveLen(1))
+		Expect(ep.Messages[0].Bindings).To(HaveExactElements(
+			HaveField("Channel", sent.Key()),
+			HaveField("Channel", received.Key()),
+		))
+		data := MustSucceed(svc.Read.Read(ctx, db, key))
+		Expect(svc.Read.Prepare(ctx, db, key, "Tank farm", data)).Error().To(MatchError(
+			"endpoints.0.messages.0.bindings.1.channel: field received cannot write " +
+				"to index channel " + received.Name + ", because only the index " +
+				"field can. Move field received into its own message",
+		))
+	})
+
 	It("Should do nothing without staged fields", func(ctx SpecContext) {
 		Expect(run(ctx)).To(Succeed())
 		Expect(asked).To(BeEmpty())
