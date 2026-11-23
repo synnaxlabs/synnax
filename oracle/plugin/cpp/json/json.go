@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -1224,7 +1225,7 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", v.FloatValue)
+		return literal.Float(v.FloatValue)
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindStruct:

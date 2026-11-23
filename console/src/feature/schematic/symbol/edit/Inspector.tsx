@@ -109,7 +109,9 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const { get, set } = Form.useContext();
   const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
   const several = values.values.length > 1;
-  const varies = (several && split) || Spec.variesByValue({ looks }, part, field);
+  // A static symbol has one value, so it ends By state.
+  if (split && !several) setSplit(false);
+  const varies = split || Spec.variesByValue({ looks }, part, field);
   const handleVariesChange = (next: boolean) => {
     const keys = values.values.map((v) => v.value);
     set(
@@ -346,9 +348,9 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? undefined
       : Schematic.Node.Region.paint(drawing.markup, part.selectors);
   const issue =
-    part == null
-      ? undefined
-      : Spec.levelIssues({ drawing, parts, looks }).get(part.key);
+    FLAGS.symbolMotion && part != null
+      ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
+      : undefined;
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
