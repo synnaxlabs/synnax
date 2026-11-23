@@ -12,7 +12,6 @@ import type {
   Kind,
   Params,
 } from "@/feature/mqtt/task/discover/Discover";
-import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 
@@ -21,15 +20,15 @@ import { Panel } from "@/platform/panel";
  * pick values. The dialog resolves with what the kind creates from the picks, or null
  * when the user closes it. The dialog loads its content when it first opens.
  */
-export const createDiscoverModal = <E extends HeldEntry>(
+export const createDiscoverModal = <E,>(
   kind: Kind<E>,
-): Modals.PromptHook<Params<E>, E[]> => {
+): Modals.PromptHook<Params, E[]> => {
   const Discover = Panel.lazyComponent<"Discover", DiscoverProps<E>>(
     () => import("@/feature/mqtt/task/discover/Discover"),
     "Discover",
   );
-  const Content = (props: Modals.ContentProps<Params<E>, E[]>) => (
+  const Content = (props: Modals.ContentProps<Params, E[]>) => (
     <Discover {...props} kind={kind} />
   );
-  return Modals.createPrompt<E[], Params<E>>(Content);
+  return Modals.createPrompt<E[], Params>(Content);
 };

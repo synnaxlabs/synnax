@@ -16,7 +16,7 @@ import type { ReactElement } from "react";
 import { Viewport as BaseViewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
-import { useFitView } from "@/vis/diagram/useFitView";
+import { View } from "@/vis/diagram/view";
 
 const FIT_VIEW_TRIGGER = BaseViewport.ZOOM_DEFAULT_TRIGGERS.modes.zoomReset[0];
 
@@ -26,7 +26,7 @@ export interface FitViewProps extends Omit<
 > {}
 
 export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
-  const fitView = useFitView();
+  const fitView = View.useFit();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
     <Button.Toggle

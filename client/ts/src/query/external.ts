@@ -60,6 +60,7 @@ export {
   type Interceptor,
   isChange,
   type Keyed,
+  keyedZ,
   type ListenerSpec,
   partialUpdate,
   type Stamp,

@@ -15,11 +15,12 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { z } from "zod";
 
-import { configZ } from "@/arc/graph/node/sink/config";
-import { Form } from "@/arc/graph/node/sink/Form";
+import { Sink } from "@/arc/graph/node/sink";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
-const path = deep.path<z.infer<typeof configZ>>();
+const path = deep.path<z.infer<typeof Sink.configZ>>();
+
+const Form = Sink.REGISTRY.write.Form;
 
 const client = createTestClient();
 
@@ -39,7 +40,7 @@ describe("sink.Form", () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
       { type: "write", channel: ch.key, value: 1 },
-      configZ,
+      Sink.configZ,
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
