@@ -406,7 +406,10 @@ export default class Synnax extends framer.Client {
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
-    this.impact = new impact.Client(unary);
+    this.impact = new impact.Client({
+      unary,
+      unaryNoRetry: this.transport.unaryNoRetry,
+    });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
       unary,

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type z } from "zod";
+import type { UnaryClient } from "@synnaxlabs/freighter";
+import type { z } from "zod";
 
-import { type PlanChangedError } from "@/errors";
+import type { PlanChangedError } from "@/errors";
 import {
   applyRequestZ,
   type Change,
@@ -25,12 +25,22 @@ export interface PlanOptions extends Omit<z.input<typeof planRequestZ>, "change"
 /** The token and picks of {@link Client.apply}. A missing token skips the check. */
 export interface ApplyOptions extends Omit<z.input<typeof applyRequestZ>, "change"> {}
 
+/** The transports of a {@link Client}. */
+export interface ClientConfig {
+  /** unary sends plans, and retries one that does not reach the Core. */
+  unary: UnaryClient;
+  /** unaryNoRetry sends applies, so an apply makes one attempt. */
+  unaryNoRetry: UnaryClient;
+}
+
 /** Lists every record that a change to channels touches, and carries the change out. */
 export class Client {
   private readonly unary: UnaryClient;
+  private readonly unaryNoRetry: UnaryClient;
 
-  constructor(unary: UnaryClient) {
+  constructor({ unary, unaryNoRetry }: ClientConfig) {
     this.unary = unary;
+    this.unaryNoRetry = unaryNoRetry;
   }
 
   /**
@@ -51,10 +61,11 @@ export class Client {
   /**
    * Carries out change with the picks of options and returns the entries that it
    * applied. With a token, it throws a {@link PlanChangedError} before any write when
-   * the plan is no longer the one that the token names.
+   * the plan is no longer the one that the token names. It makes one attempt, so a
+   * caller waits for at most one request.
    */
   async apply(change: Change, options: ApplyOptions = {}): Promise<Plan> {
-    return await this.unary.send(
+    return await this.unaryNoRetry.send(
       "/impact/apply",
       { ...options, change },
       applyRequestZ,
