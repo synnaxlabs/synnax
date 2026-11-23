@@ -20,10 +20,9 @@
 
 namespace driver::bypass::pipeline {
 /// @brief a pipeline Writer that publishes frames to the local bus, then hands them to
-/// a Forwarder that delivers them to the Core in the background. When set_authority is
-/// called with an authority higher than the current holder, the increase is applied
-/// directly to the control::States before it goes to the Core, eliminating the
-/// staleness window for authority increases.
+/// a Forwarder that delivers them to the Core in the background. It keeps a gate in
+/// control::States, so its authority changes and its close hand channels between local
+/// writers while the Core is lost.
 class Writer final : public ::driver::pipeline::Writer {
     std::unique_ptr<Forwarder> forwarder;
     std::shared_ptr<Bus> bus;
@@ -83,12 +82,15 @@ public:
             auto auth = authorities.authorities.size() == 1
                           ? authorities.authorities[0]
                           : authorities.authorities[i];
-            this->states->apply_increase(this->cfg.subject, keys[i], auth);
+            this->states->set_authority(this->cfg.subject, keys[i], auth);
         }
         return this->forwarder->set_authority(authorities);
     }
 
+    ~Writer() override { this->states->close_gate(this->cfg.subject); }
+
     [[nodiscard]] x::errors::Error close() override {
+        this->states->close_gate(this->cfg.subject);
         auto err = this->forwarder->close();
         if (this->carried_drops != nullptr)
             *this->carried_drops = this->forwarder->dropped();
@@ -135,8 +137,21 @@ public:
         this->bus->register_channels(cfg.channels);
         auto forwarder_cfg = this->forwarder;
         forwarder_cfg.dropped = *this->carried_drops;
+        forwarder_cfg.on_open = [states = this->states, subject = cfg.subject] {
+            states->opened_on_core(subject);
+        };
+        forwarder_cfg.on_close = [states = this->states, subject = cfg.subject] {
+            states->closed_on_core(subject);
+        };
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
+        // Writer closes the gate before it destroys the forwarder.
+        this->states->open_gate(
+            cfg.subject,
+            cfg.channels,
+            cfg.authorities,
+            [f = forwarder.get()] { f->retry(); }
+        );
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {

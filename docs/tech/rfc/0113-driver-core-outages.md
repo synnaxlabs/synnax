@@ -81,9 +81,11 @@ returns it and the task stops as today (`acquisition.cpp:162-167`).
 Today the local mirror applies only increases (`driver/control/state.h:79-92`). While
 the Core is down, `control::States` tracks each local writer's authority per channel and
 applies decreases and closes too, so two tasks on one Driver can hand off a channel. The
-forwarder opens each Core writer with the authorities in effect. On reconnect, the
-forwarders open before the task manager retrieves control states
-(`driver/task/manager.cpp:260-271`).
+forwarder opens each Core writer with the authorities in effect. While the Core is
+connected, its holder of a channel decides for the writers open on the Core. A writer
+that has not opened on the Core yet competes with that holder by the Core's rule, so a
+reconnect never hands a channel to a writer with less authority. The read of control
+state after a reconnect makes every forwarder open its Core writer at once.
 
 Authority changes go through the forwarder queue in order with the frames. While the
 Core is up, only an increase applies to the local mirror at once. A decrease reaches the

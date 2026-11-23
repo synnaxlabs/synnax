@@ -266,21 +266,117 @@ TEST(WriterTest, SetAuthorityIncreaseUpdatesMirror) {
     ASSERT_TRUE(states->is_authorized(2, {"arc", "arc-1"}));
 }
 
-TEST(WriterTest, SetAuthorityDecreaseDoesNotUpdateMirror) {
+/// @brief it should hand a channel back to the next local writer when the holder lowers
+/// its authority while the Core is down.
+TEST(WriterTest, SetAuthorityDecreaseHandsOffLocally) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
+    states->disconnect();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
-    states->apply_increase(op, 1, 200);
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
-    auto writer = ASSERT_NIL_P(factory.open_writer({
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
         .subject = arc,
     }));
-    ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {100}}));
     ASSERT_TRUE(states->is_authorized(1, op));
     ASSERT_FALSE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->close());
+    ASSERT_NIL(op_writer->close());
+}
+
+/// @brief it should hand a channel to the next local writer when the holder closes,
+/// with the Core unreachable.
+TEST(WriterTest, CloseHandsOffLocallyWhileTheCoreIsUnreachable) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    states->disconnect();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    auto sub = bus->subscribe({1});
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    ASSERT_NIL(op_writer->write(fr));
+    ASSERT_FALSE(sub->try_pop(fr));
+    ASSERT_NIL(arc_writer->close());
+    x::telem::Frame fr2;
+    fr2.emplace(1, x::telem::Series(static_cast<float>(2.0)));
+    ASSERT_NIL(op_writer->write(fr2));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_TRUE(states->is_authorized(1, {"other", "other-1"}));
+}
+
+/// @brief it should hand a channel to the next local writer when the holder is
+/// destroyed without a close, with the Core unreachable.
+TEST(WriterTest, DestroyHandsOffLocallyWhileTheCoreIsUnreachable) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    states->disconnect();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    ASSERT_FALSE(states->is_authorized(1, op));
+    arc_writer.reset();
+    ASSERT_TRUE(states->is_authorized(1, op));
+    auto sub = bus->subscribe({1});
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    ASSERT_NIL(op_writer->write(fr));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_NIL(op_writer->close());
 }
 
 TEST(WriterTest, SetAuthorityGlobalKeysExpandsToWriterChannels) {
@@ -304,13 +400,14 @@ TEST(WriterTest, SetAuthorityIncreaseEndToEnd) {
     const x::control::Subject hotfire{"hotfire", "hf-1"};
     const x::control::Subject abort_sub{"abort", "abort-1"};
 
-    states->apply_increase(hotfire, 1, 200);
+    states->set_authority(hotfire, 1, 200);
 
     auto mock_writer_factory = std::make_shared<
         ::driver::pipeline::testutil::WriterFactory>();
     WriterFactory writer_factory(mock_writer_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(writer_factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = abort_sub,
     }));
 
@@ -335,12 +432,13 @@ TEST(WriterTest, WriteFiltersUnauthorizedChannelsFromBus) {
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    states->apply_increase(other, 1, 200);
+    states->set_authority(other, 1, 200);
     auto sub = bus->subscribe({1, 2});
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
+        .authorities = {100},
         .subject = arc,
     }));
     x::telem::Frame frame;
@@ -359,12 +457,13 @@ TEST(WriterTest, WritePublishesNothingToBusWhenFullyUnauthorized) {
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    states->apply_increase(other, 1, 200);
+    states->set_authority(other, 1, 200);
     auto sub = bus->subscribe({1});
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = arc,
     }));
     x::telem::Frame frame;
@@ -405,10 +504,12 @@ TEST(WriterTest, WriteFilterEndToEnd) {
 
     auto hf_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = hotfire,
     }));
     auto ab_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = abort_sub,
     }));
 
@@ -718,5 +819,226 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
     ASSERT_TRUE(pipeline.stop());
     for (size_t i = first_run; i < warnings->size(); i++)
         EXPECT_NE(warnings->at(i).first, "Dropped frames");
+}
+
+/// @brief it should mark a writer open on the Core once its forwarder opens, so a
+/// decrease waits for the Core's transfer.
+TEST(WriterTest, MarksAWriterOpenOnTheCore) {
+    auto states = std::make_shared<control::States>();
+    WriterFactory factory(
+        std::make_shared<::driver::pipeline::testutil::WriterFactory>(),
+        std::make_shared<Bus>(),
+        states,
+        0
+    );
+    const x::control::Subject arc{.key = "arc-1", .name = "arc"};
+    const x::control::Subject op{.key = "op-1", .name = "operator"};
+    auto arc_writer = ASSERT_NIL_P(
+        factory.open_writer({.channels = {1}, .authorities = {200}, .subject = arc})
+    );
+    auto op_writer = ASSERT_NIL_P(
+        factory.open_writer({.channels = {1}, .authorities = {100}, .subject = op})
+    );
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {50}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+namespace {
+x::telem::Frame frame(const float value) {
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(value));
+    return fr;
+}
+
+x::control::State<synnax::channel::Key>
+held(const x::control::Subject &subject, const x::control::Authority authority) {
+    return {.subject = subject, .resource = 1, .authority = authority};
+}
+}
+
+/// @brief it should leave a writer that the Core still lists as a holder open on
+/// reconnect, so it keeps waiting for the Core.
+TEST(WriterTest, SetKeepsAWriterTheCoreStillLists) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(arc_core, bus, states, 0);
+    WriterFactory op_factory(op_core, bus, states, 0);
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = op,
+    }));
+    states->disconnect();
+    states->set({held(op, 200)});
+    ASSERT_NIL(op_writer->write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(op_core->writes->size(), 1);
+    ASSERT_EQ(op_core->writer_opens.load(), 1);
+    ASSERT_EQ(arc_core->writer_opens.load(), 1);
+    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_FALSE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+/// @brief it should leave a healthy writer open on reconnect when the Core does not
+/// list it as a holder, so it keeps waiting for the Core.
+TEST(WriterTest, SetKeepsAWriterTheCoreDoesNotList) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(arc_core, bus, states, 0);
+    WriterFactory op_factory(op_core, bus, states, 0);
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = op,
+    }));
+    states->disconnect();
+    states->set({});
+    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_NIL(op_writer->write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(op_core->writes->size(), 1);
+    ASSERT_EQ(op_core->writer_opens.load(), 1);
+    ASSERT_EQ(arc_core->writer_opens.load(), 1);
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_FALSE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+/// @brief it should hand a channel off locally when a writer that did not hold it at a
+/// Core restart closes, because the restart ended its idle Core stream.
+TEST(WriterTest, HandsOffLocallyForAWriterTheCoreForgot) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    const x::control::Subject remote{"console", "console-1"};
+    std::vector<x::errors::Error> open_errors(1000, freighter::UNREACHABLE);
+    open_errors[0] = x::errors::NIL;
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        open_errors
+    );
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(
+        arc_core,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    WriterFactory op_factory(op_core, bus, states, 0);
+    states->set({held(remote, 200)});
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {100},
+        .subject = op,
+    }));
+    ASSERT_TRUE(states->is_authorized(1, remote));
+    states->disconnect();
+    arc_core->end_stream(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_GE(arc_core->writer_opens.load(), 2);
+    states->set({});
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->close());
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_NIL(op_writer->close());
+}
+
+/// @brief it should keep waiting for the Core after reconnect for a writer that
+/// reopened on the Core before the disconnect ran.
+TEST(WriterTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE},
+        std::vector<int>{0}
+    );
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(
+        arc_core,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    WriterFactory op_factory(op_core, bus, states, 0);
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    ASSERT_NIL(arc_writer->write(frame(0)));
+    ASSERT_EVENTUALLY_EQ(arc_core->writes->size(), 1);
+    ASSERT_EQ(arc_core->writer_opens.load(), 2);
+    states->disconnect();
+    states->set({held(arc, 200)});
+    ASSERT_NIL(arc_writer->write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(arc_core->writes->size(), 2);
+    ASSERT_EQ(arc_core->writer_opens.load(), 2);
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_FALSE(states->is_authorized(1, op));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+/// @brief it should open the Core writer again at once when the control state is read
+/// after reconnect, instead of waiting out its backoff.
+TEST(WriterTest, ReopensAtOnceOnReconnect) {
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{freighter::UNREACHABLE}
+    );
+    WriterFactory factory(
+        mock_factory,
+        std::make_shared<Bus>(),
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::HOUR}}
+    );
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_NIL(writer->write(frame(0)));
+    states->disconnect();
+    states->set({});
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 1);
+    ASSERT_EQ(mock_factory->writer_opens.load(), 2);
+    ASSERT_NIL(writer->close());
 }
 }

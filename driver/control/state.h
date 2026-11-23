@@ -9,12 +9,16 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -28,11 +32,37 @@ namespace driver::control {
 /// @brief receives a frame that the mirror lets onto the local bus.
 using Publish = std::function<void(const x::telem::Frame &)>;
 
-/// @brief maintains a local mirror of per-channel authority state.
+/// @brief maintains a local mirror of per-channel authority state. It also keeps a gate
+/// for each local writer. While the Core is connected, the Core's holder of a channel
+/// decides for the writers open on the Core, and the mirror takes their authority
+/// increases at once. A writer not yet open on the Core competes with that holder by
+/// the Core's rule: the highest authority holds, and the earlier gate wins a tie. After
+/// disconnect, the local gates compete by that rule with each other and with a holder
+/// outside the Driver, which keeps a tie.
 class States {
+    using State = x::control::State<synnax::channel::Key>;
+
+    struct Gate {
+        x::control::Subject subject;
+        std::unordered_map<synnax::channel::Key, x::control::Authority> authorities;
+        std::uint64_t order = 0;
+        std::function<void()> on_connect;
+    };
+
     mutable std::shared_mutex mu;
-    std::unordered_map<synnax::channel::Key, x::control::State<synnax::channel::Key>>
-        states;
+    /// @brief the holder of each controlled channel, which route and filter read.
+    std::unordered_map<synnax::channel::Key, State> states;
+    /// @brief the holder of each channel by the Core's last report, with the increases
+    /// of writers open on the Core applied ahead of it.
+    std::unordered_map<synnax::channel::Key, State> core;
+    std::unordered_map<std::string, Gate> gates;
+    /// @brief local writers that closed while the Core was connected. The Core can
+    /// still name one as a holder until its transfer arrives.
+    std::unordered_set<std::string> closed;
+    /// @brief local writers whose Core writer is open.
+    std::unordered_set<std::string> on_core;
+    std::uint64_t next_order = 0;
+    bool connected = true;
 
     /// @brief a frame that waits for the mirror to be read again.
     struct Held {
@@ -77,17 +107,111 @@ class States {
     /// @brief the number of updates dropped from the front of log.
     uint64_t log_base = 0;
 
-    /// @brief applies update to the mirror. Requires mu.
+    [[nodiscard]] bool decided_by_core(const std::string &key) const {
+        return this->connected && this->on_core.contains(key);
+    }
+
+    Gate &gate(const x::control::Subject &subject) {
+        auto [it, added] = this->gates.try_emplace(subject.key);
+        if (added) it->second = Gate{.subject = subject, .order = this->next_order++};
+        return it->second;
+    }
+
+    /// @brief applies an increase of a writer open on the Core ahead of the Core's
+    /// transfer, since the Core gives a channel to a writer with more authority than
+    /// its holder. Requires mu.
+    void predict(const Gate &g, const synnax::channel::Key channel) {
+        const auto auth = g.authorities.find(channel);
+        if (auth == g.authorities.end()) return;
+        const auto it = this->core.find(channel);
+        if (it != this->core.end() && it->second.authority >= auth->second) return;
+        this->core[channel] = State{
+            .subject = g.subject,
+            .resource = channel,
+            .authority = auth->second,
+        };
+    }
+
+    /// @brief gives channel to the Core's holder or to a local gate that the Core
+    /// decides nothing for, by the Core's rule, or leaves it uncontrolled when neither
+    /// exists. Requires mu.
+    void recompute(const synnax::channel::Key channel) {
+        std::optional<State> best;
+        // A holder outside the Driver has no local order, and keeps a tie.
+        std::optional<std::uint64_t> best_order;
+        if (const auto it = this->core.find(channel); it != this->core.end()) {
+            const auto &key = it->second.subject.key;
+            const auto g = this->gates.find(key);
+            if (g == this->gates.end())
+                best = it->second;
+            else if (this->decided_by_core(key)) {
+                best = it->second;
+                best_order = g->second.order;
+            }
+        }
+        for (const auto &[key, g]: this->gates) {
+            if (this->decided_by_core(key)) continue;
+            const auto it = g.authorities.find(channel);
+            if (it == g.authorities.end()) continue;
+            if (best.has_value() &&
+                (it->second < best->authority ||
+                 (it->second == best->authority &&
+                  (!best_order.has_value() || *best_order < g.order))))
+                continue;
+            best = State{
+                .subject = g.subject,
+                .resource = channel,
+                .authority = it->second
+            };
+            best_order = g.order;
+        }
+        if (!best.has_value()) {
+            this->states.erase(channel);
+            return;
+        }
+        this->states[channel] = *best;
+    }
+
+    /// @brief recomputes every channel that the mirror, the Core, or a gate names.
+    /// Requires mu.
+    void recompute_all() {
+        std::unordered_set<synnax::channel::Key> channels;
+        for (const auto &[channel, _]: this->states)
+            channels.insert(channel);
+        for (const auto &[channel, _]: this->core)
+            channels.insert(channel);
+        for (const auto &[_, g]: this->gates)
+            for (const auto &[channel, _]: g.authorities)
+                channels.insert(channel);
+        for (const auto channel: channels)
+            this->recompute(channel);
+    }
+
+    /// @brief requires mu.
+    void set_authority_locked(
+        const x::control::Subject &subject,
+        const synnax::channel::Key channel,
+        const x::control::Authority authority
+    ) {
+        auto &g = this->gate(subject);
+        g.authorities[channel] = authority;
+        if (this->decided_by_core(subject.key)) this->predict(g, channel);
+        this->recompute(channel);
+    }
+
+    /// @brief applies update to the Core's holders. Requires mu.
     void apply_locked(const x::control::Update<synnax::channel::Key> &update) {
         for (const auto &transfer: update.transfers) {
             if (transfer.to.has_value()) {
                 VLOG(1) << "[bus.authority] channel " << transfer.to->resource
                         << " now held by " << transfer.to->subject.name;
-                this->states[transfer.to->resource] = *transfer.to;
+                this->core[transfer.to->resource] = *transfer.to;
+                this->recompute(transfer.to->resource);
             } else if (transfer.from.has_value()) {
                 VLOG(1) << "[bus.authority] channel " << transfer.from->resource
                         << " released by " << transfer.from->subject.name;
-                this->states.erase(transfer.from->resource);
+                this->core.erase(transfer.from->resource);
+                this->recompute(transfer.from->resource);
             }
         }
     }
@@ -200,9 +324,12 @@ public:
         this->end_read_locked();
     }
 
-    /// @brief replaces the mirror with the snapshot of a read, applies the updates
-    /// that landed while the read was open on top, and opens the bus. Each frame of a
-    /// hold is filtered against the new mirror and published in the order it came,
+    /// @brief replaces the Core's holders with the snapshot of a read, applies the
+    /// updates that landed while the read was open on top, marks the Core connected,
+    /// and opens the bus. A writer open on the Core takes a channel from a holder with
+    /// less authority, as an increase does. A writer not yet open on the Core keeps the
+    /// local rule until opened_on_core. Calls the on_connect of each gate. Each frame
+    /// of a hold is filtered against the new mirror and published in the order it came,
     /// before any frame that route gets after this call. A read that began before a
     /// later hold, stream restart, or full log is ignored, since it can miss changes.
     /// @returns false when the read was ignored.
@@ -213,11 +340,25 @@ public:
         const bool current = read.gen == this->gen;
         if (current) {
             std::unique_lock lock(this->mu);
-            this->states.clear();
+            this->connected = true;
+            this->closed.clear();
+            this->core.clear();
             for (const auto &state: next)
-                this->states[state.resource] = state;
+                this->core[state.resource] = state;
             for (auto i = read.log_pos - this->log_base; i < this->log.size(); i++)
                 this->apply_locked(this->log[i]);
+            // The earlier gate goes first, so it keeps a tie as on the Core.
+            std::vector<const Gate *> opened;
+            for (const auto &[key, g]: this->gates)
+                if (this->on_core.contains(key)) opened.push_back(&g);
+            std::ranges::sort(opened, {}, &Gate::order);
+            for (const auto *g: opened)
+                for (const auto &[channel, _]: g->authorities)
+                    this->predict(*g, channel);
+            this->recompute_all();
+            // Under mu, so close_gate waits for a call that reaches a closing writer.
+            for (const auto &[_, g]: this->gates)
+                if (g.on_connect) g.on_connect();
         }
         this->end_read_locked();
         if (!current) return false;
@@ -333,24 +474,98 @@ public:
         }
     }
 
-    /// @brief optimistically applies an authority increase for a single channel. If the
-    /// incoming authority is strictly greater than the current holder's, the mirror is
-    /// updated immediately. Equal or lower authority is ignored, matching the Core's
-    /// position-based tiebreak (earlier gate wins ties). This is safe because the relay
-    /// will eventually overwrite with the authoritative state from the Core.
-    void apply_increase(
+    /// @brief marks the Core as lost, so the local gates compete by the Core's rule
+    /// until the next set. A holder outside the Driver stays until a gate with more
+    /// authority takes its channel.
+    void disconnect() {
+        std::unique_lock lock(this->mu);
+        this->connected = false;
+        std::erase_if(this->core, [this](const auto &entry) {
+            return this->closed.contains(entry.second.subject.key);
+        });
+        this->closed.clear();
+        this->recompute_all();
+    }
+
+    /// @brief records that the writer of subject opened on the Core. While the Core is
+    /// connected, the Core's holder then decides its channels, and its decreases and
+    /// close wait for the Core's transfers. Safe to call before its gate opens.
+    void opened_on_core(const x::control::Subject &subject) {
+        std::unique_lock lock(this->mu);
+        this->on_core.insert(subject.key);
+        const auto it = this->gates.find(subject.key);
+        if (it == this->gates.end()) return;
+        for (const auto &[channel, _]: it->second.authorities) {
+            if (this->connected) this->predict(it->second, channel);
+            this->recompute(channel);
+        }
+    }
+
+    /// @brief records that the Core writer of subject closed, failed, or lost its
+    /// stream, so the writer keeps the local rule until it opens on the Core again.
+    void closed_on_core(const x::control::Subject &subject) {
+        std::unique_lock lock(this->mu);
+        this->on_core.erase(subject.key);
+        const auto it = this->gates.find(subject.key);
+        if (it == this->gates.end()) return;
+        for (const auto &[channel, _]: it->second.authorities)
+            this->recompute(channel);
+    }
+
+    /// @brief opens a gate for a local writer with the authorities it opens with, one
+    /// for all channels or one per channel. An empty list means absolute authority.
+    /// @param on_connect called each time set marks the Core connected, until the gate
+    /// closes. It runs under the lock of the States, so it must not call them.
+    void open_gate(
         const x::control::Subject &subject,
-        synnax::channel::Key channel,
-        x::control::Authority authority
+        const std::vector<synnax::channel::Key> &channels,
+        const std::vector<x::control::Authority> &authorities,
+        std::function<void()> on_connect = nullptr
     ) {
         std::unique_lock lock(this->mu);
-        auto it = this->states.find(channel);
-        if (it != this->states.end() && it->second.authority >= authority) return;
-        this->states[channel] = x::control::State<synnax::channel::Key>{
-            .subject = subject,
-            .resource = channel,
-            .authority = authority,
-        };
+        this->gate(subject).on_connect = std::move(on_connect);
+        for (size_t i = 0; i < channels.size(); i++) {
+            auto auth = x::control::AUTHORITY_ABSOLUTE;
+            if (authorities.size() == 1)
+                auth = authorities[0];
+            else if (i < authorities.size())
+                auth = authorities[i];
+            this->set_authority_locked(subject, channels[i], auth);
+        }
+    }
+
+    /// @brief sets the authority of subject on channel. A higher authority than the
+    /// holder's takes the channel at once. A decrease of a writer open on the connected
+    /// Core waits for the Core's transfer.
+    void set_authority(
+        const x::control::Subject &subject,
+        const synnax::channel::Key channel,
+        const x::control::Authority authority
+    ) {
+        std::unique_lock lock(this->mu);
+        this->set_authority_locked(subject, channel, authority);
+    }
+
+    /// @brief closes the gate of a local writer. Each channel it held goes to the next
+    /// holder, except that a writer open on the connected Core keeps its channels until
+    /// the Core's transfers arrive.
+    void close_gate(const x::control::Subject &subject) {
+        std::unique_lock lock(this->mu);
+        const auto it = this->gates.find(subject.key);
+        if (it == this->gates.end()) return;
+        const auto channels = it->second.authorities;
+        const bool waits = this->decided_by_core(subject.key);
+        this->gates.erase(it);
+        if (waits) {
+            this->closed.insert(subject.key);
+            return;
+        }
+        for (const auto &[channel, _]: channels) {
+            const auto held = this->core.find(channel);
+            if (held != this->core.end() && held->second.subject == subject)
+                this->core.erase(held);
+            this->recompute(channel);
+        }
     }
 
     /// @brief filters a frame, keeping only channels where subject holds authority or

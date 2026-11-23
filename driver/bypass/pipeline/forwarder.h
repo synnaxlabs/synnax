@@ -107,6 +107,11 @@ struct ForwarderConfig {
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
+    /// @brief called from the forwarder thread each time the Core writer opens.
+    std::function<void()> on_open;
+    /// @brief called from the forwarder thread each time an open Core writer closes,
+    /// fails, or loses its stream.
+    std::function<void()> on_close;
     /// @brief the backoff from an unreachable Core. The forwarder retries with no
     /// limit, so only the intervals apply.
     x::breaker::Config breaker{
@@ -118,9 +123,9 @@ struct ForwarderConfig {
 
 /// @brief delivers a task's frames and authority changes to the Core in order, on its
 /// own thread, so a task never waits on the Core. It opens and reopens the Core writer
-/// while the Core is unreachable. Any other Core error stops it, drops and counts what
-/// it holds, and its next write returns that error. All methods are safe to call from
-/// one task thread.
+/// while the Core is unreachable, also when the stream of an idle writer fails. Any
+/// other Core error stops it, drops and counts what it holds, and its next write
+/// returns that error. All methods are safe to call from one task thread.
 class Forwarder {
     using Op = std::variant<x::telem::Frame, ::driver::pipeline::Authorities>;
 
@@ -139,6 +144,8 @@ class Forwarder {
     const Warn warn;
     /// @brief the description of the warning that the queue lags.
     const std::string lag_description;
+    const std::function<void()> on_open;
+    const std::function<void()> on_close;
     const x::breaker::Config backoff;
 
     // Only the forwarder thread touches these.
@@ -188,6 +195,10 @@ class Forwarder {
     bool closing = false;
     /// @brief the steady clock time at which close() stops sending, in nanoseconds.
     std::atomic<int64_t> close_deadline{std::numeric_limits<int64_t>::max()};
+    /// @brief set once the stream of the open Core writer ends.
+    bool lost = false;
+    /// @brief set by retry() to end a backoff early.
+    bool retrying = false;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -306,11 +317,12 @@ class Forwarder {
     /// sends them without the lock. It waits up to forward_interval for more ops, but
     /// takes an authority change, forward_size bytes, or a closing queue at once. While
     /// it waits, it reports new drops at most once per drop report interval. Returns
-    /// false once closing leaves none, or once the drain timeout passes.
+    /// false once the Core writer's stream ends, once closing leaves no op, or once the
+    /// drain timeout passes.
     bool take() {
         std::unique_lock lock(this->mu);
         const auto ready = [this] {
-            return this->closing || this->urgent ||
+            return this->closing || this->lost || this->urgent ||
                    this->pending_bytes >= this->forward_size;
         };
         bool lingered = false;
@@ -354,7 +366,7 @@ class Forwarder {
             lock.lock();
         }
         this->linger_until = std::chrono::steady_clock::now() + this->forward_interval;
-        if (this->queue.empty() || this->expired()) return false;
+        if (this->lost || this->queue.empty() || this->expired()) return false;
         this->batch.swap(this->queue);
         this->pending_bytes = 0;
         this->urgent = false;
@@ -386,10 +398,10 @@ class Forwarder {
         this->budget->release(this->queue_bytes.exchange(0));
     }
 
-    /// @brief waits out the backoff after the Core proves unreachable, and reports the
-    /// queue while it waits. Once close() begins, it stops at once when the queue is
-    /// empty. Otherwise it tries the Core again at once, and then within the drain
-    /// timeout only. Returns false once no try is left.
+    /// @brief waits out the backoff after the Core proves unreachable, or until
+    /// retry(), and reports the queue while it waits. Once close() begins, it stops at
+    /// once when the queue is empty. Otherwise it tries the Core again at once, and
+    /// then within the drain timeout only. Returns false once no try is left.
     bool back_off(const x::errors::Error &err) {
         this->failures++;
         const auto interval = this->backoff.interval(this->failures);
@@ -407,10 +419,16 @@ class Forwarder {
                     until,
                     std::chrono::steady_clock::now() + this->drop_report_interval
                 );
-                this->cv.wait_until(lock, wake, retry_now);
+                this->cv.wait_until(lock, wake, [&] {
+                    return retry_now() || this->retrying;
+                });
                 if (this->closing && this->queue.empty()) return false;
                 if (retry_now()) {
                     this->retried_on_close = true;
+                    return true;
+                }
+                if (this->retrying) {
+                    this->retrying = false;
                     return true;
                 }
                 if (this->closing) until = std::min(until, this->deadline());
@@ -493,19 +511,41 @@ class Forwarder {
                 std::lock_guard lock(this->mu);
                 this->current = writer.get();
             }
+            if (this->on_open) this->on_open();
             this->settle();
             this->failures = 0;
+            std::thread watcher([this, w = writer.get()] {
+                if (!w->wait()) return;
+                {
+                    std::lock_guard lock(this->mu);
+                    this->lost = true;
+                }
+                this->cv.notify_one();
+            });
             x::errors::Error op_err;
             while (!op_err && this->take()) {
                 op_err = this->send(*writer);
                 this->unsent();
+            }
+            bool lost = false;
+            {
+                std::lock_guard lock(this->mu);
+                lost = this->lost;
             }
             const auto close_err = writer->close();
             {
                 std::lock_guard lock(this->mu);
                 this->current = nullptr;
             }
-            const auto err = close_err ? close_err : op_err;
+            watcher.join();
+            if (this->on_close) this->on_close();
+            {
+                std::lock_guard lock(this->mu);
+                this->lost = false;
+            }
+            auto err = close_err ? close_err : op_err;
+            // The Core ends a writer's stream with an error unless the writer closes.
+            if (!err && lost) err = synnax::framer::WRITER_CLOSED;
             if (!err) {
                 this->drop_queue(&Drops::stopped);
                 return;
@@ -534,6 +574,8 @@ public:
             "fill the " +
             format_size(this->budget->size()) + " queue that all tasks share."
         ),
+        on_open(cfg.on_open),
+        on_close(cfg.on_close),
         backoff(cfg.breaker),
         drops(cfg.dropped),
         dropped_total(cfg.dropped.total()) {
@@ -609,6 +651,16 @@ public:
         }
         if (wake) this->cv.notify_one();
         return x::errors::NIL;
+    }
+
+    /// @brief ends the current backoff from an unreachable Core, or the next one, so
+    /// the forwarder opens the Core writer again at once.
+    void retry() {
+        {
+            std::lock_guard lock(this->mu);
+            this->retrying = true;
+        }
+        this->cv.notify_one();
     }
 
     /// @brief sends what the queue holds while the Core is reachable, for at most

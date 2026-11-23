@@ -10,7 +10,9 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <future>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -148,9 +150,20 @@ inline std::shared_ptr<StreamerFactory> simple_streamer_factory(
 
 enum class OpType { Write, SetAuthority };
 
+/// @brief the stream of a mock writer, which a test can end as the Core would.
+struct WriterStream {
+    std::mutex mu;
+    std::condition_variable cv;
+    x::errors::Error err;
+    bool closed = false;
+};
+
 // Mock implementation of pipeline::Writer for testing.
 class Writer final : public pipeline::Writer {
 public:
+    /// Ended by close, or by WriterFactory::end_stream.
+    std::shared_ptr<WriterStream> stream = std::make_shared<WriterStream>();
+
     /// Stores all frames written through this writer.
     std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
@@ -202,10 +215,31 @@ public:
         return this->set_authority_err;
     }
 
-    x::errors::Error close() override { return this->close_err; }
+    /// Returns the error that ended the stream, if any, like a Core writer.
+    x::errors::Error close() override {
+        x::errors::Error err;
+        {
+            std::lock_guard lock(this->stream->mu);
+            this->stream->closed = true;
+            err = this->stream->err;
+        }
+        this->stream->cv.notify_all();
+        return err ? err : this->close_err;
+    }
+
+    bool wait() override {
+        std::unique_lock lock(this->stream->mu);
+        this->stream->cv.wait(lock, [this] {
+            return this->stream->closed || this->stream->err;
+        });
+        return true;
+    }
 };
 
 class WriterFactory final : public pipeline::WriterFactory {
+    std::mutex mu;
+    std::shared_ptr<WriterStream> last_stream;
+
 public:
     /// Stores all frames written through this factory's writers.
     std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
@@ -260,6 +294,8 @@ public:
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
         if (this->open_gate.valid()) this->open_gate.wait();
+        // The forwarders of two writers can open at once.
+        std::lock_guard lock(this->mu);
         this->config = config;
         this->writer_opens.fetch_add(1, std::memory_order_release);
         auto err = this->open_errors.empty() ? x::errors::NIL
@@ -288,7 +324,23 @@ public:
             this->ops,
             set_auth_err
         );
+        if (!err) this->last_stream = writer->stream;
         return {std::move(writer), err};
+    }
+
+    /// @brief ends the stream of the writer that opened last with err, as the Core does
+    /// when its connection drops.
+    void end_stream(const x::errors::Error &err) {
+        std::shared_ptr<WriterStream> stream;
+        {
+            std::lock_guard lock(this->mu);
+            stream = this->last_stream;
+        }
+        {
+            std::lock_guard lock(stream->mu);
+            stream->err = err;
+        }
+        stream->cv.notify_all();
     }
 };
 

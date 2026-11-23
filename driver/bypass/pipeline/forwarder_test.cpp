@@ -75,6 +75,80 @@ public:
     }
 };
 
+/// @brief opens one Core writer whose stream the test ends while a write blocks, and
+/// records where the forwarder closes it. Later opens find the Core unreachable.
+class RacingFactory final : public ::driver::pipeline::WriterFactory {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool released = false;
+    bool ended = false;
+    bool closed = false;
+
+    class Writer final : public ::driver::pipeline::Writer {
+        RacingFactory &factory;
+
+    public:
+        explicit Writer(RacingFactory &factory): factory(factory) {}
+
+        x::errors::Error write(const x::telem::Frame &) override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.write_thread = std::this_thread::get_id();
+            this->factory.writing = true;
+            this->factory.cv.wait(lock, [this] { return this->factory.released; });
+            this->factory.writing = false;
+            return x::errors::NIL;
+        }
+
+        x::errors::Error close() override {
+            {
+                std::lock_guard lock(this->factory.mu);
+                this->factory.close_thread = std::this_thread::get_id();
+                this->factory.closed_while_writing = this->factory.writing.load();
+                this->factory.closed = true;
+            }
+            this->factory.cv.notify_all();
+            return freighter::UNREACHABLE;
+        }
+
+        bool wait() override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.cv.wait(lock, [this] {
+                return this->factory.ended || this->factory.closed;
+            });
+            return true;
+        }
+    };
+
+public:
+    std::atomic<bool> writing = false;
+    std::atomic<bool> closed_while_writing = false;
+    std::thread::id write_thread;
+    std::thread::id close_thread;
+    std::atomic<size_t> opens = 0;
+
+    void end() {
+        {
+            std::lock_guard lock(this->mu);
+            this->ended = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void release() {
+        {
+            std::lock_guard lock(this->mu);
+            this->released = true;
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        if (this->opens++ > 0) return {nullptr, freighter::UNREACHABLE};
+        return {std::make_unique<Writer>(*this), x::errors::NIL};
+    }
+};
+
 using Warnings = x::sync::List<std::pair<std::string, std::string>>;
 
 Warn record(const std::shared_ptr<Warnings> &warnings) {
@@ -381,6 +455,88 @@ TEST(ForwarderTest, SendsOpsInQueueOrderAcrossAReopen) {
     EXPECT_EQ(server->authority_changes->at(0).authorities[0], 100);
     EXPECT_EQ(server->authority_changes->at(1).authorities[0], 200);
     EXPECT_EQ(server->config.authorities, std::vector<x::control::Authority>{100});
+}
+
+/// @brief it should call on_close once for each Core writer it opens, a failed one
+/// included.
+TEST(ForwarderTest, ClosesEachWriterItOpens) {
+    const auto server = factory();
+    server->return_false_ok_on = {1};
+    server->close_errors = {freighter::UNREACHABLE};
+    std::atomic<size_t> opens = 0;
+    std::atomic<size_t> closes = 0;
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {
+            .on_open = [&opens] { opens++; },
+            .on_close = [&closes] { closes++; },
+            .breaker = {.base_interval = x::telem::MILLISECOND},
+        }
+    );
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(opens.load(), 2);
+    ASSERT_EQ(closes.load(), 1);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(closes.load(), 2);
+}
+
+/// @brief it should close, back off from, and reopen an idle Core writer whose stream
+/// fails, with no write to show the failure.
+TEST(ForwarderTest, ReopensAnIdleWriterWhoseStreamFails) {
+    const auto server = factory();
+    std::atomic<size_t> opens = 0;
+    std::atomic<size_t> closes = 0;
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {
+            .on_open = [&opens] { opens++; },
+            .on_close = [&closes] { closes++; },
+            .breaker = {.base_interval = x::telem::MILLISECOND},
+        }
+    );
+    ASSERT_NIL(forwarder.opened());
+    ASSERT_EQ(opens.load(), 1);
+    server->end_stream(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_EQ(opens.load(), 2);
+    ASSERT_EQ(closes.load(), 1);
+    ASSERT_EQ(server->writer_opens.load(), 2);
+    ASSERT_EQ(server->ops->size(), 0);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(closes.load(), 2);
+}
+
+/// @brief it should close a Core writer on its own thread, after a write in progress
+/// returns, when the writer's stream ends during that write.
+TEST(ForwarderTest, ClosesAfterAWriteInProgressWhenTheStreamEnds) {
+    const auto server = std::make_shared<RacingFactory>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_TRUE(server->writing.load());
+    server->end();
+    server->release();
+    ASSERT_EVENTUALLY_GE(server->opens.load(), 2);
+    ASSERT_FALSE(server->closed_while_writing.load());
+    ASSERT_EQ(server->close_thread, server->write_thread);
+    ASSERT_NIL(forwarder.close());
+}
+
+/// @brief it should stop with the error that ends the stream of an idle Core writer
+/// when the Core is reachable.
+TEST(ForwarderTest, StopsWhenTheStreamFailsWithAnotherError) {
+    const auto server = factory();
+    Forwarder forwarder(server, {.channels = {1}});
+    ASSERT_NIL(forwarder.opened());
+    server->end_stream(x::errors::VALIDATION);
+    ASSERT_EVENTUALLY_TRUE(forwarder.write(frame(1)).matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS(forwarder.close(), x::errors::VALIDATION);
+    ASSERT_EQ(server->writer_opens.load(), 1);
 }
 
 /// @brief it should warn once when the queue passes half its cap, stop warning once it
@@ -745,5 +901,22 @@ TEST(ForwarderTest, FormatsSizes) {
     EXPECT_EQ(format_size(2048), "2 KB");
     EXPECT_EQ(format_size(size_t{256} * 1024 * 1024), "256 MB");
     EXPECT_EQ(format_size(size_t{3} * 1024 * 1024 * 1024), "3 GB");
+}
+
+/// @brief it should end a long backoff from an unreachable Core at once on retry.
+TEST(ForwarderTest, RetryEndsTheBackoff) {
+    const auto server = factory({freighter::UNREACHABLE});
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.breaker = {.base_interval = x::telem::HOUR}}
+    );
+    ASSERT_NIL(forwarder.opened());
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(server->writer_opens.load(), 1);
+    forwarder.retry();
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 1);
+    ASSERT_EQ(server->writer_opens.load(), 2);
+    ASSERT_NIL(forwarder.close());
 }
 }

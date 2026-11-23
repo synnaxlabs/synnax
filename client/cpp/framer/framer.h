@@ -382,7 +382,7 @@ struct CommitResult {
 /// @note The writer uses a streaming protocol heavily optimized for performance.
 /// This comes at the cost of higher complexity.
 ///
-/// @note The writer is not safe for concurrent use.
+/// @note The writer is not safe for concurrent use, except for wait.
 class Writer {
 public:
     Writer() = default;
@@ -458,8 +458,19 @@ public:
     /// call. Call close() after it.
     void cancel() const;
 
+    /// @brief blocks until the stream ends or the Core sends an error. It only reads,
+    /// so close still finishes the stream and returns why it ended. It may run on a
+    /// second thread while write, set_authority without ack, and close run. Do not call
+    /// commit or set_authority with ack while it runs.
+    void wait();
+
 private:
     [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
+
+    /// @brief guards the reads of the stream and end_err.
+    std::unique_ptr<std::mutex> recv_mu = std::make_unique<std::mutex>();
+    /// @brief the error that ended the stream, once read.
+    x::errors::Error end_err = x::errors::NIL;
 
     /// @brief the error accumulated if the writer has closed with an error.
     x::errors::Error close_err = x::errors::NIL;
