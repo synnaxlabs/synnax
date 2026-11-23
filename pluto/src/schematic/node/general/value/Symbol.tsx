@@ -19,7 +19,6 @@ import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Stale } from "@/schematic/node/common/stale";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
-import { Staleness } from "@/vis/staleness";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
@@ -42,13 +41,11 @@ export const Symbol = ({
     inlineSize = 70,
     orientation,
     notation,
-    stalenessColor,
     stalenessTimeout,
     redline,
     fillColor,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
-  const badged = Staleness.useBadged();
   const resolve = Color.useResolve();
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
@@ -64,9 +61,7 @@ export const Symbol = ({
     telem: t,
     backgroundTelem,
     minWidth: inlineSize,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
     notation,
     useWidthForBackground: true,
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
@@ -80,7 +75,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
+      {stale && <Stale.Indicator />}
       <Value
         strokeColor={resolve(strokeColor)}
         orientation={orientation}
