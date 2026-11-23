@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"fmt"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,7 +80,7 @@ var _ = Describe("Purge check", func() {
 				"channel record. Purge both channels together",
 			idx, data,
 		))))
-		Expect(fsys.Exists(fmt.Sprint(idx))).To(BeTrue())
+		Expect(fsys.Exists(strconv.FormatUint(uint64(idx), 10))).To(BeTrue())
 		Expect(MustSucceed(channel.Purge(ctx, node.DB, node.Storage.TS, nil))).
 			To(HaveLen(2))
 	})
