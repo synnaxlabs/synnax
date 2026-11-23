@@ -15,11 +15,11 @@
 set -euxo pipefail
 
 GO_VERSION=1.27.4
-NODE_MAJOR=24
+NODE_MAJOR=26
 RUNNER_VERSION=2.338.2
 BAZELISK_VERSION=1.30.0
 UV_VERSION=0.13.0
-PNPM_VERSION=12.14.0
+PNPM_VERSION=12.21.0
 GOLANGCI_LINT_VERSION=2.15.0
 ORG=synnaxlabs
 REPO=$ORG/synnax
@@ -82,7 +82,8 @@ curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install
 RAW_URL=https://raw.githubusercontent.com/$REPO/main
 curl -fsSL "$RAW_URL/scripts/install_clang_format.sh" \
     | env UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin bash
-# The global agent CLIs sign the seat in. Each agent job installs its own latest copy.
+# The global agent CLIs sign the seat in. Each agent job installs the pinned versions
+# in .github/agents/cli with npm ci.
 npm install -g "pnpm@$PNPM_VERSION" @anthropic-ai/claude-code@latest \
     @openai/codex@latest
 

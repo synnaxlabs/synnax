@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
@@ -462,6 +463,10 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				DB:    moveDB,
 				ImEx:  imex.NewService(),
 				Color: colors,
+				Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+					DB:    moveDB,
+					Group: groups,
+				})),
 			}))
 			tops := make([]resource.ID, 2)
 			for i := range tops {

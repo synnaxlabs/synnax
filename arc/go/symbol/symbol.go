@@ -86,7 +86,7 @@ func (e ExecContext) Compatible(target ExecContext) bool {
 // Kind categorizes symbols by their role in the Arc program.
 type Kind int
 
-//go:generate stringer -type=Kind
+//go:generate go tool stringer -type=Kind
 const (
 	// KindVariable represents a regular variable within a function or block scope.
 	KindVariable Kind = iota
@@ -659,7 +659,8 @@ func (s *Symbol) Resolve(
 
 // ResolveMember resolves parts[0], then each later part as a member of the symbol
 // before it. parts must not be empty. options apply to parts[0] only, so a module
-// member stays subject to export.
+// member stays subject to export. Only a module has members: a later part of any other
+// symbol returns an UndefinedSymbolError.
 func (s *Symbol) ResolveMember(
 	ctx context.Context,
 	parts []string,
@@ -667,6 +668,13 @@ func (s *Symbol) ResolveMember(
 ) (*Symbol, error) {
 	sym, err := s.Resolve(ctx, parts[0], options...)
 	for i := 1; err == nil && i < len(parts); i++ {
+		if sym.Kind != KindModule && sym.Kind != KindModuleAlias {
+			return nil, codes.SymbolUndefined.Mark(&UndefinedSymbolError{
+				ctx:   ctx,
+				Name:  strings.Join(parts[:i+1], "."),
+				scope: s,
+			})
+		}
 		sym, err = sym.Resolve(ctx, parts[i])
 	}
 	return sym, err

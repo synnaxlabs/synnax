@@ -11,13 +11,12 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
@@ -27,13 +26,11 @@ import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
-  DIGITAL_WRITE_TYPE,
-  digitalWriteConfigZ,
+  type digitalWriteConfigZ,
   type DigitalWriteSchemas,
   type DOChannel,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalWriteSchemas>>();
@@ -111,16 +108,6 @@ const Form: FC = () => {
       map={map}
     />
   );
-};
-
-const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = digitalWriteConfigZ.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextDOChannel([])];
-  return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
@@ -241,16 +228,3 @@ export const DigitalWrite = Task.wrapForm({
   onConfigure,
   type: "ni_digital_write",
 });
-
-export const useCreateDigitalWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const DigitalWriteSelectable: Selector.Selectable = {
-  type: DIGITAL_WRITE_TYPE,
-  title: "NI digital write task",
-  label: "Digital write",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: useCreateDigitalWrite,
-};

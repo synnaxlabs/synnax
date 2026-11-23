@@ -33,8 +33,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.endZoom();
     await session.moveTo(capture.PARK);
     await session.waitFor(() => tank.vent === 1, 3600);
-    await session.waitFor(() => tank.vent === 0, 3600);
+    // The plot keeps 30 s of wall time, which the capture runs behind, so the closing
+    // hold starts as the tank vents to keep the climb on the plot.
     await session.hold(2500);
+    await session.waitFor(() => tank.vent === 0, 3600);
   } finally {
     await tank.stop();
   }

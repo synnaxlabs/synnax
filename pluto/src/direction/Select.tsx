@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { type direction } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { direction } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 export interface SelectProps extends BaseSelect.ButtonsProps<direction.Direction> {
   yDirection?: "up" | "down";

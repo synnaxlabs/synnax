@@ -9,7 +9,7 @@
 
 import { createSelector } from "@reduxjs/toolkit";
 
-import { type SliceState, type StoreState } from "@/state";
+import type { SliceState, StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;

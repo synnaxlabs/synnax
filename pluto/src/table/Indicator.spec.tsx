@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -72,10 +73,7 @@ describe("Indicator resize", () => {
     fireEvent.pointerDown(getByLabelText("Resize column A"), at(100));
     fireEvent.pointerMove(window, at(130));
     // Moves are coalesced and delivered on the next animation frame.
-    await act(
-      async () =>
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-    );
+    await act(scheduler.nextFrame);
     fireEvent.pointerUp(window, at(130));
     expect(onChange).toHaveBeenLastCalledWith(110, "c0");
   });

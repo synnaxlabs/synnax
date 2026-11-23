@@ -17,6 +17,7 @@ import {
   DataType,
   dynamicWindow,
   id,
+  math,
   MultiSeries,
   scale,
   Series,
@@ -25,6 +26,7 @@ import {
   TimeSpan,
   TimeStamp,
   type Window,
+  xy,
 } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -56,7 +58,7 @@ describe("line", () => {
 
     const createSource = (data: Series[]) =>
       telemTest.source<[bounds.Bounds, MultiSeries]>([
-        bounds.max(data.map((s) => s.bounds)),
+        bounds.union(data.map((s) => s.bounds)),
         new MultiSeries(data),
       ]);
 
@@ -74,8 +76,13 @@ describe("line", () => {
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
-      const { gl, calls } = canvasTest.createGL();
+    const mount = (
+      x: Series[],
+      y: Series[],
+      state: Partial<State> = {},
+      glReturns: Record<string, () => unknown> = {},
+    ) => {
+      const { gl, calls } = canvasTest.createGL(glReturns);
       const xSource = createSource(x);
       const ySource = createSource(y);
       const recorder = canvasTest.record();
@@ -133,6 +140,16 @@ describe("line", () => {
     const X2 = series([5, 6], 10n, { start: 100, end: 200 });
     const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
 
+    it("should keep a source that takes the props of a new spec in place", () => {
+      const m = mount([X1], [Y1]);
+      m.line.render(PROPS);
+      const cleanup = vi.spyOn(m.xSource, "cleanup");
+      const x = sourceSpec(m.xSource);
+      m.update({ x: { ...x, props: { ...x.props, window: 1 } } });
+      m.line.render(PROPS);
+      expect(cleanup).not.toHaveBeenCalled();
+    });
+
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
@@ -140,8 +157,94 @@ describe("line", () => {
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
-      const read = { bounds: { lower: 100, upper: 300 } };
+      const read = { bounds: { lower: 100, upper: 300 }, span: bounds.INFINITE };
       values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("span", () => {
+      // The x values 0 to 2 fill the region from left to right.
+      const x = scale.Scale.scale<number>(0, 2).scale(0, 1);
+      const spanned = (span: bounds.Bounds): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(x),
+        span,
+      });
+
+      it("should pass its span to its sources", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        const span = { lower: -Infinity, upper: 1 };
+        m.line.render(spanned(span));
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
+      });
+
+      it("should clip its draw to its span", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned({ lower: -Infinity, upper: 1 }));
+        expect(m.recorder.scissorCalls).toEqual([
+          {
+            region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+            overScan: xy.ZERO,
+            canvases: ["gl"],
+          },
+        ]);
+        expect(m.draws().length).toBeGreaterThan(0);
+      });
+
+      it("should clear its clip when a draw throws", () => {
+        const m = mount(
+          [X1],
+          [Y1],
+          {},
+          {
+            drawArraysInstanced: () => {
+              throw new Error("draw failed");
+            },
+          },
+        );
+        const clear = vi.fn();
+        vi.spyOn(m.recorder, "scissor").mockReturnValue(clear);
+        expect(() => m.line.render(spanned({ lower: -Infinity, upper: 1 }))).toThrow(
+          "draw failed",
+        );
+        expect(clear).toHaveBeenCalledOnce();
+      });
+
+      it("should not clip a line that spans every value", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned(bounds.INFINITE));
+        expect(m.recorder.scissorCalls).toEqual([]);
+      });
+
+      it("should draw nothing but read its span when its span holds no time", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        const span = { lower: 1, upper: 1 };
+        m.line.render(spanned(span));
+        expect(m.draws()).toEqual([]);
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
+        expect(m.line.loading).toBe(false);
+      });
+
+      it("should find no drawn point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.6).value.x).toBeNaN();
+      });
+
+      it("should find the nearest drawn point inside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.4).value.x).toBe(1);
+      });
+
+      it("should find no point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: 0.5, upper: Infinity });
+        expect(m.line.findByXValue(props, 0.2).value.x).toBeNaN();
+      });
     });
 
     describe("zoom settle", () => {
@@ -280,6 +383,16 @@ describe("line", () => {
         const y = createSource([]);
         y.status = telem.LOADING_STATUS;
         m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report loading for the first load of a spec a source takes in place", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = sourceSpec(m.ySource);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.update({ y: { ...y, props: { ...y.props, window: 1 } } });
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
       });
@@ -465,8 +578,8 @@ describe("line", () => {
       it("should draw a dense window at the group size of its pixel density", () => {
         const m = mount([ramp(N)], [waves(N)]);
         m.line.render(showing(0, N - 1));
-        // 10 samples per pixel at 2 pixels per group rounds up to groups of 32.
-        expect(m.strips()).toEqual([[0, 2 * (N / 32)]]);
+        // 10 samples per pixel at 2 pixels per group rounds down to groups of 16.
+        expect(m.strips()).toEqual([[0, 2 * (N / 16)]]);
         expect(uploads(m).every((u) => u.length < N)).toBe(true);
       });
 
@@ -478,7 +591,7 @@ describe("line", () => {
         expect(deletes(m)).toBe(2);
       });
 
-      it("should draw ops of reduced series unchanged", () => {
+      it("should draw ops of reduced series unchanged, and reduce the rest at their group size", () => {
         const reduced = (data: number[]) =>
           new Series({
             data: new Float32Array(data),
@@ -502,7 +615,7 @@ describe("line", () => {
         m.line.render(showing(-N, N - 1));
         expect(m.strips()).toEqual([
           [0, N / 2],
-          [0, 2 * (N / 64)],
+          [0, 2 * (N / 4)],
         ]);
       });
 
@@ -523,7 +636,7 @@ describe("line", () => {
         write(y, indexes(0, N / 2).map(wave));
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips()).toEqual([[0, N / 32]]);
+        expect(m.strips()).toEqual([[0, N / 16]]);
         const before = uploads(m).length;
         // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
@@ -532,7 +645,7 @@ describe("line", () => {
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
         expect(m.strips().slice(-2)).toEqual([
-          [0, N / 32],
+          [0, N / 16],
           [0, 3],
         ]);
         const top = N / 2 + tail.indexOf(Math.max(...tail));
@@ -540,8 +653,8 @@ describe("line", () => {
         // The tail starts at the last complete point.
         expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
         expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
-        write(x, indexes(N / 2 + 10, N / 2 + 32));
-        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        write(x, indexes(N / 2 + 10, N / 2 + 16));
+        write(y, indexes(N / 2 + 10, N / 2 + 16).map(wave));
         const grown = uploads(m).length;
         m.line.render(showing(0, N - 1));
         expect(
@@ -563,10 +676,10 @@ describe("line", () => {
         const decimated = mount([ramp(N)], [waves(N)]);
         decimated.ySource.aggregation = "decimate";
         decimated.line.render(showing(0, N - 1));
-        expect(decimated.strips()).toEqual([[0, N / 32]]);
+        expect(decimated.strips()).toEqual([[0, N / 16]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
         fine.line.render(showing(0, N - 1));
-        expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
+        expect(fine.strips()).toEqual([[0, 2 * (N / 8)]]);
       });
 
       it("should round down the averages of integer series", () => {
@@ -584,7 +697,7 @@ describe("line", () => {
         m.ySource.aggregation = "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
-        expect(xs.slice(0, 2)).toEqual([15, 47]);
+        expect(xs.slice(0, 2)).toEqual([7, 23]);
         expect(new Set(ys)).toEqual(new Set([0]));
       });
     });
@@ -645,6 +758,86 @@ describe("line", () => {
       });
     });
 
+    describe("zero", () => {
+      // X1 holds x 0, 1, and 2, so a zero of 1 draws them at -1, 0, and 1.
+      const zero = new TimeStamp(1);
+
+      it("should shift its x bounds by its zero", () => {
+        const { bounds: plain } = mount([X1], [Y1]).line.xBounds();
+        expect(mount([X1], [Y1], { zero }).line.xBounds().bounds).toEqual({
+          lower: plain.lower - 1,
+          upper: plain.upper - 1,
+        });
+      });
+
+      it("should read the y bounds of a window measured from its zero", () => {
+        const plain = mount([X1], [Y1]).line.yBounds({ lower: 0, upper: 1 });
+        const shifted = mount([X1], [Y1], { zero });
+        expect(shifted.line.yBounds({ lower: -1, upper: 0 })).toEqual(plain);
+      });
+
+      it("should find a sample by its x from its zero", () => {
+        const m = mount([X1], [Y1], { zero });
+        expect(m.line.findByXValue(PROPS, 0).value).toEqual({ x: 0, y: 20 });
+      });
+
+      it("should find a drawn point by its x from its zero", () => {
+        const m = mount([X1], [Y1], { zero });
+        m.line.render(PROPS);
+        expect(m.line.findDrawnByXValue(PROPS, 1).value).toEqual({ x: 1, y: 30 });
+      });
+
+      describe("span", () => {
+        // The axis values -1 to 1 fill the region, and the span ends at axis value 0.
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(-1, 1).scale(0, 1),
+          ),
+          span: { lower: -Infinity, upper: 0 },
+        };
+
+        it("should read and clip its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          const value = vi.spyOn(m.xSource, "value");
+          m.line.render(props);
+          expect(value.mock.calls[0][0]?.span).toEqual({ lower: -Infinity, upper: 1 });
+          expect(m.recorder.scissorCalls).toEqual([
+            {
+              region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+              overScan: xy.ZERO,
+              canvases: ["gl"],
+            },
+          ]);
+        });
+
+        it("should find points only inside its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          m.line.render(props);
+          expect(m.line.findByXValue(props, -1).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findByXValue(props, 0.6).value.x).toBeNaN();
+          expect(m.line.findDrawnByXValue(props, -0.6).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findDrawnByXValue(props, 0.6).value.x).toBeNaN();
+        });
+      });
+    });
+
+    describe("opacity", () => {
+      const lineColor = (opacity: number): number[] => {
+        const m = mount([X1], [Y1], { opacity });
+        m.line.render(PROPS);
+        const set = m.calls.find((c) => c.op === "uniform4fv");
+        if (set == null) throw new Error("the line set no color");
+        return [...(set.args[1] as Iterable<number>)];
+      };
+
+      it("should draw a faded line in an opaque color unlike its own", () => {
+        const faded = lineColor(0.25);
+        expect(faded).not.toEqual(lineColor(1));
+        expect(faded[3]).toBeCloseTo(1);
+      });
+    });
+
     describe("findByXValue", () => {
       const X = series(
         Array.from({ length: 30 }, (_, i) => i),
@@ -660,6 +853,21 @@ describe("line", () => {
       it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should return no value past either end of the line's data", () => {
+        const m = mount([X], [Y]);
+        expect(m.line.findByXValue(PROPS, -1).value.x).toBeNaN();
+        expect(m.line.findByXValue(PROPS, 30).value.x).toBeNaN();
+      });
+
+      it("should return a sample within 12 pixels of either end of the data", () => {
+        // PROPS draws one unit of x across 800 pixels.
+        const m = mount([X1], [Y1]);
+        expect(m.line.findByXValue(PROPS, -6 / 800).value).toEqual({ x: 0, y: 10 });
+        expect(m.line.findByXValue(PROPS, -13 / 800).value.x).toBeNaN();
+        expect(m.line.findByXValue(PROPS, 2 + 6 / 800).value).toEqual({ x: 2, y: 30 });
+        expect(m.line.findByXValue(PROPS, 2 + 13 / 800).value.x).toBeNaN();
       });
 
       it("should return the exact value of a float64 sample", () => {
@@ -744,12 +952,23 @@ describe("line", () => {
         expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
       });
 
-      it("should return the nearest sample across domains and past either end", () => {
+      it("should return the nearest sample across a gap between domains", () => {
         const m = mount([X1, X2], [Y1, Y2]);
         expect(find(m, 3)).toEqual({ x: 2, y: 30 });
         expect(find(m, 4)).toEqual({ x: 5, y: 40 });
-        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
-        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
+      });
+
+      it("should return no point past either end of the line's data", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        expect(find(m, -1).x).toBeNaN();
+        expect(find(m, 10).x).toBeNaN();
+      });
+
+      it("should return a point past the data within 12 pixels of the target", () => {
+        // PROPS draws one unit of x across 800 pixels.
+        const m = mount([X1], [Y1]);
+        expect(find(m, 2 + 6 / 800)).toEqual({ x: 2, y: 30 });
+        expect(find(m, 2 + 13 / 800).x).toBeNaN();
       });
 
       it("should skip an x sample that is NaN", () => {
@@ -911,7 +1130,7 @@ describe("line", () => {
       );
       expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
       const ops = drawn(xs, ys);
-      expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(math.sum(ops.map((op) => op.count))).toBe(ys.length);
       expect(y.value().data[0].upper).toBeCloseTo(1, 3);
       expect(y.value().data[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
@@ -963,7 +1182,7 @@ describe("line", () => {
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
       expect(ys.length).toBeGreaterThanOrEqual(500);
       expect(ys.length).toBeLessThan(homePoints + 1024);
-      expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(math.sum(drawn(xs, ys).map((op) => op.count))).toBe(ys.length);
       x.cleanup();
       y.cleanup();
     });
@@ -971,7 +1190,8 @@ describe("line", () => {
     it("should break a line where a writer restarted, live and read back", async () => {
       const keys = await createChannels();
       const count = 200;
-      const step = TimeSpan.milliseconds(1);
+      // Samples sparser than the read back's detail, so no tile of it reduces them.
+      const step = TimeSpan.milliseconds(4);
       const start = TimeStamp.now().sub(TimeSpan.seconds(10));
       const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
       await settle(live.x, live.y);

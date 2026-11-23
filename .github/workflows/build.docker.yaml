@@ -7,6 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Builds a module's image and pushes it to GitHub Container Registry. A fork's token
+# cannot push, so a fork's pull request builds the image locally and uploads it as an
+# artifact named after its tag, which the start-service action loads.
+
 name: Build - Docker
 
 on:
@@ -22,9 +26,14 @@ on:
         description: Image repository to push to (e.g. ghcr.io/synnaxlabs/synnax)
         required: true
         type: string
+      unused_by_forks:
+        description: Whether no test of a fork loads the image, so a fork keeps no copy
+        required: false
+        type: boolean
+        default: false
     outputs:
       image:
-        description: The image, pinned by digest
+        description: The image, pinned by digest, or by tag when a fork built it
         value: ${{ jobs.build.outputs.image }}
   workflow_dispatch:
     inputs: *inputs
@@ -39,22 +48,30 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
+    env:
+      FORK:
+        ${{ github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name != github.repository }}
     outputs:
       image: ${{ steps.digest.outputs.image }}
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        if: env.FORK != 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tag hashes the Git objects of every path the Dockerfile copies, the files
-      # that drive the build, and the digests of the base images. Two commits with the
-      # same sources share an image until a base image moves.
+      # The tag hashes the Git objects of every path the Dockerfile copies and the files
+      # that drive the build. The Dockerfile pins each base image by digest, so two
+      # commits with the same sources share an image.
       - name: Tag the image
         id: tag
         env:
@@ -63,33 +80,22 @@ jobs:
         run: |
           dockerfile="$MODULE/Dockerfile"
           go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
+          if ! grep -qF "FROM golang:$go_version@sha256:" "$dockerfile"; then
+            echo "::error file=$dockerfile::Pin golang:$go_version to match go.mod"
+            exit 1
+          fi
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
           read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
             .github/workflows/build.docker.yaml"
           objects=$(git rev-parse "${paths[@]/#/HEAD:}")
-          stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")
-          bases=$(awk '$1 == "FROM" { print $2 }' "$dockerfile" |
-            sed "s/\${GO_VERSION}/$go_version/" | grep -vxF "$stages")
-          digests=""
-          # Docker Hub returns a rare 5xx, so each inspect gets three attempts.
-          for base in $bases; do
-            for attempt in 1 2 3; do
-              digest=$(docker buildx imagetools inspect "$base" \
-                --format '{{json .Manifest.Digest}}') && break
-              [ "$attempt" -lt 3 ] || exit 1
-              echo "Inspect attempt $attempt of $base failed"
-              sleep 10
-            done
-            digests+=$digest
-          done
-          hash=$(sha256sum <<< "$objects $digests" | cut -c1-32)
-          echo "go_version=$go_version" >> "$GITHUB_OUTPUT"
+          hash=$(sha256sum <<< "$objects" | cut -c1-32)
           echo "image=$REPOSITORY:src-$hash" >> "$GITHUB_OUTPUT"
 
       # A failed inspect also builds, which is always correct.
       - name: Check for the image
         id: check
+        if: env.FORK != 'true'
         env:
           IMAGE: ${{ steps.tag.outputs.image }}
         run: |
@@ -109,18 +115,40 @@ jobs:
           context: .
           file: ./${{ inputs.module }}/Dockerfile
           platforms: linux/amd64
-          push: true
+          push: ${{ env.FORK != 'true' }}
+          outputs:
+            ${{ env.FORK == 'true' && format('type=docker,dest={0}/image.tar',
+            runner.temp) || '' }}
           tags: ${{ steps.tag.outputs.image }}
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
           cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
-          build-args: GO_VERSION=${{ steps.tag.outputs.go_version }}
 
+      - name: Name the artifact of the image
+        id: artifact
+        if: env.FORK == 'true' && !inputs.unused_by_forks
+        env:
+          IMAGE: ${{ steps.tag.outputs.image }}
+        run: echo "name=image-${IMAGE##*:}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the image
+        if: env.FORK == 'true' && !inputs.unused_by_forks
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ${{ runner.temp }}/image.tar
+          retention-days: 30
+
+      # A fork's image has no digest, since it never reached a registry.
       - name: Resolve the digest
         id: digest
         shell: bash
         env:
           IMAGE: ${{ steps.tag.outputs.image }}
         run: |
+          if [ "$FORK" = true ]; then
+            echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           digest=$(docker buildx imagetools inspect "$IMAGE" \
             --format '{{json .Manifest.Digest}}' | tr -d '"')
           echo "image=${IMAGE%:*}@$digest" >> "$GITHUB_OUTPUT"

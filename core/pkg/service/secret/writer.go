@@ -39,9 +39,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Set creates the secret, or replaces the secret with the same key. For a stored
 // secret, value is the plain text, which Set encrypts and must not be empty. For a file
-// secret, value must be empty. A replace must keep the source of the secret. Set gives
-// a secret without a key a new one, and sets Updated. The commit carries a create
-// action that holds the secret without its value.
+// secret, value must be empty. A replace must keep the source of the secret, and the
+// rack of a file secret that anything uses. Set gives a secret without a key a new one,
+// and sets Updated. The commit carries a create action that holds the secret without
+// its value.
 func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
@@ -49,7 +50,7 @@ func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	base := s.Base()
 	if base.Key == uuid.Nil() {
 		base.Key = uuid.New()
-	} else if err := w.checkSource(ctx, base.Key, s.Source()); err != nil {
+	} else if err := w.checkReplace(ctx, *s); err != nil {
 		return err
 	}
 	base.Updated = w.now()
@@ -70,9 +71,11 @@ func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	return nil
 }
 
-// checkSource returns a validation error when a secret with key exists and has a source
-// other than source.
-func (w Writer) checkSource(ctx context.Context, key Key, source Source) error {
+// checkReplace returns a validation error when s replaces a secret of another source,
+// and a gorp.RestrictError when it moves a file secret that anything uses to another
+// rack.
+func (w Writer) checkReplace(ctx context.Context, s Secret) error {
+	key := s.Base().Key
 	var prev []Secret
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Secret](key)).
@@ -85,11 +88,18 @@ func (w Writer) checkSource(ctx context.Context, key Key, source Source) error {
 	for _, p := range prev {
 		v.Ternaryf(
 			"source",
-			p.Source() != source,
+			p.Source() != s.Source(),
 			"cannot change from %s to %s",
 			p.Source(),
-			source,
+			s.Source(),
 		)
+		prevFile, wasFile := p.Variant.(FileSecret)
+		file, isFile := s.Variant.(FileSecret)
+		if wasFile && isFile && prevFile.Rack != file.Rack {
+			if err := w.table.RestrictChange(ctx, w.tx, key, "rack"); err != nil {
+				return err
+			}
+		}
 	}
 	return v.Error()
 }

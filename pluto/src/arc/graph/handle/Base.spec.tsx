@@ -14,7 +14,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Handle } from "@/arc/graph/handle";

@@ -3,7 +3,9 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-11-06
 - **Related**: [RFC 0079 - Kafka integration](0079-kafka-integration.md),
-  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594)
+  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594),
+  [PR #6433 - [docs] Add RFC 0115 for integrations on ICDs](https://github.com/synnaxlabs/synnax/pull/6433),
+  [PR #6523 - SY-6310: Remove the unused payload read types](https://github.com/synnaxlabs/synnax/pull/6523)
 
 ## 0 Summary
 
@@ -19,9 +21,14 @@ field takes its narrowest correct type (§6).
 `core/v0.61.0` shipped every version that this RFC changes, so each change mints a new
 version with a §7 migration, and releases do not hold.
 
+The read fields of this RFC are replaced. RFC 0115 (PR #6433) moves reads onto ICD JSON
+fields: MQTT reads through ICDs now, and HTTP and Kafka move next. PR #6523 removed the
+six `*Read` types, which no schema used. The `*Read` types and the read field steps
+below record the design as it was.
+
 ## 1 Schema
 
-The current `payload` version, with docs and tags cut:
+The `payload` version that this RFC planned, with docs and tags cut:
 
 ```
 Kind enum { float integer unsigned string boolean timestamp json uuid bytes }
@@ -56,9 +63,10 @@ a value per message. `json` holds JSON text, because `record` holds only objects
 `data_type` sizes a new channel. Phase 27 adds the three `*Options` types without it as
 new types, with no new payload version, and Phases 28 to 31 extend them.
 
-Phase 27 also adds `Binding` to `schemas/synnax/task.oracle`, in task v3 with no new
-version, because `x` cannot import `channel.Key` or its `@ref`. Integration version
-files then pin task v3:
+Phase 27 also adds `Binding` to `schemas/synnax/task.oracle` and to the current task
+version, v4. It is a new type, so it needs no new version (§8). It is not in `payload`,
+because `x` cannot import `channel.Key` or its `@ref`. Integration version files then
+pin task v4:
 
 ```
 Binding union on type {
@@ -244,23 +252,23 @@ unsigned type that holds its bound, or with no bound the unsigned type of its ol
 Floats stay `float64`, because DAQmx and LJM take `double`, except where DAQmx takes an
 integer.
 
-| Schema        | Field                             | Old            | New                              | Validation         | Reason                                                                               |
-| ------------- | --------------------------------- | -------------- | -------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
-| OPC UA        | `Sampling.array.size`             | `int32 = 1`    | `uint32 = 1`                     | `min 1`            | `ArrayDimensions` is `UInt32`, and 0 samples reads nothing                           |
-| Modbus        | `RegisterString.length`           | `int32 = 0`    | `uint16`                         | `min 1`, `max 250` | One request reads 125 registers at most (`driver/modbus/channels.h:71`)              |
-| Modbus        | `bytes_swapped`, `words_swapped`  | `bool?`        | `bool?`                          | -                  | Absent inherits the device's order (`driver/modbus/channels.h:97`)                   |
-| Modbus device | `swap_bytes`, `swap_words`        | `bool`         | `bytes_swapped`, `words_swapped` | -                  | Booleans are adjectival (`driver/modbus/device/device.h:243`)                        |
-| NI            | Channel and `CJC.chan` `port`     | `int32 = 0`    | `uint32 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign                                               |
-| NI            | DI and DO `line`                  | `int32 = 0`    | `uint8 = 0`                      | `max 31`           | A DAQmx port has 32 lines at most                                                    |
-| NI            | Counter `divisor`                 | `int32 = 4`    | `uint32 = 4`                     | `min 1`            | `DAQmxCreateCIFreqChan` takes `uInt32`, and 0 has no meaning                         |
-| NI            | `pulses_per_rev`                  | `float64 = 24` | `uint32 = 24`                    | `min 1`            | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1419`) |
-| NI            | `initial_count`                   | `float64 = 0`  | `uint32 = 0`                     | -                  | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1589`) |
-| NI device     | `Hardware` `port` and `negative?` | `int32`        | `uint32`                         | -                  | The same DAQmx numbers; absent `negative` still means no pair                        |
-| NI device     | `DigitalPort.lines`               | `int32`        | `uint8`                          | `max 32`           | A DAQmx port has 32 lines at most                                                    |
-| LabJack       | `neg_chan`                        | `int32 = 199`  | `uint16?`                        | `max 127`          | LJM register is `UINT16`; absent writes `LJM_GND` (199); `AIN127` is last            |
-| LabJack       | `*_scan_backlog_warn_on_count`    | `uint32 = 0`   | `uint32?`                        | `min 1`            | Absent lets the Driver pick, not an in-band 0                                        |
-| LabJack       | `tcp_scan_multiplier`             | `int32 = 10`   | `uint32 = 10`                    | `min 1`            | The Driver rejects 0 and below (`driver/labjack/scan_task.h:36`)                     |
-| Kafka device  | `tls`                             | `bool`         | `secure`                         | -                  | Adjectival, and the HTTP and MQTT name                                               |
+| Schema        | Field                            | Old            | New                              | Validation         | Reason                                                                               |
+| ------------- | -------------------------------- | -------------- | -------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| OPC UA        | `Sampling.array.size`            | `int32 = 1`    | `uint32 = 1`                     | `min 1`            | `ArrayDimensions` is `UInt32`, and 0 samples reads nothing                           |
+| Modbus        | `RegisterString.length`          | `int32 = 0`    | `uint16`                         | `min 1`, `max 250` | One request reads 125 registers at most (`driver/modbus/channels.h:71`)              |
+| Modbus        | `bytes_swapped`, `words_swapped` | `bool?`        | `bool?`                          | -                  | Absent inherits the device's order (`driver/modbus/channels.h:97`)                   |
+| Modbus device | `swap_bytes`, `swap_words`       | `bool`         | `bytes_swapped`, `words_swapped` | -                  | Booleans are adjectival (`driver/modbus/device/device.h:243`)                        |
+| NI            | Channel and `CJC.chan` `port`    | `int32 = 0`    | `uint16 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign; migration clamps it to 0 to 65535            |
+| NI            | DI and DO `line`                 | `int32 = 0`    | `uint8 = 0`                      | `max 31`           | A DAQmx port has 32 lines at most                                                    |
+| NI            | Counter `divisor`                | `int32 = 4`    | `uint32 = 4`                     | `min 1`            | `DAQmxCreateCIFreqChan` takes `uInt32`, and 0 has no meaning                         |
+| NI            | `pulses_per_rev`                 | `float64 = 24` | `uint32 = 24`                    | `min 1`            | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1419`) |
+| NI            | `initial_count`                  | `float64 = 0`  | `uint32 = 0`                     | -                  | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1589`) |
+| NI device     | `Hardware` `port` and `negative` | `int32`        | `uint16`, `negative uint16 = 0`  | -                  | The same DAQmx numbers as task ports; a `negative` of 0 means no pair                |
+| NI device     | `DigitalPort.lines`              | `int32`        | `uint8`                          | `max 32`           | A DAQmx port has 32 lines at most                                                    |
+| LabJack       | `neg_chan`                       | `int32 = 199`  | `uint16?`                        | `max 127`          | LJM register is `UINT16`; absent writes `LJM_GND` (199); `AIN127` is last            |
+| LabJack       | `*_scan_backlog_warn_on_count`   | `uint32 = 0`   | `uint32?`                        | `min 1`            | Absent lets the Driver pick, not an in-band 0                                        |
+| LabJack       | `tcp_scan_multiplier`            | `int32 = 10`   | `uint32 = 10`                    | `min 1`            | The Driver rejects 0 and below (`driver/labjack/scan_task.h:36`)                     |
+| Kafka device  | `tls`                            | `bool`         | `secure`                         | -                  | Adjectival, and the HTTP and MQTT name                                               |
 
 The rest are correct: MQTT `authority uint8` is `control.Authority`, EtherCAT
 `index uint16` and `sub_index uint8` are CoE's, and Modbus `address uint16` and
@@ -281,11 +289,12 @@ and imports) applies these rules in this order. Each migration phase tests a cla
 both bounds, a clamped-and-disabled identifier, and that a stored 199 becomes absent and
 the channel stays enabled.
 
-Phases 15, 21, 23, and 24 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. Phase
-25 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
-cutover (RFC 0081 §4.8), which already rewrites every Modbus device and types its
-writes. The old Python client writes `swap_bytes`, and an old Driver requires it
-(`device.h:273`), so that release's notes say to upgrade both with the Core.
+Phases 15, 21, 23, and 24 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. NI v3
+shipped with `uint32` ports, so NI v4 narrows them to `uint16`. Phase 25 waits for, and
+renames the Modbus device keys in, the RFC 0081 `modbus.Server` cutover (RFC 0081 §4.8),
+which already rewrites every Modbus device and types its writes. The old Python client
+writes `swap_bytes`, and an old Driver requires it (`device.h:273`), so that release's
+notes say to upgrade both with the Core.
 
 ## 7 Migration
 
@@ -367,8 +376,9 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
   31 apply the rule. Phase 27 adds the rename rule as a shared helper in
   `console/src/platform/task`, which Phases 28 to 31 use. Phase 29 changes the shared
-  `configureReadChannels`, Phase 30 changes `configureCommandChannel`, and each keeps
-  the HTTP callers working until Phase 31, which uses both.
+  `planReadChannels` and `applyReadChannels`, and Phase 30 changes
+  `configureCommandChannel`. Each keeps the HTTP callers working until Phase 31, which
+  uses all three.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
