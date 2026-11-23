@@ -118,6 +118,9 @@ SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
 SYNNAX_DRIVER_WORKER_COUNT=4
 SYNNAX_DRIVER_QUEUE_SIZE=268435456
 SYNNAX_DRIVER_DRAIN_TIMEOUT=5
+SYNNAX_DRIVER_DROP_REPORT_INTERVAL=5
+SYNNAX_DRIVER_REOPEN_INTERVAL=1
+SYNNAX_DRIVER_MAX_REOPEN_INTERVAL=60
 ```
 
 To learn what each parameter does, see [Parameters](#parameters).
@@ -168,7 +171,10 @@ The file cannot hold comments.
   },
   "outage": {
     "queue_size": 268435456,
-    "drain_timeout": 5
+    "drain_timeout": 5,
+    "drop_report_interval": 5,
+    "reopen_interval": 1,
+    "max_reopen_interval": 60
   },
   "integrations": ["arc", "ethercat", "file", "http", "labjack", "modbus", "ni", "opc"],
   "secrets_dir": "/etc/synnax/secrets"
@@ -266,6 +272,22 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 <Field.Item name="drain_timeout" default="5">
   The number of seconds that a stopping task sends the frames that wait for the Core.
   The task drops the rest. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="drop_report_interval" default="5">
+  The smallest number of seconds between two task status reports of a new count of
+  dropped frames. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="reopen_interval" default="1">
+  The number of seconds that a task waits before it first tries again to reach an
+  unreachable Core. Each next wait is 1.1 times longer. In the configuration file, it
+  goes in `outage`.
+</Field.Item>
+
+<Field.Item name="max_reopen_interval" default="60">
+  The largest number of seconds that a task waits between two tries to reach an
+  unreachable Core. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="integrations" default="all">

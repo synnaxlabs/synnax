@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
+#include <string>
 
 #include "x/cpp/log/log.h"
 #include "x/cpp/telem/telem.h"
@@ -27,24 +28,42 @@ struct OutageConfig {
     /// @brief the longest time that a stopping task sends the frames that wait for the
     /// Core. It drops the rest.
     x::telem::TimeSpan drain_timeout = 5 * x::telem::SECOND;
+    /// @brief the shortest time between two task status reports of a new drop count.
+    x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
+    /// @brief the wait before a task first tries again to reach an unreachable Core.
+    /// Each later wait is 1.1 times longer.
+    x::telem::TimeSpan reopen_interval = x::telem::SECOND;
+    /// @brief the longest wait between two tries to reach an unreachable Core.
+    x::telem::TimeSpan max_reopen_interval = x::telem::MINUTE;
 
     template<typename Parser>
     void override(Parser &p) {
         this->queue_size = p.field("queue_size", this->queue_size);
-        const auto drain_timeout_s = p.field(
-            "drain_timeout",
-            this->drain_timeout.seconds()
+        const auto span = [&p](const std::string &name, const x::telem::TimeSpan &def) {
+            const auto s = p.field(name, def.seconds());
+            return x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
+        };
+        this->drain_timeout = span("drain_timeout", this->drain_timeout);
+        this->drop_report_interval = span(
+            "drop_report_interval",
+            this->drop_report_interval
         );
-        this->drain_timeout = x::telem::TimeSpan(
-            static_cast<int64_t>(drain_timeout_s * 1e9)
+        this->reopen_interval = span("reopen_interval", this->reopen_interval);
+        this->max_reopen_interval = span(
+            "max_reopen_interval",
+            this->max_reopen_interval
         );
     }
 
     friend std::ostream &operator<<(std::ostream &os, const OutageConfig &cfg) {
-        os << "  " << x::log::SHALE() << "queue size" << x::log::RESET() << ": "
-           << cfg.queue_size / (size_t{1024} * 1024) << " MB\n"
-           << "  " << x::log::SHALE() << "drain timeout" << x::log::RESET() << ": "
-           << cfg.drain_timeout.seconds() << "s";
+        const auto field = [&os](const std::string &name) -> std::ostream & {
+            return os << "  " << x::log::SHALE() << name << x::log::RESET() << ": ";
+        };
+        field("queue size") << cfg.queue_size / (size_t{1024} * 1024) << " MB\n";
+        field("drain timeout") << cfg.drain_timeout.seconds() << "s\n";
+        field("drop report interval") << cfg.drop_report_interval.seconds() << "s\n";
+        field("reopen interval") << cfg.reopen_interval.seconds() << "s\n";
+        field("max reopen interval") << cfg.max_reopen_interval.seconds() << "s";
         return os;
     }
 };

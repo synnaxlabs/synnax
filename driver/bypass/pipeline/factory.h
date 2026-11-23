@@ -29,6 +29,7 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx, Warn warn = nul
         VLOG(1) << "[bypass] no bus available, using direct Core writer";
         return factory;
     }
+    const auto outage = ctx->outage();
     VLOG(1) << "[bypass] wrapping writer factory with bus publish, group="
             << ctx->rack_key();
     return std::make_shared<WriterFactory>(
@@ -38,8 +39,14 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx, Warn warn = nul
         ctx->rack_key(),
         ForwarderConfig{
             .budget = ctx->queue_budget(),
-            .drain_timeout = ctx->drain_timeout(),
+            .drop_report_interval = outage.drop_report_interval,
+            .drain_timeout = outage.drain_timeout,
             .warn = std::move(warn),
+            .breaker = {
+                .base_interval = outage.reopen_interval,
+                .scale = 1.1f,
+                .max_interval = outage.max_reopen_interval,
+            },
         }
     );
 }

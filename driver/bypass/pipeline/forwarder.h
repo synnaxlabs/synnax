@@ -80,7 +80,7 @@ struct ForwarderConfig {
     );
     /// @brief the shortest time between two reports of a new drop count. While the Core
     /// is unreachable, the forwarder also reports at this interval.
-    x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
+    x::telem::TimeSpan drop_report_interval = OutageConfig{}.drop_report_interval;
     /// @brief the longest time that close() sends queued ops to a reachable Core. It
     /// drops and counts what is left after it.
     x::telem::TimeSpan drain_timeout = OutageConfig{}.drain_timeout;
@@ -94,9 +94,9 @@ struct ForwarderConfig {
     /// @brief the backoff from an unreachable Core. The forwarder retries with no
     /// limit, so only the intervals apply.
     x::breaker::Config breaker{
-        .base_interval = x::telem::SECOND,
+        .base_interval = OutageConfig{}.reopen_interval,
         .scale = 1.1f,
-        .max_interval = x::telem::MINUTE,
+        .max_interval = OutageConfig{}.max_reopen_interval,
     };
 };
 

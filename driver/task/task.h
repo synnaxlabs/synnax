@@ -87,11 +87,9 @@ public:
     /// Core, or nullptr if not available.
     virtual std::shared_ptr<bypass::Budget> queue_budget() { return nullptr; }
 
-    /// @brief returns the longest time that a stopping task sends the frames that wait
-    /// for the Core.
-    virtual x::telem::TimeSpan drain_timeout() {
-        return bypass::OutageConfig{}.drain_timeout;
-    }
+    /// @brief returns how tasks hold frames for the Core while it is slow or
+    /// unreachable.
+    virtual bypass::OutageConfig outage() { return {}; }
 
     /// @brief returns the rack key for this driver, used as the group identity for
     /// Core-side deduplication filtering.
@@ -162,7 +160,7 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bypass_bus;
     std::shared_ptr<control::States> states;
     std::shared_ptr<bypass::Budget> budget;
-    x::telem::TimeSpan drain;
+    bypass::OutageConfig outage_cfg;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
     /// @brief guards operations and cancelled.
@@ -201,7 +199,7 @@ public:
         bypass_bus(bus),
         states(control_states),
         budget(std::make_shared<bypass::Budget>(outage.queue_size)),
-        drain(outage.drain_timeout),
+        outage_cfg(outage),
         rack(rack_key),
         statuses(std::move(statuses)) {}
 
@@ -211,7 +209,7 @@ public:
 
     std::shared_ptr<bypass::Budget> queue_budget() override { return this->budget; }
 
-    x::telem::TimeSpan drain_timeout() override { return this->drain; }
+    bypass::OutageConfig outage() override { return this->outage_cfg; }
 
     synnax::rack::Key rack_key() override { return this->rack; }
 
