@@ -270,7 +270,7 @@ const TopicValues = ({
           key,
           name: f.pointer === "" ? "Whole value" : f.pointer,
           sample: show(newestValue(newest, f.pointer)),
-          dataType: f.timeFormat == null ? f.dataType.toString() : "timestamp",
+          dataType: ICD.DEFAULT_DATA_TYPES[f.kind],
           lock,
         };
       }),
