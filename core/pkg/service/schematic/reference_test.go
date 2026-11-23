@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
@@ -54,6 +55,12 @@ var _ = Describe("Color references", func() {
 					},
 				},
 			})
+			valve := defaults.Fill(schematic.NodeConfig{
+				Variant: schematic.SymbolNodeConfig{
+					Spec:  symbol.Ref{Variant: symbol.BuiltinRef{Name: "valve"}},
+					Color: named(gone),
+				},
+			})
 			e := edge("e", "a", "o", "b", "i")
 			e.Config = pipeCfg("")
 			pipe := as[schematic.PipeEdgeConfig](e.Config.Variant)
@@ -65,6 +72,7 @@ var _ = Describe("Color references", func() {
 				Nodes: []schematic.Node{
 					configured(node("a", 0, 0), box),
 					configured(node("b", 0, 0), scale),
+					configured(node("c", 0, 0), valve),
 				},
 				Edges: []schematic.Edge{e},
 			}
@@ -95,6 +103,8 @@ var _ = Describe("Color references", func() {
 			Expect(b.FillColor).To(Equal(named(kept)))
 			sc := as[schematic.ScaleNodeConfig](res.Nodes[1].Config.Variant)
 			Expect(sc.LevelColor).To(Equal(fixed))
+			v := as[schematic.SymbolNodeConfig](res.Nodes[2].Config.Variant)
+			Expect(v.Color).To(Equal(fixed))
 			p := as[schematic.PipeEdgeConfig](res.Edges[0].Config.Variant)
 			Expect(p.StrokeColor).To(Equal(fixed))
 			seen := rec.Snapshot()
