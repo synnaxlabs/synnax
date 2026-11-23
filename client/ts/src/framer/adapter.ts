@@ -112,6 +112,8 @@ export class ReadAdapter {
 export class WriteAdapter {
   private byName: Map<channel.Name, channel.Payload> | null;
   private byKey: Map<channel.Key, channel.Payload>;
+  /** The channel of each key of a record frame, resolved once until an update. */
+  private byRecordKey: Map<string, channel.Payload>;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
@@ -120,6 +122,7 @@ export class WriteAdapter {
     this.retrieveChannels = retrieveChannels;
     this.byName = null;
     this.byKey = new Map();
+    this.byRecordKey = new Map();
     this.keys = [];
     this.codec = new Codec();
   }
@@ -150,6 +153,7 @@ export class WriteAdapter {
     if (newKeySet.size === previousKeySet.size && newKeySet.isSubsetOf(previousKeySet))
       return false;
     this.byName = new Map(results.map((c) => [c.name, c]));
+    this.byRecordKey = new Map();
     this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;
     this.codec.update(
@@ -281,7 +285,11 @@ export class WriteAdapter {
     const kvs = Object.entries(columnsOrData);
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
-      const pld = await this.fetchChannel(this.recordKey(k));
+      let pld = this.byRecordKey.get(k);
+      if (pld == null) {
+        pld = await this.fetchChannel(this.recordKey(k));
+        this.byRecordKey.set(k, pld);
+      }
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);
