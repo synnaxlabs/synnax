@@ -25,7 +25,7 @@ import type {
   SearchLayout,
   UseSearch,
 } from "@/platform/tree/search";
-import type { Results } from "@/platform/tree/store";
+import type { Store } from "@/platform/tree/store";
 import type { Resource } from "@/platform/tree/types";
 
 export const LIMIT = 100;
@@ -62,7 +62,7 @@ interface BuildResultsParams {
 }
 
 interface Built {
-  results: Results;
+  results: Store.Results;
   groups: Map<string, string>;
 }
 
@@ -132,7 +132,7 @@ const buildResults = ({
 interface Held {
   key: string;
   layout: SearchLayout;
-  results: Results;
+  results: Store.Results;
   match: Match;
   more: boolean;
 }

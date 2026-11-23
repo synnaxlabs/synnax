@@ -25,7 +25,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 
-import { useOpen } from "@/feature/channel/useOpen";
+import { Open } from "@/feature/channel/open";
 import { Channel } from "@/platform/channel";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -220,7 +220,7 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
 const TreeItem = Tree.createItem({
   linkable: true,
   icon: <Icon.Channel />,
-  useOnSelect: useOpen,
+  useOnSelect: Open.use,
   haulItems,
   haulPreview,
   Content,

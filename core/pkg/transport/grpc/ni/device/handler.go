@@ -40,8 +40,8 @@ type (
 	updateServer = grpc.UnaryServer[
 		device.UpdateRequest,
 		*UpdateRequest,
-		struct{},
-		*emptypb.Empty,
+		device.UpdateResponse,
+		*UpdateResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		device.DeleteRequest,
@@ -57,6 +57,7 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	updateRequestTranslator    struct{}
+	updateResponseTranslator   struct{}
 	deleteRequestTranslator    struct{}
 )
 
@@ -66,6 +67,7 @@ var (
 	_ grpc.BackwardTranslator[device.RetrieveRequest, *pb.RetrieveRequest]  = retrieveRequestTranslator{}
 	_ grpc.ForwardTranslator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.BackwardTranslator[device.UpdateRequest, *UpdateRequest]         = updateRequestTranslator{}
+	_ grpc.ForwardTranslator[device.UpdateResponse, *UpdateResponse]        = updateResponseTranslator{}
 	_ grpc.BackwardTranslator[device.DeleteRequest, *DeleteRequest]         = deleteRequestTranslator{}
 )
 
@@ -120,6 +122,17 @@ func (updateRequestTranslator) Backward(
 	return device.UpdateRequest{Key: key, Update: update}, nil
 }
 
+func (updateResponseTranslator) Forward(
+	_ context.Context,
+	res device.UpdateResponse,
+) (*UpdateResponse, error) {
+	stored, err := devicepb.DeviceToPB(res.Device)
+	if err != nil {
+		return nil, err
+	}
+	return &UpdateResponse{Device: stored}, nil
+}
+
 func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
@@ -151,7 +164,7 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	t.NIDeviceRetrieve = retrieve
 	update := &updateServer{
 		RequestTranslator:  updateRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: updateResponseTranslator{},
 		ServiceDesc:        &NIDeviceUpdateService_ServiceDesc,
 		Errors:             errs,
 	}

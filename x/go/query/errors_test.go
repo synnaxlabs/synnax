@@ -41,4 +41,23 @@ var _ = Describe("Errors", func() {
 		Entry("unsupported", query.ErrUnsupported, "sy.query.unsupported"),
 		Entry("query", query.ErrQuery, "sy.query"),
 	)
+
+	DescribeTable(
+		"Should not repeat the sentinel message on each hop",
+		func(base error) {
+			codec := errors.NewCodec(query.ErrorProvider())
+			err := errors.Wrap(base, "channel 5")
+			Expect(codec.Decode(
+				codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+			)).To(MatchError(err.Error()))
+			pld := codec.Encode(base, false)
+			Expect(pld.Data).To(Equal(base.Error()))
+			Expect(codec.Decode(pld)).To(Equal(base))
+		},
+		Entry("not found", query.ErrNotFound),
+		Entry("unique violation", query.ErrUniqueViolation),
+		Entry("invalid parameters", query.ErrInvalidParameters),
+		Entry("unsupported", query.ErrUnsupported),
+		Entry("query", query.ErrQuery),
+	)
 })

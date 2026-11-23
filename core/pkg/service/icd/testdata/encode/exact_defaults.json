@@ -1,0 +1,38 @@
+{
+  "description": "A default keeps every digit of its number.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "json",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/json",
+          "type": "json",
+          "default": "{\"id\": 9007199254740993}"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "max",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/max",
+          "type": "unsigned",
+          "default": "18446744073709551615"
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "cases": [
+    {
+      "samples": [],
+      "text": "{\"json\":{\"id\": 9007199254740993},\"max\":18446744073709551615}"
+    }
+  ]
+}
