@@ -3994,15 +3994,15 @@ protected:
         dispatch(ch, {{"type", "set"}, {"set", std::move(set)}});
     }
 
-    /// @brief returns the first warning that the task sent.
-    [[nodiscard]] std::optional<synnax::task::Status> warning() const {
+    /// @brief returns the message of the first warning that the task sent, or an
+    /// empty string.
+    [[nodiscard]] std::string warning() const {
         auto statuses = this->ctx->snapshot();
         const auto *found = find_status_by_variant(
             statuses,
             synnax::status::VARIANT_WARNING
         );
-        if (found == nullptr) return std::nullopt;
-        return *found;
+        return found == nullptr ? "" : found->message;
     }
 
     /// @brief starts task and waits until its streamer reads the bus.
@@ -4220,8 +4220,7 @@ TEST_F(OutageTest, KeepsCalculationsWhenReloadFails) {
         {{"type", "rename"},
          {"rename", {{"name", make_unique_channel_name("renamed")}}}}
     );
-    ASSERT_EVENTUALLY_TRUE(this->warning().has_value());
-    EXPECT_EQ(this->warning()->message, "Failed to reload calculations");
+    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
     this->publish(a.key, 4.0f);
     ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 8.0f));
     task->stop("test_stop", true);

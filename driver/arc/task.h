@@ -12,7 +12,6 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <set>
 #include <string>
 #include <variant>
@@ -43,9 +42,15 @@
 #include "driver/task/task.h"
 
 namespace driver::arc {
-/// @brief retrieves the automation with the given key, with its compiled program and
-/// calculations.
-inline std::pair<synnax::arc::AutomationArc, x::errors::Error>
+/// @brief the compiled program of an automation and the calculations it reads.
+struct Compiled {
+    ::arc::program::Program program;
+    /// @brief the calculated channels that the program reads, dependencies first.
+    std::vector<synnax::arc::Calculation> calculations;
+};
+
+/// @brief retrieves and compiles the automation with the given key.
+inline std::pair<Compiled, x::errors::Error>
 retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
     auto [arc_data, err] = client.arcs.retrieve(
         key,
@@ -67,7 +72,13 @@ retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
             {},
             x::errors::Error(x::errors::INTERNAL, "The Arc program is not compiled.")
         };
-    return {std::move(*automation), x::errors::NIL};
+    return {
+        Compiled{
+            .program = std::move(*automation->program),
+            .calculations = std::move(automation->calculations),
+        },
+        x::errors::NIL,
+    };
 }
 
 /// @brief configuration for an arc runtime task.
@@ -101,10 +112,10 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [automation, err] = retrieve_automation(*client, cfg.arc_key);
+        auto [compiled, err] = retrieve_automation(*client, cfg.arc_key);
         if (err) return {std::move(cfg), err};
-        cfg.program = std::move(*automation.program);
-        cfg.calculations = std::move(automation.calculations);
+        cfg.program = std::move(compiled.program);
+        cfg.calculations = std::move(compiled.calculations);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -117,7 +128,7 @@ class Task final : public task::Task {
     /// @brief guards reloaded.
     std::mutex reload_mu;
     /// @brief a calculator to swap in before the next compute.
-    std::optional<Calculator> reloaded;
+    std::unique_ptr<Calculator> reloaded;
     /// @brief true while reloaded holds a calculator. Lets the control thread skip
     /// reload_mu on each frame.
     std::atomic<bool> has_reloaded = false;
@@ -185,8 +196,8 @@ class Task final : public task::Task {
             if (frame.empty()) return x::errors::NIL;
             if (this->task.has_reloaded.load(std::memory_order_acquire)) {
                 std::lock_guard lock(this->task.reload_mu);
-                this->task.calculator = std::move(*this->task.reloaded);
-                this->task.reloaded.reset();
+                const auto next = std::move(this->task.reloaded);
+                this->task.calculator = std::move(*next);
                 this->task.has_reloaded.store(false, std::memory_order_release);
             }
             this->task.calculator.compute(frame);
@@ -277,7 +288,7 @@ class Task final : public task::Task {
             }
             {
                 std::lock_guard lock(this->task.reload_mu);
-                this->task.reloaded = std::move(calc);
+                this->task.reloaded = std::make_unique<Calculator>(std::move(calc));
                 this->task.has_reloaded.store(true, std::memory_order_release);
             }
             if (running) this->task.control->start();
