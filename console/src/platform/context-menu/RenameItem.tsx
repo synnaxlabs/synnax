@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export interface RenameItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
 

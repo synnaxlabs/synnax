@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type Transport } from "@/transport";
+import type { Transport } from "@/transport";
 
 /** Interface for an entity that receives a stream of responses. */
 export interface StreamReceiver<RS extends z.ZodType> {

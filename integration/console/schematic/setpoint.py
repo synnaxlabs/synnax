@@ -17,24 +17,36 @@ class Setpoint(Symbol):
 
     _symbol_group: str | None = "General"
 
-    def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
+    def __init__(
+        self,
+        *,
+        label: str,
+        channel_name: str,
+        state_channel_name: str | None = None,
+        symbol_type: str = "Setpoint",
+    ):
         """Initialize a setpoint symbol with configuration.
 
         :param label: Display label for the symbol
         :param channel_name: Channel name for the setpoint
+        :param state_channel_name: Channel name for the read-back (optional)
         :param symbol_type: The type of symbol (default: "Setpoint")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
+        self.state_channel_name = state_channel_name
 
     def _apply_properties(self) -> None:
         """Apply setpoint configuration after being added to schematic."""
-        self.set_properties(channel_name=self.channel_name)
+        self.set_properties(
+            channel_name=self.channel_name, state_channel_name=self.state_channel_name
+        )
 
     def set_properties(
         self,
         *,
         channel_name: str | None = None,
+        state_channel_name: str | None = None,
     ) -> None:
         """Set Setpoint properties including channel settings."""
         self.click()
@@ -46,6 +58,11 @@ class Setpoint(Symbol):
             self.open_properties_tab()
             click_past(self.page.get_by_text("Control").last)
             self.set_channel(section="Command", channel_name=channel_name)
+
+        if state_channel_name is not None:
+            self.open_properties_tab()
+            click_past(self.page.get_by_text("Control").last)
+            self.set_channel(section="State", channel_name=state_channel_name)
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()

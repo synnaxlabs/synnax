@@ -1,0 +1,84 @@
+{
+  "description": "A JSON document matched by a type field, with a default for each kind of field.",
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "match": {
+            "type": "string",
+            "pointer": "/type",
+            "value": "status"
+          },
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "temp",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/temp",
+              "type": "float",
+              "default": 20.5
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000b",
+              "name": "count",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/count",
+              "type": "integer",
+              "default": "0"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000c",
+              "name": "total",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/total",
+              "type": "unsigned",
+              "default": "7"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000d",
+              "name": "state",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/state",
+              "type": "string",
+              "default": "idle"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000e",
+              "name": "armed",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/armed",
+              "type": "boolean",
+              "default": false
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000f",
+              "name": "time",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/ts",
+              "type": "timestamp",
+              "time_format": "unix_ms",
+              "default": "0"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -9,25 +9,25 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
-import { type Item } from "@/platform/tree/item";
+import type { Item } from "@/platform/tree/item";
 import { isMoreKey, type Store } from "@/platform/tree/store";
-import {
-  type ContextMenuProps,
-  type RootContextMenuProps,
-  type TreeState,
+import type {
+  ContextMenuProps,
+  RootContextMenuProps,
+  TreeState,
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
-import { type Action, type State } from "@/session/store";
+import type { Action, State } from "@/session/store";
 
 /** A menu that holds only the reload of the Console. */
 export const FallbackContextMenu = (): ReactElement => (

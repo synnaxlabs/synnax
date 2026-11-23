@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -39,6 +40,7 @@ var (
 	db         *gorp.DB
 	channelSvc *channel.Service
 	colorSvc   *color.Service
+	rangerSvc  *ranger.Service
 	groupSvc   *group.Service
 	proj       project.Project
 	projectSvc *project.Service
@@ -60,6 +62,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -91,10 +94,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
-	svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:    db,
-		ImEx:  imexSvc,
-		Color: colorSvc,
+		Group: groupSvc,
+	}))
+	svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:     db,
+		ImEx:   imexSvc,
+		Color:  colorSvc,
+		Ranger: rangerSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

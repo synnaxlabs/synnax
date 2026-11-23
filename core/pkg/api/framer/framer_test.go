@@ -23,12 +23,14 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -119,15 +121,11 @@ var _ = Describe("Framer", func() {
 	}
 	createCalculated := func(ctx SpecContext, input channel.Channel) channel.Channel {
 		GinkgoHelper()
-		ch := channel.Channel{
+		return MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			Expression: fmt.Sprintf("return %s * 2", input.Name),
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		return ch
+		}))
 	}
 	// readerCtx returns a context whose subject may retrieve only the given channels.
 	readerCtx := func(
@@ -218,14 +216,11 @@ var _ = Describe("Framer", func() {
 				telem.NewSeriesV[float32](1, 2, 3, 4),
 			}))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
-			calc := channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Channel.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
+			}))
 			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,
@@ -282,11 +277,11 @@ var _ = Describe("Framer", func() {
 			ctx SpecContext,
 		) {
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{data.Key()},
-				Bounds: telem.TimeRangeMax,
+				Keys:       channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 			}))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
 			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
@@ -298,10 +293,10 @@ var _ = Describe("Framer", func() {
 			ctx SpecContext,
 		) {
 			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:     channel.Keys{data.Key()},
-				Bounds:   telem.TimeRangeMax,
-				Latest:   10,
-				Earliest: 10,
+				Keys:       channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+				Latest:     10,
+				Earliest:   10,
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
@@ -309,9 +304,9 @@ var _ = Describe("Framer", func() {
 			ctx SpecContext,
 		) {
 			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:     channel.Keys{data.Key()},
-				Bounds:   telem.TimeRangeMax,
-				Earliest: 10,
+				Keys:       channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+				Earliest:   10,
 				Reduction: telem.Reduction{
 					Variant: telem.LimitReduction{PointLimit: 10},
 				},
@@ -322,21 +317,177 @@ var _ = Describe("Framer", func() {
 			ctx SpecContext,
 		) {
 			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{data.Key()},
-				Bounds: telem.TimeRangeMax,
-				Latest: 10,
+				Keys:       channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+				Latest:     10,
 				Reduction: telem.Reduction{
 					Variant: telem.LimitReduction{PointLimit: 10},
 				},
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
 
+		DescribeTable(
+			"Should sort the time ranges and merge those that overlap or touch",
+			func(ctx SpecContext, ranges, expected []telem.TimeRange) {
+				res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+					Keys:       channel.Keys{data.Key()},
+					TimeRanges: ranges,
+				}))
+				Expect(res.TimeRanges).To(Equal(expected))
+			},
+			Entry(
+				"one range",
+				[]telem.TimeRange{telem.NewRangeSeconds(1, 2)},
+				[]telem.TimeRange{telem.NewRangeSeconds(1, 2)},
+			),
+			Entry(
+				"unsorted ranges",
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(5, 6),
+					telem.NewRangeSeconds(1, 2),
+				},
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(1, 2),
+					telem.NewRangeSeconds(5, 6),
+				},
+			),
+			Entry(
+				"overlapping ranges",
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(3, 6),
+					telem.NewRangeSeconds(1, 4),
+				},
+				[]telem.TimeRange{telem.NewRangeSeconds(1, 6)},
+			),
+			Entry(
+				"touching ranges",
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(1, 2),
+					telem.NewRangeSeconds(2, 3),
+				},
+				[]telem.TimeRange{telem.NewRangeSeconds(1, 3)},
+			),
+			Entry(
+				"a range inside another",
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(1, 9),
+					telem.NewRangeSeconds(2, 3),
+					telem.NewRangeSeconds(10, 11),
+				},
+				[]telem.TimeRange{
+					telem.NewRangeSeconds(1, 9),
+					telem.NewRangeSeconds(10, 11),
+				},
+			),
+		)
+
+		It("Should take latest over ranges that merge into one", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys: channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{
+					telem.NewRangeSeconds(1, 3),
+					telem.NewRangeSeconds(2, 4),
+				},
+				Latest: 10,
+			}))
+			Expect(
+				res.TimeRanges,
+			).To(Equal([]telem.TimeRange{telem.NewRangeSeconds(1, 4)}))
+		})
+
+		DescribeTable(
+			"Should reject a read with invalid time ranges",
+			func(ctx SpecContext, req apiframer.ReadRequest, message string) {
+				req.Keys = channel.Keys{data.Key()}
+				Expect(apiSvc.Read(rootCtx(ctx), req)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry(
+				"no ranges",
+				apiframer.ReadRequest{},
+				"a read must take at least one time range",
+			),
+			Entry(
+				"a range that ends before it starts",
+				apiframer.ReadRequest{TimeRanges: []telem.TimeRange{
+					telem.NewRangeSeconds(1, 2),
+					telem.NewRangeSeconds(5, 4),
+				}},
+				"which ends before it starts",
+			),
+			Entry(
+				"latest over two ranges",
+				apiframer.ReadRequest{
+					TimeRanges: []telem.TimeRange{
+						telem.NewRangeSeconds(1, 2),
+						telem.NewRangeSeconds(3, 4),
+					},
+					Latest: 10,
+				},
+				"a read cannot take latest or earliest over more than one time range",
+			),
+			Entry(
+				"earliest over two ranges",
+				apiframer.ReadRequest{
+					TimeRanges: []telem.TimeRange{
+						telem.NewRangeSeconds(1, 2),
+						telem.NewRangeSeconds(3, 4),
+					},
+					Earliest: 10,
+				},
+				"a read cannot take latest or earliest over more than one time range",
+			),
+			Entry(
+				"a limit over two ranges",
+				apiframer.ReadRequest{
+					TimeRanges: []telem.TimeRange{
+						telem.NewRangeSeconds(1, 2),
+						telem.NewRangeSeconds(3, 4),
+					},
+					Reduction: telem.Reduction{
+						Variant: telem.LimitReduction{PointLimit: 10},
+					},
+				},
+				"a read cannot take a limit reduction over more than one time range",
+			),
+		)
+
+		DescribeTable(
+			"Should decode the time ranges of a JSON body",
+			func(body string, expected []telem.TimeRange) {
+				var req apiframer.ReadRequest
+				Expect(json.Codec.Decode([]byte(body), &req)).To(Succeed())
+				Expect(req.TimeRanges).To(Equal(expected))
+				Expect(req.Latest).To(BeEquivalentTo(3))
+			},
+			Entry(
+				"time_ranges",
+				`{"time_ranges":[{"start":5,"end":6},{"start":1,"end":2}],"latest":3}`,
+				[]telem.TimeRange{{Start: 5, End: 6}, {Start: 1, End: 2}},
+			),
+			Entry(
+				"bounds from a client that predates time_ranges",
+				`{"bounds":{"start":1,"end":2},"latest":3}`,
+				[]telem.TimeRange{{Start: 1, End: 2}},
+			),
+			Entry(
+				"both",
+				`{"time_ranges":[{"start":5,"end":6}],"bounds":{"start":1,"end":2},`+
+					`"latest":3}`,
+				[]telem.TimeRange{{Start: 5, End: 6}, {Start: 1, End: 2}},
+			),
+		)
+
 		It(
 			"Should pull in the index channels an indexes-included request left out",
 			func(ctx SpecContext) {
 				res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
 					Keys:               channel.Keys{data.Key()},
-					Bounds:             telem.TimeRangeMax,
+					TimeRanges:         []telem.TimeRange{telem.TimeRangeMax},
 					TimestampsIncluded: true,
 				}))
 				Expect(res.Indexes).To(HaveLen(1))
@@ -349,7 +500,7 @@ var _ = Describe("Framer", func() {
 		) {
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
 				Keys:               channel.Keys{data.Key(), index.Key()},
-				Bounds:             telem.TimeRangeMax,
+				TimeRanges:         []telem.TimeRange{telem.TimeRangeMax},
 				TimestampsIncluded: true,
 			}))
 			Expect(res.Channels).To(HaveLen(2))
@@ -374,13 +525,13 @@ var _ = Describe("Framer", func() {
 				PointLimit:  4,
 			}}
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:      channel.Keys{data.Key()},
-				Bounds:    telem.TimeRangeMax,
-				Reduction: reduction,
+				Keys:       channel.Keys{data.Key()},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+				Reduction:  reduction,
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.Bounds),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
 			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
@@ -393,8 +544,8 @@ var _ = Describe("Framer", func() {
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {
 			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{distchannel.NewKey(index.Leaseholder, 9999)},
-				Bounds: telem.TimeRangeMax,
+				Keys:       channel.Keys{distchannel.NewKey(index.Leaseholder, 9999)},
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -410,7 +561,7 @@ var _ = Describe("Framer", func() {
 					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
-						Bounds:             telem.TimeRangeMax,
+						TimeRanges:         []telem.TimeRange{telem.TimeRangeMax},
 						TimestampsIncluded: true,
 					},
 				)).Error().To(MatchError(access.ErrDenied))
@@ -426,8 +577,8 @@ var _ = Describe("Framer", func() {
 					res := MustSucceed(apiSvc.Read(
 						subjectCtx(ctx, u.ResourceID()),
 						apiframer.ReadRequest{
-							Keys:   channel.Keys{data.Key()},
-							Bounds: telem.TimeRangeMax,
+							Keys:       channel.Keys{data.Key()},
+							TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 						},
 					))
 					Expect(res.Indexes).To(BeEmpty())
@@ -445,7 +596,7 @@ var _ = Describe("Framer", func() {
 					subjectCtx(ctx, u.ResourceID()),
 					apiframer.ReadRequest{
 						Keys:               channel.Keys{data.Key()},
-						Bounds:             telem.TimeRangeMax,
+						TimeRanges:         []telem.TimeRange{telem.TimeRangeMax},
 						TimestampsIncluded: true,
 					},
 				))
@@ -457,8 +608,8 @@ var _ = Describe("Framer", func() {
 				func(ctx SpecContext) {
 					calc := createCalculated(ctx, data)
 					Expect(apiSvc.Read(readerCtx(ctx, calc), apiframer.ReadRequest{
-						Keys:   channel.Keys{calc.Key()},
-						Bounds: telem.TimeRangeMax,
+						Keys:       channel.Keys{calc.Key()},
+						TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 					})).Error().To(MatchError(access.ErrDenied))
 				},
 			)

@@ -20,6 +20,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/color",
         "//client/cpp/resource",
         "//core/pkg/service/label:label_grpc",
         "//x/cpp/color",

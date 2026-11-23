@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { resolve } from "@/deep/resolve";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 export interface Get {
   <V = record.Unknown, T = record.Unknown>(obj: T, path: string): V | null;

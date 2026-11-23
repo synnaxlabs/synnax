@@ -9,11 +9,11 @@
 
 import "@/note/Note.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 
 export interface NoteProps extends Flex.BoxProps<"div"> {
   variant: Status.Variant;

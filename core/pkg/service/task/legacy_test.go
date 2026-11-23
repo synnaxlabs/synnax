@@ -501,6 +501,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}).Exec(ctx, db)).To(Succeed())
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
@@ -540,6 +541,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,
+				Rack:   secrettestutil.CoreRack,
 			})).Stores(),
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
 				DB: db,

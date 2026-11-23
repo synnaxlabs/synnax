@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { location } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Boundary } from "@/schematic/node/common/handle/Boundary";
 import { Handle } from "@/schematic/node/common/handle/Handle";

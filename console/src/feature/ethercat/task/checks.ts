@@ -9,15 +9,15 @@
 
 import { ethercat } from "@synnaxlabs/client";
 import { compare, DataType, unique } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
 import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
-import {
-  type SlaveDevice,
-  type SlaveOnRack,
-  type SlaveProperties,
+import type {
+  SlaveDevice,
+  SlaveOnRack,
+  SlaveProperties,
 } from "@/feature/ethercat/device/types";
 import {
   addressKey,

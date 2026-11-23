@@ -16,6 +16,7 @@ import (
 	"uuid"
 
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -58,6 +59,9 @@ type Enumeration struct {
 	Name string `json:"name" msgpack:"name"`
 	// Entries are the states of the enumeration.
 	Entries []Entry `json:"entries" msgpack:"entries"`
+	// Uses are the resources that use the enumeration and that the caller can read,
+	// filled only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

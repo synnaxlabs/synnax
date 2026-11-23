@@ -21,8 +21,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/log";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

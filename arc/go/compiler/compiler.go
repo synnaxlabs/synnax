@@ -291,9 +291,10 @@ func compileBody(
 			)
 		}
 	case parser.IFunctionContext:
-		head, tail := parser.FunctionNameParts(body)
+		var buf [2]string
+		parts := parser.AppendFunctionNameParts(buf[:0], body)
 		if _, err := expression.CompileCall(
-			ctx.Child(body), head, tail, symbol.FunctionArguments(body),
+			ctx.Child(body), parts, symbol.FunctionArguments(body),
 		); err != nil {
 			return errors.Wrapf(err, "failed to compile call '%s'", ctx.Scope.Name)
 		}

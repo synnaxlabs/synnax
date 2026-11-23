@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Triggers } from "@/triggers";
@@ -63,6 +63,11 @@ describe("Text", () => {
       </Triggers.Text>,
     );
     expect(container.textContent).toBe("SaveS");
+  });
+
+  it("should show the period key as a dot", () => {
+    const { container } = render(<Triggers.Text trigger={["Shift", "Period"]} />);
+    expect(container.textContent).toBe("Shift.");
   });
 
   it("should start a word key with a capital", () => {
