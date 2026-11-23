@@ -94,9 +94,8 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns the field that target shows at value after its looks apply in order, or at
- * every value when value is undefined. Looks of the whole drawing do not count for a
- * part.
+ * @returns the field that target shows at value after the looks apply in order, or at
+ * every value when value is undefined. Looks of the whole drawing count for a part.
  */
 export const effective = <F extends Field>(
   spec: Pick<Spec, "looks">,
