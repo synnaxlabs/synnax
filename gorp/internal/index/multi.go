@@ -359,8 +359,8 @@ func (m *Multi[S, K, V]) Values(scope S) ([]V, error) {
 	return values, nil
 }
 
-// CommittingValues returns the values that a transaction in its commit maps to at
-// least one key. See Lookup.Committing for its contract.
+// CommittingValues returns the values that a transaction in its commit maps to at least
+// one key. See Lookup.Committing for its contract.
 func (m *Multi[S, K, V]) CommittingValues() []V {
 	m.overlay.mu.RLock()
 	defer m.overlay.mu.RUnlock()

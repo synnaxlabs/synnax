@@ -783,7 +783,7 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
-	Describe("Held", func() {
+	Describe("AllReferenced", func() {
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx)
 			createRack(ctx, 1)
@@ -794,7 +794,9 @@ var _ = Describe("Reference", func() {
 		})
 
 		It("Should return each target that an entry holds", func(ctx SpecContext) {
-			Expect(deviceRef.rack.Held(ctx, db)).To(ConsistOf(uint32(1), uint32(2)))
+			Expect(
+				deviceRef.rack.AllReferenced(ctx, db),
+			).To(ConsistOf(uint32(1), uint32(2)))
 		})
 
 		It("Should see a create staged in the same transaction", func(ctx SpecContext) {
@@ -802,9 +804,11 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewCreate().
 				Entry(&refDevice{Key: "c", Rack: 3}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceRef.rack.Held(ctx, tx)).
+			Expect(deviceRef.rack.AllReferenced(ctx, tx)).
 				To(ConsistOf(uint32(1), uint32(2), uint32(3)))
-			Expect(deviceRef.rack.Held(ctx, db)).To(ConsistOf(uint32(1), uint32(2)))
+			Expect(
+				deviceRef.rack.AllReferenced(ctx, db),
+			).To(ConsistOf(uint32(1), uint32(2)))
 		})
 
 		It("Should see a delete staged in the same transaction", func(ctx SpecContext) {
@@ -812,8 +816,10 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewDelete().
 				Where(gorp.MatchKeys[string, refDevice]("b")).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceRef.rack.Held(ctx, tx)).To(ConsistOf(uint32(1)))
-			Expect(deviceRef.rack.Held(ctx, db)).To(ConsistOf(uint32(1), uint32(2)))
+			Expect(deviceRef.rack.AllReferenced(ctx, tx)).To(ConsistOf(uint32(1)))
+			Expect(
+				deviceRef.rack.AllReferenced(ctx, db),
+			).To(ConsistOf(uint32(1), uint32(2)))
 		})
 
 		It("Should see a change of target staged in the same transaction", func(
@@ -823,7 +829,9 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewCreate().
 				Entry(&refDevice{Key: "a", Rack: 3}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceRef.rack.Held(ctx, tx)).To(ConsistOf(uint32(2), uint32(3)))
+			Expect(
+				deviceRef.rack.AllReferenced(ctx, tx),
+			).To(ConsistOf(uint32(2), uint32(3)))
 		})
 
 		It("Should count a target of a commit in flight", func(ctx SpecContext) {
@@ -846,7 +854,7 @@ var _ = Describe("Reference", func() {
 				Entry(&refRack{Key: 1}).
 				Exec(ctx, inFlight)).To(Succeed())
 			var held []uint32
-			store.during = func() { held = MustSucceed(refs.rack.Held(ctx, nil)) }
+			store.during = func() { held = MustSucceed(refs.rack.AllReferenced(ctx, nil)) }
 			Expect(deviceTable.NewCreate().
 				Entry(&refDevice{Key: "a", Rack: 1}).
 				Exec(ctx, inFlight)).To(Succeed())
@@ -857,7 +865,7 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewDelete().
 				Where(gorp.MatchKeys[string, refDevice]("b")).
 				Exec(ctx, db)).To(Succeed())
-			Expect(deviceRef.rack.Held(ctx, db)).To(ConsistOf(uint32(1)))
+			Expect(deviceRef.rack.AllReferenced(ctx, db)).To(ConsistOf(uint32(1)))
 		})
 	})
 
@@ -1991,14 +1999,16 @@ var _ = Describe("Reference", func() {
 					To(Equal(set.New[uint32](1)))
 			})
 
-			It("Should scan the table in Held", func(ctx SpecContext) {
+			It("Should scan the table in AllReferenced", func(ctx SpecContext) {
 				createRack(ctx, 2)
-				Expect(deviceRef.rack.Held(ctx, db)).To(ConsistOf(uint32(1)))
+				Expect(deviceRef.rack.AllReferenced(ctx, db)).To(ConsistOf(uint32(1)))
 				tx := DeferClose(db.OpenTx())
 				Expect(devices.NewCreate().
 					Entry(&refDevice{Key: "d2", Rack: 2}).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(deviceRef.rack.Held(ctx, tx)).To(ConsistOf(uint32(1), uint32(2)))
+				Expect(
+					deviceRef.rack.AllReferenced(ctx, tx),
+				).To(ConsistOf(uint32(1), uint32(2)))
 			})
 
 			It("Should fail a filter on another entry type", func(ctx SpecContext) {

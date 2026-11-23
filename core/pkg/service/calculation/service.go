@@ -187,7 +187,7 @@ func (s *Service) Written(
 	ctx context.Context,
 	snap gorp.Snapshot,
 ) (channel.Keys, error) {
-	return s.indexes.output.Held(ctx, snap)
+	return s.indexes.output.AllReferenced(ctx, snap)
 }
 
 // Channels returns the resource of each channel that c links, in the order of its

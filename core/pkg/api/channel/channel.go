@@ -374,10 +374,10 @@ func (s *Service) retrieve(
 		return nil, err
 	}
 	named := namesByName(req.Where)
-	holders := named && calculated
+	namedLine := named && calculated
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
-	} else if holders {
+	} else if namedLine {
 		// The calculated line must not show, by what it leaves out, which holders of a
 		// name are outputs.
 		if err = s.enforceHolders(ctx, snap, *req.Where.Name); err != nil {
@@ -387,7 +387,7 @@ func (s *Service) retrieve(
 	if err = q.Exec(ctx, snap.Snapshot); err != nil {
 		return nil, err
 	}
-	if named && !holders {
+	if named && !namedLine {
 		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
 			return nil, err
 		}

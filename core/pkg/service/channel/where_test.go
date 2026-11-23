@@ -118,8 +118,7 @@ var _ = Describe("Where", Ordered, func() {
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
 				// The service of this suite has no outputs source, and the API keeps
-				// the
-				// old meaning of virtual, so the API runs these cases.
+				// the old meaning of virtual, so the API runs these cases.
 				return Entry(c.Name, c), !readsOutputs(c.Where)
 			},
 		),
