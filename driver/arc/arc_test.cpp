@@ -2133,6 +2133,45 @@ TEST(ArcNoOutbox, FailsToStartFunctionSet) {
     );
 }
 
+/// @brief it should fail to start a task whose flow creates a range when the outbox
+/// did not open.
+TEST(ArcNoOutbox, FailsToStartFlowRange) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import ranges\n\n"
+        "interval(period=50ms) -> ranges.create(name=\"no_outbox_range\")\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, test_keys()),
+        outbox::CORRUPT
+    );
+}
+
+/// @brief it should fail to start a task whose function ends a range when the outbox
+/// did not open.
+TEST(ArcNoOutbox, FailsToStartFunctionRange) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import ranges\n\n"
+        "func end_it() {\n"
+        "    k := ranges.end(\"00000000-0000-0000-0000-000000000000\")\n"
+        "}\n"
+        "interval(period=50ms) -> end_it()\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, test_keys()),
+        outbox::CORRUPT
+    );
+}
+
 /// @brief it should start a task that sets no statuses when the outbox did not open.
 TEST(ArcNoOutbox, StartsTaskWithoutSets) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

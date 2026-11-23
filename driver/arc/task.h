@@ -236,10 +236,10 @@ public:
         const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
         auto [outbox, outbox_err] = ctx->outbox();
-        if (status::sets_statuses(cfg.program)) {
-            if (outbox_err) return {nullptr, outbox_err};
-            if (keys.second) return {nullptr, keys.second};
-        }
+        const bool sets = status::sets_statuses(cfg.program);
+        if (outbox_err && (sets || ranges::uses_ranges(cfg.program)))
+            return {nullptr, outbox_err};
+        if (sets && keys.second) return {nullptr, keys.second};
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         if (rt_manager != nullptr) {
@@ -281,7 +281,7 @@ public:
                         ) { task_ptr->warn_while_running(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
-                        ctx->outbox(),
+                        outbox,
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description

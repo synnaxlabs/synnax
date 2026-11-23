@@ -27,6 +27,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -200,6 +201,27 @@ inline std::string queue_end(
         return "";
     }
     return uid.to_string();
+}
+
+/// @returns true when the program creates or ends a range, in a flow or in a
+/// function.
+inline bool uses_ranges(const ::arc::program::Program &program) {
+    for (const auto &node: program.nodes)
+        if (node.type == "ranges.create" || node.type == "ranges.end" ||
+            node.type == "create" || node.type == "end")
+            return true;
+    if (program.wasm.empty()) return false;
+    wasmtime::Engine engine;
+    auto wasm = program.wasm;
+    auto mod = wasmtime::Module::compile(
+        engine,
+        wasmtime::Span<uint8_t>(wasm.data(), wasm.size())
+    );
+    // A module that does not compile fails when the runtime loads it.
+    if (!mod) return false;
+    for (const auto &import: mod.ok().imports())
+        if (import.module() == "ranges") return true;
+    return false;
 }
 
 /// @brief validates that the named param holds a string value.
