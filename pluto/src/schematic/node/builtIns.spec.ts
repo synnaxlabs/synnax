@@ -30,7 +30,7 @@ describe("Schematic.Node.BUILT_INS", () => {
     expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
   });
 
-  it("should give each symbol the states and commands that the Core lists", async () => {
+  it("should give each symbol the states and commands the Core lists", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
     for (const { name, states, commands } of builtins) {
       const spec = Node.BUILT_INS.get(name);
@@ -40,6 +40,26 @@ describe("Schematic.Node.BUILT_INS", () => {
         commands,
       });
     }
+  });
+
+  it("should give each part selectors that select a shape of its drawing", () => {
+    for (const [name, spec] of Node.BUILT_INS) {
+      const svg = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+      const selectors = spec.parts.flatMap((p) => p.selectors);
+      expect({
+        name,
+        missing: selectors.filter((s) => svg.querySelector(s) == null),
+      }).toEqual({ name, missing: [] });
+    }
+  });
+
+  it("should give each drawing with detail lines the detail part", () => {
+    for (const [name, spec] of Node.BUILT_INS)
+      if (spec.drawing.markup.includes("pluto--detail"))
+        expect({ name, parts: spec.parts.map((p) => p.key) }).toEqual({
+          name,
+          parts: expect.arrayContaining(["detail"]),
+        });
   });
 
   it("should give each symbol a spec that the Core accepts", async () => {
@@ -96,6 +116,8 @@ describe("Schematic.Node.BUILT_INS", () => {
         ],
       ],
       ["light", 1, [{ fill: GREEN }]],
+      ["switch", 1, []],
+      ["thruster", 1, []],
     ])(
       "should paint %s at %d as its old variant draws",
       async (name, value, paints) => {

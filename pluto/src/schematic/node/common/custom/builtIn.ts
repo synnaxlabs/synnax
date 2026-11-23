@@ -66,7 +66,7 @@ const ACTIVE_LOOKS = [STROKE_LOOK, createFillLook(1)];
 
 /**
  * DETAIL_LINES gives the `.pluto--detail` lines of a drawing the black or white that
- * reads on its fill while active.
+ * reads on its fill while active. It keeps the default stroke and fill looks.
  */
 export const DETAIL_LINES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
   parts: [{ key: "detail", name: "Detail", selectors: [".pluto--detail"] }],
@@ -141,7 +141,7 @@ export interface BuiltInParams
   /**
    * family gives the symbol its active state, and the commands and click of a family
    * that clicks. Looks default to a stroke of the whole drawing and a fill of it while
-   * active.
+   * active. Looks and interactions in the params replace those of the family.
    */
   family?: FamilyKey;
 }
