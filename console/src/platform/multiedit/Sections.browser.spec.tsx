@@ -65,9 +65,7 @@ describe("StalenessSection", () => {
   });
 
   it("should show the default timeout when no element has one", async () => {
-    await renderWithConsole(
-      <MultiEdit.StalenessSection onTimeoutChange={vi.fn()} />,
-    );
+    await renderWithConsole(<MultiEdit.StalenessSection onTimeoutChange={vi.fn()} />);
     expect(field().value).toBe("5s");
   });
 });
