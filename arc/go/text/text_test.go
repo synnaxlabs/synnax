@@ -531,29 +531,85 @@ var _ = Describe("Text", func() {
 			Entry("typed milliseconds from seconds", `d i64 ms := 5s`, 5*telem.Second),
 			Entry("typed nanoseconds", `d i64 ns := 5s`, 5*telem.Second),
 			Entry("negated", `d := -5s`, -5*telem.Second),
-			Entry("a rate in hertz", `d := 10hz`, 100*telem.Millisecond),
-			Entry("a rate in kilohertz", `d := 1khz`, telem.Millisecond),
-			Entry("a rate with a period that rounds",
-				`d := 60hz`, telem.TimeSpan(16666667)),
-			Entry("a typed rate", `d i64 khz := 2`, 500*telem.Microsecond),
 			Entry("a rate into a typed time span",
 				`d i64 ms := 10hz`, 100*telem.Millisecond),
 		)
 
-		DescribeTable("Should give an input the period of a literal rate",
-			func(ctx SpecContext, rate string, expected telem.TimeSpan) {
-				source := "count_ch -> wait(duration=" + rate + ") -> flag_ch"
+		DescribeTable("Should give the period of an interval the period of a rate",
+			func(ctx SpecContext, declaration, rate string, expected telem.TimeSpan) {
+				source := declaration + "\ncount_ch -> interval(period=" + rate +
+					") -> flag_ch"
 				inter, diagnostics := analyzeText(ctx, source)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				duration := MustBeOk(
-					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				period := MustBeOk(
+					findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
 				)
-				Expect(duration.Type).To(Equal(types.TimeSpan()))
-				Expect(duration.Value).To(Equal(expected))
+				Expect(period.Type).To(Equal(types.TimeSpan()))
+				Expect(period.Value).To(Equal(expected))
 			},
-			Entry("hertz", `10hz`, 100*telem.Millisecond),
-			Entry("kilohertz", `1khz`, telem.Millisecond),
-			Entry("a period that rounds", `60hz`, telem.TimeSpan(16666667)),
+			Entry("a literal in hertz", "", `10hz`, 100*telem.Millisecond),
+			Entry("a literal in kilohertz", "", `1khz`, telem.Millisecond),
+			Entry("a literal with a period that rounds",
+				"", `60hz`, telem.TimeSpan(16666667)),
+			Entry("a variable in hertz", `r := 10hz`, "r", 100*telem.Millisecond),
+			Entry("a variable in kilohertz", `r := 1khz`, "r", telem.Millisecond),
+			Entry("a variable with a period that rounds",
+				`r := 60hz`, "r", telem.TimeSpan(16666667)),
+			Entry("a typed variable", `r i64 khz := 2`, "r", 500*telem.Microsecond),
+		)
+
+		DescribeTable("Should reject a rate as an argument of another function",
+			func(ctx SpecContext, source, message string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a literal for a wait",
+				"count_ch -> wait(duration=10hz) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a variable for a wait",
+				"r := 10hz\ncount_ch -> wait(duration=r) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a reassigned variable for a wait",
+				"sequence main {\nr := 10hz\nstage s1 {\nr = 20hz\n"+
+					"count_ch -> wait(duration=r) -> flag_ch\n}\n}",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a calculation for a wait",
+				"count_ch -> wait(duration=25hz+25hz) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a literal for a function in a flow",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"count_ch -> hold(x=10hz) -> count_ch",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+			Entry("a variable for a function in a flow",
+				"r := 10hz\nfunc hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"count_ch -> hold(x=r) -> count_ch",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+			Entry("a literal for a function in a function",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"func f() i64 ns {\nreturn hold(10hz)\n}",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+		)
+
+		DescribeTable("Should take a rate that a cast converts as an argument",
+			func(ctx SpecContext, source string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("a literal for a wait",
+				"count_ch -> wait(duration=i64 ns(10hz)) -> flag_ch"),
+			Entry("a variable for a wait",
+				"r := 10hz\ncount_ch -> wait(duration=i64 ns(r)) -> flag_ch"),
+			Entry("a variable for a function in a function",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"func f(r i64 hz) i64 ns {\nreturn hold(i64 ns(r))\n}"),
 		)
 
 		DescribeTable(
@@ -709,9 +765,6 @@ var _ = Describe("Text", func() {
 				"func f(r i64 hz) i64 s {\nreturn r\n}", 0),
 			Entry("a rate with a period that rounds to 0 at the top level",
 				"d i64 s := 10hz", 1),
-			Entry("a rate with a period that rounds to 0 as an input",
-				"func hold(x i64 s) i64 s {\nreturn x\n}\n"+
-					"count_ch -> hold(x=10hz) -> count_ch", 1),
 			Entry("a smaller unit by a factor that is not whole",
 				"func f(x i64 psi) i64 Pa {\nreturn x\n}", 1),
 			Entry("a literal by a factor that is not whole",
@@ -1185,10 +1238,10 @@ var _ = Describe("Text", func() {
 					"count_ch -> hold(x=d) -> flag_ch",
 				"expected f64, got i64"),
 			Entry("a float rate for an integer time span",
-				"r := 0.5hz\ncount_ch -> wait(duration=r) -> flag_ch",
+				"r := 0.5hz\ncount_ch -> interval(period=r) -> flag_ch",
 				"expected i64, got f64"),
 			Entry("a literal float rate for an integer time span",
-				"count_ch -> wait(duration=0.5hz) -> flag_ch",
+				"count_ch -> interval(period=0.5hz) -> flag_ch",
 				"float is not compatible with i64 ns"),
 			Entry("a time span for a rate",
 				"d := 5s\nfunc pace(x i64 hz) i64 hz {\nreturn x\n}\n"+
@@ -1263,52 +1316,29 @@ var _ = Describe("Text", func() {
 			    r := 10hz
 			    stage s1 {
 			        r = 20hz
-			        count_ch -> wait(duration=r) -> flag_ch
+			        count_ch -> interval(period=r) -> flag_ch
 			    }
 			}`
 			inter, diagnostics := analyzeText(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			duration := MustBeOk(
-				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			period := MustBeOk(
+				findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
 			)
-			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
-			Expect(duration.Type.Unit.Name).To(Equal("ns"))
-			Expect(duration.Type.Elem.Unit.Name).To(Equal("hz"))
-			Expect(types.InputPeriod(duration.Type)).To(Equal(1e9))
-			Expect(duration.Value).To(Equal(100 * telem.Millisecond))
-		})
-
-		It("Should convert a reassigned rate on its way into a function", func(
-			ctx SpecContext,
-		) {
-			source := `
-			func hold(x i64 ns) i64 ns {
-			    return x
-			}
-			sequence main {
-			    r := 10hz
-			    stage s1 {
-			        r = 20hz
-			        count_ch -> hold(x=r) -> count_ch
-			    }
-			}`
-			inter, diagnostics := analyzeText(ctx, source)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			scale := findNodeByKey(inter.Nodes, "scale_0")
-			Expect(scale.Inputs[0].Type.Elem.Unit.Name).To(Equal("hz"))
-			x := MustBeOk(findNodeByKey(inter.Nodes, "hold_0").Inputs.Get("x"))
-			Expect(x.Type).To(Equal(types.VarRef(types.TimeSpan(), "scale_0")))
-			Expect(x.Value).To(Equal(100 * telem.Millisecond))
+			Expect(period.Type.Kind).To(Equal(types.KindVarRef))
+			Expect(period.Type.Unit.Name).To(Equal("ns"))
+			Expect(period.Type.Elem.Unit.Name).To(Equal("hz"))
+			Expect(types.InputPeriod(period.Type)).To(Equal(1e9))
+			Expect(period.Value).To(Equal(100 * telem.Millisecond))
 		})
 
 		It("Should give a computed rate the unit of the input", func(ctx SpecContext) {
-			source := `count_ch -> wait(duration=25hz+25hz) -> flag_ch`
+			source := `count_ch -> interval(period=25hz+25hz) -> flag_ch`
 			inter, diagnostics := analyzeText(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			duration := MustBeOk(
-				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			period := MustBeOk(
+				findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
 			)
-			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
+			arg := findNodeByKey(inter.Nodes, period.Type.Name)
 			Expect(arg.Type).To(HavePrefix("expression_"))
 			Expect(arg.Outputs[0].Type).To(Equal(types.TimeSpan()))
 		})

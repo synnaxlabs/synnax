@@ -5872,11 +5872,11 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				expectWaitOf20ms(ctx, h)
 			},
-			Entry("a literal", "", "50hz"),
-			Entry("a sum of rates", "", "25hz + 25hz"),
-			Entry("a variable", "r := 50hz", "r"),
-			Entry("a computed variable", "r := 25hz * 2", "r"),
+			Entry("a cast of a literal", "", "i64 ns(50hz)"),
+			Entry("a cast of a sum of rates", "", "i64 ns(25hz + 25hz)"),
+			Entry("a cast of a variable", "r := 50hz", "i64 ns(r)"),
 			Entry("a cast of a float rate", "r := 0.05khz", "i64 ns(r)"),
+			Entry("a variable that is a time span", "d i64 ns := 50hz", "d"),
 			Entry("the result of a function",
 				"func period(r i64 hz) i64 ns {\nreturn r\n}", "period(50hz)"),
 			Entry("a variable in a function",
@@ -9759,6 +9759,43 @@ var _ = Describe("Sequence", func() {
 			out, _ = h.Flush()
 			Expect(out.Get(349).Series).To(BeEmpty())
 		})
+
+		DescribeTable("fires an interval at the period of a rate",
+			func(ctx SpecContext, declarations, period string) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 353},
+					"tick_ch":   {types.U8(), 354},
+				})
+				h := newRuntimeHarness(ctx, declarations+`
+    sequence main {
+        stage s1 {
+            interval(period=`+period+`) -> tick_ch
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 353, DataType: telem.Uint8T},
+					channels.Digest{Key: 354, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+				// fired reports whether the interval fires in the cycle at elapsed.
+				fired := func(elapsed telem.TimeSpan) bool {
+					advance(h, ctx, elapsed)
+					out, _ := h.Flush()
+					return len(out.Get(354).Series) > 0
+				}
+				// The first fire is at 1 ms, and 50 hz is a 20 ms period.
+				trigger(h, ctx, 353)
+				_, _ = h.Flush()
+				Expect(fired(20 * telem.Millisecond)).To(BeFalse())
+				Expect(fired(21 * telem.Millisecond)).To(BeTrue())
+				Expect(fired(40 * telem.Millisecond)).To(BeFalse())
+				Expect(fired(41 * telem.Millisecond)).To(BeTrue())
+			},
+			Entry("a literal", "", "50hz"),
+			Entry("a sum of rates", "", "25hz + 25hz"),
+			Entry("a variable", "r := 50hz", "r"),
+			Entry("a computed variable", "r := 25hz * 2", "r"),
+		)
 
 		It("stops an interval while a rate from a channel is zero", func(
 			ctx SpecContext,

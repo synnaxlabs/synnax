@@ -662,7 +662,16 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 			),
 		)
 	default:
-		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
+		AnalyzeCall(
+			ctx,
+			funcName,
+			fnType,
+			args,
+			callee.AnalyzeArguments,
+			site,
+			"",
+			callee.ReciprocalInput,
+		)
 	}
 	if callerFn == nil {
 		return

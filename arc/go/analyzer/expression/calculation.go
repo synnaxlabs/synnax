@@ -41,6 +41,8 @@ type Write struct {
 	Declaration antlr.ParserRuleContext
 	// Lowered is set when lowering gives the truncation warning.
 	Lowered bool
+	// SameDimension is set when the target takes no value in the reciprocal unit.
+	SameDimension bool
 }
 
 // CheckUnits applies the unit rules to w. ok is false when it reports an error, and
@@ -50,7 +52,8 @@ func CheckUnits[T antlr.ParserRuleContext](
 	w Write,
 ) (converts, ok bool) {
 	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
-	if types.UnitsIncompatible(from, to) && !types.UnitsReciprocal(from, to) {
+	if types.UnitsIncompatible(from, to) &&
+		(w.SameDimension || !types.UnitsReciprocal(from, to)) {
 		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			w.AST,
 			"cannot write %s to %s (%s)",

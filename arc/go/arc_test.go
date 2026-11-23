@@ -1126,11 +1126,6 @@ var _ = DescribeTable(
 		"import time\n\ntime.interval(period=3GHz) -> out",
 		"period must be positive, got 0s",
 	),
-	Entry(
-		"zero wait rate",
-		"import time\n\ntime.wait(duration=0hz) -> out",
-		"duration must be positive, got 0s",
-	),
 )
 
 var _ = DescribeTable(
@@ -1158,10 +1153,54 @@ var _ = DescribeTable(
 	Entry("an interval via bare alias", `interval(period=10hz) -> out`),
 	Entry("an interval in kilohertz",
 		"import time\n\ntime.interval(period=1khz) -> out"),
-	Entry("a wait", "import time\n\ntime.wait(duration=10hz) -> out"),
-	Entry("a stable window", "import stable\n\nsensor -> stable.for(10hz) -> out"),
+	Entry("an interval from a cast of a channel",
+		"import time\n\ntime.interval(period=i64 hz(sensor)) -> out"),
+	Entry(
+		"a wait from a cast",
+		"import time\n\ntime.wait(duration=i64 ns(10hz)) -> out",
+	),
+	Entry("a wait from a variable that is a time span",
+		"import time\n\nd i64 ns := 10hz\ntime.wait(duration=d) -> out"),
+	Entry("a stable window from a cast",
+		"import stable\n\nsensor -> stable.for(i64 ns(10hz)) -> out"),
 	Entry("a variable in a function",
 		"func f() i64 ns {\nd i64 ns := 10hz\nreturn d\n}"),
+)
+
+var _ = DescribeTable(
+	"a rate as an argument of a function that is not an interval",
+	func(ctx SpecContext, source, message string) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		root.Parent.AddChild(
+			&symbol.Symbol{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			},
+			&symbol.Symbol{
+				Name: "out",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   2,
+			},
+		)
+		Expect(arc.CompileText(ctx, arc.Text{Raw: source}, root)).Error().
+			To(MatchError(ContainSubstring("incompatible dimensions: " + message)))
+	},
+	Entry("a wait", "import time\n\ntime.wait(duration=10hz) -> out",
+		"cannot write hz to parameter 'duration' of 'time.wait' (ns)"),
+	Entry("a wait via bare alias", `wait(10hz) -> out`,
+		"cannot write hz to parameter 'duration' of 'wait' (ns)"),
+	Entry("a stable window", "import stable\n\nsensor -> stable.for(10hz) -> out",
+		"cannot write hz to parameter 'duration' of 'stable.for' (ns)"),
+	Entry("a window average",
+		"import math\n\nsensor -> math.avg(duration=10hz) -> out",
+		"cannot write hz to parameter 'duration' of 'math.avg' (ns)"),
+	Entry("a function",
+		"func hold(t i64 ns) i64 ns {\nreturn t\n}\n"+
+			"func f() i64 ns {\nreturn hold(10hz)\n}",
+		"cannot write hz to parameter 't' of 'hold' (ns)"),
 )
 
 // Boolean expression pipelines: an expression that yields bool (comparison or

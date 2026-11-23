@@ -88,6 +88,7 @@ var (
 // wait, now) whose Deprecated fields point at the canonical members.
 func NewSymbols() []*symbol.Symbol {
 	interval := triggerSymbol(intervalSymbolName, periodInputParam, intervalDoc)
+	interval.ReciprocalInput = periodInputParam
 	wait := triggerSymbol(waitSymbolName, durationInputParam, waitDoc)
 	now := &symbol.Symbol{
 		Name: nowSymbolName,

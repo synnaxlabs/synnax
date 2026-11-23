@@ -1868,6 +1868,16 @@ var _ = Describe("Time", func() {
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.now"))
 		})
+		It("Should name period as the input of interval that takes a rate", func(
+			ctx SpecContext,
+		) {
+			Expect(timeM(ctx, "interval").ReciprocalInput).To(Equal("period"))
+			Expect(bare(ctx, "interval").ReciprocalInput).To(Equal("period"))
+		})
+		It("Should name no input of wait that takes a rate", func(ctx SpecContext) {
+			Expect(timeM(ctx, "wait").ReciprocalInput).To(BeEmpty())
+			Expect(bare(ctx, "wait").ReciprocalInput).To(BeEmpty())
+		})
 		It("Should mark bare interval as deprecated", func(ctx SpecContext) {
 			sym := bare(ctx, "interval")
 			Expect(sym.Deprecated).ToNot(BeNil())

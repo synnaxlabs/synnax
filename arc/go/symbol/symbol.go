@@ -226,6 +226,8 @@ type Symbol struct {
 	Exec ExecContext
 	// AnalyzeArguments runs optional symbol-specific argument validation.
 	AnalyzeArguments ArgumentsHook
+	// ReciprocalInput names the input that takes a value in the reciprocal unit.
+	ReciprocalInput string
 	// Trigger names the param an upstream wire binds to in flow context; the
 	// zero value (TriggerOnly) means pure activation.
 	Trigger TriggerBinding

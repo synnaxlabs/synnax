@@ -150,6 +150,35 @@ var _ = Describe("CheckUnits", func() {
 			"type mismatch: 'd' is a series in ns and cannot take a series in hz"),
 	)
 
+	It("Should reject a rate for a target of its own dimension only", func(
+		bCtx SpecContext,
+	) {
+		diag, converts, ok := check(bCtx, "x", expression.Write{
+			Source:        i64(unitHz),
+			Target:        i64(unitNS),
+			SameDimension: true,
+		})
+		Expect(ok).To(BeFalse())
+		Expect(converts).To(BeFalse())
+		Expect(diag.Errors()).To(HaveLen(1), diag.String())
+		Expect(diag.Errors()[0].Message).To(Equal(
+			"incompatible dimensions: cannot write hz to 'd' (ns)",
+		))
+	})
+
+	It("Should convert a time span for a target of its own dimension only", func(
+		bCtx SpecContext,
+	) {
+		diag, converts, ok := check(bCtx, "x", expression.Write{
+			Source:        i64(unitS),
+			Target:        i64(unitMS),
+			SameDimension: true,
+		})
+		Expect(ok).To(BeTrue())
+		Expect(converts).To(BeTrue())
+		Expect(*diag).To(BeEmpty())
+	})
+
 	It("Should leave the truncation warning to the lowering", func(bCtx SpecContext) {
 		diag, converts, ok := check(bCtx, "x", expression.Write{
 			Source:  i64(unitS),
