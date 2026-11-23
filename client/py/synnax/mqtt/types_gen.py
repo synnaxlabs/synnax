@@ -14,10 +14,10 @@ from __future__ import annotations
 from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, icd as icd_, task
-from x import payload, telem
+from x import telem
 
 SPARKPLUG_DATA_TYPE_INT8: Literal["int8"] = "int8"
 
@@ -82,48 +82,6 @@ class BaseReadEntry(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class ChannelField(BaseModel):
-    """Is the command channel value placed into the payload of a target.
-
-    Attributes:
-        pointer: Is the JSON Pointer where the channel value is placed in the payload.
-            An empty pointer sends the bare value as the entire payload, in which case
-            the target may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
-        channel: Is the Synnax command channel that triggers the publish.
-        name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
-    """
-
-    pointer: str = ""
-    json_type: payload.JSONType = "number"
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-
-class BaseWriteField(BaseModel):
-    """Carries the fields every write payload field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the target.
-        pointer: Is the JSON Pointer where the value is placed in the payload.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
 
     @_override
     def __hash__(self) -> int:
@@ -215,26 +173,34 @@ ReadEntry = Annotated[
 ]
 
 
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the payload."""
+class PlainWriteTarget(BaseWriteTarget):
+    """Publishes the JSON documents of one ICD message to one topic."""
 
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
-
-
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the payload."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
+    type: Literal["plain"] = "plain"
+    topic: str = ""
+    qos: QoS = "at_least_once"
+    retained: bool = False
+    icd: icd_.Key
+    message: icd_.WriteMessage
 
 
-# Is an additional payload field on a plain write target. The type field selects
-# whether the value is fixed or generated per publish.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
+class SparkplugWriteTarget(BaseWriteTarget):
+    """Sends a Sparkplug B command for one tag."""
+
+    type: Literal["sparkplug"] = "sparkplug"
+    group: str = ""
+    edge_node: str = ""
+    device: str = ""
+    tag: str = ""
+    tag_type: SparkplugDataType = "double"
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    name: str = ""
+
+
+# Is a single destination of an MQTT write task. The type field selects a plain
+# topic that publishes an ICD message or a Sparkplug B tag command.
+WriteTarget = Annotated[
+    PlainWriteTarget | SparkplugWriteTarget,
     Field(discriminator="type"),
 ]
 
@@ -278,38 +244,6 @@ class ReadConfig(task.PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class PlainWriteTarget(BaseWriteTarget):
-    """Publishes a JSON payload to one topic."""
-
-    type: Literal["plain"] = "plain"
-    topic: str = ""
-    qos: QoS = "at_least_once"
-    retained: bool = False
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
-    fields: list[WriteField] = Field(default_factory=list)
-
-
-class SparkplugWriteTarget(BaseWriteTarget):
-    """Sends a Sparkplug B command for one tag."""
-
-    type: Literal["sparkplug"] = "sparkplug"
-    group: str = ""
-    edge_node: str = ""
-    device: str = ""
-    tag: str = ""
-    tag_type: SparkplugDataType = "double"
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-
-
-# Is a single destination of an MQTT write task. The type field selects a plain
-# topic with a JSON payload or a Sparkplug B tag command.
-WriteTarget = Annotated[
-    PlainWriteTarget | SparkplugWriteTarget,
-    Field(discriminator="type"),
-]
 
 
 class WriteConfig(task.StartConfig):

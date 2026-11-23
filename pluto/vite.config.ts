@@ -132,6 +132,12 @@ export default defineConfig({
               { browser: "chromium", name: "chromium" },
               { browser: "webkit", name: "webkit" },
             ],
+            commands: {
+              emulateReducedMotion: async ({ page }, reduced: boolean) =>
+                page.emulateMedia({
+                  reducedMotion: reduced ? "reduce" : "no-preference",
+                }),
+            },
           },
         },
       },
