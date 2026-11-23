@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@/resource";
-import { type Lines } from "@/status/where.gen";
+import type { Lines } from "@/status/where.gen";
 
 /** The typed lines of a status Where. */
 export const LINES: Lines = {

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
-import { type Nav } from "@/components/nav";
+import type { Nav } from "@/components/nav";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { type Page, PAGES, POSTS } from "@/util/pages";
 import { normalizeRoute } from "@/util/route";
@@ -61,7 +61,7 @@ export const GET: APIRoute = ({ site }) => {
   const item = ({ page, group }: Entry): string => {
     const label = group == null ? page.title : `${group}: ${page.title}`;
     const link = `- [${label}](${new URL(`${page.route}.md`, site).href})`;
-    return page.description == null ? link : `${link}: ${page.description}`;
+    return `${link}: ${page.description}`;
   };
   const sections: Array<[string, Entry[]]> = [
     [

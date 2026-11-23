@@ -10,9 +10,9 @@ replace (
 require (
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
 	github.com/fasthttp/websocket v1.5.12
-	github.com/gofiber/contrib/v3/websocket v1.2.13
+	github.com/gofiber/contrib/v3/websocket v1.2.16
 	github.com/gofiber/fiber/v3 v3.7.0
-	github.com/gofiber/utils/v2 v2.6.4
+	github.com/gofiber/utils/v2 v2.6.5
 	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
@@ -35,12 +35,12 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/gofiber/schema v1.9.3 // indirect
+	github.com/gofiber/schema v1.10.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
+	github.com/google/pprof v0.0.0-20261118010117-084b33a85f63 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.34.0 // indirect
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -54,7 +54,7 @@ require (
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/uptrace/uptrace-go v1.47.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.78.0 // indirect
+	github.com/valyala/fasthttp v1.79.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -76,13 +76,13 @@ require (
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/mod v0.43.0 // indirect
-	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
-	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
+	golang.org/x/tools v0.53.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261118221215-c8830f628b3f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261118221215-c8830f628b3f // indirect
 	google.golang.org/grpc/examples v0.0.0-20250407062114-b368379ef8f6 // indirect
 )
 

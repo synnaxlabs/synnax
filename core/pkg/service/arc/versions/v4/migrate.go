@@ -95,13 +95,16 @@ func NewRootMigration(root uuid.UUID) gorp.Migration {
 
 // NameMigration names each stored Arc that has an empty name "Arc <key>", where <key>
 // is the first eight characters of its key.
-var NameMigration = migrate.NewEntry(
-	"v62_require_name",
-	func(_ context.Context, a Arc) (Arc, error) {
-		if b := a.Base(); b.Name == "" {
-			b.Name = "Arc " + b.Key.String()[:8]
-			a.SetBase(b)
-		}
-		return a, nil
-	},
-)
+var NameMigration = migrate.NewEntry("v62_require_name", requireName)
+
+// ApplyNameMigration names the Arcs that an edit emptied after NameMigration ran, the
+// same way NameMigration does.
+var ApplyNameMigration = migrate.NewEntry("v63_require_name", requireName)
+
+func requireName(_ context.Context, a Arc) (Arc, error) {
+	if b := a.Base(); b.Name == "" {
+		b.Name = "Arc " + b.Key.String()[:8]
+		a.SetBase(b)
+	}
+	return a, nil
+}

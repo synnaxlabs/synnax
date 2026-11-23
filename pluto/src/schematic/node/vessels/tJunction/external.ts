@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { TJunction } from "@/schematic/node/vessels/tJunction/Primitive";
 
 export const spec: Spec<"t_junction", schematic.TJunctionNodeConfig> = {

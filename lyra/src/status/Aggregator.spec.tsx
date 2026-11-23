@@ -9,7 +9,7 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";

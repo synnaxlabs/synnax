@@ -52,6 +52,7 @@ jobs:
         github.event.action == 'labeled' && github.event.label.name != inputs.label &&
         format('-{0}', github.run_id) || '' }}
       cancel-in-progress: true
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
