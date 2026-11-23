@@ -582,6 +582,36 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("blocks the save while a level motion has more than one shape", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<rect id="a" width="10" height="10"/>' +
+            '<rect id="b" x="10" width="10" height="10"/></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#a", "#b"] }],
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [
+          {
+            key: "level",
+            part: "body",
+            motion: { type: "level", state: "tank", side: "bottom" },
+          },
+        ],
+      });
+      expect(screen.getByText("Level motion needs one shape")).toBeDefined();
+      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("Spin"));
+      await waitFor(() =>
+        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
+      );
+      expect(screen.queryByText("Level motion needs one shape")).toBeNull();
+    });
+
     it("blocks the save while a level motion would replace a clip-path", async () => {
       const symbol = await openPainted({
         drawing: {

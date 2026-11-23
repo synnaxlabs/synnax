@@ -85,9 +85,9 @@ interface SaveButtonProps {
   onClick: () => void;
 }
 
-// SaveButton saves the symbol unless a level motion would replace a clip-path.
+// SaveButton saves the symbol unless the level motion of a part cannot draw.
 const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactElement => {
-  const blocked = Spec.levelClips(Form.useFieldValue(path.data)).length > 0;
+  const blocked = Spec.levelIssues(Form.useFieldValue(path.data)).size > 0;
   return (
     <Button.Button
       variant="filled"
@@ -96,7 +96,7 @@ const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactEleme
       disabled={blocked}
       tooltip={
         blocked
-          ? "A part has level motion on a shape with its own clip-path."
+          ? "A part has a level motion that cannot draw. Select the part to see why."
           : undefined
       }
       trigger={Triggers.SAVE}

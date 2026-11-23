@@ -247,6 +247,20 @@ export interface InspectorProps {
 }
 
 /** Inspector edits the looks of one part, or of the whole drawing. */
+const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
+  {
+    shapes: {
+      message: "Level motion needs one shape",
+      description:
+        "Level motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
+    },
+    clip: {
+      message: "Level motion replaces a clip-path",
+      description:
+        "A shape in this part has its own clip-path, which level motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+    },
+  };
+
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
   const drawing = Form.useFieldValue(path.data.drawing);
@@ -257,8 +271,10 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
     part == null
       ? undefined
       : Schematic.Node.Region.paint(drawing.markup, part.selectors);
-  const clipped =
-    part != null && Spec.levelClips({ drawing, parts, looks }).includes(part.key);
+  const issue =
+    part == null
+      ? undefined
+      : Spec.levelIssues({ drawing, parts, looks }).get(part.key);
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
@@ -289,13 +305,8 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
         <Property field="motion" label="Motion" icon={<Icon.Rotate />}>
           <MotionControl />
         </Property>
-        {clipped && (
-          <Status.Summary
-            level="small"
-            variant="error"
-            message="Level motion replaces a clip-path"
-            description="A shape in this part has its own clip-path, which level motion would replace. Remove the clip-path from the drawing or the motion from the part to save."
-          />
+        {issue != null && (
+          <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
         )}
       </Flex.Box>
     </InspectorContext>
