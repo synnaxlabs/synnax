@@ -259,25 +259,18 @@ func Write(
 	defer func() {
 		err = db.wrapError(errors.Combine(err, w.Close()))
 	}()
-	if _, err = w.Write(series); err != nil {
+	if _, _, err = w.write(series, 0, true, nil); err != nil {
 		return err
 	}
 	_, err = w.Commit(ctx)
 	return err
 }
 
-// Write validates and writes the given series, deriving its alignment from the
-// channel's own sample position within the current domain. This is only meaningful for
-// index channels, whose sample positions define the alignment space that every channel
-// they index is expressed in. Data channels must use WriteAt.
-func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
-	a, _, err := w.write(series, 0, true, nil)
-	return a, err
-}
-
-// WriteUnless writes series as Write does, unless skip returns true for the channel. It
-// calls skip first with no lock and skips at once on true, so a writer that skips takes
-// no claim lock. Otherwise it calls skip again under the claim's lock, so the decision
+// WriteUnless validates and writes series, unless skip returns true for the channel. It
+// derives the alignment from the channel's own sample position in the current domain,
+// so only an index channel uses it. Data channels use WriteAtUnless. It calls a non-nil
+// skip first with no lock and skips at once on true, so a writer that skips takes no
+// claim lock. Otherwise it calls skip again under the claim's lock, so the decision
 // holds for the write. It returns true when it skipped the series.
 func (w *Writer) WriteUnless(
 	series telem.Series,
@@ -286,20 +279,10 @@ func (w *Writer) WriteUnless(
 	return w.write(series, 0, true, skip)
 }
 
-// WriteAt validates and writes the given series, stamping it with a, an alignment
-// resolved in the sample space of this channel's index. Returns the alignment of the
-// first sample written.
-func (w *Writer) WriteAt(
-	series telem.Series,
-	a telem.Alignment,
-) (telem.Alignment, error) {
-	a, _, err := w.write(series, a, false, nil)
-	return a, err
-}
-
-// WriteAtUnless writes series as WriteAt does, unless skip returns true for the
-// channel. It calls skip as WriteUnless does. It returns true when it skipped the
-// series.
+// WriteAtUnless validates and writes series, unless skip returns true for the channel.
+// It stamps series with a, an alignment in the sample space of the channel's index. It
+// calls skip as WriteUnless does. It returns the alignment of the first sample written,
+// and true when it skipped the series.
 func (w *Writer) WriteAtUnless(
 	series telem.Series,
 	a telem.Alignment,
@@ -435,21 +418,11 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return ts, nil
 }
 
-// CommitWithEnd commits the written series with end as the end of the domain. When g is
-// not nil, readers see the commit only once g publishes.
-func (w *Writer) CommitWithEnd(
-	ctx context.Context,
-	end telem.TimeStamp,
-	g *domain.Group,
-) (err error) {
-	_, err = w.CommitWithEndUnless(ctx, end, g, nil)
-	return err
-}
-
-// CommitWithEndUnless commits as CommitWithEnd does, unless skip returns true for the
-// channel. It calls skip first with no lock and skips at once on true. Otherwise it
-// calls skip again under the claim's lock, so the decision holds for the commit. It
-// returns true when it skipped the commit.
+// CommitWithEndUnless commits the written series with end as the end of the domain,
+// unless skip returns true for the channel. When g is not nil, readers see the commit
+// only once g publishes. It calls a non-nil skip first with no lock and skips at once
+// on true. Otherwise it calls skip again under the claim's lock, so the decision holds
+// for the commit. It returns true when it skipped the commit.
 func (w *Writer) CommitWithEndUnless(
 	ctx context.Context,
 	end telem.TimeStamp,

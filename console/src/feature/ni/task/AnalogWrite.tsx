@@ -14,12 +14,10 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, errors, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
+import { Channel } from "@/feature/ni/task/channel";
 import { analogWriteHardwareZ } from "@/feature/ni/task/checks";
-import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import {
   ANALOG_OUTPUT,
@@ -54,7 +52,7 @@ const contextMenuItems = (props: Task.ContextMenuItemProps<AOChannel>) => {
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -65,7 +63,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = root.config.channels[itemKey];
   const item = PForm.useFieldValue(entry);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const skipped = Task.useSkipped(root.config.channels, itemKey, portOf, isCommanded);
   if (item == null) return null;
   const Icon = AO_CHANNEL_TYPE_ICONS[item.type];
@@ -101,7 +99,7 @@ const channelDetails = Component.renderProp(ChannelDetails);
 const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const skipped = Task.useSkipped(root.config.channels, value.key, portOf, isCommanded);
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
@@ -132,7 +130,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null || isGenerated(ch)) return null;
@@ -150,7 +148,9 @@ const Form: FC = () => {
             kind={ANALOG_OUTPUT}
             devices={[dev]}
             deviceOf={() => dev.key}
-            create={(channels, _, port) => createNextAOChannel(channels, { port }, dev)}
+            create={(channels, _, port) =>
+              Channel.createNextAO(channels, { port }, dev)
+            }
           />
         );
   return (
@@ -159,7 +159,7 @@ const Form: FC = () => {
       listItem={channelListItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
-      createChannel={(channels, copy) => createNextAOChannel(channels, { copy }, dev)}
+      createChannel={(channels, copy) => Channel.createNextAO(channels, { copy }, dev)}
       contextMenuItems={contextMenuItems}
       resolve={resolve}
       ports={ports}
@@ -173,7 +173,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
@@ -266,7 +266,8 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    if (modified)
+      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     if (isGenerated(c)) return c;

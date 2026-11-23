@@ -72,8 +72,7 @@ func (t Transfer[R]) Occurred() bool {
 	return t.From != nil || t.To != nil
 }
 
-// IsRelease returns true if the transfer is a release to an uncontrolled state.
-func (t Transfer[R]) IsRelease() bool {
+func (t Transfer[R]) isRelease() bool {
 	t.assertValid()
 	return t.Occurred() && t.To == nil
 }
@@ -99,7 +98,7 @@ func (t Transfer[R]) String() string {
 			t.To.Resource,
 		)
 	}
-	if t.IsRelease() {
+	if t.isRelease() {
 		return fmt.Sprintf(
 			"%s(%v) released %v",
 			t.From.Subject,

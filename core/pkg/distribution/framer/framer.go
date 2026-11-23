@@ -45,12 +45,6 @@ type (
 // ErrIteratorClosed is returned by Iterator.Error once the iterator is closed.
 var ErrIteratorClosed = iterator.ErrClosed
 
-// ErrChannelInUse is returned by Service.ClaimDelete when a writer holds a channel.
-var ErrChannelInUse = writer.ErrChannelInUse
-
-// ErrChannelDeleting is returned when a writer opens on a channel that a delete claims.
-var ErrChannelDeleting = writer.ErrChannelDeleting
-
 const (
 	IteratorAutoSpan = iterator.AutoSpan
 

@@ -233,12 +233,17 @@ func addCalculationSegments(
 	return routeInletsTo, routeOutletFrom
 }
 
+// Open opens an Iterator over the channels in cfg. The caller must close it. The
+// Iterator stops when ctx ends, so ctx must outlive every use of it.
 func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	stream, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(s.cfg.Instrumentation),
+	)
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)

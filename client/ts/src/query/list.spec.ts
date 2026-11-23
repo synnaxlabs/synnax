@@ -11,7 +11,7 @@ import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
 import { DEFAULT_DEBOUNCE, type SpaceHooks } from "@/query/query";
@@ -896,6 +896,21 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenLastCalledWith({ order: byName, limit: 2 }, undefined);
     });
 
+    it("should refetch a maintained window on a miss", async () => {
+      let miss = (): void => {};
+      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b")], {
+        onMissed: (callback) => {
+          miss = callback;
+          return () => {};
+        },
+      });
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      miss();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
     it("should size a new epoch's refetch of an unread window to its subscriber", async () => {
       let bump = (_: number): void => {};
       const { lists, fetch } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")], {
@@ -938,6 +953,20 @@ describe("Lists", () => {
       list.onChange(vi.fn());
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+      lists.close();
+    });
+
+    it("should not refetch a search after its last subscriber leaves", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")], {
+        teardownGrace: TimeSpan.minutes(1),
+      });
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      await list.retrieve();
+      table.set("2", rec("2", "ac"));
+      release();
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
       lists.close();
     });
 

@@ -444,7 +444,7 @@ they do not run on Windows.
 
 - Portal account login and the license that Desktop runs under. RFC 0062 defines both.
   The embedded Core refuses work until a license applies, and the license gate sits
-  outside the embedded Core guard in `app/window/Guard.tsx`.
+  outside the embedded Core guard in `app/window/guard/Guard.tsx`.
 - Access to the embedded Core from the Python client, an external Driver, or a browser.
 - A Linux build. The Console has no Linux bundle.
 - A move of data between Desktop and a standalone Core.

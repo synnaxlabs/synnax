@@ -17,12 +17,8 @@ import (
 )
 
 var (
-	// ErrChannelInUse is returned by Service.ClaimDelete when a writer holds one of the
-	// channels.
-	ErrChannelInUse = errors.New("channel in use")
-	// ErrChannelDeleting is returned when a writer opens on a channel that a delete
-	// claims.
-	ErrChannelDeleting = errors.New("channel is being deleted")
+	errChannelInUse    = errors.New("channel in use")
+	errChannelDeleting = errors.New("channel is being deleted")
 )
 
 // claims counts the open writers and the delete claims of each channel with storage.
@@ -46,7 +42,7 @@ func (c *claims) hold(keys channel.Keys) (release func(), err error) {
 	defer c.mu.Unlock()
 	for _, k := range keys {
 		if c.deleting[k] > 0 {
-			return nil, errors.Wrapf(ErrChannelDeleting, "channel %v", k)
+			return nil, errors.Wrapf(errChannelDeleting, "channel %v", k)
 		}
 	}
 	for _, k := range keys {
@@ -63,7 +59,7 @@ func (c *claims) claim(keys channel.Keys) (release func(), err error) {
 	for _, k := range keys {
 		if open := c.writers[k]; open > 0 {
 			return nil, errors.Wrapf(
-				ErrChannelInUse,
+				errChannelInUse,
 				"there are %d unclosed writers on channel %v",
 				open,
 				k,
