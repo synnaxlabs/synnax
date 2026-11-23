@@ -200,7 +200,8 @@ public:
     /// line holds an item for each position up to the last delimited field, with the
     /// prefix in the first items and an empty item where no field is. A tagged field
     /// comes after them as its tag and value. A value is the shortest decimal text that
-    /// reads back as the sample, at the precision of its channel when unscaled.
+    /// reads back as the sample after its scale and offset come off. A float32 sample
+    /// counts as its shortest decimal text, so it gains no float64 digits.
     /// @param samples holds one series for each binding, in binding order. Each holds
     /// the field's sample at index 0 and has the data type of its binding, or is empty
     /// for a field that takes its default.

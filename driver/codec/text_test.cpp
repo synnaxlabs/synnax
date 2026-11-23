@@ -457,8 +457,8 @@ TEST(TextEncoder, EncodeNumbers) {
     EXPECT_EQ(encode(m, series_of(x::telem::Series(1234567.0))), "1234567");
 }
 
-/// @brief it should remove the scale and offset from a sample, and write a scaled
-/// float32 sample at float64 precision so that the scale keeps its digits.
+/// @brief it should remove the scale and offset from a sample, and scale a float32
+/// sample from its shortest decimal text at float64 precision.
 TEST(TextEncoder, EncodeScaled) {
     auto f = at("a", 0);
     f.scale = 0.5;
@@ -467,6 +467,16 @@ TEST(TextEncoder, EncodeScaled) {
     const auto line = encode(m, series_of(x::telem::Series(20.0)));
     EXPECT_EQ(line, "20");
     assert_decodes(m, line, {20});
+    auto doubled = f;
+    doubled.scale = 2;
+    doubled.offset = 0;
+    EXPECT_EQ(
+        encode(
+            message("cmd", {doubled}, "", x::telem::FLOAT32_T),
+            series_of(x::telem::Series(2.2F))
+        ),
+        "1.1"
+    );
     auto shifted = f;
     shifted.scale = 1;
     shifted.offset = -1e6;
@@ -500,6 +510,11 @@ TEST(TextEncoder, RejectInvalidValues) {
         m,
         series_of(x::telem::Series(std::numeric_limits<double>::quiet_NaN())),
         "field a: NaN is not finite"
+    );
+    assert_rejects_samples(
+        message("cmd", {at("a", 0)}, "", x::telem::FLOAT32_T),
+        series_of(x::telem::Series(std::numeric_limits<float>::infinity())),
+        "field a: Infinity is not finite"
     );
 }
 

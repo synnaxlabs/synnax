@@ -54,6 +54,15 @@ x::errors::Error check_tag(const std::string &tag, const std::string_view delimi
     return x::errors::NIL;
 }
 
+/// @brief returns the double of the shortest decimal text of v, so that a float32
+/// sample gains no float64 digits. A value that is not finite stays as it is.
+double widen(const float v) {
+    if (!std::isfinite(v)) return v;
+    std::array<char, 32> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
+    return x::json::parse_float64({buf.data(), res.ptr}).first;
+}
+
 /// @brief appends the shortest decimal text that reads back as v to out.
 template<typename T>
 void append_number(const T v, std::string &out) {
@@ -276,17 +285,15 @@ TextEncoder::Field::append(const x::telem::SampleValue &v, std::string &out) con
         append_number(x::telem::cast<std::uint64_t>(v), out);
         return x::errors::NIL;
     }
-    auto d = x::telem::cast<double>(v);
+    auto d = this->number == Number::FLOAT32 ? widen(x::telem::cast<float>(v))
+                                             : x::telem::cast<double>(v);
     if (this->scaled) d = (d - this->offset) / this->scale;
     if (!std::isfinite(d))
         return x::errors::Error(
             x::errors::VALIDATION,
             x::json::Number(d).to_string() + " is not finite"
         );
-    if (this->number == Number::FLOAT32 && !this->scaled)
-        append_number(static_cast<float>(d), out);
-    else
-        append_number(d, out);
+    append_number(d, out);
     return x::errors::NIL;
 }
 
