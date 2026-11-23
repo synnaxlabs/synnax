@@ -181,7 +181,7 @@ var _ = Describe("Channel", func() {
 				IsIndex:     true,
 				DataType:    telem.Float32T,
 				Index:       cesium.ChannelKey(3),
-				Concurrency: cesium.ConcurrencyShared,
+				Concurrency: cesium.Concurrency(control.ConcurrencyShared),
 			}}))
 		})
 		It("Should leave out a virtual channel", func() {
