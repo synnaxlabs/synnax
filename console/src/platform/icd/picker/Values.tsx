@@ -31,6 +31,9 @@ export interface Lock {
 /** The lock of a value that the task reads already. */
 export const TAKEN: Lock = { checked: true, label: "In task" };
 
+/** The lock of the timestamp that indexes the picked values. */
+export const INDEX: Lock = { checked: true, label: "Index" };
+
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
   key: string;
