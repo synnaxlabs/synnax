@@ -74,7 +74,7 @@ func updateBinary(
 
 func canMessage(name string, id uint32, fields ...icd.BinaryField) icd.Message {
 	return updateBinary(binaryMessage(name, fields...), func(p *icd.BinaryPayload) {
-		p.Identifier = &icd.Identifier{Variant: icd.CanIdentifier{ID: id}}
+		p.Identifier = &icd.Identifier{Variant: icd.CANIdentifier{ID: id}}
 		p.Length = new(uint16(8))
 	})
 }

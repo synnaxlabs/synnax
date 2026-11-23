@@ -604,9 +604,9 @@ func (f dbcFile) attr(name dbc.Identifier, id dbc.MessageID) (attrValue, bool) {
 }
 
 // identifier returns the CAN identifier of the message.
-func (f dbcFile) identifier(m *dbc.MessageDef) CanIdentifier {
+func (f dbcFile) identifier(m *dbc.MessageDef) CANIdentifier {
 	format := f.frameFormat(m.MessageID)
-	id := CanIdentifier{
+	id := CANIdentifier{
 		ID:       m.MessageID.ToCAN(),
 		Extended: m.MessageID.IsExtended(),
 		Fd: strings.HasSuffix(format, formatFDSuffix) || m.Size > maxCANLength ||

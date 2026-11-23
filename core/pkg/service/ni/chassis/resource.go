@@ -30,7 +30,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Chassis] {
 
 // ResourceID returns the resource ID of the chassis under key.
 func ResourceID(key Key) resource.ID {
-	return resource.ID{Type: resource.TypeNiChassis, Key: key.String()}
+	return resource.ID{Type: resource.TypeNIChassis, Key: key.String()}
 }
 
 // KeyFromResourceID parses the key of a chassis resource ID. A malformed key is a

@@ -268,7 +268,7 @@ var _ = Describe("Write task", func() {
 					jsonField("priority", "/priority", icd.IntegerJSONField{
 						Default: new(payload.Integer(3)),
 					}),
-					jsonField("id", "/id", icd.UuidJSONField{
+					jsonField("id", "/id", icd.UUIDJSONField{
 						Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
 					}),
 				)))

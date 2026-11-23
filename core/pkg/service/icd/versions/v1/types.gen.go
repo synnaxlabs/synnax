@@ -54,14 +54,14 @@ type IdentifierVariant = v0.IdentifierVariant
 type IdentifierType = v0.IdentifierType
 
 const (
-	// CanIdentifierType matches a CAN frame by arbitration identifier.
-	CanIdentifierType IdentifierType = v0.CanIdentifierType
+	// CANIdentifierType matches a CAN frame by arbitration identifier.
+	CANIdentifierType IdentifierType = v0.CANIdentifierType
 	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = v0.FieldIdentifierType
 )
 
-// CanIdentifier matches a CAN frame by arbitration identifier.
-type CanIdentifier = v0.CanIdentifier
+// CANIdentifier matches a CAN frame by arbitration identifier.
+type CANIdentifier = v0.CANIdentifier
 
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
 type FieldIdentifier = v0.FieldIdentifier
@@ -973,24 +973,24 @@ func (j JSONJSONField) Validate() error {
 	return v.Error()
 }
 
-// UuidJSONField is a UUID held in a JSON string.
-type UuidJSONField struct {
+// UUIDJSONField is a UUID held in a JSON string.
+type UUIDJSONField struct {
 	JSONBaseField
 	// Default is the value when a read finds none or no channel is bound.
 	Default *UUIDDefault `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
-func (UuidJSONField) isJSONFieldVariant() {}
+func (UUIDJSONField) isJSONFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (u *UuidJSONField) SetDefaults() {
+func (u *UUIDJSONField) SetDefaults() {
 	u.JSONBaseField.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (u UuidJSONField) Validate() error {
-	v := validate.New("UuidJSONField")
+func (u UUIDJSONField) Validate() error {
+	v := validate.New("UUIDJSONField")
 	v.Exec(u.JSONBaseField.Validate)
 	if u.Default != nil {
 		v.Exec(func() error { return validate.PathedError(u.Default.Validate(), "default") })
@@ -1067,11 +1067,11 @@ func (u JSONField) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type payload.Kind `json:"type"`
 			JSONJSONField
 		}{Type: payload.KindJSON, JSONJSONField: v})
-	case UuidJSONField:
+	case UUIDJSONField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
-			UuidJSONField
-		}{Type: payload.KindUUID, UuidJSONField: v})
+			UUIDJSONField
+		}{Type: payload.KindUUID, UUIDJSONField: v})
 	case BytesJSONField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
@@ -1175,13 +1175,13 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case payload.KindUUID:
 		var v struct {
 			Type payload.Kind `json:"type"`
-			UuidJSONField
+			UUIDJSONField
 		}
-		v.UuidJSONField.SetDefaults()
+		v.UUIDJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.UuidJSONField
+		u.Variant = v.UUIDJSONField
 	case payload.KindBytes:
 		var v struct {
 			Type payload.Kind `json:"type"`
@@ -1219,7 +1219,7 @@ func (u JSONField) Type() payload.Kind {
 		return payload.KindTimestamp
 	case JSONJSONField:
 		return payload.KindJSON
-	case UuidJSONField:
+	case UUIDJSONField:
 		return payload.KindUUID
 	case BytesJSONField:
 		return payload.KindBytes
@@ -1247,7 +1247,7 @@ func (u JSONField) Validate() error {
 		v.Exec(variant.Validate)
 	case JSONJSONField:
 		v.Exec(variant.Validate)
-	case UuidJSONField:
+	case UUIDJSONField:
 		v.Exec(variant.Validate)
 	case BytesJSONField:
 		v.Exec(variant.Validate)
@@ -1272,7 +1272,7 @@ func (u JSONField) Base() JSONBaseField {
 		return variant.JSONBaseField
 	case JSONJSONField:
 		return variant.JSONBaseField
-	case UuidJSONField:
+	case UUIDJSONField:
 		return variant.JSONBaseField
 	case BytesJSONField:
 		return variant.JSONBaseField
@@ -1304,7 +1304,7 @@ func (u *JSONField) SetBase(base JSONBaseField) {
 	case JSONJSONField:
 		variant.JSONBaseField = base
 		u.Variant = variant
-	case UuidJSONField:
+	case UUIDJSONField:
 		variant.JSONBaseField = base
 		u.Variant = variant
 	case BytesJSONField:
@@ -2283,13 +2283,13 @@ type JSONWriteValue struct {
 
 func (JSONWriteValue) isWriteValueVariant() {}
 
-// UuidWriteValue is a fixed UUID.
-type UuidWriteValue struct {
+// UUIDWriteValue is a fixed UUID.
+type UUIDWriteValue struct {
 	// Value is the UUID.
 	Value uuid.UUID `json:"value" msgpack:"value"`
 }
 
-func (UuidWriteValue) isWriteValueVariant() {}
+func (UUIDWriteValue) isWriteValueVariant() {}
 
 // BytesWriteValue is fixed bytes.
 type BytesWriteValue struct {
@@ -2345,11 +2345,11 @@ func (u WriteValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type payload.Kind `json:"type"`
 			JSONWriteValue
 		}{Type: payload.KindJSON, JSONWriteValue: v})
-	case UuidWriteValue:
+	case UUIDWriteValue:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
-			UuidWriteValue
-		}{Type: payload.KindUUID, UuidWriteValue: v})
+			UUIDWriteValue
+		}{Type: payload.KindUUID, UUIDWriteValue: v})
 	case BytesWriteValue:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
@@ -2446,12 +2446,12 @@ func (u *WriteValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case payload.KindUUID:
 		var v struct {
 			Type payload.Kind `json:"type"`
-			UuidWriteValue
+			UUIDWriteValue
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.UuidWriteValue
+		u.Variant = v.UUIDWriteValue
 	case payload.KindBytes:
 		var v struct {
 			Type payload.Kind `json:"type"`
@@ -2488,7 +2488,7 @@ func (u WriteValue) Type() payload.Kind {
 		return payload.KindTimestamp
 	case JSONWriteValue:
 		return payload.KindJSON
-	case UuidWriteValue:
+	case UUIDWriteValue:
 		return payload.KindUUID
 	case BytesWriteValue:
 		return payload.KindBytes

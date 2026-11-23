@@ -299,7 +299,7 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 			return jsonVariant{}, err
 		}
 		return out, nil
-	case icd.UuidJSONField:
+	case icd.UUIDJSONField:
 		if err = f.readUUIDDefault(v.Default); err != nil {
 			return jsonVariant{}, err
 		}

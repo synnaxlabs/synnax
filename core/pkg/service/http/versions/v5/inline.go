@@ -300,7 +300,7 @@ func fillField(field icdv1.JSONField) xjson.Field {
 		return xjson.Field{DataType: telem.TimestampT, TimeFormat: v.TimeFormat}
 	case icdv1.JSONJSONField:
 		return xjson.Field{DataType: telem.JSONT}
-	case icdv1.UuidJSONField:
+	case icdv1.UUIDJSONField:
 		return xjson.Field{DataType: telem.UUIDT}
 	case icdv1.BytesJSONField:
 		return xjson.Field{DataType: telem.BytesT}
@@ -338,7 +338,7 @@ func withDefault(field icdv1.JSONField, sample []byte) icdv1.JSONFieldVariant {
 	case icdv1.JSONJSONField:
 		v.Default = new(string(variable(sample)))
 		return v
-	case icdv1.UuidJSONField:
+	case icdv1.UUIDJSONField:
 		v.Default = &icdv1.UUIDDefault{
 			Variant: icdv1.ConstantUUIDDefault{Value: uuid.UUID(sample)},
 		}

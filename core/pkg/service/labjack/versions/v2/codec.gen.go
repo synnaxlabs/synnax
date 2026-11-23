@@ -125,9 +125,9 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.ThermocoupleType))
 		w.Int32(int32(v.NegChan))
-		w.String(v.CjcSource)
-		w.Float64(float64(v.CjcSlope))
-		w.Float64(float64(v.CjcOffset))
+		w.String(v.CJCSource)
+		w.Float64(float64(v.CJCSlope))
+		w.Float64(float64(v.CJCOffset))
 		w.String(string(v.Units))
 		if err := v.Scale.EncodeOrc(w); err != nil {
 			return err
@@ -181,13 +181,13 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		if v.NegChan, err = r.Int32(); err != nil {
 			return err
 		}
-		if v.CjcSource, err = r.String(); err != nil {
+		if v.CJCSource, err = r.String(); err != nil {
 			return err
 		}
-		if v.CjcSlope, err = r.Float64(); err != nil {
+		if v.CJCSlope, err = r.Float64(); err != nil {
 			return err
 		}
-		if v.CjcOffset, err = r.Float64(); err != nil {
+		if v.CJCOffset, err = r.Float64(); err != nil {
 			return err
 		}
 		{

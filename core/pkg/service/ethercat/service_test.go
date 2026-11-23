@@ -174,11 +174,11 @@ var _ = Describe("Service", func() {
 			read.Channels = []v1.ReadChannel{
 				{Variant: v1.AutomaticReadChannel{
 					BaseReadChannel: v1.BaseReadChannel{Key: "a", Device: "slave"},
-					Pdo:             "Value",
+					PDO:             "Value",
 				}},
 				{Variant: v1.AutomaticReadChannel{
 					BaseReadChannel: v1.BaseReadChannel{Key: "b", Device: "el1008"},
-					Pdo:             "Input",
+					PDO:             "Input",
 				}},
 			}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, read)).
@@ -187,7 +187,7 @@ var _ = Describe("Service", func() {
 			write.Key = uuid.New()
 			write.Channels = []v1.WriteChannel{{Variant: v1.AutomaticWriteChannel{
 				BaseWriteChannel: v1.BaseWriteChannel{Key: "c", Device: "slave"},
-				Pdo:              "Output",
+				PDO:              "Output",
 			}}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, write)).
 				To(Succeed())
@@ -286,7 +286,7 @@ var _ = Describe("Service", func() {
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
 				BaseReadChannel: v1.BaseReadChannel{Key: "a", Device: "python"},
-				Pdo:             "Value",
+				PDO:             "Value",
 			}}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, read)).
 				To(Succeed())

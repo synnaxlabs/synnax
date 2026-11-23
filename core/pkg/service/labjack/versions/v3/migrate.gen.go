@@ -57,9 +57,9 @@ func autoMigrateReadChannel(_ context.Context, old v2.ReadChannel) (ReadChannel,
 		return ReadChannel{Variant: ThermocoupleReadChannel{
 			BaseReadChannel:  variant.BaseReadChannel,
 			ThermocoupleType: variant.ThermocoupleType,
-			CjcSource:        variant.CjcSource,
-			CjcSlope:         variant.CjcSlope,
-			CjcOffset:        variant.CjcOffset,
+			CJCSource:        variant.CJCSource,
+			CJCSlope:         variant.CJCSlope,
+			CJCOffset:        variant.CJCOffset,
 			Units:            variant.Units,
 			Scale:            variant.Scale,
 		}}, nil

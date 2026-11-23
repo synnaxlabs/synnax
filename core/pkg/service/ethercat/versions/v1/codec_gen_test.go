@@ -129,7 +129,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("automatic variant", v1.ReadChannel{Variant: v1.AutomaticReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Pdo:             "test_1",
+				PDO:             "test_1",
 			}}),
 			Entry("manual variant", v1.ReadChannel{Variant: v1.ManualReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
@@ -157,7 +157,7 @@ var _ = Describe("Codec", func() {
 				Channels: []v1.ReadChannel{
 					{Variant: v1.AutomaticReadChannel{
 						BaseReadChannel: fullyPopulatedBaseReadChannel,
-						Pdo:             "test_7",
+						PDO:             "test_7",
 					}},
 				},
 			}),
@@ -215,7 +215,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("automatic variant", v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Pdo:              "test_1",
+				PDO:              "test_1",
 			}}),
 			Entry("manual variant", v1.WriteChannel{Variant: v1.ManualWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
@@ -243,7 +243,7 @@ var _ = Describe("Codec", func() {
 				Channels: []v1.WriteChannel{
 					{Variant: v1.AutomaticWriteChannel{
 						BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-						Pdo:              "test_7",
+						PDO:              "test_7",
 					}},
 				},
 			}),
@@ -321,7 +321,7 @@ func BenchmarkEncodeDecodePDOAddress(b *testing.B) {
 func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 	seed := v1.ReadChannel{Variant: v1.AutomaticReadChannel{
 		BaseReadChannel: fullyPopulatedBaseReadChannel,
-		Pdo:             "test_1",
+		PDO:             "test_1",
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -348,7 +348,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Channels: []v1.ReadChannel{
 			{Variant: v1.AutomaticReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Pdo:             "test_7",
+				PDO:             "test_7",
 			}},
 		},
 	}
@@ -391,7 +391,7 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
 	seed := v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
 		BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-		Pdo:              "test_1",
+		PDO:              "test_1",
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -418,7 +418,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		Channels: []v1.WriteChannel{
 			{Variant: v1.AutomaticWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Pdo:              "test_7",
+				PDO:              "test_7",
 			}},
 		},
 	}
@@ -578,7 +578,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v1.ReadChannel{Variant: v1.AutomaticReadChannel{
 			BaseReadChannel: fullyPopulatedBaseReadChannel,
-			Pdo:             "test_1",
+			PDO:             "test_1",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -630,7 +630,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Channels: []v1.ReadChannel{
 				{Variant: v1.AutomaticReadChannel{
 					BaseReadChannel: fullyPopulatedBaseReadChannel,
-					Pdo:             "test_7",
+					PDO:             "test_7",
 				}},
 			},
 		}
@@ -743,7 +743,7 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 	{
 		seed := v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
 			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-			Pdo:              "test_1",
+			PDO:              "test_1",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -795,7 +795,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			Channels: []v1.WriteChannel{
 				{Variant: v1.AutomaticWriteChannel{
 					BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-					Pdo:              "test_7",
+					PDO:              "test_7",
 				}},
 			},
 		}

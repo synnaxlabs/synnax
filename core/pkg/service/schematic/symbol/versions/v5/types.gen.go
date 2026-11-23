@@ -38,26 +38,26 @@ type Handle = v4.Handle
 // DrawingType is the "type" value that selects a variant of Drawing.
 type DrawingType string
 
-// SvgDrawingType is a drawing stored as SVG markup.
-const SvgDrawingType DrawingType = "svg"
+// SVGDrawingType is a drawing stored as SVG markup.
+const SVGDrawingType DrawingType = "svg"
 
 // DrawingVariant is implemented by every Drawing variant.
 type DrawingVariant interface {
 	isDrawingVariant()
 }
 
-// SvgDrawing is a drawing stored as SVG markup.
-type SvgDrawing struct {
+// SVGDrawing is a drawing stored as SVG markup.
+type SVGDrawing struct {
 	// Markup is the SVG markup of the drawing.
 	Markup string `json:"markup" msgpack:"markup"`
 }
 
-func (SvgDrawing) isDrawingVariant() {}
+func (SVGDrawing) isDrawingVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (s SvgDrawing) Validate() error {
-	v := validate.New("SvgDrawing")
+func (s SVGDrawing) Validate() error {
+	v := validate.New("SVGDrawing")
 	v.NotEmptyString("markup", s.Markup)
 	return v.Error()
 }
@@ -72,11 +72,11 @@ func (u Drawing) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case SvgDrawing:
+	case SVGDrawing:
 		return json.MarshalEncode(enc, struct {
 			Type DrawingType `json:"type"`
-			SvgDrawing
-		}{Type: SvgDrawingType, SvgDrawing: v})
+			SVGDrawing
+		}{Type: SVGDrawingType, SVGDrawing: v})
 	default:
 		return errors.Newf("Drawing: unknown variant %T", v)
 	}
@@ -102,15 +102,15 @@ func (u *Drawing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case SvgDrawingType:
+	case SVGDrawingType:
 		var v struct {
 			Type DrawingType `json:"type"`
-			SvgDrawing
+			SVGDrawing
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.SvgDrawing
+		u.Variant = v.SVGDrawing
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -124,8 +124,8 @@ func (u *Drawing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u Drawing) Type() DrawingType {
 	switch u.Variant.(type) {
-	case SvgDrawing:
-		return SvgDrawingType
+	case SVGDrawing:
+		return SVGDrawingType
 	}
 	return ""
 }
@@ -136,7 +136,7 @@ func (u Drawing) Validate() error {
 	v := validate.New("Drawing")
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
-	case SvgDrawing:
+	case SVGDrawing:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()

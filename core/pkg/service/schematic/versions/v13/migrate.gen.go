@@ -123,20 +123,20 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: HeaterElementNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
-	case v12.IsoCapNodeConfig:
+	case v12.ISOCapNodeConfig:
 		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
 		if err != nil {
 			return NodeConfig{}, err
 		}
-		return NodeConfig{Variant: IsoCapNodeConfig{
+		return NodeConfig{Variant: ISOCapNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
-	case v12.IsoFilterNodeConfig:
+	case v12.ISOFilterNodeConfig:
 		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
 		if err != nil {
 			return NodeConfig{}, err
 		}
-		return NodeConfig{Variant: IsoFilterNodeConfig{
+		return NodeConfig{Variant: ISOFilterNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
 	case v12.NozzleNodeConfig:
@@ -965,12 +965,12 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: FlameArrestorFireResDetonationNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
-	case v12.IsoBurstDiscNodeConfig:
+	case v12.ISOBurstDiscNodeConfig:
 		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
 		if err != nil {
 			return NodeConfig{}, err
 		}
-		return NodeConfig{Variant: IsoBurstDiscNodeConfig{
+		return NodeConfig{Variant: ISOBurstDiscNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
 	case v12.AngledValveNodeConfig:
@@ -1077,12 +1077,12 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: GateValveNodeConfig{
 			ToggleSymbolConfig: toggleSymbolConfig,
 		}}, nil
-	case v12.IsoCheckValveNodeConfig:
+	case v12.ISOCheckValveNodeConfig:
 		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
 		if err != nil {
 			return NodeConfig{}, err
 		}
-		return NodeConfig{Variant: IsoCheckValveNodeConfig{
+		return NodeConfig{Variant: ISOCheckValveNodeConfig{
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
 	case v12.ManualValveNodeConfig:

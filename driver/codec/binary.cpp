@@ -408,7 +408,7 @@ x::errors::Error Binary::route(
         return x::errors::NIL;
     }
     const auto &identifier = *m.payload.identifier;
-    if (const auto *can = std::get_if<icd::CanIdentifier>(&identifier))
+    if (const auto *can = std::get_if<icd::CANIdentifier>(&identifier))
         return this->route_can(*can, i);
     const auto &id = std::get<icd::FieldIdentifier>(identifier);
     auto [bits, err] = identifier_bits(
@@ -438,7 +438,7 @@ x::errors::Error Binary::route(
     return x::errors::NIL;
 }
 
-x::errors::Error Binary::route_can(const icd::CanIdentifier &id, const std::size_t i) {
+x::errors::Error Binary::route_can(const icd::CANIdentifier &id, const std::size_t i) {
     const std::uint32_t width = id.extended ? MAX_EXTENDED_CAN_ID : MAX_STANDARD_CAN_ID;
     const auto &name = this->messages[i].name;
     if (id.id > width)

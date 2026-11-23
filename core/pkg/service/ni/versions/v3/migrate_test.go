@@ -281,7 +281,7 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 				Channels: []v2.AIChannel{
 					{Variant: v2.AIThermocoupleChannel{
 						BaseAIChannel: v2.BaseAIChannel{Key: "tc", Port: 1},
-						Cjc:           v2.CJC{Variant: v2.ChanCJC{Port: -1}},
+						CJC:           v2.CJC{Variant: v2.ChanCJC{Port: -1}},
 					}},
 					{Variant: v2.AIVoltageChannel{
 						BaseAIChannel: v2.BaseAIChannel{Key: "v", Port: 2},
@@ -292,7 +292,7 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Port).To(Equal(uint32(1)))
-			Expect(tc.Cjc.Variant).To(Equal(v3.ChanCJC{Port: 0}))
+			Expect(tc.CJC.Variant).To(Equal(v3.ChanCJC{Port: 0}))
 			v, ok := got.Channels[1].Variant.(v3.AIVoltageChannel)
 			Expect(ok).To(BeTrue())
 			Expect(v.Disabled).To(BeFalse())
@@ -423,7 +423,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			Key: uuid.New(),
 			Channels: []v2.AIChannel{{Variant: v2.AIThermocoupleChannel{
 				BaseAIChannel: v2.BaseAIChannel{Key: "tc", Port: 1},
-				Cjc:           v2.CJC{Variant: v2.ChanCJC{Port: -1}},
+				CJC:           v2.CJC{Variant: v2.ChanCJC{Port: -1}},
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
@@ -449,7 +449,7 @@ var _ = Describe("AnalogReadMigration", func() {
 		for i, e := range logged {
 			fields[i] = e.ContextMap()["field"]
 		}
-		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
+		Expect(fields).To(ConsistOf("CJC.Port", "Disabled"))
 	})
 
 	It("Should log a clamped port and skip a built-in temperature channel",
@@ -544,7 +544,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			"AIThermocoupleChannel",
 			v2.AIThermocoupleChannel{
 				BaseAIChannel: base,
-				Cjc:           v2.CJC{Variant: v2.BuiltInCJC{}},
+				CJC:           v2.CJC{Variant: v2.BuiltInCJC{}},
 			},
 		),
 		Entry(
@@ -596,8 +596,8 @@ var _ = Describe("AnalogReadMigration", func() {
 				CustomScale:   noScale,
 			},
 		),
-		Entry("AIThermistorIexChannel", v2.AIThermistorIexChannel{BaseAIChannel: base}),
-		Entry("AIThermistorVexChannel", v2.AIThermistorVexChannel{BaseAIChannel: base}),
+		Entry("AIThermistorIExChannel", v2.AIThermistorIExChannel{BaseAIChannel: base}),
+		Entry("AIThermistorVExChannel", v2.AIThermistorVExChannel{BaseAIChannel: base}),
 		Entry(
 			"AITorqueBridgePolynomialChannel",
 			v2.AITorqueBridgePolynomialChannel{

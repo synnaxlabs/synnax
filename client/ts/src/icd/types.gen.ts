@@ -194,13 +194,13 @@ export const jsonWriteValueZ = z.object({
 });
 export interface JSONWriteValue extends z.infer<typeof jsonWriteValueZ> {}
 
-/** UuidWriteValue is a fixed UUID. */
+/** UUIDWriteValue is a fixed UUID. */
 export const uuidWriteValueZ = z.object({
   type: z.literal("uuid"),
   /** value is the UUID. */
   value: z.uuid(),
 });
-export interface UuidWriteValue extends z.infer<typeof uuidWriteValueZ> {}
+export interface UUIDWriteValue extends z.infer<typeof uuidWriteValueZ> {}
 
 /** BytesWriteValue is fixed bytes. */
 export const bytesWriteValueZ = z.object({
@@ -233,7 +233,7 @@ export type WriteValue =
   | BooleanWriteValue
   | TimestampWriteValue
   | JSONWriteValue
-  | UuidWriteValue
+  | UUIDWriteValue
   | BytesWriteValue;
 
 export const WRITE_VALUE_SCHEMAS: {
@@ -504,7 +504,7 @@ export const writeBaseBindingZ = z.object({
 });
 export interface WriteBaseBinding extends z.infer<typeof writeBaseBindingZ> {}
 
-/** CanIdentifier matches a CAN frame by arbitration identifier. */
+/** CANIdentifier matches a CAN frame by arbitration identifier. */
 export const canIdentifierZ = z.object({
   type: z.literal("can"),
   /** id is the CAN arbitration identifier. */
@@ -521,7 +521,7 @@ export const canIdentifierZ = z.object({
    */
   mask: z.uint32().optional(),
 });
-export interface CanIdentifier extends z.infer<typeof canIdentifierZ> {}
+export interface CANIdentifier extends z.infer<typeof canIdentifierZ> {}
 
 /** FieldIdentifier matches a binary frame by the raw value of one of its fields. */
 export const fieldIdentifierZ = z.object({
@@ -542,7 +542,7 @@ export const identifierZ = z.discriminatedUnion("type", [
   canIdentifierZ,
   fieldIdentifierZ,
 ]);
-export type Identifier = CanIdentifier | FieldIdentifier;
+export type Identifier = CANIdentifier | FieldIdentifier;
 
 export const IDENTIFIER_SCHEMAS: {
   [K in IdentifierType]: z.ZodType<Extract<Identifier, { type: K }>>;
@@ -759,13 +759,13 @@ export const jsonJSONFieldZ = jsonBaseFieldZ.extend({
 });
 export interface JSONJSONField extends z.infer<typeof jsonJSONFieldZ> {}
 
-/** UuidJSONField is a UUID held in a JSON string. */
+/** UUIDJSONField is a UUID held in a JSON string. */
 export const uuidJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("uuid"),
   /** default is the value when a read finds none or no channel is bound. */
   default: zod.nullToUndefined(uuidDefaultZ),
 });
-export interface UuidJSONField extends z.infer<typeof uuidJSONFieldZ> {}
+export interface UUIDJSONField extends z.infer<typeof uuidJSONFieldZ> {}
 
 /** BytesJSONField is base64 text held in a JSON string. */
 export const bytesJSONFieldZ = jsonBaseFieldZ.extend({
@@ -801,7 +801,7 @@ export type JSONField =
   | BooleanJSONField
   | TimestampJSONField
   | JSONJSONField
-  | UuidJSONField
+  | UUIDJSONField
   | BytesJSONField;
 
 export const JSON_FIELD_SCHEMAS: {

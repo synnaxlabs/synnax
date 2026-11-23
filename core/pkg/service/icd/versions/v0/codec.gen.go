@@ -274,7 +274,7 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (iv Identifier) EncodeOrc(w *orc.Writer) error {
 	switch v := iv.Variant.(type) {
-	case CanIdentifier:
+	case CANIdentifier:
 		w.String("can")
 		w.Uint32(uint32(v.ID))
 		w.Bool(v.Extended)
@@ -304,7 +304,7 @@ func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
 	}
 	switch string(tag) {
 	case "can":
-		var v CanIdentifier
+		var v CANIdentifier
 		if v.ID, err = r.Uint32(); err != nil {
 			return err
 		}
@@ -554,7 +554,7 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
 		}
-	case UuidJSONField:
+	case UUIDJSONField:
 		w.String("uuid")
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
@@ -811,7 +811,7 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 		}
 		jsonf.Variant = v
 	case "uuid":
-		var v UuidJSONField
+		var v UUIDJSONField
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
 			return err
 		}

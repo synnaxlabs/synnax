@@ -474,7 +474,7 @@ var _ = Describe("Service", func() {
 
 		It("Should reject a key that is not a UUID", func(ctx SpecContext) {
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{{
-				Type: resource.TypeNiChassis,
+				Type: resource.TypeNIChassis,
 				Key:  "not-a-uuid",
 			}})).Error().To(MatchError(validate.ErrValidation))
 		})

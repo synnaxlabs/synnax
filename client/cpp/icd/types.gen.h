@@ -257,13 +257,13 @@ struct JSONWriteValue {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief UuidWriteValue is a fixed UUID.
-struct UuidWriteValue {
+/// @brief UUIDWriteValue is a fixed UUID.
+struct UUIDWriteValue {
     std::string type = ::x::payload::KIND_UUID;
     /// @brief value is the UUID.
     x::uuid::UUID value;
 
-    static UuidWriteValue parse(x::json::Parser parser);
+    static UUIDWriteValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -287,7 +287,7 @@ using WriteValue = std::variant<
     BooleanWriteValue,
     TimestampWriteValue,
     JSONWriteValue,
-    UuidWriteValue,
+    UUIDWriteValue,
     BytesWriteValue>;
 
 WriteValue parse_write_value(x::json::Parser parser);
@@ -407,8 +407,8 @@ struct WriteBaseBinding {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief CanIdentifier matches a CAN frame by arbitration identifier.
-struct CanIdentifier {
+/// @brief CANIdentifier matches a CAN frame by arbitration identifier.
+struct CANIdentifier {
     std::string type = "can";
     /// @brief id is the CAN arbitration identifier.
     std::uint32_t id = 0;
@@ -423,13 +423,13 @@ struct CanIdentifier {
     /// absent the identifiers must match exactly.
     std::optional<std::uint32_t> mask;
 
-    static CanIdentifier parse(x::json::Parser parser);
+    static CANIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::icd::pb::IdentifierCanPayload;
     [[nodiscard]] std::pair<::service::icd::pb::IdentifierCanPayload, x::errors::Error>
     to_proto() const;
-    static std::pair<CanIdentifier, x::errors::Error>
+    static std::pair<CANIdentifier, x::errors::Error>
     from_proto(const ::service::icd::pb::IdentifierCanPayload &pb);
 };
 
@@ -453,7 +453,7 @@ struct FieldIdentifier {
 };
 
 /// @brief Identifier selects which frames on a bus belong to a binary message.
-using Identifier = std::variant<CanIdentifier, FieldIdentifier>;
+using Identifier = std::variant<CANIdentifier, FieldIdentifier>;
 
 Identifier parse_identifier(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Identifier &value);
@@ -1046,19 +1046,19 @@ struct JSONJSONField : public JSONBaseField {
     from_proto(const ::service::icd::pb::JSONFieldJsonPayload &pb);
 };
 
-/// @brief UuidJSONField is a UUID held in a JSON string.
-struct UuidJSONField : public JSONBaseField {
+/// @brief UUIDJSONField is a UUID held in a JSON string.
+struct UUIDJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_UUID;
     /// @brief default_ is the value when a read finds none or no channel is bound.
     std::optional<UUIDDefault> default_;
 
-    static UuidJSONField parse(x::json::Parser parser);
+    static UUIDJSONField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::icd::pb::JSONFieldUuidPayload;
     [[nodiscard]] std::pair<::service::icd::pb::JSONFieldUuidPayload, x::errors::Error>
     to_proto() const;
-    static std::pair<UuidJSONField, x::errors::Error>
+    static std::pair<UUIDJSONField, x::errors::Error>
     from_proto(const ::service::icd::pb::JSONFieldUuidPayload &pb);
 };
 
@@ -1089,7 +1089,7 @@ using JSONField = std::variant<
     BooleanJSONField,
     TimestampJSONField,
     JSONJSONField,
-    UuidJSONField,
+    UUIDJSONField,
     BytesJSONField>;
 
 JSONField parse_json_field(x::json::Parser parser);

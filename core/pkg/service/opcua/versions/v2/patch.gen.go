@@ -88,7 +88,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
 	case "nan_fill_enabled":
-		return patch.Value(&rc.NanFillEnabled, c.Next())
+		return patch.Value(&rc.NaNFillEnabled, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -106,7 +106,7 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
-	h.Bool(rc.NanFillEnabled)
+	h.Bool(rc.NaNFillEnabled)
 }
 
 // Patch applies the path action at c, which is not done, to the value.

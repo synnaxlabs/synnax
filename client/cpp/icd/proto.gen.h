@@ -546,7 +546,7 @@ RetrieveResponse::from_proto(const ::api::icd::pb::RetrieveResponse &pb) {
 }
 
 inline std::pair<::service::icd::pb::IdentifierCanPayload, x::errors::Error>
-CanIdentifier::to_proto() const {
+CANIdentifier::to_proto() const {
     ::service::icd::pb::IdentifierCanPayload pb;
     pb.set_id(this->id);
     pb.set_extended(this->extended);
@@ -556,9 +556,9 @@ CanIdentifier::to_proto() const {
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<CanIdentifier, x::errors::Error>
-CanIdentifier::from_proto(const ::service::icd::pb::IdentifierCanPayload &pb) {
-    CanIdentifier cpp;
+inline std::pair<CANIdentifier, x::errors::Error>
+CANIdentifier::from_proto(const ::service::icd::pb::IdentifierCanPayload &pb) {
+    CANIdentifier cpp;
     cpp.id = pb.id();
     cpp.extended = pb.extended();
     cpp.fd = pb.fd();
@@ -894,7 +894,7 @@ JSONJSONField::from_proto(const ::service::icd::pb::JSONFieldJsonPayload &pb) {
 }
 
 inline std::pair<::service::icd::pb::JSONFieldUuidPayload, x::errors::Error>
-UuidJSONField::to_proto() const {
+UUIDJSONField::to_proto() const {
     ::service::icd::pb::JSONFieldUuidPayload pb;
     if (this->default_.has_value()) {
         auto [v, err] = ::synnax::icd::to_proto(*this->default_);
@@ -904,9 +904,9 @@ UuidJSONField::to_proto() const {
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<UuidJSONField, x::errors::Error>
-UuidJSONField::from_proto(const ::service::icd::pb::JSONFieldUuidPayload &pb) {
-    UuidJSONField cpp;
+inline std::pair<UUIDJSONField, x::errors::Error>
+UUIDJSONField::from_proto(const ::service::icd::pb::JSONFieldUuidPayload &pb) {
+    UUIDJSONField cpp;
     if (pb.has_default_()) {
         auto [v, err] = ::synnax::icd::uuid_default_from_proto(pb.default_());
         if (err) return {{}, err};
@@ -1213,7 +1213,7 @@ to_proto(const Identifier &value) {
             using V = std::decay_t<decltype(v)>;
             auto [inner, err] = v.to_proto();
             if (err) return err;
-            if constexpr (std::is_same_v<V, CanIdentifier>)
+            if constexpr (std::is_same_v<V, CANIdentifier>)
                 *pb.mutable_can() = inner;
             else if constexpr (std::is_same_v<V, FieldIdentifier>)
                 *pb.mutable_field() = inner;
@@ -1228,7 +1228,7 @@ inline std::pair<Identifier, x::errors::Error>
 identifier_from_proto(const ::service::icd::pb::Identifier &pb) {
     switch (pb.variant_case()) {
         case ::service::icd::pb::Identifier::kCan: {
-            auto [v, err] = CanIdentifier::from_proto(pb.can());
+            auto [v, err] = CANIdentifier::from_proto(pb.can());
             if (err) return {{}, err};
             return {v, x::errors::NIL};
         }
@@ -1486,7 +1486,7 @@ to_proto(const JSONField &value) {
                 *pb.mutable_timestamp() = inner;
             else if constexpr (std::is_same_v<V, JSONJSONField>)
                 *pb.mutable_json() = inner;
-            else if constexpr (std::is_same_v<V, UuidJSONField>)
+            else if constexpr (std::is_same_v<V, UUIDJSONField>)
                 *pb.mutable_uuid() = inner;
             else if constexpr (std::is_same_v<V, BytesJSONField>)
                 *pb.mutable_bytes() = inner;
@@ -1571,7 +1571,7 @@ json_field_from_proto(const ::service::icd::pb::JSONField &pb) {
             return {v, x::errors::NIL};
         }
         case ::service::icd::pb::JSONField::kUuid: {
-            auto [v, err] = UuidJSONField::from_proto(pb.uuid());
+            auto [v, err] = UUIDJSONField::from_proto(pb.uuid());
             if (err) return {{}, err};
             {
                 auto [base, base_err] = JSONBaseField::from_proto(pb.json_base_field());

@@ -252,7 +252,7 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 			Resistance:        variant.Resistance,
 			CurrentExcitation: variant.CurrentExcitation,
 			Units:             variant.Units,
-			RtdType:           variant.RtdType,
+			RTDType:           variant.RTDType,
 			R0:                variant.R0,
 		}}, nil
 	case v3.AIStrainGaugeChannel:
@@ -286,7 +286,7 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
-		cjc, err := MigrateCJC(ctx, variant.Cjc)
+		cjc, err := MigrateCJC(ctx, variant.CJC)
 		if err != nil {
 			return AIChannel{}, err
 		}
@@ -295,7 +295,7 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 			MinMaxVal:        variant.MinMaxVal,
 			Units:            variant.Units,
 			ThermocoupleType: variant.ThermocoupleType,
-			Cjc:              cjc,
+			CJC:              cjc,
 		}}, nil
 	case v3.AITorqueBridgeTableChannel:
 		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
@@ -439,12 +439,12 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 			Units:             variant.Units,
 			PhysicalUnits:     variant.PhysicalUnits,
 		}}, nil
-	case v3.AIThermistorIexChannel:
+	case v3.AIThermistorIExChannel:
 		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
 		if err != nil {
 			return AIChannel{}, err
 		}
-		return AIChannel{Variant: AIThermistorIexChannel{
+		return AIChannel{Variant: AIThermistorIExChannel{
 			BaseAIChannel:     baseAIChannel,
 			MinMaxVal:         variant.MinMaxVal,
 			Resistance:        variant.Resistance,
@@ -454,12 +454,12 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 			B:                 variant.B,
 			C:                 variant.C,
 		}}, nil
-	case v3.AIThermistorVexChannel:
+	case v3.AIThermistorVExChannel:
 		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
 		if err != nil {
 			return AIChannel{}, err
 		}
-		return AIChannel{Variant: AIThermistorVexChannel{
+		return AIChannel{Variant: AIThermistorVExChannel{
 			BaseAIChannel:     baseAIChannel,
 			MinMaxVal:         variant.MinMaxVal,
 			Resistance:        variant.Resistance,

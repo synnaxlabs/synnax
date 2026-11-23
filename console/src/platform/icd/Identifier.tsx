@@ -99,7 +99,7 @@ const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
 };
 
 interface CANFieldsProps {
-  path: deep.Path<icd.CanIdentifier>;
+  path: deep.Path<icd.CANIdentifier>;
 }
 
 const CANFields = ({ path }: CANFieldsProps): ReactElement => {

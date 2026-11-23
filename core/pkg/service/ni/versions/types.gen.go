@@ -500,10 +500,10 @@ const (
 	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
 	// polynomial calibration.
 	AIPressureBridgePolynomialChannelType AIChannelType = v4.AIPressureBridgePolynomialChannelType
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = v4.AIThermistorIexChannelType
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = v4.AIThermistorVexChannelType
+	// AIThermistorIExChannelType reads temperature from a current-excited thermistor.
+	AIThermistorIExChannelType AIChannelType = v4.AIThermistorIExChannelType
+	// AIThermistorVExChannelType reads temperature from a voltage-excited thermistor.
+	AIThermistorVExChannelType AIChannelType = v4.AIThermistorVExChannelType
 	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
 	// calibration.
 	AITorqueBridgePolynomialChannelType AIChannelType = v4.AITorqueBridgePolynomialChannelType
@@ -593,11 +593,11 @@ type AIFreqVoltageChannel = v4.AIFreqVoltageChannel
 // calibration.
 type AIPressureBridgePolynomialChannel = v4.AIPressureBridgePolynomialChannel
 
-// AIThermistorIexChannel reads temperature from a current-excited thermistor.
-type AIThermistorIexChannel = v4.AIThermistorIexChannel
+// AIThermistorIExChannel reads temperature from a current-excited thermistor.
+type AIThermistorIExChannel = v4.AIThermistorIExChannel
 
-// AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-type AIThermistorVexChannel = v4.AIThermistorVexChannel
+// AIThermistorVExChannel reads temperature from a voltage-excited thermistor.
+type AIThermistorVExChannel = v4.AIThermistorVExChannel
 
 // AITorqueBridgePolynomialChannel reads torque from a bridge with polynomial
 // calibration.
@@ -695,8 +695,8 @@ const (
 type CIAngularVelocityUnits = v4.CIAngularVelocityUnits
 
 const (
-	// CIAngularVelocityUnitsRpm is revolutions per minute.
-	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = v4.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRPM is revolutions per minute.
+	CIAngularVelocityUnitsRPM CIAngularVelocityUnits = v4.CIAngularVelocityUnitsRPM
 	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = v4.CIAngularVelocityUnitsRadiansPerSecond
 	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.

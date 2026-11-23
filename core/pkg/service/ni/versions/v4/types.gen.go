@@ -656,10 +656,10 @@ const (
 	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
 	// polynomial calibration.
 	AIPressureBridgePolynomialChannelType AIChannelType = "ai_pressure_bridge_polynomial"
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = "ai_thermistor_iex"
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = "ai_thermistor_vex"
+	// AIThermistorIExChannelType reads temperature from a current-excited thermistor.
+	AIThermistorIExChannelType AIChannelType = "ai_thermistor_iex"
+	// AIThermistorVExChannelType reads temperature from a voltage-excited thermistor.
+	AIThermistorVExChannelType AIChannelType = "ai_thermistor_vex"
 	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
 	// calibration.
 	AITorqueBridgePolynomialChannelType AIChannelType = "ai_torque_bridge_polynomial"
@@ -1234,8 +1234,8 @@ type AIRTDChannel struct {
 	CurrentExcitation
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
-	// RtdType selects the RTD resistance-temperature curve.
-	RtdType RTDType `json:"rtd_type" msgpack:"rtd_type"`
+	// RTDType selects the RTD resistance-temperature curve.
+	RTDType RTDType `json:"rtd_type" msgpack:"rtd_type"`
 	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
 	R0 float64 `json:"r0" msgpack:"r0"`
 }
@@ -1256,7 +1256,7 @@ func (a *AIRTDChannel) SetUngroupedDefaults() {
 	a.Resistance.SetDefaults()
 	a.CurrentExcitation.SetDefaults()
 	a.Units = TemperatureUnitsDegC
-	a.RtdType = RTDTypePt3750
+	a.RTDType = RTDTypePt3750
 }
 
 // DefaultGroups sets the defaults of each default group whose members are all zero, in
@@ -1271,7 +1271,7 @@ func (a *AIRTDChannel) DefaultGroups() {
 func (a AIRTDChannel) Validate() error {
 	v := validate.New("AIRTDChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
-	v.Ternaryf("rtd_type", !a.RtdType.IsValid(), "invalid rtd_type: %v", a.RtdType)
+	v.Ternaryf("rtd_type", !a.RTDType.IsValid(), "invalid rtd_type: %v", a.RTDType)
 	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
@@ -1373,8 +1373,8 @@ type AIThermocoupleChannel struct {
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
-	// Cjc is the cold-junction compensation applied to the reading.
-	Cjc CJC `json:"cjc" msgpack:"cjc"`
+	// CJC is the cold-junction compensation applied to the reading.
+	CJC CJC `json:"cjc" msgpack:"cjc"`
 }
 
 func (AIThermocoupleChannel) isAIChannelVariant() {}
@@ -1392,7 +1392,7 @@ func (a *AIThermocoupleChannel) SetUngroupedDefaults() {
 	a.MinMaxVal.SetUngroupedDefaults()
 	a.Units = TemperatureUnitsDegC
 	a.ThermocoupleType = ThermocoupleTypeJ
-	a.Cjc.Variant = BuiltInCJC{}
+	a.CJC.Variant = BuiltInCJC{}
 }
 
 // DefaultGroups sets the defaults of each default group whose members are all zero, in
@@ -1409,7 +1409,7 @@ func (a AIThermocoupleChannel) Validate() error {
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
 	v.Exec(a.MinMaxVal.Validate)
-	v.Exec(func() error { return validate.PathedError(a.Cjc.Validate(), "cjc") })
+	v.Exec(func() error { return validate.PathedError(a.CJC.Validate(), "cjc") })
 	return v.Error()
 }
 
@@ -1941,8 +1941,8 @@ func (a AIPressureBridgePolynomialChannel) Validate() error {
 	return v.Error()
 }
 
-// AIThermistorIexChannel reads temperature from a current-excited thermistor.
-type AIThermistorIexChannel struct {
+// AIThermistorIExChannel reads temperature from a current-excited thermistor.
+type AIThermistorIExChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	Resistance
@@ -1957,18 +1957,18 @@ type AIThermistorIexChannel struct {
 	C float64 `json:"c" msgpack:"c"`
 }
 
-func (AIThermistorIexChannel) isAIChannelVariant() {}
+func (AIThermistorIExChannel) isAIChannelVariant() {}
 
 // SetDefaults sets every field outside a default group to its schema default. Each
 // default group takes its defaults only when all of its members are zero.
-func (a *AIThermistorIexChannel) SetDefaults() {
+func (a *AIThermistorIExChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
 }
 
 // SetUngroupedDefaults sets every field that has a schema default outside a default
 // group to that default.
-func (a *AIThermistorIexChannel) SetUngroupedDefaults() {
+func (a *AIThermistorIExChannel) SetUngroupedDefaults() {
 	a.MinMaxVal.SetUngroupedDefaults()
 	a.Resistance.SetDefaults()
 	a.CurrentExcitation.SetDefaults()
@@ -1978,14 +1978,14 @@ func (a *AIThermistorIexChannel) SetUngroupedDefaults() {
 // DefaultGroups sets the defaults of each default group whose members are all zero, in
 // this type and in the types it embeds or holds. A group with a non-zero member keeps
 // its values.
-func (a *AIThermistorIexChannel) DefaultGroups() {
+func (a *AIThermistorIExChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (a AIThermistorIexChannel) Validate() error {
-	v := validate.New("AIThermistorIexChannel")
+func (a AIThermistorIExChannel) Validate() error {
+	v := validate.New("AIThermistorIExChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
@@ -1993,8 +1993,8 @@ func (a AIThermistorIexChannel) Validate() error {
 	return v.Error()
 }
 
-// AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-type AIThermistorVexChannel struct {
+// AIThermistorVExChannel reads temperature from a voltage-excited thermistor.
+type AIThermistorVExChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	Resistance
@@ -2011,18 +2011,18 @@ type AIThermistorVexChannel struct {
 	R1 float64 `json:"r1" msgpack:"r1"`
 }
 
-func (AIThermistorVexChannel) isAIChannelVariant() {}
+func (AIThermistorVExChannel) isAIChannelVariant() {}
 
 // SetDefaults sets every field outside a default group to its schema default. Each
 // default group takes its defaults only when all of its members are zero.
-func (a *AIThermistorVexChannel) SetDefaults() {
+func (a *AIThermistorVExChannel) SetDefaults() {
 	a.SetUngroupedDefaults()
 	a.DefaultGroups()
 }
 
 // SetUngroupedDefaults sets every field that has a schema default outside a default
 // group to that default.
-func (a *AIThermistorVexChannel) SetUngroupedDefaults() {
+func (a *AIThermistorVExChannel) SetUngroupedDefaults() {
 	a.MinMaxVal.SetUngroupedDefaults()
 	a.Resistance.SetDefaults()
 	a.VoltageExcitation.SetDefaults()
@@ -2032,14 +2032,14 @@ func (a *AIThermistorVexChannel) SetUngroupedDefaults() {
 // DefaultGroups sets the defaults of each default group whose members are all zero, in
 // this type and in the types it embeds or holds. A group with a non-zero member keeps
 // its values.
-func (a *AIThermistorVexChannel) DefaultGroups() {
+func (a *AIThermistorVExChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (a AIThermistorVexChannel) Validate() error {
-	v := validate.New("AIThermistorVexChannel")
+func (a AIThermistorVExChannel) Validate() error {
+	v := validate.New("AIThermistorVExChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
@@ -2334,16 +2334,16 @@ func (u AIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgePolynomialChannel
 		}{Type: AIPressureBridgePolynomialChannelType, AIPressureBridgePolynomialChannel: v})
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		return json.MarshalEncode(enc, struct {
 			Type AIChannelType `json:"type"`
-			AIThermistorIexChannel
-		}{Type: AIThermistorIexChannelType, AIThermistorIexChannel: v})
-	case AIThermistorVexChannel:
+			AIThermistorIExChannel
+		}{Type: AIThermistorIExChannelType, AIThermistorIExChannel: v})
+	case AIThermistorVExChannel:
 		return json.MarshalEncode(enc, struct {
 			Type AIChannelType `json:"type"`
-			AIThermistorVexChannel
-		}{Type: AIThermistorVexChannelType, AIThermistorVexChannel: v})
+			AIThermistorVExChannel
+		}{Type: AIThermistorVExChannelType, AIThermistorVExChannel: v})
 	case AITorqueBridgePolynomialChannel:
 		return json.MarshalEncode(enc, struct {
 			Type AIChannelType `json:"type"`
@@ -2657,28 +2657,28 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIPressureBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgePolynomialChannel
-	case AIThermistorIexChannelType:
+	case AIThermistorIExChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
-			AIThermistorIexChannel
+			AIThermistorIExChannel
 		}
-		v.AIThermistorIexChannel.SetUngroupedDefaults()
+		v.AIThermistorIExChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		v.AIThermistorIexChannel.DefaultGroups()
-		u.Variant = v.AIThermistorIexChannel
-	case AIThermistorVexChannelType:
+		v.AIThermistorIExChannel.DefaultGroups()
+		u.Variant = v.AIThermistorIExChannel
+	case AIThermistorVExChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
-			AIThermistorVexChannel
+			AIThermistorVExChannel
 		}
-		v.AIThermistorVexChannel.SetUngroupedDefaults()
+		v.AIThermistorVExChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		v.AIThermistorVexChannel.DefaultGroups()
-		u.Variant = v.AIThermistorVexChannel
+		v.AIThermistorVExChannel.DefaultGroups()
+		u.Variant = v.AIThermistorVExChannel
 	case AITorqueBridgePolynomialChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
@@ -2775,10 +2775,10 @@ func (u AIChannel) Type() AIChannelType {
 		return AIFreqVoltageChannelType
 	case AIPressureBridgePolynomialChannel:
 		return AIPressureBridgePolynomialChannelType
-	case AIThermistorIexChannel:
-		return AIThermistorIexChannelType
-	case AIThermistorVexChannel:
-		return AIThermistorVexChannelType
+	case AIThermistorIExChannel:
+		return AIThermistorIExChannelType
+	case AIThermistorVExChannel:
+		return AIThermistorVExChannelType
 	case AITorqueBridgePolynomialChannel:
 		return AITorqueBridgePolynomialChannelType
 	case AIVoltageRMSChannel:
@@ -2845,9 +2845,9 @@ func (u AIChannel) Validate() error {
 		v.Exec(variant.Validate)
 	case AIPressureBridgePolynomialChannel:
 		v.Exec(variant.Validate)
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		v.Exec(variant.Validate)
-	case AIThermistorVexChannel:
+	case AIThermistorVExChannel:
 		v.Exec(variant.Validate)
 	case AITorqueBridgePolynomialChannel:
 		v.Exec(variant.Validate)
@@ -2945,8 +2945,8 @@ const (
 type CIAngularVelocityUnits = v3.CIAngularVelocityUnits
 
 const (
-	// CIAngularVelocityUnitsRpm is revolutions per minute.
-	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = v3.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRPM is revolutions per minute.
+	CIAngularVelocityUnitsRPM CIAngularVelocityUnits = v3.CIAngularVelocityUnitsRPM
 	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = v3.CIAngularVelocityUnitsRadiansPerSecond
 	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
@@ -3454,7 +3454,7 @@ func (c *CIVelocityAngularChannel) SetDefaults() {
 func (c *CIVelocityAngularChannel) SetUngroupedDefaults() {
 	c.CustomScale.SetDefaults()
 	c.MinMaxVal.SetUngroupedDefaults()
-	c.Units = CIAngularVelocityUnitsRpm
+	c.Units = CIAngularVelocityUnitsRPM
 	c.DecodingType = CIDecodingTypeX4
 	c.PulsesPerRev = 24
 }

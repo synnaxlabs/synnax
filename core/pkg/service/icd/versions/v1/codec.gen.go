@@ -613,7 +613,7 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-	case UuidJSONField:
+	case UUIDJSONField:
 		w.String("uuid")
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
@@ -893,7 +893,7 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 		}
 		jsonf.Variant = v
 	case "uuid":
-		var v UuidJSONField
+		var v UUIDJSONField
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -1811,7 +1811,7 @@ func (wv WriteValue) EncodeOrc(w *orc.Writer) error {
 	case JSONWriteValue:
 		w.String("json")
 		w.String(v.Value)
-	case UuidWriteValue:
+	case UUIDWriteValue:
 		w.String("uuid")
 		w.Write(v.Value[:])
 	case BytesWriteValue:
@@ -1889,7 +1889,7 @@ func (wv *WriteValue) DecodeOrc(r *orc.Reader) error {
 		}
 		wv.Variant = v
 	case "uuid":
-		var v UuidWriteValue
+		var v UUIDWriteValue
 		if _, err := r.Read(v.Value[:]); err != nil {
 			return err
 		}

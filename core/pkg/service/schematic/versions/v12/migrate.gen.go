@@ -58,12 +58,12 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 		return ElementConfig{Variant: HeaterElementElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
-	case v11.IsoCapElementConfig:
-		return ElementConfig{Variant: IsoCapElementConfig{
+	case v11.ISOCapElementConfig:
+		return ElementConfig{Variant: ISOCapElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
-	case v11.IsoFilterElementConfig:
-		return ElementConfig{Variant: IsoFilterElementConfig{
+	case v11.ISOFilterElementConfig:
+		return ElementConfig{Variant: ISOFilterElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.NozzleElementConfig:
@@ -451,8 +451,8 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 		return ElementConfig{Variant: FlameArrestorFireResDetonationElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
-	case v11.IsoBurstDiscElementConfig:
-		return ElementConfig{Variant: IsoBurstDiscElementConfig{
+	case v11.ISOBurstDiscElementConfig:
+		return ElementConfig{Variant: ISOBurstDiscElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.AngledValveElementConfig:
@@ -507,8 +507,8 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 		return ElementConfig{Variant: GateValveElementConfig{
 			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
-	case v11.IsoCheckValveElementConfig:
-		return ElementConfig{Variant: IsoCheckValveElementConfig{
+	case v11.ISOCheckValveElementConfig:
+		return ElementConfig{Variant: ISOCheckValveElementConfig{
 			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ManualValveElementConfig:

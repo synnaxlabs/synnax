@@ -70,7 +70,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 // svg returns a drawing of markup.
 func svg(markup string) symbol.Drawing {
-	return symbol.Drawing{Variant: symbol.SvgDrawing{Markup: markup}}
+	return symbol.Drawing{Variant: symbol.SVGDrawing{Markup: markup}}
 }
 
 // colorPaint returns a paint of the color that hex names.

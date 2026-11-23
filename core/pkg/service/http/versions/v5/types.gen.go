@@ -161,10 +161,10 @@ type ReadConfig struct {
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
 	Endpoints []ReadEndpoint `json:"endpoints" msgpack:"endpoints"`
-	// NanFillEnabled is true when a float field that is missing or fails to convert is
+	// NaNFillEnabled is true when a float field that is missing or fails to convert is
 	// written as NaN. When false, the task skips every field that shares the endpoint
 	// and index channel with it.
-	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
+	NaNFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
 	// Inline holds the fields of each endpoint of a config from before ICDs. A write
 	// moves them into a new ICD and clears it.
 	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`

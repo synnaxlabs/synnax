@@ -163,7 +163,7 @@ func newSymbol(name string) symbol.Symbol {
 		symbol.Symbol{
 			Name: name,
 			Data: symbol.Spec{
-				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Drawing: symbol.Drawing{Variant: symbol.SVGDrawing{Markup: "<svg/>"}},
 			},
 		},
 	)

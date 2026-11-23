@@ -89,7 +89,7 @@ cmd = client.channels.create(
 
 position = sy.icd.FloatJSONField(name="position", pointer="/position")
 source = sy.icd.StringJSONField(name="source", pointer="/source")
-id_field = sy.icd.UuidJSONField(
+id_field = sy.icd.UUIDJSONField(
     name="id", pointer="/id", default=sy.icd.RandomUUIDDefault()
 )
 command = sy.icd.Message(

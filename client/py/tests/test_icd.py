@@ -41,7 +41,7 @@ def create_icd(name: str = "ICD") -> sy.ICD:
             sy.icd.Message(
                 name="Status",
                 payload=sy.icd.BinaryPayload(
-                    identifier=sy.icd.CanIdentifier(id=0x101, extended=False, fd=False),
+                    identifier=sy.icd.CANIdentifier(id=0x101, extended=False, fd=False),
                     length=8,
                     fields=[
                         sy.icd.UnsignedBinaryField(
@@ -73,7 +73,7 @@ class TestICD:
         assert msg.name == "Status"
         payload = msg.payload
         assert isinstance(payload, sy.icd.BinaryPayload)
-        assert payload.identifier == sy.icd.CanIdentifier(
+        assert payload.identifier == sy.icd.CANIdentifier(
             id=0x101, extended=False, fd=False
         )
         assert payload.length == 8
@@ -101,7 +101,7 @@ class TestICD:
                 name="time", pointer="/ts", time_format="unix_ms"
             ),
             sy.icd.JSONJSONField(name="raw", pointer="/raw"),
-            sy.icd.UuidJSONField(name="id", pointer="/id"),
+            sy.icd.UUIDJSONField(name="id", pointer="/id"),
             sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
         match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
@@ -195,12 +195,12 @@ class TestICD:
             sy.icd.JSONJSONField(
                 name="config", pointer="/config", default='{"mode": "auto"}'
             ),
-            sy.icd.UuidJSONField(
+            sy.icd.UUIDJSONField(
                 name="device",
                 pointer="/device",
                 default=sy.icd.ConstantUUIDDefault(value=uuid4()),
             ),
-            sy.icd.UuidJSONField(
+            sy.icd.UUIDJSONField(
                 name="request",
                 pointer="/request",
                 default=sy.icd.RandomUUIDDefault(),
@@ -502,7 +502,7 @@ class TestICD:
                 sy.icd.Message(
                     name="Mode",
                     payload=sy.icd.BinaryPayload(
-                        identifier=sy.icd.CanIdentifier(id=0x101),
+                        identifier=sy.icd.CANIdentifier(id=0x101),
                         length=8,
                         fields=[
                             sy.icd.UnsignedBinaryField(
@@ -578,7 +578,7 @@ class TestICD:
         assert imported.key == ic.key
         msg = next(m for m in imported.messages if m.name == "EngineStatus")
         assert isinstance(msg.payload, sy.icd.BinaryPayload)
-        assert msg.payload.identifier == sy.icd.CanIdentifier(id=0x100)
+        assert msg.payload.identifier == sy.icd.CANIdentifier(id=0x100)
         rpm = msg.payload.fields[0]
         assert isinstance(rpm, sy.icd.UnsignedBinaryField)
         assert (rpm.name, rpm.bit_length, rpm.scale, rpm.units) == (

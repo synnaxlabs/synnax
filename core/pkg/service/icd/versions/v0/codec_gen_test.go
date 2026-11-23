@@ -150,7 +150,7 @@ var _ = Describe("Codec", func() {
 						Name: "test_5",
 						Payload: v0.Payload{Variant: v0.BinaryPayload{
 							Length: new(uint16(8)),
-							Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+							Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 								ID:              10,
 								Extended:        false,
 								Fd:              true,
@@ -201,7 +201,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("can variant", v0.Identifier{Variant: v0.CanIdentifier{
+			Entry("can variant", v0.Identifier{Variant: v0.CANIdentifier{
 				ID:              2,
 				Extended:        false,
 				Fd:              true,
@@ -295,7 +295,7 @@ var _ = Describe("Codec", func() {
 				Default:       new(telem.TimeStamp(3)),
 			}}),
 			Entry("json variant", v0.JSONField{Variant: v0.JSONJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
-			Entry("uuid variant", v0.JSONField{Variant: v0.UuidJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
+			Entry("uuid variant", v0.JSONField{Variant: v0.UUIDJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
 			Entry("bytes variant", v0.JSONField{Variant: v0.BytesJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
 		)
 	})
@@ -342,7 +342,7 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Payload: v0.Payload{Variant: v0.BinaryPayload{
 					Length: new(uint16(5)),
-					Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+					Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 						ID:              7,
 						Extended:        true,
 						Fd:              false,
@@ -392,7 +392,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("binary variant", v0.Payload{Variant: v0.BinaryPayload{
 				Length: new(uint16(2)),
-				Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+				Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 					ID:              4,
 					Extended:        false,
 					Fd:              true,
@@ -569,7 +569,7 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 				Name: "test_5",
 				Payload: v0.Payload{Variant: v0.BinaryPayload{
 					Length: new(uint16(8)),
-					Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+					Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 						ID:              10,
 						Extended:        false,
 						Fd:              true,
@@ -613,7 +613,7 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeIdentifier(b *testing.B) {
-	seed := v0.Identifier{Variant: v0.CanIdentifier{
+	seed := v0.Identifier{Variant: v0.CANIdentifier{
 		ID:              2,
 		Extended:        false,
 		Fd:              true,
@@ -716,7 +716,7 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 		Name: "test_2",
 		Payload: v0.Payload{Variant: v0.BinaryPayload{
 			Length: new(uint16(5)),
-			Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+			Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 				ID:              7,
 				Extended:        true,
 				Fd:              false,
@@ -760,7 +760,7 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 func BenchmarkEncodeDecodePayload(b *testing.B) {
 	seed := v0.Payload{Variant: v0.BinaryPayload{
 		Length: new(uint16(2)),
-		Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+		Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 			ID:              4,
 			Extended:        false,
 			Fd:              true,
@@ -1012,7 +1012,7 @@ func FuzzDecodeICD(f *testing.F) {
 					Name: "test_5",
 					Payload: v0.Payload{Variant: v0.BinaryPayload{
 						Length: new(uint16(8)),
-						Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+						Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 							ID:              10,
 							Extended:        false,
 							Fd:              true,
@@ -1094,7 +1094,7 @@ func FuzzDecodeICD(f *testing.F) {
 
 func FuzzDecodeIdentifier(f *testing.F) {
 	{
-		seed := v0.Identifier{Variant: v0.CanIdentifier{
+		seed := v0.Identifier{Variant: v0.CANIdentifier{
 			ID:              2,
 			Extended:        false,
 			Fd:              true,
@@ -1309,7 +1309,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.JSONField{Variant: v0.UuidJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}
+		seed := v0.JSONField{Variant: v0.UUIDJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1425,7 +1425,7 @@ func FuzzDecodeMessage(f *testing.F) {
 			Name: "test_2",
 			Payload: v0.Payload{Variant: v0.BinaryPayload{
 				Length: new(uint16(5)),
-				Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+				Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 					ID:              7,
 					Extended:        true,
 					Fd:              false,
@@ -1499,7 +1499,7 @@ func FuzzDecodePayload(f *testing.F) {
 	{
 		seed := v0.Payload{Variant: v0.BinaryPayload{
 			Length: new(uint16(2)),
-			Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+			Identifier: new(v0.Identifier{Variant: v0.CANIdentifier{
 				ID:              4,
 				Extended:        false,
 				Fd:              true,

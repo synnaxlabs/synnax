@@ -31,8 +31,8 @@ import (
 )
 
 var (
-	chassisType = resource.ID{Type: resource.TypeNiChassis}
-	deviceType  = resource.ID{Type: resource.TypeNiDevice}
+	chassisType = resource.ID{Type: resource.TypeNIChassis}
+	deviceType  = resource.ID{Type: resource.TypeNIDevice}
 	statusType  = resource.ID{Type: resource.TypeStatus}
 	allWrites   = []access.Action{
 		access.ActionCreate,

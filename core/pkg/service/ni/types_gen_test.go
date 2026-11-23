@@ -23,7 +23,7 @@ var _ = Describe("Hardware", func() {
 	DescribeTable(
 		"Should reject an analog input rate that is not a non-negative number",
 		func(rate telem.Rate) {
-			Expect(ni.Hardware{AiMinRate: rate}.Validate()).
+			Expect(ni.Hardware{AIMinRate: rate}.Validate()).
 				To(MatchError(ContainSubstring("ai_min_rate")))
 		},
 		Entry("negative", telem.Rate(-1)),

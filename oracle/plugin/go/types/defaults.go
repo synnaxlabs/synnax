@@ -710,7 +710,7 @@ func enumConstRef(
 ) string {
 	_, enumRef, _ := resolution.Dealias(typeRef, data.table)
 	enumType := stripPointer(data.resolver.ResolveTypeRef(enumRef, data.ctx))
-	return enumType + naming.ToPascalCase(ev.Variant.Name)
+	return enumType + naming.GetEnumValueName(ev.Variant)
 }
 
 // constraintCheckData describes a single @validate constraint assertion emitted by a

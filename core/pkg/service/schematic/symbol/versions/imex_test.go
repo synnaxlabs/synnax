@@ -28,7 +28,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 	svg := func(markup string) versions.Drawing {
-		return versions.Drawing{Variant: versions.SvgDrawing{Markup: markup}}
+		return versions.Drawing{Variant: versions.SVGDrawing{Markup: markup}}
 	}
 	colorPaint := func(hex string) *versions.Paint {
 		GinkgoHelper()

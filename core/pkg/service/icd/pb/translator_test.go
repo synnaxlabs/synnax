@@ -57,7 +57,7 @@ var _ = Describe("Translator", func() {
 					CycleTime: new(100 * telem.Millisecond),
 					Payload: icd.Payload{Variant: icd.BinaryPayload{
 						Length: new(uint16(8)),
-						Identifier: &icd.Identifier{Variant: icd.CanIdentifier{
+						Identifier: &icd.Identifier{Variant: icd.CANIdentifier{
 							ID:              0x100,
 							Extended:        true,
 							Fd:              true,
@@ -172,7 +172,7 @@ var _ = Describe("Translator", func() {
 								JSONBaseField: jsonBase("json"),
 								Default:       new(`{"id":9007199254740993}`),
 							}},
-							{Variant: icd.UuidJSONField{
+							{Variant: icd.UUIDJSONField{
 								JSONBaseField: jsonBase("uuid"),
 								Default: &icd.UUIDDefault{
 									Variant: icd.RandomUUIDDefault{},

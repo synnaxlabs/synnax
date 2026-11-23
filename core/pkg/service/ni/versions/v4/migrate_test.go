@@ -291,7 +291,7 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 				Channels: []v3.AIChannel{
 					{Variant: v3.AIThermocoupleChannel{
 						BaseAIChannel: v3.BaseAIChannel{Key: "tc", Port: 1},
-						Cjc:           v3.CJC{Variant: v3.ChanCJC{Port: 65536}},
+						CJC:           v3.CJC{Variant: v3.ChanCJC{Port: 65536}},
 					}},
 					{Variant: v3.AIVoltageChannel{
 						BaseAIChannel: v3.BaseAIChannel{Key: "v", Port: 2},
@@ -302,7 +302,7 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Port).To(Equal(uint16(1)))
-			Expect(tc.Cjc.Variant).
+			Expect(tc.CJC.Variant).
 				To(Equal(v4.CJCVariant(v4.ChanCJC{Port: math.MaxUint16})))
 			v, ok := got.Channels[1].Variant.(v4.AIVoltageChannel)
 			Expect(ok).To(BeTrue())
@@ -357,7 +357,7 @@ var _ = Describe("AnalogReadMigration", func() {
 					Channels: []v3.AIChannel{
 						{Variant: v3.AIThermocoupleChannel{
 							BaseAIChannel: v3.BaseAIChannel{Key: "tc", Port: 1},
-							Cjc:           v3.CJC{Variant: v3.ChanCJC{Port: 65536}},
+							CJC:           v3.CJC{Variant: v3.ChanCJC{Port: 65536}},
 						}},
 						{Variant: v3.AIVoltageChannel{
 							BaseAIChannel: v3.BaseAIChannel{Key: "v", Port: 70000},
@@ -369,13 +369,13 @@ var _ = Describe("AnalogReadMigration", func() {
 			tc, ok := got.Channels[0].Variant.(v4.AIThermocoupleChannel)
 			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
-			Expect(tc.Cjc.Variant).
+			Expect(tc.CJC.Variant).
 				To(Equal(v4.CJCVariant(v4.ChanCJC{Port: math.MaxUint16})))
 			v, ok := got.Channels[1].Variant.(v4.AIVoltageChannel)
 			Expect(ok).To(BeTrue())
 			Expect(v.Port).To(Equal(uint16(math.MaxUint16)))
 			Expect(v.Disabled).To(BeTrue())
-			Expect(fields).To(ConsistOf("Cjc.Port", "Disabled", "Port", "Disabled"))
+			Expect(fields).To(ConsistOf("CJC.Port", "Disabled", "Port", "Disabled"))
 		},
 	)
 })

@@ -201,7 +201,7 @@ var _ = Describe("Codec", func() {
 						Name: "test_5",
 						Payload: v1.Payload{Variant: v1.BinaryPayload{
 							Length: new(uint16(8)),
-							Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+							Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 								ID:              10,
 								Extended:        false,
 								Fd:              true,
@@ -279,7 +279,7 @@ var _ = Describe("Codec", func() {
 				JSONBaseField: fullyPopulatedJSONBaseField,
 				Default:       new(string("test_1")),
 			}}),
-			Entry("uuid variant", v1.JSONField{Variant: v1.UuidJSONField{
+			Entry("uuid variant", v1.JSONField{Variant: v1.UUIDJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
 				Default: new(v1.UUIDDefault{Variant: v1.ConstantUUIDDefault{
 					Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
@@ -335,7 +335,7 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Payload: v1.Payload{Variant: v1.BinaryPayload{
 					Length: new(uint16(5)),
-					Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+					Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 						ID:              7,
 						Extended:        true,
 						Fd:              false,
@@ -376,7 +376,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("binary variant", v1.Payload{Variant: v1.BinaryPayload{
 				Length: new(uint16(2)),
-				Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+				Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 					ID:              4,
 					Extended:        false,
 					Fd:              true,
@@ -651,7 +651,7 @@ var _ = Describe("Codec", func() {
 			Entry("boolean variant", v1.WriteValue{Variant: v1.BooleanWriteValue{Value: true}}),
 			Entry("timestamp variant", v1.WriteValue{Variant: v1.TimestampWriteValue{Value: telem.TimeStamp(2)}}),
 			Entry("json variant", v1.WriteValue{Variant: v1.JSONWriteValue{Value: "test_1"}}),
-			Entry("uuid variant", v1.WriteValue{Variant: v1.UuidWriteValue{Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}),
+			Entry("uuid variant", v1.WriteValue{Variant: v1.UUIDWriteValue{Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}),
 			Entry("bytes variant", v1.WriteValue{Variant: v1.BytesWriteValue{Value: "test_1"}}),
 		)
 	})
@@ -741,7 +741,7 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 				Name: "test_5",
 				Payload: v1.Payload{Variant: v1.BinaryPayload{
 					Length: new(uint16(8)),
-					Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+					Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 						ID:              10,
 						Extended:        false,
 						Fd:              true,
@@ -822,7 +822,7 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 		Name: "test_2",
 		Payload: v1.Payload{Variant: v1.BinaryPayload{
 			Length: new(uint16(5)),
-			Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+			Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 				ID:              7,
 				Extended:        true,
 				Fd:              false,
@@ -856,7 +856,7 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 func BenchmarkEncodeDecodePayload(b *testing.B) {
 	seed := v1.Payload{Variant: v1.BinaryPayload{
 		Length: new(uint16(2)),
-		Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+		Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 			ID:              4,
 			Extended:        false,
 			Fd:              true,
@@ -1372,7 +1372,7 @@ func FuzzDecodeICD(f *testing.F) {
 					Name: "test_5",
 					Payload: v1.Payload{Variant: v1.BinaryPayload{
 						Length: new(uint16(8)),
-						Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+						Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 							ID:              10,
 							Extended:        false,
 							Fd:              true,
@@ -1530,7 +1530,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.JSONField{Variant: v1.UuidJSONField{
+		seed := v1.JSONField{Variant: v1.UUIDJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
 			Default: new(v1.UUIDDefault{Variant: v1.ConstantUUIDDefault{
 				Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
@@ -1662,7 +1662,7 @@ func FuzzDecodeMessage(f *testing.F) {
 			Name: "test_2",
 			Payload: v1.Payload{Variant: v1.BinaryPayload{
 				Length: new(uint16(5)),
-				Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+				Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 					ID:              7,
 					Extended:        true,
 					Fd:              false,
@@ -1727,7 +1727,7 @@ func FuzzDecodePayload(f *testing.F) {
 	{
 		seed := v1.Payload{Variant: v1.BinaryPayload{
 			Length: new(uint16(2)),
-			Identifier: new(v1.Identifier{Variant: v1.CanIdentifier{
+			Identifier: new(v1.Identifier{Variant: v1.CANIdentifier{
 				ID:              4,
 				Extended:        false,
 				Fd:              true,
@@ -2336,7 +2336,7 @@ func FuzzDecodeWriteValue(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.WriteValue{Variant: v1.UuidWriteValue{Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
+		seed := v1.WriteValue{Variant: v1.UUIDWriteValue{Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -249,7 +249,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Units))
-		w.String(string(v.RtdType))
+		w.String(string(v.RTDType))
 		w.Float64(float64(v.R0))
 	case AIStrainGaugeChannel:
 		w.String("ai_strain_gauge")
@@ -289,7 +289,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.ThermocoupleType))
-		if err := v.Cjc.EncodeOrc(w); err != nil {
+		if err := v.CJC.EncodeOrc(w); err != nil {
 			return err
 		}
 	case AITorqueBridgeTableChannel:
@@ -488,7 +488,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.PhysicalUnits))
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		w.String("ai_thermistor_iex")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
 			return err
@@ -506,7 +506,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.A))
 		w.Float64(float64(v.B))
 		w.Float64(float64(v.C))
-	case AIThermistorVexChannel:
+	case AIThermistorVExChannel:
 		w.String("ai_thermistor_vex")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
 			return err
@@ -933,7 +933,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.RtdType = RTDType(rawV)
+			v.RTDType = RTDType(rawV)
 		}
 		if v.R0, err = r.Float64(); err != nil {
 			return err
@@ -1027,7 +1027,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.ThermocoupleType = ThermocoupleType(rawV)
 		}
-		if err = v.Cjc.DecodeOrc(r); err != nil {
+		if err = v.CJC.DecodeOrc(r); err != nil {
 			return err
 		}
 		aic.Variant = v
@@ -1342,7 +1342,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		aic.Variant = v
 	case "ai_thermistor_iex":
-		var v AIThermistorIexChannel
+		var v AIThermistorIExChannel
 		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -1373,7 +1373,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		aic.Variant = v
 	case "ai_thermistor_vex":
-		var v AIThermistorVexChannel
+		var v AIThermistorVExChannel
 		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
 			return err
 		}

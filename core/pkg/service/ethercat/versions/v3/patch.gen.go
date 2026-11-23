@@ -231,7 +231,7 @@ func (urc *UnresolvedReadChannel) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&urc.BaseReadChannel.Device, c.Next())
 	case "pdo":
-		return patch.Value(&urc.Pdo, c.Next())
+		return patch.Value(&urc.PDO, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -243,7 +243,7 @@ func (urc *UnresolvedReadChannel) HashContent(h *content.Hash) {
 	h.Bool(urc.BaseReadChannel.Disabled)
 	h.Uint(uint64(urc.BaseReadChannel.Channel))
 	h.String(urc.BaseReadChannel.Device)
-	h.String(urc.Pdo)
+	h.String(urc.PDO)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -372,7 +372,7 @@ func (uwc *UnresolvedWriteChannel) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&uwc.BaseWriteChannel.Device, c.Next())
 	case "pdo":
-		return patch.Value(&uwc.Pdo, c.Next())
+		return patch.Value(&uwc.PDO, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -387,5 +387,5 @@ func (uwc *UnresolvedWriteChannel) HashContent(h *content.Hash) {
 	h.String(uwc.BaseWriteChannel.CmdChannelName)
 	h.String(uwc.BaseWriteChannel.StateChannelName)
 	h.String(uwc.BaseWriteChannel.Device)
-	h.String(uwc.Pdo)
+	h.String(uwc.PDO)
 }

@@ -115,8 +115,10 @@ var _ = Describe("CamelAcronym", func() {
 			"aiRTDChannel",
 		),
 		Entry("standalone acronym type", "RTDType", "rtdType"),
-		Entry("leading acronym not in the dictionary", "CJCSource", "cjcSource"),
-		Entry("unknown leading acronym", "URLValue", "urlValue"),
+		Entry("leading cjc acronym", "CJCSource", "cjcSource"),
+		Entry("leading url acronym", "URLValue", "urlValue"),
+		Entry("mixed-case spelling lowers only the first letter", "EtherCATMaster",
+			"etherCATMaster"),
 		Entry("unknown acronym led by a known one", "DIOChannel", "dioChannel"),
 		Entry("unknown acronym led by co", "COMPort", "comPort"),
 		Entry(
@@ -133,6 +135,25 @@ var _ = Describe("CamelAcronym", func() {
 			"accel4WireDCVoltage",
 		),
 		Entry("empty", "", ""),
+	)
+})
+
+var _ = Describe("Spell", func() {
+	DescribeTable(
+		"should spell a word as PascalCase identifiers write it",
+		func(word, expected string) {
+			Expect(casing.Spell(word)).To(Equal(expected))
+		},
+		Entry("domain initialism", "ai", "AI"),
+		Entry("go initialism", "id", "ID"),
+		Entry("title-cased input", "Ao", "AO"),
+		Entry("plural initialism", "ids", "IDs"),
+		Entry("brand spelling", "ethercat", "EtherCAT"),
+		Entry("mixed-case spelling", "nan", "NaN"),
+		Entry("unit spelling", "hz", "Hz"),
+		Entry("excitation spelling", "iex", "IEx"),
+		Entry("unlisted word", "voltage", "Voltage"),
+		Entry("word containing an initialism", "accel", "Accel"),
 	)
 })
 
@@ -198,6 +219,11 @@ var _ = Describe("VariantTypeName", func() {
 		Entry("api acronym", "api_key", "APIKeyScale"),
 		Entry("oidc acronym", "oidc", "OIDCScale"),
 		Entry("no acronym", "force_bridge_table", "ForceBridgeTableScale"),
+		Entry("can acronym", "can", "CANScale"),
+		Entry("iso acronym", "iso_cap", "ISOCapScale"),
+		Entry("uuid acronym", "uuid", "UUIDScale"),
+		Entry("iex spelling", "ai_thermistor_iex", "AIThermistorIExScale"),
+		Entry("vex spelling", "ai_thermistor_vex", "AIThermistorVExScale"),
 		Entry(
 			"word containing acronym is not mangled",
 			"email_address",
@@ -279,6 +305,7 @@ var _ = Describe("Label", func() {
 		Entry("OIDC", "oidc_provider", "OIDC provider"),
 		Entry("plural initialism", "channel_ids", "Channel IDs"),
 		Entry("schema acronym", "ai_channel", "AI channel"),
+		Entry("brand spelling", "nan_fill_enabled", "NaN fill enabled"),
 		Entry("PascalCase", "Name", "Name"),
 		Entry("camelCase", "firstName", "First name"),
 	)

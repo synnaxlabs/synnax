@@ -184,7 +184,7 @@ func parseTable(rows [][]string) ([]Message, error) {
 			if m.extended.set {
 				extended = m.extended.value
 			}
-			m.payload.Identifier = &Identifier{Variant: CanIdentifier{
+			m.payload.Identifier = &Identifier{Variant: CANIdentifier{
 				ID:       m.id.value,
 				Extended: extended,
 			}}

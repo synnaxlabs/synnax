@@ -31,6 +31,7 @@ Range struct extends v2.Range {
 Stage enum {
     to_do       = "to_do" {
         @doc value "is a range that has not started."
+        @go name   "ToDo"
     }
     in_progress = "in_progress" {
         @doc value "is a range that has started and not ended."

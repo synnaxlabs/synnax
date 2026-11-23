@@ -58,8 +58,8 @@ func (b ByteOrder) IsValid() bool {
 type IdentifierType string
 
 const (
-	// CanIdentifierType matches a CAN frame by arbitration identifier.
-	CanIdentifierType IdentifierType = "can"
+	// CANIdentifierType matches a CAN frame by arbitration identifier.
+	CANIdentifierType IdentifierType = "can"
 	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = "field"
 )
@@ -69,8 +69,8 @@ type IdentifierVariant interface {
 	isIdentifierVariant()
 }
 
-// CanIdentifier matches a CAN frame by arbitration identifier.
-type CanIdentifier struct {
+// CANIdentifier matches a CAN frame by arbitration identifier.
+type CANIdentifier struct {
 	// ID is the CAN arbitration identifier.
 	ID uint32 `json:"id" msgpack:"id"`
 	// Extended is true when the identifier is a 29-bit extended identifier.
@@ -84,7 +84,7 @@ type CanIdentifier struct {
 	Mask *uint32 `json:"mask,omitzero" msgpack:"mask,omitempty"`
 }
 
-func (CanIdentifier) isIdentifierVariant() {}
+func (CANIdentifier) isIdentifierVariant() {}
 
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
 type FieldIdentifier struct {
@@ -106,11 +106,11 @@ func (u Identifier) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case CanIdentifier:
+	case CANIdentifier:
 		return json.MarshalEncode(enc, struct {
 			Type IdentifierType `json:"type"`
-			CanIdentifier
-		}{Type: CanIdentifierType, CanIdentifier: v})
+			CANIdentifier
+		}{Type: CANIdentifierType, CANIdentifier: v})
 	case FieldIdentifier:
 		return json.MarshalEncode(enc, struct {
 			Type IdentifierType `json:"type"`
@@ -141,15 +141,15 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case CanIdentifierType:
+	case CANIdentifierType:
 		var v struct {
 			Type IdentifierType `json:"type"`
-			CanIdentifier
+			CANIdentifier
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.CanIdentifier
+		u.Variant = v.CANIdentifier
 	case FieldIdentifierType:
 		var v struct {
 			Type IdentifierType `json:"type"`
@@ -172,8 +172,8 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u Identifier) Type() IdentifierType {
 	switch u.Variant.(type) {
-	case CanIdentifier:
-		return CanIdentifierType
+	case CANIdentifier:
+		return CANIdentifierType
 	case FieldIdentifier:
 		return FieldIdentifierType
 	}
@@ -666,22 +666,22 @@ func (j JSONJSONField) Validate() error {
 	return v.Error()
 }
 
-// UuidJSONField is a UUID held in a JSON string.
-type UuidJSONField struct {
+// UUIDJSONField is a UUID held in a JSON string.
+type UUIDJSONField struct {
 	JSONBaseField
 }
 
-func (UuidJSONField) isJSONFieldVariant() {}
+func (UUIDJSONField) isJSONFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (u *UuidJSONField) SetDefaults() {
+func (u *UUIDJSONField) SetDefaults() {
 	u.JSONBaseField.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (u UuidJSONField) Validate() error {
-	v := validate.New("UuidJSONField")
+func (u UUIDJSONField) Validate() error {
+	v := validate.New("UUIDJSONField")
 	v.Exec(u.JSONBaseField.Validate)
 	return v.Error()
 }
@@ -751,11 +751,11 @@ func (u JSONField) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type payload.Kind `json:"type"`
 			JSONJSONField
 		}{Type: payload.KindJSON, JSONJSONField: v})
-	case UuidJSONField:
+	case UUIDJSONField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
-			UuidJSONField
-		}{Type: payload.KindUUID, UuidJSONField: v})
+			UUIDJSONField
+		}{Type: payload.KindUUID, UUIDJSONField: v})
 	case BytesJSONField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
@@ -859,13 +859,13 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case payload.KindUUID:
 		var v struct {
 			Type payload.Kind `json:"type"`
-			UuidJSONField
+			UUIDJSONField
 		}
-		v.UuidJSONField.SetDefaults()
+		v.UUIDJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.UuidJSONField
+		u.Variant = v.UUIDJSONField
 	case payload.KindBytes:
 		var v struct {
 			Type payload.Kind `json:"type"`
@@ -903,7 +903,7 @@ func (u JSONField) Type() payload.Kind {
 		return payload.KindTimestamp
 	case JSONJSONField:
 		return payload.KindJSON
-	case UuidJSONField:
+	case UUIDJSONField:
 		return payload.KindUUID
 	case BytesJSONField:
 		return payload.KindBytes
@@ -931,7 +931,7 @@ func (u JSONField) Validate() error {
 		v.Exec(variant.Validate)
 	case JSONJSONField:
 		v.Exec(variant.Validate)
-	case UuidJSONField:
+	case UUIDJSONField:
 		v.Exec(variant.Validate)
 	case BytesJSONField:
 		v.Exec(variant.Validate)
@@ -956,7 +956,7 @@ func (u JSONField) Base() JSONBaseField {
 		return variant.JSONBaseField
 	case JSONJSONField:
 		return variant.JSONBaseField
-	case UuidJSONField:
+	case UUIDJSONField:
 		return variant.JSONBaseField
 	case BytesJSONField:
 		return variant.JSONBaseField
@@ -988,7 +988,7 @@ func (u *JSONField) SetBase(base JSONBaseField) {
 	case JSONJSONField:
 		variant.JSONBaseField = base
 		u.Variant = variant
-	case UuidJSONField:
+	case UUIDJSONField:
 		variant.JSONBaseField = base
 		u.Variant = variant
 	case BytesJSONField:

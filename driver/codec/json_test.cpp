@@ -254,8 +254,8 @@ TEST(JSON, DecodesNowDefault) {
 
 /// @brief it should give a UUID field with a random default a new UUID on each decode.
 TEST(JSON, DecodesRandomDefault) {
-    auto m = reading<icd::UuidJSONField>(x::telem::UUID_T);
-    std::get<icd::UuidJSONField>(m.payload.fields[0])
+    auto m = reading<icd::UUIDJSONField>(x::telem::UUID_T);
+    std::get<icd::UUIDJSONField>(m.payload.fields[0])
         .default_ = icd::RandomUUIDDefault{};
     auto dec = ASSERT_NIL_P(JSON::create({m}));
     ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});

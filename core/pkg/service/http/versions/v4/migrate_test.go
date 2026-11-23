@@ -30,7 +30,7 @@ var _ = Describe("Migration", func() {
 				Key:            uuid.New(),
 				Device:         "dev",
 				Rate:           5,
-				NanFillEnabled: true,
+				NaNFillEnabled: true,
 				Endpoints: []v3.ReadEndpoint{{
 					Key:    "ep",
 					Path:   "/values",
@@ -57,7 +57,7 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[uuid.UUID, v4.ReadConfig](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Device).To(Equal(stored.Device))
-			Expect(got.NanFillEnabled).To(BeTrue())
+			Expect(got.NaNFillEnabled).To(BeTrue())
 			Expect(got.Endpoints).To(HaveLen(1))
 			Expect(got.Endpoints[0].Index).To(Equal("f"))
 			Expect(got.Endpoints[0].Fields).To(HaveLen(1))

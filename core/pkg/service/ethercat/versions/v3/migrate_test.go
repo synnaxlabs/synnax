@@ -62,13 +62,13 @@ func failLookup(context.Context, gorp.Snapshot, []string) (map[string]v2.Slave, 
 
 func unresolvedRead(pdo string) v3.ReadChannel {
 	return v3.ReadChannel{
-		Variant: v3.UnresolvedReadChannel{BaseReadChannel: readBase, Pdo: pdo},
+		Variant: v3.UnresolvedReadChannel{BaseReadChannel: readBase, PDO: pdo},
 	}
 }
 
 func unresolvedWrite(pdo string) v3.WriteChannel {
 	return v3.WriteChannel{
-		Variant: v3.UnresolvedWriteChannel{BaseWriteChannel: writeBase, Pdo: pdo},
+		Variant: v3.UnresolvedWriteChannel{BaseWriteChannel: writeBase, PDO: pdo},
 	}
 }
 
@@ -112,7 +112,7 @@ var _ = Describe("Migrate", func() {
 				}},
 				{Variant: v2.UnresolvedReadChannel{
 					BaseReadChannel: readBase,
-					Pdo:             "Repeated",
+					PDO:             "Repeated",
 				}},
 			}
 			Expect(gorp.WrapWriter[uuid.UUID, v2.ReadConfig](db).Set(ctx, old)).
@@ -141,7 +141,7 @@ var _ = Describe("Migrate", func() {
 			old.Key = uuid.New()
 			old.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
 				BaseReadChannel: readBase,
-				Pdo:             "Value",
+				PDO:             "Value",
 			}}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, old)).
 				To(Succeed())
@@ -209,7 +209,7 @@ var _ = Describe("Migrate", func() {
 					}},
 					{Variant: v2.UnresolvedWriteChannel{
 						BaseWriteChannel: writeBase,
-						Pdo:              "Repeated",
+						PDO:              "Repeated",
 					}},
 				}
 				Expect(gorp.WrapWriter[uuid.UUID, v2.WriteConfig](db).Set(ctx, old)).
@@ -240,7 +240,7 @@ var _ = Describe("Migrate", func() {
 			old.Key = uuid.New()
 			old.Channels = []v1.WriteChannel{{Variant: v1.AutomaticWriteChannel{
 				BaseWriteChannel: writeBase,
-				Pdo:              "Output",
+				PDO:              "Output",
 			}}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())

@@ -360,8 +360,8 @@ inline x::json::json RetrieveResponse::to_json() const {
     return j;
 }
 
-inline CanIdentifier CanIdentifier::parse(x::json::Parser parser) {
-    CanIdentifier result;
+inline CANIdentifier CANIdentifier::parse(x::json::Parser parser) {
+    CANIdentifier result;
     result.id = parser.field<std::uint32_t>("id", 0);
     result.extended = parser.field<bool>("extended", false);
     result.fd = parser.field<bool>("fd", false);
@@ -371,7 +371,7 @@ inline CanIdentifier CanIdentifier::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json CanIdentifier::to_json() const {
+inline x::json::json CANIdentifier::to_json() const {
     x::json::json j = x::json::json::object();
     j["id"] = this->id;
     j["extended"] = this->extended;
@@ -687,8 +687,8 @@ inline x::json::json JSONJSONField::to_json() const {
     return j;
 }
 
-inline UuidJSONField UuidJSONField::parse(x::json::Parser parser) {
-    UuidJSONField result;
+inline UUIDJSONField UUIDJSONField::parse(x::json::Parser parser) {
+    UUIDJSONField result;
     static_cast<JSONBaseField &>(result) = JSONBaseField::parse(parser);
     result.default_ = parser.has("default")
                         ? std::optional<UUIDDefault>(
@@ -699,7 +699,7 @@ inline UuidJSONField UuidJSONField::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json UuidJSONField::to_json() const {
+inline x::json::json UUIDJSONField::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = JSONBaseField::to_json(); parent.is_object())
         j.update(parent);
@@ -1097,14 +1097,14 @@ inline x::json::json JSONWriteValue::to_json() const {
     return j;
 }
 
-inline UuidWriteValue UuidWriteValue::parse(x::json::Parser parser) {
-    UuidWriteValue result;
+inline UUIDWriteValue UUIDWriteValue::parse(x::json::Parser parser) {
+    UUIDWriteValue result;
     result.value = parser.field<x::uuid::UUID>("value");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json UuidWriteValue::to_json() const {
+inline x::json::json UUIDWriteValue::to_json() const {
     x::json::json j = x::json::json::object();
     j["value"] = this->value.to_json();
     j["type"] = this->type;
@@ -1166,7 +1166,7 @@ inline x::json::json ValueWriteBinding::to_json() const {
 
 inline Identifier parse_identifier(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "can") return CanIdentifier::parse(parser);
+    if (discriminator == "can") return CANIdentifier::parse(parser);
     if (discriminator == "field") return FieldIdentifier::parse(parser);
     parser.field_err("type", "unknown Identifier type: " + discriminator);
     return {};
@@ -1234,7 +1234,7 @@ inline JSONField parse_json_field(x::json::Parser parser) {
     if (discriminator == "boolean") return BooleanJSONField::parse(parser);
     if (discriminator == "timestamp") return TimestampJSONField::parse(parser);
     if (discriminator == "json") return JSONJSONField::parse(parser);
-    if (discriminator == "uuid") return UuidJSONField::parse(parser);
+    if (discriminator == "uuid") return UUIDJSONField::parse(parser);
     if (discriminator == "bytes") return BytesJSONField::parse(parser);
     parser.field_err("type", "unknown JSONField type: " + discriminator);
     return {};
@@ -1297,7 +1297,7 @@ inline WriteValue parse_write_value(x::json::Parser parser) {
     if (discriminator == "boolean") return BooleanWriteValue::parse(parser);
     if (discriminator == "timestamp") return TimestampWriteValue::parse(parser);
     if (discriminator == "json") return JSONWriteValue::parse(parser);
-    if (discriminator == "uuid") return UuidWriteValue::parse(parser);
+    if (discriminator == "uuid") return UUIDWriteValue::parse(parser);
     if (discriminator == "bytes") return BytesWriteValue::parse(parser);
     parser.field_err("type", "unknown WriteValue type: " + discriminator);
     return {};

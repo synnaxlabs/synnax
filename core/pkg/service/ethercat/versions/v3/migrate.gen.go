@@ -61,7 +61,7 @@ func autoMigrateReadChannel(_ context.Context, old v2.ReadChannel) (ReadChannel,
 	case v2.UnresolvedReadChannel:
 		return ReadChannel{Variant: UnresolvedReadChannel{
 			BaseReadChannel: variant.BaseReadChannel,
-			Pdo:             variant.Pdo,
+			PDO:             variant.PDO,
 		}}, nil
 	default:
 		return ReadChannel{}, errors.Newf("unknown ReadChannel variant %T", variant)
@@ -82,7 +82,7 @@ func autoMigrateWriteChannel(_ context.Context, old v2.WriteChannel) (WriteChann
 	case v2.UnresolvedWriteChannel:
 		return WriteChannel{Variant: UnresolvedWriteChannel{
 			BaseWriteChannel: variant.BaseWriteChannel,
-			Pdo:              variant.Pdo,
+			PDO:              variant.PDO,
 		}}, nil
 	default:
 		return WriteChannel{}, errors.Newf("unknown WriteChannel variant %T", variant)

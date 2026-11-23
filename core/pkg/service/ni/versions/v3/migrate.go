@@ -239,7 +239,7 @@ func MigrateAnalogReadConfig(
 		if !ok {
 			continue
 		}
-		if c, ok := tc.Cjc.Variant.(v2.ChanCJC); ok && c.Port < 0 {
+		if c, ok := tc.CJC.Variant.(v2.ChanCJC); ok && c.Port < 0 {
 			n := as[AIThermocoupleChannel](cfg.Channels[i].Variant)
 			n.Disabled = true
 			cfg.Channels[i].Variant = n
@@ -379,8 +379,8 @@ var aiPairs = [...]func(
 	aiPair[v2.AIForceBridgePolynomialChannel, AIForceBridgePolynomialChannel],
 	aiPair[v2.AIFreqVoltageChannel, AIFreqVoltageChannel],
 	aiPair[v2.AIPressureBridgePolynomialChannel, AIPressureBridgePolynomialChannel],
-	aiPair[v2.AIThermistorIexChannel, AIThermistorIexChannel],
-	aiPair[v2.AIThermistorVexChannel, AIThermistorVexChannel],
+	aiPair[v2.AIThermistorIExChannel, AIThermistorIExChannel],
+	aiPair[v2.AIThermistorVExChannel, AIThermistorVExChannel],
 	aiPair[v2.AITorqueBridgePolynomialChannel, AITorqueBridgePolynomialChannel],
 	aiPair[v2.AIVoltageRMSChannel, AIVoltageRMSChannel],
 	aiPair[v2.AIVoltageWithExcitChannel, AIVoltageWithExcitChannel],
@@ -404,13 +404,13 @@ func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	if !ok {
 		return
 	}
-	oldCJC, ok := tc.Cjc.Variant.(v2.ChanCJC)
+	oldCJC, ok := tc.CJC.Variant.(v2.ChanCJC)
 	if !ok {
 		return
 	}
 	newTC := as[AIThermocoupleChannel](migrated.Variant)
-	newCJC := as[ChanCJC](newTC.Cjc.Variant)
-	logNumber(l, "Cjc.Port", oldCJC.Port, newCJC.Port)
+	newCJC := as[ChanCJC](newTC.CJC.Variant)
+	logNumber(l, "CJC.Port", oldCJC.Port, newCJC.Port)
 }
 
 func logAOChannel(l changeLog, old v2.AOChannel, migrated AOChannel) {

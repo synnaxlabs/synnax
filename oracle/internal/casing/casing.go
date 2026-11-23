@@ -17,63 +17,77 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/set"
 )
 
-// acronyms are initialisms that stay fully upper-cased in PascalCase identifiers
-// derived from snake_case (e.g. "ai_voltage" -> "AIVoltage"). The set covers the
-// initialisms used in Synnax schemas.
-var acronyms = set.New(
-	"ai", "ao", "ci", "co", "di", "do",
-	"rtd", "iepe", "rms", "dc", "ac",
-	"api", "json", "oidc",
-)
+// spellings maps lower-case words to their spelling in PascalCase identifiers, so every
+// language and every kind of identifier spells a word the same way. Initialisms are
+// fully upper-cased; brand names and units keep their own spelling.
+var spellings = map[string]string{
+	"ac": "AC", "acl": "ACL", "ai": "AI", "ao": "AO", "api": "API", "ascii": "ASCII",
+	"can": "CAN", "ci": "CI", "cjc": "CJC", "co": "CO", "cpu": "CPU", "css": "CSS",
+	"csv": "CSV", "dbc": "DBC", "dc": "DC", "di": "DI", "dns": "DNS", "do": "DO",
+	"eof": "EOF", "ethercat": "EtherCAT", "guid": "GUID", "html": "HTML",
+	"http": "HTTP", "https": "HTTPS", "hz": "Hz", "icd": "ICD", "id": "ID",
+	"iepe": "IEPE", "iex": "IEx", "io": "IO", "ip": "IP", "iso": "ISO", "json": "JSON",
+	"lhs": "LHS", "nan": "NaN", "ni": "NI", "oidc": "OIDC", "opcua": "OPCUA",
+	"pdo": "PDO", "qps": "QPS", "ram": "RAM", "rhs": "RHS", "rms": "RMS", "rpc": "RPC",
+	"rpm": "RPM", "rtd": "RTD", "sla": "SLA", "smtp": "SMTP", "sql": "SQL",
+	"ssh": "SSH", "svg": "SVG", "tcp": "TCP", "tls": "TLS", "ttl": "TTL", "udp": "UDP",
+	"ui": "UI", "uid": "UID", "uri": "URI", "url": "URL", "usb": "USB", "utc": "UTC",
+	"utf": "UTF", "uuid": "UUID", "vex": "VEx", "vm": "VM", "xlsx": "XLSX",
+	"xml": "XML", "xmpp": "XMPP", "xss": "XSS", "xy": "XY",
+}
 
-// Initialisms are lower-case words written fully upper-cased in Go identifiers and
-// human-readable labels (e.g. "id" -> "ID", "uri" -> "URI").
-var Initialisms = set.New(
-	"acl", "api", "ascii", "cpu", "css", "csv", "dbc", "dns", "eof", "guid", "html",
-	"http", "https", "icd", "id", "io", "ip", "iso", "json", "lhs", "oidc", "qps",
-	"ram", "rhs", "rpc", "sla", "smtp", "sql", "ssh", "svg", "tcp", "tls", "ttl", "udp",
-	"ui", "uid", "uri", "url", "usb", "utc", "utf", "uuid", "vm", "xlsx", "xml", "xmpp",
-	"xss", "xy",
-)
+// spelling returns the listed PascalCase spelling of one word, matched
+// case-insensitively, with a trailing "s" kept for plurals ("ids" -> "IDs"). It
+// returns false for an unlisted word.
+func spelling(word string) (string, bool) {
+	lower := strings.ToLower(word)
+	if s, ok := spellings[lower]; ok {
+		return s, true
+	}
+	if singular, ok := strings.CutSuffix(lower, "s"); ok {
+		if s, ok := spellings[singular]; ok {
+			return s + "s", true
+		}
+	}
+	return "", false
+}
+
+// Spell returns the PascalCase spelling of one word: its listed spelling, or else the
+// word capitalized. A word whose listed spelling is wrong in context, such as the verb
+// "can", needs a per-identifier override in the generator.
+func Spell(word string) string {
+	if s, ok := spelling(word); ok {
+		return s
+	}
+	return lo.Capitalize(word)
+}
 
 // Label converts an identifier to sentence-case words for messages a user reads:
-// "resource_name" -> "Resource name", "redirect_uri" -> "Redirect URI". Known
-// initialisms and acronyms are upper-cased, along with their plurals ("ids" -> "IDs").
+// "resource_name" -> "Resource name", "redirect_uri" -> "Redirect URI". Listed words
+// take their spelling, along with their plurals ("ids" -> "IDs").
 func Label(s string) string {
 	words := strings.Split(TypeSnake(s), "_")
 	for i, w := range words {
-		singular, plural := strings.CutSuffix(w, "s")
-		switch {
-		case isAcronym(w):
-			words[i] = strings.ToUpper(w)
-		case plural && isAcronym(singular):
-			words[i] = strings.ToUpper(singular) + "s"
-		case i == 0:
+		if spelled, ok := spelling(w); ok {
+			words[i] = spelled
+		} else if i == 0 {
 			words[i] = lo.Capitalize(w)
 		}
 	}
 	return strings.Join(words, " ")
 }
 
-func isAcronym(w string) bool { return Initialisms.Contains(w) || acronyms.Contains(w) }
-
-// pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
-// upper-casing any whole underscore-delimited segment that is a known acronym.
-// Whole-segment matching means a word that merely contains an acronym (e.g. "email",
-// "accel") is title-cased normally rather than mangled.
+// pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase,
+// spelling each whole underscore-delimited segment with Spell. Whole-segment matching
+// means a word that merely contains an acronym (e.g. "email", "accel") is title-cased
+// normally.
 func pascalAcronym(s string) string {
 	segs := strings.Split(TypeSnake(s), "_")
 	for i, seg := range segs {
-		if seg == "" {
-			continue
-		}
-		if acronyms.Contains(strings.ToLower(seg)) {
-			segs[i] = strings.ToUpper(seg)
-		} else {
-			segs[i] = lo.Capitalize(seg)
+		if seg != "" {
+			segs[i] = Spell(seg)
 		}
 	}
 	return strings.Join(segs, "")
@@ -131,9 +145,9 @@ func tilesKnownAcronyms(s string, n int) bool {
 // (if any) must not be lowercase, so "Aircraft" does not match "ai".
 func leadingKnownAcronym(s string) string {
 	best := ""
-	for a := range acronyms {
-		up := strings.ToUpper(a)
-		if len(up) <= len(best) || !strings.HasPrefix(s, up) {
+	for word, up := range spellings {
+		if up != strings.ToUpper(word) || len(up) <= len(best) ||
+			!strings.HasPrefix(s, up) {
 			continue
 		}
 		if len(s) > len(up) && isLower(s[len(up)]) {

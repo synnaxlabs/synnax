@@ -77,8 +77,8 @@ type ReadChannelVariant interface {
 // AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs.
 type AutomaticReadChannel struct {
 	BaseReadChannel
-	// Pdo is the name of the PDO entry to resolve on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
+	// PDO is the name of the PDO entry to resolve on the slave.
+	PDO string `json:"pdo" msgpack:"pdo"`
 }
 
 func (AutomaticReadChannel) isReadChannelVariant() {}
@@ -254,8 +254,8 @@ type WriteChannelVariant interface {
 // AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs.
 type AutomaticWriteChannel struct {
 	BaseWriteChannel
-	// Pdo is the name of the PDO entry to resolve on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
+	// PDO is the name of the PDO entry to resolve on the slave.
+	PDO string `json:"pdo" msgpack:"pdo"`
 }
 
 func (AutomaticWriteChannel) isWriteChannelVariant() {}

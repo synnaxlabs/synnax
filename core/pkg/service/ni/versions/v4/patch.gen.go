@@ -593,7 +593,7 @@ func (aic *AIChannel) Patch(c patch.Cursor) error {
 		}
 		aic.Variant = v
 		return nil
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		c, ok := c.Guard("type", "ai_thermistor_iex")
 		if !ok {
 			return nil
@@ -606,7 +606,7 @@ func (aic *AIChannel) Patch(c patch.Cursor) error {
 		}
 		aic.Variant = v
 		return nil
-	case AIThermistorVexChannel:
+	case AIThermistorVExChannel:
 		c, ok := c.Guard("type", "ai_thermistor_vex")
 		if !ok {
 			return nil
@@ -716,9 +716,9 @@ func (aic *AIChannel) PatchKey() string {
 		return v.BaseAIChannel.Key
 	case AIPressureBridgePolynomialChannel:
 		return v.BaseAIChannel.Key
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		return v.BaseAIChannel.Key
-	case AIThermistorVexChannel:
+	case AIThermistorVExChannel:
 		return v.BaseAIChannel.Key
 	case AITorqueBridgePolynomialChannel:
 		return v.BaseAIChannel.Key
@@ -808,10 +808,10 @@ func (aic *AIChannel) HashContent(h *content.Hash) {
 	case AIPressureBridgePolynomialChannel:
 		h.String("ai_pressure_bridge_polynomial")
 		v.HashContent(h)
-	case AIThermistorIexChannel:
+	case AIThermistorIExChannel:
 		h.String("ai_thermistor_iex")
 		v.HashContent(h)
-	case AIThermistorVexChannel:
+	case AIThermistorVExChannel:
 		h.String("ai_thermistor_vex")
 		v.HashContent(h)
 	case AITorqueBridgePolynomialChannel:
@@ -1666,8 +1666,8 @@ func (airtdc *AIRTDChannel) Patch(c patch.Cursor) error {
 			airtdc.Units = def.Units
 		})
 	case "rtd_type":
-		return patch.Defaulted(&airtdc.RtdType, c.Next(), func(def *AIRTDChannel) {
-			airtdc.RtdType = def.RtdType
+		return patch.Defaulted(&airtdc.RTDType, c.Next(), func(def *AIRTDChannel) {
+			airtdc.RTDType = def.RTDType
 		})
 	case "r0":
 		return patch.Value(&airtdc.R0, c.Next())
@@ -1689,7 +1689,7 @@ func (airtdc *AIRTDChannel) HashContent(h *content.Hash) {
 	h.String(string(airtdc.CurrentExcitation.CurrentExcitSource))
 	h.Float(airtdc.CurrentExcitation.CurrentExcitVal)
 	h.String(string(airtdc.Units))
-	h.String(string(airtdc.RtdType))
+	h.String(string(airtdc.RTDType))
 	h.Float(airtdc.R0)
 }
 
@@ -1828,11 +1828,11 @@ func (aitc *AIThermocoupleChannel) Patch(c patch.Cursor) error {
 		})
 	case "cjc":
 		if c = c.Next(); c.Done() {
-			return patch.Defaulted(&aitc.Cjc, c, func(def *AIThermocoupleChannel) {
-				aitc.Cjc = def.Cjc
+			return patch.Defaulted(&aitc.CJC, c, func(def *AIThermocoupleChannel) {
+				aitc.CJC = def.CJC
 			})
 		}
-		return aitc.Cjc.Patch(c)
+		return aitc.CJC.Patch(c)
 	default:
 		return c.UnknownField()
 	}
@@ -1849,7 +1849,7 @@ func (aitc *AIThermocoupleChannel) HashContent(h *content.Hash) {
 	h.Float(aitc.MinMaxVal.MaxVal)
 	h.String(string(aitc.Units))
 	h.String(string(aitc.ThermocoupleType))
-	aitc.Cjc.HashContent(h)
+	aitc.CJC.HashContent(h)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -2591,134 +2591,134 @@ func (aipbpc *AIPressureBridgePolynomialChannel) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
-func (aitic *AIThermistorIexChannel) Patch(c patch.Cursor) error {
+func (aitiec *AIThermistorIExChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitic.BaseAIChannel.Key, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Key, c.Next())
 	case "name":
-		return patch.Value(&aitic.BaseAIChannel.Name, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Name, c.Next())
 	case "disabled":
-		return patch.Value(&aitic.BaseAIChannel.Disabled, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Disabled, c.Next())
 	case "channel":
-		return patch.Value(&aitic.BaseAIChannel.Channel, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Channel, c.Next())
 	case "port":
-		return patch.Value(&aitic.BaseAIChannel.Port, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Port, c.Next())
 	case "device":
-		return patch.Value(&aitic.BaseAIChannel.Device, c.Next())
+		return patch.Value(&aitiec.BaseAIChannel.Device, c.Next())
 	case "min_val":
-		return patch.Value(&aitic.MinMaxVal.MinVal, c.Next())
+		return patch.Value(&aitiec.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Defaulted(&aitic.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		return patch.Defaulted(&aitiec.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorIExChannel) {
+			aitiec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
 		})
 	case "resistance_config":
-		return patch.Defaulted(&aitic.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		return patch.Defaulted(&aitiec.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorIExChannel) {
+			aitiec.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
 		})
 	case "current_excit_source":
-		return patch.Defaulted(&aitic.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		return patch.Defaulted(&aitiec.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIThermistorIExChannel) {
+			aitiec.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
 		})
 	case "current_excit_val":
-		return patch.Value(&aitic.CurrentExcitation.CurrentExcitVal, c.Next())
+		return patch.Value(&aitiec.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "units":
-		return patch.Defaulted(&aitic.Units, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.Units = def.Units
+		return patch.Defaulted(&aitiec.Units, c.Next(), func(def *AIThermistorIExChannel) {
+			aitiec.Units = def.Units
 		})
 	case "a":
-		return patch.Value(&aitic.A, c.Next())
+		return patch.Value(&aitiec.A, c.Next())
 	case "b":
-		return patch.Value(&aitic.B, c.Next())
+		return patch.Value(&aitiec.B, c.Next())
 	case "c":
-		return patch.Value(&aitic.C, c.Next())
+		return patch.Value(&aitiec.C, c.Next())
 	default:
 		return c.UnknownField()
 	}
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (aitic *AIThermistorIexChannel) HashContent(h *content.Hash) {
-	h.String(aitic.BaseAIChannel.Name)
-	h.Bool(aitic.BaseAIChannel.Disabled)
-	h.Uint(uint64(aitic.BaseAIChannel.Channel))
-	h.Uint(uint64(aitic.BaseAIChannel.Port))
-	h.String(aitic.BaseAIChannel.Device)
-	h.Float(aitic.MinMaxVal.MinVal)
-	h.Float(aitic.MinMaxVal.MaxVal)
-	h.String(string(aitic.Resistance.ResistanceConfig))
-	h.String(string(aitic.CurrentExcitation.CurrentExcitSource))
-	h.Float(aitic.CurrentExcitation.CurrentExcitVal)
-	h.String(string(aitic.Units))
-	h.Float(aitic.A)
-	h.Float(aitic.B)
-	h.Float(aitic.C)
+func (aitiec *AIThermistorIExChannel) HashContent(h *content.Hash) {
+	h.String(aitiec.BaseAIChannel.Name)
+	h.Bool(aitiec.BaseAIChannel.Disabled)
+	h.Uint(uint64(aitiec.BaseAIChannel.Channel))
+	h.Uint(uint64(aitiec.BaseAIChannel.Port))
+	h.String(aitiec.BaseAIChannel.Device)
+	h.Float(aitiec.MinMaxVal.MinVal)
+	h.Float(aitiec.MinMaxVal.MaxVal)
+	h.String(string(aitiec.Resistance.ResistanceConfig))
+	h.String(string(aitiec.CurrentExcitation.CurrentExcitSource))
+	h.Float(aitiec.CurrentExcitation.CurrentExcitVal)
+	h.String(string(aitiec.Units))
+	h.Float(aitiec.A)
+	h.Float(aitiec.B)
+	h.Float(aitiec.C)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
-func (aitvc *AIThermistorVexChannel) Patch(c patch.Cursor) error {
+func (aitvec *AIThermistorVExChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitvc.BaseAIChannel.Key, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Key, c.Next())
 	case "name":
-		return patch.Value(&aitvc.BaseAIChannel.Name, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Name, c.Next())
 	case "disabled":
-		return patch.Value(&aitvc.BaseAIChannel.Disabled, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Disabled, c.Next())
 	case "channel":
-		return patch.Value(&aitvc.BaseAIChannel.Channel, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Channel, c.Next())
 	case "port":
-		return patch.Value(&aitvc.BaseAIChannel.Port, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Port, c.Next())
 	case "device":
-		return patch.Value(&aitvc.BaseAIChannel.Device, c.Next())
+		return patch.Value(&aitvec.BaseAIChannel.Device, c.Next())
 	case "min_val":
-		return patch.Value(&aitvc.MinMaxVal.MinVal, c.Next())
+		return patch.Value(&aitvec.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Defaulted(&aitvc.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		return patch.Defaulted(&aitvec.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorVExChannel) {
+			aitvec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
 		})
 	case "resistance_config":
-		return patch.Defaulted(&aitvc.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		return patch.Defaulted(&aitvec.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorVExChannel) {
+			aitvec.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
 		})
 	case "voltage_excit_source":
-		return patch.Defaulted(&aitvc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		return patch.Defaulted(&aitvec.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIThermistorVExChannel) {
+			aitvec.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
 		})
 	case "voltage_excit_val":
-		return patch.Value(&aitvc.VoltageExcitation.VoltageExcitVal, c.Next())
+		return patch.Value(&aitvec.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "units":
-		return patch.Defaulted(&aitvc.Units, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.Units = def.Units
+		return patch.Defaulted(&aitvec.Units, c.Next(), func(def *AIThermistorVExChannel) {
+			aitvec.Units = def.Units
 		})
 	case "a":
-		return patch.Value(&aitvc.A, c.Next())
+		return patch.Value(&aitvec.A, c.Next())
 	case "b":
-		return patch.Value(&aitvc.B, c.Next())
+		return patch.Value(&aitvec.B, c.Next())
 	case "c":
-		return patch.Value(&aitvc.C, c.Next())
+		return patch.Value(&aitvec.C, c.Next())
 	case "r1":
-		return patch.Value(&aitvc.R1, c.Next())
+		return patch.Value(&aitvec.R1, c.Next())
 	default:
 		return c.UnknownField()
 	}
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (aitvc *AIThermistorVexChannel) HashContent(h *content.Hash) {
-	h.String(aitvc.BaseAIChannel.Name)
-	h.Bool(aitvc.BaseAIChannel.Disabled)
-	h.Uint(uint64(aitvc.BaseAIChannel.Channel))
-	h.Uint(uint64(aitvc.BaseAIChannel.Port))
-	h.String(aitvc.BaseAIChannel.Device)
-	h.Float(aitvc.MinMaxVal.MinVal)
-	h.Float(aitvc.MinMaxVal.MaxVal)
-	h.String(string(aitvc.Resistance.ResistanceConfig))
-	h.String(string(aitvc.VoltageExcitation.VoltageExcitSource))
-	h.Float(aitvc.VoltageExcitation.VoltageExcitVal)
-	h.String(string(aitvc.Units))
-	h.Float(aitvc.A)
-	h.Float(aitvc.B)
-	h.Float(aitvc.C)
-	h.Float(aitvc.R1)
+func (aitvec *AIThermistorVExChannel) HashContent(h *content.Hash) {
+	h.String(aitvec.BaseAIChannel.Name)
+	h.Bool(aitvec.BaseAIChannel.Disabled)
+	h.Uint(uint64(aitvec.BaseAIChannel.Channel))
+	h.Uint(uint64(aitvec.BaseAIChannel.Port))
+	h.String(aitvec.BaseAIChannel.Device)
+	h.Float(aitvec.MinMaxVal.MinVal)
+	h.Float(aitvec.MinMaxVal.MaxVal)
+	h.String(string(aitvec.Resistance.ResistanceConfig))
+	h.String(string(aitvec.VoltageExcitation.VoltageExcitSource))
+	h.Float(aitvec.VoltageExcitation.VoltageExcitVal)
+	h.String(string(aitvec.Units))
+	h.Float(aitvec.A)
+	h.Float(aitvec.B)
+	h.Float(aitvec.C)
+	h.Float(aitvec.R1)
 }
 
 // Patch applies the path action at c, which is not done, to the value.

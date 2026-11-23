@@ -216,7 +216,7 @@ var _ = Describe("Codec", func() {
 				Resistance:        fullyPopulatedResistance,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				Units:             v3.TemperatureUnits("DegC"),
-				RtdType:           v3.RTDType("Pt3750"),
+				RTDType:           v3.RTDType("Pt3750"),
 				R0:                3.5,
 			}}),
 			Entry("ai_strain_gauge variant", v3.AIChannel{Variant: v3.AIStrainGaugeChannel{
@@ -244,7 +244,7 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:        fullyPopulatedMinMaxVal,
 				Units:            v3.TemperatureUnits("DegC"),
 				ThermocoupleType: v3.ThermocoupleType("J"),
-				Cjc:              v3.CJC{Variant: v3.BuiltInCJC{}},
+				CJC:              v3.CJC{Variant: v3.BuiltInCJC{}},
 			}}),
 			Entry("ai_torque_bridge_table variant", v3.AIChannel{Variant: v3.AITorqueBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -338,7 +338,7 @@ var _ = Describe("Codec", func() {
 				Units:             v3.PressureUnits("PoundsPerSquareInch"),
 				PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
 			}}),
-			Entry("ai_thermistor_iex variant", v3.AIChannel{Variant: v3.AIThermistorIexChannel{
+			Entry("ai_thermistor_iex variant", v3.AIChannel{Variant: v3.AIThermistorIExChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
 				Resistance:        fullyPopulatedResistance,
@@ -348,7 +348,7 @@ var _ = Describe("Codec", func() {
 				B:                 3.5,
 				C:                 4.5,
 			}}),
-			Entry("ai_thermistor_vex variant", v3.AIChannel{Variant: v3.AIThermistorVexChannel{
+			Entry("ai_thermistor_vex variant", v3.AIChannel{Variant: v3.AIThermistorVExChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
 				Resistance:        fullyPopulatedResistance,
@@ -1530,7 +1530,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Resistance:        fullyPopulatedResistance,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			Units:             v3.TemperatureUnits("DegC"),
-			RtdType:           v3.RTDType("Pt3750"),
+			RTDType:           v3.RTDType("Pt3750"),
 			R0:                3.5,
 		}}
 		w := orc.NewWriter(0)
@@ -1579,7 +1579,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:        fullyPopulatedMinMaxVal,
 			Units:            v3.TemperatureUnits("DegC"),
 			ThermocoupleType: v3.ThermocoupleType("J"),
-			Cjc:              v3.CJC{Variant: v3.BuiltInCJC{}},
+			CJC:              v3.CJC{Variant: v3.BuiltInCJC{}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1750,7 +1750,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v3.AIChannel{Variant: v3.AIThermistorIexChannel{
+		seed := v3.AIChannel{Variant: v3.AIThermistorIExChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
 			Resistance:        fullyPopulatedResistance,
@@ -1767,7 +1767,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v3.AIChannel{Variant: v3.AIThermistorVexChannel{
+		seed := v3.AIChannel{Variant: v3.AIThermistorVExChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
 			Resistance:        fullyPopulatedResistance,

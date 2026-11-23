@@ -44,25 +44,15 @@ func isScreamingCase(s string) bool {
 // pascalWord matches one word of a PascalCase identifier.
 var pascalWord = regexp.MustCompile(`[A-Z][a-z]*`)
 
-// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions for
-// whole words (e.g. "id" → "ID", "sticky_xy" → "StickyXY", "slave" → "Slave"). Routes
-// through casing.TypePascal so PascalCase inputs with adjacent capitals (SetXChannel,
-// URLValue) keep their boundaries instead of collapsing to SetXchannel / Urlvalue.
+// ToPascalCase converts a name to PascalCase, spelling each whole word with
+// casing.Spell (e.g. "id" → "ID", "ai_min_rate" → "AIMinRate", "nan_fill" →
+// "NaNFill"). Routes through casing.TypePascal so PascalCase inputs with adjacent
+// capitals (SetXChannel, URLValue) keep their boundaries.
 func ToPascalCase(s string) string {
 	if isScreamingCase(s) {
 		return s
 	}
-	result := casing.TypePascal(s)
-	return pascalWord.ReplaceAllStringFunc(result, func(word string) string {
-		if casing.Initialisms.Contains(strings.ToLower(word)) {
-			return strings.ToUpper(word)
-		}
-		if singular, ok := strings.CutSuffix(word, "s"); ok &&
-			casing.Initialisms.Contains(strings.ToLower(singular)) {
-			return strings.ToUpper(singular) + "s"
-		}
-		return word
-	})
+	return pascalWord.ReplaceAllStringFunc(casing.TypePascal(s), casing.Spell)
 }
 
 // GetFieldName returns the Go field name for a schema field. It checks for a @go name
@@ -72,6 +62,15 @@ func GetFieldName(f resolution.Field) string {
 		return override
 	}
 	return ToPascalCase(f.Name)
+}
+
+// GetEnumValueName returns the suffix of an enum member's Go constant. It checks for a
+// @go name override first, then falls back to ToPascalCase of the member name.
+func GetEnumValueName(v resolution.EnumValue) string {
+	if override := domain.GetStringFromEnumValue(v, "go", "name"); override != "" {
+		return override
+	}
+	return ToPascalCase(v.Name)
 }
 
 // GetGoName returns the Go name for a type. It checks for a @go name override first,

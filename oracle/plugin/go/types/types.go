@@ -747,7 +747,7 @@ func processEnum(e resolution.Type) enumData {
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
-			Name:     naming.ToPascalCase(v.Name),
+			Name:     naming.GetEnumValueName(v),
 			Doc:      doc.Get(v.Domains),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),

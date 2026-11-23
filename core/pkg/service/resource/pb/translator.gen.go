@@ -121,9 +121,9 @@ func TypeToPB(v resource.Type) (Type, error) {
 		return Type_TYPE_USER, nil
 	case resource.TypeView:
 		return Type_TYPE_VIEW, nil
-	case resource.TypeEthercatMaster:
+	case resource.TypeEtherCATMaster:
 		return Type_TYPE_ETHERCAT_MASTER, nil
-	case resource.TypeEthercatSlave:
+	case resource.TypeEtherCATSlave:
 		return Type_TYPE_ETHERCAT_SLAVE, nil
 	case resource.TypeHTTPServer:
 		return Type_TYPE_HTTP_SERVER, nil
@@ -131,11 +131,11 @@ func TypeToPB(v resource.Type) (Type, error) {
 		return Type_TYPE_LABJACK_DEVICE, nil
 	case resource.TypeModbusServer:
 		return Type_TYPE_MODBUS_SERVER, nil
-	case resource.TypeNiChassis:
+	case resource.TypeNIChassis:
 		return Type_TYPE_NI_CHASSIS, nil
-	case resource.TypeNiDevice:
+	case resource.TypeNIDevice:
 		return Type_TYPE_NI_DEVICE, nil
-	case resource.TypeOpcuaServer:
+	case resource.TypeOPCUAServer:
 		return Type_TYPE_OPCUA_SERVER, nil
 	case resource.TypeArcDirectory:
 		return Type_TYPE_ARC_DIRECTORY, nil
@@ -206,9 +206,9 @@ func TypeFromPB(v Type) (resource.Type, error) {
 	case Type_TYPE_VIEW:
 		return resource.TypeView, nil
 	case Type_TYPE_ETHERCAT_MASTER:
-		return resource.TypeEthercatMaster, nil
+		return resource.TypeEtherCATMaster, nil
 	case Type_TYPE_ETHERCAT_SLAVE:
-		return resource.TypeEthercatSlave, nil
+		return resource.TypeEtherCATSlave, nil
 	case Type_TYPE_HTTP_SERVER:
 		return resource.TypeHTTPServer, nil
 	case Type_TYPE_LABJACK_DEVICE:
@@ -216,11 +216,11 @@ func TypeFromPB(v Type) (resource.Type, error) {
 	case Type_TYPE_MODBUS_SERVER:
 		return resource.TypeModbusServer, nil
 	case Type_TYPE_NI_CHASSIS:
-		return resource.TypeNiChassis, nil
+		return resource.TypeNIChassis, nil
 	case Type_TYPE_NI_DEVICE:
-		return resource.TypeNiDevice, nil
+		return resource.TypeNIDevice, nil
 	case Type_TYPE_OPCUA_SERVER:
-		return resource.TypeOpcuaServer, nil
+		return resource.TypeOPCUAServer, nil
 	case Type_TYPE_ARC_DIRECTORY:
 		return resource.TypeArcDirectory, nil
 	case Type_TYPE_SECRET:

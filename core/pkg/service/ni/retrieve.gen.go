@@ -132,11 +132,11 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 						if v2.Channel != 0 {
 							targets = append(targets, v2.Channel)
 						}
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v2.Channel != 0 {
 							targets = append(targets, v2.Channel)
 						}
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v2.Channel != 0 {
 							targets = append(targets, v2.Channel)
 						}
@@ -411,12 +411,12 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v4.Channel == t {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v4.Channel == t {
 							v4.Channel = 0
 						}
@@ -439,157 +439,157 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 					}
 				}
 			},
-			Retarget: func(e *AnalogReadConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *AnalogReadConfig, from, to channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case AIVoltageChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccelChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIBridgeChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AICurrentChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgeTableChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceIEPEChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIMicrophoneChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgeTableChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIResistanceChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIRTDChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIStrainGaugeChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITempBuiltinChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIThermocoupleChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgeTableChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVelocityIEPEChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccel4WireDCVoltageChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccelChargeChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIChargeChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AICurrentRMSChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgePolynomialChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIFreqVoltageChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgePolynomialChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
-					case AIThermistorIexChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+					case AIThermistorIExChannel:
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
-					case AIThermistorVexChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+					case AIThermistorVExChannel:
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgePolynomialChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVoltageRMSChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVoltageWithExcitChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -705,11 +705,11 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 						if v2.Device != "" {
 							targets = append(targets, v2.Device)
 						}
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v2.Device != "" {
 							targets = append(targets, v2.Device)
 						}
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v2.Device != "" {
 							targets = append(targets, v2.Device)
 						}
@@ -984,12 +984,12 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v4.Device == t {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v4.Device == t {
 							v4.Device = ""
 						}
@@ -1012,157 +1012,157 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 					}
 				}
 			},
-			Retarget: func(e *AnalogReadConfig, to map[device.Key]device.Key) {
+			Retarget: func(e *AnalogReadConfig, from, to device.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case AIVoltageChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccelChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIBridgeChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AICurrentChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgeTableChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceIEPEChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIMicrophoneChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgeTableChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIResistanceChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIRTDChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIStrainGaugeChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITempBuiltinChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIThermocoupleChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgeTableChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgeTwoPointLinChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVelocityIEPEChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccel4WireDCVoltageChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIAccelChargeChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIChargeChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AICurrentRMSChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIForceBridgePolynomialChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIFreqVoltageChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIPressureBridgePolynomialChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
-					case AIThermistorIexChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+					case AIThermistorIExChannel:
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
-					case AIThermistorVexChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+					case AIThermistorVExChannel:
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AITorqueBridgePolynomialChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVoltageRMSChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case AIVoltageWithExcitChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -1344,62 +1344,62 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 					}
 				}
 			},
-			Retarget: func(e *CounterReadConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *CounterReadConfig, from, to channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case CIFrequencyChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIEdgeCountChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPeriodChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPulseWidthChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CISemiPeriodChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CITwoEdgeSepChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIVelocityLinearChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIVelocityAngularChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPositionLinearChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPositionAngularChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIDutyCycleChannel:
-						if t, ok := to[v6.Channel]; ok {
-							v6.Channel = t
+						if v6.Channel == from {
+							v6.Channel = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -1575,62 +1575,62 @@ func counterReadConfigReferences() []gorp.Reference[uuid.UUID, CounterReadConfig
 					}
 				}
 			},
-			Retarget: func(e *CounterReadConfig, to map[device.Key]device.Key) {
+			Retarget: func(e *CounterReadConfig, from, to device.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case CIFrequencyChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIEdgeCountChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPeriodChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPulseWidthChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CISemiPeriodChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CITwoEdgeSepChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIVelocityLinearChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIVelocityAngularChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPositionLinearChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIPositionAngularChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					case CIDutyCycleChannel:
-						if t, ok := to[v6.Device]; ok {
-							v6.Device = t
+						if v6.Device == from {
+							v6.Device = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -1660,9 +1660,9 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *AnalogWriteConfig, to map[device.Key]device.Key) {
-				if t, ok := to[e.Device]; ok {
-					e.Device = t
+			Retarget: func(e *AnalogWriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
 				}
 			},
 		}),
@@ -1718,17 +1718,17 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 					}
 				}
 			},
-			Retarget: func(e *AnalogWriteConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *AnalogWriteConfig, from, to channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case AOCurrentChannel:
-						if t, ok := to[v6.CmdChannel]; ok {
-							v6.CmdChannel = t
+						if v6.CmdChannel == from {
+							v6.CmdChannel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AOVoltageChannel:
-						if t, ok := to[v6.CmdChannel]; ok {
-							v6.CmdChannel = t
+						if v6.CmdChannel == from {
+							v6.CmdChannel = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -1787,17 +1787,17 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 					}
 				}
 			},
-			Retarget: func(e *AnalogWriteConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *AnalogWriteConfig, from, to channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case AOCurrentChannel:
-						if t, ok := to[v6.StateChannel]; ok {
-							v6.StateChannel = t
+						if v6.StateChannel == from {
+							v6.StateChannel = to
 						}
 						e.Channels[i5].Variant = v6
 					case AOVoltageChannel:
-						if t, ok := to[v6.StateChannel]; ok {
-							v6.StateChannel = t
+						if v6.StateChannel == from {
+							v6.StateChannel = to
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -1827,9 +1827,9 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *DigitalReadConfig, to map[device.Key]device.Key) {
-				if t, ok := to[e.Device]; ok {
-					e.Device = t
+			Retarget: func(e *DigitalReadConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
 				}
 			},
 		}),
@@ -1862,10 +1862,10 @@ func digitalReadConfigReferences() []gorp.Reference[uuid.UUID, DigitalReadConfig
 					}
 				}
 			},
-			Retarget: func(e *DigitalReadConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *DigitalReadConfig, from, to channel.Key) {
 				for i3 := range e.Channels {
-					if t, ok := to[e.Channels[i3].Channel]; ok {
-						e.Channels[i3].Channel = t
+					if e.Channels[i3].Channel == from {
+						e.Channels[i3].Channel = to
 					}
 				}
 			},
@@ -1893,9 +1893,9 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *DigitalWriteConfig, to map[device.Key]device.Key) {
-				if t, ok := to[e.Device]; ok {
-					e.Device = t
+			Retarget: func(e *DigitalWriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
 				}
 			},
 		}),
@@ -1928,10 +1928,10 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 					}
 				}
 			},
-			Retarget: func(e *DigitalWriteConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *DigitalWriteConfig, from, to channel.Key) {
 				for i3 := range e.Channels {
-					if t, ok := to[e.Channels[i3].CmdChannel]; ok {
-						e.Channels[i3].CmdChannel = t
+					if e.Channels[i3].CmdChannel == from {
+						e.Channels[i3].CmdChannel = to
 					}
 				}
 			},
@@ -1965,10 +1965,10 @@ func digitalWriteConfigReferences() []gorp.Reference[uuid.UUID, DigitalWriteConf
 					}
 				}
 			},
-			Retarget: func(e *DigitalWriteConfig, to map[channel.Key]channel.Key) {
+			Retarget: func(e *DigitalWriteConfig, from, to channel.Key) {
 				for i3 := range e.Channels {
-					if t, ok := to[e.Channels[i3].StateChannel]; ok {
-						e.Channels[i3].StateChannel = t
+					if e.Channels[i3].StateChannel == from {
+						e.Channels[i3].StateChannel = to
 					}
 				}
 			},

@@ -44,7 +44,7 @@ func ResolveReadConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := v2.FindEntry(found[u.Device].Inputs, u.Pdo); ok {
+		if e, ok := v2.FindEntry(found[u.Device].Inputs, u.PDO); ok {
 			cfg.Channels[i].Variant = EntryReadChannel{
 				BaseReadChannel: u.BaseReadChannel,
 				Index:           e.Index,
@@ -83,7 +83,7 @@ func ResolveWriteConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := v2.FindEntry(found[u.Device].Outputs, u.Pdo); ok {
+		if e, ok := v2.FindEntry(found[u.Device].Outputs, u.PDO); ok {
 			cfg.Channels[i].Variant = EntryWriteChannel{
 				BaseWriteChannel: u.BaseWriteChannel,
 				Index:            e.Index,

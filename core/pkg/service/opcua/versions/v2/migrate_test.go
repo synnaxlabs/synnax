@@ -80,7 +80,7 @@ var _ = Describe("Migration", func() {
 			Expect(got.SampleRate).To(Equal(stored.SampleRate))
 			Expect(got.StreamRate).To(Equal(stored.StreamRate))
 			Expect(got.Sampling.Variant).To(Equal(v2.ArraySampling{Size: 5}))
-			Expect(got.NanFillEnabled).To(BeFalse())
+			Expect(got.NaNFillEnabled).To(BeFalse())
 			Expect(got.Channels).To(HaveLen(1))
 			ch, want := got.Channels[0], stored.Channels[0]
 			Expect(ch.BaseChannel).To(Equal(want.BaseChannel))

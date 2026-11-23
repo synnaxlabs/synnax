@@ -789,8 +789,8 @@ func BinaryBaseFieldsFromPB(pbs []*BinaryBaseField) ([]icd.BinaryBaseField, erro
 	return result, nil
 }
 
-// CanIdentifierToPB converts CanIdentifier to IdentifierCanPayload.
-func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
+// CANIdentifierToPB converts CANIdentifier to IdentifierCanPayload.
+func CANIdentifierToPB(r icd.CANIdentifier) (*IdentifierCanPayload, error) {
 	pb := &IdentifierCanPayload{
 		Id:              r.ID,
 		Extended:        r.Extended,
@@ -803,12 +803,12 @@ func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 	return pb, nil
 }
 
-// CanIdentifierFromPB converts IdentifierCanPayload to CanIdentifier.
+// CANIdentifierFromPB converts IdentifierCanPayload to CANIdentifier.
 //
 // A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
 // from a zero one, so a scalar keeps the value that pb holds.
-func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
-	var r icd.CanIdentifier
+func CANIdentifierFromPB(pb *IdentifierCanPayload) (icd.CANIdentifier, error) {
+	var r icd.CANIdentifier
 	if pb == nil {
 		return r, nil
 	}
@@ -824,12 +824,12 @@ func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
 	return r, nil
 }
 
-// CanIdentifiersToPB converts a slice of CanIdentifier to IdentifierCanPayload.
-func CanIdentifiersToPB(rs []icd.CanIdentifier) ([]*IdentifierCanPayload, error) {
+// CANIdentifiersToPB converts a slice of CANIdentifier to IdentifierCanPayload.
+func CANIdentifiersToPB(rs []icd.CANIdentifier) ([]*IdentifierCanPayload, error) {
 	result := make([]*IdentifierCanPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = CanIdentifierToPB(rs[i])
+		result[i], err = CANIdentifierToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -837,12 +837,12 @@ func CanIdentifiersToPB(rs []icd.CanIdentifier) ([]*IdentifierCanPayload, error)
 	return result, nil
 }
 
-// CanIdentifiersFromPB converts a slice of IdentifierCanPayload to CanIdentifier.
-func CanIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]icd.CanIdentifier, error) {
-	result := make([]icd.CanIdentifier, len(pbs))
+// CANIdentifiersFromPB converts a slice of IdentifierCanPayload to CANIdentifier.
+func CANIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]icd.CANIdentifier, error) {
+	result := make([]icd.CANIdentifier, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = CanIdentifierFromPB(pb)
+		result[i], err = CANIdentifierFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1728,8 +1728,8 @@ func JSONJSONFieldsFromPB(pbs []*JSONFieldJsonPayload) ([]icd.JSONJSONField, err
 	return result, nil
 }
 
-// UuidJSONFieldToPB converts UuidJSONField to JSONFieldUuidPayload.
-func UuidJSONFieldToPB(r icd.UuidJSONField) (*JSONFieldUuidPayload, error) {
+// UUIDJSONFieldToPB converts UUIDJSONField to JSONFieldUuidPayload.
+func UUIDJSONFieldToPB(r icd.UUIDJSONField) (*JSONFieldUuidPayload, error) {
 	pb := &JSONFieldUuidPayload{}
 	if r.Default != nil {
 		var err error
@@ -1741,28 +1741,28 @@ func UuidJSONFieldToPB(r icd.UuidJSONField) (*JSONFieldUuidPayload, error) {
 	return pb, nil
 }
 
-// UuidJSONFieldFromPB converts JSONFieldUuidPayload to UuidJSONField.
-func UuidJSONFieldFromPB(pb *JSONFieldUuidPayload) (icd.UuidJSONField, error) {
-	var r icd.UuidJSONField
+// UUIDJSONFieldFromPB converts JSONFieldUuidPayload to UUIDJSONField.
+func UUIDJSONFieldFromPB(pb *JSONFieldUuidPayload) (icd.UUIDJSONField, error) {
+	var r icd.UUIDJSONField
 	if pb == nil {
 		return r, nil
 	}
 	if pb.Default != nil {
 		val, err := UUIDDefaultFromPB(pb.Default)
 		if err != nil {
-			return icd.UuidJSONField{}, err
+			return icd.UUIDJSONField{}, err
 		}
 		r.Default = &val
 	}
 	return r, nil
 }
 
-// UuidJSONFieldsToPB converts a slice of UuidJSONField to JSONFieldUuidPayload.
-func UuidJSONFieldsToPB(rs []icd.UuidJSONField) ([]*JSONFieldUuidPayload, error) {
+// UUIDJSONFieldsToPB converts a slice of UUIDJSONField to JSONFieldUuidPayload.
+func UUIDJSONFieldsToPB(rs []icd.UUIDJSONField) ([]*JSONFieldUuidPayload, error) {
 	result := make([]*JSONFieldUuidPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = UuidJSONFieldToPB(rs[i])
+		result[i], err = UUIDJSONFieldToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1770,12 +1770,12 @@ func UuidJSONFieldsToPB(rs []icd.UuidJSONField) ([]*JSONFieldUuidPayload, error)
 	return result, nil
 }
 
-// UuidJSONFieldsFromPB converts a slice of JSONFieldUuidPayload to UuidJSONField.
-func UuidJSONFieldsFromPB(pbs []*JSONFieldUuidPayload) ([]icd.UuidJSONField, error) {
-	result := make([]icd.UuidJSONField, len(pbs))
+// UUIDJSONFieldsFromPB converts a slice of JSONFieldUuidPayload to UUIDJSONField.
+func UUIDJSONFieldsFromPB(pbs []*JSONFieldUuidPayload) ([]icd.UUIDJSONField, error) {
+	result := make([]icd.UUIDJSONField, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = UuidJSONFieldFromPB(pb)
+		result[i], err = UUIDJSONFieldFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2577,8 +2577,8 @@ func IdentifierToPB(r icd.Identifier) (*Identifier, error) {
 	}
 	pb := &Identifier{}
 	switch v := r.Variant.(type) {
-	case icd.CanIdentifier:
-		inner, err := CanIdentifierToPB(v)
+	case icd.CANIdentifier:
+		inner, err := CANIdentifierToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -2603,7 +2603,7 @@ func IdentifierFromPB(pb *Identifier) (icd.Identifier, error) {
 	}
 	switch v := pb.Variant.(type) {
 	case *Identifier_Can:
-		inner, err := CanIdentifierFromPB(v.Can)
+		inner, err := CANIdentifierFromPB(v.Can)
 		if err != nil {
 			return r, err
 		}
@@ -3090,8 +3090,8 @@ func JSONFieldToPB(r icd.JSONField) (*JSONField, error) {
 			return nil, err
 		}
 		pb.Variant = &JSONField_Json{Json: inner}
-	case icd.UuidJSONField:
-		inner, err := UuidJSONFieldToPB(v)
+	case icd.UUIDJSONField:
+		inner, err := UUIDJSONFieldToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -3215,7 +3215,7 @@ func JSONFieldFromPB(pb *JSONField) (icd.JSONField, error) {
 		}
 		r.Variant = m
 	case *JSONField_Uuid:
-		inner, err := UuidJSONFieldFromPB(v.Uuid)
+		inner, err := UUIDJSONFieldFromPB(v.Uuid)
 		if err != nil {
 			return r, err
 		}

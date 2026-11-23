@@ -153,7 +153,7 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
                         };
                     out.fallback = *v.default_;
                 }
-            } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
+            } else if constexpr (std::is_same_v<F, icd::UUIDJSONField>) {
                 out.kind = payload::KIND_UUID;
                 if (v.default_.has_value())
                     std::visit(

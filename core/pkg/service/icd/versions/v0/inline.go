@@ -355,7 +355,7 @@ func liftRead(
 	case payload.KindJSON:
 		return JSONField{Variant: JSONJSONField{JSONBaseField: base}}
 	case payload.KindUUID:
-		return JSONField{Variant: UuidJSONField{JSONBaseField: base}}
+		return JSONField{Variant: UUIDJSONField{JSONBaseField: base}}
 	case payload.KindBytes:
 		return JSONField{Variant: BytesJSONField{JSONBaseField: base}}
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned,

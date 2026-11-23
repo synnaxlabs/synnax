@@ -29,7 +29,7 @@ func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, e
 	case v1.AutomaticReadChannel:
 		return ReadChannel{Variant: UnresolvedReadChannel{
 			BaseReadChannel: v.BaseReadChannel,
-			Pdo:             v.Pdo,
+			PDO:             v.PDO,
 		}}, nil
 	}
 	return autoMigrateReadChannel(ctx, old)
@@ -52,7 +52,7 @@ func MigrateWriteChannel(
 	case v1.AutomaticWriteChannel:
 		return WriteChannel{Variant: UnresolvedWriteChannel{
 			BaseWriteChannel: v.BaseWriteChannel,
-			Pdo:              v.Pdo,
+			PDO:              v.PDO,
 		}}, nil
 	}
 	return autoMigrateWriteChannel(ctx, old)

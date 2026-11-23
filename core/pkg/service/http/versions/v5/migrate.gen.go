@@ -30,7 +30,7 @@ func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, 
 		Device:         old.Device,
 		Rate:           old.Rate,
 		Endpoints:      endpoints,
-		NanFillEnabled: old.NanFillEnabled,
+		NaNFillEnabled: old.NaNFillEnabled,
 	}, nil
 }
 

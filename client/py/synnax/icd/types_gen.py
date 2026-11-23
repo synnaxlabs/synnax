@@ -186,7 +186,7 @@ class JSONWriteValue(BaseModel):
     value: str
 
 
-class UuidWriteValue(BaseModel):
+class UUIDWriteValue(BaseModel):
     """Is a fixed UUID."""
 
     type: Literal["uuid"] = "uuid"
@@ -210,7 +210,7 @@ WriteValue = Annotated[
     | BooleanWriteValue
     | TimestampWriteValue
     | JSONWriteValue
-    | UuidWriteValue
+    | UUIDWriteValue
     | BytesWriteValue,
     Field(discriminator="type"),
 ]
@@ -308,7 +308,7 @@ class WriteBaseBinding(BaseModel):
     field: FieldKey
 
 
-class CanIdentifier(BaseModel):
+class CANIdentifier(BaseModel):
     """Matches a CAN frame by arbitration identifier."""
 
     type: Literal["can"] = "can"
@@ -329,7 +329,7 @@ class FieldIdentifier(BaseModel):
 
 # Selects which frames on a bus belong to a binary message.
 Identifier = Annotated[
-    CanIdentifier | FieldIdentifier,
+    CANIdentifier | FieldIdentifier,
     Field(discriminator="type"),
 ]
 
@@ -621,7 +621,7 @@ class JSONJSONField(JSONBaseField):
     default: str | None = None
 
 
-class UuidJSONField(JSONBaseField):
+class UUIDJSONField(JSONBaseField):
     """Is a UUID held in a JSON string."""
 
     type: Literal["uuid"] = "uuid"
@@ -645,7 +645,7 @@ JSONField = Annotated[
     | BooleanJSONField
     | TimestampJSONField
     | JSONJSONField
-    | UuidJSONField
+    | UUIDJSONField
     | BytesJSONField,
     Field(discriminator="type"),
 ]

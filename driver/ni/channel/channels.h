@@ -1005,7 +1005,7 @@ inline x::errors::Error apply(
 }
 
 inline x::errors::Error apply(
-    const ::synnax::ni::AIThermistorIexChannel &ch,
+    const ::synnax::ni::AIThermistorIExChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
@@ -1039,7 +1039,7 @@ inline x::errors::Error apply(
 }
 
 inline x::errors::Error apply(
-    const ::synnax::ni::AIThermistorVexChannel &ch,
+    const ::synnax::ni::AIThermistorVExChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle

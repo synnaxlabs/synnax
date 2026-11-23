@@ -21,5 +21,5 @@ func (d Device) GorpKey() Key { return d.Key }
 
 // ResourceID returns the resource identifier of the Device.
 func (d Device) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeNiDevice, Key: d.Key.String()}
+	return resource.ID{Type: resource.TypeNIDevice, Key: d.Key.String()}
 }

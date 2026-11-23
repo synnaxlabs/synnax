@@ -112,7 +112,7 @@ var _ = Describe("Codec", func() {
 						Index: "test_30",
 					},
 				},
-				NanFillEnabled: true,
+				NaNFillEnabled: true,
 			}),
 			Entry("zero values", v4.ReadConfig{
 				Key:                uuid.Nil(),
@@ -121,7 +121,7 @@ var _ = Describe("Codec", func() {
 				Device:             "",
 				Rate:               telem.Rate(0),
 				Endpoints:          []v4.ReadEndpoint{},
-				NanFillEnabled:     false,
+				NaNFillEnabled:     false,
 			}),
 			Entry("empty collections", v4.ReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -130,7 +130,7 @@ var _ = Describe("Codec", func() {
 				Device:             "test_4",
 				Rate:               telem.Rate(5.5),
 				Endpoints:          []v4.ReadEndpoint{},
-				NanFillEnabled:     true,
+				NaNFillEnabled:     true,
 			}),
 		)
 	})
@@ -450,7 +450,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Index: "test_30",
 			},
 		},
-		NanFillEnabled: true,
+		NaNFillEnabled: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -746,7 +746,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Index: "test_30",
 				},
 			},
-			NanFillEnabled: true,
+			NaNFillEnabled: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -762,7 +762,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Device:             "",
 			Rate:               telem.Rate(0),
 			Endpoints:          []v4.ReadEndpoint{},
-			NanFillEnabled:     false,
+			NaNFillEnabled:     false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -778,7 +778,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Device:             "test_4",
 			Rate:               telem.Rate(5.5),
 			Endpoints:          []v4.ReadEndpoint{},
-			NanFillEnabled:     true,
+			NaNFillEnabled:     true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

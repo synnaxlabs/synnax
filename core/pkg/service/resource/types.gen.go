@@ -68,14 +68,14 @@ const (
 	TypeUser Type = versions.TypeUser
 	// TypeView identifies a view.
 	TypeView           Type = versions.TypeView
-	TypeEthercatMaster Type = versions.TypeEthercatMaster
-	TypeEthercatSlave  Type = versions.TypeEthercatSlave
+	TypeEtherCATMaster Type = versions.TypeEtherCATMaster
+	TypeEtherCATSlave  Type = versions.TypeEtherCATSlave
 	TypeHTTPServer     Type = versions.TypeHTTPServer
 	TypeLabjackDevice  Type = versions.TypeLabjackDevice
 	TypeModbusServer   Type = versions.TypeModbusServer
-	TypeNiChassis      Type = versions.TypeNiChassis
-	TypeNiDevice       Type = versions.TypeNiDevice
-	TypeOpcuaServer    Type = versions.TypeOpcuaServer
+	TypeNIChassis      Type = versions.TypeNIChassis
+	TypeNIDevice       Type = versions.TypeNIDevice
+	TypeOPCUAServer    Type = versions.TypeOPCUAServer
 	TypeArcDirectory   Type = versions.TypeArcDirectory
 	// TypeSecret identifies a secret.
 	TypeSecret Type = versions.TypeSecret
