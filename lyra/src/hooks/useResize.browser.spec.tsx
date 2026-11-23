@@ -82,6 +82,35 @@ const Nested = ({
   );
 };
 
+/**
+ * Grows its box on demand and toggles whether useResize observes it. The box keeps the
+ * ref callback of its first render, so only the effect of useResize can observe again.
+ */
+const Toggle = ({
+  onResize,
+  enabled: initial,
+}: {
+  onResize: UseResizeHandler;
+  enabled: boolean;
+}): ReactElement => {
+  const [enabled, setEnabled] = useState(initial);
+  const [width, setWidth] = useState(BOX.width);
+  const ref = useResize(onResize, { enabled });
+  const [stableRef] = useState(() => ref);
+  return (
+    <>
+      <button onClick={() => setEnabled((prev) => !prev)}>Toggle</button>
+      <button onClick={() => setWidth((w) => w + 10)}>Grow</button>
+      <div ref={stableRef} style={{ ...BOX, width }} />
+    </>
+  );
+};
+
+const nextFrames = async (): Promise<void> => {
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+};
+
 describe("useResize", () => {
   it("should report the first box of an element that replaces another", async () => {
     const onResize = vi.fn();
@@ -119,5 +148,32 @@ describe("useResize", () => {
     } finally {
       window.removeEventListener("error", onError);
     }
+  });
+
+  it("should not call the handler when it is disabled", async () => {
+    const onResize = vi.fn();
+    await renderThemed(<Toggle onResize={onResize} enabled={false} />);
+    await userEvent.click(page.getByRole("button", { name: "Grow" }));
+    await nextFrames();
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("should stop calling the handler after it is disabled", async () => {
+    const onResize = vi.fn();
+    await renderThemed(<Toggle onResize={onResize} enabled />);
+    await expect.poll(() => onResize.mock.calls.length).toBe(1);
+    await userEvent.click(page.getByRole("button", { name: "Toggle" }));
+    await userEvent.click(page.getByRole("button", { name: "Grow" }));
+    await nextFrames();
+    expect(onResize).toHaveBeenCalledTimes(1);
+  });
+
+  it("should call the handler after it is enabled", async () => {
+    const onResize = vi.fn();
+    await renderThemed(<Toggle onResize={onResize} enabled={false} />);
+    await userEvent.click(page.getByRole("button", { name: "Toggle" }));
+    await expect.poll(() => onResize.mock.calls.length).toBe(1);
+    await userEvent.click(page.getByRole("button", { name: "Grow" }));
+    await expect.poll(() => onResize.mock.calls.length).toBe(2);
   });
 });
