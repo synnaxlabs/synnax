@@ -9,6 +9,7 @@ clients: ["python", "typescript"]
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -53,21 +54,22 @@ npm install @synnaxlabs/client tsx
 </Client.Tabs>
 
 Install the client version that matches the major and minor version of your Core, such
-as client 0.61 for Core 0.61. The client prints a warning when the versions differ, and
-the TypeScript client can stop with an error. The **Connect from code** dialog of Synnax
-Desktop gives the install command that matches. To open it, click the code button in the
-top bar of Synnax Desktop.
+as client <Releases.Version train /> for Core <Releases.Version train />. The client
+prints a warning when the versions differ, and the TypeScript client can stop with an
+error. The **Connect from code** dialog of Synnax Desktop gives the install command that
+matches. To open it, click the code button in the top bar of Synnax Desktop.
 
 ### Install without internet access
 
 If the computer for your script has no internet access, download the Python client and
 its dependencies on a computer that does. Use a computer with the same operating system,
-CPU architecture, and Python version. Replace `0.61` with the major and minor version of
-your Core:
+CPU architecture, and Python version. Replace <Releases.Version train code /> with the
+major and minor version of your Core:
 
-```bash
-pip download "synnax==0.61.*" -d synnax-wheels
-```
+<Releases.Code
+  lang="bash"
+  code={({ current }) => `pip download "synnax==${current.train}.*" -d synnax-wheels`}
+/>
 
 Copy the `synnax-wheels` folder to the computer with no internet access, then install
 from it:

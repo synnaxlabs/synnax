@@ -140,7 +140,7 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
                             {},
                             x::errors::Error(
                                 x::errors::VALIDATION,
-                                "default is not valid JSON"
+                                "default: not valid JSON"
                             ),
                         };
                     out.fallback = *v.default_;

@@ -17,11 +17,12 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { Editor } from "@/feature/icd/editor/Editor";
+import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
+import { Session } from "@/session";
 import {
   createConsoleWrapper,
   fakePickedFile,
@@ -29,14 +30,23 @@ import {
   renderSuspended,
 } from "@/testutil";
 
-const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const { Content } = ICD.TABS[icd.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
+
+const renderEditor = async (
+  ic: icd.ICD,
+  as: Synnax = client,
+  selected: icd.MessageKey[] = [],
+): Promise<void> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
   await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Editor />
+        <Content />
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
     { wrapper },
@@ -182,6 +192,14 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  it("should open at the message that the session selects", async () => {
+    const b = createMessage([], "B");
+    const ic = await createICD([createMessage([], "A"), b]);
+    await renderEditor(ic, client, [b.key]);
+    await screen.findByDisplayValue("B");
+    expect(screen.queryByDisplayValue("A")).toBeNull();
   });
 
   it("should remove the selected messages from the context menu", async () => {

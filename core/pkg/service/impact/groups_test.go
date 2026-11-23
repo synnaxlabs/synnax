@@ -298,29 +298,23 @@ var _ = Describe("Delete groups", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
-	It("Should refuse a pick on a hidden tombstone as a pick for no entry", func(
-		ctx SpecContext,
-	) {
+	It("Should not reach a hidden tombstone through a pick", func(ctx SpecContext) {
 		folder := createFolder(ctx, "impact-hidden-pick", nil)
 		ch := tombstone(ctx, folder)
 		record := channel.ResourceID(ch.Key())
 		visible := func(id resource.ID) bool { return id != record }
 		picks := map[string]impact.Choice{record.String(): impact.ChoiceDelete}
-		refused := And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no entry is %s", record)),
-		)
 		Expect(
 			plan(ctx, impact.PlanOptions{Picks: picks, Visible: visible}, folder.Key),
-		).
-			Error().
-			To(refused)
-		Expect(apply(
+		).To(Equal(MustSucceed(
+			plan(ctx, impact.PlanOptions{Visible: visible}, folder.Key),
+		)))
+		MustSucceed(apply(
 			ctx,
 			impact.ApplyOptions{Picks: picks, Visible: visible},
 			folder.Key,
-		)).Error().To(refused)
-		Expect(exists(ctx, folder.Key)).To(BeTrue())
+		))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
 	})
 
 	It("Should name the pick with the smallest key among the picks it refuses", func(
@@ -339,8 +333,17 @@ var _ = Describe("Delete groups", Ordered, func() {
 			Expect(plan(ctx, impact.PlanOptions{Picks: invalid}, folder.Key)).
 				Error().To(MatchError(ContainSubstring("keep_a is not a choice")))
 			Expect(plan(ctx, impact.PlanOptions{Picks: unparsed}, folder.Key)).
-				Error().To(MatchError(ContainSubstring("no entry is a")))
+				Error().To(MatchError(ContainSubstring("a is not a record")))
 		}
+	})
+
+	It("Should ignore a pick for no entry", func(ctx SpecContext) {
+		folder := createFolder(ctx, "impact-ignored", nil)
+		picks := map[string]impact.Choice{"task:a": impact.ChoiceDelete}
+		Expect(plan(ctx, impact.PlanOptions{Picks: picks}, folder.Key)).
+			To(Equal(MustSucceed(plan(ctx, impact.PlanOptions{}, folder.Key))))
+		MustSucceed(apply(ctx, impact.ApplyOptions{Picks: picks}, folder.Key))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
 	})
 
 	DescribeTable("Should refuse a pick in a plan or an apply", func(
@@ -363,15 +366,6 @@ var _ = Describe("Delete groups", Ordered, func() {
 		)).Error().To(refused)
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	},
-		Entry(
-			"the smallest pick for no entry",
-			map[string]impact.Choice{
-				"task:b": impact.ChoiceDelete,
-				"task:a": impact.ChoiceCancel,
-			},
-			nil,
-			"no entry is task:a",
-		),
 		Entry(
 			"a hidden pick that is not a choice",
 			nil,

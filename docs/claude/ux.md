@@ -132,7 +132,6 @@ a color picker has no "+".
   exist: 0.1 s for dropdowns and menus (`--pluto-dialog-animation`), and 0.15 s for
   modals (`--pluto-modal-animation`) and button colors (`--pluto-btn-transition`). Do
   not add a duration or a curve.
-- Live data values never animate.
 
 ## Components
 

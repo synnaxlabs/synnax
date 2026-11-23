@@ -21,8 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Reader, Store, Tx } from "@/server/db/db";
+import { type Reader, schema, type Store, type Tx } from "@/server/db";
 import { type Account, type Directory, isInternal } from "@/server/directory";
 import { notFound } from "@/server/errors";
 import { type Machine, machinesFor } from "@/server/license/desktop";

@@ -10,7 +10,6 @@
 package impact_test
 
 import (
-	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -254,14 +253,17 @@ var _ = Describe("Group delete breaker", Ordered, ContinueOnFailure, func() {
 		Expect(exists(ctx, g.Key)).To(BeFalse())
 	})
 
-	It("Should refuse a pick before the token check", func(ctx SpecContext) {
+	It("Should refuse a pick that names no record before the token check", func(
+		ctx SpecContext,
+	) {
 		g := createFolder(ctx)
 		Expect(apply(ctx, groupsOf(g.Key), impact.ApplyOptions{
 			Token: "0000000000000000",
-			Picks: map[string]impact.Choice{
-				g.ResourceID().String(): impact.ChoiceDelete,
-			},
-		})).Error().To(MatchError(validate.ErrValidation))
+			Picks: map[string]impact.Choice{"folder": impact.ChoiceDelete},
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("folder is not a record")),
+		))
 		Expect(exists(ctx, g.Key)).To(BeTrue())
 	})
 
@@ -277,19 +279,5 @@ var _ = Describe("Group delete breaker", Ordered, ContinueOnFailure, func() {
 	) {
 		Expect(plan(ctx, impact.Change{}, impact.PlanOptions{})).
 			Error().To(MatchError(validate.ErrValidation))
-	})
-
-	It("Should name the smallest pick for no entry in a channel delete", func(
-		ctx SpecContext,
-	) {
-		ch := createChannelIn(ctx, nil)
-		picks := make(map[string]impact.Choice, 8)
-		for c := 'a'; c <= 'h'; c++ {
-			picks[fmt.Sprintf("task:%c", c)] = impact.ChoiceDelete
-		}
-		for range 32 {
-			Expect(plan(ctx, channelsOf(ch.Key()), impact.PlanOptions{Picks: picks})).
-				Error().To(MatchError(ContainSubstring("no entry is task:a")))
-		}
 	})
 })
