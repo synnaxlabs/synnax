@@ -16,12 +16,12 @@ import { Color } from "@synnaxlabs/pluto";
 import type { DragEvent, RefObject } from "react";
 
 import type { Item } from "@/platform/tree/item";
-import { isMoreKey, type Store } from "@/platform/tree/store";
+import { Store } from "@/platform/tree/store";
 import type { GetResource } from "@/platform/tree/types";
 
 export interface UseDragAndDropProps {
   client: Client;
-  store: Store;
+  store: Store.Store;
   root: resource.ID;
   resolveItem: (type: resource.Type) => Item;
   selectedRef: RefObject<string[]>;
@@ -80,7 +80,7 @@ export const useDragAndDrop = ({
 
   const onDragStart = (key: string, event: DragEvent): void => {
     const dragged = selectedRef.current.includes(key)
-      ? selectedRef.current.filter((k) => !isMoreKey(k))
+      ? selectedRef.current.filter((k) => !Store.isMoreKey(k))
       : [key];
     const items = getResource(dragged).flatMap((res) => [
       Base.createHaulItem(resource.idToString(res.id)),

@@ -254,6 +254,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("entry variant", v5.Paint{Variant: v5.EntryPaint{State: "test_1"}}),
+			Entry("contrast variant", v5.Paint{Variant: v5.ContrastPaint{State: "test_1"}}),
 			Entry("node variant", v5.Paint{Variant: v5.NodePaint{}}),
 			Entry("color variant", v5.Paint{Variant: v5.ColorPaint{
 				Value: servicecolor.Ref{Variant: servicecolor.NamedRef{
@@ -1486,6 +1487,14 @@ func FuzzDecodeMotion(f *testing.F) {
 func FuzzDecodePaint(f *testing.F) {
 	{
 		seed := v5.Paint{Variant: v5.EntryPaint{State: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Paint{Variant: v5.ContrastPaint{State: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
