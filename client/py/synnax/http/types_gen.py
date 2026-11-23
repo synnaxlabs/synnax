@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import channel as channel_, device as device_, task
+from synnax import channel as channel_, device as device_, icd as icd_, task
 from x import payload, telem
 
 METHOD_GET: Literal["GET"] = "GET"
@@ -157,22 +157,29 @@ class ReadEndpoint(BaseModel):
 
     Attributes:
         key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
         method: Is the HTTP method used to poll the endpoint.
         path: Is the URL path appended to the device's base URL.
         headers: Contains additional headers merged into the request.
         query_params: Contains query parameters appended to the request URL.
         body: Is a static body sent with each request. Empty sends no body.
+        icd: Is the key of the ICD that holds the messages of the endpoint. Absent when
+            the endpoint reads no messages.
+        messages: Are the messages that the response body is read as.
         fields: Contains the values to extract from the response.
         index: Is the key of the field whose channel indexes the others. Empty when the
             task stamps samples on arrival.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
     method: Method = "GET"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)
     body: str = ""
+    icd: icd_.Key | None = None
+    messages: list[icd_.ReadMessage] = Field(default_factory=list)
     fields: list[ReadField] = Field(default_factory=list)
     index: str = ""
 
