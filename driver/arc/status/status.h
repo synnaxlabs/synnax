@@ -232,7 +232,7 @@ public:
 /// @returns whether the program sets statuses, as a node or as a function.
 inline bool sets_statuses(const ::arc::program::Program &program) {
     for (const auto &node: program.nodes)
-        if (node.type == "set") return true;
+        if (node.type == "status.set" || node.type == "set") return true;
     if (program.wasm.empty()) return false;
     wasmtime::Engine engine;
     auto wasm = program.wasm;
