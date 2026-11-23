@@ -166,7 +166,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       expect(
         await screen.findByText(
-          "Looks here reach every shape. Click a shape to make it a part.",
+          "Looks here reach every shape. Click a shape to select its part or make one.",
         ),
       ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
@@ -696,6 +696,46 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           { key: expect.any(String), name: "Part 1", selectors: ["#b"] },
         ]);
       });
+    });
+
+    it("selects the part of a shape clicked with the whole drawing selected", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("a"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([BODY]),
+      );
+    });
+
+    it("adds only the clicked shape of a group to a part", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("grouped"));
+      const markup =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+        '<g id="g"><rect id="c" width="10" height="10"/>' +
+        '<rect id="d" x="10" width="10" height="10"/></g></svg>';
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, drawing: { type: "svg", markup } },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { key: expect.any(String), name: "Part 1", selectors: ["#c"] },
+        ]),
+      );
     });
 
     it("selects the whole drawing again when the selected part is removed", async () => {

@@ -182,11 +182,12 @@ const Editor = ({
 
   const handleElementClick = (selector: string) => {
     const part = selectedPartRef.current;
-    if (part == null) return addPart(selector);
-    form.set(
-      path.data.parts,
-      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
-    );
+    const parts = form.get(path.data.parts).value;
+    if (part != null)
+      return form.set(path.data.parts, Spec.toggleSelector(parts, part, selector));
+    const owner = parts.find((p) => p.selectors.includes(selector));
+    if (owner == null) return addPart(selector);
+    setSelectedPart(owner.key);
   };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {

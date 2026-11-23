@@ -208,7 +208,9 @@ export const Preview = ({
         el.classList.remove(CSS.BEM("schematic", "svg-region", "hover"));
       });
 
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        // The groups around the shape have their own listeners.
+        e.stopPropagation();
         const markup = form.get(path.data.drawing.markup).value;
         const named = Schematic.Node.Region.name(markup, drawing, el);
         if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);

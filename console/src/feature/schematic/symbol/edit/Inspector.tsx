@@ -284,7 +284,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
           </Text.Text>
           <Text.Text level="small" color={8}>
             {part == null
-              ? "Looks here reach every shape. Click a shape to make it a part."
+              ? "Looks here reach every shape. Click a shape to select its part or make one."
               : "Click shapes in the drawing to add or remove them."}
           </Text.Text>
         </Flex.Box>
