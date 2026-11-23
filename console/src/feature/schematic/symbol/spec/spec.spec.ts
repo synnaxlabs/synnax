@@ -400,6 +400,19 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("nextPartName", () => {
+    it("should take the lowest number that no part has", () => {
+      const parts = [
+        { key: "a", name: "Part 2", selectors: [] },
+        { key: "b", name: "Part 3", selectors: [] },
+      ];
+      expect(Spec.nextPartName(parts)).toBe("Part 1");
+      expect(
+        Spec.nextPartName([...parts, { key: "c", name: "Part 1", selectors: [] }]),
+      ).toBe("Part 4");
+    });
+  });
+
   describe("removePart", () => {
     it("should remove the part and the looks on it", () => {
       const spec = createSpec({

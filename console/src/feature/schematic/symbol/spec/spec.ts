@@ -192,6 +192,14 @@ export const setVariesByValue = (
   return setOwn(cleared, target, field, first);
 };
 
+/** @returns the name "Part N" with the lowest N that no part in parts has. */
+export const nextPartName = (parts: schematic.symbol.Part[]): string => {
+  const taken = new Set(parts.map((p) => p.name));
+  let n = 1;
+  while (taken.has(`Part ${n}`)) n++;
+  return `Part ${n}`;
+};
+
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
