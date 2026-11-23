@@ -100,9 +100,10 @@ or generator logic and schemas disagree.
   check fills in each generic type with its type arguments (defaults included) through
   aliases, distinct types, and bases, then compares the filled-in shapes across pins:
   stored field names and order, field types, optionality, `@key`, defaults, and enum and
-  union members. A type may move to another file or chain or become an alias with the
-  same filled-in shape, and an enum or union may gain members. Docs, rules, codec
-  markers, and omit-transient types may change.
+  union members. A `create` or `now` boundary default does not count, unless it names an
+  enum member or union variant of the field's type. A type may move to another file or
+  chain or become an alias with the same filled-in shape, and an enum or union may gain
+  members. Docs, rules, codec markers, and omit-transient types may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
