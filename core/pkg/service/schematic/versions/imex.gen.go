@@ -33,6 +33,7 @@ const Latest = v14.Version
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
+	ctx = imex.DecodeContext(ctx, env)
 	switch env.Version {
 	case v7.Version:
 		t7, err := env.Decode[v7.Schematic]()

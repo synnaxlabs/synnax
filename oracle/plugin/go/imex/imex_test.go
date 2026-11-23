@@ -175,6 +175,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"func liftFirst(ctx context.Context, t3 v3.Log) (Log, error) {\n"+
 						"\treturn t3, nil\n}",
 				).
+					ToNotContain("DecodeContext").
 					ToBeValidGoSource()
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
 					"package log",
@@ -517,6 +518,7 @@ Symbol struct {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
+					"\tctx = imex.DecodeContext(ctx, env)\n\tswitch env.Version {",
 					"case v2.Version:",
 					"t2, err := env.Decode[v2.Log]()",
 					"t3, err := v3.MigrateLog(ctx, t2)",

@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -32,16 +33,17 @@ func MigrateTable(ctx context.Context, old v1.Table) (Table, error) {
 		return Table{}, err
 	}
 	out.Cells = make(map[string]CellConfig, len(old.Cells))
+	opts := imex.DecodeOptions(ctx)
 	for k, c := range old.Cells {
-		out.Cells[k] = migrateCell(c)
+		out.Cells[k] = migrateCell(c, opts...)
 	}
 	return out, nil
 }
 
 // migrateCell converts a v1 stored cell (variant string plus camelCase props written
 // verbatim by the Console) into the typed cell config. Entries that conform to no known
-// variant degrade to an empty text cell.
-func migrateCell(c v1.Cell) CellConfig {
+// variant degrade to an empty text cell. opts decode the channel links of an import.
+func migrateCell(c v1.Cell, opts ...json.Options) CellConfig {
 	fields := normalizeConfigKeys(c.Props)
 	if fields == nil {
 		fields = msgpack.EncodedJSON{}
@@ -57,7 +59,7 @@ func migrateCell(c v1.Cell) CellConfig {
 	extractLegacyArgs(fields)
 	var cfg CellConfig
 	if err == nil {
-		cfg, err = decodeCellConfig(fields)
+		cfg, err = decodeCellConfig(fields, opts...)
 	}
 	if err != nil {
 		cfg = CellConfig{Variant: TextCellConfig{}}
@@ -67,14 +69,18 @@ func migrateCell(c v1.Cell) CellConfig {
 }
 
 // decodeCellConfig validates an opaque cell config payload against the cell config
-// union, returning an error when the payload conforms to no known variant.
-func decodeCellConfig(raw msgpack.EncodedJSON) (CellConfig, error) {
+// union, decoding it with opts, and returns an error when the payload conforms to no
+// known variant.
+func decodeCellConfig(
+	raw msgpack.EncodedJSON,
+	opts ...json.Options,
+) (CellConfig, error) {
 	b, err := json.Marshal(raw)
 	if err != nil {
 		return CellConfig{}, err
 	}
 	var cfg CellConfig
-	if err := json.Unmarshal(b, &cfg); err != nil {
+	if err := json.Unmarshal(b, &cfg, opts...); err != nil {
 		return CellConfig{}, errors.Wrap(err, "invalid cell config")
 	}
 	return cfg, nil

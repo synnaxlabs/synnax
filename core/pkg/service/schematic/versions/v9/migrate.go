@@ -11,10 +11,12 @@ package v9
 
 import (
 	"context"
+	jsonv2 "encoding/json/v2"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -78,7 +80,7 @@ func lift(
 		return Schematic{}, nil, err
 	}
 	var losses map[string]configLoss
-	out.Configs, losses = typeConfigs(old.Configs)
+	out.Configs, losses = typeConfigs(old.Configs, imex.DecodeOptions(ctx)...)
 	return out, losses, nil
 }
 
@@ -98,9 +100,10 @@ type configLoss struct {
 // zero colors rewritten into the typed shape first. Each entry fills the schema
 // defaults of the fields it does not carry. An entry the union rejects is replaced by
 // its variant's defaults when the variant is known and left out otherwise; both are
-// reported in the returned losses.
+// reported in the returned losses. opts decode the channel links of an import.
 func typeConfigs(
 	raw map[string]msgpack.EncodedJSON,
+	opts ...jsonv2.Options,
 ) (map[string]ElementConfig, map[string]configLoss) {
 	var (
 		out    = make(map[string]ElementConfig, len(raw))
@@ -122,7 +125,7 @@ func typeConfigs(
 			dropNonPositiveScale(normalized)
 		}
 		if err == nil {
-			cfg, err = DecodeWithDefaults(normalized)
+			cfg, err = DecodeWithDefaults(normalized, opts...)
 		}
 		if err == nil {
 			out[k] = cfg

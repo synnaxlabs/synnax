@@ -142,6 +142,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		Project: projectSvc,
 		Bundle:  bundleSvc,
+		DB:      db,
+		RBAC:    rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,

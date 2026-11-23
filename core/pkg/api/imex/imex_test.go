@@ -320,25 +320,30 @@ var _ = Describe("Import", func() {
 			Expect(MustSucceed(importLog(ctx, fmt.Sprint(ch))).Type).
 				To(Equal(resource.TypeLog))
 		})
-		DescribeTable(
-			"Should reject a log without retrieve on the channel it uses",
-			func(
-				ctx SpecContext,
-				link func() string,
-			) {
-				grantLogImport(ctx)
-				Expect(importLog(ctx, link())).Error().To(SatisfyAll(
-					MatchError(access.ErrDenied),
-					MatchError(ContainSubstring(
-						"%s cannot retrieve %s",
-						u.ResourceID(),
-						channel.ResourceID(ch),
-					)),
-				))
-			},
-			Entry("by key", func() string { return fmt.Sprint(ch) }),
-			Entry("by path", func() string { return fmt.Sprintf("%q", chName) }),
-		)
+		It("Should reject a log by key without retrieve on the channel it uses", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			Expect(importLog(ctx, fmt.Sprint(ch))).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot retrieve %s",
+					u.ResourceID(),
+					channel.ResourceID(ch),
+				)),
+			))
+		})
+		It("Should not resolve a path to a channel the importer cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			Expect(importLog(ctx, fmt.Sprintf("%q", chName))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("no channel is at %s", chName)),
+				Not(MatchError(access.ErrDenied)),
+				Not(MatchError(ContainSubstring(channel.ResourceID(ch).String()))),
+			))
+		})
 	})
 })
 

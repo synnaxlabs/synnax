@@ -117,7 +117,9 @@ func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 		l.Set(key, value)
 		return
 	}
-	l.overlay.load(scope).setOne(key, value)
+	d := l.overlay.load(scope)
+	d.setOne(key, value)
+	delete(d.released, key)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -127,7 +129,34 @@ func (l *Lookup[S, K, V]) StageDelete(scope S, key K) {
 		l.Delete(key)
 		return
 	}
-	l.overlay.load(scope).delete(key)
+	d := l.overlay.load(scope)
+	d.delete(key)
+	delete(d.released, key)
+}
+
+// StageRelease removes key in the changes of scope as StageDelete does, so Get and
+// Holder no longer find it, while Value still returns its value: the entry of key stays
+// until a StageDelete or a Stage of key. It blocks until the bulk load finishes, and
+// returns the load's error.
+func (l *Lookup[S, K, V]) StageRelease(scope S, key K) error {
+	if isNone(scope) {
+		l.Delete(key)
+		return nil
+	}
+	v, held, err := l.Value(scope, key)
+	if err != nil {
+		return err
+	}
+	d := l.overlay.load(scope)
+	d.delete(key)
+	if !held {
+		return nil
+	}
+	if d.released == nil {
+		d.released = make(map[K]V)
+	}
+	d.released[key] = v
+	return nil
 }
 
 // Get returns the keys mapped to any of values, with the changes of scope applied. It
@@ -150,9 +179,10 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
-// Value returns the value that key maps to, with the changes of scope applied, and
-// false when key maps to none. It blocks until the bulk load finishes, and returns the
-// load's error.
+// Value returns the value that key maps to, with the changes of scope applied, then
+// those of a transaction in its commit, and false when key maps to none. A key that
+// StageRelease removed keeps its value. It blocks until the bulk load finishes, and
+// returns the load's error.
 func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
 	var none V
 	<-l.population.done
@@ -161,11 +191,20 @@ func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
 	}
 	if d, ok := l.overlay.get(scope); ok {
 		if s, staged := d.state[key]; staged {
+			if v, released := d.released[key]; released {
+				return v, true, nil
+			}
 			if s.deleted {
 				return none, false, nil
 			}
 			return s.values[0], true, nil
 		}
+	}
+	if s, ok := committingState(&l.overlay, key); ok {
+		if s.deleted {
+			return none, false, nil
+		}
+		return s.values[0], true, nil
 	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()

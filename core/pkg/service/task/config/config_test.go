@@ -11,6 +11,8 @@ package config_test
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"uuid"
 
@@ -561,6 +563,37 @@ var _ = Describe("Service", func() {
 				Expect(tasks.Create(ctx, resolving, data())).Error().
 					To(MatchError("write failed"))
 			})
+		})
+	})
+
+	Describe("Export", func() {
+		It("Should return the stored record with its Go types", func(ctx SpecContext) {
+			arcKey := uuid.New()
+			key := MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+				"arc_key": arcKey.String(),
+			}))
+			body := MustSucceed(svc.Export(ctx, db, key))
+			Expect(body).To(BeAssignableToTypeOf(arctask.Config{}))
+			Expect(body.(arctask.Config).ArcKey).To(Equal(arcKey))
+		})
+
+		It("Should let an export's encoder options reach the record's fields", func(
+			ctx SpecContext,
+		) {
+			key := createTask(ctx)
+			body := MustSucceed(svc.Export(ctx, db, key))
+			rename := json.WithMarshalers(json.MarshalToFunc(
+				func(enc *jsontext.Encoder, _ uuid.UUID) error {
+					return enc.WriteToken(jsontext.String("renamed"))
+				},
+			))
+			Expect(string(MustSucceed(json.Marshal(body, rename)))).
+				To(ContainSubstring(`"arc_key":"renamed"`))
+		})
+
+		It("Should return not found for a missing record", func(ctx SpecContext) {
+			Expect(svc.Export(ctx, db, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
