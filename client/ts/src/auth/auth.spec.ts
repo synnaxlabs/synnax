@@ -9,7 +9,7 @@
 
 import type { Context, UnaryClient } from "@synnaxlabs/freighter";
 import { errors, id, url, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { describe, expect, it, onTestFinished, test, vi } from "vitest";
 
 import { auth } from "@/auth";
 import {
@@ -348,6 +348,8 @@ describe("auth", () => {
 
     it("should not log in again for a request that fails during the logout", async () => {
       const client = createTestClient();
+      // registered before the hold, so it runs after the hold releases
+      onTestFinished(async () => await client.close());
       await client.connect();
       const deleting = holdResponses(
         client,
