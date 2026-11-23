@@ -19,13 +19,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { color, location, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import {
   type CSSProperties,
   Fragment,
@@ -52,7 +50,6 @@ import { Time } from "@/feature/range/toolbar/time";
 import { Tree } from "@/feature/range/tree";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -626,31 +623,17 @@ const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactEleme
   );
 };
 
-const UnfavoriteAll = ({ favorites }: { favorites: ranger.Range[] }) => {
+const UnfavoriteAll = (): ReactElement => {
   const dispatch = Session.useDispatch();
   // Holds the keys of deleted ranges too, so a click clears them with the rest.
   const keys = Session.Range.useSelectFavoriteKeys();
-  const confirm = Modals.useConfirm();
-  const handleError = Status.useErrorHandler();
-  const handleClick = () =>
-    handleError(async () => {
-      const confirmed = await confirm({
-        message: `Are you sure you want to unfavorite ${pluralize("range", favorites.length, true)}?`,
-        description: "The ranges stay on the Core.",
-        confirm: { variant: "error", label: "Unfavorite" },
-        cancel: { label: "Cancel" },
-        title: "Range.Unfavorite all",
-      });
-      if (confirmed !== true) return;
-      dispatch(Session.Range.remove({ keys }));
-    }, "Failed to unfavorite ranges");
   return (
     <Button.Button
       size="tiny"
       rounded="small"
       textColor={9}
       tooltip="Unfavorite all ranges"
-      onClick={handleClick}
+      onClick={() => dispatch(Session.Range.remove({ keys }))}
     >
       Clear
     </Button.Button>
@@ -709,11 +692,7 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
             title="Favorites"
             count={groups.favorites.length}
             icon={<Icon.StarFilled color="goldenrod" />}
-            actions={
-              groups.favorites.length > 0 ? (
-                <UnfavoriteAll favorites={groups.favorites} />
-              ) : undefined
-            }
+            actions={groups.favorites.length > 0 ? <UnfavoriteAll /> : undefined}
           >
             <FavoriteLines favorites={groups.favorites} />
           </Group>

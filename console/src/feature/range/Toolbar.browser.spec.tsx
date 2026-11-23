@@ -685,21 +685,19 @@ describe("range/Toolbar", () => {
   });
 
   describe("unfavorite all", () => {
-    it("should unfavorite every range after confirmation and keep them on the Core", async () => {
+    it("should unfavorite every range on click and keep them on the Core", async () => {
       const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
       const first = await createRange(uniqueName("unfavorite"), span);
       const second = await createRange(uniqueName("unfavorite"), span);
       const { store } = await renderToolbar({ favorites: [first, second] });
       fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
-      await screen.findByText("Are you sure you want to unfavorite 2 ranges?");
-      fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
       await waitFor(() =>
         expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
       );
       expect((await reader.ranges.retrieve(first.key)).name).toBe(first.name);
     });
 
-    it("should count only the favorites that show and clear the rest too", async () => {
+    it("should clear the favorites of deleted ranges too", async () => {
       const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
       const kept = await createRange(uniqueName("unfavorite"), span);
       const deleted = await createRange(uniqueName("unfavorite"), span);
@@ -707,26 +705,9 @@ describe("range/Toolbar", () => {
       const { store } = await renderToolbar({ favorites: [kept, deleted] });
       await findLine("Favorites", kept.name);
       fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-      await screen.findByText("Are you sure you want to unfavorite 1 range?");
-      fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
       await waitFor(() =>
         expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
       );
-    });
-
-    it("should keep the favorites when the confirmation is cancelled", async () => {
-      const rng = await createRange(
-        uniqueName("unfavorite"),
-        TimeStamp.now().spanRange(TimeSpan.seconds(10)),
-      );
-      const { store } = await renderToolbar({ favorites: [rng] });
-      fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
-      await screen.findByText("Are you sure you want to unfavorite 1 range?");
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      await waitFor(() => expect(screen.queryByText("Cancel")).toBeNull());
-      expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([
-        { variant: "persisted", key: rng.key },
-      ]);
     });
 
     it("should hide the action when no range is favorited", async () => {
