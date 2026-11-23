@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <variant>
@@ -50,7 +51,12 @@ protected:
     }
 
     /// @brief loads a calculator for an automation that reads ch.
-    [[nodiscard]] Calculator load(const synnax::channel::Channel &ch) const {
+    [[nodiscard]] Calculator load(
+        const synnax::channel::Channel &ch,
+        const std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        ::arc::runtime::scheduler::ErrorHandler on_error =
+            ::arc::runtime::scheduler::noop_handler
+    ) const {
         const auto out = this->create_base("calc_out");
         synnax::arc::Arc arc = synnax::arc::AutomationArc{{
             .name = make_unique_channel_name("calculator"),
@@ -78,12 +84,13 @@ protected:
                 return {digests, x::errors::NIL};
             },
             .report = [](const std::string &, const std::string &) {},
+            .loop_budget = loop_budget,
         };
         return ASSERT_NIL_P(
             Calculator::load(
                 std::get<synnax::arc::AutomationArc>(retrieved).calculations,
                 cfg,
-                ::arc::runtime::scheduler::noop_handler
+                std::move(on_error)
             )
         );
     }
@@ -162,5 +169,22 @@ TEST_F(CalculatorTest, SkipsFrameWithoutInputs) {
     x::telem::Frame frame(other.key, x::telem::Series(static_cast<int64_t>(3)));
     calculator.compute(frame);
     ASSERT_EQ(frame.size(), 1);
+}
+
+/// @brief it should report at most one error a second from a failing calculation.
+TEST_F(CalculatorTest, ThrottlesErrors) {
+    const auto base = this->create_base("calc_base");
+    const auto calc = this->create_calculated("calc", base.name + " * 2");
+    int errors = 0;
+    auto calculator = this->load(
+        calc,
+        1,
+        [&](const ::arc::ir::Node &, const x::errors::Error &) { errors++; }
+    );
+    for (int i = 0; i < 5; i++) {
+        x::telem::Frame frame(base.key, x::telem::Series(static_cast<int64_t>(i)));
+        calculator.compute(frame);
+    }
+    ASSERT_EQ(errors, 1);
 }
 }
