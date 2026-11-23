@@ -15,7 +15,7 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { color as aetherColor } from "@/color/aether";
 import { control } from "@/telem/control/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
 

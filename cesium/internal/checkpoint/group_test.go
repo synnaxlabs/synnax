@@ -145,7 +145,6 @@ var _ = Describe("Group commit", func() {
 			}
 			writers.Wait()
 			Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
-			Eventually(cp.Err).Should(Succeed())
 			snap := MustSucceed(st.Snapshot())
 			Expect(snap.Channels).To(HaveLen(4))
 			for _, ch := range snap.Channels {

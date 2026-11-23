@@ -9,13 +9,12 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
 
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
-import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { findButton, pressEscape, renderModalOpener } from "@/platform/modals/testutil";
 
 interface FooterParams {
   variant: status.Variant;
@@ -34,13 +33,6 @@ const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack }) => (
 );
 
 const useOpen = Modals.create(Footer);
-
-// A native modal dialog sees only a real key press, not an event sent to the window.
-const pressEscape = async (): Promise<void> => {
-  await act(async () => {
-    await userEvent.keyboard("{Escape}");
-  });
-};
 
 describe("ConnectFooter", () => {
   it("should hold the dialog and Back while it connects", async () => {

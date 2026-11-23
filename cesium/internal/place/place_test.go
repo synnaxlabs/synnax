@@ -42,7 +42,7 @@ func encoded(
 	version uint16,
 	clock uint32,
 ) []byte {
-	b := make([]byte, place.Size)
+	b := make([]byte, 32)
 	binary.LittleEndian.PutUint64(b[0:], db)
 	binary.LittleEndian.PutUint64(b[8:], file)
 	binary.LittleEndian.PutUint64(b[16:], offset)

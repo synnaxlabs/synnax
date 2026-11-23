@@ -72,8 +72,14 @@ std::string kind_name(const std::string_view raw) {
     }
 }
 
-/// @brief returns the sample of an enum as a Number, or nothing when it is not numeric.
-std::optional<Number> enum_number(const telem::SampleValue &v) {
+/// @brief returns true when JSON values convert to and from samples of dt.
+bool convertible(const telem::DataType &dt) {
+    return dt == telem::TIMESTAMP_T || dt == telem::STRING_T || dt == telem::JSON_T ||
+           dt == telem::UUID_T || dt == telem::BYTES_T || numeric(dt);
+}
+
+/// @brief returns v as a Number, or nothing when it is not numeric.
+std::optional<Number> to_number(const telem::SampleValue &v) {
     return std::visit(
         [](const auto &s) -> std::optional<Number> {
             using T = std::decay_t<decltype(s)>;
@@ -88,6 +94,31 @@ std::optional<Number> enum_number(const telem::SampleValue &v) {
         },
         v
     );
+}
+
+/// @brief checks that the value of e converts to a sample of dt.
+/// @returns VALIDATION, naming the label of e, when it does not.
+errors::Error check_enum(const Enum &e, const telem::DataType &dt) {
+    const auto wrap = [&e](const std::string &message) {
+        return invalid("enum label " + quote(e.label) + ": " + message);
+    };
+    if (dt == telem::STRING_T && std::holds_alternative<std::string>(e.value))
+        return errors::NIL;
+    const auto n = to_number(e.value);
+    if (!numeric(dt) || !n.has_value())
+        return wrap(
+            "a " + telem::DataType::infer(e.value).name() +
+            " value does not convert to " + dt.name()
+        );
+    if (const auto err = n->check_fits(dt)) return wrap(err.data);
+    if (const auto f = n->to_float64(); dt == telem::BOOLEAN_T && f != 0 && f != 1)
+        return wrap(n->to_string() + " is not a boolean");
+    return errors::NIL;
+}
+
+bool is_nan(const telem::SampleValue &v) {
+    const auto n = to_number(v);
+    return n.has_value() && std::isnan(n->to_float64());
 }
 
 /// @brief marks an open array on the stack that compact keeps.
@@ -143,8 +174,7 @@ errors::Error compact(
 
 std::pair<Decoder, errors::Error> Decoder::create(Field field) {
     const auto &dt = field.data_type;
-    if (dt != telem::TIMESTAMP_T && dt != telem::STRING_T && dt != telem::JSON_T &&
-        dt != telem::UUID_T && dt != telem::BYTES_T && !numeric(dt))
+    if (!convertible(dt))
         return {Decoder(), invalid("cannot convert a JSON value to " + dt.name())};
     if (field.range != telem::UNKNOWN_T && !integer(field.range))
         return {
@@ -153,24 +183,11 @@ std::pair<Decoder, errors::Error> Decoder::create(Field field) {
         };
     Decoder d;
     for (const auto &e: field.enums) {
-        const auto wrap = [&e](const std::string &message) {
-            return invalid("enum label " + quote(e.label) + ": " + message);
-        };
-        const auto from = telem::DataType::infer(e.value);
-        const auto n = enum_number(e.value);
-        if (dt == telem::STRING_T && std::holds_alternative<std::string>(e.value)) {
+        if (const auto err = check_enum(e, dt)) return {Decoder(), err};
+        if (const auto n = to_number(e.value))
+            d.labels.push_back({e.label, *n, ""});
+        else
             d.labels.push_back({e.label, Number(), std::get<std::string>(e.value)});
-            continue;
-        }
-        if (!numeric(dt) || !n.has_value())
-            return {
-                Decoder(),
-                wrap("a " + from.name() + " value does not convert to " + dt.name()),
-            };
-        if (const auto err = n->check_fits(dt)) return {Decoder(), wrap(err.data)};
-        if (const auto f = n->to_float64(); dt == telem::BOOLEAN_T && f != 0 && f != 1)
-            return {Decoder(), wrap(n->to_string() + " is not a boolean")};
-        d.labels.push_back({e.label, *n, ""});
     }
     d.field = std::move(field);
     return {std::move(d), errors::NIL};
@@ -322,5 +339,76 @@ const Decoder::Label *Decoder::find_label(const std::string_view text) const {
     for (const auto &l: this->labels)
         if (l.label == text) return &l;
     return nullptr;
+}
+
+std::pair<Encoder, errors::Error> Encoder::create(Field field) {
+    const auto &dt = field.data_type;
+    if (!convertible(dt))
+        return {Encoder(), invalid("cannot convert " + dt.name() + " to a JSON value")};
+    if (dt != telem::TIMESTAMP_T && !numeric(dt) && field.type != Type::String)
+        return {
+            Encoder(),
+            invalid("data type " + dt.name() + " only serializes as a string"),
+        };
+    Encoder e;
+    for (const auto &en: field.enums) {
+        if (const auto err = check_enum(en, dt)) return {Encoder(), err};
+        std::string text;
+        if (const auto err = append_quoted(en.label, text))
+            return {
+                Encoder(),
+                invalid("enum label " + quote(en.label) + ": " + err.data),
+            };
+        e.labels.push_back({std::move(text), dt.cast(en.value)});
+    }
+    e.field = std::move(field);
+    return {std::move(e), errors::NIL};
+}
+
+errors::Error
+Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) const {
+    const auto &dt = this->field.data_type;
+    const auto index = static_cast<int>(i);
+    if (dt == telem::TIMESTAMP_T) {
+        append_timestamp(s.at<telem::TimeStamp>(index), this->field.time_format, out);
+        return errors::NIL;
+    }
+    if (dt == telem::UUID_T) {
+        out += '"';
+        out += s.at<uuid::UUID>(index).to_string();
+        out += '"';
+        return errors::NIL;
+    }
+    if (dt == telem::BYTES_T) {
+        out += '"';
+        out += base64::encode(s.at<std::string>(index));
+        out += '"';
+        return errors::NIL;
+    }
+    auto sample = s.at(index);
+    // A boolean matches and writes as 0 or 1.
+    if (dt == telem::BOOLEAN_T) sample = dt.cast(sample);
+    for (const auto &l: this->labels)
+        if (l.sample == sample || (is_nan(l.sample) && is_nan(sample))) {
+            out += l.text;
+            return errors::NIL;
+        }
+    if (!numeric(dt)) return append_quoted(std::get<std::string>(sample), out);
+    const auto n = to_number(sample).value();
+    if (this->field.type == Type::Boolean) {
+        if (std::isnan(n.to_float64())) return invalid("NaN is not a JSON boolean");
+        out += n.to_float64() != 0 ? "true" : "false";
+        return errors::NIL;
+    }
+    if (this->field.type == Type::String) {
+        out += '"';
+        out += n.to_string();
+        out += '"';
+        return errors::NIL;
+    }
+    if (dt == telem::FLOAT64_T || dt == telem::FLOAT32_T)
+        return append_float(n.to_float64(), out);
+    out += n.to_string();
+    return errors::NIL;
 }
 }

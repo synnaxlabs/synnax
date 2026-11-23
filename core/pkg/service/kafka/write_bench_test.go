@@ -91,47 +91,14 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	)
 	index, data := groups[0].index, groups[0].data
 	topic := uniqueTopic()
-	channels := make([]kafka.WriteChannel, len(data))
-	byName := make(map[string]int, len(data))
-	for i, ch := range data {
-		channels[i] = kafka.WriteChannel{Key: strconv.Itoa(i), Channel: ch.Key()}
-		byName[ch.Name] = i
-	}
-	cfg := kafka.WriteConfig{
-		Device: createDevice(ctx, clusterProperties()).Key,
-		Topic:  topic,
-		Record: kafka.Record{
-			ChannelPointer:   new("/channel"),
-			TimestampPointer: new("/timestamp"),
-		},
-		Channels: channels,
-	}
-	if sc.fields {
-		cfg.Record.Fields = []http.WriteField{
-			{Variant: http.StaticWriteField{
-				BaseWriteField: http.BaseWriteField{
-					Key: "source", Pointer: "/meta/source",
-				},
-				JSONType: payload.JSONTypeString,
-				Value:    "synnax",
-			}},
-			{Variant: http.GeneratedWriteField{
-				BaseWriteField: http.BaseWriteField{Key: "id", Pointer: "/id"},
-				Generator:      payload.GeneratorTypeUUID,
-			}},
-		}
-	}
+	cfg, byName := writeBenchConfig(ctx, data, topic, sc.fields)
 	t := newTask(ctx, kafka.WriteTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 		To(Succeed())
 
-	keys := make(channel.Keys, 0, len(data)+1)
-	keys = append(keys, index.Key())
-	for _, ch := range data {
-		keys = append(keys, ch.Key())
-	}
+	keys := append(channel.Keys{index.Key()}, channel.KeysFromChannels(data)...)
 	base := telem.Now() - telem.TimeStamp(telem.Hour)
 	stamp := func(frameI, sampleI int) telem.TimeStamp {
 		return base + telem.TimeStamp(frameI*sc.samples+sampleI)*telem.MillisecondTS
@@ -168,8 +135,63 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	records := consumeAll(ctx, topic, total)
 	elapsed := time.Since(start)
 	profile.stop()
+	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp)
+	GinkgoWriter.Printf("BENCH %s %d records in %s\n", sc.name(), len(records), elapsed)
+}
 
-	seen := make([]int, len(data))
+// writeBenchConfig returns the config of a write task that sends data to topic, and the
+// position of each channel in data by name. fields adds a static and a generated field
+// to each record.
+func writeBenchConfig(
+	ctx context.Context, data []channel.Channel, topic string, fields bool,
+) (kafka.WriteConfig, map[string]int) {
+	GinkgoHelper()
+	channels := make([]kafka.WriteChannel, len(data))
+	byName := make(map[string]int, len(data))
+	for i, ch := range data {
+		channels[i] = kafka.WriteChannel{Key: strconv.Itoa(i), Channel: ch.Key()}
+		byName[ch.Name] = i
+	}
+	cfg := kafka.WriteConfig{
+		Device: createDevice(ctx, clusterProperties()).Key,
+		Topic:  topic,
+		Record: kafka.Record{
+			ChannelPointer:   new("/channel"),
+			TimestampPointer: new("/timestamp"),
+		},
+		Channels: channels,
+	}
+	if fields {
+		cfg.Record.Fields = []http.WriteField{
+			{Variant: http.StaticWriteField{
+				BaseWriteField: http.BaseWriteField{
+					Key: "source", Pointer: "/meta/source",
+				},
+				JSONType: payload.JSONTypeString,
+				Value:    "synnax",
+			}},
+			{Variant: http.GeneratedWriteField{
+				BaseWriteField: http.BaseWriteField{Key: "id", Pointer: "/id"},
+				Generator:      payload.GeneratorTypeUUID,
+			}},
+		}
+	}
+	return cfg, byName
+}
+
+// checkWriteRecords asserts that records hold every sample of each of channels in
+// order, with its exact value and the stamp that stamp gives it. byName maps a channel
+// name to its position, and samples is the sample count of a frame. fields checks the
+// static and generated fields.
+func checkWriteRecords(
+	records []*kgo.Record,
+	byName map[string]int,
+	channels, samples int,
+	fields bool,
+	stamp func(frameI, sampleI int) telem.TimeStamp,
+) {
+	GinkgoHelper()
+	seen := make([]int, channels)
 	ids := make(set.Set[uuid.UUID])
 	for _, rec := range records {
 		var doc struct {
@@ -189,15 +211,14 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 		seen[c]++
 		Expect(math.Float64bits(doc.Value)).
 			To(Equal(math.Float64bits(benchValue(c, i))))
-		Expect(doc.Timestamp).To(Equal(stamp(i/sc.samples, i%sc.samples)))
-		if sc.fields {
+		Expect(doc.Timestamp).To(Equal(stamp(i/samples, i%samples)))
+		if fields {
 			Expect(doc.Meta.Source).To(Equal("synnax"))
 			id := MustSucceed(uuid.Parse(doc.ID))
 			Expect(ids.Contains(id)).To(BeFalse())
 			ids.Add(id)
 		}
 	}
-	GinkgoWriter.Printf("BENCH %s %d records in %s\n", sc.name(), len(records), elapsed)
 }
 
 // consumeAll reads exactly n records from topic.

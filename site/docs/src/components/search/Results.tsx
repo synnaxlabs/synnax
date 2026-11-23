@@ -20,13 +20,7 @@ import { type ReactElement, useCallback, useMemo, useRef, useState } from "react
 
 import { Nav } from "@/components/nav";
 import { APP_ID, ORIGIN } from "@/components/search/algolia";
-import {
-  type Entry,
-  fromHit,
-  group,
-  hitSchema,
-  type Result,
-} from "@/components/search/result";
+import { result } from "@/components/search/result";
 import { Text as DocsText } from "@/components/text";
 import { indexName } from "@/util/version";
 import { VERSION } from "@/version";
@@ -57,7 +51,7 @@ const ICONS: Record<string, Icon.ReactElement> = {
 
 const Item = (props: List.ItemRenderProps<string>) => {
   const { itemKey } = props;
-  const item = List.useItem<string, Entry>(itemKey);
+  const item = List.useItem<string, result.Entry>(itemKey);
   if (item == null) return null;
   const { href, title, excerpt, section, path, ancestors, first } = item;
   const icon = ancestors.findLast((key) => key in ICONS);
@@ -108,7 +102,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
 
 const item = Component.renderProp(Item);
 
-const hitsSchema = hitSchema.array();
+const hitsSchema = result.hitSchema.array();
 
 const PARAMS = new URLSearchParams({
   hitsPerPage: "8",
@@ -119,7 +113,7 @@ const PARAMS = new URLSearchParams({
   snippetEllipsisText: "…",
 });
 
-const search = async (term: string): Promise<Result[]> => {
+const search = async (term: string): Promise<result.Result[]> => {
   const params = new URLSearchParams(PARAMS);
   params.set("query", term);
   const res = await fetch(ALGOLIA_URL, {
@@ -133,10 +127,10 @@ const search = async (term: string): Promise<Result[]> => {
     console.error(hits.error.issues);
     return [];
   }
-  return hits.data.map(fromHit);
+  return hits.data.map(result.fromHit);
 };
 
-const SUGGESTED: Result[] = [
+const SUGGESTED: result.Result[] = [
   {
     key: "suggested-get-started",
     title: "Get started",
@@ -172,13 +166,13 @@ const SUGGESTED: Result[] = [
     href: "/reference/enterprise",
     ancestors: ["enterprise"],
   },
-].map((result) => ({ ...result, section: "Suggested", path: [] }));
+].map((suggested) => ({ ...suggested, section: "Suggested", path: [] }));
 
 /** Searches the docs as the reader types and opens the chosen page. */
 export const Results = (): ReactElement => {
   const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
-  const [data, setData] = useState<Result[]>([]);
+  const [data, setData] = useState<result.Result[]>([]);
   const latest = useRef("");
   const handleSearch = useCallback(
     (query: string) => {
@@ -194,12 +188,12 @@ export const Results = (): ReactElement => {
     [visible],
   );
   const empty = value.length === 0;
-  const entries = useMemo(() => group(empty ? SUGGESTED : data), [empty, data]);
-  const { data: items, getItem } = List.useStaticData<string, Entry>({
+  const entries = useMemo(() => result.group(empty ? SUGGESTED : data), [empty, data]);
+  const { data: items, getItem } = List.useStaticData<string, result.Entry>({
     data: entries,
   });
   return (
-    <Select.Frame<string, Entry>
+    <Select.Frame<string, result.Entry>
       data={items}
       getItem={getItem}
       value=""
@@ -231,7 +225,7 @@ export const Results = (): ReactElement => {
         bordered
         borderColor={6}
       >
-        <List.Items<string, Entry>
+        <List.Items<string, result.Entry>
           emptyContent={
             <Text.Text center status="disabled">
               No results

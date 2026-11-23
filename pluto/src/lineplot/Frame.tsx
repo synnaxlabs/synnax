@@ -532,7 +532,10 @@ export const Frame = ({
   );
 };
 
-const buildPlotGrid = (g: grid.Grid): CSSProperties => {
+const regionsSize = (loc: location.Outer, g: grid.Grid): string =>
+  `${grid.regions(loc, g).reduce((total, { size }) => total + size, 0)}px`;
+
+const buildPlotGrid = (g: grid.Grid): CSSProperties & Record<`--${string}`, string> => {
   const b = CSS.newGridBuilder();
   grid
     .regions("top", g)
@@ -550,5 +553,12 @@ const buildPlotGrid = (g: grid.Grid): CSSProperties => {
     .regions("right", g)
     .reverse()
     .forEach(({ key, size }) => b.col(`axis-start-${key}`, `axis-end-${key}`, size));
-  return b.build();
+  // The sizes of the regions on each side, for styles that reach past the plot.
+  return {
+    ...b.build(),
+    "--pluto-line-plot-top": regionsSize("top", g),
+    "--pluto-line-plot-bottom": regionsSize("bottom", g),
+    "--pluto-line-plot-left": regionsSize("left", g),
+    "--pluto-line-plot-right": regionsSize("right", g),
+  };
 };

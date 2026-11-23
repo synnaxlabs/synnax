@@ -19,11 +19,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ErrRefused is the error of a log record or a head that breaks a rule of the state.
-var ErrRefused = errors.New("refused by the state")
+// errRefused is the error of a log record or a head that breaks a rule of the state.
+var errRefused = errors.New("refused by the state")
 
 func refuse(format string, args ...any) error {
-	return errors.Wrapf(ErrRefused, format, args...)
+	return errors.Wrapf(errRefused, format, args...)
 }
 
 // core is the data of the state and the rules that change it. Only the owner uses it.
@@ -94,7 +94,7 @@ func (c *core) channel(key uint32) *chanState {
 }
 
 // apply applies the records of the durable entry of sequence, in order, or returns an
-// error that wraps ErrRefused, or log.ErrUnknown for a record this binary does not
+// error that wraps errRefused, or log.ErrUnknown for a record this binary does not
 // apply. A refused entry may be applied in part.
 func (c *core) apply(sequence uint64, records []log.Record, pre []Preload) error {
 	if sequence != c.sequence+1 {
