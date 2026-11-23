@@ -58,6 +58,14 @@ var _ = Describe("Format string placeholder completion (check)", func() {
 		server.SetClient(&MockClient{})
 	})
 
+	It("should leave out a completion that a raw literal cannot hold", func(
+		ctx SpecContext,
+	) {
+		OpenArcDocument(server, ctx, docURI, "func f() {\n    x := rf\"{sa}\"\n}")
+		completions := Completion(server, ctx, docURI, 1, 15)
+		Expect(HasCompletion(completions.Items, `say"hi`)).To(BeFalse())
+	})
+
 	It("should escape a bare channel completion in a placeholder for its literal", func(
 		ctx SpecContext,
 	) {
