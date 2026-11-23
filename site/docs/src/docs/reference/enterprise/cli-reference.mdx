@@ -537,6 +537,13 @@ oidc-providers:
 The first login of an account creates a user with the built-in Viewer role. The Core
 never links an account to an existing user because a name or email matches.
 
+Register two redirect URIs for the client of the Core at the provider. The desktop
+Console returns to `http://127.0.0.1/callback` on a free port, so the provider must
+accept each port for a loopback address. The browser Console returns to the address of
+the page it runs on, such as `https://core.example.com:9090/` when the Core serves it.
+Register each address the browser Console is opened from. A browser can log in through a
+provider only on a page served over HTTPS.
+
 Fields of a provider:
 
 <Field.List>

@@ -35,18 +35,20 @@ const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
 };
 
 /**
- * The parameters a client needs to reach the selected Core. A password the user has
- * just entered logs in; otherwise the saved session resumes, from the keychain on
- * desktop and from the session cookie on a page the Core serves. Undefined while no
- * Core is selected and, on desktop, until the keychain has answered. A saved session
- * outlives the client. Fields that only describe the Core stay out, so renaming it
- * keeps the connection.
+ * The parameters a client needs to reach the selected Core. A password or OpenID
+ * Connect code the user has just entered logs in; otherwise the saved session resumes,
+ * from the keychain on desktop and from the session cookie on a page the Core serves.
+ * Undefined while no Core is selected and, on desktop, until the keychain has answered.
+ * A saved session outlives the client. Fields that only describe the Core stay out, so
+ * renaming it keeps the connection.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const [stored, setStored] = useState<StoredToken>();
   const account = core == null ? undefined : accountOf(core);
+  // a login in any window that saves a session is the cue to read the keychain again
+  const lastLogin = core?.lastLogin;
   useEffect(() => {
     if (core == null || Session.Runtime.ENGINE !== "tauri") return;
     let stale = false;
@@ -63,16 +65,19 @@ export const useConnParams = (): SynnaxParams | undefined => {
     return () => {
       stale = true;
     };
-  }, [account]);
+  }, [account, lastLogin]);
   if (core == null) return undefined;
-  const { host, port, secure, username, password } = core;
-  const params: SynnaxParams = {
-    host,
-    port,
-    secure,
-    username,
-    password: password === "" ? undefined : password,
-  };
+  const { host, port, secure, username, password, oidc } = core;
+  const params: SynnaxParams =
+    oidc == null
+      ? {
+          host,
+          port,
+          secure,
+          username: username === "" ? undefined : username,
+          password: password === "" ? undefined : password,
+        }
+      : { host, port, secure, oidc };
   if (Session.Runtime.ENGINE !== "tauri") {
     const cookie = servesPage(core);
     return { ...params, sessionCookie: cookie, sessionPersistent: cookie };

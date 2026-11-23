@@ -74,7 +74,7 @@ export const ProfileSettings = (): ReactElement | null => {
     <>
       <PlatformSettings.Card>
         <Name current={current} />
-        {core != null && (
+        {core != null && core.username !== "" && (
           <PlatformSettings.Entry label="Username" description="You log in with it.">
             <Text.Text color={10}>{core.username}</Text.Text>
           </PlatformSettings.Entry>
