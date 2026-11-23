@@ -64,7 +64,7 @@ func (g Group) Next(
 		next, changedLocal, err := c.Next(ctx, output, output)
 		if err != nil {
 			c.failed = true
-			report(ctx, c.Channel().Key(), c.Expression(), Status{
+			report(ctx, c.Channel().Key(), c.expression(), Status{
 				Name:        c.Channel().Name,
 				Variant:     status.VariantError,
 				Message:     "Failed to run calculation",
@@ -78,7 +78,7 @@ func (g Group) Next(
 		}
 		changed = true
 		if c.failed {
-			c.failed = !report(ctx, c.Channel().Key(), c.Expression(), Status{
+			c.failed = !report(ctx, c.Channel().Key(), c.expression(), Status{
 				Name:    c.Channel().Name,
 				Variant: status.VariantSuccess,
 				Message: "Calculation running",
