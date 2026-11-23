@@ -151,9 +151,6 @@ const createRenderState = (): RenderState => ({
  */
 export const isValidSVG = (svg: string): boolean => Region.measure(svg) != null;
 
-// buildDrawing moves the contents of root into one new <g> in the host. The <g> takes
-// the other root attributes, such as stroke-width. The caller re-applies state colors
-// and stroke scaling afterwards.
 // Motion writes these as presentation attributes, which inline declarations outrank.
 const MOTION_PROPERTIES = ["opacity", "stroke-dashoffset"];
 
@@ -167,6 +164,9 @@ const moveMotionStyles = (drawing: SVGGElement) => {
     }
 };
 
+// buildDrawing moves the contents of root into one new <g> in the host. The <g> takes
+// the other root attributes, such as stroke-width. The caller re-applies state colors
+// and stroke scaling afterwards.
 const buildDrawing = (
   host: Element,
   state: RenderState,
