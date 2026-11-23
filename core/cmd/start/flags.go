@@ -135,12 +135,6 @@ func AddFlags(cmd *cobra.Command) {
 		4,
 		"Number of worker threads for task operations in the embedded Driver (1-64)",
 	)
-	cmd.Flags().Bool(
-		FlagDisableChannelNameValidation,
-		false,
-		"Read a dashed name in Arc as one channel name (for programs written before "+
-			"quoted names)",
-	)
 	cmd.Flags().String(
 		FlagSecretsKey,
 		"",

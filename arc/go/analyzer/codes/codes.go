@@ -46,18 +46,6 @@ var (
     return f"value {}"
 }`,
 	}
-	// SubtractionSpacing is a binary minus with no space on one of its sides.
-	SubtractionSpacing = diagnostics.Kind{
-		Code:     "E1003",
-		Severity: protocol.DiagnosticSeverityError,
-		Message:  "subtraction requires whitespace on both sides of '-'",
-		Problem: "Only possible when the flag for channel names with dashes is " +
-			"on. Then `a-b` is a channel name, so a subtraction needs a space on " +
-			"each side of the `-`.",
-		Example: `func f(a f64, b f64) f64 {
-    return a -b
-}`,
-	}
 
 	// DivisionByZero is a constant integer division or modulo by zero.
 	DivisionByZero = diagnostics.Kind{
@@ -722,7 +710,6 @@ var All = []diagnostics.Kind{
 	Syntax,
 	SourceLimit,
 	InvalidStringLiteral,
-	SubtractionSpacing,
 	DivisionByZero,
 	TypeMismatch,
 	UnknownUnit,

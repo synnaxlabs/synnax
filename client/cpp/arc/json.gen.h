@@ -36,6 +36,14 @@ inline Base Base::parse(x::json::Parser parser) {
         .source = parser.has("source") ? parse_source(parser.child("source"))
                                        : Source{TextSource{}},
         .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),
+        .reads = parser.field<std::vector<::synnax::channel::Key>>(
+            "reads",
+            std::vector<::synnax::channel::Key>{}
+        ),
+        .writes = parser.field<std::vector<::synnax::channel::Key>>(
+            "writes",
+            std::vector<::synnax::channel::Key>{}
+        ),
     };
 }
 
@@ -45,6 +53,8 @@ inline x::json::json Base::to_json() const {
     j["name"] = this->name;
     j["source"] = ::synnax::arc::to_json(this->source);
     if (this->directory.has_value()) j["directory"] = this->directory->to_json();
+    j["reads"] = this->reads;
+    j["writes"] = this->writes;
     return j;
 }
 

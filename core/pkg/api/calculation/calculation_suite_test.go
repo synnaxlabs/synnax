@@ -26,6 +26,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
@@ -69,9 +70,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:        svc.RBAC,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   node.DB,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      node.DB,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)

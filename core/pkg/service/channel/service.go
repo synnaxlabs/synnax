@@ -79,12 +79,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ValidateNames is false on a Core started with the old name validation flag. Arc
-	// then reads a dashed name as one identifier, so text written under the flag keeps
-	// compiling until the upgrade quotes it. Names follow the name rule either way.
-	//
-	// [OPTIONAL] - Defaults to true.
-	ValidateNames *bool
 	// Fills fills the create action of a stored channel that a create links to a new
 	// index. Declare makes no channel that it fills a built-in.
 	//
@@ -109,7 +103,6 @@ func (c ServiceConfig) Validate() error {
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
-	v.NotNil("validate_names", c.ValidateNames)
 	return v.Error()
 }
 
@@ -122,7 +115,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	c.Fills = override.Nil(c.Fills, other.Fills)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
@@ -161,8 +153,7 @@ type Service struct {
 // OpenService opens a channel service using the provided configuration(s).
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
-		ValidateNames: new(true),
-		Limit:         func(types.Uint20) error { return nil },
+		Limit: func(types.Uint20) error { return nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -315,7 +306,3 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // Actions returns the action batches that Writer attaches to its transactions.
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
-
-// ShouldValidateNames reports false on a Core started with the old name validation
-// flag, where Arc reads a dashed name as one identifier.
-func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }

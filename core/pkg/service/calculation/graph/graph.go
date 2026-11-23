@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
@@ -792,9 +791,7 @@ func (g *Graph) clearNodeStatus(
 }
 
 func (g *Graph) newAnalyzer(tx gorp.Tx) *compiler.Analyzer {
-	return compiler.NewAnalyzer(resolver.New(g.svc, tx), parser.Config{
-		AllowDashedNames: resolver.AllowDashedNames(g.svc),
-	})
+	return compiler.NewAnalyzer(resolver.New(g.svc, tx))
 }
 
 func (g *Graph) inspectNode(

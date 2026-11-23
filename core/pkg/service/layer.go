@@ -20,7 +20,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -39,7 +38,6 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -160,12 +158,6 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	SecretsDir string
-	// ValidateChannelNames enables channel name validation during creation and
-	// renaming. When false, channels may have names with spaces, special characters,
-	// etc.
-	//
-	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateChannelNames *bool
 	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
 	//
 	// [OPTIONAL] - Defaults to false.
@@ -205,9 +197,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		c.EmbeddedDriverDisabled,
 		other.EmbeddedDriverDisabled,
 		other.EmbeddedDriverDisabled,
-	)
-	c.ValidateChannelNames = override.Nil(
-		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
 	c.SecretsKey = override.If(
 		c.SecretsKey,
@@ -322,6 +311,8 @@ type Layer struct {
 	License *license.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
+	// TaskHolders names the tables whose records stand for a task.
+	TaskHolders *taskconfig.Holders
 	// Metrics is used for collecting host machine metrics and publishing them over
 	// channels
 	Metrics *metrics.Service
@@ -475,7 +466,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
-		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
 		// The calculation service opens after this one, so a fill reads it as it runs.
 		Fills: func(
@@ -1064,9 +1054,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
-		Parser: parser.Config{
-			AllowDashedNames: resolver.AllowDashedNames(l.Channel),
-		},
 	})
 	if !ok(err, arcTable) {
 		return nil, err
@@ -1130,6 +1117,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
 		l.File.Stores(),
 	)
+	l.TaskHolders = taskconfig.NewHolders(arc.DriftTable)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
 		return nil, err
@@ -1253,6 +1241,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ClearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
+				l.Arc,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
 			newRetiredChannelDelete(l.Channel),
@@ -1294,7 +1283,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
-		GetProgram:      l.Arc.CompileProgram,
+		GetProgram:      l.Arc.DeployProgram,
 		Ranger:          l.Ranger,
 	})
 	if !ok(err, nil) {
@@ -1380,7 +1369,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		Channel:  l.Channel,
-		RecordOf: taskconfig.RecordOf,
+		RecordOf: l.TaskHolders.RecordOf,
 		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
 			w := l.Task.NewWriter(tx)
 			for _, r := range records {

@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
@@ -146,9 +147,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)

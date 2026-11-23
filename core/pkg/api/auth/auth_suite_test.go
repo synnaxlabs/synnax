@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -141,9 +142,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Identity: node.Identity,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	changePassword = bind.WritePrepared(
 		binder,

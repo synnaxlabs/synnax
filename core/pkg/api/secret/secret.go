@@ -44,6 +44,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Holders maps the holder of each use to the record it stands for, so a use that a
+	// task's records hold names the task.
+	//
+	// [REQUIRED]
+	Holders *taskconfig.Holders
 	// Task finds the rack of the task that a grant's command targets.
 	//
 	// [REQUIRED]
@@ -72,6 +77,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Holders = override.Nil(c.Holders, other.Holders)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Certificate = override.Nil(c.Certificate, other.Certificate)
@@ -84,6 +90,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("holders", c.Holders)
 	v.NotNil("task", c.Task)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("certificate", c.Certificate)
@@ -96,6 +103,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
+	holders  *taskconfig.Holders
 	task     *task.Service
 	racks    *rack.Service
 	certs    *certificate.Service
@@ -111,6 +119,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
+		holders:  cfg.Holders,
 		task:     cfg.Task,
 		racks:    cfg.Rack,
 		certs:    cfg.Certificate,
@@ -579,7 +588,7 @@ func (s *Service) usedOn(
 	if err != nil {
 		return false, err
 	}
-	onRack := func(id resource.ID) bool { return on.Contains(taskOf(id)) }
+	onRack := func(id resource.ID) bool { return on.Contains(s.taskOf(id)) }
 	for _, id := range uses {
 		if onRack(id) {
 			return true, nil
@@ -603,8 +612,8 @@ func (s *Service) usedOn(
 }
 
 // taskOf returns the task of a config record, and any other ID as it is.
-func taskOf(id resource.ID) resource.ID {
-	if t, ok := taskconfig.TaskOf(
+func (s *Service) taskOf(id resource.ID) resource.ID {
+	if t, ok := s.holders.TaskOf(
 		gorp.Target{Table: string(id.Type), Key: id.Key},
 	); ok {
 		return t

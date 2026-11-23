@@ -261,14 +261,6 @@ type Calculation struct {
 	Program program.Program `json:"program" msgpack:"program"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Calculation) Validate() error {
-	v := validate.New("Calculation")
-	v.Exec(func() error { return validate.PathedError(c.Program.Validate(), "program") })
-	return v.Error()
-}
-
 // ArcVariant is implemented by every Arc variant.
 type ArcVariant interface {
 	isArcVariant()
@@ -298,16 +290,8 @@ func (a *AutomationArc) SetDefaults() {
 func (a AutomationArc) Validate() error {
 	v := validate.New("AutomationArc")
 	v.Exec(a.Base.Validate)
-	if a.Program != nil {
-		v.Exec(func() error { return validate.PathedError(a.Program.Validate(), "program") })
-	}
 	for i := range a.Changes {
 		v.Exec(func() error { return validate.PathedError(a.Changes[i].Validate(), "changes", strconv.Itoa(i)) })
-	}
-	for i := range a.Calculations {
-		v.Exec(func() error {
-			return validate.PathedError(a.Calculations[i].Validate(), "calculations", strconv.Itoa(i))
-		})
 	}
 	return v.Error()
 }

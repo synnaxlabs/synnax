@@ -70,6 +70,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Impact *impact.Service
+	// Holders maps the holder of each use to the record it stands for, so a use that a
+	// task's records hold names the task.
+	//
+	// [REQUIRED]
+	Holders *taskconfig.Holders
 }
 
 var (
@@ -86,6 +91,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Impact = override.Nil(c.Impact, other.Impact)
+	c.Holders = override.Nil(c.Holders, other.Holders)
 	return c
 }
 
@@ -98,6 +104,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("calculation", c.Calculation)
 	v.NotNil("impact", c.Impact)
+	v.NotNil("holders", c.Holders)
 	return v.Error()
 }
 
@@ -109,6 +116,7 @@ type Service struct {
 	status       *status.Service
 	calculations *calculation.Service
 	impact       *impact.Service
+	holders      *taskconfig.Holders
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -123,6 +131,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		status:       cfg.Status,
 		calculations: cfg.Calculation,
 		impact:       cfg.Impact,
+		holders:      cfg.Holders,
 	}, nil
 }
 
@@ -414,7 +423,7 @@ func (s *Service) fillUses(
 		for _, u := range uses[i] {
 			h, ok := holders[u.Holder]
 			if !ok {
-				h.id = taskconfig.RecordOf(u.Holder)
+				h.id = s.holders.RecordOf(u.Holder)
 				h.allowed = snap.Allowed(h.id)
 				holders[u.Holder] = h
 			}

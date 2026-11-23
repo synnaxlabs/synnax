@@ -1368,29 +1368,35 @@ var _ = Describe("With a detach reference", func() {
 	})
 })
 
-var _ = Describe("TaskOf", func() {
+var _ = Describe("Holders", func() {
+	holders := config.NewHolders("arc_drift")
+
 	It("Should return the task whose config record a target names", func() {
 		key := uuid.New()
-		id := MustBeOk(config.TaskOf(gorp.NewTarget(config.TableName(testType), key)))
+		id := MustBeOk(holders.TaskOf(gorp.NewTarget(config.TableName(testType), key)))
 		Expect(id).To(Equal(task.ResourceID(key)))
 	})
 
-	It("Should return false for a table that stores no config records", func() {
-		_, ok := config.TaskOf(gorp.NewTarget("task", uuid.New()))
+	It("Should return the task whose record in a named table a target names", func() {
+		key := uuid.New()
+		Expect(MustBeOk(holders.TaskOf(gorp.NewTarget("arc_drift", key)))).
+			To(Equal(task.ResourceID(key)))
+	})
+
+	It("Should return false for a table whose records stand for no task", func() {
+		_, ok := holders.TaskOf(gorp.NewTarget("task", uuid.New()))
 		Expect(ok).To(BeFalse())
 	})
-})
 
-var _ = Describe("RecordOf", func() {
-	It("Should return the task of a config record", func() {
+	It("Should return the task of a config record as its record", func() {
 		key := uuid.New()
-		Expect(config.RecordOf(gorp.NewTarget(config.TableName(testType), key))).
+		Expect(holders.RecordOf(gorp.NewTarget(config.TableName(testType), key))).
 			To(Equal(task.ResourceID(key)))
 	})
 
 	It("Should return any other holder as itself", func() {
 		key := uuid.New()
-		Expect(config.RecordOf(gorp.NewTarget("schematic", key))).To(Equal(
+		Expect(holders.RecordOf(gorp.NewTarget("schematic", key))).To(Equal(
 			resource.ID{Type: resource.TypeSchematic, Key: key.String()},
 		))
 	})

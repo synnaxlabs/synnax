@@ -181,6 +181,10 @@ inline std::pair<::service::arc::pb::Base, x::errors::Error> Base::to_proto() co
         *pb.mutable_source() = v;
     }
     if (this->directory.has_value()) pb.set_directory(this->directory->to_string());
+    for (const auto &item: this->reads)
+        pb.add_reads(item);
+    for (const auto &item: this->writes)
+        pb.add_writes(item);
     return {pb, x::errors::NIL};
 }
 
@@ -203,6 +207,10 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
         if (err) return {{}, err};
         cpp.directory = v;
     }
+    for (const auto &item: pb.reads())
+        cpp.reads.push_back(item);
+    for (const auto &item: pb.writes())
+        cpp.writes.push_back(item);
     return {cpp, x::errors::NIL};
 }
 

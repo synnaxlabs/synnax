@@ -485,20 +485,18 @@ var _ = Describe("Build", func() {
 		context.Context,
 		arc.AutomationArc,
 		*symbol.Symbol,
-		...arclang.Option,
 	) (arclang.Program, error)
 	// compileText compiles the text of a, as the Service does by default.
 	compileText := func(
 		ctx context.Context,
 		a arc.AutomationArc,
 		root *symbol.Symbol,
-		opts ...arclang.Option,
 	) (arclang.Program, error) {
 		src, ok := a.Source.Variant.(arc.TextSource)
 		if !ok {
 			return arclang.Program{}, errors.Newf("source is a %T", a.Source.Variant)
 		}
-		return arclang.CompileText(ctx, src.Text.Materialize(), root, opts...)
+		return arclang.CompileText(ctx, src.Text.Materialize(), root)
 	}
 	// openService opens a second Service over the suite's DB that compiles with
 	// compile.
@@ -574,10 +572,9 @@ var _ = Describe("Build", func() {
 			ctx context.Context,
 			a arc.AutomationArc,
 			root *symbol.Symbol,
-			opts ...arclang.Option,
 		) (arclang.Program, error) {
 			compiles.Add(1)
-			return compileText(ctx, a, root, opts...)
+			return compileText(ctx, a, root)
 		}
 	}
 	// programOf returns the program hash in the config of the task with key.
@@ -675,13 +672,12 @@ var _ = Describe("Build", func() {
 			ctx context.Context,
 			a arc.AutomationArc,
 			root *symbol.Symbol,
-			opts ...arclang.Option,
 		) (arclang.Program, error) {
 			compiles.Add(1)
 			if lockHeld(ctx) {
 				locked.Add(1)
 			}
-			return compileText(ctx, a, root, opts...)
+			return compileText(ctx, a, root)
 		})
 		createTempChannel(ctx, "build_out")
 		a := createAutomation(ctx, s)
@@ -710,10 +706,9 @@ var _ = Describe("Build", func() {
 			ctx context.Context,
 			a arc.AutomationArc,
 			root *symbol.Symbol,
-			opts ...arclang.Option,
 		) (arclang.Program, error) {
 			defer GinkgoRecover()
-			prog, err := compileText(ctx, a, root, opts...)
+			prog, err := compileText(ctx, a, root)
 			if changes.Add(-1) >= 0 {
 				if late.Key() != 0 {
 					deleteChannel(ctx, late)
@@ -746,8 +741,16 @@ var _ = Describe("Build", func() {
 		Expect(dispatch(ctx, a.Base().Key, "", insert("func f() { return x }"))).
 			To(Succeed())
 		b := MustSucceed(s.Build(ctx, a.Base().Key))
+		// The resyncs that the create and the edit schedule compile too, so the count
+		// holds still before the deploy.
+		var settled int32
+		Eventually(func(g Gomega) {
+			settled = compiles.Load()
+			g.Consistently(compiles.Load, 50*time.Millisecond, 5*time.Millisecond).
+				Should(Equal(settled))
+		}).Should(Succeed())
 		deploy(ctx, s, a, b)
-		Expect(compiles.Load()).To(BeEquivalentTo(1))
+		Expect(compiles.Load()).To(Equal(settled))
 	})
 
 	It("Should hold no lock of the DB while a resync compiles", func(ctx SpecContext) {
@@ -760,7 +763,6 @@ var _ = Describe("Build", func() {
 			ctx context.Context,
 			a arc.AutomationArc,
 			root *symbol.Symbol,
-			opts ...arclang.Option,
 		) (arclang.Program, error) {
 			if blocked.CompareAndSwap(true, false) {
 				entered <- struct{}{}
@@ -770,7 +772,7 @@ var _ = Describe("Build", func() {
 					return arclang.Program{}, ctx.Err()
 				}
 			}
-			return compileText(ctx, a, root, opts...)
+			return compileText(ctx, a, root)
 		})
 		a := createAutomation(ctx, s)
 		tsk := deploy(ctx, s, a, arc.Build{})

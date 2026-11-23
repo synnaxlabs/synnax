@@ -799,33 +799,19 @@ var _ = Describe("Formatter", func() {
 		),
 	)
 
-	Describe("Dashed names", func() {
-		It("Should keep a dashed channel name when dashed names are allowed", func() {
-			input := "sensor-1 -> valve-2\n"
-			Expect(
-				formatter.Format(input, parser.Config{AllowDashedNames: true}),
-			).To(Equal(input))
-		})
-
-		It("Should hoist a declaration past a dashed-name assignment", func() {
-			input := "sequence main {\n    valve-2a = 1\n    x := 1\n    stage s {\n" +
-				"        pt-3b -> out\n    }\n}\n"
-			Expect(
-				formatter.Format(input, parser.Config{AllowDashedNames: true}),
-			).To(Equal(
-				"sequence main {\n    x := 1\n    valve-2a = 1\n    stage s {\n" +
-					"        pt-3b -> out\n    }\n}\n",
+	Describe("Quoted channel names", func() {
+		It("Should hoist a declaration past a quoted channel assignment", func() {
+			input := "sequence main {\n    'valve-2a' = 1\n    x := 1\n" +
+				"    stage s {\n        'pt-3b' -> out\n    }\n}\n"
+			Expect(formatter.Format(input)).To(Equal(
+				"sequence main {\n    x := 1\n    'valve-2a' = 1\n    stage s {\n" +
+					"        'pt-3b' -> out\n    }\n}\n",
 			))
 		})
 
-		It("Should keep a dashed channel name in a formatted range", func() {
-			input := "x:=1\nsensor-1 -> valve-2\nz:=3"
-			Expect(formatter.FormatRange(
-				input,
-				1,
-				1,
-				parser.Config{AllowDashedNames: true},
-			)).To(Equal(input))
+		It("Should keep a quoted channel name in a formatted range", func() {
+			input := "x:=1\n'sensor-1' -> 'valve-2'\nz:=3"
+			Expect(formatter.FormatRange(input, 1, 1)).To(Equal(input))
 		})
 	})
 

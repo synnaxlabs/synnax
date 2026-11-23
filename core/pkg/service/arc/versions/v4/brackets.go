@@ -25,10 +25,9 @@ import (
 // that starts a top-level item after a flow becomes `name (...)` instead, since the
 // flow would read the wrapped call as a call on its last node. Comments, strings and
 // layout are kept. A bracket with no match leaves its construct unchanged. Text already
-// in the current grammar is not valid input. cfgs sets how names lex, as in
-// parser.Parse.
-func SwapBrackets(src string, cfgs ...parser.Config) string {
-	s := newStream(src, parser.ConfigOf(cfgs...))
+// in the current grammar is not valid input.
+func SwapBrackets(src string) string {
+	s := newStream(src)
 	e := editor{
 		src:     []rune(src),
 		replace: map[int]rune{},
@@ -76,19 +75,19 @@ type bracket struct {
 	holdsItems bool
 }
 
-// stream is the visible token stream with every bracket resolved up front, so a
-// program full of open brackets costs one pass rather than one scan per bracket.
+// stream is the visible token stream with every bracket resolved up front, so a program
+// full of open brackets costs one pass rather than one scan per bracket.
 type stream struct {
 	tokens []antlr.Token
 	// match holds the index of the bracket closing the one at i, or -1.
 	match []int
-	// nextBrace holds the index of the first `{` at or after i, or -1. It has one
-	// extra slot so a lookup just past the last token is valid.
+	// nextBrace holds the index of the first `{` at or after i, or -1. It has one extra
+	// slot so a lookup just past the last token is valid.
 	nextBrace []int
 }
 
-func newStream(src string, cfg parser.Config) stream {
-	tokens := visibleTokens(src, cfg)
+func newStream(src string) stream {
+	tokens := visibleTokens(src)
 	s := stream{
 		tokens:    tokens,
 		match:     make([]int, len(tokens)),
@@ -160,8 +159,8 @@ func startsNonFlowItem(t int) bool {
 	return false
 }
 
-// continuesExpression reports whether a token of type t leaves an expression open, so
-// a name after it is an operand and not the start of an item.
+// continuesExpression reports whether a token of type t leaves an expression open, so a
+// name after it is an operand and not the start of an item.
 func continuesExpression(t int) bool {
 	switch t {
 	case parser.ArcLexerDOT, parser.ArcLexerASSIGN, parser.ArcLexerDECLARE,
@@ -359,8 +358,8 @@ func adjacent(prev, next antlr.Token) bool {
 // visibleTokens lexes src and drops whitespace, comments and the end marker. Lexer
 // diagnostics are dropped too: a stored program that no longer lexes is rewritten as
 // far as its tokens allow.
-func visibleTokens(src string, cfg parser.Config) []antlr.Token {
-	lexer := parser.NewLexer(src, cfg)
+func visibleTokens(src string) []antlr.Token {
+	lexer := parser.NewArcLexer(antlr.NewInputStream(src))
 	lexer.RemoveErrorListeners()
 	all := lexer.GetAllTokens()
 	visible := make([]antlr.Token, 0, len(all))

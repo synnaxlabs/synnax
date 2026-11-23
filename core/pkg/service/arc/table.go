@@ -11,13 +11,14 @@ package arc
 
 import (
 	"context"
+	"sync"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
+	driftv1 "github.com/synnaxlabs/synnax/pkg/service/arc/drift/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -29,17 +30,16 @@ import (
 // rootName is the name of the directory that holds every Arc.
 const rootName = "Arcs"
 
+// DriftTable is the name of the table of drift records. A record holds the channels of
+// its task's deployed program, so a reference it holds stands for the task.
+const DriftTable = "arc_drift"
+
 // TableConfig is the configuration for opening the Arc table.
 type TableConfig struct {
 	// DB is the database that stores Arcs.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Parser is the parser config the Core runs with. The migrations lex stored Arcs
-	// with it.
-	//
-	// [OPTIONAL] - Defaults to dashed names off.
-	Parser parser.Config
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -51,7 +51,6 @@ var _ config.Config[TableConfig] = TableConfig{}
 // Override implements config.Config.
 func (c TableConfig) Override(other TableConfig) TableConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Parser = override.If(c.Parser, other.Parser, other.Parser != parser.Config{})
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -91,18 +90,29 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
 	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         t.indexes.all(),
-		References:      []gorp.Reference[Key, Arc]{newDirectoryReference()},
-		Migrations:      versions.NewMigrations(t.root, cfg.Parser),
+		DB:      cfg.DB,
+		Name:    tableName,
+		Indexes: t.indexes.all(),
+		References: append(
+			[]gorp.Reference[Key, Arc]{newDirectoryReference()},
+			// Only a graph Arc reads the params, so text Arcs never build them.
+			newChannelReferences(sync.OnceValue(func() channelParams {
+				return newChannelParams(standardSymbols())
+			}))...,
+		),
+		Migrations:      versions.NewMigrations(t.root),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
 	if t.drifts, err = gorp.OpenTable(ctx, gorp.TableConfig[drift.Key, drift.Record]{
-		DB:              cfg.DB,
-		References:      []gorp.Reference[drift.Key, drift.Record]{newTaskReference()},
+		DB:   cfg.DB,
+		Name: DriftTable,
+		References: append(
+			[]gorp.Reference[drift.Key, drift.Record]{newTaskReference()},
+			newDeployedReferences()...,
+		),
+		Migrations:      []gorp.Migration{driftv1.Migration},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, errors.Combine(

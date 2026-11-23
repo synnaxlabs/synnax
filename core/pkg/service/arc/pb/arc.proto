@@ -52,6 +52,12 @@ message Base {
   Source source = 3;
   // directory is the key of the directory that holds the Arc.
   optional string directory = 4;
+  // reads are the channels that the Arc reads, as the last compile of its source that
+  // succeeded found them.
+  repeated uint32 reads = 5;
+  // writes are the channels that the Arc writes, as the last compile of its source that
+  // succeeded found them.
+  repeated uint32 writes = 6;
 }
 
 // Change is one difference between an automation's content and what its task last ran.

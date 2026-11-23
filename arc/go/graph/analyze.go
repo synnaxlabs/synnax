@@ -62,13 +62,8 @@ func Analyze(
 	ctx context.Context,
 	g Graph,
 	root *symbol.Symbol,
-	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	aCtx := acontext.NewRoot[antlr.ParserRuleContext](
-		ctx,
-		nil,
-		root,
-	).WithConfig(parser.ConfigOf(cfgs...))
+	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root)
 	if !registerFunctions(aCtx, g.Functions) {
 		return ir.IR{}, aCtx.Diagnostics
 	}

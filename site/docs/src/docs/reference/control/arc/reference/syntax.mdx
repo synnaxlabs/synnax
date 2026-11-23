@@ -36,10 +36,8 @@ An identifier names a variable, function, sequence, stage, or channel.
 - It is case-sensitive: `tank_pt` and `Tank_PT` are different names.
 - It cannot be a keyword.
 
-A `-` is not part of an identifier, so `ox-pt-1` reads as `ox - pt - 1`. The exception
-is a Core that runs with channel name validation off (see the
-[CLI reference](/reference/enterprise/cli-reference)). Then `-` joins an identifier,
-except where it starts `->` or `-=`.
+A `-` is not part of an identifier, so `ox-pt-1` reads as `ox - pt - 1`. A channel name
+that holds a `-` goes in single quotes: `'ox-pt-1'`.
 
 ### Keywords
 
