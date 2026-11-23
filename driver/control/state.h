@@ -132,25 +132,29 @@ class States {
         };
     }
 
-    /// @brief gives channel to the Core's holder or to a local gate that the Core
-    /// decides nothing for, by the Core's rule, or leaves it uncontrolled when neither
-    /// exists. Requires mu.
+    /// @brief gives channel by the Core's rule to the Core's holder or a local gate
+    /// that the Core decides nothing for, or leaves it uncontrolled when neither
+    /// exists. When the Core's holder is a local writer that the Core does not decide
+    /// for, every gate competes. Requires mu.
     void recompute(const synnax::channel::Key channel) {
         std::optional<State> best;
         // A holder outside the Driver has no local order, and keeps a tie.
         std::optional<std::uint64_t> best_order;
+        bool core_decides = false;
         if (const auto it = this->core.find(channel); it != this->core.end()) {
             const auto &key = it->second.subject.key;
             const auto g = this->gates.find(key);
-            if (g == this->gates.end())
+            if (g == this->gates.end()) {
                 best = it->second;
-            else if (this->decided_by_core(key)) {
+                core_decides = true;
+            } else if (this->decided_by_core(key)) {
                 best = it->second;
                 best_order = g->second.order;
+                core_decides = true;
             }
         }
         for (const auto &[key, g]: this->gates) {
-            if (this->decided_by_core(key)) continue;
+            if (core_decides && this->decided_by_core(key)) continue;
             const auto it = g.authorities.find(channel);
             if (it == g.authorities.end()) continue;
             if (best.has_value() &&
@@ -170,6 +174,18 @@ class States {
             return;
         }
         this->states[channel] = *best;
+    }
+
+    /// @brief applies to channel the increases of the writers open on the Core, earlier
+    /// gate first, so it keeps a tie as on the Core. Requires mu.
+    void predict_opened(const synnax::channel::Key channel) {
+        std::vector<const Gate *> opened;
+        for (const auto &[key, g]: this->gates)
+            if (this->on_core.contains(key) && g.authorities.contains(channel))
+                opened.push_back(&g);
+        std::ranges::sort(opened, {}, &Gate::order);
+        for (const auto *g: opened)
+            this->predict(*g, channel);
     }
 
     /// @brief recomputes every channel that the mirror, the Core, or a gate names.
@@ -347,14 +363,10 @@ public:
                 this->core[state.resource] = state;
             for (auto i = read.log_pos - this->log_base; i < this->log.size(); i++)
                 this->apply_locked(this->log[i]);
-            // The earlier gate goes first, so it keeps a tie as on the Core.
-            std::vector<const Gate *> opened;
-            for (const auto &[key, g]: this->gates)
-                if (this->on_core.contains(key)) opened.push_back(&g);
-            std::ranges::sort(opened, {}, &Gate::order);
-            for (const auto *g: opened)
-                for (const auto &[channel, _]: g->authorities)
-                    this->predict(*g, channel);
+            for (const auto &[_, g]: this->gates)
+                if (this->on_core.contains(g.subject.key))
+                    for (const auto &[channel, _]: g.authorities)
+                        this->predict_opened(channel);
             this->recompute_all();
             // Under mu, so close_gate waits for a call that reaches a closing writer.
             for (const auto &[_, g]: this->gates)
@@ -487,16 +499,23 @@ public:
         this->recompute_all();
     }
 
-    /// @brief records that the writer of subject opened on the Core. While the Core is
-    /// connected, the Core's holder then decides its channels, and its decreases and
-    /// close wait for the Core's transfers. Safe to call before its gate opens.
+    /// @brief records that the writer of subject opened on the Core with the newest
+    /// authorities of its gate. While the Core is connected, the Core's holder then
+    /// decides its channels, and its decreases and close wait for the Core's transfers.
+    /// Safe to call before its gate opens.
     void opened_on_core(const x::control::Subject &subject) {
         std::unique_lock lock(this->mu);
         this->on_core.insert(subject.key);
         const auto it = this->gates.find(subject.key);
         if (it == this->gates.end()) return;
         for (const auto &[channel, _]: it->second.authorities) {
-            if (this->connected) this->predict(it->second, channel);
+            if (this->connected) {
+                // A holder record of this writer can be from before its decreases.
+                const auto held = this->core.find(channel);
+                if (held != this->core.end() && held->second.subject == subject)
+                    this->core.erase(held);
+                this->predict_opened(channel);
+            }
             this->recompute(channel);
         }
     }

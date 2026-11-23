@@ -1007,4 +1007,27 @@ TEST(StatesTest, SetCallsOnConnectOfOpenGates) {
     states.set({});
     ASSERT_EQ(calls, 2);
 }
+
+/// @brief it should keep a channel with the local writer of most authority when a
+/// writer that lowered its authority during an outage reopens on the Core with its old
+/// authority, until the Core hands the channel on.
+TEST(StatesTest, StaleReopenKeepsTheLocalHolder) {
+    States states;
+    lose_the_core(states, ARC, OPERATOR);
+    states.set_authority(OPERATOR, 1, 150);
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.set({});
+    states.opened_on_core(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    // The Core writer of ARC opens with 200 before it sends the decrease.
+    states.apply(transfer_to(ARC, 200));
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+    states.opened_on_core(ARC);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.apply(transfer_to(OPERATOR, 150));
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
 }
