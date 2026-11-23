@@ -119,4 +119,4 @@ class TestImpact:
         )
         plan = user_client.impact.plan(delete_of(virtual_channel))
         assert plan.entries == []
-        assert plan.hidden == 1
+        assert plan.hidden == sy.impact.Hidden(restrict=1, cascade=0, detach=0)

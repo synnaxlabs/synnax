@@ -16,6 +16,7 @@ from synnax.impact.types_gen import (
     DeleteChannelsChange,
     Effect,
     Entry,
+    Hidden,
     Plan,
     PlanRequest,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "DeleteChannelsChange",
     "Effect",
     "Entry",
+    "Hidden",
     "Plan",
     "PlanChangedError",
     "PlanRequest",

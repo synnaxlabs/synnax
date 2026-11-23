@@ -50,6 +50,21 @@ class Entry(BaseModel):
     default: Choice | None = None
 
 
+class Hidden(BaseModel):
+    """Counts the entries whose records the caller cannot see, by effect. Counts name no
+    record.
+
+    Attributes:
+        restrict: Is the number of hidden entries that stop the change.
+        cascade: Is the number of hidden entries that the change deletes.
+        detach: Is the number of hidden entries that lose the channel.
+    """
+
+    restrict: int = Field(ge=0, le=4294967295)
+    cascade: int = Field(ge=0, le=4294967295)
+    detach: int = Field(ge=0, le=4294967295)
+
+
 class DeleteChannelsChange(BaseModel):
     """Deletes channels."""
 
@@ -73,17 +88,17 @@ class Plan(BaseModel):
         entries: Are the records that the change touches, sorted by record.
         kept: Is the number of records that hold a deleted channel and keep it with no
             change. They need no pick, so they are not entries.
-        hidden: Is the number of entries whose records the caller cannot see. One pick
-            covers all of them.
+        hidden: Counts the entries whose records the caller cannot see. One pick covers
+            the ones that stop the change.
         token: Is the hex form of a hash of the change, each visible entry, and the
-            hidden count, with the caller's picks. Apply refuses a token that no longer
+            hidden counts, with the caller's picks. Apply refuses a token that no longer
             matches.
         change: Is the change that the plan covers.
     """
 
     entries: list[Entry] = Field(default_factory=list)
     kept: int = Field(ge=0, le=4294967295)
-    hidden: int = Field(ge=0, le=4294967295)
+    hidden: Hidden
     token: str
     change: Change
 
@@ -94,7 +109,7 @@ class PlanRequest(BaseModel):
     Attributes:
         change: Is the change to plan.
         picks: Maps the text form of the record of a visible entry to the pick for it.
-        hidden: Is the pick for every entry that the caller cannot see.
+        hidden: Is the pick for every hidden entry that stops the change.
     """
 
     change: Change
@@ -109,7 +124,7 @@ class ApplyRequest(BaseModel):
         change: Is the change to apply.
         token: Is the token of the plan that the caller saw. Empty skips the check.
         picks: Maps the text form of the record of a visible entry to the pick for it.
-        hidden: Is the pick for every entry that the caller cannot see.
+        hidden: Is the pick for every hidden entry that stops the change.
     """
 
     change: Change
