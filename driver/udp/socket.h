@@ -32,8 +32,8 @@ struct Address {
     std::string local_address;
     /// @brief port is the local port to bind, or 0 for any free port.
     std::uint16_t port = 0;
-    /// @brief remote_host is the host to send to and the only one to receive from, or
-    /// empty to receive from any sender and send nothing.
+    /// @brief remote_host is the host to send to and the only one to receive from, on
+    /// any of its ports, or empty to receive from any sender and send nothing.
     std::string remote_host;
     /// @brief remote_port is the port to send to. It is required with remote_host.
     std::uint16_t remote_port = 0;

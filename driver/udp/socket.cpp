@@ -194,7 +194,8 @@ Socket::read(const x::telem::TimeSpan timeout) {
         if (done.timed_out()) return {{}, x::errors::NIL};
         if (done.ec)
             return {{}, translate("failed to receive a UDP datagram", done.ec)};
-        if (done.size > 0 && (!this->remote || this->sender == *this->remote))
+        if (done.size > 0 &&
+            (!this->remote || this->sender.address() == this->remote->address()))
             return {
                 {.data = {this->buffer.data(), done.size}, .time = done.time},
                 x::errors::NIL

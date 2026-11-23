@@ -39,12 +39,12 @@ const auto SHORT = 20 * x::telem::MILLISECOND;
 /// @brief Peer is a plain UDP socket on a loopback port that talks to a Socket.
 struct Peer {
     asio::io_context ctx;
-    asio::ip::udp::socket socket{
-        ctx,
-        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 0)
-    };
+    asio::ip::udp::socket socket;
     /// @brief from is the source of the last datagram that the peer received.
     asio::ip::udp::endpoint from;
+
+    explicit Peer(const std::string &address = "127.0.0.1"):
+        socket(ctx, asio::ip::udp::endpoint(asio::ip::make_address(address), 0)) {}
 
     [[nodiscard]] std::uint16_t port() const {
         return this->socket.local_endpoint().port();
@@ -81,6 +81,16 @@ std::string text(const transport::Chunk &chunk) {
 }
 
 /// @brief opens a socket on loopback that sends to and receives from peer.
+/// @brief reports whether an interface holds address.
+bool held(const std::string &address) {
+    asio::io_context ctx;
+    asio::ip::udp::socket s(ctx);
+    const asio::ip::udp::endpoint ep(asio::ip::make_address(address), 0);
+    std::error_code ec;
+    if (s.open(ep.protocol(), ec)) return false;
+    return !s.bind(ep, ec);
+}
+
 std::unique_ptr<Socket> open_to(const Peer &peer) {
     return ASSERT_NIL_P(
         Socket::open(
@@ -124,15 +134,44 @@ TEST(Socket, ReadNothingBeforeTimeout) {
     EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
 }
 
-/// @brief it should drop datagrams from senders other than the remote host.
-TEST(Socket, IgnoreOtherSenders) {
+/// @brief it should receive from any port of the remote host.
+TEST(Socket, ReceiveFromAnyPortOfRemoteHost) {
     Peer peer;
-    Peer other;
+    Peer moved;
     auto s = open_to(peer);
     ASSERT_NIL(s->write(bytes("hello"), TIMEOUT));
     peer.receive();
-    other.send("intruder", peer.from);
+    moved.send("moved", peer.from);
+    EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "moved");
+}
+
+/// @brief it should drop datagrams from hosts other than the remote host.
+TEST(Socket, IgnoreOtherHosts) {
+    if (!held("::1")) GTEST_SKIP() << "no interface holds ::1";
+    const auto port = free_port();
+    auto any = ASSERT_NIL_P(
+        Socket::open({.local_address = "::", .port = port}, TIMEOUT)
+    );
+    Peer probe;
+    probe.send("probe", loopback(port));
+    if (ASSERT_NIL_P(any->read(SHORT)).data.empty())
+        GTEST_SKIP() << "IPv6 sockets on this host do not take IPv4 datagrams";
+    any.reset();
+    Peer peer("::1");
+    auto s = ASSERT_NIL_P(
+        Socket::open(
+            {.local_address = "::",
+             .port = port,
+             .remote_host = "::1",
+             .remote_port = peer.port()},
+            TIMEOUT
+        )
+    );
+    Peer other;
+    other.send("intruder", loopback(port));
     EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
+    ASSERT_NIL(s->write(bytes("hello"), TIMEOUT));
+    peer.receive();
     peer.send("reply", peer.from);
     EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "reply");
 }
@@ -179,10 +218,10 @@ TEST(Socket, SkipEmptyDatagrams) {
     EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "x");
 }
 
-/// @brief it should return at the timeout while other senders flood the socket.
+/// @brief it should return at the timeout while empty datagrams flood the socket.
 TEST(Socket, ReturnAtTimeoutUnderFlood) {
     Peer peer;
-    Peer other;
+    Peer source;
     auto s = open_to(peer);
     ASSERT_NIL(s->write(bytes("hello"), TIMEOUT));
     peer.receive();
@@ -196,7 +235,7 @@ TEST(Socket, ReturnAtTimeoutUnderFlood) {
                 capped = true;
                 return;
             }
-            other.send("noise", to);
+            source.send("", to);
         }
     });
     EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
