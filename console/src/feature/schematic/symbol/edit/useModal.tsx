@@ -33,6 +33,7 @@ import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -87,7 +88,9 @@ interface SaveButtonProps {
 
 // SaveButton saves the symbol unless the level motion of a part cannot draw.
 const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactElement => {
-  const blocked = Spec.levelIssues(Form.useFieldValue(path.data)).size > 0;
+  const data = Form.useFieldValue(path.data);
+  // The inspector shows the issues only with the flag on.
+  const blocked = FLAGS.symbolMotion && Spec.levelIssues(data).size > 0;
   return (
     <Button.Button
       variant="filled"
