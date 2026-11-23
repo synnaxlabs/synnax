@@ -121,6 +121,11 @@ const MISSED_INTERVAL = TimeSpan.seconds(1);
 
 const THROTTLE_RATE = Rate.hz(60).valueOf();
 
+// Merges two lost ranges. The zero range marks lost samples of unknown time, so it
+// absorbs any other.
+const mergeLost = (a: TimeRange, b: TimeRange): TimeRange =>
+  a.isZero || b.isZero ? TimeRange.ZERO : TimeRange.merge(a, b);
+
 const LOADING: status.Crude = { variant: "loading", message: "subscribing" };
 const STREAMING: status.Crude = { variant: "success", message: "streaming" };
 const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting" };
@@ -410,14 +415,22 @@ export class Multiplexed {
   }
 
   // Records the span a marker outdates for each streamed channel that the Core stores:
-  // the time range of its lost samples, or from the start of its open block on when
-  // the range is zero or the Core sent none. The open block is read now, since the
-  // stream can move to the next block before the throttled outdate runs.
+  // the time range of the lost samples of its index's channels, or from the start of
+  // its open block on when the range is zero or the Core sent none. A cut renumbers the
+  // samples a read places after it, so every channel of an index takes one span. The
+  // open block is read now, since the stream can move to the next block before the
+  // throttled outdate runs.
   private recordMiss(ranges?: Map<channel.Key, TimeRange>): void {
     const { store } = this.props;
+    const byIndex = new Map<channel.Key, TimeRange>();
+    ranges?.forEach((tr, key) => {
+      const index = store.index(key) ?? key;
+      const held = byIndex.get(index);
+      byIndex.set(index, held == null ? tr : mergeLost(held, tr));
+    });
     for (const key of this.sentKeys) {
       if (!store.stored(key)) continue;
-      let tr = ranges?.get(key);
+      let tr = byIndex.get(store.index(key) ?? key);
       if (ranges != null && tr == null) continue;
       if (tr == null || tr.isZero) {
         const start = store.open(key)?.range.start;

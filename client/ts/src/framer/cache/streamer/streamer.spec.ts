@@ -1064,6 +1064,52 @@ describe("Multiplexed", () => {
       await streamer.close();
     });
 
+    it("should outdate every channel of an index a marker names one of", async () => {
+      const cache = createJoined(1, 2);
+      const { store, joins } = cache;
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      store.setChannel(
+        new channel.Channel({
+          key: 2,
+          name: "data",
+          dataType: DataType.FLOAT32,
+          index: 1,
+        }).payload,
+      );
+      const hooks: cacheStreamer.Hooks[] = [];
+      const streamer = new cacheStreamer.Multiplexed({
+        ...cache,
+        openStreamer: createStreamOpener(
+          [
+            oneFrameStreamer(
+              [1, 2],
+              new framer.Frame([1, 2], [createTimestamps(), createTimestamps()]),
+            ),
+          ],
+          hooks,
+        ),
+      });
+      const sub = streamer.demand([1, 2], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      const invalidate = vi.spyOn(joins, "invalidate");
+      const lost = new TimeRange(TimeStamp.seconds(5), TimeStamp.seconds(6));
+      hooks[0].onMissed(new Map([[1, lost]]));
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([
+        [1, lost, true],
+        [2, lost, true],
+      ]);
+      sub.close();
+      await streamer.close();
+    });
+
     it("should outdate from the block a marker found after the block closes", async () => {
       const cache = createJoined(1);
       const { store, joins } = cache;

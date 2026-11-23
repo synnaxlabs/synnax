@@ -657,24 +657,36 @@ describe("Store", () => {
 
     describe("missed", () => {
       // Streams the count index samples into raw block 100, one millisecond apart, and
-      // closes the block.
-      const streamTimes = (store: cacheStore.Store, count: number): void => {
+      // the same count of data samples when data is set. Closes the blocks of the keys
+      // in closed.
+      const streamTimes = (
+        store: cacheStore.Store,
+        count: number,
+        { data: withData = false, closed = [index.key, data.key] } = {},
+      ): void => {
         for (let offset = 0; offset < count; offset += 4) {
           const start = BLOCK.start.add(TimeSpan.milliseconds(offset));
           const times = Array.from({ length: 4 }, (_, i) =>
             start.add(TimeSpan.milliseconds(i)).valueOf(),
           );
+          const alignment = cacheBlock.alignmentOf(100, offset);
+          const timeRange = start.range(start.add(TimeSpan.milliseconds(4)));
           store.append(
             store.raw(index.key, 100),
             new Series({
               data: new BigInt64Array(times),
               dataType: DataType.TIMESTAMP,
-              alignment: cacheBlock.alignmentOf(100, offset),
-              timeRange: start.range(start.add(TimeSpan.milliseconds(4))),
+              alignment,
+              timeRange,
             }),
           );
+          if (withData)
+            store.append(
+              store.raw(data.key, 100),
+              new Series({ data: new Float32Array(4), alignment, timeRange }),
+            );
         }
-        store.flush(index.key);
+        closed.forEach((key) => store.flush(key));
       };
 
       const msAt = (ms: number): TimeStamp =>
@@ -706,6 +718,49 @@ describe("Store", () => {
         const block = store.raw(index.key, 100);
         expect(block.fetched).toEqual([]);
         expect(block.coveredEnd).toEqual(BLOCK.start);
+      });
+
+      it("should drop the block when the span starts before the floor's start", () => {
+        const store = createStore(BLOCK.end);
+        streamTimes(store, 10_000);
+        const floor = store.floor(index.key);
+        const kept = floor?.kept ?? TimeStamp.MAX;
+        const start = floor?.start ?? TimeStamp.MIN;
+        expect(kept.before(start.sub(1))).toBe(true);
+        store.invalidate(index.key, new TimeRange(start.sub(1), msAt(10_000)), true);
+        expect(store.raw(index.key, 100).coveredEnd).toEqual(BLOCK.start);
+      });
+
+      it("should cut a data block by the index samples of the open index", () => {
+        const store = new cacheStore.Store({
+          dynamicBufferSize: 8,
+          now: () => BLOCK.end,
+        });
+        store.setChannel(index);
+        store.setChannel(data);
+        streamTimes(store, 1000, { data: true, closed: [data.key] });
+        expect(store.open(index.key)).not.toBeNull();
+        store.invalidate(data.key, new TimeRange(msAt(500), msAt(600)), true);
+        const block = store.raw(data.key, 100);
+        expect(block.coveredEnd).toEqual(msAt(500));
+        expect(block.coveredCount).toBe(500);
+        const series = block.seriesIn(TimeRange.MAX);
+        expect(series[series.length - 1].alignmentBounds.upper).toBe(
+          cacheBlock.alignmentOf(100, 500),
+        );
+      });
+
+      it("should drop a data block with no index block to count from", () => {
+        const store = new cacheStore.Store({
+          dynamicBufferSize: 8,
+          now: () => BLOCK.end,
+        });
+        store.setChannel(index);
+        store.setChannel(data);
+        streamTimes(store, 1000, { data: true });
+        store.delete(cacheBlock.rawKey(index.key, 100));
+        store.invalidate(data.key, new TimeRange(msAt(500), msAt(600)), true);
+        expect(store.raw(data.key, 100).coveredEnd).toEqual(BLOCK.start);
       });
 
       it("should drop the block on a change to history", () => {
