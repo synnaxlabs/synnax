@@ -13,7 +13,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { inject } from "vitest";
 
 import { schema } from "@/server/db";
-import { type Store } from "@/server/db/db";
+import type { Store } from "@/server/db/db";
 
 /** Memory is a store on an in-process Postgres. */
 export interface Memory extends Store {

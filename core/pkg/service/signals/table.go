@@ -157,8 +157,8 @@ func (p *Provider) PublishTable[K gorp.Key, E gorp.Entry[K]](
 		cfg:          cfg,
 		L:            p.cfg.L,
 		del:          channel.Channel{Name: cfg.DeleteName, DataType: keyDataType[K]()},
-		setChecks:    &commitChecks{},
-		deleteChecks: &commitChecks{},
+		setChecks:    newCommitChecks(p.checkCommits),
+		deleteChecks: newCommitChecks(p.checkCommits),
 	}
 	channels := []*channel.Channel{&f.del}
 	if !*cfg.SetDisabled {
@@ -222,7 +222,15 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 				continue
 			}
 			if f.del.DataType.IsVariable() {
-				sample, _ = telem.UnmarshalVariableSample(sample)
+				key, n := telem.UnmarshalVariableSample(sample)
+				if n != len(sample) {
+					f.L.DPanic(
+						"a delete is not one sample",
+						zap.String("channel", f.del.Name),
+					)
+					continue
+				}
+				sample = key
 			}
 			deleteChecks[string(sample)] = check
 			continue

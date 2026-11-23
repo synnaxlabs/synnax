@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, Density } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
 import { MENU_PROPS, TRIGGER_PROPS } from "@/feature/modbus/device/Option";

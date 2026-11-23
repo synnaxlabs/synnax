@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Jumps } from "@/schematic/edge/common/jumps";
-import { type Path } from "@/schematic/edge/common/path";
+import type { Path } from "@/schematic/edge/common/path";
 
 const map = (entries: Record<string, Path.Crossing[]>): Map<string, Path.Crossing[]> =>
   new Map(Object.entries(entries));

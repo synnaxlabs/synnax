@@ -17,12 +17,11 @@ import {
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/channel";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Channel.formPath;
 

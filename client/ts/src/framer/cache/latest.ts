@@ -23,18 +23,18 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
-import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
-import { type Frame } from "@/framer/frame";
+import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
-import { type Snapshot } from "@/framer/subscription";
+import type { Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 // Returns the timestamps as one series at alignment.

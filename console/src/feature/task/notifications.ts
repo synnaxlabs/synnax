@@ -10,8 +10,8 @@
 import { NotFoundError, status, task } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
-import { type Device } from "@/platform/device";
-import { type Notifications } from "@/platform/notifications";
+import type { Device } from "@/platform/device";
+import type { Notifications } from "@/platform/notifications";
 
 /** The make and scan task type of an integration. */
 export interface Scanner extends Pick<Device.Integration, "make" | "scanType"> {}
@@ -36,8 +36,13 @@ const retrieveTask = async ({
  * in use when its rack has a configured device of the scanner's make. Every other task
  * is always in use.
  * @param scanners - The scanner of each integration.
+ * @param inPlaceTypes - The types of the tasks whose replies show only where their
+ * commands were sent.
  */
-export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule => ({
+export const createNotificationRule = (
+  scanners: Scanner[],
+  inPlaceTypes: string[],
+): Notifications.Rule => ({
   kind: (stat) =>
     primitive.isNonZero(commandDetailsZ.safeParse(status.detailsOf(stat)).data?.cmd)
       ? "reply"
@@ -50,6 +55,10 @@ export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule 
     if (make == null) return true;
     const devices = await args.client.devices.retrieve({ make, rack: tsk.rack });
     return devices.some(({ configured }) => configured);
+  },
+  repliesInPlace: async (args) => {
+    const tsk = await retrieveTask(args);
+    return tsk != null && inPlaceTypes.includes(tsk.type);
   },
   warningsDelayed: true,
 });

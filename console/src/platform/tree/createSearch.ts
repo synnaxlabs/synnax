@@ -8,25 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { type Tree as Base } from "@synnaxlabs/lyra/tree";
+import type { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { useItems } from "@/platform/tree/context";
 import { DefaultItem, type Item } from "@/platform/tree/item";
-import {
-  type CreateSearchParams,
-  type Match,
-  type Matches,
-  type Placement,
-  type Search,
-  type SearchAnswer,
-  type SearchLayout,
-  type UseSearch,
+import type {
+  CreateSearchParams,
+  Match,
+  Matches,
+  Placement,
+  Search,
+  SearchAnswer,
+  SearchLayout,
+  UseSearch,
 } from "@/platform/tree/search";
-import { type Results } from "@/platform/tree/store";
-import { type Resource } from "@/platform/tree/types";
+import type { Results } from "@/platform/tree/store";
+import type { Resource } from "@/platform/tree/types";
 
 export const LIMIT = 100;
 const DEBOUNCE_MS = 120;

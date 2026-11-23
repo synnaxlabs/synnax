@@ -1,0 +1,27 @@
+---
+title: "Errors"
+description: "Look up each diagnostic that the Arc compiler reports, by its code."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Arc } from "@/components/arc";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The editor marks each problem while you type. An error stops the automation from
+compiling. A warning does not. In a status, a diagnostic looks like this:
+
+```text
+5:14 error [E3001]: missing required argument: parameter 'y' of func 'add'
+  note: signature: add(x f64, y f64) f64
+```
+
+<Divider.Divider x />
+
+## Diagnostic codes
+
+Select a message to see the problem and an example.
+
+<Arc.Kinds />
+
+A [runtime error](/reference/control/arc/execution-model#runtime-errors) has no code.

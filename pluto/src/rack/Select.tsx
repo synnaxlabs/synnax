@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import type { rack } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 import { type ListQuery, useList } from "@/rack/queries";
 import { StatusIndicator } from "@/rack/StatusIndicator";
 
 export interface SelectSingleProps
   extends
-    Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
+    Omit<
+      Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
+      "data" | "selectedFirst"
+    >,
     Omit<Flux.UseListParams<ListQuery, rack.Rack>, "name">,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.ItemsProps<rack.Key>, "emptyContent">,

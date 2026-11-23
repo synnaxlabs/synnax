@@ -17,8 +17,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel, Color, LinePlot } from "@synnaxlabs/pluto";
-import { type bounds, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { bounds, xy } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";

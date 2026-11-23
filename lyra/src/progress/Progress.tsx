@@ -10,7 +10,7 @@
 import "@/progress/Progress.css";
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type ComponentPropsWithRef, type ReactElement } from "react";
+import type { ComponentPropsWithRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
 

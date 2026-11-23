@@ -151,8 +151,14 @@ var (
 )
 
 const (
-	responseBufferSize = 200
-	requestBufferSize  = 10
+	// ResponseBufferSize is the most responses that each stage of a streamer buffers,
+	// and that a reader of a streamer buffers.
+	ResponseBufferSize = 200
+	// BufferSize is the most responses that a streamer and its reader buffer: one
+	// ResponseBufferSize each for the downsample stage, the throttle stage, and the
+	// reader.
+	BufferSize        = 3 * ResponseBufferSize
+	requestBufferSize = 10
 )
 
 func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
@@ -175,12 +181,12 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	routeOutletFrom := distAddr
 	if cfg.DownsampleFactor > 1 {
 		p.SetSegment(downsampleAddr, newDownsampler(cfg))
-		p.MustConnect[Response](routeOutletFrom, downsampleAddr, responseBufferSize)
+		p.MustConnect[Response](routeOutletFrom, downsampleAddr, ResponseBufferSize)
 		routeOutletFrom = downsampleAddr
 	}
 	if cfg.ThrottleRate > 0 {
 		p.SetSegment(throttleAddr, newThrottle(cfg))
-		p.MustConnect[Response](routeOutletFrom, throttleAddr, responseBufferSize)
+		p.MustConnect[Response](routeOutletFrom, throttleAddr, ResponseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
 	return &plumber.Segment[Request, Response]{

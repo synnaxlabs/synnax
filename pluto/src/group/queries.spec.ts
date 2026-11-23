@@ -11,12 +11,12 @@ import { group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Group } from "@/group";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 describe("Group queries", () => {
   let controller: AbortController;
