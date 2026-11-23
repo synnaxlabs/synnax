@@ -17,6 +17,7 @@ import (
 	"maps"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -144,6 +145,19 @@ var _ = Describe("Conversion on the pointer log", func() {
 		}
 		Expect(w.Close()).To(Succeed())
 	}
+	// parted opens disk with a part size that sends every sealed record to a part.
+	parted := func(ctx context.Context) (*cesium.DB, func() error) {
+		GinkgoHelper()
+		db := MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(disk),
+			cesium.WithPointerLog(),
+			cesium.WithPartSize(1),
+		))
+		stop := GoRun(ctx, db.Run)
+		return db, func() error { return errors.Join(stop(), db.Close()) }
+	}
 	BeforeEach(func(ctx SpecContext) {
 		disk = MustSucceed(fault.New(fault.Config{}))
 		// Small files roll each key over at its own commits.
@@ -197,35 +211,45 @@ var _ = Describe("Conversion on the pointer log", func() {
 
 	It("Should read each converted sample once when head 1 holds parts, across "+
 		"reopens and a switch", func(ctx SpecContext) {
-		// parted opens disk with a part size that sends every sealed record to a part.
-		parted := func() (*cesium.DB, func() error) {
-			GinkgoHelper()
-			db := MustSucceed(cesium.Open(
-				ctx,
-				"",
-				cesium.WithFS(disk),
-				cesium.WithPointerLog(),
-				cesium.WithPartSize(1),
-			))
-			stop := GoRun(ctx, db.Run)
-			return db, func() error { return errors.Join(stop(), db.Close()) }
-		}
-		db, closeDB := parted()
+		db, closeDB := parted(ctx)
 		h, _ := MustSucceed2(checkpoint.Read(disk, 1))
 		Expect(h.Parts).ToNot(BeEmpty())
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(closeDB()).To(Succeed())
 		// The reopen reads the parts through the ranges of head 1.
-		db, closeDB = parted()
+		db, closeDB = parted(ctx)
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(switchLog(db, disk, 2)).To(Succeed())
 		waitHead(disk, 2)
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(closeDB()).To(Succeed())
-		db, closeDB = parted()
+		db, closeDB = parted(ctx)
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(closeDB()).To(Succeed())
 	})
+
+	It(
+		"Should unlink the old files of a dropped key that a part holds at its last read",
+		func(ctx SpecContext) {
+			_, closeDB := parted(ctx)
+			Expect(closeDB()).To(Succeed())
+			// The reopen holds the converted records only in the parts of head 1.
+			db, closeDB := parted(ctx)
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{i32},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(db.Drop([]cesium.ChannelKey{i32})).To(Succeed())
+			dir := strconv.FormatUint(uint64(i32), 10)
+			Expect(disk.List(dir)).To(ContainElement(
+				WithTransform(xfs.FileInfo.Name, HaveSuffix(".domain")),
+			), "the iterator pins the old files")
+			Expect(iter.Close()).To(Succeed())
+			Expect(disk.List(dir)).To(BeEmpty())
+			Expect(closeDB()).To(Succeed())
+		},
+	)
 
 	It("Should keep a channel directory with no meta.json through the first Sweep",
 		func(ctx SpecContext) {
