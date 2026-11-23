@@ -21,14 +21,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// normalizePath returns path with one leading '/' and no trailing '/'. The root path is
-// empty.
+// normalizePath returns path with one leading '/'. It keeps a trailing '/', which
+// servers can route apart from the path without it.
 func normalizePath(path string) string {
-	path = strings.Trim(path, "/")
 	if path == "" {
 		return ""
 	}
-	return "/" + path
+	return "/" + strings.TrimLeft(path, "/")
 }
 
 // normalize puts the path of each binding of s in the form normalizePath returns and

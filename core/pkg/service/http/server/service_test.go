@@ -203,7 +203,8 @@ var _ = Describe("Service", func() {
 			},
 		)
 
-		DescribeTable("Should reject an invalid server",
+		DescribeTable(
+			"Should reject an invalid server",
 			func(ctx SpecContext, change func(*server.Server)) {
 				s := newServer()
 				change(&s)
@@ -222,15 +223,18 @@ var _ = Describe("Service", func() {
 			Entry("a duplicate read", func(s *server.Server) {
 				s.Reads = []server.Read{
 					read("/now", "/t", http.QueryParam{Parameter: "a", Value: "1"}),
-					read("now/", "/t", http.QueryParam{Parameter: "a", Value: "1"}),
+					read("now", "/t", http.QueryParam{Parameter: "a", Value: "1"}),
 				}
 			}),
 			Entry("a duplicate write", func(s *server.Server) {
 				s.Writes = []server.Write{write("/valve", 3), write("valve", 4)}
 			}),
-			Entry("a duplicate write with doubled slashes", func(s *server.Server) {
-				s.Writes = []server.Write{write("/valve", 3), write("//valve//", 4)}
-			}),
+			Entry(
+				"a duplicate write with a doubled leading slash",
+				func(s *server.Server) {
+					s.Writes = []server.Write{write("/valve", 3), write("//valve", 4)}
+				},
+			),
 		)
 
 		It("Should normalize the paths and queries of bindings", func(ctx SpecContext) {
@@ -241,15 +245,16 @@ var _ = Describe("Service", func() {
 				http.QueryParam{Parameter: "units", Value: "si"},
 				http.QueryParam{Parameter: "city", Value: "Austin"},
 			)}
-			s.Writes = []server.Write{write("/", 3)}
+			s.Writes = []server.Write{write("//", 3), write("/valve/", 4)}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			got := retrieve(ctx, s.Key)
-			Expect(got.Reads[0].Request.Path).To(Equal("/weather/now"))
+			Expect(got.Reads[0].Request.Path).To(Equal("/weather/now/"))
 			Expect(got.Reads[0].Request.Query).To(Equal([]http.QueryParam{
 				{Parameter: "city", Value: "Austin"},
 				{Parameter: "units", Value: "si"},
 			}))
-			Expect(got.Writes[0].Request.Path).To(BeEmpty())
+			Expect(got.Writes[0].Request.Path).To(Equal("/"))
+			Expect(got.Writes[1].Request.Path).To(Equal("/valve/"))
 		})
 
 		It("Should accept reads that differ only in method, query, or index", func(
@@ -367,7 +372,7 @@ var _ = Describe("Service", func() {
 			) server.Update {
 				return server.Update{Variant: server.ConfigurationUpdate{
 					Configuration: server.Configuration{
-						Writes: []server.Write{write("/valve", 3), write("valve/", 4)},
+						Writes: []server.Write{write("/valve", 3), write("valve", 4)},
 					},
 				}}
 			}),
