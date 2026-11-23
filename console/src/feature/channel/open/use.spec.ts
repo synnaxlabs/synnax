@@ -13,7 +13,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useOpen } from "@/feature/channel/useOpen";
+import { Open } from "@/feature/channel/open";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -21,7 +21,7 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-describe("useOpen", () => {
+describe("Open.use", () => {
   it("should report the line plot it created for a channel", async () => {
     const ch = await client.channels.create({
       name: uniqueName("ch"),
@@ -32,7 +32,7 @@ describe("useOpen", () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     store.dispatch(Session.Project.select(proj.key));
     const analytics = createTestSink();
-    const { result } = renderHook(useOpen, {
+    const { result } = renderHook(Open.use, {
       wrapper: wrapWithSink(wrapper, analytics),
     });
     act(() => {

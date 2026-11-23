@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/panel/MovePicker.css";
+import "@/feature/panel/movePicker/MovePicker.css";
 
 import type { panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -60,7 +60,7 @@ const ListItem = (props: List.ItemProps<panel.Key>): ReactElement => (
 
 const listItem = Component.renderProp(ListItem);
 
-export interface MovePickerParams {
+export interface Params {
   /** The tab being moved, and the panel it currently sits in. */
   origin: TabOrigin;
 }
@@ -68,7 +68,7 @@ export interface MovePickerParams {
 const Content = ({
   origin,
   close,
-}: Session.Modals.ContentProps<MovePickerParams, void>): ReactElement => {
+}: Session.Modals.ContentProps<Params, void>): ReactElement => {
   const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
@@ -106,4 +106,4 @@ const Content = ({
   );
 };
 
-export const useMovePicker = Modals.create<MovePickerParams>(Content);
+export const use = Modals.create<Params>(Content);
