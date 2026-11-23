@@ -1811,13 +1811,37 @@ INSTANTIATE_TEST_SUITE_P(
         },
         UnitCase{"h_low", "2h", "1h", x::telem::HOUR, Rate::LOW},
         UnitCase{"h_low_long", "24h", "12h", 12 * x::telem::HOUR, Rate::LOW},
-        UnitCase{
-            "h_reassigned_to_a_longer_span",
-            "1h",
-            "2h",
-            x::telem::HOUR,
-            Rate::LOW
-        },
+        UnitCase{"h_reassigned_to_a_longer_span", "1h", "2h", x::telem::HOUR, Rate::LOW}
+    ),
+    [](const testing::TestParamInfo<UnitCase> &info) { return info.param.name; }
+);
+
+class ShortestSpanRateTest : public testing::TestWithParam<UnitCase> {};
+
+/// @brief Test that an interval variable in a rate unit gives the shortest span.
+TEST_P(ShortestSpanRateTest, IsTheShortestSpanOfAnIntervalVariableInARateUnit) {
+    const auto &c = GetParam();
+    const auto client = new_test_client();
+    const auto shortest = compile_shortest(
+        client,
+        "sequence main {\n    p := " + c.declared +
+            R"(
+    stage run {
+        time.interval(period=p) -> %a%
+        1 => faster
+    }
+    stage faster {
+        p = )" +
+            c.reassigned + "\n    }\n}\n"
+    );
+    EXPECT_EQ(shortest, c.expected);
+    EXPECT_EQ(runtime::loop::Config().apply_defaults(shortest).mode, auto_mode(c.rate));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Units,
+    ShortestSpanRateTest,
+    testing::Values(
         UnitCase{"hz_high", "200hz", "2000hz", 500 * x::telem::MICROSECOND, Rate::HIGH},
         UnitCase{
             "hz_medium",
