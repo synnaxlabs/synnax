@@ -146,7 +146,7 @@ var _ = Describe("Writer Behavior", func() {
 							))
 
 							Expect(f.Count()).To(Equal(1))
-							d.Alignment = telem.LeadingAlignment(1, 0)
+							d.Alignment = telem.NewAlignment(telem.LeadingDomain+1, 0)
 							d.TimeRange = (10 * telem.SecondTS).Range(
 								12*telem.SecondTS + 1,
 							)
@@ -3121,12 +3121,10 @@ var _ = Describe("Writer Behavior", func() {
 							ctx,
 							[]cesium.ChannelKey{data},
 							(0 * telem.SecondTS).Range(3*telem.SecondTS),
-						)).To(And(
-							MatchError(cesium.ErrClaimed),
-							MatchError(ContainSubstring(
-								"cannot access time range",
-							)),
-						))
+						)).To(MatchError(cesium.ClaimError{
+							TimeRange: (1 * telem.SecondTS).Range(3 * telem.SecondTS),
+							Open:      true,
+						}))
 						Expect(writePair(
 							ctx, w, idx, data, telem.NewSeriesSecondsTSV(4), 3,
 						)).To(Succeed())
@@ -3396,12 +3394,10 @@ var _ = Describe("Writer Behavior", func() {
 								[]cesium.ChannelKey{idx2, data2},
 								12*telem.SecondTS,
 							),
-						)).Error().To(And(
-							MatchError(cesium.ErrClaimed),
-							MatchError(
-								ContainSubstring("cannot access time range"),
-							),
-						))
+						)).Error().To(MatchError(cesium.ClaimError{
+							TimeRange: (12 * telem.SecondTS).SpanRange(1),
+							Open:      true,
+						}))
 						Expect(live.Close()).To(Succeed())
 						Expect(read(ctx, data).Series).To(HaveLen(2))
 						Expect(read(ctx, data2).Series).To(HaveLen(1))
