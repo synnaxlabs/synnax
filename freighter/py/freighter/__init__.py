@@ -17,6 +17,7 @@ from freighter.context import Context, Role
 from freighter.exceptions import (
     EOF,
     EXCEPTION_PROVIDER,
+    Interrupted,
     StreamClosed,
     Timeout,
     Unreachable,
@@ -62,6 +63,7 @@ __all__ = [
     "FileTransport",
     "Finalizer",
     "HTTPClient",
+    "Interrupted",
     "Middleware",
     "MiddlewareCollector",
     "Next",

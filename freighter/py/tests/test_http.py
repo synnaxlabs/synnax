@@ -135,6 +135,48 @@ class TestReadFailure:
             client.send("/echo", Message(id=1, message="hello"), Message)
 
 
+@pytest.fixture
+def interrupting_server() -> Generator[tuple[URL, list[int]]]:
+    """A server that answers each request with an interrupted error. The list counts
+    the requests it receives."""
+    listener = socket.create_server(("localhost", 0))
+    listener.settimeout(0.5)
+    received: list[int] = []
+    body = json.dumps({"type": "freighter.interrupted", "data": "stopped"}).encode()
+    res = (
+        b"HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n"
+        + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+        + body
+    )
+
+    def serve() -> None:
+        while True:
+            try:
+                conn, _ = listener.accept()
+            except OSError:
+                return
+            with conn:
+                conn.recv(1 << 16)
+                received.append(1)
+                conn.sendall(res)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield URL(host="localhost", port=listener.getsockname()[1]), received
+    listener.close()
+    thread.join(5)
+
+
+class TestInterrupted:
+    def test_send(self, interrupting_server: tuple[URL, list[int]]) -> None:
+        """Should raise Interrupted without resending the request."""
+        url, received = interrupting_server
+        client = HTTPClient(url=url, codec=JSONCodec(), registry=create_registry())
+        with pytest.raises(freighter.Interrupted, match="stopped"):
+            client.send("/echo", Message(id=1, message="hello"), Message)
+        assert len(received) == 1
+
+
 @pytest.mark.http
 class TestSend:
     def test_echo(self, client: HTTPClient) -> None:

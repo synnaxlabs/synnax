@@ -32,6 +32,12 @@ export class ReceiveOverflow extends FreighterError.sub("receive_overflow") {}
 /** Thrown when a target sends no response within the timeout. */
 export class Timeout extends FreighterError.sub("timeout") {}
 
+/**
+ * Thrown when the target stops while it handles a request. The request may or may not
+ * have taken effect, so it is not safe to resend it.
+ */
+export class Interrupted extends FreighterError.sub("interrupted") {}
+
 /** Arguments for constructing an Unreachable error */
 export interface UnreachableParams {
   message?: string;
@@ -145,6 +151,8 @@ const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
   if (ReceiveOverflow.matches(error))
     return { type: ReceiveOverflow.TYPE, data: error.message };
   if (Timeout.matches(error)) return { type: Timeout.TYPE, data: error.message };
+  if (Interrupted.matches(error))
+    return { type: Interrupted.TYPE, data: error.message };
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
@@ -165,6 +173,8 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
       return new ReceiveOverflow(encoded.data);
     case Timeout.TYPE:
       return new Timeout(encoded.data);
+    case Interrupted.TYPE:
+      return new Interrupted(encoded.data);
     default:
       throw new errors.Unknown(`Unknown error type: ${encoded.data}`);
   }

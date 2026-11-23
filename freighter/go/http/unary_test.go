@@ -907,6 +907,106 @@ var _ = Describe("Unary", func() {
 		})
 	})
 
+	Describe("Cancellation", func() {
+		// serveCancelling serves a route whose handler waits for its context or for
+		// release to fire, then returns context.Canceled. It sends on entered when the
+		// handler starts.
+		serveCancelling := func(
+			ctx context.Context,
+			entered chan<- struct{},
+			release <-chan struct{},
+		) (*fiber.App, address.Address) {
+			GinkgoHelper()
+			app := newFiberApp(fiber.Config{})
+			router := MustSucceed(
+				fhttp.NewRouter(ctx, fhttp.RouterConfig{Errors: errorCodec()}),
+			)
+			server := router.NewUnaryServer[testutil.Request, testutil.Response]("/")
+			server.BindHandler(
+				func(ctx context.Context, _ testutil.Request) (testutil.Response, error) {
+					entered <- struct{}{}
+					select {
+					case <-ctx.Done():
+					case <-release:
+					}
+					return testutil.Response{}, context.Canceled
+				},
+			)
+			router.BindTo(app)
+			return app, serveApp(app)
+		}
+		// post sends a request to addr in the background and returns the decoded
+		// error payload of the response on the returned channel.
+		post := func(ctx context.Context, addr address.Address) <-chan errors.Payload {
+			res := make(chan errors.Payload, 1)
+			go func() {
+				defer GinkgoRecover()
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx,
+					http.MethodPost,
+					"http://"+addr.String()+"/",
+					bytes.NewReader(MustSucceed(json.Codec.Encode(testutil.Request{}))),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpRes := MustSucceed(http.DefaultClient.Do(httpReq))
+				defer func() { Expect(httpRes.Body.Close()).To(Succeed()) }()
+				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+				var pld errors.Payload
+				Expect(json.Codec.Decode(MustSucceed(io.ReadAll(httpRes.Body)), &pld)).
+					To(Succeed())
+				res <- pld
+			}()
+			return res
+		}
+
+		It("should encode a request that shutdown cancels as interrupted",
+			func(ctx context.Context) {
+				entered := make(chan struct{}, 1)
+				app, addr := serveCancelling(ctx, entered, nil)
+				res := post(ctx, addr)
+				Eventually(entered).Should(Receive())
+				Expect(app.Shutdown()).To(Succeed())
+				var pld errors.Payload
+				Eventually(res).Should(Receive(&pld))
+				Expect(pld.Type).To(Equal("freighter.interrupted"))
+				Expect(errorCodec().Decode(pld)).
+					To(MatchError(freighter.ErrInterrupted))
+			},
+		)
+
+		It("should leave a cancel that does not come from shutdown unchanged",
+			func(ctx context.Context) {
+				entered := make(chan struct{}, 1)
+				release := make(chan struct{})
+				_, addr := serveCancelling(ctx, entered, release)
+				res := post(ctx, addr)
+				Eventually(entered).Should(Receive())
+				close(release)
+				Eventually(res).Should(Receive(Equal(errors.Payload{
+					Type: errors.TypeUnknown,
+					Data: context.Canceled.Error(),
+				})))
+			},
+		)
+
+		It("should return the client's own cancel to the client",
+			func(ctx context.Context) {
+				entered := make(chan struct{}, 1)
+				release := make(chan struct{})
+				_, addr := serveCancelling(ctx, entered, release)
+				DeferCleanup(func() { close(release) })
+				reqCtx, cancel := context.WithCancel(ctx)
+				go func() {
+					defer GinkgoRecover()
+					Eventually(entered).Should(Receive())
+					cancel()
+				}()
+				Expect(unaryClient.Send(reqCtx, addr, testutil.Request{})).
+					Error().To(MatchError(context.Canceled))
+			},
+		)
+	})
+
 	Describe("Report", func() {
 		It(
 			"should report the unary server's protocol and accepted/emitted content types",

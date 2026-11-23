@@ -26,6 +26,13 @@ class TestDecode:
         pld = ExceptionPayload(type=freighter.EOF.TYPE, data="EOF")
         assert isinstance(registry.decode(pld), freighter.EOF)
 
+    def test_interrupted(self, registry: Registry) -> None:
+        """Should decode an interrupted request into Interrupted with its message."""
+        pld = ExceptionPayload(type="freighter.interrupted", data="server stopped")
+        exc = registry.decode(pld)
+        assert isinstance(exc, freighter.Interrupted)
+        assert str(exc) == "server stopped"
+
     def test_unknown_type(self, registry: Registry) -> None:
         """Should decode an unknown freighter type into a generic Error."""
         pld = ExceptionPayload(type="freighter.unknown", data="unknown error")
