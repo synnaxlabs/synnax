@@ -497,6 +497,28 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should drop a command above the max of its field", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Float64T)
+			v := jsonField("v", "/v", icd.FloatJSONField{})
+			base := v.Base()
+			base.Max = new(100.0)
+			v.SetBase(base)
+			t, _ := start(ctx, writeConfig(dev, fieldTarget(ctx, "plant/max", ch, v)))
+			command(ctx, ch, telem.NewSeriesV(120.0), func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(Equal(
+					"Command for target plant/max: message Command: field v: " +
+						"120 is above the max 100: validation error",
+				))
+			})
+			command(ctx, ch, telem.NewSeriesV(100.0), func(g Gomega) {
+				g.Expect(payloads("plant/max")).To(SatisfyAll(
+					ContainElement(`{"v":100}`), Not(ContainElement(`{"v":120}`)),
+				))
+			})
+		})
+
 		It("Should clear the warning of a dropped command with no new command",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)

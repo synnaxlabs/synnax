@@ -10,7 +10,6 @@
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Form } from "@synnaxlabs/lyra/form";
 import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -19,11 +18,10 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import type { deep, destructor, record } from "@synnaxlabs/x";
+import type { destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
-import type { ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 /** A JSON message of an ICD, as one option of the field. */
@@ -52,25 +50,26 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
 const choiceRenderProp = Component.renderProp(ChoiceItem);
 
 export interface MessageFormatFieldProps {
-  /** The path of a source that reads one message. */
-  path: deep.Path<ReadSource>;
+  /** The ICD of the picked message. */
+  icdKey: icd.Key;
+  /** The key of the picked message. */
+  message: icd.MessageKey;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
   disabled?: boolean;
 }
 
 /**
- * Picks the message that a source reads from the JSON messages of every ICD, beside a
- * button that opens the editor at it. A search matches ICD names on the Core and lists
- * every JSON message of each match.
+ * Picks a message from the JSON messages of every ICD, beside a button that opens the
+ * editor at it. A search matches ICD names on the Core and lists every JSON message of
+ * each match.
  */
 export const MessageFormatField = ({
-  path,
+  icdKey,
+  message,
   onChange,
   disabled = false,
 }: MessageFormatFieldProps): ReactElement => {
   const isPreview = Task.useIsPreview();
-  const icdKey = Form.useFieldValue(path.icd);
-  const { message } = Form.useFieldValue(path.messages[0]);
   const icds = PICD.useList();
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());

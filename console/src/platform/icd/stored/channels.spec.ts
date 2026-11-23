@@ -182,6 +182,33 @@ describe("ICD.Stored", () => {
           ICD.Stored.channels({ t: props(1, { "/a": 2 }) }, source([read(m1)]), m1),
         ).toEqual({});
       });
+
+      it("should merge no channels of a topic that extends the topic", () => {
+        expect(
+          ICD.Stored.channels(
+            {
+              [ICD.Stored.key("a/", m1)]: props(1, { "/a": 2 }),
+              "a/#": props(1, { "/b": 3 }),
+              [ICD.Stored.key("a/#", m2)]: props(1, { "/c": 4 }),
+            },
+            { key: "a/", legacy: "a/", messages: [read(m1)] },
+            m1,
+          ),
+        ).toEqual({ "/a": 2 });
+      });
+
+      it("should merge no channels of a record whose key extends the key", () => {
+        expect(
+          ICD.Stored.channels(
+            {
+              [ICD.Stored.key("t#a", m1)]: props(1, { "/a": 2 }),
+              [ICD.Stored.key("t#a#b", m2)]: props(1, { "/b": 3 }),
+            },
+            { key: "t#a", messages: [read(m1)] },
+            m1,
+          ),
+        ).toEqual({ "/a": 2 });
+      });
     });
 
     describe("moveLegacy", () => {
