@@ -188,7 +188,7 @@ describe("impact", () => {
     expect(plan).toEqual({
       entries: [],
       kept: 0,
-      hidden: 0,
+      hidden: { restrict: 0, cascade: 0, detach: 0 },
       token: plan.token,
       change,
     });

@@ -130,7 +130,7 @@ var _ = Describe("Ungroup breaker", Ordered, ContinueOnFailure, func() {
 			impact.PlanOptions{Visible: hide(channel.ResourceID(dead.Key()))},
 		))
 		Expect(p.Entries).To(BeEmpty())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Cascade: 1}))
 	})
 
 	It("Should refuse an ungroup token planned before the folder was renamed", func(

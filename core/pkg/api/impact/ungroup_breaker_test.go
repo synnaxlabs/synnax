@@ -174,7 +174,7 @@ var _ = Describe("Ungroup routes breaker", Ordered, ContinueOnFailure, func() {
 			Change: ungroupOf(folder.Key),
 		}))
 		Expect(p.Entries).To(BeEmpty())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Cascade: 1}))
 	})
 
 	It("Should refuse an ungroup into a parent the subject cannot update", func(
@@ -270,7 +270,7 @@ var _ = Describe("Ungroup routes breaker", Ordered, ContinueOnFailure, func() {
 			Change: ungroupOf(folder.Key),
 		}))
 		Expect(p.Entries).To(BeEmpty())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Cascade: 1}))
 		Expect(apply(authed, apiimpact.ApplyRequest{
 			Change: ungroupOf(folder.Key),
 			Token:  p.Token,
