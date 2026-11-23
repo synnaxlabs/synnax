@@ -35,11 +35,10 @@ export interface PaintProps {
   drawingColor?: color.Crude;
   /** entryColor is the color of the entry that the editor shows. */
   entryColor?: color.Crude;
-  /**
-   * inherited is whether a look of the whole drawing gives the paint, so a part cannot
-   * pick Drawing to clear it.
-   */
-  inherited?: boolean;
+  /** inherited is the paint that a look of the whole drawing gives a part. */
+  inherited?: Value;
+  /** own is the paint of the part itself, which Drawing clears. */
+  own?: Value;
   "aria-label": string;
 }
 
@@ -78,11 +77,16 @@ export const Paint = ({
   entryState,
   drawingColor,
   entryColor,
-  inherited = false,
+  inherited,
+  own,
   "aria-label": ariaLabel,
 }: PaintProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const kind: Kind = value?.type ?? "drawing";
+  // Drawing clears the paint of the part, which then takes the paint of the whole
+  // drawing when there is one.
+  const locked = inherited != null && own == null;
+  const whole = inherited != null && own != null;
   const binding = Color.useBinding(
     value?.type === "color" ? value.value : undefined,
     (ref) => onChange(ref == null ? undefined : { type: "color", value: ref }),
@@ -138,16 +142,16 @@ export const Paint = ({
                 itemKey={k}
                 size="small"
                 disabled={
-                  (k === "drawing" && inherited) ||
+                  (k === "drawing" && locked) ||
                   ((k === "entry" || k === "contrast") && entryState == null)
                 }
                 tooltip={
-                  k === "drawing" && inherited
+                  k === "drawing" && locked
                     ? "The whole drawing gives this paint. Change it there."
                     : undefined
                 }
               >
-                {NAMES[k]}
+                {k === "drawing" && whole ? "Whole drawing" : NAMES[k]}
               </Select.Item>
             ))}
           </Select.Buttons>

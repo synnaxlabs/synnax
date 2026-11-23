@@ -189,7 +189,8 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
     <Paint
       aria-label={label}
       value={value}
-      inherited={inherited != null && own == null}
+      inherited={inherited}
+      own={own}
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
@@ -199,14 +200,22 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, onChange, label } = useScope<"hidden">("VisibleControl");
+  const { value, inherited, part, at, values, onChange, label } =
+    useScope<"hidden">("VisibleControl");
+  const looks = Form.useFieldValue(path.data.looks);
+  // A part shown at every value stores false when the drawing hides at any value.
+  const drawingHides =
+    part != null &&
+    (at == null
+      ? values.values.some(
+          (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
+        )
+      : inherited === true);
   return (
     <Input.Checkbox
       aria-label={label}
       value={value !== true}
-      onChange={(shown) =>
-        onChange(shown ? (inherited === true ? false : undefined) : true)
-      }
+      onChange={(shown) => onChange(shown ? (drawingHides ? false : undefined) : true)}
     />
   );
 };
