@@ -139,12 +139,14 @@ describe("Client", () => {
         dataType: "float64",
         virtual: true,
       });
-      const calc = await client.channels.create({
-        name: id.create(),
-        dataType: "float64",
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
+      const calc = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: id.create(),
+            expression: `return ${source.name} * 2`,
+          })
+        ).output,
+      );
       const read = client.read(TimeRange.MAX, calc.key);
       await expect(read).rejects.toThrow(UnsupportedError);
       await expect(read).rejects.toThrow(/cannot open iterator on virtual channel/);

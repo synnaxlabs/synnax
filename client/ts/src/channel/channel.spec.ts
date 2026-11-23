@@ -390,10 +390,8 @@ describe("Channel", () => {
       expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
         virtual.key,
       ]);
-      await client.channels.create({
+      await client.calculations.create({
         name: `${prefix}_calculated`,
-        virtual: true,
-        dataType: DataType.FLOAT32,
         expression: "return 1",
       });
       expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
@@ -581,12 +579,14 @@ describe("Channel", () => {
   });
   describe("update calculations", () => {
     test("update calculated channel name", async () => {
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: "return 1",
-      });
+      const ch = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: id.create(),
+            expression: "return 1",
+          })
+        ).output,
+      );
       const name = id.create();
       await client.channels.rename(ch.key, name);
       expect((await client.channels.retrieve(ch.key)).name).toEqual(name);

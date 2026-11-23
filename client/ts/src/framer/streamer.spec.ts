@@ -518,12 +518,14 @@ describe("Streamer", () => {
           },
         ]);
 
-        const calcChannel = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT64,
-          virtual: true,
-          expression: `return ${channelA.name} + ${channelB.name}`,
-        });
+        const calcChannel = await client.channels.retrieve(
+          (
+            await client.calculations.create({
+              name: id.create(),
+              expression: `return ${channelA.name} + ${channelB.name}`,
+            })
+          ).output,
+        );
 
         const streamer = await client.openStreamer(calcChannel.key);
         await sleep.sleep(TimeSpan.milliseconds(10));
@@ -565,12 +567,14 @@ describe("Streamer", () => {
           index: timeChannel.key,
         });
 
-        const calcChannel = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT64,
-          virtual: true,
-          expression: `return ${baseChannel.name} + 5`,
-        });
+        const calcChannel = await client.channels.retrieve(
+          (
+            await client.calculations.create({
+              name: id.create(),
+              expression: `return ${baseChannel.name} + 5`,
+            })
+          ).output,
+        );
 
         const streamer = await client.openStreamer(calcChannel.key);
         await sleep.sleep(TimeSpan.milliseconds(20));
@@ -615,12 +619,14 @@ describe("Streamer", () => {
           { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
-        const calcChannel = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT64,
-          virtual: true,
-          expression: `return (${names[0]} * 2) + (${names[1]} / 2)`,
-        });
+        const calcChannel = await client.channels.retrieve(
+          (
+            await client.calculations.create({
+              name: id.create(),
+              expression: `return (${names[0]} * 2) + (${names[1]} / 2)`,
+            })
+          ).output,
+        );
 
         const streamer = await client.openStreamer(calcChannel.key);
         await sleep.sleep(TimeSpan.milliseconds(5));
@@ -668,12 +674,14 @@ describe("Streamer", () => {
             },
           ]);
 
-          const calcChannel = await client.channels.create({
-            name: id.create(),
-            dataType: DataType.FLOAT64,
-            virtual: true,
-            expression: `return ${channelA.name} + ${channelB.name}`,
-          });
+          const calcChannel = await client.channels.retrieve(
+            (
+              await client.calculations.create({
+                name: id.create(),
+                expression: `return ${channelA.name} + ${channelB.name}`,
+              })
+            ).output,
+          );
 
           const streamer = await client.openStreamer(calcChannel.key);
           await sleep.sleep(TimeSpan.milliseconds(10));

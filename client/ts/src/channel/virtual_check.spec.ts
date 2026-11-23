@@ -52,12 +52,14 @@ describe("virtual line check", () => {
       dataType: DataType.STRING,
       virtual: true,
     });
-    const output = await admin.channels.create({
-      name: id.create(),
-      dataType: DataType.FLOAT32,
-      virtual: true,
-      expression: `return ${plain.name} * 2`,
-    });
+    const output = await admin.channels.retrieve(
+      (
+        await admin.calculations.create({
+          name: id.create(),
+          expression: `return ${plain.name} * 2`,
+        })
+      ).output,
+    );
     // A reader that may retrieve every channel but no calculation.
     const reader = await createTestClientWithPolicy(admin, {
       name: id.create(),

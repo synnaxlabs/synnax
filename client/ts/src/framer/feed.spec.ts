@@ -316,12 +316,14 @@ describe("Feed", () => {
       dataType: "float64",
       index: time.key,
     });
-    const calc = await client.channels.create({
-      name: id.create(),
-      dataType: "float64",
-      virtual: true,
-      expression: `return ${data.name} * 2`,
-    });
+    const calc = await client.channels.retrieve(
+      (
+        await client.calculations.create({
+          name: id.create(),
+          expression: `return ${data.name} * 2`,
+        })
+      ).output,
+    );
     const start = TimeStamp.now().sub(TimeSpan.seconds(10));
     const stamps = [0, 1, 2].map((i) => start.add(TimeSpan.milliseconds(i)));
     await client.write(start, { [time.key]: stamps, [data.key]: [1, 2, 3] });
