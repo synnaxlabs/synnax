@@ -204,6 +204,55 @@ func (w WriteTarget) Validate() error {
 	return v.Error()
 }
 
+// InlineWrite holds the channels of a write config from before ICDs.
+type InlineWrite struct {
+	// Topic is the topic of the records.
+	Topic string `json:"topic" msgpack:"topic"`
+	// RecordKey is the source of the key of each record.
+	RecordKey RecordKey `json:"record_key" msgpack:"record_key"`
+	// Record is the shape of every record.
+	Record Record `json:"record" msgpack:"record"`
+	// Channels are the channels whose samples the records held.
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (in *InlineWrite) SetDefaults() {
+	in.Record.SetDefaults()
+	in.RecordKey = RecordKeyChannelName
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (in *InlineWrite) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain InlineWrite
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(in))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (in *InlineWrite) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain InlineWrite
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return dec.Decode((*plain)(in))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineWrite) Validate() error {
+	v := validate.New("InlineWrite")
+	v.Ternaryf("record_key", !in.RecordKey.IsValid(), "invalid record_key: %v", in.RecordKey)
+	v.Exec(func() error { return validate.PathedError(in.Record.Validate(), "record") })
+	for i := range in.Channels {
+		v.Exec(func() error { return validate.PathedError(in.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
 type WriteConfig struct {
@@ -220,6 +269,9 @@ type WriteConfig struct {
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 	// Targets contains the topics and ICD messages to produce.
 	Targets []WriteTarget `json:"targets" msgpack:"targets"`
+	// Inline holds the channels of a config from before ICDs. A write moves them into a
+	// new ICD, adds a target for each, and clears it.
+	Inline *InlineWrite `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -258,6 +310,9 @@ func (w WriteConfig) Validate() error {
 	}
 	for i := range w.Targets {
 		v.Exec(func() error { return validate.PathedError(w.Targets[i].Validate(), "targets", strconv.Itoa(i)) })
+	}
+	if w.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(w.Inline.Validate(), "inline") })
 	}
 	return v.Error()
 }

@@ -111,7 +111,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Read) {
 		return nil, err
 	}
-	writes := writeResolver{writes: write.NewResolver(cfg.ICD, channels)}
+	writes := writeResolver{
+		icds:     cfg.ICD,
+		channels: readChannels(cfg.Channel),
+		writes:   write.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:              cfg.DB,
@@ -119,6 +124,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
+			Migrations: []gorp.Migration{
+				v1.NewWriteMigration(writes.channels, createICD(cfg.ICD)),
+			},
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,

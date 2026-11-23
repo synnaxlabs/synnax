@@ -261,21 +261,12 @@ func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, erro
 	return cfg, nil
 }
 
-// MigrateWriteConfig lifts a v0 write config to v1. It keeps the channels of old and
-// adds no targets.
-func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
-	return autoMigrateWriteConfig(ctx, old)
-}
-
-// CreateICD creates ic through tx.
-type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
-
-// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
-// the config with key through ins.
+// NoteLift returns the note for ResolveReadConfig and ResolveWriteConfig that logs each
+// change to a field of the config with key through ins.
 func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
 	return func(path, change string) {
 		ins.L.Warn(
-			"changed a Kafka read field to v1",
+			"changed a Kafka task field to v1",
 			zap.Stringer("config", key),
 			zap.String("field", path),
 			zap.String("change", change),

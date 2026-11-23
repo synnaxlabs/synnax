@@ -158,8 +158,32 @@ WriteTarget struct {
     @go marshal
 }
 
+InlineWrite struct {
+    topic      string = "" {
+        @doc value "is the topic of the records."
+    }
+    record_key RecordKey = channel_name {
+        @doc value "is the source of the key of each record."
+    }
+    record     Record = {} {
+        @doc value "is the shape of every record."
+    }
+    channels   WriteChannel[] = [] {
+        @doc value "are the channels whose samples the records held."
+    }
+
+    @doc value "holds the channels of a write config from before ICDs."
+}
+
 WriteConfig struct extends v0.WriteConfig {
     targets WriteTarget[] {
         @doc value "contains the topics and ICD messages to produce."
+    }
+    inline  InlineWrite?  {
+        @doc value  """
+            holds the channels of a config from before ICDs. A write moves them into a
+            new ICD, adds a target for each, and clears it.
+        """
+        @go marshal omit
     }
 }
