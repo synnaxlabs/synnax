@@ -93,18 +93,37 @@ class TestWriterLookupCheck:
                 w.write({path: np.array([float(i)])})
             assert counter.count == 0
 
-    def test_unheld_texts_go_in_one_retrieve(
+    def test_unheld_paths_of_a_record_go_in_one_retrieve(
         self, counted_client: tuple[sy.Synnax, RetrieveCounter]
     ) -> None:
-        """Should resolve the paths of a record in one retrieve, then hold them."""
+        """Should resolve the paths of one record that the writer did not open by in
+        one retrieve.
+        """
         client, counter = counted_client
         a, a_path = in_group(client)
         b, b_path = in_group(client)
         with client.open_writer(start=sy.TimeStamp.now(), channels=[a.key, b.key]) as w:
             counter.count = 0
-            for i in range(3):
-                w.write({a_path: np.array([float(i)]), b_path: np.array([float(i)])})
+            w.write({a_path: np.array([1.0]), b_path: np.array([1.0])})
             assert counter.count == 1
+
+    def test_no_path_is_kept_across_records(self, client: sy.Synnax) -> None:
+        """Should resolve a path that the writer did not open by again for each record,
+        so a moved channel's old path finds nothing (D-314 Q2 corrected).
+        """
+        g = client.groups.create(channel_name(), scope="channel")
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            group=g.key,
+        )
+        old = f"{g.name}.{ch.name}"
+        with client.open_writer(start=sy.TimeStamp.now(), channels=[ch.key]) as w:
+            w.write({old: np.array([1.0])})
+            client.groups.rename(g.key, channel_name())
+            with pytest.raises(sy.NotFoundError, match="channels not found matching"):
+                w.write({old: np.array([2.0])})
 
     def test_extra_dataframe_column_needs_no_retrieve(
         self, counted_client: tuple[sy.Synnax, RetrieveCounter]
@@ -170,6 +189,34 @@ class TestControllerLookupCheck:
         with client.control.acquire(name="strict", read=[ch.name], write=None):
             pass
         assert requests[0].strict
+
+    def test_acquire_refuses_a_key_and_a_name_of_one_channel(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should refuse a write acquire that names one channel by its key and its
+        name.
+        """
+        ch, _ = in_group(client)
+        with pytest.raises(
+            sy.ValidationError, match=f'{ch.key} and "{ch.name}" name one channel'
+        ):
+            with client.control.acquire(
+                name="shared", read=None, write=[ch.key, ch.name]
+            ):
+                pass
+
+    def test_set_refuses_a_key_and_a_name_of_one_channel(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should refuse a set that names one channel by its key and its name, since
+        one value would be lost.
+        """
+        ch, _ = in_group(client)
+        with client.control.acquire(name="shared", read=None, write=[ch.key]) as ctrl:
+            with pytest.raises(sy.ValidationError, match="name one channel"):
+                ctrl.set({ch.key: 1.0, ch.name: 2.0})
+            with pytest.raises(sy.ValidationError, match="name one channel"):
+                ctrl.set_authority({ch.key: 100, ch.name: 200})
 
     def test_read_acquire_names_a_miss(self, client: sy.Synnax) -> None:
         """Should refuse a read acquire of a name that finds no channel, as a write
