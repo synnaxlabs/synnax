@@ -19,15 +19,20 @@ export interface AtlasProps {
 
 const PADDING = 2;
 const SCALE_FACTOR = 2;
+
 /**
- * @desc a text atlas that allows for efficient caching and rendering of monospaced
- * characters.
+ * A text atlas that caches glyphs and draws them on a grid. Every glyph takes the cell
+ * of a digit, centered in it, so digits line up as tabular figures. A glyph wider than
+ * a digit takes a cell of its own width.
  */
-export class MonospacedAtlas {
+export class Atlas {
   private readonly atlas: OffscreenCanvas;
   private readonly charDims: dimensions.Dimensions;
   private readonly charMap: Map<string, number>;
+  private readonly advances: Map<string, number>;
   private readonly cols: number;
+  /** Width of one atlas cell, wide enough to hold any glyph in the set. */
+  private readonly cellWidth: number;
   /** Height of one grid cell, tall enough to hold any glyph in the set. */
   private readonly cellHeight: number;
   /** Distance from the top of a cell to the baseline the glyph is drawn on. */
@@ -38,8 +43,9 @@ export class MonospacedAtlas {
     "0123456789.:+-°μmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
 
   constructor(props: AtlasProps) {
-    const { font, characters = MonospacedAtlas.DEFAULT_CHARS, textColor } = props;
+    const { font, characters = Atlas.DEFAULT_CHARS, textColor } = props;
     this.charMap = new Map();
+    this.advances = new Map();
 
     const uniqueChars = unique.unique(Array.from(characters));
 
@@ -49,8 +55,8 @@ export class MonospacedAtlas {
     ctx.textBaseline = "alphabetic";
     const metrics = ctx.measureText("0");
     this.charDims = dimensionsFromMetrics(metrics);
-    // Width pads out to the cell the atlas lays glyphs on, which fillText advances by
-    // and measureText must report. Height stays the ink, which callers center on.
+    // Width pads out to the cell of a digit, which fillText advances by and
+    // measureText must report. Height stays the ink, which callers center on.
     this.charDims.width += PADDING;
 
     // A digit carries neither the tallest ascender nor any descender, so a cell sized
@@ -77,16 +83,26 @@ export class MonospacedAtlas {
       middle: shift("middle"),
       top: shift("top"),
     };
+    ctx.textBaseline = "alphabetic";
+
+    // Each glyph is drawn so that its ink sits in the middle of its cell.
+    const inkLefts = new Map<string, number>();
+    uniqueChars.forEach((char) => {
+      const m = ctx.measureText(char);
+      const ink = dimensionsFromMetrics(m).width;
+      const advance = Math.max(this.charDims.width, ink + PADDING);
+      this.advances.set(char, advance);
+      inkLefts.set(char, (advance - ink) / 2 + m.actualBoundingBoxLeft);
+    });
+    this.cellWidth = Math.max(...this.advances.values());
 
     const totalChars = uniqueChars.length;
-    const atlasCharWidth = this.charDims.width;
-
     const cols = Math.ceil(Math.sqrt(totalChars));
     const rows = Math.ceil(totalChars / cols);
     this.cols = cols;
 
     this.atlas = new OffscreenCanvas(
-      atlasCharWidth * cols * SCALE_FACTOR,
+      this.cellWidth * cols * SCALE_FACTOR,
       this.cellHeight * rows * SCALE_FACTOR,
     );
 
@@ -101,11 +117,15 @@ export class MonospacedAtlas {
     uniqueChars.forEach((char, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = col * atlasCharWidth;
+      const x = col * this.cellWidth + (inkLefts.get(char) ?? 0);
       const y = row * this.cellHeight + this.baselineOffset;
       atlasCtx.fillText(char, x, y);
       this.charMap.set(char, i);
     });
+  }
+
+  private advance(char: string): number {
+    return this.advances.get(char) ?? this.charDims.width;
   }
 
   fillText(
@@ -114,42 +134,44 @@ export class MonospacedAtlas {
     x: number,
     y: number,
   ): void {
-    const { width } = this.charDims;
-    const { cols, cellHeight } = this;
-    const totalWidth = width * text.length;
+    const { cols, cellWidth, cellHeight } = this;
+    const totalWidth = this.measureText(text).width;
     if (ctx.textAlign === "center") x -= totalWidth / 2;
     else if (ctx.textAlign === "right" || ctx.textAlign === "end") x -= totalWidth;
     const top = y + this.baselineShifts[ctx.textBaseline] - this.baselineOffset;
 
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
+    for (const char of text) {
+      const width = this.advance(char);
       const index = this.charMap.get(char);
-      if (index === undefined) continue;
-
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-      ctx.drawImage(
-        this.atlas,
-        col * width * SCALE_FACTOR,
-        row * cellHeight * SCALE_FACTOR,
-        width * SCALE_FACTOR,
-        cellHeight * SCALE_FACTOR,
-        x + i * width,
-        top,
-        width,
-        cellHeight,
-      );
+      if (index !== undefined) {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        ctx.drawImage(
+          this.atlas,
+          col * cellWidth * SCALE_FACTOR,
+          row * cellHeight * SCALE_FACTOR,
+          width * SCALE_FACTOR,
+          cellHeight * SCALE_FACTOR,
+          x,
+          top,
+          width,
+          cellHeight,
+        );
+      }
+      x += width;
     }
   }
 
   measureText(text: string): dimensions.Dimensions {
-    return { width: text.length * this.charDims.width, height: this.charDims.height };
+    let width = 0;
+    for (const char of text) width += this.advance(char);
+    return { width, height: this.charDims.height };
   }
 }
 
 /** A registry for caching atlases for use across multiple components. */
 export class AtlasRegistry {
-  private readonly atlases: Map<string, MonospacedAtlas>;
+  private readonly atlases: Map<string, Atlas>;
 
   constructor() {
     this.atlases = new Map();
@@ -159,9 +181,9 @@ export class AtlasRegistry {
    * @returns at atlas from the registry compatible with the given props. If the
    * atlas does not exist in the registry, it is created and added to the registry.
    */
-  get(props: AtlasProps): MonospacedAtlas {
+  get(props: AtlasProps): Atlas {
     const key = `${props.font}-${color.hex(props.textColor)}-${props.characters}`;
-    return map.getOrInsert(this.atlases, key, () => new MonospacedAtlas(props));
+    return map.getOrInsert(this.atlases, key, () => new Atlas(props));
   }
 
   /** Drops every atlas, so that the next {@link get} draws its glyphs again. */

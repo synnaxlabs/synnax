@@ -271,7 +271,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       position: xy.translate(box.topRight(region), [-padding.x - 1, padding.y - 1]),
       level: "small",
       justify: "right",
-      code: true,
       shade: 10,
     });
   }
@@ -374,7 +373,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       ]),
       level: "small",
       justify: "right",
-      code: true,
       shade: 10,
     });
   }

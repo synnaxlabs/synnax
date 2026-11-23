@@ -23,10 +23,15 @@ const SET_DESCENT = 3;
 // device pixels while the glyph positions it records are in atlas pixels.
 const SCALE_FACTOR = 2;
 
-const metrics = (ascent: number, descent: number): TextMetrics =>
+// Ink widths of glyphs narrower or wider than a digit. Every other glyph inks ADVANCE.
+const INK_WIDTHS: Record<string, number> = { "1": 2, m: 10 };
+const inkWidth = (char: string): number => INK_WIDTHS[char] ?? ADVANCE;
+const WIDE_CELL = INK_WIDTHS.m + PADDING;
+
+const metrics = (ascent: number, descent: number, width = ADVANCE): TextMetrics =>
   ({
     actualBoundingBoxLeft: 0,
-    actualBoundingBoxRight: ADVANCE,
+    actualBoundingBoxRight: width,
     actualBoundingBoxAscent: ascent,
     actualBoundingBoxDescent: descent,
   }) as TextMetrics;
@@ -68,9 +73,9 @@ const overlaps = (a: Bounds, b: Bounds): boolean =>
   a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
 // Ink a glyph covers in atlas pixels, measured from the baseline it was drawn on.
-const inkOf = ({ x, y }: Glyph, descent = SET_DESCENT): Bounds => ({
+const inkOf = ({ char, x, y }: Glyph, descent = SET_DESCENT): Bounds => ({
   left: x,
-  right: x + ADVANCE,
+  right: x + inkWidth(char),
   top: y - SET_ASCENT,
   bottom: y + descent,
 });
@@ -84,7 +89,7 @@ const sourceOf = ({ sx, sy, sw, sh }: Copy): Bounds => ({
 });
 
 interface Harness {
-  atlas: text.MonospacedAtlas;
+  atlas: text.Atlas;
   glyphs: Glyph[];
   glyphOf: (char: string) => Glyph;
   copy: (text: string, x: number, y: number, baseline?: CanvasTextBaseline) => Copy[];
@@ -114,7 +119,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
           const shift = shifts[ctx.textBaseline];
           return t === "0"
             ? metrics(DIGIT_ASCENT - shift, shift)
-            : metrics(SET_ASCENT - shift, descent + shift);
+            : metrics(SET_ASCENT - shift, descent + shift, inkWidth(t));
         },
         fillText: (char: string, x: number, y: number) => glyphs.push({ char, x, y }),
       };
@@ -122,7 +127,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     }
   }
   vi.stubGlobal("OffscreenCanvas", Canvas);
-  const atlas = new text.MonospacedAtlas({
+  const atlas = new text.Atlas({
     font: "12px mono",
     textColor: "#ffffff",
     characters,
@@ -168,7 +173,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
   return { atlas, glyphs, glyphOf, copy, baselineOf };
 };
 
-describe("MonospacedAtlas", () => {
+describe("Atlas", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -235,12 +240,34 @@ describe("MonospacedAtlas", () => {
       const [first, second] = copy("12", 40, 60);
       expect(second.dx - first.dx).toEqual(CELL_WIDTH);
     });
+
+    it("should center a glyph narrower than a digit in a digit cell", () => {
+      const { glyphOf, copy } = setup();
+      const source = sourceOf(copy("1", 0, 0)[0]);
+      const ink = inkOf(glyphOf("1"));
+      expect(source.right - source.left).toEqual(CELL_WIDTH);
+      expect(ink.left - source.left).toEqual(source.right - ink.right);
+    });
+
+    it("should give a glyph wider than a digit a cell of its own width", () => {
+      const { glyphOf, copy } = setup();
+      const [m, zero] = copy("m0", 0, 0);
+      const source = sourceOf(m);
+      const ink = inkOf(glyphOf("m"));
+      expect(zero.dx - m.dx).toEqual(WIDE_CELL);
+      expect(ink.left - source.left).toEqual(source.right - ink.right);
+    });
   });
 
   describe("measureText", () => {
     it("should report one character width per character", () => {
       const { atlas } = setup();
       expect(atlas.measureText("123").width).toEqual(CELL_WIDTH * 3);
+    });
+
+    it("should report the cell width of a wide glyph", () => {
+      const { atlas } = setup();
+      expect(atlas.measureText("ms").width).toEqual(WIDE_CELL + CELL_WIDTH);
     });
 
     // Callers center text on this height, so it must be the ink, not the cell.
