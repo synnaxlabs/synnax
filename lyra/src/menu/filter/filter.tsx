@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/menu/filter.css";
+import "@/menu/filter/filter.css";
 
 import {
   Children,
@@ -28,8 +28,8 @@ import { flushSync } from "react-dom";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-// The input imports the menu, so the menu imports the search directly.
-import { Search, type SearchProps } from "@/input/Search";
+// The input barrel imports the menu, so the menu imports only the search module.
+import { Search, type SearchProps } from "@/input/search";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";

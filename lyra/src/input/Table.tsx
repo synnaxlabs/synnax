@@ -27,7 +27,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import type { RenderProp } from "@/component/renderProp";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
@@ -38,7 +38,7 @@ import { Text as InputText } from "@/input/Text";
 import type { Control, Variant } from "@/input/types";
 import type { Status } from "@/status";
 import { Text } from "@/text";
-import { reactElementToArray } from "@/util/children";
+import { reactElementToArray } from "@/util";
 
 /** The value one {@link Table} cell holds. The cell's column decides its type. */
 export type TableCell = unknown;
@@ -83,21 +83,21 @@ export type TableColumnProps<V = unknown> =
       /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
       parse?: (text: string) => number | null;
       /** Renders the cell. Defaults to a numeric input. */
-      children?: RenderProp<TableCellProps<number>>;
+      children?: Component.RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
       /** Reads pasted text, or returns null to refuse it. Defaults to the text. */
       parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
-      children?: RenderProp<TableCellProps<string>>;
+      children?: Component.RenderProp<TableCellProps<string>>;
     })
   | (BaseTableColumnProps & {
       type: "boolean";
       /** Reads pasted text, or returns null to refuse it. Defaults to true or false. */
       parse?: (text: string) => boolean | null;
       /** Renders the cell. Defaults to a checkbox. */
-      children?: RenderProp<TableCellProps<boolean>>;
+      children?: Component.RenderProp<TableCellProps<boolean>>;
     })
   | (BaseTableColumnProps & {
       type: "custom";
@@ -105,7 +105,7 @@ export type TableColumnProps<V = unknown> =
       empty: V;
       /** Reads pasted text, or returns null to refuse it. Omitted, pastes fail. */
       parse?: (text: string) => V | null;
-      children: RenderProp<TableCustomCellProps<V>>;
+      children: Component.RenderProp<TableCustomCellProps<V>>;
     });
 
 /**
