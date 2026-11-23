@@ -724,6 +724,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       values: [0],
     };
 
+    it("keeps a part shown at every value where the drawing hides it", async () => {
+      const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [hide],
+      });
+      const visible = () => screen.getByLabelText<HTMLInputElement>("Visible");
+      fireEvent.click(visible());
+      await waitFor(() => expect(visible().checked).toBe(false));
+      fireEvent.click(visible());
+      await waitFor(() => expect(visible().checked).toBe(true));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          hide,
+          { key: expect.any(String), part: "body", hidden: false },
+        ]),
+      );
+    });
+
     it("shows and hides a part at each value of a state", async () => {
       const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
       const symbol = await openPainted({
