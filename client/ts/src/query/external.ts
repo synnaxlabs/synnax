@@ -33,8 +33,6 @@ export {
   type Live,
   requireCorpse,
   type Retrieves,
-  type Space,
-  type SpaceConfig,
   type Trigger,
   trigger,
 } from "@/query/query";
@@ -49,6 +47,7 @@ export {
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";
+export type { space } from "@/query/space";
 export type { Listener } from "@/query/streamer";
 export {
   createDeleteListener,
@@ -60,6 +59,7 @@ export {
   type Interceptor,
   isChange,
   type Keyed,
+  keyedZ,
   type ListenerSpec,
   partialUpdate,
   type Stamp,

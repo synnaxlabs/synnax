@@ -10,7 +10,8 @@
 import type { icd } from "@synnaxlabs/client";
 import { DataType, payload } from "@synnaxlabs/x";
 
-const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
+/** The data type of the channel that a field of each kind takes by default. */
+export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   float: DataType.FLOAT64.toString(),
   integer: DataType.INT64.toString(),
   unsigned: DataType.UINT64.toString(),
@@ -50,6 +51,28 @@ export const converts = (
     default:
       return false;
   }
+};
+
+const NUMERIC: ReadonlySet<payload.Kind> = new Set([
+  "float",
+  "integer",
+  "unsigned",
+  "boolean",
+]);
+
+/**
+ * @returns whether the Core writes the samples of a channel of the data type to field.
+ * A scaled field takes only a float. Else a number or a boolean writes to any number or
+ * boolean field.
+ */
+export const encodes = (
+  field: Pick<icd.JSONField, "type" | "scale" | "offset">,
+  dataType: string,
+): boolean => {
+  const from = payload.kindOf(dataType);
+  if (isScaled(field)) return from === "float";
+  if (from === field.type) return true;
+  return from != null && NUMERIC.has(from) && NUMERIC.has(field.type);
 };
 
 /**

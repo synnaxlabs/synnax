@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -78,5 +79,58 @@ describe("useByKeys", () => {
         [first.key, second.key].sort(),
       ),
     );
+  });
+});
+
+describe("typed devices", async () => {
+  const rack = await client.racks.create({ name: uniqueName("ni_rack") });
+  const createTyped = async (): Promise<ni.device.Device> =>
+    await client.ni.devices.create({
+      rack: rack.key,
+      name: uniqueName("ni_dev"),
+      resourceName: id.create(),
+      model: "PXIe-4300",
+      analogInput: { index: 0, temperature: 0, channels: { 0: 1 } },
+    });
+
+  describe("useRetrieve", () => {
+    it("should retrieve the device with its status", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data?.name).toBe(dev.name));
+      expect(result.current.data?.status).toBeDefined();
+    });
+  });
+
+  describe("useRename", () => {
+    it("should rename the device and keep its configuration", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useRename(), { wrapper });
+      const name = uniqueName("renamed");
+      await act(async () => {
+        await result.current.updateAsync({ key: dev.key, name });
+      });
+      const stored = await client.ni.devices.retrieve({ key: dev.key });
+      expect(stored.name).toBe(name);
+      expect(stored.analogInput.channels).toEqual({ 0: 1 });
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete the device", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(dev.key);
+      });
+      await expect(
+        client.ni.devices.retrieve({ where: { key: { eq: dev.key } } }),
+      ).resolves.toEqual([]);
+    });
   });
 });

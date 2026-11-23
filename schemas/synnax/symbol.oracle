@@ -532,3 +532,32 @@ Where filter Symbol {
     @doc value         "is a filter that selects schematic symbols."
     @go request_output "core/pkg/api/schematic/symbol"
 }
+
+Ref union on type {
+    builtin {
+        name string {
+            @doc value "is the shipped name of the built-in."
+        }
+
+        @doc value "is a symbol that the Core ships."
+    }
+    custom {
+        key Key {
+            @doc value     "is the key of the symbol."
+            @ref kind      use
+            @ref on_delete restrict
+        }
+
+        @doc value "is a symbol that a user made."
+    }
+    missing {
+        key string {
+            @doc value "is the key of the custom symbol that the Core does not have."
+        }
+
+        @doc value "is a custom symbol that the Core does not have."
+    }
+
+    @doc value  "is the symbol that a node draws."
+    @go marshal
+}
