@@ -83,7 +83,16 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     integrations?: string[];
     /** Shows the Console as Synnax Desktop. */
     desktop?: boolean;
+    /** The OS the Console draws for. The OS of a Mac when left out. */
+    os?: unknown;
   };
+  const { CaptureSession, osZ } = await import("@/capture");
+  const os = osZ.optional().safeParse(mod.os);
+  if (!os.success)
+    throw new Error(
+      `${opts.scriptPath} exports os = ${JSON.stringify(mod.os)}, ` +
+        `but os must be one of ${osZ.options.join(", ")}`,
+    );
   const desktop = mod.desktop ?? false;
   const { desktopUrl = DESKTOP_URL } = opts;
   let core: Core | undefined;
@@ -98,7 +107,6 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     });
   }
   try {
-    const { CaptureSession } = await import("@/capture");
     const width = opts.width ?? mod.viewport?.width;
     const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
@@ -107,6 +115,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       theme: opts.theme,
       corePort: port,
       desktop,
+      ...(os.data != null && { os: os.data }),
       headed: opts.headed ?? false,
       insecure: opts.insecure ?? false,
       hideCaret: opts.hideCaret ?? false,
@@ -174,7 +183,7 @@ const withBundle = async (
   captureDir: string,
   render: (serveUrl: string) => Promise<void>,
 ): Promise<void> => {
-  const src = path.resolve(import.meta.dirname, "..");
+  const src = path.resolve(import.meta.dirname, "../..");
   const serveUrl = await bundle({
     entryPoint: path.join(src, "remotion/entry.ts"),
     publicDir: captureDir,
