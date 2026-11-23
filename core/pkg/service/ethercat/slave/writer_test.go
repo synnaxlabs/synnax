@@ -76,6 +76,22 @@ var _ = Describe("Writer", func() {
 			VendorID:    2,
 			ProductCode: 0x0C1E3052,
 			Master:      m.Key,
+			Pdos: slave.PDOs{
+				Inputs: []slave.PDOEntry{{
+					Name:      "Value",
+					Index:     0x6000,
+					SubIndex:  0x11,
+					BitLength: 16,
+					DataType:  "int16",
+				}},
+				Outputs: []slave.PDOEntry{{
+					Name:      "Output",
+					Index:     0x7000,
+					SubIndex:  1,
+					BitLength: 1,
+					DataType:  "uint8",
+				}},
+			},
 		}
 	}
 	create := func(ctx context.Context) slave.Slave {
@@ -194,6 +210,75 @@ var _ = Describe("Writer", func() {
 			Expect(got.Serial).To(Equal(s.Serial))
 			Expect(got.Master).To(Equal(s.Master))
 			Expect(statusOf(ctx, s).Name).To(Equal("Inlet"))
+		})
+
+		It("Should accept two read bindings of one entry with different kinds", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+				ReadBindings: []slave.ReadBinding{
+					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
+					{Index: 0x6000, SubIndex: 0x11, Scaled: true, Channel: 8},
+				},
+			}))).To(Succeed())
+		})
+
+		DescribeTable("Should refuse bindings that do not match the PDOs",
+			func(ctx SpecContext, c slave.Configuration, message string) {
+				s := create(ctx)
+				c.Name = "Inlet"
+				Expect(w.Apply(ctx, s.Key, configure(c))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+				Expect(retrieve(ctx, s.Key).ReadBindings).To(BeEmpty())
+			},
+			Entry("a read of an entry that is not an input", slave.Configuration{
+				ReadBindings: []slave.ReadBinding{
+					{Index: 0x7000, SubIndex: 1, Channel: 7},
+				},
+			}, "read_bindings.0: entry 0x7000:01 is not an input"),
+			Entry("a write of an entry that is not an output", slave.Configuration{
+				WriteBindings: []slave.WriteBinding{
+					{Index: 0x6000, SubIndex: 0x11, Command: 7},
+				},
+			}, "write_bindings.0: entry 0x6000:11 is not an output"),
+			Entry("two reads of one entry and kind", slave.Configuration{
+				ReadBindings: []slave.ReadBinding{
+					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
+					{Index: 0x6000, SubIndex: 0x11, Channel: 8},
+				},
+			}, "read_bindings.1: entry 0x6000:11 is bound twice"),
+			Entry("two writes of one entry", slave.Configuration{
+				WriteBindings: []slave.WriteBinding{
+					{Index: 0x7000, SubIndex: 1, Command: 7},
+					{Index: 0x7000, SubIndex: 1, Command: 8},
+				},
+			}, "write_bindings.1: entry 0x7000:01 is bound twice"),
+			Entry("a write without a command channel", slave.Configuration{
+				WriteBindings: []slave.WriteBinding{{Index: 0x7000, SubIndex: 1}},
+			}, "command"),
+		)
+
+		It("Should refuse PDOs that drop a bound entry", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+				ReadBindings: []slave.ReadBinding{
+					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
+				},
+			}))).To(Succeed())
+			Expect(w.Apply(ctx, s.Key, slave.Update{Variant: slave.IdentityUpdate{
+				Identity: slave.Identity{
+					Rack:        s.Rack,
+					VendorID:    s.VendorID,
+					ProductCode: s.ProductCode,
+					Revision:    s.Revision,
+					Master:      s.Master,
+				},
+			}})).To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should move the status with the rack", func(ctx SpecContext) {
