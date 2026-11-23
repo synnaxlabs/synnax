@@ -34,7 +34,7 @@ import { domRadii } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const scaleStateZ = staleness.drawnStateZ.extend({
+export const scaleStateZ = staleness.stateZ.extend({
   box: box.box,
   telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
@@ -146,9 +146,7 @@ export class Scale
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
-      this.requestRender(),
-    );
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       i.staleness.received();
@@ -327,7 +325,7 @@ export class Scale
 
   private renderFill(draw: Draw2D, bar: box.Box, ratio: number): void {
     const { borderRadius } = this.state;
-    const fillColor = this.valueColor;
+    const { fillColor } = this.internal;
     const zero = this.zeroEdge(bar);
     const value = this.valuePosition(bar, ratio);
     const start = Math.min(zero, value);
@@ -371,15 +369,6 @@ export class Scale
   }
 
   /**
-   * Color of the parts that carry the value: the fill, the caret, and the readout. It
-   * turns to the staleness color once the source stops sending.
-   */
-  private get valueColor(): color.Color {
-    const { fillColor, theme } = this.internal;
-    return staleness.drawnColor(this.state, theme) ?? fillColor;
-  }
-
-  /**
    * Color of the caret. A caret offset toward the origin sits on the fill, so it takes
    * the readout's background to stay legible against it.
    */
@@ -387,7 +376,7 @@ export class Scale
     const { showFill, caretSide } = this.state;
     const onFill =
       showFill && this.caretAlongBar && this.outwardOf(caretSide) === -this.fillGrowth;
-    return onFill ? this.internal.theme.colors.gray.l1 : this.valueColor;
+    return onFill ? this.internal.theme.colors.gray.l1 : this.internal.fillColor;
   }
 
   /** The caret readout. Empty when the source has no value yet. */
@@ -476,8 +465,7 @@ export class Scale
   ): void {
     if (valueText.length === 0) return;
     const { units } = this.state;
-    const { theme, tickLevel } = this.internal;
-    const valueColor = this.valueColor;
+    const { theme, tickLevel, fillColor } = this.internal;
     const ctx = draw.canvas;
     ctx.font = baseTheme.fontString(theme, { level: tickLevel, code: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
@@ -494,7 +482,7 @@ export class Scale
       region,
       rounded: true,
       borderRadius: 2,
-      borderColor: valueColor,
+      borderColor: fillColor,
       borderWidth: 1,
       backgroundColor: theme.colors.gray.l1,
     });
@@ -511,7 +499,6 @@ export class Scale
         justify: "left",
         align: "alphabetic",
         shade: 11,
-        color: staleness.drawnColor(this.state, theme),
         code: true,
         useAtlas: true,
       });

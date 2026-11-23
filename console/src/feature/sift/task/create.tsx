@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { MAKE } from "@/feature/sift/device/types";
+import { Device } from "@/feature/sift/device";
 import {
   STREAM_SCHEMAS,
   STREAM_TYPE,
@@ -29,7 +29,7 @@ const getStreamInitialValues: Task.GetInitialValues<StreamSchemas> = ({
 
 export const useCreateStream = Task.createUseCreate({
   getInitialValues: getStreamInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const StreamSelectable: Selector.Selectable = {

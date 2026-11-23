@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color as clientColor, log } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, id } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
@@ -50,7 +50,6 @@ describe("log/Base", () => {
     it("should send Aether a named channel color and its changes", async () => {
       const client = createTestClient();
       const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
-      await waitForStreamLive(client.connection);
       const created = await client.colors.create({
         name: `log-${id.create()}`,
         light: "#123456",

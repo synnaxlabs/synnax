@@ -149,7 +149,6 @@ describe("queries", () => {
         { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
       );
       await waitFor(() => expect(result.current.data?.[middle.key]).toEqual(first.key));
-      await waitForStreamLive(reader.connection);
       await client.ranges.dispatch(
         middle.key,
         ranger.set({ path: ["parent"], value: second.key }),
@@ -186,7 +185,6 @@ describe("queries", () => {
       );
       const keys = () => result.current.data?.map((r) => r.key).sort();
       await waitFor(() => expect(keys()).toEqual([middle.key, bottom.key].sort()));
-      await waitForStreamLive(reader.connection);
       await client.ranges.dispatch(
         moved.key,
         ranger.set({ path: ["parent"], value: bottom.key }),
@@ -756,7 +754,6 @@ describe("useLabels", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
   });
 
   const keysOf = (labels: label.Label[] | undefined) =>

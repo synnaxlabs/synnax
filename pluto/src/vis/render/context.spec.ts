@@ -11,7 +11,7 @@ import { box, type runtime, xy } from "@synnaxlabs/x";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { canvas } from "@/vis/canvas/aether";
 import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";

@@ -21,7 +21,12 @@ import z from "zod";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  MissingCredentialsError,
+  NotFoundError,
+} from "@/index";
 import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {
@@ -471,6 +476,39 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("reconciles records fetched before the first open", async () => {
+      let name = "stale";
+      const fetch = vi.fn(async (keys: string[]) => keys.map((key) => ({ key, name })));
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      expect(await table.retrieve(["k1"])).toEqual([{ key: "k1", name: "stale" }]);
+      name = "fresh";
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "fresh" });
+      expect(await table.retrieve(["k1"])).toEqual([{ key: "k1", name: "fresh" }]);
+      await cache.close();
+    });
+
+    it("refetches the keys of a fetch in flight when the stream opens", async () => {
+      let name = "stale";
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        const fetched = keys.map((key) => ({ key, name }));
+        if (fetch.mock.calls.length === 1) await released;
+        return fetched;
+      });
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      const retrieved = table.retrieve(["k1"]);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      name = "fresh";
+      await cache.ensureStreaming();
+      release();
+      await retrieved;
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "fresh" });
+      await cache.close();
+    });
+
     it("routes streamed changes into the table via a declared set listener", async () => {
       const schema = z.object({ key: z.string(), name: z.string() });
       const opener = async () =>
@@ -625,6 +663,63 @@ describe("Cache", () => {
         name: "deleted-on-server",
       });
       expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
+      await cache.close();
+    });
+  });
+
+  describe("missed changes", () => {
+    // Opens one MockStreamer and keeps the onMissed hook the cache handed it.
+    const missingOpener = () => {
+      const state: { opens: number; onMissed?: () => void } = { opens: 0 };
+      const opener: framer.StreamOpener = async (config) => {
+        state.opens++;
+        if (typeof config === "object" && "onMissed" in config)
+          state.onMissed = config.onMissed;
+        return new MockStreamer();
+      };
+      return { state, opener };
+    };
+
+    it("reconciles without reopening the stream", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      let name = "first";
+      const fetch = vi.fn(async (keys: string[]) => keys.map((key) => ({ key, name })));
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      const missed = vi.fn();
+      cache.onMissed(missed);
+      name = "fresh";
+      state.onMissed?.();
+      // The stream stays open, so the epoch holds.
+      expect(cache.epoch).toBe(1);
+      expect(missed).toHaveBeenCalledTimes(1);
+      await expect.poll(() => table.get("k")).toEqual({ key: "k", name: "fresh" });
+      expect(state.opens).toBe(1);
+      expect(cache.live).toBe(true);
+      await cache.close();
+    });
+
+    it("runs one more reconcile for misses during a reconcile", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      const gate = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        await gate.promise;
+        return keys.map((key) => ({ key, name: "fresh" }));
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      state.onMissed?.();
+      state.onMissed?.();
+      state.onMissed?.();
+      expect(cache.epoch).toBe(1);
+      gate.resolve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).toHaveBeenCalledTimes(2);
       await cache.close();
     });
   });
@@ -935,9 +1030,40 @@ describe("Cache", () => {
       detach();
       await cache.close();
     });
+
+    it("bumps the epoch and reconciles when a later demand reopens it", async () => {
+      let opens = 0;
+      const cache = makeEngine(
+        async (): Promise<framer.Streamer> => {
+          opens++;
+          if (opens === 1) return failingStreamer();
+          if (opens === 2) throw new Error("unreachable");
+          return new MockStreamer();
+        },
+        { maxRetries: 1 },
+      );
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, name: "b" })),
+      );
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      const epochs: number[] = [];
+      cache.onEpoch((epoch) => epochs.push(epoch));
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      await expect
+        .poll(async () => {
+          await cache.ensureStreaming();
+          return opens;
+        })
+        .toBe(3);
+      expect(epochs).toEqual([1, 2]);
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
+      expect(fetch).toHaveBeenCalledWith(["k1"]);
+      await cache.close();
+    });
   });
 
-  describe("reconciliation after reopen", () => {
+  describe("reconciliation", () => {
     it("leaves tables without a fetch untouched", async () => {
       const cache = makeReopeningEngine();
       const table = cache.createTable<string, Doc>({ name: "docs" });
@@ -1007,7 +1133,7 @@ describe("Cache", () => {
           throw new NotFoundError("Docs with keys [k17] not found");
         return batch.map((k) => ({ key: k, name: `${k}-fresh` }));
       });
-      const cache = makeReopeningEngine();
+      const cache = makeEngine();
       const table = cache.createTable<string, Doc>({ name: "docs", fetch });
       table.set(keys.map((k) => ({ key: k, name: "stale" })));
       await cache.ensureStreaming();
@@ -1047,14 +1173,8 @@ describe("Cache", () => {
 
     it("reports the failure when a probe rejects with a non-NotFound error", async () => {
       const onError = vi.fn();
-      let opens = 0;
       const cache = new query.Cache({
-        openStreamer: async (): Promise<framer.Streamer> => {
-          opens++;
-          if (opens === 1) return failingStreamer();
-          return new MockStreamer();
-        },
-        breaker: { baseInterval: TimeSpan.milliseconds(1) },
+        openStreamer: async () => new MockStreamer(),
         onError,
       });
       const fetch = vi.fn(async (keys: string[]): Promise<Doc[]> => {
@@ -1116,6 +1236,33 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
       expect(unreachable.get("u1")).toEqual({ key: "u1", name: "stale" });
       expect(disconnected.get("d1")).toEqual({ key: "d1", name: "stale" });
+      await cache.close();
+    });
+
+    it("stays silent when a fetch fails because the client logged out", async () => {
+      const onError = vi.fn();
+      const cache = new query.Cache({
+        openStreamer: async () => new MockStreamer(),
+        onError,
+      });
+      const loggedOut = cache.createTable<string, Doc>({
+        name: "loggedOut",
+        fetch: async () => {
+          throw new MissingCredentialsError();
+        },
+      });
+      const reachable = cache.createTable<string, Doc>({
+        name: "reachable",
+        fetch: async (keys) => keys.map((k) => ({ key: k, name: "fresh" })),
+      });
+      loggedOut.set("l1", { key: "l1", name: "stale" });
+      reachable.set("r1", { key: "r1", name: "stale" });
+      await cache.ensureStreaming();
+      await expect
+        .poll(() => reachable.get("r1"))
+        .toEqual({ key: "r1", name: "fresh" });
+      expect(onError).not.toHaveBeenCalled();
+      expect(loggedOut.get("l1")).toEqual({ key: "l1", name: "stale" });
       await cache.close();
     });
 
