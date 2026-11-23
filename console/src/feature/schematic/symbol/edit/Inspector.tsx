@@ -61,6 +61,8 @@ interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContex
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
+  /** own is what a look of the part itself gives it. */
+  own: Look[F] | undefined;
   onChange: (value: Look[F] | undefined) => void;
 }
 
@@ -81,6 +83,12 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         ? undefined
         : (Spec.effective({ looks }, undefined, field.field, at) as
             Look[F] | undefined),
+    own: Spec.effective(
+      { looks: looks.filter((l) => l.part === part) },
+      part,
+      field.field,
+      at,
+    ) as Look[F] | undefined,
     onChange: (v) =>
       set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
   };
@@ -195,19 +203,16 @@ const VisibleControl = (): ReactElement => {
 const BLINK: schematic.symbol.Blink = { period: TimeSpan.SECOND.nanoseconds };
 
 const BlinkControl = (): ReactElement => {
-  const { value, inherited, onChange, label } = useScope<"blink">("BlinkControl");
-  // The whole drawing blinks as one shape, so a part cannot stop it.
+  const { value, inherited, own, onChange, label } = useScope<"blink">("BlinkControl");
+  // The whole drawing blinks as one shape, so a part can stop only its own blink.
+  const locked = inherited != null && own == null;
   return (
     <Input.Checkbox
       aria-label={label}
       value={value != null}
       onChange={(on) => onChange(on ? BLINK : undefined)}
-      disabled={inherited != null}
-      tooltip={
-        inherited != null
-          ? "The whole drawing blinks, and this part with it."
-          : undefined
-      }
+      disabled={locked}
+      tooltip={locked ? "The whole drawing blinks, and this part with it." : undefined}
     />
   );
 };
@@ -245,7 +250,9 @@ const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "
 const RATE_BOUNDS: bounds.Bounds = { lower: 0, upper: Infinity };
 
 const MotionControl = (): ReactElement => {
-  const { value, inherited, onChange, label } = useScope<"motion">("MotionControl");
+  const { value, inherited, own, onChange, label } =
+    useScope<"motion">("MotionControl");
+  const locked = inherited != null && own == null;
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
   const handleKindChange = (kind: Loop | "none") => {
     if (kind === "none") return onChange(undefined);
@@ -266,11 +273,9 @@ const MotionControl = (): ReactElement => {
         <Select.Item
           itemKey="none"
           size="small"
-          disabled={inherited != null}
+          disabled={locked}
           tooltip={
-            inherited != null
-              ? "The whole drawing moves, and this part with it."
-              : undefined
+            locked ? "The whole drawing moves, and this part with it." : undefined
           }
         >
           None
