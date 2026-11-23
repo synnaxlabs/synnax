@@ -255,16 +255,24 @@ export const usePaintContext = (
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
   const resolve = Color.useResolve();
+  const enumerations = useEnumerations(spec);
+  if (enumerations == null) return undefined;
+  return {
+    resolve,
+    enumerations,
+    nodeColor: nodeColor == null ? undefined : color.construct(nodeColor),
+  };
+};
+
+// useEnumerations returns the enumerations of the states of spec by key, or undefined
+// while they load. An enumeration that fails to load is absent.
+const useEnumerations = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+): ReadonlyMap<enumeration.Key, enumeration.Enumeration> | undefined => {
   const keys = enumerationKeys(spec);
   const res = Enumeration.useResultMultiple(keys.length === 0 ? null : { keys });
   if (keys.length > 0 && res.variant === "loading") return undefined;
-  return {
-    resolve,
-    enumerations: new Map(
-      (res.variant === "success" ? res.data : []).map((e) => [e.key, e]),
-    ),
-    nodeColor: nodeColor == null ? undefined : color.construct(nodeColor),
-  };
+  return new Map((res.variant === "success" ? res.data : []).map((e) => [e.key, e]));
 };
 
 /**
@@ -275,13 +283,13 @@ export const useUnmatched = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   value: StateValue,
 ): boolean => {
-  const ctx = usePaintContext(spec);
-  if (spec == null || ctx == null || typeof value === "number") return false;
+  const enumerations = useEnumerations(spec);
+  if (spec == null || enumerations == null || typeof value === "number") return false;
   return spec.states.some((state) => {
     if (state.type !== "enumeration" || state.enumeration == null) return false;
     if (!value.has(state.key)) return false;
     const v = matched(state, value);
-    const entries = ctx.enumerations.get(state.enumeration)?.entries ?? [];
+    const entries = enumerations.get(state.enumeration)?.entries ?? [];
     return !entries.some((e) => e.value === v);
   });
 };
