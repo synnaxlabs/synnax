@@ -295,9 +295,8 @@ func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 // bodyMarker is the @go imex argument that marks a type another resource exports.
 const bodyMarker = "body"
 
-// decodesMarker is the `@go migrate` argument of a version's step that decodes an
-// opaque
-// payload, so the ladder passes it the decode options of an import.
+// decodesMarker is the @go migrate argument of a step that decodes an opaque payload.
+// The ladder passes that step the decode options of an import.
 const decodesMarker = "decodes"
 
 func (p *Plugin) generatePackage(
