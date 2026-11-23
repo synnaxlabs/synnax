@@ -45,12 +45,13 @@ var _ = Describe("Access", func() {
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
-			Fills: func(
+			AnnounceLinked: func(
 				ctx context.Context,
 				tx gorp.Tx,
+				w channel.Writer,
 				keys ...channel.Key,
-			) (map[channel.Key]channel.Fill, error) {
-				return svc.Fills(ctx, tx, keys...)
+			) error {
+				return svc.AnnounceOutputs(ctx, tx, w, keys...)
 			},
 		}))
 		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })
@@ -189,6 +190,55 @@ var _ = Describe("Access", func() {
 			})
 			_, ok := svc.BatchChecks(commit)(c.Key, 1<<40)
 			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("ChannelBatchChecks", func() {
+		It("Should check the announce of an output by its calculation and leave every "+
+			"other batch of the commit to its channel", func(ctx SpecContext) {
+			input := virtual(ctx, "announce_input")
+			output := virtual(ctx, "announce_output")
+			renamed := virtual(ctx, "announce_renamed")
+			c := calculation.Calculation{
+				Output:     output.Key(),
+				Expression: fmt.Sprintf("return %s * 2", input.Name),
+			}
+			commit := commitOf(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Create(ctx, &c); err != nil {
+					return err
+				}
+				return channels.NewWriter(tx).
+					Rename(ctx, renamed.Key(), "announce_renamed_2", false)
+			})
+			lookup := svc.ChannelBatchChecks(commit)
+			var announce, rename func(func(resource.ID) bool) bool
+			for _, b := range channels.Actions().Of(commit) {
+				check := MustBeOk(lookup(b.Key, b.Seq))
+				switch b.Key {
+				case output.Key():
+					announce = check
+				case renamed.Key():
+					rename = check
+				}
+			}
+			Expect(announce).ToNot(BeNil())
+			Expect(announce(except())).To(BeTrue())
+			Expect(announce(except(channel.ResourceID(input.Key())))).To(BeFalse())
+			Expect(rename).To(BeNil())
+		})
+
+		It("Should leave each batch of a commit with no announce to its channel", func(
+			ctx SpecContext,
+		) {
+			ch := virtual(ctx, "announce_none")
+			commit := commitOf(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).
+					Rename(ctx, ch.Key(), "announce_none_2", false)
+			})
+			batches := channels.Actions().Of(commit)
+			Expect(batches).To(HaveLen(1))
+			check := MustBeOk(svc.ChannelBatchChecks(commit)(ch.Key(), batches[0].Seq))
+			Expect(check).To(BeNil())
 		})
 	})
 

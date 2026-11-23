@@ -37,17 +37,6 @@ import (
 // LimitChecker returns an error when a count of external channels exceeds the limit.
 type LimitChecker = func(types.Uint20) error
 
-// Fill holds the expression and operations of the calculation that writes a channel. A
-// create action carries them for clients that read them from the channel.
-type Fill struct {
-	Expression string
-	Operations []Operation
-}
-
-// Filler returns the fill of each channel among keys that a calculation writes, as tx
-// sees them.
-type Filler = func(ctx context.Context, tx gorp.Tx, keys ...Key) (map[Key]Fill, error)
-
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
@@ -84,11 +73,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
-	// Fills fills the create action of a stored channel that a create links to a new
-	// index.
+	// AnnounceLinked announces through w, in tx, the fields of each stored channel
+	// among keys that a create links to a new index and that its create action does not
+	// hold.
 	//
-	// [OPTIONAL] - Defaults to filling nothing.
-	Fills Filler
+	// [OPTIONAL] - Defaults to announcing nothing.
+	AnnounceLinked func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
 	// Computes reports whether the holder of a use computes the channel, as a
 	// calculation computes the channel it writes. Declare never adopts a computed
 	// channel as a built-in.
@@ -122,7 +112,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
-	c.Fills = override.Nil(c.Fills, other.Fills)
+	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }

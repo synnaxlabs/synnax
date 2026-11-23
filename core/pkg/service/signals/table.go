@@ -65,14 +65,14 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Resource.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	SetCheck func(E) Check
+	SetCheck func(E) check
 	// DeleteChecks returns the lookup of the check of each entry that c deleted, by
 	// key.
 	// It runs once for each commit with deletes. A streamer sends a delete only to a
 	// subject that passes its check, in place of a check of Resource.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	DeleteChecks func(c gorp.Commit) func(key K) (Check, bool)
+	DeleteChecks func(c gorp.Commit) func(key K) (check, bool)
 	// SetDisabled is true when an action channel describes the sets of the table, so
 	// the table has no set channel.
 	//
@@ -172,9 +172,9 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	var (
 		sets         = telem.Series{DataType: telem.JSONT}
 		deletes      = telem.Series{DataType: f.del.DataType}
-		setChecks    map[string]Check
-		deleteChecks map[string]Check
-		deleteCheck  func(K) (Check, bool)
+		setChecks    map[string]check
+		deleteChecks map[string]check
+		deleteCheck  func(K) (check, bool)
 	)
 	for ch := range f.cfg.Changes(c) {
 		if ch.Kind == gorp.ChangeDelete {
@@ -185,7 +185,7 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 			}
 			if deleteCheck == nil {
 				deleteCheck = f.cfg.DeleteChecks(c)
-				deleteChecks = make(map[string]Check)
+				deleteChecks = make(map[string]check)
 			}
 			check, ok := deleteCheck(ch.Key)
 			if !ok {
@@ -228,7 +228,7 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 			continue
 		}
 		if setChecks == nil {
-			setChecks = make(map[string]Check)
+			setChecks = make(map[string]check)
 		}
 		setChecks[string(sample)] = f.cfg.SetCheck(ch.Value)
 	}
@@ -250,7 +250,7 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 	del := Record{Of: recordOf(unmarshalKeySample[K], f.cfg.Resource), Deleted: true}
 	if f.cfg.DeleteChecks != nil {
-		del.Check = func(sample []byte) (Check, error) {
+		del.Check = func(sample []byte) (check, error) {
 			return f.deleteChecks.get(sample)
 		}
 	}
@@ -258,7 +258,7 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 	if f.set != nil {
 		r := Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
 		if f.cfg.SetCheck != nil {
-			r.Check = func(sample []byte) (Check, error) {
+			r.Check = func(sample []byte) (check, error) {
 				return f.setChecks.get(sample)
 			}
 		}

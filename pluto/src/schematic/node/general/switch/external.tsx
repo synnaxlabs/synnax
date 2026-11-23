@@ -22,3 +22,5 @@ export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   Preview: Switch,
   zIndex: 4,
 };
+
+export { SYMBOL } from "@/schematic/node/general/switch/Primitive";

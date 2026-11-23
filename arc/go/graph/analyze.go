@@ -45,11 +45,11 @@ func resolveQualified(
 	if sym, err := scope.Resolve(ctx, name, symbol.IncludeInternal); err == nil {
 		return sym, nil
 	}
-	parts := strings.Split(name, ".")
-	if len(parts) == 1 {
+	head, tail, ok := strings.Cut(name, ".")
+	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	return scope.ResolveMember(ctx, parts, symbol.IncludeInternal)
+	return scope.ResolveMember(ctx, head, tail, symbol.IncludeInternal)
 }
 
 // Analyze compiles a visual graph into executable IR with type inference,

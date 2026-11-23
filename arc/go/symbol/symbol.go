@@ -655,27 +655,24 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
-// ResolveMember resolves parts[0], then each later part as a member of the symbol
-// before it. parts must not be empty. options apply to parts[0] only, so a module
-// member stays subject to export. Only a module has members: a later part of any other
-// symbol returns an UndefinedSymbolError.
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export. Only a
+// module head has members: any other head returns an UndefinedSymbolError.
 func (s *Symbol) ResolveMember(
 	ctx context.Context,
-	parts []string,
+	head, tail string,
 	options ...ResolveOption,
 ) (*Symbol, error) {
-	sym, err := s.Resolve(ctx, parts[0], options...)
-	for i := 1; err == nil && i < len(parts); i++ {
-		if sym.Kind != KindModule && sym.Kind != KindModuleAlias {
-			return nil, codes.SymbolUndefined.Mark(&UndefinedSymbolError{
-				ctx:   ctx,
-				Name:  strings.Join(parts[:i+1], "."),
-				scope: s,
-			})
-		}
-		sym, err = sym.Resolve(ctx, parts[i])
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
 	}
-	return sym, err
+	if sym.Kind != KindModule && sym.Kind != KindModuleAlias {
+		return nil, codes.SymbolUndefined.Mark(
+			&UndefinedSymbolError{ctx: ctx, Name: head + "." + tail, scope: s},
+		)
+	}
+	return sym.Resolve(ctx, tail)
 }
 
 // resolve does the actual lexical walk. origin is the scope the caller

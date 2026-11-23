@@ -1802,13 +1802,15 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	Describe("Calculation Updates", func() {
 		// openChanging opens a Service, used by the specs in place of c, whose compile
-		// of target reports a change of its lookups while changes is positive.
+		// of target reports a change of its lookups while changes is positive, and runs
+		// onChanged, when set, before it returns.
 		openChanging := func(
 			ctx context.Context,
 			retryDelay telem.TimeSpan,
 			target *atomic.Uint32,
 			changes *atomic.Int32,
 			changed chan struct{},
+			onChanged func(),
 		) *calculation.Service {
 			GinkgoHelper()
 			svc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
@@ -1827,6 +1829,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
 						changes.Add(-1) >= 0 {
 						changed <- struct{}{}
+						if onChanged != nil {
+							onChanged()
+						}
 						return compiler.Module{}, resolver.ErrLookupsChanged
 					}
 					return calcSvc.Compile(ctx, db, cfgs...)
@@ -1845,7 +1850,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				changes atomic.Int32
 				changed = make(chan struct{}, 10)
 			)
-			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+			changing := openChanging(ctx, retryDelay, &target, &changes, changed, nil)
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
@@ -1928,7 +1933,28 @@ var _ = Describe("Calculation", Ordered, func() {
 				changes atomic.Int32
 				changed = make(chan struct{}, 10)
 			)
-			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+			// The first compile deletes the channel before it returns, so each retry
+			// runs after the delete commits.
+			var (
+				calc      channel.Channel
+				deleteErr error
+				deleting  sync.Once
+			)
+			changing := openChanging(
+				ctx,
+				retryDelay,
+				&target,
+				&changes,
+				changed,
+				func() {
+					deleting.Do(func() {
+						deleteErr = dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return channelSvc.NewWriter(tx).
+								Delete(ctx, calc.Key(), false)
+						})
+					})
+				},
+			)
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
@@ -1937,7 +1963,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 			})).To(Succeed())
-			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			calc = MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
 				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
@@ -1947,9 +1973,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := changing.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			Expect(changed).To(Receive())
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Delete(ctx, calc.Key(), false)
-			})).To(Succeed())
+			Expect(deleteErr).ToNot(HaveOccurred())
 			// The retry finds no channel, so it compiles nothing.
 			Consistently(changed, 3*retryDelay.Duration()).ShouldNot(Receive())
 			Expect(rm.Close(ctx)).To(Succeed())
@@ -1964,7 +1988,14 @@ var _ = Describe("Calculation", Ordered, func() {
 					changes atomic.Int32
 					changed = make(chan struct{}, 10)
 				)
-				changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+				changing := openChanging(
+					ctx,
+					retryDelay,
+					&target,
+					&changes,
+					changed,
+					nil,
+				)
 				bases := []channel.Channel{{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
@@ -2094,7 +2125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				changes atomic.Int32
 				changed = make(chan struct{}, 10)
 			)
-			retrying := openChanging(ctx, retryDelay, &target, &changes, changed)
+			retrying := openChanging(ctx, retryDelay, &target, &changes, changed, nil)
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,

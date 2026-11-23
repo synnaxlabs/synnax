@@ -11,7 +11,12 @@
 
 package v1
 
-import v0 "github.com/synnaxlabs/arc/types/versions/v0"
+import (
+	"strconv"
+
+	v0 "github.com/synnaxlabs/arc/types/versions/v0"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
@@ -92,6 +97,19 @@ type FunctionProperties struct {
 	Outputs Params `json:"outputs" msgpack:"outputs"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FunctionProperties) Validate() error {
+	v := validate.New("FunctionProperties")
+	for i := range f.Inputs {
+		v.Exec(func() error { return validate.PathedError(f.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range f.Outputs {
+		v.Exec(func() error { return validate.PathedError(f.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
 type Type struct {
@@ -110,6 +128,22 @@ type Type struct {
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Type) Validate() error {
+	v := validate.New("Type")
+	v.Ternaryf("kind", !t.Kind.IsValid(), "invalid kind: %v", t.Kind)
+	v.Ternaryf("chan_direction", !t.ChanDirection.IsValid(), "invalid chan_direction: %v", t.ChanDirection)
+	v.Exec(t.FunctionProperties.Validate)
+	if t.Elem != nil {
+		v.Exec(func() error { return validate.PathedError(t.Elem.Validate(), "elem") })
+	}
+	if t.Constraint != nil {
+		v.Exec(func() error { return validate.PathedError(t.Constraint.Validate(), "constraint") })
+	}
+	return v.Error()
+}
+
 // Param is a named, typed parameter with optional default value.
 type Param struct {
 	// Name is the parameter name.
@@ -118,6 +152,14 @@ type Param struct {
 	Type Type `json:"type" msgpack:"type"`
 	// Value is an optional default value.
 	Value any `json:"value" msgpack:"value"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Param) Validate() error {
+	v := validate.New("Param")
+	v.Exec(func() error { return validate.PathedError(p.Type.Validate(), "type") })
+	return v.Error()
 }
 
 // Params is a collection of named, typed parameters for function inputs or outputs.

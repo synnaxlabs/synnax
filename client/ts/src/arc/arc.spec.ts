@@ -70,7 +70,6 @@ describe("arc", () => {
     it("should store a module's compile status under its status key", async () => {
       // The Core writes the status after the create commits, and the cached answer
       // reaches it through the change stream.
-      await waitForStreamLive(client.connection);
       const created = await client.arcs.create({
         name: `status_module_${id.create()}`,
         type: "module",
@@ -432,7 +431,6 @@ describe("arc", () => {
 
     it("renames the arc and its task", async () => {
       const fresh = createTestClient();
-      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
       const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
@@ -493,10 +491,9 @@ describe("arc", () => {
   describe("task sync", () => {
     // The writing client's task cache still holds the pre-dispatch copy, so assertions
     // read through a fresh client to reach the Core. That client learns of a rewrite
-    // through the task set signal, so its stream must be live first.
+    // through the task set signal.
     it("rewrites the task config when a dispatch changes the content", async () => {
       const fresh = createTestClient();
-      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`sync-${id.create()}`));
       const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
@@ -513,7 +510,6 @@ describe("arc", () => {
 
     it("restores the deployed config when an edit is undone", async () => {
       const fresh = createTestClient();
-      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`undo-${id.create()}`));
       const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });

@@ -18,13 +18,7 @@ import { compare, id, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
-import {
-  BROWSE_DURATION,
-  browseTopics,
-  type KeyedTopic,
-  LISTENING,
-} from "@/feature/mqtt/device/browse";
-import type { Device } from "@/feature/mqtt/device/types";
+import { Device } from "@/feature/mqtt/device";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
@@ -49,7 +43,7 @@ const toFilter = (scope: string): string => {
 };
 
 /** A browsed topic with the fields its payload offers, parsed once per listen. */
-interface ListedTopic extends KeyedTopic {
+interface ListedTopic extends Device.KeyedTopic {
   leaves: Leaf[];
 }
 
@@ -278,7 +272,7 @@ const SKELETON: ICD.Picker.SkeletonItem[] = [
 ];
 
 export interface TopicPickerProps {
-  device: Device;
+  device: Device.Device;
   /** What the task holds now. */
   entries: HeldEntry[];
   /** Each topic takes one value, and a topic that the task holds takes none. */
@@ -303,7 +297,7 @@ export const TopicPicker = ({
   const [selected, setSelected] = useState<string | null>(null);
   const { result, listen } = ICD.Picker.useListen<Listing>(
     async (client) => {
-      const r = await browseTopics(client, device, toFilter(scope));
+      const r = await Device.browseTopics(client, device, toFilter(scope));
       const topics = r.topics
         // Sparkplug B payloads are not JSON. They have a tab of their own.
         .filter((t) => !isSparkplugTopic(t.topic))
@@ -369,7 +363,7 @@ export const TopicPicker = ({
 
   const loading = result.variant === "loading";
   let statusText = pluralize("topic", topics.length, true);
-  if (loading) statusText = LISTENING;
+  if (loading) statusText = Device.LISTENING;
   else if (listing?.truncated === true) statusText += ", list is full";
 
   let pane: ReactNode;
@@ -395,7 +389,7 @@ export const TopicPicker = ({
   return (
     <>
       <ICD.Picker.Status
-        duration={BROWSE_DURATION}
+        duration={Device.BROWSE_DURATION}
         status={statusText}
         loading={loading}
         onListen={listen}
