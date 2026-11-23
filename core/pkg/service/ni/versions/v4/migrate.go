@@ -190,17 +190,11 @@ func MigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, error) 
 	}
 	switch o := old.Variant.(type) {
 	case v3.CIFrequencyChannel:
-		n, ok := ch.Variant.(CIFrequencyChannel)
-		if !ok {
-			return CIChannel{}, errVariantChanged(o.Key, ch.Variant)
-		}
+		n := as[CIFrequencyChannel](ch.Variant)
 		n.MeasTime = migrateMeasTime(o.MeasTime, 6*telem.Microsecond)
 		ch.Variant = n
 	case v3.CIPeriodChannel:
-		n, ok := ch.Variant.(CIPeriodChannel)
-		if !ok {
-			return CIChannel{}, errVariantChanged(o.Key, ch.Variant)
-		}
+		n := as[CIPeriodChannel](ch.Variant)
 		n.MeasTime = migrateMeasTime(o.MeasTime, telem.Millisecond)
 		ch.Variant = n
 	}
