@@ -27,7 +27,9 @@ const renderOpen = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   store.dispatch(Session.Project.select(proj.key));
   const analytics = createTestSink();
-  const { result } = renderHook(Open.use, { wrapper: wrapWithSink(wrapper, analytics) });
+  const { result } = renderHook(Open.use, {
+    wrapper: wrapWithSink(wrapper, analytics),
+  });
   const open = (ch: channel.Channel) =>
     act(() => result.current(createResource(channel.resourceID(ch.key), ch.name)));
   return { open, analytics };
