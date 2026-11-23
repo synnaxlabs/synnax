@@ -395,7 +395,9 @@ describe("resolveParams with Synnax Desktop", () => {
           readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
           run: real.run,
         };
-        expect(await env.resolveParams({}, {}, system).loadAPIKey?.()).toEqual("syk_real");
+        expect(await env.resolveParams({}, {}, system).loadAPIKey?.()).toEqual(
+          "syk_real",
+        );
       }));
 
     it("should resolve null for a helper that is not there", async () =>
