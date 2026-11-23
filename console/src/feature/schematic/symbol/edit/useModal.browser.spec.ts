@@ -448,7 +448,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("gives an overriding part the paint of the whole drawing on Drawing", async () => {
+    it("gives an overriding part the paint of the whole drawing back", async () => {
       const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
       const { symbol, fill } = await openPainted({
         states: [createState()],
