@@ -11,7 +11,7 @@ import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { calculation } from "@/calculation";
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { PathError } from "@/errors";
 import { createTestClient, spyOnSend } from "@/testutil";
 
