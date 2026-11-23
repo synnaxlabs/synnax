@@ -39,10 +39,7 @@ type ServiceConfig struct {
 	OIDC *oidc.Service
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	defaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -67,7 +64,7 @@ type Service struct {
 
 // NewService opens a new OIDC API service.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(defaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
