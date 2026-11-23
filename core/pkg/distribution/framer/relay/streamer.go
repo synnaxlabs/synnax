@@ -152,7 +152,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		sub, disconnect := s.relay.connectToDelta(s.accepts)
+		sub, disconnect := s.relay.connectToDelta(s.accepts, s.missedRequested)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -169,11 +169,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
-		missed := sub.missed
-		if !s.missedRequested {
-			missed = nil
-		}
-		return s.forward(ctx, sub, missed)
+		return s.forward(ctx, sub)
 	}, o.Signal...)
 }
 
@@ -212,9 +208,8 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 func (s *streamer) forward(
 	ctx context.Context,
 	sub *subscriber,
-	missed <-chan struct{},
 ) error {
-	responses := sub.responses
+	responses, missed := sub.responses, sub.missed
 	// pendingAcks holds the ack channels of key updates the tapper has not applied
 	// yet. The tapper applies demands in order, so the head always closes first.
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing

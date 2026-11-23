@@ -165,12 +165,18 @@ func (r *Relay) Close() error {
 
 func (r *Relay) connectToDelta(
 	accepts func(Response) bool,
+	missedRequested bool,
 ) (*subscriber, observe.Disconnect) {
 	s := &subscriber{
-		responses: make(chan Response, r.cfg.StreamerBufferSize),
-		missed:    make(chan struct{}, 1),
-		accepts:   accepts,
-		addr:      address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String()),
+		responses:       make(chan Response, r.cfg.StreamerBufferSize),
+		missed:          make(chan struct{}, 1),
+		accepts:         accepts,
+		missedRequested: missedRequested,
+		addr: address.Newf(
+			"%s_%s",
+			r.ins.Meta.Path,
+			address.Rand().String(),
+		),
 	}
 	r.delta.connections <- s
 	return s, func() {

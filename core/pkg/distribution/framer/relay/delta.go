@@ -29,10 +29,11 @@ type subscriber struct {
 	// accepts reports whether the streamer wants a response. It runs on the delta's
 	// goroutine, so it must be safe to call concurrently with the streamer.
 	accepts func(Response) bool
-	// missed receives a value for each dropped response. It holds one value, so drops
-	// that the streamer has not seen yet share one value.
-	missed chan struct{}
-	addr   address.Address
+	// missed receives a value for each dropped response when missedRequested is true.
+	// It holds one value, so drops that the streamer has not seen yet share one value.
+	missed          chan struct{}
+	missedRequested bool
+	addr            address.Address
 	// dropping is true from the first dropped response until the buffer empties.
 	dropping bool
 	// mu guards missedRanges and orders the signal of a drop after its ranges.
@@ -138,7 +139,9 @@ func (d *delta) send(res Response) {
 		select {
 		case s.responses <- res:
 		default:
-			s.recordDrop(res)
+			if s.missedRequested {
+				s.recordDrop(res)
+			}
 			if !s.dropping {
 				s.dropping = true
 				d.ins.L.Warn(fmt.Sprintf(
