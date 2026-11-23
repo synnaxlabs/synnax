@@ -451,6 +451,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, fill: screen.getByLabelText("Fill") };
     };
 
+    it("shows the paint that the whole drawing gives a part with none", async () => {
+      const { fill } = await openPainted({
+        looks: [{ key: "node", fill: { type: "node" } }],
+      });
+      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+    });
+
     it("saves the state color and shows the default entry where no entry matches", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
