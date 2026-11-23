@@ -183,9 +183,10 @@ interface Space {
 const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
   const m = new DOMMatrix();
   if (el === drawing) return m;
-  for (let a = el.parentElement; a != null && a !== drawing; a = a.parentElement) {
+  for (let a: Element | null = el.parentElement; a != null && a !== drawing;) {
     const t = rest.get(a);
     if (t != null) m.preMultiplySelf(t);
+    a = a.parentElement;
   }
   return m;
 };
