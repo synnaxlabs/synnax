@@ -188,3 +188,22 @@ func BenchmarkApply(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkWritten measures a read of the channels that calculations write, which must
+// not decode the calculations.
+func BenchmarkWritten(b *testing.B) {
+	for _, count := range []int{20, 1000} {
+		b.Run(fmt.Sprintf("calculations=%d", count), func(b *testing.B) {
+			svc, db := benchServices(b)
+			createOutputs(b, svc, db, count)
+			runtime.GC()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				if _, err := svc.Written(b.Context(), db); err != nil {
+					b.Fatalf("failed to read the written channels: %v", err)
+				}
+			}
+		})
+	}
+}
