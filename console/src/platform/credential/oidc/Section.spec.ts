@@ -10,7 +10,6 @@
 import {
   type auth,
   connection,
-  rack,
   type resource,
   type Synnax,
   user,
@@ -24,8 +23,8 @@ import {
 import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createElement, type FC, type PropsWithChildren } from "react";
 import {
   afterEach,
   beforeEach,
@@ -38,7 +37,7 @@ import {
 
 const runtime = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, runtime);
 });
@@ -49,14 +48,14 @@ import {
   pointAtOIDC,
   serveOIDC,
   type ServeOIDCParams,
-} from "@/platform/core/authServer";
-import { Credential } from "@/platform/credential";
-import { findButton, openModal } from "@/platform/modals/testutil";
+} from "@/platform/core/server/testutil";
+import { OIDC } from "@/platform/credential/oidc";
+import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
   CaptureStatuses,
-  type CreateConsoleWrapperParams,
+  createConsoleWrapper,
   createStatusConsoleWrapper,
   disableActEnvironment,
   getIconButton,
@@ -98,18 +97,32 @@ const open = async (params?: ServeOIDCParams) => {
   return { client, server };
 };
 
-// the accepted methods hide the section until the methods answer arrives
-const serveAnswered = async (params: ServeOIDCParams) => {
-  let served!: () => void;
-  const answered = new Promise<void>((resolve) => (served = resolve));
-  const { client } = await open({ ...params, onServed: () => served() });
-  return { client, answered };
+// The modal around the section needs a browser, which cannot start a local server.
+const renderSection = (
+  wrapper: FC<PropsWithChildren>,
+  subject: resource.ID,
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void,
+) => {
+  const onMessage = vi.fn<(message: string | null) => void>();
+  render(
+    createElement(
+      wrapper,
+      null,
+      createElement(OIDC.Section, { subject, onMessage }),
+      onStatuses != null && createElement(CaptureStatuses, { onStatuses }),
+    ),
+  );
+  return onMessage;
 };
 
-// a local server cannot hold the streams a connected client opens
-const createWrapper = async (params: CreateConsoleWrapperParams) =>
-  await createStatusConsoleWrapper({
-    ...params,
+const renderLocal = async (
+  client: Synnax,
+  subject: resource.ID,
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void,
+) => {
+  // a local server cannot hold the streams a connected client opens
+  const { wrapper } = await createStatusConsoleWrapper({
+    client,
     status: connection.DEFAULT_STATUS,
     preloadedState: {
       [Session.Core.SLICE_NAME]: {
@@ -119,17 +132,8 @@ const createWrapper = async (params: CreateConsoleWrapperParams) =>
       },
     },
   });
-
-const openLocal = async (client: Synnax, subject: resource.ID, extra?: ReactNode) =>
-  await openModal(Credential.useModal, {
-    client,
-    params: { subject },
-    extra,
-    createWrapper,
-  });
-
-const expectNoSection = async (): Promise<void> =>
-  await expectAlways(() => expect(screen.queryByText("Provider accounts")).toBeNull());
+  return renderSection(wrapper, subject, onStatuses);
+};
 
 describe("OIDC section", () => {
   // jsdom serves no secure context; a provider link needs one
@@ -146,45 +150,31 @@ describe("OIDC section", () => {
     runtime.engine = "web";
   });
 
-  it("should hide when the Core does not accept OIDC", async () => {
-    const { client, answered } = await serveAnswered({ methods: ["password"] });
-    await openLocal(client, LOCAL_SUBJECT);
-    await answered;
-    await expectNoSection();
-  });
-
-  it("should hide for a rack", async () => {
-    const { client, answered } = await serveAnswered({});
-    await openLocal(client, rack.resourceID(1));
-    await answered;
-    await expectNoSection();
-  });
-
   it("should list the links and offer the providers left to link", async () => {
     const { client } = await open({
       providers: [PROVIDER, OTHER_PROVIDER],
       links: [createLink(LOCAL_SUBJECT)],
     });
-    await openLocal(client, LOCAL_SUBJECT);
+    await renderLocal(client, LOCAL_SUBJECT);
     await screen.findByText("ada@example.com");
-    expect(screen.getByText(PROVIDER.provider)).toBeTruthy();
+    await screen.findByText(PROVIDER.provider);
     await screen.findByText(`Link ${OTHER_PROVIDER.provider}`);
     expect(screen.queryByText(`Link ${PROVIDER.provider}`)).toBeNull();
   });
 
   it("should unlink the caller's own account", async () => {
     const { client, server } = await open({ links: [createLink(LOCAL_SUBJECT)] });
-    await openLocal(client, LOCAL_SUBJECT);
+    const onMessage = await renderLocal(client, LOCAL_SUBJECT);
     await screen.findByText("ada@example.com");
     fireEvent.click(getIconButton(document.body, "delete"));
     await screen.findByText("No linked accounts");
     expect(server.links).toEqual([]);
-    expect(await screen.findByText("Successfully unlinked account")).toBeTruthy();
+    expect(onMessage).toHaveBeenLastCalledWith("Successfully unlinked account");
   });
 
   it("should mark a browser Link as a link for the Core it started on", async () => {
     const { client } = await open({ providers: [PROVIDER] });
-    await openLocal(client, LOCAL_SUBJECT);
+    await renderLocal(client, LOCAL_SUBJECT);
     fireEvent.click(await screen.findByText(`Link ${PROVIDER.provider}`));
     onTestFinished(() => sessionStorage.clear());
     await waitFor(() =>
@@ -199,8 +189,9 @@ describe("OIDC section", () => {
       providers: [PROVIDER, OTHER_PROVIDER],
       links: [createLink(OTHER_USER)],
     });
-    await openLocal(client, OTHER_USER);
+    await renderLocal(client, OTHER_USER);
     await screen.findByText("ada@example.com");
+    await screen.findByText(PROVIDER.provider);
     await expectAlways(() =>
       expect(screen.queryByText(`Link ${OTHER_PROVIDER.provider}`)).toBeNull(),
     );
@@ -214,7 +205,8 @@ describe("OIDC section", () => {
       const subject = user.resourceID(other.key);
       const server = await serveOIDC({ links: [createLink(subject)] });
       pointAtOIDC(client, server);
-      await openModal(Credential.useModal, { client, params: { subject } });
+      const { wrapper } = await createConsoleWrapper({ client });
+      renderSection(wrapper, subject);
       await screen.findByText("ada@example.com");
       return server;
     };
@@ -253,27 +245,23 @@ describe("OIDC section", () => {
 
     const clickLink = async (server: OIDCServer, client: Synnax) => {
       let statuses: Status.NotificationSpec[] = [];
-      await openLocal(
-        client,
-        LOCAL_SUBJECT,
-        createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
-      );
+      const onMessage = await renderLocal(client, LOCAL_SUBJECT, (s) => (statuses = s));
       await screen.findByText(`Link ${PROVIDER.provider}`);
       fireEvent.click(findButton(`Link ${PROVIDER.provider}`));
       await waitFor(() => expect(server.linked).toHaveLength(1));
-      return () => statuses.map((s) => s.message);
+      return { onMessage, messages: () => statuses.map((s) => s.message) };
     };
 
     it("should link the account over the loopback redirect", async () => {
       const { client, server } = await open({ providers: [PROVIDER] });
-      await clickLink(server, client);
+      const { onMessage } = await clickLink(server, client);
       await screen.findByText("new-account");
       expect(server.linked[0]).toMatchObject({
         provider: PROVIDER.provider,
         code: "abc",
         redirect_uri: "http://127.0.0.1:4242/callback",
       });
-      expect(await screen.findByText("Successfully linked account")).toBeTruthy();
+      expect(onMessage).toHaveBeenLastCalledWith("Successfully linked account");
     });
 
     it("should report a link the Core refuses", async () => {
@@ -281,9 +269,9 @@ describe("OIDC section", () => {
         providers: [PROVIDER],
         linkRefused: true,
       });
-      const statuses = await clickLink(server, client);
+      const { messages } = await clickLink(server, client);
       await waitFor(() =>
-        expect(statuses()).toContain("Failed to link provider account"),
+        expect(messages()).toContain("Failed to link provider account"),
       );
     });
   });

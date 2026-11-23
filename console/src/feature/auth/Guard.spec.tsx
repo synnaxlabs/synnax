@@ -40,7 +40,11 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
-import { LOCAL_SUBJECT, type OIDCServer, serveOIDC } from "@/platform/core/authServer";
+import {
+  LOCAL_SUBJECT,
+  type OIDCServer,
+  serveOIDC,
+} from "@/platform/core/server/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {

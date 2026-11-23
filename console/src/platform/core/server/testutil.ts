@@ -46,21 +46,13 @@ const listen = async (listener: RequestListener): Promise<LocalAddress> => {
   return { host: "127.0.0.1", port: (server.address() as AddressInfo).port };
 };
 
-/**
- * Starts a local server that answers the methods request, because no test Core turns
- * passwords off or accepts a provider. The Console asks once for the methods and again
- * for the providers; null providers fail that second request. A token opens a session
- * for any code, and without one the server rejects every code.
- * @returns The address of the server, which closes when the test finishes.
- */
+/** What a local auth server holds and how it answers. */
 export interface ServeOIDCParams {
   methods?: string[];
   providers?: auth.OIDCLogin[];
   links?: auth.oidc.Link[];
   /** Refuses every link, as for an account that already has one. */
   linkRefused?: boolean;
-  /** Called after each methods answer. */
-  onServed?: () => void;
 }
 
 export interface OIDCServer {
@@ -81,7 +73,6 @@ export const serveOIDC = async ({
   providers = [],
   links = [],
   linkRefused = false,
-  onServed,
 }: ServeOIDCParams = {}): Promise<OIDCServer> => {
   const state = { links: [...links], linked: [] as unknown[] };
   const answer = (path: string, body: string): { status?: number; body: unknown } => {
@@ -90,6 +81,7 @@ export const serveOIDC = async ({
       return { body: { token: "sys_local", session: SESSION } };
     if (path.endsWith("/auth/session/retrieve"))
       return { body: { sessions: [SESSION] } };
+    if (path.endsWith("/auth/session/delete")) return { body: {} };
     if (path.endsWith("/auth/oidc/retrieve")) return { body: { links: state.links } };
     if (path.endsWith("/auth/oidc/unlink")) {
       const { keys } = JSON.parse(body) as { keys: string[] };
@@ -124,9 +116,7 @@ export const serveOIDC = async ({
       const { status = 200, body } = answer(path, Buffer.concat(chunks).toString());
       res.statusCode = status;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(body), () => {
-        if (path.endsWith("/auth/methods")) onServed?.();
-      });
+      res.end(JSON.stringify(body));
     });
   });
   return {

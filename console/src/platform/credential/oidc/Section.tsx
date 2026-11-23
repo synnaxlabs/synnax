@@ -52,7 +52,7 @@ interface ListProps {
   subject: resource.ID;
   providers: auth.OIDCLogin[];
   linking: boolean;
-  onLink: (login: auth.OIDCLogin) => void;
+  onLink?: (login: auth.OIDCLogin) => void;
   onUnlink?: (key: auth.oidc.LinkKey) => void;
 }
 
@@ -67,6 +67,7 @@ const List = ({
   const unlinked = providers.filter(
     ({ issuer }) => links.data?.every((l) => l.issuer !== issuer) === true,
   );
+  const offered = onLink != null && unlinked.length > 0;
   // a link whose provider left the Core's settings shows its issuer
   const labelOf = ({ issuer }: auth.oidc.Link): string =>
     providers.find((p) => p.issuer === issuer)?.provider ?? issuer;
@@ -85,14 +86,15 @@ const List = ({
           </Text.Text>
         )}
       </Flex.Box>
-      {unlinked.length > 0 && !window.isSecureContext && (
+      {offered && !window.isSecureContext && (
         <Status.Summary
           variant="warning"
           message="Linking an account needs HTTPS"
           description="The browser can only reach a provider on a page served over HTTPS. Open the Console over HTTPS, or use the desktop Console."
         />
       )}
-      {window.isSecureContext &&
+      {offered &&
+        window.isSecureContext &&
         unlinked.map((login) => (
           <Button.Button
             key={login.provider}
@@ -125,7 +127,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
   // The Core links a proven account to the caller alone.
   const own = client?.auth.subject?.key === subject.key;
   const canUnlink = Access.useDeleteGranted(subject) || own;
-  const providers = Core.useProviders(client?.params, own) ?? [];
+  const providers = Core.useProviders(client?.params, true) ?? [];
   const selectedCore = Session.Core.useSelectSelectedKey();
   const query = { subject };
   const invalidate = Credential.OIDC.useInvalidate();
@@ -180,7 +182,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
         subject={subject}
         providers={providers}
         linking={linking}
-        onLink={handleLink}
+        onLink={own ? handleLink : undefined}
         onUnlink={canUnlink ? handleUnlink : undefined}
       />
     </Flex.Box>

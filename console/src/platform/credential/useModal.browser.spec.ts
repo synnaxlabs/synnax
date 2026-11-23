@@ -15,7 +15,7 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
-import { uniqueName } from "@synnaxlabs/x/testutil";
+import { expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -270,6 +270,30 @@ describe("useModal", () => {
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
+  });
+
+  it("should hide provider accounts when the Core rejects OIDC", async () => {
+    answerMethods(["password", "api_key"]);
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    // the password form shows once the methods answer arrives
+    await screen.findByPlaceholderText("Password");
+    expect(screen.queryByText("Provider accounts")).toBeNull();
+  });
+
+  it("should hide provider accounts for a rack", async () => {
+    answerMethods(["password", "api_key", "oidc"]);
+    const client = createTestClient();
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const id = rack.resourceID(r.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    await expectAlways(() =>
+      expect(screen.queryByText("Provider accounts")).toBeNull(),
+    );
   });
 
   it("should hide the username from a viewer who may not update the user", async () => {
