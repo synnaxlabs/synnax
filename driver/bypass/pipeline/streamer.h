@@ -131,11 +131,12 @@ public:
 private:
     void run_core(x::errors::Error err) {
         if (this->core != nullptr) err = this->read_core();
-        while (synnax::errors::is_unreachable(err) && this->breaker.running() &&
-               this->breaker.wait_unlimited(err))
+        while (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
+               this->breaker.running() && this->breaker.wait_unlimited(err))
             err = this->stream_core();
         // A close_send() that ends the wait for the Core is not a Core failure.
-        if (!this->breaker.running() && synnax::errors::is_unreachable(err))
+        if (!this->breaker.running() &&
+            synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT)
             err = freighter::STREAM_CLOSED;
         {
             std::lock_guard lock(this->server_mu);
@@ -207,13 +208,14 @@ public:
     /// unreachable, returns the streamer anyway, and the streamer reopens its Core half
     /// in the background. Sink::opened() then means only that bus frames reach the
     /// sink. Core frames reach it once the Core half opens.
-    /// @returns any Core open error other than an unreachable Core.
+    /// @returns any Core open error that is not transient.
     std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
         if (this->subject.group != 0)
             config.exclude_groups.push_back(this->subject.group);
         auto [core, open_err] = this->server->open_streamer(config);
-        if (open_err && !synnax::errors::is_unreachable(open_err))
+        if (open_err &&
+            synnax::errors::classify(open_err) != synnax::errors::Kind::TRANSIENT)
             return {nullptr, open_err};
         auto subscription = this->bus->subscribe(config.channels);
         VLOG(1) << "[bus.streamer_factory] opened streamer for "

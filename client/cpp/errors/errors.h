@@ -30,22 +30,6 @@ const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");
 /// @brief the Core refuses requests because its license has expired.
 const x::errors::Error LICENSE_EXPIRED = LICENSE.sub("expired");
 
-/// @brief whether the Core is unreachable or did not answer in time.
-/// @param err the error a request to the Core returned.
-inline bool is_unreachable(const x::errors::Error &err) {
-    return err.matches(freighter::UNREACHABLE) || err.matches(freighter::TIMEOUT);
-}
-
-/// @brief whether the Core is unreachable, did not answer in time, or refuses requests
-/// until a license is activated. These clear without a restart, so the caller can wait
-/// and retry.
-/// @param err the error a request to the Core returned.
-/// @returns true if the caller should wait and retry, false if the error is permanent.
-inline bool is_temporarily_unavailable(const x::errors::Error &err) {
-    return is_unreachable(err) || err.matches(LICENSE_MISSING) ||
-           err.matches(LICENSE_EXPIRED);
-}
-
 /// @brief how a caller handles an error from the Core.
 enum class Kind {
     /// @brief the Core or the path to it fails for now. Wait, then retry. A timeout or

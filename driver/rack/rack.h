@@ -85,6 +85,18 @@ struct RemoteInfo {
     }
 };
 
+/// @brief how the Driver retries a transient Core error.
+struct RetryConfig {
+    /// @brief the number of times the Driver retries a transient Core error before its
+    /// first run. It then exits. After the first run, it retries with no limit.
+    int startup_retries = 200;
+
+    template<typename Parser>
+    void override(Parser &p) {
+        this->startup_retries = p.field("startup_retries", this->startup_retries);
+    }
+};
+
 /// @brief returns the integrations that this platform's build adds to the ones every
 /// build has. Each platform defines it in its own source.
 std::vector<std::string> platform_integrations();
@@ -128,6 +140,8 @@ struct Config {
     common::TimingConfig timing;
     /// @brief configuration for the task manager.
     task::ManagerConfig manager;
+    /// @brief how the Driver retries a transient Core error.
+    RetryConfig retry;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
@@ -333,26 +347,27 @@ class Rack {
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
-    /// the exit. While reconnecting, it waits for an unreachable Core with no limit.
+    /// the exit. Waits for a transient error at most retries times, or with no limit
+    /// for x::breaker::RETRY_INFINITELY.
     bool should_exit(
         const x::errors::Error &err,
         const std::function<void()> &on_shutdown,
-        bool reconnecting = false
+        int retries = x::breaker::RETRY_INFINITELY
     );
 
     /// @brief starts the main loop for the rack.
     void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
-    /// @brief creates a rack that backs off from Core errors with breaker_config. After
-    /// its first run, it waits for an unreachable Core with no retry limit. It waits
-    /// for any other temporarily unavailable error within max_retries.
+    /// @brief creates a rack that backs off from transient Core errors with
+    /// breaker_config. Before its first run, it also stops waiting after the
+    /// startup_retries of its config.
     explicit Rack(
         const x::breaker::Config &breaker_config =
             {
                 .name = "driver",
                 .base_interval = x::telem::SECOND,
-                .max_retries = 200,
+                .max_retries = x::breaker::RETRY_INFINITELY,
                 .scale = 1.1f,
                 .max_interval = x::telem::MINUTE,
             }
