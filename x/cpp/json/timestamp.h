@@ -28,4 +28,9 @@ std::pair<telem::TimeStamp, errors::Error> parse_iso8601(std::string &text);
 /// @returns VALIDATION when text is not a number, or is past the range of a timestamp.
 std::pair<telem::TimeStamp, errors::Error>
 parse_unix(std::string_view text, TimeFormat format);
+
+/// @brief appends JSON text to out: ts in format. ISO8601 writes an RFC 3339 string in
+/// UTC with the shortest fraction of a second, and a Unix format writes a number with
+/// every digit of ts.
+void append_timestamp(telem::TimeStamp ts, TimeFormat format, std::string &out);
 }

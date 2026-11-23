@@ -369,4 +369,227 @@ TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     ASSERT_FALSE(states.is_authorized(2, ARC));
 }
+
+namespace {
+/// @brief returns a frame of one sample on channel 1.
+x::telem::Frame sample(const double v) {
+    return x::telem::Frame(1, x::telem::Series(v));
+}
+}
+
+/// @brief it should publish nothing while a hold lasts, then publish the held frames
+/// of a subject with authority in order, and drop the held frames of one without it.
+TEST(StatesTest, HoldPublishesHeldFramesAfterSet) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.hold();
+    states.route(sample(1), ARC, publish);
+    states.route(sample(2), OPERATOR, publish);
+    states.route(sample(3), ARC, publish);
+    ASSERT_TRUE(published.empty());
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    ASSERT_EQ(published, (std::vector<double>{1, 3}));
+    states.route(sample(4), ARC, publish);
+    states.route(sample(5), OPERATOR, publish);
+    ASSERT_EQ(published, (std::vector<double>{1, 3, 4}));
+}
+
+/// @brief it should publish the held frames filtered against the last mirror when the
+/// read of a hold fails, and keep the bus open with that mirror.
+TEST(StatesTest, ReleaseFiltersHeldAgainstTheLastMirror) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    states.hold();
+    states.route(sample(1), ARC, publish);
+    states.route(sample(2), OPERATOR, publish);
+    ASSERT_TRUE(published.empty());
+    states.release();
+    ASSERT_EQ(published, (std::vector<double>{1}));
+    states.route(sample(3), ARC, publish);
+    states.route(sample(4), OPERATOR, publish);
+    ASSERT_EQ(published, (std::vector<double>{1, 3}));
+}
+
+/// @brief it should drop the held frames when the read of a hold fails before any read
+/// opened the bus, and keep the bus closed.
+TEST(StatesTest, ReleaseBeforeTheFirstSetKeepsTheBusClosed) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.close();
+    states.hold();
+    states.route(sample(1), ARC, publish);
+    states.release();
+    states.route(sample(2), ARC, publish);
+    ASSERT_TRUE(published.empty());
+}
+
+/// @brief it should ignore a read that started before a hold, so the read cannot end
+/// that hold with a mirror from before the drop.
+TEST(StatesTest, SetIgnoresAReadThatAHoldOutdated) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.set({});
+    const auto stale = states.begin_read();
+    states.hold();
+    const auto current = states.begin_read();
+    states.route(sample(1), ARC, publish);
+    ASSERT_FALSE(states.set({}, stale));
+    ASSERT_TRUE(published.empty());
+    ASSERT_TRUE(states.set({}, current));
+    ASSERT_EQ(published, (std::vector<double>{1}));
+}
+
+/// @brief it should mark the mirror stale when a failed read follows a set, until the
+/// next set.
+TEST(StatesTest, ReleaseAfterASetMarksTheMirrorStale) {
+    States states;
+    ASSERT_TRUE(states.set({}, states.begin_read()));
+    ASSERT_FALSE(states.stale());
+    states.hold();
+    states.abandon(states.begin_read());
+    states.release();
+    ASSERT_TRUE(states.stale());
+    states.set({});
+    ASSERT_FALSE(states.stale());
+}
+
+/// @brief it should keep the mirror stale when a read that a hold outdated lands after
+/// the release of that hold.
+TEST(StatesTest, OutdatedSetKeepsTheMirrorStale) {
+    States states;
+    states.set({});
+    const auto outdated = states.begin_read();
+    states.hold();
+    states.abandon(states.begin_read());
+    states.release();
+    ASSERT_FALSE(states.set({}, outdated));
+    ASSERT_TRUE(states.stale());
+}
+
+/// @brief it should apply the updates that land while a read is open on top of its
+/// snapshot, so a read is never ignored for a transfer and a transfer is never undone.
+TEST(StatesTest, SetAppliesUpdatesThatLandDuringTheRead) {
+    States states;
+    const auto read = states.begin_read();
+    states.apply(
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
+    );
+    ASSERT_TRUE(states.set(
+        {{.subject = ARC, .resource = 1, .authority = 200},
+         {.subject = ARC, .resource = 2, .authority = 200}},
+        read
+    ));
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+    ASSERT_TRUE(states.is_authorized(2, ARC));
+}
+
+/// @brief it should ignore a read that began before a stream restart and lands after
+/// the read of the new run.
+TEST(StatesTest, SetIgnoresAReadThatARestartOutdated) {
+    States states;
+    const auto old_read = states.begin_read();
+    states.outdate_reads();
+    const auto new_read = states.begin_read();
+    ASSERT_TRUE(
+        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, new_read)
+    );
+    ASSERT_FALSE(
+        states.set({{.subject = ARC, .resource = 1, .authority = 200}}, old_read)
+    );
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should ignore a read that more than MAX_LOG updates landed during, so the
+/// log of updates stays bounded.
+TEST(StatesTest, SetIgnoresAReadPastTheLogCap) {
+    States states;
+    const auto read = states.begin_read();
+    for (size_t i = 0; i <= States::MAX_LOG; i++)
+        states.apply(
+            x::control::Update<synnax::channel::Key>{
+                .transfers = {{
+                    .from = std::nullopt,
+                    .to = x::control::State<synnax::channel::Key>{
+                        .subject = OPERATOR,
+                        .resource = static_cast<synnax::channel::Key>(i + 1),
+                        .authority = 200
+                    },
+                }}
+            }
+        );
+    ASSERT_FALSE(states.set({}, read));
+    ASSERT_TRUE(states.set({}, states.begin_read()));
+}
+
+/// @brief it should publish nothing while closed at the start of a run, and open once
+/// the first read sets the mirror.
+TEST(StatesTest, ClosedUntilTheFirstSet) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.close();
+    states.hold();
+    states.route(sample(1), ARC, publish);
+    ASSERT_TRUE(published.empty());
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    ASSERT_TRUE(published.empty());
+    states.route(sample(2), ARC, publish);
+    ASSERT_EQ(published, (std::vector<double>{2}));
+}
+
+/// @brief it should publish the held frames filtered against the last mirror once a
+/// hold reaches MAX_HELD, forward later frames with that mirror, and let the read
+/// that lands later replace the mirror.
+TEST(StatesTest, HoldReleasesAtTheCapWithTheLastMirror) {
+    States states;
+    std::vector<double> published;
+    const Publish publish = [&](const x::telem::Frame &fr) {
+        published.push_back(fr.at<double>(1, 0));
+    };
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    states.hold();
+    const auto read = states.begin_read();
+    for (size_t i = 0; i < States::MAX_HELD; i++)
+        states.route(sample(static_cast<double>(i)), ARC, publish);
+    ASSERT_TRUE(published.empty());
+    // The frame past the cap releases the held frames, then goes through the mirror.
+    states.route(sample(-1), OPERATOR, publish);
+    ASSERT_EQ(published.size(), States::MAX_HELD);
+    states.route(sample(-2), ARC, publish);
+    ASSERT_EQ(published.size(), States::MAX_HELD + 1);
+    for (size_t i = 0; i < States::MAX_HELD; i++)
+        ASSERT_EQ(published[i], static_cast<double>(i));
+    ASSERT_EQ(published.back(), -2);
+    ASSERT_TRUE(
+        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, read)
+    );
+    states.route(sample(-3), OPERATOR, publish);
+    ASSERT_EQ(published.back(), -3);
+}
 }

@@ -12,11 +12,11 @@ import { describe } from "vitest";
 import { device } from "@/device";
 import { LINES } from "@/device/where";
 import { matches, serverComputed } from "@/device/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("devices", device.deviceZ(), device.whereZ),
+  vectors.itMatches(
+    vectors.read("devices", device.deviceZ(), device.whereZ),
     (d, where) => matches(LINES, d, where),
     (where) => serverComputed(LINES, where),
   );

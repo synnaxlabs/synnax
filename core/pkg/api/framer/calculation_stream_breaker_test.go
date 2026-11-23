@@ -271,6 +271,7 @@ var _ = Describe("Calculation change stream breaker", func() {
 			}
 			Expect(keys).To(Equal([]uuid.UUID{readable.Key}))
 		},
+		SpecTimeout(30*time.Second),
 	)
 
 	It("Should send each label set to a stream that lags 280 frames", func(

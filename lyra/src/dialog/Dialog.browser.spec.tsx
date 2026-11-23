@@ -9,7 +9,14 @@
 
 // The pure entry leaves the act environment of the browser specs alone.
 import { act, cleanup, fireEvent, render } from "@testing-library/react/pure";
-import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   afterEach,
   assert,
@@ -25,10 +32,11 @@ import { type Locator, page, userEvent } from "vitest/browser";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Menu } from "@/menu";
 import { Portal } from "@/portal";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
@@ -90,6 +98,13 @@ const html = (locator: Locator): HTMLElement => {
   const el = locator.element();
   assert(el instanceof HTMLElement);
   return el;
+};
+
+/** @returns the surface of the modal in the native dialog. */
+const surfaceOf = (dialog: Element): HTMLElement => {
+  const surface = dialog.querySelector(`.${CSS.BE("dialog", "dialog")}`);
+  assert(surface instanceof HTMLElement);
+  return surface;
 };
 
 const button = (name: string): HTMLElement => html(page.getByRole("button", { name }));
@@ -190,21 +205,21 @@ const VirtualList = (): ReactElement => (
   </Triggers.Provider>
 );
 
-/** @returns whether each dialog added to the page was shown before it was painted. */
-const watchDialogMounts = (): boolean[] => {
-  const shown: boolean[] = [];
+/** @returns a snapshot of each dialog added to the page, taken before it is painted. */
+const watchDialogMounts = <T,>(snapshot: (dialog: Element) => T): T[] => {
+  const snapshots: T[] = [];
   const observer = new MutationObserver((records) => {
     for (const { addedNodes } of records)
       for (const node of addedNodes) {
         if (!(node instanceof Element)) continue;
         const dialog =
           node.closest('[role="dialog"]') ?? node.querySelector('[role="dialog"]');
-        if (dialog != null) shown.push(dialog.classList.contains(CSS.visible(true)));
+        if (dialog != null) snapshots.push(snapshot(dialog));
       }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   onTestFinished(() => observer.disconnect());
-  return shown;
+  return snapshots;
 };
 
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
@@ -256,6 +271,13 @@ const Nested = (): ReactElement => {
       </Dialog.Frame>
     </Triggers.Provider>
   );
+};
+
+/** A button that removes itself, so the focus falls out of the modal. */
+const Vanishing = (): ReactElement => {
+  const [shown, setShown] = useState(true);
+  if (!shown) return <p>Gone</p>;
+  return <button onClick={() => setShown(false)}>Vanish</button>;
 };
 
 /** A modal holding a dropdown between two fields. */
@@ -370,6 +392,51 @@ describe("Dialog", () => {
       expect(onTop(dialog)).toBe(true);
     });
 
+    it("should focus an autoFocus field as it mounts, before the popover shows", async () => {
+      // A closed popover gets display: none from the browser, which the surface's own
+      // display overrides. Without it, React's autoFocus would focus nothing.
+      const mounted: { display: string; focused: boolean; open: boolean }[] = [];
+      const Field = (): ReactElement => {
+        const ref = useRef<HTMLInputElement>(null);
+        useLayoutEffect(() => {
+          const surface = ref.current?.closest("[popover]");
+          assert(surface != null);
+          mounted.push({
+            display: getComputedStyle(surface).display,
+            focused: document.activeElement === ref.current,
+            open: surface.matches(":popover-open"),
+          });
+        }, []);
+        return <input ref={ref} aria-label="Search" autoFocus />;
+      };
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Menu</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Field />
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByLabelText("Search")).toHaveFocus();
+      expect(mounted).toEqual([{ display: "flex", focused: true, open: false }]);
+    });
+
+    it("should show in the top layer", async () => {
+      const { dialog } = await openDialog("floating");
+      expect(dialog.matches(":popover-open")).toBe(true);
+    });
+
+    it("should start its entrance animation only once it is placed", async () => {
+      const animations = watchDialogMounts((d) =>
+        withMotion(() => computed(d, "animation-name")),
+      );
+      await openDialog("floating");
+      expect(animations).toEqual(["none"]);
+    });
+
     it("should open beside its trigger without covering it", async () => {
       const { trigger, dialog } = await openDialog("floating");
       const t = trigger.getBoundingClientRect();
@@ -400,7 +467,7 @@ describe("Dialog", () => {
       await userEvent.click(button("Menu"));
       await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
       await userEvent.click(button("Grow"));
-      const shown = watchDialogMounts();
+      const shown = watchDialogMounts((d) => d.classList.contains(CSS.visible(true)));
       await userEvent.click(button("A much longer menu"));
       const dialog = page.getByRole("dialog").element();
       await expect.poll(() => computed(dialog, "opacity")).toBe("1");
@@ -765,6 +832,138 @@ describe("Dialog", () => {
       });
     });
 
+    describe("native dialog", () => {
+      it("should open as a modal dialog in the top layer", async () => {
+        const { dialog } = await openModal(FIELDS);
+        expect(dialog.tagName).toBe("DIALOG");
+        expect(dialog.matches(":modal")).toBe(true);
+      });
+
+      it("should close on a click on the backdrop", async () => {
+        await openModal(FIELDS);
+        await userEvent.click(page.getByRole("dialog"), { position: { x: 4, y: 4 } });
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should stay open on a click on its surface", async () => {
+        await openModal(<p>Surface</p>);
+        await userEvent.click(page.getByText("Surface"));
+        expect(page.getByRole("dialog").query()).not.toBeNull();
+      });
+
+      it("should close when the browser closes the dialog", async () => {
+        const { trigger, dialog } = await openModal(FIELDS);
+        assert(dialog instanceof HTMLDialogElement);
+        dialog.close();
+        await expect.element(trigger).toHaveAttribute("aria-expanded", "false");
+        expect(document.querySelector("dialog")).toBeNull();
+      });
+
+      it("should show the dialog again when its owner keeps it open", async () => {
+        await renderThemed(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+              <Dialog.Dialog>Busy</Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        const dialog = page.getByRole("dialog").element();
+        assert(dialog instanceof HTMLDialogElement);
+        dialog.close();
+        await expect.poll(() => dialog.matches(":modal")).toBe(true);
+      });
+
+      it("should close nested dropdowns one Escape at a time before the modal", async () => {
+        await openModal(
+          <Dialog.Frame>
+            <Dialog.Trigger>Outer</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Dialog.Frame>
+                <Dialog.Trigger>Inner</Dialog.Trigger>
+                <Dialog.Dialog>
+                  <p>Inner content</p>
+                </Dialog.Dialog>
+              </Dialog.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>,
+        );
+        await userEvent.click(page.getByRole("button", { name: "Outer" }));
+        await userEvent.click(page.getByRole("button", { name: "Inner" }));
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByText("Inner content")).not.toBeInTheDocument();
+        await userEvent.keyboard("{Escape}");
+        await expect
+          .element(page.getByRole("button", { name: "Inner" }))
+          .not.toBeInTheDocument();
+        expect(page.getByRole("button", { name: "Outer" }).query()).not.toBeNull();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should render a dropdown in the dialog, over the modal", async () => {
+        const { dialog } = await openModal(DROPDOWN_FIELDS);
+        await userEvent.click(page.getByRole("button", { name: "Menu" }));
+        const search = field("Search");
+        const dropdown = search.closest("[role=dialog]");
+        assert(dropdown instanceof HTMLElement);
+        expect(dialog.contains(dropdown)).toBe(true);
+        await expect.poll(() => computed(dropdown, "opacity")).toBe("1");
+        expect(onTop(dropdown)).toBe(true);
+        await userEvent.fill(page.getByLabelText("Search"), "abc");
+        await expect.element(page.getByLabelText("Search")).toHaveValue("abc");
+      });
+
+      it("should close only an open dropdown on Escape", async () => {
+        await openModal(DROPDOWN_FIELDS);
+        const trigger = button("Menu");
+        trigger.focus();
+        await userEvent.keyboard("{Enter}");
+        await expect.element(page.getByLabelText("Search")).toHaveFocus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByLabelText("Search")).not.toBeInTheDocument();
+        expect(page.getByRole("dialog").query()).not.toBeNull();
+        expect(document.activeElement).toBe(trigger);
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should close on Escape after the focused element goes away", async () => {
+        await openModal(<Vanishing />);
+        await userEvent.click(page.getByRole("button", { name: "Vanish" }));
+        await expect.element(page.getByText("Gone")).toBeVisible();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should close on Escape in one of its fields", async () => {
+        const { trigger } = await openModal(
+          <Input.Text value="" onChange={() => {}} />,
+        );
+        page.getByRole("textbox").element().focus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(trigger);
+      });
+
+      it("should leave the modal and its dropdown open on Escape in a dropdown field", async () => {
+        await openModal(
+          <Dialog.Frame>
+            <Dialog.Trigger>Menu</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Input.Text value="" onChange={() => {}} autoFocus />
+            </Dialog.Dialog>
+          </Dialog.Frame>,
+        );
+        button("Menu").focus();
+        await userEvent.keyboard("{Enter}");
+        await expect.element(page.getByRole("textbox")).toHaveFocus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByRole("textbox")).not.toHaveFocus();
+        expect(page.getByRole("textbox").query()).not.toBeNull();
+        expect(page.getByRole("button", { name: "Menu" }).query()).not.toBeNull();
+      });
+    });
+
     it("should tint the whole window behind it", async () => {
       const { dialog } = await openDialog("modal");
       const bg = dialog.closest(`.${CSS.BE("dialog", "bg")}`)!;
@@ -776,11 +975,12 @@ describe("Dialog", () => {
 
     it("should sit on top of its background on the modal shadow", async () => {
       const { dialog } = await openDialog("modal");
-      expect(onTop(dialog)).toBe(true);
-      expect(computed(dialog, "box-shadow")).toContain(
+      const surface = surfaceOf(dialog);
+      expect(onTop(surface)).toBe(true);
+      expect(computed(surface, "box-shadow")).toContain(
         resolve("var(--pluto-shadow-modal)", "box-shadow"),
       );
-      expect(computed(dialog, "border-top-left-radius")).toBe(
+      expect(computed(surface, "border-top-left-radius")).toBe(
         resolve("var(--pluto-border-radius-large)", "border-top-left-radius"),
       );
     });
@@ -901,7 +1101,7 @@ describe("Dialog", () => {
       expect(onEscape).not.toHaveBeenCalled();
     });
 
-    it("should stop propagation to lower-priority Escape subscribers when a modal dialog closes", () => {
+    it("should stop propagation to lower-priority Escape subscribers when a modal dialog closes", async () => {
       const onEscape = vi.fn();
       const c = render(
         <Triggers.Provider>
@@ -914,8 +1114,8 @@ describe("Dialog", () => {
           </Dialog.Frame>
         </Triggers.Provider>,
       );
-      fireEvent.click(c.getByText("Toggle"));
-      fireEvent.keyDown(c.container, { code: "Escape" });
+      await userEvent.click(c.getByText("Toggle"));
+      await userEvent.keyboard("{Escape}");
       expect(c.queryByText("Content")).toBeNull();
       expect(onEscape).not.toHaveBeenCalled();
     });
@@ -1048,7 +1248,9 @@ describe("Dialog", () => {
         fireEvent.click(c.getByText("Toggle"));
         expect(c.getByText("Content")).toBeTruthy();
         expect(c.getByRole("dialog")).toBeTruthy();
-        expect(c.getByRole("dialog").classList).toContain(`lyra--${variant}`);
+        const dialog = c.getByRole("dialog");
+        const surface = variant === "modal" ? surfaceOf(dialog) : dialog;
+        expect(surface.classList).toContain(`lyra--${variant}`);
       });
     });
   });

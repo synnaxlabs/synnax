@@ -83,13 +83,16 @@ std::pair<Device, x::errors::Error> Client::retrieve(
     return {std::move(devices[0]), x::errors::NIL};
 }
 
-x::errors::Error Client::update(const Key &key, const Update &update) const {
+std::pair<Device, x::errors::Error>
+Client::update(const Key &key, const Update &update) const {
     grpc::ni_device::UpdateRequest req;
     req.set_key(key.to_string());
     auto [pb, err] = to_proto(update);
-    if (err) return err;
+    if (err) return {Device{}, err};
     *req.mutable_update() = pb;
-    return this->update_client->send("/ni/device/update", req).second;
+    auto [res, send_err] = this->update_client->send("/ni/device/update", req);
+    if (send_err) return {Device{}, send_err};
+    return Device::from_proto(res.device());
 }
 
 x::errors::Error Client::del(const std::vector<Key> &keys) const {
