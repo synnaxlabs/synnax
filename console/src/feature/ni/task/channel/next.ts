@@ -51,7 +51,10 @@ export interface Placement {
 const template = <C extends Task.Channel>(channels: C[], zero: C, copy?: string): C =>
   deep.copy(Task.channelToCopy(channels, copy) ?? zero);
 
-const hardwareOf = (devices: Device.Device[], key: string): ni.device.Hardware | undefined =>
+const hardwareOf = (
+  devices: Device.Device[],
+  key: string,
+): ni.device.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 /**
