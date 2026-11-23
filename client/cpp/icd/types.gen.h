@@ -41,6 +41,7 @@ struct Cursor;
 struct BaseField;
 struct ReadBinding;
 struct WriteBaseBinding;
+struct Checksum;
 struct RetrieveRequest;
 struct TextBaseField;
 struct JSONBaseField;
@@ -51,12 +52,20 @@ struct Message;
 struct ICD;
 struct RetrieveResponse;
 
+constexpr const char *CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE = "crc16_ccitt_false";
+constexpr const char *CHECKSUM_ALGORITHM_CRC_16_MODBUS = "crc16_modbus";
+constexpr const char *CHECKSUM_ALGORITHM_CRC_32 = "crc32";
+
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
 constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
 
 constexpr const char *IMPORT_FORMAT_DBC = "dbc";
 constexpr const char *IMPORT_FORMAT_CSV = "csv";
 constexpr const char *IMPORT_FORMAT_XLSX = "xlsx";
+
+constexpr const char *LENGTH_SIZE_ONE = "one";
+constexpr const char *LENGTH_SIZE_TWO = "two";
+constexpr const char *LENGTH_SIZE_FOUR = "four";
 
 using Key = x::uuid::UUID;
 
@@ -559,6 +568,23 @@ json_match_from_proto(const ::service::icd::pb::JSONMatch &pb);
     return std::visit([](const auto &v) -> const JSONBaseMatch & { return v; }, value);
 }
 
+/// @brief Checksum is the CRC that ends a sync frame and covers every byte before it.
+struct Checksum {
+    /// @brief algorithm is the CRC that the checksum holds.
+    std::string algorithm;
+    /// @brief byte_order is the byte order of the checksum.
+    std::string byte_order = BYTE_ORDER_LITTLE_ENDIAN;
+
+    static Checksum parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::Checksum;
+    [[nodiscard]] std::pair<::service::icd::pb::Checksum, x::errors::Error>
+    to_proto() const;
+    static std::pair<Checksum, x::errors::Error>
+    from_proto(const ::service::icd::pb::Checksum &pb);
+};
+
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the icds that match the term, closest match first.
@@ -713,6 +739,114 @@ WriteBinding parse_write_binding(x::json::Parser parser);
         value
     );
 }
+
+/// @brief DelimitedFraming ends each frame with a delimiter.
+struct DelimitedFraming {
+    std::string type = "delimited";
+    /// @brief delimiter is the text whose UTF-8 bytes end each frame.
+    std::string delimiter = "\n";
+
+    static DelimitedFraming parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::FramingDelimitedPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::FramingDelimitedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<DelimitedFraming, x::errors::Error>
+    from_proto(const ::service::icd::pb::FramingDelimitedPayload &pb);
+};
+
+/// @brief FixedFraming splits the stream into frames of one length.
+struct FixedFraming {
+    std::string type = "fixed";
+    /// @brief length is the number of bytes in each frame, from 1 to 65536.
+    std::uint32_t length = 1;
+
+    static FixedFraming parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::FramingFixedPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::FramingFixedPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<FixedFraming, x::errors::Error>
+    from_proto(const ::service::icd::pb::FramingFixedPayload &pb);
+};
+
+/// @brief SyncFraming starts each frame with a sync sequence and a length field. A
+/// frame that the task reads starts at the sync sequence and has no checksum, so the
+/// message layout of an ICD can hold the header fields.
+struct SyncFraming {
+    std::string type = "sync";
+    /// @brief sync is the byte sequence that starts each frame.
+    std::vector<std::uint8_t> sync;
+    /// @brief length_offset is the offset of the length field from the start of the
+    /// frame.
+    std::uint32_t length_offset = 0;
+    /// @brief length_size is the number of bytes in the length field.
+    std::string length_size = LENGTH_SIZE_ONE;
+    /// @brief byte_order is the byte order of the length field.
+    std::string byte_order = BYTE_ORDER_LITTLE_ENDIAN;
+    /// @brief length_adjustment is added to the length field to give the number of
+    /// bytes after the length field, checksum included.
+    std::int32_t length_adjustment = 0;
+    /// @brief checksum is the CRC that ends each frame. Absent when frames have none.
+    std::optional<Checksum> checksum;
+    /// @brief max_length is the most bytes in a frame, sync included and checksum
+    /// excluded, from 1 to 65536. A length field that gives a longer frame marks a
+    /// corrupt frame.
+    std::uint32_t max_length = 65536;
+
+    static SyncFraming parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::FramingSyncPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::FramingSyncPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<SyncFraming, x::errors::Error>
+    from_proto(const ::service::icd::pb::FramingSyncPayload &pb);
+};
+
+/// @brief CobsFraming stuffs each frame with consistent overhead byte stuffing (COBS)
+/// and ends it with a zero byte.
+struct CobsFraming {
+    std::string type = "cobs";
+
+    static CobsFraming parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::FramingCobsPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::FramingCobsPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<CobsFraming, x::errors::Error>
+    from_proto(const ::service::icd::pb::FramingCobsPayload &pb);
+};
+
+/// @brief SlipFraming escapes each frame with the serial line internet protocol (SLIP,
+/// RFC 1055) and ends it with an END byte.
+struct SlipFraming {
+    std::string type = "slip";
+
+    static SlipFraming parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::FramingSlipPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::FramingSlipPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<SlipFraming, x::errors::Error>
+    from_proto(const ::service::icd::pb::FramingSlipPayload &pb);
+};
+
+/// @brief Framing splits a byte stream into frames. The type field selects how.
+using Framing = std::
+    variant<DelimitedFraming, FixedFraming, SyncFraming, CobsFraming, SlipFraming>;
+
+Framing parse_framing(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Framing &value);
+[[nodiscard]] std::pair<::service::icd::pb::Framing, x::errors::Error>
+to_proto(const Framing &value);
+std::pair<Framing, x::errors::Error>
+framing_from_proto(const ::service::icd::pb::Framing &pb);
 
 /// @brief DelimitedTextField is a field read from one item of a delimited text line.
 struct DelimitedTextField : public TextBaseField {
@@ -1145,6 +1279,9 @@ struct ICD {
     std::string name;
     /// @brief messages are the messages the ICD holds.
     std::vector<Message> messages = {};
+    /// @brief framing is how a byte stream splits into the ICD's messages, or absent
+    /// when each message arrives whole.
+    std::optional<Framing> framing;
 
     static ICD parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

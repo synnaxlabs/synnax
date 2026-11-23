@@ -19,6 +19,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from synnax import channel as channel_
 from synnax.resource import ID
 from x import filter, payload as payload_, telem
+from x.codec import Bytes
+
+CHECKSUM_ALGORITHM_CRC16_CCITT_FALSE: Literal["crc16_ccitt_false"] = "crc16_ccitt_false"
+
+CHECKSUM_ALGORITHM_CRC16_MODBUS: Literal["crc16_modbus"] = "crc16_modbus"
+
+CHECKSUM_ALGORITHM_CRC32: Literal["crc32"] = "crc32"
+
+
+ChecksumAlgorithm = Literal["crc16_ccitt_false", "crc16_modbus", "crc32"]
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
 
@@ -36,6 +46,15 @@ IMPORT_FORMAT_XLSX: Literal["xlsx"] = "xlsx"
 
 ImportFormat = Literal["dbc", "csv", "xlsx"]
 
+LENGTH_SIZE_ONE: Literal["one"] = "one"
+
+LENGTH_SIZE_TWO: Literal["two"] = "two"
+
+LENGTH_SIZE_FOUR: Literal["four"] = "four"
+
+
+LengthSize = Literal["one", "two", "four"]
+
 Key: TypeAlias = UUID
 
 MessageKey: TypeAlias = UUID
@@ -51,6 +70,18 @@ class JSONBaseMatch(BaseModel):
     """
 
     pointer: str = ""
+
+
+class Checksum(BaseModel):
+    """Is the CRC that ends a sync frame and covers every byte before it.
+
+    Attributes:
+        algorithm: Is the CRC that the checksum holds.
+        byte_order: Is the byte order of the checksum.
+    """
+
+    algorithm: ChecksumAlgorithm
+    byte_order: ByteOrder = "little_endian"
 
 
 class ConstantTimestampDefault(BaseModel):
@@ -339,6 +370,59 @@ JSONMatch = Annotated[
     | StringJSONMatch
     | BooleanJSONMatch
     | PresentJSONMatch,
+    Field(discriminator="type"),
+]
+
+
+class DelimitedFraming(BaseModel):
+    """Ends each frame with a delimiter."""
+
+    type: Literal["delimited"] = "delimited"
+    delimiter: str = Field(min_length=1, default="\n")
+
+
+class FixedFraming(BaseModel):
+    """Splits the stream into frames of one length."""
+
+    type: Literal["fixed"] = "fixed"
+    length: int = Field(default=1, ge=1, le=65536)
+
+
+class SyncFraming(BaseModel):
+    """Starts each frame with a sync sequence and a length field. A frame that the task
+    reads starts at the sync sequence and has no checksum, so the message layout of an
+    ICD can hold the header fields.
+    """
+
+    type: Literal["sync"] = "sync"
+    sync: Bytes = Field(min_length=1)
+    length_offset: int = Field(default=0, ge=0, le=4294967295)
+    length_size: LengthSize = "one"
+    byte_order: ByteOrder = "little_endian"
+    length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
+    checksum: Checksum | None = None
+    max_length: int = Field(default=65536, ge=1, le=65536)
+
+
+class CobsFraming(BaseModel):
+    """Stuffs each frame with consistent overhead byte stuffing (COBS) and ends it with
+    a zero byte.
+    """
+
+    type: Literal["cobs"] = "cobs"
+
+
+class SlipFraming(BaseModel):
+    """Escapes each frame with the serial line internet protocol (SLIP, RFC 1055) and
+    ends it with an END byte.
+    """
+
+    type: Literal["slip"] = "slip"
+
+
+# Splits a byte stream into frames. The type field selects how.
+Framing = Annotated[
+    DelimitedFraming | FixedFraming | SyncFraming | CobsFraming | SlipFraming,
     Field(discriminator="type"),
 ]
 
@@ -660,11 +744,14 @@ class ICD(BaseModel):
         key: Is the unique identifier for the ICD.
         name: Is a human-readable name for the ICD.
         messages: Are the messages the ICD holds.
+        framing: Is how a byte stream splits into the ICD's messages, or absent when
+            each message arrives whole.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     messages: list[Message] = Field(default_factory=list)
+    framing: Framing | None = None
 
     @_override
     def __hash__(self) -> int:

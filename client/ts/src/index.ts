@@ -15,7 +15,6 @@ export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
 export { batch } from "@/batch";
-export { bus } from "@/bus";
 export { certificate } from "@/certificate";
 export { channel } from "@/channel";
 export { Channel } from "@/channel/client";

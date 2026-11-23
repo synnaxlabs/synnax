@@ -109,6 +109,20 @@ inline x::json::json Message::to_json() const {
     return j;
 }
 
+inline Checksum Checksum::parse(x::json::Parser parser) {
+    return Checksum{
+        .algorithm = parser.field<std::string>("algorithm"),
+        .byte_order = parser.field<std::string>("byte_order", "little_endian"),
+    };
+}
+
+inline x::json::json Checksum::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["algorithm"] = this->algorithm;
+    j["byte_order"] = this->byte_order;
+    return j;
+}
+
 inline ICD ICD::parse(x::json::Parser parser) {
     return ICD{
         .key = parser.field<Key>("key", x::uuid::create()),
@@ -117,6 +131,9 @@ inline ICD ICD::parse(x::json::Parser parser) {
             "messages",
             std::vector<Message>{}
         ),
+        .framing = parser.has("framing")
+                     ? std::optional<Framing>(parse_framing(parser.child("framing")))
+                     : std::nullopt,
     };
 }
 
@@ -125,6 +142,8 @@ inline x::json::json ICD::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["messages"] = x::json::to_array(this->messages);
+    if (this->framing.has_value())
+        j["framing"] = ::synnax::icd::to_json(*this->framing);
     return j;
 }
 
@@ -853,6 +872,84 @@ inline x::json::json JSONPayload::to_json() const {
     return j;
 }
 
+inline DelimitedFraming DelimitedFraming::parse(x::json::Parser parser) {
+    DelimitedFraming result;
+    result.delimiter = parser.field<std::string>("delimiter", "\n");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json DelimitedFraming::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["delimiter"] = this->delimiter;
+    j["type"] = this->type;
+    return j;
+}
+
+inline FixedFraming FixedFraming::parse(x::json::Parser parser) {
+    FixedFraming result;
+    result.length = parser.field<std::uint32_t>("length", 1);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FixedFraming::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["length"] = this->length;
+    j["type"] = this->type;
+    return j;
+}
+
+inline SyncFraming SyncFraming::parse(x::json::Parser parser) {
+    SyncFraming result;
+    result.sync = parser.field<std::vector<std::uint8_t>>("sync");
+    result.length_offset = parser.field<std::uint32_t>("length_offset", 0);
+    result.length_size = parser.field<std::string>("length_size", "one");
+    result.byte_order = parser.field<std::string>("byte_order", "little_endian");
+    result.length_adjustment = parser.field<std::int32_t>("length_adjustment", 0);
+    result.checksum = parser.field<std::optional<Checksum>>("checksum");
+    result.max_length = parser.field<std::uint32_t>("max_length", 65536);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json SyncFraming::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["sync"] = x::json::to_json(this->sync);
+    j["length_offset"] = this->length_offset;
+    j["length_size"] = this->length_size;
+    j["byte_order"] = this->byte_order;
+    j["length_adjustment"] = this->length_adjustment;
+    if (this->checksum.has_value()) j["checksum"] = this->checksum->to_json();
+    j["max_length"] = this->max_length;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CobsFraming CobsFraming::parse(x::json::Parser parser) {
+    CobsFraming result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CobsFraming::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline SlipFraming SlipFraming::parse(x::json::Parser parser) {
+    SlipFraming result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json SlipFraming::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
 inline FloatWriteValue FloatWriteValue::parse(x::json::Parser parser) {
     FloatWriteValue result;
     result.value = parser.field<::x::payload::Float>("value");
@@ -1124,6 +1221,21 @@ inline Payload parse_payload(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Payload &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Framing parse_framing(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "delimited") return DelimitedFraming::parse(parser);
+    if (discriminator == "fixed") return FixedFraming::parse(parser);
+    if (discriminator == "sync") return SyncFraming::parse(parser);
+    if (discriminator == "cobs") return CobsFraming::parse(parser);
+    if (discriminator == "slip") return SlipFraming::parse(parser);
+    parser.field_err("type", "unknown Framing type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Framing &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

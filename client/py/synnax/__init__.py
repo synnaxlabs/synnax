@@ -47,7 +47,6 @@ __lazy_modules__ = [
 from importlib.metadata import version as _version
 
 from synnax import (
-    bus,
     color,
     enumeration,
     ethercat,
@@ -263,7 +262,6 @@ __all__ = [
     "Writer",
     "WriterClosed",
     "WriterMode",
-    "bus",
     "color",
     "convert_time_units",
     "elapsed_seconds",

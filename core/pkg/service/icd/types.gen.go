@@ -258,6 +258,80 @@ type JSONPayload = versions.JSONPayload
 // Message is the layout of one message a system sends or receives.
 type Message = versions.Message
 
+// ChecksumAlgorithm is a CRC that ends a sync frame.
+type ChecksumAlgorithm = versions.ChecksumAlgorithm
+
+const (
+	// ChecksumAlgorithmCrc16CcittFalse has polynomial 0x1021 and initial value 0xFFFF,
+	// with no reflection.
+	ChecksumAlgorithmCrc16CcittFalse ChecksumAlgorithm = versions.ChecksumAlgorithmCrc16CcittFalse
+	// ChecksumAlgorithmCrc16Modbus has polynomial 0x8005 and initial value 0xFFFF,
+	// reflected.
+	ChecksumAlgorithmCrc16Modbus ChecksumAlgorithm = versions.ChecksumAlgorithmCrc16Modbus
+	// ChecksumAlgorithmCrc32 is the CRC of Ethernet and zlib.
+	ChecksumAlgorithmCrc32 ChecksumAlgorithm = versions.ChecksumAlgorithmCrc32
+)
+
+// Checksum is the CRC that ends a sync frame and covers every byte before it.
+type Checksum = versions.Checksum
+
+// LengthSize is the number of bytes in the length field of a sync frame.
+type LengthSize = versions.LengthSize
+
+const (
+	// LengthSizeOne is a 1-byte length field.
+	LengthSizeOne LengthSize = versions.LengthSizeOne
+	// LengthSizeTwo is a 2-byte length field.
+	LengthSizeTwo LengthSize = versions.LengthSizeTwo
+	// LengthSizeFour is a 4-byte length field.
+	LengthSizeFour LengthSize = versions.LengthSizeFour
+)
+
+// Framing splits a byte stream into frames. The type field selects how.
+type Framing = versions.Framing
+
+// FramingVariant is implemented by every Framing variant.
+type FramingVariant = versions.FramingVariant
+
+// FramingType is the "type" value that selects a variant of Framing.
+type FramingType = versions.FramingType
+
+const (
+	// DelimitedFramingType ends each frame with a delimiter.
+	DelimitedFramingType FramingType = versions.DelimitedFramingType
+	// FixedFramingType splits the stream into frames of one length.
+	FixedFramingType FramingType = versions.FixedFramingType
+	// SyncFramingType starts each frame with a sync sequence and a length field. A
+	// frame that the task reads starts at the sync sequence and has no checksum, so the
+	// message layout of an ICD can hold the header fields.
+	SyncFramingType FramingType = versions.SyncFramingType
+	// CobsFramingType stuffs each frame with consistent overhead byte stuffing (COBS)
+	// and ends it with a zero byte.
+	CobsFramingType FramingType = versions.CobsFramingType
+	// SlipFramingType escapes each frame with the serial line internet protocol (SLIP,
+	// RFC 1055) and ends it with an END byte.
+	SlipFramingType FramingType = versions.SlipFramingType
+)
+
+// DelimitedFraming ends each frame with a delimiter.
+type DelimitedFraming = versions.DelimitedFraming
+
+// FixedFraming splits the stream into frames of one length.
+type FixedFraming = versions.FixedFraming
+
+// SyncFraming starts each frame with a sync sequence and a length field. A frame that
+// the task reads starts at the sync sequence and has no checksum, so the message layout
+// of an ICD can hold the header fields.
+type SyncFraming = versions.SyncFraming
+
+// CobsFraming stuffs each frame with consistent overhead byte stuffing (COBS) and ends
+// it with a zero byte.
+type CobsFraming = versions.CobsFraming
+
+// SlipFraming escapes each frame with the serial line internet protocol (SLIP, RFC
+// 1055) and ends it with an END byte.
+type SlipFraming = versions.SlipFraming
+
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD

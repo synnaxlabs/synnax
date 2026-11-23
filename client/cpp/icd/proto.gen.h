@@ -29,6 +29,39 @@
 
 namespace synnax::icd {
 
+inline std::pair<::service::icd::pb::ChecksumAlgorithm, x::errors::Error>
+checksum_algorithm_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::icd::pb::ChecksumAlgorithm>
+        kMap = {
+            {CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE,
+             ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE},
+            {CHECKSUM_ALGORITHM_CRC_16_MODBUS,
+             ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_16_MODBUS},
+            {CHECKSUM_ALGORITHM_CRC_32, ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_32},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized ChecksumAlgorithm value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+checksum_algorithm_from_pb(::service::icd::pb::ChecksumAlgorithm pb) {
+    switch (pb) {
+        case ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE:
+            return {CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE, x::errors::NIL};
+        case ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_16_MODBUS:
+            return {CHECKSUM_ALGORITHM_CRC_16_MODBUS, x::errors::NIL};
+        case ::service::icd::pb::CHECKSUM_ALGORITHM_CRC_32:
+            return {CHECKSUM_ALGORITHM_CRC_32, x::errors::NIL};
+        default:
+            return {
+                "",
+                x::errors::Error("unrecognized ChecksumAlgorithm protobuf value")
+            };
+    }
+}
+
 inline std::pair<::service::icd::pb::ByteOrder, x::errors::Error>
 byte_order_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::service::icd::pb::ByteOrder> kMap = {
@@ -50,6 +83,34 @@ byte_order_from_pb(::service::icd::pb::ByteOrder pb) {
             return {BYTE_ORDER_BIG_ENDIAN, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ByteOrder protobuf value")};
+    }
+}
+
+inline std::pair<::service::icd::pb::LengthSize, x::errors::Error>
+length_size_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::icd::pb::LengthSize> kMap =
+        {
+            {LENGTH_SIZE_ONE, ::service::icd::pb::LENGTH_SIZE_ONE},
+            {LENGTH_SIZE_TWO, ::service::icd::pb::LENGTH_SIZE_TWO},
+            {LENGTH_SIZE_FOUR, ::service::icd::pb::LENGTH_SIZE_FOUR},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized LengthSize value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+length_size_from_pb(::service::icd::pb::LengthSize pb) {
+    switch (pb) {
+        case ::service::icd::pb::LENGTH_SIZE_ONE:
+            return {LENGTH_SIZE_ONE, x::errors::NIL};
+        case ::service::icd::pb::LENGTH_SIZE_TWO:
+            return {LENGTH_SIZE_TWO, x::errors::NIL};
+        case ::service::icd::pb::LENGTH_SIZE_FOUR:
+            return {LENGTH_SIZE_FOUR, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized LengthSize protobuf value")};
     }
 }
 
@@ -232,6 +293,38 @@ Message::from_proto(const ::service::icd::pb::Message &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::Checksum, x::errors::Error>
+Checksum::to_proto() const {
+    ::service::icd::pb::Checksum pb;
+    {
+        auto [v, err] = checksum_algorithm_to_pb(this->algorithm);
+        if (err) return {{}, err};
+        pb.set_algorithm(v);
+    }
+    {
+        auto [v, err] = byte_order_to_pb(this->byte_order);
+        if (err) return {{}, err};
+        pb.set_byte_order(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Checksum, x::errors::Error>
+Checksum::from_proto(const ::service::icd::pb::Checksum &pb) {
+    Checksum cpp;
+    {
+        auto [v, err] = checksum_algorithm_from_pb(pb.algorithm());
+        if (err) return {{}, err};
+        cpp.algorithm = v;
+    }
+    {
+        auto [v, err] = byte_order_from_pb(pb.byte_order());
+        if (err) return {{}, err};
+        cpp.byte_order = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::icd::pb::ICD, x::errors::Error> ICD::to_proto() const {
     ::service::icd::pb::ICD pb;
     pb.set_key(this->key.to_string());
@@ -240,6 +333,11 @@ inline std::pair<::service::icd::pb::ICD, x::errors::Error> ICD::to_proto() cons
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_messages() = v;
+    }
+    if (this->framing.has_value()) {
+        auto [v, err] = ::synnax::icd::to_proto(*this->framing);
+        if (err) return {{}, err};
+        *pb.mutable_framing() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -255,6 +353,11 @@ ICD::from_proto(const ::service::icd::pb::ICD &pb) {
     cpp.name = pb.name();
     if (auto err = x::pb::from_proto_repeated<Message>(cpp.messages, pb.messages()))
         return {{}, err};
+    if (pb.has_framing()) {
+        auto [v, err] = ::synnax::icd::framing_from_proto(pb.framing());
+        if (err) return {{}, err};
+        cpp.framing = v;
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -1000,6 +1103,108 @@ JSONPayload::from_proto(const ::service::icd::pb::PayloadJsonPayload &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::FramingDelimitedPayload, x::errors::Error>
+DelimitedFraming::to_proto() const {
+    ::service::icd::pb::FramingDelimitedPayload pb;
+    pb.set_delimiter(this->delimiter);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<DelimitedFraming, x::errors::Error>
+DelimitedFraming::from_proto(const ::service::icd::pb::FramingDelimitedPayload &pb) {
+    DelimitedFraming cpp;
+    cpp.delimiter = pb.delimiter();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::FramingFixedPayload, x::errors::Error>
+FixedFraming::to_proto() const {
+    ::service::icd::pb::FramingFixedPayload pb;
+    pb.set_length(this->length);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<FixedFraming, x::errors::Error>
+FixedFraming::from_proto(const ::service::icd::pb::FramingFixedPayload &pb) {
+    FixedFraming cpp;
+    cpp.length = pb.length();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::FramingSyncPayload, x::errors::Error>
+SyncFraming::to_proto() const {
+    ::service::icd::pb::FramingSyncPayload pb;
+    pb.set_sync(this->sync.data(), this->sync.size());
+    pb.set_length_offset(this->length_offset);
+    {
+        auto [v, err] = length_size_to_pb(this->length_size);
+        if (err) return {{}, err};
+        pb.set_length_size(v);
+    }
+    {
+        auto [v, err] = byte_order_to_pb(this->byte_order);
+        if (err) return {{}, err};
+        pb.set_byte_order(v);
+    }
+    pb.set_length_adjustment(this->length_adjustment);
+    if (this->checksum.has_value()) {
+        auto [v, err] = this->checksum->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_checksum() = v;
+    }
+    pb.set_max_length(this->max_length);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<SyncFraming, x::errors::Error>
+SyncFraming::from_proto(const ::service::icd::pb::FramingSyncPayload &pb) {
+    SyncFraming cpp;
+    cpp.sync.assign(pb.sync().begin(), pb.sync().end());
+    cpp.length_offset = pb.length_offset();
+    {
+        auto [v, err] = length_size_from_pb(pb.length_size());
+        if (err) return {{}, err};
+        cpp.length_size = v;
+    }
+    {
+        auto [v, err] = byte_order_from_pb(pb.byte_order());
+        if (err) return {{}, err};
+        cpp.byte_order = v;
+    }
+    cpp.length_adjustment = pb.length_adjustment();
+    if (pb.has_checksum()) {
+        auto [v, err] = Checksum::from_proto(pb.checksum());
+        if (err) return {{}, err};
+        cpp.checksum = v;
+    }
+    cpp.max_length = pb.max_length();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::FramingCobsPayload, x::errors::Error>
+CobsFraming::to_proto() const {
+    ::service::icd::pb::FramingCobsPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<CobsFraming, x::errors::Error>
+CobsFraming::from_proto(const ::service::icd::pb::FramingCobsPayload &pb) {
+    CobsFraming cpp;
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::FramingSlipPayload, x::errors::Error>
+SlipFraming::to_proto() const {
+    ::service::icd::pb::FramingSlipPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<SlipFraming, x::errors::Error>
+SlipFraming::from_proto(const ::service::icd::pb::FramingSlipPayload &pb) {
+    SlipFraming cpp;
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::icd::pb::Identifier, x::errors::Error>
 to_proto(const Identifier &value) {
     ::service::icd::pb::Identifier pb;
@@ -1540,6 +1745,67 @@ payload_from_proto(const ::service::icd::pb::Payload &pb) {
             return {
                 {},
                 x::errors::Error(x::errors::VALIDATION, "Payload: no variant set")
+            };
+    }
+}
+
+inline std::pair<::service::icd::pb::Framing, x::errors::Error>
+to_proto(const Framing &value) {
+    ::service::icd::pb::Framing pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, DelimitedFraming>)
+                *pb.mutable_delimited() = inner;
+            else if constexpr (std::is_same_v<V, FixedFraming>)
+                *pb.mutable_fixed() = inner;
+            else if constexpr (std::is_same_v<V, SyncFraming>)
+                *pb.mutable_sync() = inner;
+            else if constexpr (std::is_same_v<V, CobsFraming>)
+                *pb.mutable_cobs() = inner;
+            else if constexpr (std::is_same_v<V, SlipFraming>)
+                *pb.mutable_slip() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Framing, x::errors::Error>
+framing_from_proto(const ::service::icd::pb::Framing &pb) {
+    switch (pb.variant_case()) {
+        case ::service::icd::pb::Framing::kDelimited: {
+            auto [v, err] = DelimitedFraming::from_proto(pb.delimited());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::Framing::kFixed: {
+            auto [v, err] = FixedFraming::from_proto(pb.fixed());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::Framing::kSync: {
+            auto [v, err] = SyncFraming::from_proto(pb.sync());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::Framing::kCobs: {
+            auto [v, err] = CobsFraming::from_proto(pb.cobs());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::Framing::kSlip: {
+            auto [v, err] = SlipFraming::from_proto(pb.slip());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Framing: no variant set")
             };
     }
 }

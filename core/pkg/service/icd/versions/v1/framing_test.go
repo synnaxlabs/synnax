@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package v1_test
 
 import (
-	"encoding/base64"
 	"encoding/json/v2"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,21 +28,40 @@ func decodeValidate[T interface{ Validate() error }](data string) error {
 }
 
 var _ = Describe("Framing", func() {
-	It("Should read and write a length size as its schema value", func() {
-		var f v0.Framing
+	It("Should read and write the framing of an ICD", func() {
+		var ic v1.ICD
 		Expect(json.Unmarshal(
-			[]byte(`{"type": "sync", "sync": "qg==", "length_size": 4}`), &f,
+			[]byte(
+				`{"name": "gps", "framing": {"type": "delimited", "delimiter": "\r\n"}}`,
+			),
+			&ic,
 		)).To(Succeed())
-		sync, ok := f.Variant.(v0.SyncFraming)
+		Expect(ic.Framing).ToNot(BeNil())
+		Expect(ic.Framing.Variant).To(Equal(v1.DelimitedFraming{Delimiter: "\r\n"}))
+		Expect(string(MustSucceed(json.Marshal(ic)))).To(ContainSubstring(`"framing":`))
+	})
+
+	It("Should leave out the framing of an ICD that has none", func() {
+		Expect(string(MustSucceed(json.Marshal(v1.ICD{Name: "gps"})))).ToNot(
+			ContainSubstring("framing"),
+		)
+	})
+
+	It("Should read and write a length size as its schema value", func() {
+		var f v1.Framing
+		Expect(json.Unmarshal(
+			[]byte(`{"type": "sync", "sync": "qg==", "length_size": "four"}`), &f,
+		)).To(Succeed())
+		sync, ok := f.Variant.(v1.SyncFraming)
 		Expect(ok).To(BeTrue())
-		Expect(sync.LengthSize).To(Equal(v0.LengthSizeFour))
+		Expect(sync.LengthSize).To(Equal(v1.LengthSizeFour))
 		Expect(
 			string(MustSucceed(json.Marshal(f))),
-		).To(ContainSubstring(`"length_size":4`))
+		).To(ContainSubstring(`"length_size":"four"`))
 	})
 
 	It("Should refuse an unknown framing type when it decodes", func() {
-		var f v0.Framing
+		var f v1.Framing
 		Expect(json.Unmarshal([]byte(`{"type": "bogus"}`), &f)).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`Framing: unknown type "bogus"`)),
@@ -52,7 +69,7 @@ var _ = Describe("Framing", func() {
 	})
 
 	It("Should refuse a framing with no variant", func() {
-		Expect(v0.Framing{}.Validate()).To(SatisfyAll(
+		Expect(v1.Framing{}.Validate()).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("type: required")),
 		))
@@ -61,7 +78,7 @@ var _ = Describe("Framing", func() {
 	DescribeTable(
 		"Should refuse an invalid framing with the path of its field",
 		func(data, want string) {
-			Expect(decodeValidate[v0.Framing](data)).To(SatisfyAll(
+			Expect(decodeValidate[v1.Framing](data)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(want)),
 			))
@@ -72,9 +89,9 @@ var _ = Describe("Framing", func() {
 			"sync: must be at least 1 bytes long",
 		),
 		Entry(
-			"a length size of 3",
-			`{"type": "sync", "sync": "qg==", "length_size": 3}`,
-			"length_size: invalid length_size: LengthSize(3)",
+			"an unknown length size",
+			`{"type": "sync", "sync": "qg==", "length_size": "three"}`,
+			"length_size: invalid length_size: three",
 		),
 		Entry(
 			"a max length of 0",
@@ -121,43 +138,6 @@ var _ = Describe("Framing", func() {
 			"an empty delimiter",
 			`{"type": "delimited", "delimiter": ""}`,
 			"delimiter: required",
-		),
-	)
-})
-
-// pollOf returns the JSON of a poll whose query holds size bytes.
-func pollOf(size int) string {
-	query := base64.StdEncoding.EncodeToString(make([]byte, size))
-	return fmt.Sprintf(`{"query": %q, "rate": 1}`, query)
-}
-
-var _ = Describe("Poll", func() {
-	It("Should accept a query of 65536 bytes", func() {
-		Expect(decodeValidate[v0.Poll](pollOf(65536))).To(Succeed())
-	})
-
-	DescribeTable(
-		"Should refuse an invalid poll with the path of its field",
-		func(data, want string) {
-			Expect(decodeValidate[v0.Poll](data)).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(want)),
-			))
-		},
-		Entry(
-			"an empty query",
-			`{"query": "", "rate": 1}`,
-			"query: must be at least 1 bytes long",
-		),
-		Entry(
-			"a query of 65537 bytes",
-			pollOf(65537),
-			"query: must be at most 65536 bytes long",
-		),
-		Entry(
-			"a rate of 0",
-			`{"query": "qg==", "rate": 0}`,
-			"rate: must be greater than 0",
 		),
 	)
 })

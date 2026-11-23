@@ -377,6 +377,72 @@ func MessagesFromPB(pbs []*Message) ([]icd.Message, error) {
 	return result, nil
 }
 
+// ChecksumToPB converts Checksum to Checksum.
+func ChecksumToPB(r icd.Checksum) (*Checksum, error) {
+	algorithmVal, err := ChecksumAlgorithmToPB(r.Algorithm)
+	if err != nil {
+		return nil, err
+	}
+	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Checksum{
+		Algorithm: algorithmVal,
+		ByteOrder: byteOrderVal,
+	}
+	return pb, nil
+}
+
+// ChecksumFromPB converts Checksum to Checksum.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func ChecksumFromPB(pb *Checksum) (icd.Checksum, error) {
+	var r icd.Checksum
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Algorithm, err = ChecksumAlgorithmFromPB(pb.Algorithm)
+	if err != nil {
+		return icd.Checksum{}, err
+	}
+	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
+	if err != nil {
+		return icd.Checksum{}, err
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// ChecksumsToPB converts a slice of Checksum to Checksum.
+func ChecksumsToPB(rs []icd.Checksum) ([]*Checksum, error) {
+	result := make([]*Checksum, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ChecksumToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChecksumsFromPB converts a slice of Checksum to Checksum.
+func ChecksumsFromPB(pbs []*Checksum) ([]icd.Checksum, error) {
+	result := make([]icd.Checksum, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ChecksumFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // ICDToPB converts ICD to ICD.
 func ICDToPB(r icd.ICD) (*ICD, error) {
 	messagesVal, err := MessagesToPB(r.Messages)
@@ -387,6 +453,13 @@ func ICDToPB(r icd.ICD) (*ICD, error) {
 		Name:     r.Name,
 		Key:      r.Key.String(),
 		Messages: messagesVal,
+	}
+	if r.Framing != nil {
+		var err error
+		pb.Framing, err = FramingToPB(*r.Framing)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -411,6 +484,13 @@ func ICDFromPB(pb *ICD) (icd.ICD, error) {
 		return icd.ICD{}, err
 	}
 	r.Name = pb.Name
+	if pb.Framing != nil {
+		val, err := FramingFromPB(pb.Framing)
+		if err != nil {
+			return icd.ICD{}, err
+		}
+		r.Framing = &val
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -2222,6 +2302,274 @@ func JSONPayloadsFromPB(pbs []*PayloadJsonPayload) ([]icd.JSONPayload, error) {
 	return result, nil
 }
 
+// DelimitedFramingToPB converts DelimitedFraming to FramingDelimitedPayload.
+func DelimitedFramingToPB(r icd.DelimitedFraming) (*FramingDelimitedPayload, error) {
+	pb := &FramingDelimitedPayload{
+		Delimiter: r.Delimiter,
+	}
+	return pb, nil
+}
+
+// DelimitedFramingFromPB converts FramingDelimitedPayload to DelimitedFraming.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func DelimitedFramingFromPB(pb *FramingDelimitedPayload) (icd.DelimitedFraming, error) {
+	var r icd.DelimitedFraming
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Delimiter = pb.Delimiter
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// DelimitedFramingsToPB converts a slice of DelimitedFraming to FramingDelimitedPayload.
+func DelimitedFramingsToPB(rs []icd.DelimitedFraming) ([]*FramingDelimitedPayload, error) {
+	result := make([]*FramingDelimitedPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DelimitedFramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DelimitedFramingsFromPB converts a slice of FramingDelimitedPayload to DelimitedFraming.
+func DelimitedFramingsFromPB(pbs []*FramingDelimitedPayload) ([]icd.DelimitedFraming, error) {
+	result := make([]icd.DelimitedFraming, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DelimitedFramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// FixedFramingToPB converts FixedFraming to FramingFixedPayload.
+func FixedFramingToPB(r icd.FixedFraming) (*FramingFixedPayload, error) {
+	pb := &FramingFixedPayload{
+		Length: r.Length,
+	}
+	return pb, nil
+}
+
+// FixedFramingFromPB converts FramingFixedPayload to FixedFraming.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func FixedFramingFromPB(pb *FramingFixedPayload) (icd.FixedFraming, error) {
+	var r icd.FixedFraming
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Length = pb.Length
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// FixedFramingsToPB converts a slice of FixedFraming to FramingFixedPayload.
+func FixedFramingsToPB(rs []icd.FixedFraming) ([]*FramingFixedPayload, error) {
+	result := make([]*FramingFixedPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = FixedFramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// FixedFramingsFromPB converts a slice of FramingFixedPayload to FixedFraming.
+func FixedFramingsFromPB(pbs []*FramingFixedPayload) ([]icd.FixedFraming, error) {
+	result := make([]icd.FixedFraming, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = FixedFramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SyncFramingToPB converts SyncFraming to FramingSyncPayload.
+func SyncFramingToPB(r icd.SyncFraming) (*FramingSyncPayload, error) {
+	lengthSizeVal, err := LengthSizeToPB(r.LengthSize)
+	if err != nil {
+		return nil, err
+	}
+	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
+	if err != nil {
+		return nil, err
+	}
+	pb := &FramingSyncPayload{
+		Sync:             r.Sync,
+		LengthOffset:     r.LengthOffset,
+		LengthAdjustment: r.LengthAdjustment,
+		MaxLength:        r.MaxLength,
+		LengthSize:       lengthSizeVal,
+		ByteOrder:        byteOrderVal,
+	}
+	if r.Checksum != nil {
+		var err error
+		pb.Checksum, err = ChecksumToPB(*r.Checksum)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// SyncFramingFromPB converts FramingSyncPayload to SyncFraming.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func SyncFramingFromPB(pb *FramingSyncPayload) (icd.SyncFraming, error) {
+	var r icd.SyncFraming
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.LengthSize, err = LengthSizeFromPB(pb.LengthSize)
+	if err != nil {
+		return icd.SyncFraming{}, err
+	}
+	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
+	if err != nil {
+		return icd.SyncFraming{}, err
+	}
+	r.Sync = pb.Sync
+	r.LengthOffset = pb.LengthOffset
+	r.LengthAdjustment = pb.LengthAdjustment
+	r.MaxLength = pb.MaxLength
+	if pb.Checksum != nil {
+		val, err := ChecksumFromPB(pb.Checksum)
+		if err != nil {
+			return icd.SyncFraming{}, err
+		}
+		r.Checksum = &val
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// SyncFramingsToPB converts a slice of SyncFraming to FramingSyncPayload.
+func SyncFramingsToPB(rs []icd.SyncFraming) ([]*FramingSyncPayload, error) {
+	result := make([]*FramingSyncPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SyncFramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SyncFramingsFromPB converts a slice of FramingSyncPayload to SyncFraming.
+func SyncFramingsFromPB(pbs []*FramingSyncPayload) ([]icd.SyncFraming, error) {
+	result := make([]icd.SyncFraming, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SyncFramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CobsFramingToPB converts CobsFraming to FramingCobsPayload.
+func CobsFramingToPB(r icd.CobsFraming) (*FramingCobsPayload, error) {
+	pb := &FramingCobsPayload{}
+	return pb, nil
+}
+
+// CobsFramingFromPB converts FramingCobsPayload to CobsFraming.
+func CobsFramingFromPB(pb *FramingCobsPayload) (icd.CobsFraming, error) {
+	var r icd.CobsFraming
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// CobsFramingsToPB converts a slice of CobsFraming to FramingCobsPayload.
+func CobsFramingsToPB(rs []icd.CobsFraming) ([]*FramingCobsPayload, error) {
+	result := make([]*FramingCobsPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CobsFramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CobsFramingsFromPB converts a slice of FramingCobsPayload to CobsFraming.
+func CobsFramingsFromPB(pbs []*FramingCobsPayload) ([]icd.CobsFraming, error) {
+	result := make([]icd.CobsFraming, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CobsFramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SlipFramingToPB converts SlipFraming to FramingSlipPayload.
+func SlipFramingToPB(r icd.SlipFraming) (*FramingSlipPayload, error) {
+	pb := &FramingSlipPayload{}
+	return pb, nil
+}
+
+// SlipFramingFromPB converts FramingSlipPayload to SlipFraming.
+func SlipFramingFromPB(pb *FramingSlipPayload) (icd.SlipFraming, error) {
+	var r icd.SlipFraming
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// SlipFramingsToPB converts a slice of SlipFraming to FramingSlipPayload.
+func SlipFramingsToPB(rs []icd.SlipFraming) ([]*FramingSlipPayload, error) {
+	result := make([]*FramingSlipPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SlipFramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SlipFramingsFromPB converts a slice of FramingSlipPayload to SlipFraming.
+func SlipFramingsFromPB(pbs []*FramingSlipPayload) ([]icd.SlipFraming, error) {
+	result := make([]icd.SlipFraming, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SlipFramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // IdentifierToPB converts Identifier to Identifier.
 func IdentifierToPB(r icd.Identifier) (*Identifier, error) {
 	if r.Variant == nil {
@@ -3199,6 +3547,121 @@ func PayloadsFromPB(pbs []*Payload) ([]icd.Payload, error) {
 	return result, nil
 }
 
+// FramingToPB converts Framing to Framing.
+func FramingToPB(r icd.Framing) (*Framing, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Framing{}
+	switch v := r.Variant.(type) {
+	case icd.DelimitedFraming:
+		inner, err := DelimitedFramingToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Framing_Delimited{Delimited: inner}
+	case icd.FixedFraming:
+		inner, err := FixedFramingToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Framing_Fixed{Fixed: inner}
+	case icd.SyncFraming:
+		inner, err := SyncFramingToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Framing_Sync{Sync: inner}
+	case icd.CobsFraming:
+		inner, err := CobsFramingToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Framing_Cobs{Cobs: inner}
+	case icd.SlipFraming:
+		inner, err := SlipFramingToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Framing_Slip{Slip: inner}
+	default:
+		return nil, errors.Newf("Framing: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// FramingFromPB converts Framing to Framing.
+func FramingFromPB(pb *Framing) (icd.Framing, error) {
+	var r icd.Framing
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Framing_Delimited:
+		inner, err := DelimitedFramingFromPB(v.Delimited)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Framing_Fixed:
+		inner, err := FixedFramingFromPB(v.Fixed)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Framing_Sync:
+		inner, err := SyncFramingFromPB(v.Sync)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Framing_Cobs:
+		inner, err := CobsFramingFromPB(v.Cobs)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Framing_Slip:
+		inner, err := SlipFramingFromPB(v.Slip)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// FramingsToPB converts a slice of Framing to Framing.
+func FramingsToPB(rs []icd.Framing) ([]*Framing, error) {
+	result := make([]*Framing, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = FramingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// FramingsFromPB converts a slice of Framing to Framing.
+func FramingsFromPB(pbs []*Framing) ([]icd.Framing, error) {
+	result := make([]icd.Framing, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = FramingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // ByteOrderToPB converts icd.ByteOrder to ByteOrder.
 func ByteOrderToPB(v icd.ByteOrder) (ByteOrder, error) {
 	switch v {
@@ -3220,5 +3683,61 @@ func ByteOrderFromPB(v ByteOrder) (icd.ByteOrder, error) {
 		return icd.ByteOrderBigEndian, nil
 	default:
 		return icd.ByteOrder(""), errors.Newf("unrecognized ByteOrder value: %v", v)
+	}
+}
+
+// ChecksumAlgorithmToPB converts icd.ChecksumAlgorithm to ChecksumAlgorithm.
+func ChecksumAlgorithmToPB(v icd.ChecksumAlgorithm) (ChecksumAlgorithm, error) {
+	switch v {
+	case icd.ChecksumAlgorithmCrc16CcittFalse:
+		return ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE, nil
+	case icd.ChecksumAlgorithmCrc16Modbus:
+		return ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_16_MODBUS, nil
+	case icd.ChecksumAlgorithmCrc32:
+		return ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_32, nil
+	default:
+		return 0, errors.Newf("unrecognized icd.ChecksumAlgorithm value: %v", v)
+	}
+}
+
+// ChecksumAlgorithmFromPB converts ChecksumAlgorithm to icd.ChecksumAlgorithm.
+func ChecksumAlgorithmFromPB(v ChecksumAlgorithm) (icd.ChecksumAlgorithm, error) {
+	switch v {
+	case ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE:
+		return icd.ChecksumAlgorithmCrc16CcittFalse, nil
+	case ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_16_MODBUS:
+		return icd.ChecksumAlgorithmCrc16Modbus, nil
+	case ChecksumAlgorithm_CHECKSUM_ALGORITHM_CRC_32:
+		return icd.ChecksumAlgorithmCrc32, nil
+	default:
+		return icd.ChecksumAlgorithm(""), errors.Newf("unrecognized ChecksumAlgorithm value: %v", v)
+	}
+}
+
+// LengthSizeToPB converts icd.LengthSize to LengthSize.
+func LengthSizeToPB(v icd.LengthSize) (LengthSize, error) {
+	switch v {
+	case icd.LengthSizeOne:
+		return LengthSize_LENGTH_SIZE_ONE, nil
+	case icd.LengthSizeTwo:
+		return LengthSize_LENGTH_SIZE_TWO, nil
+	case icd.LengthSizeFour:
+		return LengthSize_LENGTH_SIZE_FOUR, nil
+	default:
+		return 0, errors.Newf("unrecognized icd.LengthSize value: %v", v)
+	}
+}
+
+// LengthSizeFromPB converts LengthSize to icd.LengthSize.
+func LengthSizeFromPB(v LengthSize) (icd.LengthSize, error) {
+	switch v {
+	case LengthSize_LENGTH_SIZE_ONE:
+		return icd.LengthSizeOne, nil
+	case LengthSize_LENGTH_SIZE_TWO:
+		return icd.LengthSizeTwo, nil
+	case LengthSize_LENGTH_SIZE_FOUR:
+		return icd.LengthSizeFour, nil
+	default:
+		return icd.LengthSize(""), errors.Newf("unrecognized LengthSize value: %v", v)
 	}
 }
