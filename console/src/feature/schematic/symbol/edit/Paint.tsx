@@ -123,7 +123,7 @@ export const Paint = ({
         size="small"
         variant="outlined"
         aria-label={ariaLabel}
-        tooltip={NAMES[kind]}
+        tooltip={`${ariaLabel}: ${NAMES[kind]}`}
         style={chip}
         textColor={text}
       >
