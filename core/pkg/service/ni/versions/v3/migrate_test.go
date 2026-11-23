@@ -225,14 +225,18 @@ var _ = Describe("MigrateCIChannel", func() {
 		Entry("at the maximum", int32(math.MaxInt32), uint32(math.MaxInt32)),
 	)
 
-	It("Should clamp the period divisor to at least 1", func(ctx SpecContext) {
-		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
-			Variant: v2.CIPeriodChannel{Divisor: -1},
-		}))
-		ch, ok := got.Variant.(v3.CIPeriodChannel)
-		Expect(ok).To(BeTrue())
-		Expect(ch.Divisor).To(Equal(uint32(1)))
-	})
+	DescribeTable("Should clamp the period divisor to at least 1 or default it",
+		func(ctx SpecContext, divisor int32, want uint32) {
+			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
+				Variant: v2.CIPeriodChannel{Divisor: divisor},
+			}))
+			ch, ok := got.Variant.(v3.CIPeriodChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Divisor).To(Equal(want))
+		},
+		Entry("absent", int32(0), uint32(4)),
+		Entry("negative", int32(-1), uint32(1)),
+	)
 
 	DescribeTable("Should clamp and truncate pulses per revolution",
 		func(ctx SpecContext, pulses float64, want uint32) {
@@ -250,14 +254,18 @@ var _ = Describe("MigrateCIChannel", func() {
 		Entry("NaN", math.NaN(), uint32(1)),
 	)
 
-	It("Should clamp angular velocity pulses per revolution", func(ctx SpecContext) {
-		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
-			Variant: v2.CIVelocityAngularChannel{PulsesPerRev: -3},
-		}))
-		ch, ok := got.Variant.(v3.CIVelocityAngularChannel)
-		Expect(ok).To(BeTrue())
-		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
-	})
+	DescribeTable("Should clamp or default angular velocity pulses per revolution",
+		func(ctx SpecContext, pulses float64, want uint32) {
+			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
+				Variant: v2.CIVelocityAngularChannel{PulsesPerRev: pulses},
+			}))
+			ch, ok := got.Variant.(v3.CIVelocityAngularChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.PulsesPerRev).To(Equal(want))
+		},
+		Entry("absent", 0.0, uint32(24)),
+		Entry("negative", -3.0, uint32(1)),
+	)
 
 	DescribeTable("Should clamp and truncate the initial count",
 		func(ctx SpecContext, count float64, want uint32) {

@@ -157,7 +157,7 @@ func MigrateCJC(ctx context.Context, old v2.CJC) (CJC, error) {
 
 // MigrateCIChannel lifts a v2 counter input channel to v3. A divisor or pulse count
 // below 1 becomes 1, a negative initial count becomes 0, and a fraction truncates. An
-// absent divisor or pulse count takes its schema default.
+// absent divisor becomes 4 and an absent pulse count becomes 24.
 func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) {
 	ch, err := autoMigrateCIChannel(ctx, old)
 	if err != nil {
@@ -165,32 +165,24 @@ func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) 
 	}
 	switch o := old.Variant.(type) {
 	case v2.CIFrequencyChannel:
-		var def CIFrequencyChannel
-		def.SetDefaults()
 		n := as[CIFrequencyChannel](ch.Variant)
-		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
+		n.Divisor = narrowDivisor(o.Divisor, 4)
 		ch.Variant = n
 	case v2.CIPeriodChannel:
-		var def CIPeriodChannel
-		def.SetDefaults()
 		n := as[CIPeriodChannel](ch.Variant)
-		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
+		n.Divisor = narrowDivisor(o.Divisor, 4)
 		ch.Variant = n
 	case v2.CIEdgeCountChannel:
 		n := as[CIEdgeCountChannel](ch.Variant)
 		n.InitialCount = narrowCount(o.InitialCount, 0)
 		ch.Variant = n
 	case v2.CIVelocityAngularChannel:
-		var def CIVelocityAngularChannel
-		def.SetDefaults()
 		n := as[CIVelocityAngularChannel](ch.Variant)
-		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, 24)
 		ch.Variant = n
 	case v2.CIPositionAngularChannel:
-		var def CIPositionAngularChannel
-		def.SetDefaults()
 		n := as[CIPositionAngularChannel](ch.Variant)
-		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, 24)
 		ch.Variant = n
 	}
 	return ch, nil

@@ -637,9 +637,7 @@ func migrateControl(old *v12.ControlStateConfig) ControlStateConfig {
 	if old != nil {
 		return *old
 	}
-	var cfg ControlStateConfig
-	cfg.SetDefaults()
-	return cfg
+	return ControlStateConfig{Orientation: spatial.LocationBottom}
 }
 
 // resetScales sets each scale under v that is 0 or less, NaN, or infinite to 1. v must
