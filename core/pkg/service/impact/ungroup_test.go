@@ -304,7 +304,10 @@ var _ = Describe("Ungroup groups", Ordered, func() {
 		}
 		sym := defaults.Fill(symbol.Symbol{
 			Name: "Inlet",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Data: symbol.Spec{
+				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Variant: "valve",
+			},
 		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			if err := layer.Group.NewWriter(tx).Create(ctx, &folder); err != nil {
@@ -487,8 +490,13 @@ var _ = Describe("Ungroup groups", Ordered, func() {
 			ctx SpecContext, tx gorp.Tx, folder *group.Key,
 		) (resource.ID, error) {
 			sym := defaults.Fill(symbol.Symbol{
-				Name:  "Inlet",
-				Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Name: "Inlet",
+				Data: symbol.Spec{
+					Drawing: symbol.Drawing{
+						Variant: symbol.SvgDrawing{Markup: "<svg/>"},
+					},
+					Variant: "valve",
+				},
 				Group: folder,
 			})
 			err := layer.Schematic.Symbol.NewWriter(tx).Create(ctx, &sym)
