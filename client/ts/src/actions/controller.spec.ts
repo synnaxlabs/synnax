@@ -1931,6 +1931,65 @@ describe("actions.Controller", () => {
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
     });
+
+    it("sends a dispatch made during the create after the create", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+      expect(send).not.toHaveBeenCalled();
+      created.resolve("created");
+      expect(await done).toBe("created");
+      expect(await dispatched).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("sends a dispatch made during a failed create after the create", async () => {
+      const { docs, controller, send } = setupStore({
+        send: async () => {
+          throw new Error("not found");
+        },
+      });
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      created.reject(new Error("create failed"));
+      await expect(done).rejects.toThrow("create failed");
+      await expect(dispatched).rejects.toThrow("not found");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("sends one dispatch at a time for a key passed twice", async () => {
+      const sent: Array<PromiseWithResolvers<[]>> = [];
+      const { docs, controller, send } = setupStore({
+        send: async () => {
+          const result = Promise.withResolvers<[]>();
+          sent.push(result);
+          return await result.promise;
+        },
+      });
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k", "k"], async () => await created.promise);
+      const first = controller.dispatch("k", [set("a", 1)]);
+      created.resolve("created");
+      await done;
+      await expect.poll(() => send.mock.calls.length).toBe(1);
+      const second = controller.dispatch("k", [set("a", 2)]);
+      await sleep.sleep(TimeSpan.milliseconds(5));
+      expect(send).toHaveBeenCalledTimes(1);
+      sent[0].resolve([]);
+      expect(await first).toBe(true);
+      await expect.poll(() => send.mock.calls.length).toBe(2);
+      sent[1].resolve([]);
+      expect(await second).toBe(true);
+    });
   });
 
   describe("request", () => {
