@@ -228,22 +228,39 @@ export const removePart = (spec: Spec, part: string): Spec => ({
   looks: spec.looks.filter((l) => l.part !== part),
 });
 
+// heldBy returns the selectors whose shapes all sit in the shape of group.
+const heldBy = (markup: string, group: string, selectors: string[]): Set<string> => {
+  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
+  const el = doc.querySelector(group);
+  if (el == null) return new Set();
+  return new Set(
+    selectors.filter((s) => {
+      const shapes = [...doc.querySelectorAll(s)];
+      return shapes.length > 0 && shapes.every((shape) => el.contains(shape));
+    }),
+  );
+};
+
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, so the other parts drop selector.
+ * already did. A shape belongs to one part, so the other parts drop selector. A group
+ * that joins part takes the place of the shapes of part that it holds.
  */
 export const toggleSelector = (
-  parts: schematic.symbol.Part[],
+  spec: Pick<Spec, "drawing" | "parts">,
   part: string,
   selector: string,
 ): schematic.symbol.Part[] => {
-  const target = parts.find((p) => p.key === part);
-  if (target == null) return parts;
+  const target = spec.parts.find((p) => p.key === part);
+  if (target == null) return spec.parts;
   const selected = target.selectors.includes(selector);
-  return parts.map((p) => {
+  const held = selected
+    ? new Set<string>()
+    : heldBy(spec.drawing.markup, selector, target.selectors);
+  return spec.parts.map((p) => {
     const rest = p.selectors.filter((s) => s !== selector);
     if (p.key !== part || selected) return { ...p, selectors: rest };
-    return { ...p, selectors: [...rest, selector] };
+    return { ...p, selectors: [...rest.filter((s) => !held.has(s)), selector] };
   });
 };
 

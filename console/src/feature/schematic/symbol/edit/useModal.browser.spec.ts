@@ -665,6 +665,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       '<rect id="a" width="10" height="10"/><rect id="b" x="10" width="10" height="10"/>' +
       "</svg>";
 
+    const GROUPED =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+      '<g id="g"><rect id="c" width="10" height="10"/>' +
+      '<rect id="d" x="10" width="10" height="10"/></g></svg>';
+
     const findShape = (id: string): Element => {
       const shape = getPreviewTransformWrapper(document.body).querySelector(`#${id}`);
       assertDefined(shape);
@@ -724,14 +729,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("adds only the clicked shape of a group to a part", async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("grouped"));
-      const markup =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
-        '<g id="g"><rect id="c" width="10" height="10"/>' +
-        '<rect id="d" x="10" width="10" height="10"/></g></svg>';
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, drawing: { type: "svg", markup } },
+        data: { ...payload.data, drawing: { type: "svg", markup: GROUPED } },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -745,6 +746,51 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.parts).toEqual([
           { key: expect.any(String), name: "Part 1", selectors: ["#c"] },
+        ]),
+      );
+    });
+
+    it("makes the group around the shapes of a part the part", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#c", "#d"] }],
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [
+          {
+            key: "level",
+            part: "body",
+            motion: { type: "level", state: "tank", side: "bottom" },
+          },
+        ],
+      });
+      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("Select parent group"));
+      await waitFor(() =>
+        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
+      );
+      // The group sits in no group, so the action leaves.
+      expect(screen.queryByText("Select parent group")).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#g"] },
+        ]),
+      );
+    });
+
+    it("makes a part of the group of a shape alt-clicked", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: GROUPED } });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"), { altKey: true });
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          BODY,
+          { key: expect.any(String), name: "Part 1", selectors: ["#g"] },
         ]),
       );
     });

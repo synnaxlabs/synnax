@@ -151,9 +151,12 @@ const Editor = ({
       selectors: [],
     };
     const next = [...parts, part];
+    const drawing = form.get(path.data.drawing).value;
     form.set(
       path.data.parts,
-      selector == null ? next : Spec.toggleSelector(next, part.key, selector),
+      selector == null
+        ? next
+        : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
     );
     setSelectedPart(part.key);
   };
@@ -182,10 +185,10 @@ const Editor = ({
 
   const handleElementClick = (selector: string) => {
     const part = selectedPartRef.current;
-    const parts = form.get(path.data.parts).value;
+    const spec = form.get(path.data).value;
     if (part != null)
-      return form.set(path.data.parts, Spec.toggleSelector(parts, part, selector));
-    const owner = parts.find((p) => p.selectors.includes(selector));
+      return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
+    const owner = spec.parts.find((p) => p.selectors.includes(selector));
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };

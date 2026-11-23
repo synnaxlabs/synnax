@@ -21,6 +21,7 @@ import { bounds, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
+import { parentGroup } from "@/feature/schematic/symbol/edit/group";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import {
   FLATTENED_ZOOM_TRIGGERS,
@@ -212,7 +213,10 @@ export const Preview = ({
         // The groups around the shape have their own listeners.
         e.stopPropagation();
         const markup = form.get(path.data.drawing.markup).value;
-        const named = Schematic.Node.Region.name(markup, drawing, el);
+        const shape = Schematic.Node.Region.name(markup, drawing, el);
+        // Alt-click is the shortcut for Select parent group.
+        const named =
+          (e.altKey ? parentGroup(shape.markup, [shape.selector]) : null) ?? shape;
         if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
         onElementClick(named.selector);
       });

@@ -20,10 +20,12 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
+import { parentGroup } from "@/feature/schematic/symbol/edit/group";
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -294,7 +296,7 @@ const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: stri
     shapes: {
       message: "Fill motion needs one shape",
       description:
-        "Fill motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
+        "Fill motion fills each shape in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
     },
     clip: {
       message: "Fill motion replaces a clip-path",
@@ -302,6 +304,42 @@ const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: stri
         "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
     },
   };
+
+const SELECT_PARENT_TOOLTIP = (
+  <Triggers.Text trigger={["Alt", "MouseLeft"]} level="small">
+    Select parent group
+  </Triggers.Text>
+);
+
+interface SelectParentProps {
+  part: schematic.symbol.Part;
+}
+
+// SelectParent makes the group around the shapes of part the part.
+const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
+  const { get, set } = Form.useContext();
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const group = parentGroup(drawing.markup, part.selectors);
+  if (group == null) return null;
+  const handleClick = () => {
+    if (group.markup !== drawing.markup) set(path.data.drawing.markup, group.markup);
+    const spec = {
+      drawing: { ...drawing, markup: group.markup },
+      parts: get(path.data.parts).value,
+    };
+    set(path.data.parts, Spec.toggleSelector(spec, part.key, group.selector));
+  };
+  return (
+    <Button.Button
+      size="small"
+      variant="outlined"
+      tooltip={SELECT_PARENT_TOOLTIP}
+      onClick={handleClick}
+    >
+      Select parent group
+    </Button.Button>
+  );
+};
 
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
@@ -331,6 +369,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
               : "Click shapes in the drawing to add or remove them."}
           </Text.Text>
         </Flex.Box>
+        {part != null && <SelectParent part={part} />}
         <Divider.Divider x />
         <Property field="fill" label="Fill" icon={<Icon.FillColor />}>
           <PaintControl drawingColor={drawn?.fill} />
