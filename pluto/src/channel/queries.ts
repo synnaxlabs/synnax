@@ -15,7 +15,7 @@ import {
   NotFoundError,
   query,
 } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
