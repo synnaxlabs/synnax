@@ -21,7 +21,7 @@ import type { z } from "zod";
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { telem } from "@/telem/aether";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { staleness } from "@/vis/staleness/aether";
 
 const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
@@ -626,36 +626,6 @@ describe("staleness", () => {
       expect(staleness.resolveColor("#FF0000", theme)).toEqual(
         color.construct("#FF0000"),
       );
-    });
-  });
-
-  describe("drawnColor", () => {
-    const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
-
-    it("should return undefined while the content is live", () => {
-      const state = staleness.drawnStateZ.parse({ stalenessColor: "#ff0000" });
-      expect(staleness.drawnColor(state, theme)).toBeUndefined();
-    });
-
-    it("should resolve the stale color while the content is stale", () => {
-      const state = staleness.drawnStateZ.parse({ stale: true });
-      expect(staleness.drawnColor(state, theme)).toEqual(theme.colors.warning.m1);
-    });
-
-    it("should return undefined while the stale color is hidden", () => {
-      const state = staleness.drawnStateZ.parse({
-        stale: true,
-        staleColorHidden: true,
-      });
-      expect(staleness.drawnColor(state, theme)).toBeUndefined();
-    });
-
-    it("should honor a configured stale color", () => {
-      const state = staleness.drawnStateZ.parse({
-        stale: true,
-        stalenessColor: "#ff0000",
-      });
-      expect(staleness.drawnColor(state, theme)).toEqual(color.construct("#ff0000"));
     });
   });
 

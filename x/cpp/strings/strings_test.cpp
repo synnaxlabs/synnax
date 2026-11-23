@@ -126,6 +126,26 @@ TEST(Trim, AllWhitespaceIsEmpty) {
     EXPECT_EQ(x::strings::trim(""), "");
 }
 
+/// @brief it should trim spaces, tabs, and carriage returns, and keep every other
+/// whitespace character.
+TEST(Trim, TrimmedCharacters) {
+    for (const char c: x::strings::TRIMMED) {
+        const std::string s = std::string(1, c) + "a" + std::string(1, c);
+        EXPECT_EQ(x::strings::trim(s), "a") << static_cast<int>(c);
+    }
+    EXPECT_EQ(x::strings::TRIMMED, " \t\r");
+    for (const std::string s: {"\na\n", "\va\v", "\fa\f"})
+        EXPECT_EQ(x::strings::trim(s), s);
+}
+
+/// @brief it should return a view into its argument, not a copy.
+TEST(Trim, ViewIntoArgument) {
+    const std::string s = "  a b \t";
+    const auto trimmed = x::strings::trim(s);
+    EXPECT_EQ(trimmed.data(), s.data() + 2);
+    EXPECT_EQ(trimmed.size(), 3);
+}
+
 /// @brief it should remove a trailing line feed.
 TEST(TrimTrailingLineBreaks, RemovesLineFeed) {
     EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\n"), "value");

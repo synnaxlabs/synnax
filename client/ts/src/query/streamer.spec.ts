@@ -14,9 +14,8 @@ import z from "zod";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { DisconnectedError, NotFoundError } from "@/index";
+import { DisconnectedError, MissingCredentialsError, NotFoundError } from "@/index";
 import { query } from "@/query";
-import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
 class MockHardenedStreamer implements framer.Streamer {
   declare [Symbol.dispose]: () => void;
@@ -98,18 +97,28 @@ const createListeners = (
   onChange: Mock,
 ): query.Listener[] => [{ channel, schema, onChange }];
 
-const createStreamerArgs = (overrides?: Partial<StreamerParams>): StreamerParams => ({
+interface CacheArgs extends query.CacheParams {
+  listeners: query.Listener[];
+}
+
+const createCacheArgs = (overrides?: Partial<CacheArgs>): CacheArgs => ({
   onError: vi.fn(),
-  onRetry: vi.fn(),
+  onStreamRetry: vi.fn(),
   listeners: [],
   openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,
 });
 
-const openStreamer = async (args: StreamerParams): Promise<() => Promise<void>> => {
-  const streamer = createStreamer(args);
-  await streamer.demand();
-  return streamer.close;
+const createCache = ({ listeners, ...params }: CacheArgs): query.Cache => {
+  const cache = new query.Cache(params);
+  listeners.forEach((listener) => cache.listen(listener));
+  return cache;
+};
+
+const openStreamer = async (args: CacheArgs): Promise<() => Promise<void>> => {
+  const cache = createCache(args);
+  await cache.ensureStreaming();
+  return async () => await cache.close();
 };
 
 describe("openStreamer", () => {
@@ -119,7 +128,7 @@ describe("openStreamer", () => {
     const frames = [new framer.Frame({ test: new Series([{ name: "test" }]) })];
 
     const closeStreamer = await openStreamer(
-      createStreamerArgs({
+      createCacheArgs({
         listeners: createListeners("test", schema, onChange),
         openStreamer: createFrameStreamer(frames),
       }),
@@ -146,7 +155,7 @@ describe("openStreamer", () => {
         new framer.Frame({ test: new Series([{ name: "b" }]) }),
       ];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -168,7 +177,7 @@ describe("openStreamer", () => {
         }),
       ];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -194,7 +203,7 @@ describe("openStreamer", () => {
         }),
       ];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: [{ channel: "test", schema, onChange, onInvalid }],
           openStreamer: createFrameStreamer(frames),
@@ -236,7 +245,7 @@ describe("openStreamer", () => {
         }),
       ];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: [listener],
           openStreamer: createFrameStreamer(frames),
         }),
@@ -263,7 +272,7 @@ describe("openStreamer", () => {
         .bind(table);
       const frames = [new framer.Frame({ fetch_ch: new Series(["k1", "k2", "k3"]) })];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: [listener],
           openStreamer: createFrameStreamer(frames),
         }),
@@ -282,7 +291,7 @@ describe("openStreamer", () => {
       const schema = z.object({ name: z.string(), age: z.number() });
       const frames = [new framer.Frame({ test: new Series([{ name: "test" }]) })];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -315,7 +324,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners,
           openStreamer: createFrameStreamer(frames),
@@ -334,7 +343,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: async () => {
@@ -374,7 +383,7 @@ describe("openStreamer", () => {
         new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: [
             { channel: "test", schema, onChange: listener1 },
             { channel: "test", schema, onChange: listener2 },
@@ -404,7 +413,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -428,7 +437,7 @@ describe("openStreamer", () => {
       const frames = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -441,29 +450,31 @@ describe("openStreamer", () => {
       await closeStreamer();
     });
 
-    it("should not report connectivity failures from listeners", async () => {
+    it("should not report offline failures from listeners", async () => {
       let callCount = 0;
       const onChange = vi.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1) throw new Unreachable({ message: "cannot reach cluster" });
-        throw new DisconnectedError("cluster unreachable");
+        if (callCount === 2) throw new DisconnectedError("cluster unreachable");
+        throw new MissingCredentialsError();
       });
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
         new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
-      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+      await expect.poll(() => onChange.mock.calls.length).toBe(3);
       await sleep.sleep(TimeSpan.milliseconds(50));
       expect(onError).not.toHaveBeenCalled();
       await closeStreamer();
@@ -489,7 +500,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -528,7 +539,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners,
           openStreamer: createFrameStreamer(frames),
@@ -578,7 +589,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -624,7 +635,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners,
           openStreamer: createFrameStreamer(frames),
@@ -665,7 +676,7 @@ describe("openStreamer", () => {
       const frames = [new framer.Frame({ test: new Series([{ value: 123 }]) })];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners,
           openStreamer: createFrameStreamer(frames),
@@ -716,7 +727,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -763,7 +774,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: channelListeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -810,7 +821,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -848,7 +859,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -886,7 +897,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -931,7 +942,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners,
           openStreamer: createFrameStreamer(frames),
         }),
@@ -973,7 +984,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1000,7 +1011,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1027,7 +1038,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1045,7 +1056,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
       const frames = [new framer.Frame({ other_channel: new Series([{ value: 42 }]) })];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1061,7 +1072,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
       const frames = [new framer.Frame({ test: new Series([{ invalid: "data" }]) })];
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -1103,7 +1114,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners,
           openStreamer: createFrameStreamer(frames),
@@ -1133,7 +1144,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -1154,7 +1165,7 @@ describe("openStreamer", () => {
 
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: async () => {
             mockStreamer = new MockHardenedStreamer([]);
@@ -1181,7 +1192,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1205,7 +1216,7 @@ describe("openStreamer", () => {
 
       const frames1 = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
       const closeStreamer1 = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange1),
           openStreamer: createFrameStreamer(frames1),
         }),
@@ -1218,7 +1229,7 @@ describe("openStreamer", () => {
 
       const frames2 = [new framer.Frame({ test: new Series([{ value: 2 }]) })];
       const closeStreamer2 = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange2),
           openStreamer: createFrameStreamer(frames2),
         }),
@@ -1238,7 +1249,7 @@ describe("openStreamer", () => {
 
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: async () => {
             mockStreamer = new MockHardenedStreamer([]);
@@ -1261,7 +1272,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: async () => {
             const mockStreamer = new MockHardenedStreamer([]);
@@ -1287,7 +1298,7 @@ describe("openStreamer", () => {
       ];
 
       const closeStreamer = await openStreamer(
-        createStreamerArgs({
+        createCacheArgs({
           listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -1304,11 +1315,11 @@ describe("openStreamer", () => {
 
   describe("demand", () => {
     it("retries the open after a failed demand", async () => {
-      const onOpen = vi.fn();
+      const onStreamLive = vi.fn();
       let opens = 0;
-      const streamer = createStreamer(
-        createStreamerArgs({
-          onOpen,
+      const cache = createCache(
+        createCacheArgs({
+          onStreamLive,
           // no reconnect budget: the open failure must reject this demand so
           // the next demand exercises the retry of the memoized open
           breaker: { maxRetries: 0 },
@@ -1319,12 +1330,12 @@ describe("openStreamer", () => {
           },
         }),
       );
-      await expect(streamer.demand()).rejects.toThrow("cluster unreachable");
-      expect(onOpen).not.toHaveBeenCalled();
-      await expect(streamer.demand()).resolves.toBeUndefined();
+      await expect(cache.ensureStreaming()).rejects.toThrow("cluster unreachable");
+      expect(onStreamLive).not.toHaveBeenCalled();
+      await expect(cache.ensureStreaming()).resolves.toBeUndefined();
       expect(opens).toBe(2);
-      expect(onOpen).toHaveBeenCalledTimes(1);
-      await streamer.close();
+      expect(onStreamLive).toHaveBeenCalledTimes(1);
+      await cache.close();
     });
 
     it("joins an open whose opener re-enters demand synchronously", async () => {
@@ -1332,47 +1343,47 @@ describe("openStreamer", () => {
       // channels through the cached read path, which demands the stream again
       // before the first open has resolved.
       let opens = 0;
-      const streamer: Streamer = createStreamer(
-        createStreamerArgs({
+      const cache: query.Cache = createCache(
+        createCacheArgs({
           openStreamer: async () => {
             opens++;
-            void streamer.demand().catch(() => {});
+            void cache.ensureStreaming().catch(() => {});
             return new MockHardenedStreamer([]);
           },
         }),
       );
-      await expect(streamer.demand()).resolves.toBeUndefined();
+      await expect(cache.ensureStreaming()).resolves.toBeUndefined();
       expect(opens).toBe(1);
-      await streamer.close();
+      await cache.close();
     });
 
     it("interrupts a retrying open on close", async () => {
-      const streamer = createStreamer(
-        createStreamerArgs({
+      const cache = createCache(
+        createCacheArgs({
           breaker: { baseInterval: TimeSpan.milliseconds(1) },
           openStreamer: async () => {
             throw new Unreachable({ message: "cluster unreachable" });
           },
         }),
       );
-      const demanded = streamer.demand();
+      const demanded = cache.ensureStreaming();
       await sleep.sleep(5);
-      await streamer.close();
+      await cache.close();
       await expect(demanded).resolves.toBeUndefined();
     });
 
     it("resolves a close that outraces a failing open", async () => {
       let rejectOpen!: (e: Error) => void;
-      const streamer = createStreamer(
-        createStreamerArgs({
+      const cache = createCache(
+        createCacheArgs({
           openStreamer: async () =>
             await new Promise((_, reject) => {
               rejectOpen = reject;
             }),
         }),
       );
-      const demanded = streamer.demand();
-      const closing = streamer.close();
+      const demanded = cache.ensureStreaming();
+      const closing = cache.close();
       rejectOpen(new Error("cluster unreachable"));
       // The close retires the stream, so neither the demand nor the close
       // re-reports the open's failure.

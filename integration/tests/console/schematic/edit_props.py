@@ -143,7 +143,6 @@ class EditProps(ConsoleCase):
             "notation": "standard",
             "precision": 2,
             "averaging_window": 1,
-            "stale_color": "",
             "stale_timeout": 5,
         }
         assert_symbol_properties(value, default_props)
@@ -154,7 +153,6 @@ class EditProps(ConsoleCase):
             "notation": "scientific",
             "precision": 4,
             "averaging_window": 4,
-            "stale_color": "#FF0000",
             "stale_timeout": 10,
         }
         value.set_properties(
@@ -162,7 +160,6 @@ class EditProps(ConsoleCase):
             notation="scientific",
             precision=4,
             averaging_window=4,
-            stale_color="#FF0000",
             stale_timeout=10,
         )
         assert_symbol_properties(value, expected_edited_props)
@@ -174,7 +171,6 @@ class EditProps(ConsoleCase):
             "notation": "engineering",
             "precision": 7,
             "averaging_window": 3,
-            "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
         non_default_value = schematic.create_symbol(
@@ -184,7 +180,6 @@ class EditProps(ConsoleCase):
                 notation="engineering",
                 precision=7,
                 averaging_window=3,
-                stale_color="#00FF00",
                 stale_timeout=15,
             )
         )

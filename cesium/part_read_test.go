@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strconv"
@@ -421,23 +422,23 @@ var _ = Describe("Drop of parted records", func() {
 		dropDuringLoad := func(
 			ctx SpecContext,
 			gate *gateFS,
-		) (idx, data cesium.ChannelKey, iter *cesium.Iterator) {
+		) (idx, data cesium.ChannelKey, iter io.Closer) {
 			GinkgoHelper()
 			db, idx, data := parted(ctx, gate)
 			DeferCleanup(StartRun(db.Run))
-			iter = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			it := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 				Bounds:   telem.TimeRangeMax,
 				Channels: []cesium.ChannelKey{data},
 			}))
 			gate.arm()
 			sought := make(chan bool, 1)
-			go func() { sought <- iter.SeekFirst() }()
+			go func() { sought <- it.SeekFirst() }()
 			Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())
 			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(segments(gate, data)).To(Equal(3))
 			close(gate.release)
 			Eventually(sought).WithTimeout(10 * time.Second).Should(Receive())
-			return idx, data, iter
+			return idx, data, it
 		}
 
 		It("Should remove every segment file of the key once the load ends", func(

@@ -53,7 +53,7 @@ var _ = Describe("Clock users across a switch", func() {
 			)).To(Succeed())
 		}
 		Expect(d.Check(tombstone)).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("which key 6 uses from 10 to 30")),
 		))
 		Expect(d.Release()).To(Succeed())

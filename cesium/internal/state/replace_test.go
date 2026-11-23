@@ -183,7 +183,7 @@ var _ = Describe("Rewrites", func() {
 			func(before []log.Record, edit func(r *log.Replace), message string) {
 				records := append(slices.Clone(before), replace(edit))
 				Expect(s.Replay(11, records)).To(SatisfyAll(
-					MatchError(state.ErrRefused),
+					refused(),
 					MatchError(ContainSubstring(message)),
 				))
 			},
@@ -261,7 +261,7 @@ var _ = Describe("Rewrites", func() {
 				records = append(records, replace(func(r *log.Replace) { r.New = id }))
 				Expect(a.durable(records)).To(Succeed())
 				Eventually(s.Err).Should(SatisfyAll(
-					MatchError(state.ErrRefused),
+					refused(),
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"replace of segment 3 by %d, which is not a new segment",
 						id,
@@ -454,8 +454,12 @@ var _ = Describe("Rewrites", func() {
 				called := later(func() error { return s.BeginDrop(6) })
 				Consistently(called).ShouldNot(Receive())
 				Expect(s.Close()).To(Succeed())
-				Eventually(done).Should(Receive(MatchError(state.ErrClosed)))
-				Eventually(called).Should(Receive(MatchError(state.ErrClosed)))
+				Eventually(
+					done,
+				).Should(Receive(MatchError(ContainSubstring("state is closed"))))
+				Eventually(
+					called,
+				).Should(Receive(MatchError(ContainSubstring("state is closed"))))
 			})
 
 		DescribeTable("Should replay a request between the check and the apply as it "+
@@ -565,7 +569,7 @@ var _ = Describe("Replace of a put-back record", func() {
 			replace,
 		})).To(Succeed())
 		Eventually(s.Err).Should(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring(message)),
 		))
 	})
@@ -631,8 +635,8 @@ var _ = Describe("Replace across a switch", func() {
 					First: 10, Last: 30,
 				}},
 			}, true)
-			Expect(live).To(MatchError(state.ErrRefused))
-			Expect(replayed).To(MatchError(state.ErrRefused))
+			Expect(live).To(refused())
+			Expect(replayed).To(refused())
 		},
 	)
 

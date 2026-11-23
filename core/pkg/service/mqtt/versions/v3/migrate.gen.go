@@ -14,32 +14,48 @@ package v3
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateEdgeConfig(_ context.Context, old v2.EdgeConfig) (EdgeConfig, error) {
-	return EdgeConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Group:       old.Group,
-		EdgeNode:    old.EdgeNode,
-		Authority:   old.Authority,
-		Tags:        old.Tags,
-	}, nil
-}
-
-func autoMigrateReadConfig(_ context.Context, old v2.ReadConfig) (ReadConfig, error) {
-	return ReadConfig{
-		PersistConfig: old.PersistConfig,
-		Device:        old.Device,
-		Entries:       old.Entries,
-	}, nil
-}
-
-func autoMigrateWriteConfig(_ context.Context, old v2.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
+	targets, err := lo.MapErr(old.Targets, func(v v2.WriteTarget, _ int) (WriteTarget, error) {
+		return MigrateWriteTarget(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
-		Targets:     old.Targets,
+		Targets:     targets,
 	}, nil
+}
+
+func autoMigrateWriteTarget(_ context.Context, old v2.WriteTarget) (WriteTarget, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return WriteTarget{}, nil
+	case v2.PlainWriteTarget:
+		return WriteTarget{Variant: PlainWriteTarget{
+			BaseWriteTarget: variant.BaseWriteTarget,
+			Topic:           variant.Topic,
+			Qos:             variant.Qos,
+			Retained:        variant.Retained,
+		}}, nil
+	case v2.SparkplugWriteTarget:
+		return WriteTarget{Variant: SparkplugWriteTarget{
+			BaseWriteTarget: variant.BaseWriteTarget,
+			Group:           variant.Group,
+			EdgeNode:        variant.EdgeNode,
+			Device:          variant.Device,
+			Tag:             variant.Tag,
+			TagType:         variant.TagType,
+			Channel:         variant.Channel,
+			Name:            variant.Name,
+		}}, nil
+	default:
+		return WriteTarget{}, errors.Newf("unknown WriteTarget variant %T", variant)
+	}
 }

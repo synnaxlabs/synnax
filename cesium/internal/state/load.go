@@ -20,7 +20,7 @@ import (
 )
 
 // load sets c to the durable state s of a head. It returns an error that wraps
-// ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a segment format
+// errRefused when a value of s breaks a rule, or log.ErrUnknown for a segment format
 // version that this binary does not read.
 func (c *core) load(s *Snapshot, generation uint64) error {
 	if s.Limits.Alignments > uint64(telem.LeadingDomain) {
