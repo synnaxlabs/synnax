@@ -61,3 +61,17 @@ export const deleteToken = async (core: Target): Promise<void> => {
   if (Session.Runtime.ENGINE !== "tauri") return;
   await invoke("keychain_delete", { account: accountOf(core) });
 };
+
+/**
+ * Moves the session token the keychain holds for one Core to another, such as the same
+ * Core under a new username. It writes the new entry before it deletes the old one. A
+ * no-op on the web, and when no token is stored.
+ *
+ * @throws if the keychain cannot be read or written.
+ */
+export const moveToken = async (from: Target, to: Target): Promise<void> => {
+  const token = await readToken(from);
+  if (token == null) return;
+  await writeToken(to, token);
+  await deleteToken(from);
+};

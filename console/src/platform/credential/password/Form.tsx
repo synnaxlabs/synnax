@@ -17,6 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
@@ -92,14 +93,11 @@ interface RenameFormProps {
 const RenameForm = ({ password, own, onMessage }: RenameFormProps): ReactElement => {
   const [saved, setSaved] = useState(password.username);
   const [username, setUsername] = useState(password.username);
-  const dispatch = Session.useDispatch();
-  const core = Session.Core.useSelectSelected();
+  const setCoreUsername = Core.useSetUsername();
   const rename = Credential.Password.useRename({
     afterSuccess: () => {
       setSaved(username);
-      // The next login reads the username of the stored Core.
-      if (own && core != null && core.username !== "")
-        dispatch(Session.Core.set({ ...core, username }));
+      if (own) setCoreUsername(username);
       onMessage("Successfully changed username");
     },
   });
@@ -143,8 +141,13 @@ const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
   const own = currentKey === subject.key;
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
+  const dispatch = Session.useDispatch();
+  const core = Session.Core.useSelectSelected();
   const set = Credential.Password.useSet({
     afterSuccess: () => {
+      // a client rebuilt from the record, such as after a rename, logs in with it
+      if (own && core != null && core.password !== "")
+        dispatch(Session.Core.set({ ...core, password }));
       setPassword("");
       setCurrentPassword("");
       onMessage("Successfully changed password");

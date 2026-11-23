@@ -306,7 +306,7 @@ describe("useModal", () => {
     const { subject } = self.auth;
     const { username } = self.params;
     if (subject == null || username == null) throw new Error("not logged in");
-    const core = createCore("Local", { username });
+    const core = createCore("Local", { username, password: "test" });
     const { store } = await renderModalOpener(Credential.useModal, [{ subject }], {
       client: self,
       preloadedState: createCoreState([core], core.key),
@@ -315,7 +315,30 @@ describe("useModal", () => {
     await type("Username", renamed);
     fireEvent.click(findButton("Set username"));
     await screen.findByText("Successfully changed username");
+    await waitFor(() =>
+      expect(store.getState()[Session.Core.SLICE_NAME].cores[core.key]).toMatchObject({
+        username: renamed,
+        password: "test",
+      }),
+    );
+  });
+
+  it("should update the stored Core password when users change their own", async () => {
+    const self = await createTestClientWithRole(createTestClient(), "Viewer");
+    const { username } = self.params;
+    await self.auth.sessions.retrieve();
+    const { subject } = self.auth;
+    if (subject == null || username == null) throw new Error("not logged in");
+    const core = createCore("Local", { username, password: "test" });
+    const { store } = await renderModalOpener(Credential.useModal, [{ subject }], {
+      client: self,
+      preloadedState: createCoreState([core], core.key),
+    });
+    await type("Current password", "test");
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    await screen.findByText("Successfully changed password");
     const stored = store.getState()[Session.Core.SLICE_NAME].cores[core.key];
-    expect(stored.username).toEqual(renamed);
+    expect(stored.password).toEqual("changed123");
   });
 });
