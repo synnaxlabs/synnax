@@ -70,6 +70,7 @@ class TestError:
             "freighter.unreachable",
             "freighter.stream_closed",
             "freighter.eof",
+            "freighter.interrupted",
             "arc",
             "unknown",
         ],

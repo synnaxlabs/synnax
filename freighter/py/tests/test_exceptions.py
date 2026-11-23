@@ -56,3 +56,13 @@ class TestRoundTrip:
         exc = registry.decode(pld)
         assert isinstance(exc, freighter.Timeout)
         assert str(exc) == "no response"
+
+    def test_interrupted(self, registry: Registry) -> None:
+        """Should decode an encoded Interrupted into an Interrupted with its message."""
+        pld = registry.encode(freighter.Interrupted("server stopped"))
+        assert pld == ExceptionPayload(
+            type="freighter.interrupted", data="server stopped"
+        )
+        exc = registry.decode(pld)
+        assert isinstance(exc, freighter.Interrupted)
+        assert str(exc) == "server stopped"
