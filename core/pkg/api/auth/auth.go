@@ -265,6 +265,7 @@ func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
 	for _, l := range s.oidc.Logins() {
 		res.Providers = append(res.Providers, OIDCLogin{
 			Provider:              l.Provider,
+			Issuer:                l.Issuer,
 			AuthorizationEndpoint: l.AuthorizationEndpoint,
 			ClientID:              l.ClientID,
 		})

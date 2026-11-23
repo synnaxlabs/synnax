@@ -11,7 +11,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { vi } from "vitest";
 
 import { text } from "@/text/aether";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import type { render } from "@/vis/render";
 
 const INK = 6;

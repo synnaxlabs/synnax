@@ -121,6 +121,8 @@ export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
 const oidcLoginZ = z.object({
   /** provider is the name of the provider. */
   provider: z.string(),
+  /** issuer is the provider's issuer URL, which the links of its accounts hold. */
+  issuer: z.string(),
   /** authorizationEndpoint is the provider's login address. */
   authorizationEndpoint: z.string(),
   /** clientId is the Core's client ID at the provider. */
@@ -134,6 +136,21 @@ const oidcLinkResZ = z.object({ link: oidcLinkZ });
 const oidcRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
 const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
+export interface CreatePasswordParams {
+  /** The user to give the password. Defaults to the caller. */
+  subject?: resource.ID;
+  /** The username to log in with. */
+  username: string;
+  /** The password. */
+  password: string;
+}
+
+const passwordCreateReqZ = z.object({
+  subject: resource.idZ.optional(),
+  username: z.string(),
+  password: z.string(),
+});
+
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: resource.ID;
@@ -173,6 +190,7 @@ const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
 const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
+const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
@@ -537,6 +555,24 @@ export class Client {
    */
   async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
     await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
+  }
+
+  /**
+   * Gives the caller, or another user when the caller may create and update that user,
+   * its first password.
+   * @throws {AuthError} when another user holds the username.
+   * @throws {AccessDeniedError} when the caller may not create and update the user.
+   * @throws {NotFoundError} when the user does not exist.
+   * @throws {ValidationError} when the username or password is empty, or the user
+   * already has a password.
+   */
+  async createPassword(params: CreatePasswordParams): Promise<void> {
+    await this.client.send(
+      PASSWORD_CREATE_ENDPOINT,
+      params,
+      passwordCreateReqZ,
+      emptyResZ,
+    );
   }
 
   /**
