@@ -18,9 +18,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,12 +33,17 @@ var _ = Describe("Hidden count checks", Ordered, func() {
 	var (
 		layer *service.Layer
 		db    *gorp.DB
+		proj  project.Project
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
+		proj = project.Project{Name: "Hidden count checks"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Project.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
 	})
 	createChannel := func(ctx SpecContext) channel.Key {
 		GinkgoHelper()
@@ -119,6 +127,41 @@ var _ = Describe("Hidden count checks", Ordered, func() {
 				Where(status.MatchKeys[any](key)).
 				Entry(&kept).
 				Exec(ctx, db)).To(Succeed())
+		},
+	)
+
+	It(
+		"Should refuse a token from before a hidden entry that the delete detaches",
+		func(ctx SpecContext) {
+			k := createChannel(ctx)
+			noPlot := func(r resource.ID) bool {
+				return r.Type != resource.TypeLineplot
+			}
+			stale := MustSucceed(layer.Impact.Plan(
+				ctx,
+				db,
+				deleteOf(k),
+				impact.PlanOptions{Visible: noPlot},
+			))
+			Expect(stale.Hidden).To(BeZero())
+			plot := defaults.Fill(lineplot.LinePlot{Name: "plot", Project: &proj.Key})
+			plot.Channels.Y1 = []channel.Key{k}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.LinePlot.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := layer.Impact.Apply(ctx, tx, deleteOf(k), impact.ApplyOptions{
+					Token:   stale.Token,
+					Visible: noPlot,
+				})
+				return err
+			})
+			changed, ok := errors.AsType[impact.PlanChangedError](err)
+			Expect(ok).To(BeTrue())
+			Expect(changed.Plan.Hidden).To(Equal(impact.Hidden{Detach: 1}))
+			Expect(MustSucceed(layer.Channel.NewRetrieve().
+				Where(channel.MatchKeys(k)).
+				Exists(ctx, db))).To(BeTrue())
 		},
 	)
 })
