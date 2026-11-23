@@ -12,6 +12,7 @@ package http
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"io"
 	"sync"
 
@@ -159,6 +160,10 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	// so nothing else releases what it holds.
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
 		err = errors.Combine(err, closer.Close())
+	}
+	// fasthttp cancels a request's context only when the server shuts down.
+	if errors.Is(err, context.Canceled) && fCtx.RequestCtx().Err() != nil {
+		err = freighter.ErrUnreachable
 	}
 	fErr := s.errs.Encode(err, false)
 	if fErr.Type == errors.TypeNil {

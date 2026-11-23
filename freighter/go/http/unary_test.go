@@ -975,4 +975,45 @@ var _ = Describe("Unary", func() {
 			},
 		)
 	})
+
+	Describe("Shutdown", func() {
+		It(
+			"should answer a request that the shutdown cancels as unreachable",
+			func(ctx context.Context) {
+				app := newFiberApp(fiber.Config{})
+				router := MustSucceed(
+					fhttp.NewRouter(ctx, fhttp.RouterConfig{Errors: errorCodec()}),
+				)
+				server := router.NewUnaryServer[testutil.Request, testutil.Response](
+					"/",
+				)
+				entered := make(chan struct{})
+				server.BindHandler(func(
+					ctx context.Context,
+					_ testutil.Request,
+				) (testutil.Response, error) {
+					close(entered)
+					<-ctx.Done()
+					return testutil.Response{}, ctx.Err()
+				})
+				router.BindTo(app)
+				addr := serveApp(app)
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{Errors: errorCodec()},
+					),
+				)
+				sent := make(chan error, 1)
+				go func() {
+					_, err := client.Send(ctx, addr, testutil.Request{ID: 1})
+					sent <- err
+				}()
+				Eventually(entered).Should(BeClosed())
+				shutDown := make(chan error, 1)
+				go func() { shutDown <- app.Shutdown() }()
+				Eventually(sent).Should(Receive(MatchError(freighter.ErrUnreachable)))
+				Eventually(shutDown).Should(Receive(Succeed()))
+			},
+		)
+	})
 })

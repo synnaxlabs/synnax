@@ -20,10 +20,15 @@ import (
 // from a stream that is already closed.
 var ErrStreamClosed = errors.New("[freighter] - stream closed")
 
+// ErrUnreachable is returned when a target cannot answer a request, such as a server
+// that is shutting down. The caller can retry once the target is back.
+var ErrUnreachable = errors.New("[freighter] - unreachable")
+
 const (
 	freighterErrorType    = "freighter."
 	eofErrorType          = freighterErrorType + "eof"
 	streamClosedErrorType = freighterErrorType + "stream_closed"
+	unreachableErrorType  = freighterErrorType + "unreachable"
 )
 
 func encodeErr(_ *errors.Codec, err error) (errors.Payload, bool) {
@@ -32,6 +37,9 @@ func encodeErr(_ *errors.Codec, err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrStreamClosed) {
 		return errors.Payload{Type: streamClosedErrorType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrUnreachable) {
+		return errors.Payload{Type: unreachableErrorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }
@@ -42,6 +50,8 @@ func decodeErr(_ *errors.Codec, pld errors.Payload) (error, bool) {
 		return io.EOF, true
 	case streamClosedErrorType:
 		return ErrStreamClosed, true
+	case unreachableErrorType:
+		return ErrUnreachable, true
 	}
 	if strings.HasPrefix(pld.Type, freighterErrorType) {
 		return errors.New(pld.Data), true
