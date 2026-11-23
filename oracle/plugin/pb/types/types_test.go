@@ -878,8 +878,8 @@ var _ = Describe("Plugin", func() {
 					@pb
 
 					Status enum {
-						active = 1
-						inactive = 2
+						active = 0
+						inactive = 1
 					}
 
 					DebugLevel enum {
@@ -896,6 +896,29 @@ var _ = Describe("Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+
+			It("Should refuse an int enum whose first member is not 0", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Size enum {
+						one = 1
+						four = 4
+					}
+
+					Task struct {
+						size Size
+					}
+				`
+				req := MustGenerateRequest(source, "size", loader)
+				Expect(p.Generate(req)).Error().To(
+					MatchError(ContainSubstring(
+						"enum Size cannot be written to protobuf: its first member one " +
+							"has value 1, and proto3 needs the first member to be 0",
+					)),
+				)
 			})
 
 			It(
