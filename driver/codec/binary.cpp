@@ -595,8 +595,8 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
 
 std::pair<std::uint64_t, x::errors::Error>
 BinaryEncoder::Field::raw(const std::span<const x::telem::Series> samples) const {
-    if (this->binding >= 0) {
-        const auto &s = samples[static_cast<std::size_t>(this->binding)];
+    if (this->binding.has_value()) {
+        const auto &s = samples[*this->binding];
         if (!s.empty()) return this->raw(s.at(0));
     }
     if (this->fallback.has_value()) return {*this->fallback, x::errors::NIL};
@@ -705,7 +705,7 @@ BinaryEncoder::create(const BinaryMessage &m) {
                 std::to_string(*length) + "-byte payload"
             );
         if (found != bound.end()) {
-            field.binding = static_cast<int>(found->second);
+            field.binding = found->second;
             enc.bound[found->second] = enc.fields.size();
         }
         if (id != nullptr && id->field == b.key)
@@ -729,7 +729,7 @@ BinaryEncoder::create(const BinaryMessage &m) {
         enc.mux_fields.push_back(i);
         const auto &f = enc.fields[i];
         fixed.push_back(
-            f.binding < 0 && f.fallback.has_value()
+            !f.binding.has_value() && f.fallback.has_value()
                 ? std::optional(static_cast<std::int64_t>(*f.fallback))
                 : std::nullopt
         );
@@ -742,12 +742,12 @@ BinaryEncoder::create(const BinaryMessage &m) {
             if (const auto v = fixed[at->mux];
                 v.has_value() && std::ranges::find(at->values, *v) == at->values.end())
                 never = &muxes[at->mux];
-        if (never != nullptr && f.binding >= 0)
+        if (never != nullptr && f.binding.has_value())
             return refuse(
                 "field " + f.name + " takes a channel, but multiplexor " + never->name +
                 " never selects it"
             );
-        if (never == nullptr && f.binding < 0 && !f.fallback.has_value())
+        if (never == nullptr && !f.binding.has_value() && !f.fallback.has_value())
             return refuse("field " + f.name + ": needs a channel or a default");
     }
     return {std::move(enc), x::errors::NIL};

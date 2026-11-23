@@ -174,9 +174,9 @@ class BinaryEncoder {
         double scale = 1;
         double offset = 0;
         Number number = Number::UNSIGNED;
-        /// @brief binding is the index of the field's sample, or -1 for a field that
-        /// takes its default.
-        int binding = -1;
+        /// @brief binding is the index of the field's sample, or nothing for a field
+        /// that takes its default.
+        std::optional<std::size_t> binding;
         /// @brief fallback holds the raw bits of the field's default, or nothing.
         std::optional<std::uint64_t> fallback;
         Multiplexors::Condition condition;
