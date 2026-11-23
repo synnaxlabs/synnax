@@ -197,7 +197,7 @@ var _ = Describe("Channel links", func() {
 		res, err := importFile(ctx, []byte(file))
 		Expect(err).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no channel is at %s_gone", path)),
+			MatchError(ContainSubstring("no channel is at %q", path+"_gone")),
 		))
 		Expect(graphOf(res.Base()).Inputs["source"]["channel"]).
 			To(BeNumerically("==", 0))

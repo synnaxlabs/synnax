@@ -10,12 +10,10 @@
 package arc
 
 import (
-	"context"
 	"encoding/json/v2"
 	"reflect"
 
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -25,7 +23,7 @@ import (
 // prepareExport replaces each channel input of a graph Arc's nodes that holds a number
 // with its channel key, so that the channel link options of an export write it as a
 // path. An input that holds no number, such as text or null, exports as stored.
-func (s *Service) prepareExport(_ context.Context, _ gorp.Snapshot, a *Arc) error {
+func (s *Service) prepareExport(a *Arc) error {
 	return s.mapChannelInputs(a, func(v any) (any, error) {
 		if !isNumber(v) {
 			return v, nil

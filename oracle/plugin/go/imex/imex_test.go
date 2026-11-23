@@ -201,7 +201,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 			resp := MustSucceed(p.Generate(req))
 			ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToPreserveOrder(
 				"Exec(ctx, snap)",
-				"if err = s.prepareExport(ctx, snap, &v); err != nil {\n"+
+				"if err = s.prepareExport(&v); err != nil {\n"+
 					"\t\treturn imex.Envelope{}, err\n\t}",
 				"env.Encode(v)",
 			).ToBeValidGoSource()

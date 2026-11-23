@@ -101,7 +101,7 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
 // to compile. Under `@go imex prepare`, Export also calls
-// prepareExport(ctx, snap, *<Type>) error.
+// prepareExport(*<Type>) error.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// The templates qualify against these import paths; emitting without them
 	// would produce files that do not compile.
@@ -553,7 +553,7 @@ func (s *Service) Export(
 		return imex.Envelope{}, err
 	}
 {{- if .Prepared}}
-	if err = s.prepareExport(ctx, snap, &v); err != nil {
+	if err = s.prepareExport(&v); err != nil {
 		return imex.Envelope{}, err
 	}
 {{- end}}
