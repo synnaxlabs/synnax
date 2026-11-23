@@ -144,9 +144,7 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
         device::ConnectionConfig(conn_parser),
         cfg.endpoints
     );
-    auto readers = ASSERT_NIL_P(
-        build_readers(client, cfg.endpoints, {.nan_filled = cfg.nan_fill_enabled})
-    );
+    auto readers = ASSERT_NIL_P(build_readers(client, cfg.endpoints));
     auto processor = std::make_shared<Processor>();
     return {
         std::make_unique<ReadTaskSource>(
@@ -940,8 +938,7 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     EXPECT_EQ(res.warning.message, "Failed to read some data");
     EXPECT_EQ(
         res.warning.description,
-        "Failed to read the response from /api/pressure: field pressure: no value at "
-        "/pressure"
+        "Field /pressure not found in response from /api/pressure"
     );
     EXPECT_EQ(fr.size(), 2);
     EXPECT_NEAR(fr.at<double>(temp.channels[0].key, 0), 25.0, 0.001);
@@ -1002,9 +999,11 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
         server.base_url()
     );
     ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with(
-        "Failed to read the response from /api/bad: field count: "
-    )) << res.warning.description;
+    EXPECT_EQ(
+        res.warning.description,
+        "Failed to convert /count for channel " + bad.channels[0].name +
+            ": field count: 3.7 is not an integer"
+    );
     EXPECT_EQ(fr.size(), 2);
     EXPECT_NEAR(fr.at<double>(good.channels[0].key, 0), 42.0, 0.001);
 }
@@ -1192,9 +1191,9 @@ float_p2(const x::telem::DataType &data_type = x::telem::FLOAT64_T) {
 }
 }
 
-/// @brief it should write nothing for a response that lacks a float field when NaN
-/// fill is off.
-TEST(HTTPReadTask, MissingFloatFailsReadByDefault) {
+/// @brief it should write nothing for the index group of a float field that the
+/// response lacks when NaN fill is off.
+TEST(HTTPReadTask, MissingFloatDropsGroupByDefault) {
     const auto p = read_pressures(
         R"({"p3": 1.5})",
         float_p2(x::telem::FLOAT32_T),
@@ -1203,7 +1202,7 @@ TEST(HTTPReadTask, MissingFloatFailsReadByDefault) {
     ASSERT_NIL(p.result.error);
     EXPECT_EQ(
         p.result.warning.description,
-        "Failed to read the response from /api/pressures: field p2: no value at /p2"
+        "Field /p2 not found in response from /api/pressures"
     );
     EXPECT_EQ(p.frame.size(), 0);
 }
@@ -1238,7 +1237,7 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     EXPECT_EQ(
         p.result.warning.description,
         "Failed to convert /p2 for channel " + chs[0].name +
-            R"(: unknown enum label "INVALID")"
+            R"(: field p2: unknown enum label "INVALID")"
     );
     ASSERT_EQ(p.frame.size(), 3);
     EXPECT_TRUE(std::isnan(p.frame.at<double>(chs[0].key, 0)));
@@ -1255,9 +1254,9 @@ TEST(HTTPReadTask, FieldWithDefaultDoesNotWarn) {
     EXPECT_EQ(p.frame.at<double>(p.endpoint.channels[0].key, 0), 5.0);
 }
 
-/// @brief it should write nothing for a non-float field that fails to convert, even
-/// when NaN fill is on.
-TEST(HTTPReadTask, InvalidIntegerFailsReadWhenFilled) {
+/// @brief it should write nothing for the index group of a non-float field that fails
+/// to convert, even when NaN fill is on.
+TEST(HTTPReadTask, InvalidIntegerDropsGroupWhenFilled) {
     const auto p = read_pressures(
         R"({"p2": "INVALID", "p3": 1.5})",
         {field<synnax::icd::IntegerJSONField>("/p2"), x::telem::INT32_T},
@@ -1266,7 +1265,8 @@ TEST(HTTPReadTask, InvalidIntegerFailsReadWhenFilled) {
     ASSERT_NIL(p.result.error);
     EXPECT_EQ(
         p.result.warning.description,
-        R"(Failed to read the response from /api/pressures: field p2: unknown enum label "INVALID")"
+        "Failed to convert /p2 for channel " + p.endpoint.channels[0].name +
+            R"(: field p2: unknown enum label "INVALID")"
     );
     EXPECT_EQ(p.frame.size(), 0);
 }

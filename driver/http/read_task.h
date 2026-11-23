@@ -18,7 +18,6 @@
 #include "client/cpp/http/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/codec/json.h"
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
 #include "driver/http/device/device.h"
@@ -104,15 +103,13 @@ public:
 /// @brief builds the message reader of each read endpoint from the messages of its ICD.
 /// @param client the client that retrieves the ICDs and the channels of the endpoints.
 /// @param endpoints the endpoints to build readers for.
-/// @param json changes how a reader treats a JSON value it cannot decode.
 /// @returns CONFIGURATION_ERROR that names the endpoint when it reads no messages, when
 /// its ICD does not exist, or when driver::icd::Reader rejects its messages, and that
 /// names both endpoints when two of them write to one channel (an index channel
 /// included). Returns the error of a failed retrieve as is.
 [[nodiscard]] std::pair<Readers, x::errors::Error> build_readers(
     const synnax::Synnax &client,
-    const std::vector<::synnax::http::ReadEndpoint> &endpoints,
-    const codec::JSON::Options &json = {}
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
 );
 
 /// @brief configures an HTTP read task from a Synnax task definition.

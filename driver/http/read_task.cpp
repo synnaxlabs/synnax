@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <span>
 #include <utility>
@@ -44,8 +46,7 @@ ReadTaskConfig::parse(const synnax::task::Task &task) {
 
 std::pair<Readers, x::errors::Error> build_readers(
     const synnax::Synnax &client,
-    const std::vector<::synnax::http::ReadEndpoint> &endpoints,
-    const codec::JSON::Options &json
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
 ) {
     std::set<synnax::icd::Key> icd_keys;
     std::set<synnax::channel::Key> channel_keys;
@@ -97,8 +98,7 @@ std::pair<Readers, x::errors::Error> build_readers(
         auto [reader, err] = driver::icd::Reader::create(
             ep.messages,
             *ic,
-            readers.channels,
-            json
+            readers.channels
         );
         if (err) return {Readers{}, x::errors::Error(err, name + ": " + err.data)};
         for (const auto key: reader.channels()) {
@@ -178,6 +178,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::size_t rejected = 0;
     std::size_t unreachable = 0;
 
+    std::optional<double> fill;
+    if (this->cfg.nan_fill_enabled) fill = std::numeric_limits<double>::quiet_NaN();
     for (std::size_t i = 0; i < this->requests.size(); i++) {
         const auto &[resp, req_err] = results[i];
         const auto &req = this->requests[i];
@@ -214,7 +216,9 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 resp.body.size()
             ),
             x::telem::TimeStamp::midpoint(resp.time_range.start, resp.time_range.end),
-            fr
+            fr,
+            1,
+            fill
         );
         if (read_err) {
             warnings.push_back(
@@ -226,18 +230,16 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             warnings.push_back("The response from " + ep.path + " matches no message");
             continue;
         }
-        const auto &bindings = ep.messages[*msg].bindings;
-        for (const auto &fill: reader.filled()) {
-            const auto key = bindings[fill.binding].channel;
-            const auto &pointer = this->readers.pointers.at(key);
-            if (fill.error)
+        for (const auto &f: reader.failures()) {
+            const auto &pointer = this->readers.pointers.at(f.channel);
+            if (f.missing)
                 warnings.push_back(
-                    "Failed to convert " + pointer + " for channel " +
-                    this->readers.channels.at(key).name + ": " + fill.error.data
+                    "Field " + pointer + " not found in response from " + ep.path
                 );
             else
                 warnings.push_back(
-                    "Field " + pointer + " not found in response from " + ep.path
+                    "Failed to convert " + pointer + " for channel " +
+                    this->readers.channels.at(f.channel).name + ": " + f.error.data
                 );
         }
     }
@@ -311,11 +313,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    auto [readers, readers_err] = build_readers(
-        *ctx->client,
-        cfg.endpoints,
-        {.nan_filled = cfg.nan_fill_enabled}
-    );
+    auto [readers, readers_err] = build_readers(*ctx->client, cfg.endpoints);
     if (readers_err) return {common::ConfigureResult{}, readers_err};
 
     auto requests = build_requests(conn, cfg.endpoints);

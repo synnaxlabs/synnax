@@ -159,12 +159,10 @@ class HTTPInvalidConfig(SimulatorCase):
             ],
         )
         message = assert_start_rejected(self.client, task, "invalid JSON pointer")
-        assert "Failed to read the response from /api/v1/data" in message, (
-            f"Warning should name the response it failed to read, got {message!r}"
-        )
-        assert "no value at /nonexistent/deeply/nested/field" in message, (
-            f"Warning should name the missing pointer, got {message!r}"
-        )
+        assert (
+            "Field /nonexistent/deeply/nested/field not found in response from "
+            "/api/v1/data" in message
+        ), f"Warning should name the missing pointer and the endpoint, got {message!r}"
         self.log(f"  Correctly rejected (invalid JSON pointer): {message}")
 
     def test_duplicate_channel(self) -> None:

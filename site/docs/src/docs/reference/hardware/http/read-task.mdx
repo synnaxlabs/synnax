@@ -157,10 +157,10 @@ be running.
 | Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
 | Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
 
-A missing or invalid value skips the whole response of its endpoint. Turn on **NaN
-fill** (`nan_fill_enabled`) to write `NaN` for a missing or invalid float field instead.
-It still sends a warning. A missing or invalid non-float field always skips the
-response.
+A missing or invalid field skips every field that shares its endpoint and index channel.
+Turn on **NaN fill** (`nan_fill_enabled`) to write `NaN` for a missing or invalid float
+field instead. It still sends a warning. A missing or invalid non-float field always
+skips the group.
 
 The task has no [stream rate](/reference/hardware/tasks#read-tasks). Each response goes
 to the Core at once.
@@ -231,15 +231,14 @@ Give each endpoint its own channels and its own index channel.
 <Problem.Item message={"Failed to read the response from ..."}>
 <Problem.Cause>
 
-The response is not JSON, it matches more than one message, or a value is missing or
-does not convert. The task records nothing from the response. The description names the
-field.
+The response is not JSON, or it matches more than one message. The task records nothing
+from the response.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the pointer and the type of the field against a response from the server. Pointers
-start with `/` and are case sensitive.
+Check that the server sends JSON, and check the match rules of the messages of the
+endpoint against a response from the server.
 
 </Problem.Fix>
 </Problem.Item>
@@ -262,8 +261,9 @@ server.
 <Problem.Item message={"Field ... not found in response from ..."}>
 <Problem.Cause>
 
-**NaN fill** is on, and the response has no value at the pointer of a float field. The
-task records `NaN` for the field.
+The response has no value at the pointer, and the field has no default. The task skips
+the fields that share its index channel, or records `NaN` for a float field when **NaN
+fill** is on.
 
 </Problem.Cause>
 <Problem.Fix>
