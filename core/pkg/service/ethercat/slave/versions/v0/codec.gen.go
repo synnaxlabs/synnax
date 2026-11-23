@@ -23,11 +23,11 @@ import (
 func (om OpMode) EncodeOrc(w *orc.Writer) error {
 	w.String(om.Name)
 	w.Uint16(uint16(om.AssignActivate))
-	w.Uint32(uint32(om.Sync0Cycle))
+	w.Int64(int64(om.Sync0Cycle))
 	w.Int16(int16(om.Sync0Factor))
-	w.Int32(int32(om.Sync0Shift))
+	w.Int64(int64(om.Sync0Shift))
 	w.Int16(int16(om.Sync1Factor))
-	w.Int32(int32(om.Sync1Shift))
+	w.Int64(int64(om.Sync1Shift))
 	return nil
 }
 
@@ -40,20 +40,32 @@ func (om *OpMode) DecodeOrc(r *orc.Reader) error {
 	if om.AssignActivate, err = r.Uint16(); err != nil {
 		return err
 	}
-	if om.Sync0Cycle, err = r.Uint32(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		om.Sync0Cycle = telem.TimeSpan(rawV)
 	}
 	if om.Sync0Factor, err = r.Int16(); err != nil {
 		return err
 	}
-	if om.Sync0Shift, err = r.Int32(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		om.Sync0Shift = telem.TimeSpan(rawV)
 	}
 	if om.Sync1Factor, err = r.Int16(); err != nil {
 		return err
 	}
-	if om.Sync1Shift, err = r.Int32(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		om.Sync1Shift = telem.TimeSpan(rawV)
 	}
 	return nil
 }
@@ -257,7 +269,12 @@ func (s Slave) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Int64(int64(s.SwitchedAt))
+	if s.SwitchedAt != nil {
+		w.Bool(true)
+		w.Int64(int64(*s.SwitchedAt))
+	} else {
+		w.Bool(false)
+	}
 	w.String(s.Identifier)
 	w.Bool(s.Disabled)
 	if s.OpMode != nil {
@@ -353,11 +370,21 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		rawV, err := r.Int64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.SwitchedAt = telem.TimeStamp(rawV)
+		if present {
+			var hv telem.TimeStamp
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeStamp(rawV)
+			}
+			s.SwitchedAt = &hv
+		}
 	}
 	if s.Identifier, err = r.String(); err != nil {
 		return err

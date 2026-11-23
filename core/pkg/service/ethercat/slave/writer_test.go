@@ -212,7 +212,7 @@ var _ = Describe("Writer", func() {
 					Master:      s.Master,
 					Pdos:        pdos,
 					OpModes:     []slave.OpMode{{Name: "DC", AssignActivate: 0x300}},
-					SwitchedAt:  telem.TimeStamp(5),
+					SwitchedAt:  new(telem.TimeStamp(5)),
 				},
 			}})).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -220,7 +220,7 @@ var _ = Describe("Writer", func() {
 			Expect(got.Revision).To(Equal(uint32(3)))
 			Expect(got.Pdos).To(Equal(pdos))
 			Expect(got.OpModes).To(HaveLen(1))
-			Expect(got.SwitchedAt).To(Equal(telem.TimeStamp(5)))
+			Expect(got.SwitchedAt).To(HaveValue(Equal(telem.TimeStamp(5))))
 			Expect(got.Name).To(Equal("Inlet"))
 			Expect(got.Identifier).To(Equal("inlet"))
 		})

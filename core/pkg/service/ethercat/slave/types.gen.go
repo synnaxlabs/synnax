@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key uniquely identifies an EtherCAT slave.
@@ -32,9 +33,6 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a slave.
 type Status = versions.Status
-
-// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
-type StartupParameter = versions.StartupParameter
 
 // OpMode is a synchronization mode that a slave lists in its SII.
 type OpMode = versions.OpMode
@@ -167,9 +165,9 @@ type Identity struct {
 	Pdos PDOs `json:"pdos" msgpack:"pdos"`
 	// OpModes are the synchronization modes that the slave lists in its SII.
 	OpModes []OpMode `json:"op_modes" msgpack:"op_modes"`
-	// SwitchedAt is when the Driver last switched the slave to Synnax only. 0 when it
-	// never has.
-	SwitchedAt telem.TimeStamp `json:"switched_at" msgpack:"switched_at"`
+	// SwitchedAt is when the Driver last switched the slave to Synnax only. Absent when
+	// it never has.
+	SwitchedAt *telem.TimeStamp `json:"switched_at,omitzero" msgpack:"switched_at,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -214,6 +212,21 @@ func (c Configuration) Validate() error {
 	v.NotEmptyString("name", c.Name)
 	if c.OpMode != nil {
 		v.Exec(func() error { return validate.PathedError(c.OpMode.Validate(), "op_mode") })
+	}
+	for i := range c.StartupParameters {
+		v.Exec(func() error {
+			return validate.PathedError(c.StartupParameters[i].Validate(), "startup_parameters", strconv.Itoa(i))
+		})
+	}
+	for i := range c.ReadBindings {
+		v.Exec(func() error {
+			return validate.PathedError(c.ReadBindings[i].Validate(), "read_bindings", strconv.Itoa(i))
+		})
+	}
+	for i := range c.WriteBindings {
+		v.Exec(func() error {
+			return validate.PathedError(c.WriteBindings[i].Validate(), "write_bindings", strconv.Itoa(i))
+		})
 	}
 	return v.Error()
 }

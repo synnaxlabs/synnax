@@ -67,7 +67,9 @@ TEST(Slave, RoundTrips) {
     });
     s.read_bindings.push_back({.index = 0x6000, .sub_index = 0x11, .channel = 7});
     s.write_bindings.push_back({.index = 0x7000, .sub_index = 1, .command = 8});
-    s.op_modes.push_back({.name = "DC", .assign_activate = 0x300, .sync0_shift = -5});
+    s.op_modes.push_back(
+        {.name = "DC", .assign_activate = 0x300, .sync0_shift = x::telem::TimeSpan(-5)}
+    );
     s.op_mode = OpModeChoice{.index = 0, .assign_activate = 0x300};
     x::json::Parser parser(s.to_json());
     const auto parsed = Slave::parse(parser);
@@ -77,7 +79,7 @@ TEST(Slave, RoundTrips) {
     ASSERT_EQ(parsed.read_bindings[0].channel, 7);
     ASSERT_EQ(parsed.write_bindings[0].command, 8);
     ASSERT_EQ(parsed.write_bindings[0].state, 0);
-    ASSERT_EQ(parsed.op_modes[0].sync0_shift, -5);
+    ASSERT_EQ(parsed.op_modes[0].sync0_shift, x::telem::TimeSpan(-5));
     ASSERT_EQ(parsed.op_mode.value_or(OpModeChoice{}).assign_activate, 0x300);
 }
 

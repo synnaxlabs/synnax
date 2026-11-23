@@ -42,9 +42,9 @@ OpMode struct {
     assign_activate uint16 = 0 {
         @doc value "is the value of the DC activation registers 0x0980 and 0x0981."
     }
-    sync0_cycle     uint32 = 0 {
+    sync0_cycle     telem.TimeSpan = 0 {
         @doc value """
-            is the SYNC0 cycle in nanoseconds. 0 when sync0_factor sets the cycle.
+            is the SYNC0 cycle. 0 when sync0_factor sets the cycle.
         """
     }
     sync0_factor    int16 = 0 {
@@ -53,8 +53,8 @@ OpMode struct {
             fraction of it when negative.
         """
     }
-    sync0_shift     int32 = 0 {
-        @doc value "is the SYNC0 shift in nanoseconds."
+    sync0_shift     telem.TimeSpan = 0 {
+        @doc value "is the SYNC0 shift."
     }
     sync1_factor    int16 = 0 {
         @doc value """
@@ -62,8 +62,8 @@ OpMode struct {
             bus cycle when negative.
         """
     }
-    sync1_shift     int32 = 0 {
-        @doc value "is the SYNC1 shift in nanoseconds after SYNC0."
+    sync1_shift     telem.TimeSpan = 0 {
+        @doc value "is the SYNC1 shift after SYNC0."
     }
 
     @doc value  "is a synchronization mode that a slave lists in its SII."
@@ -308,10 +308,10 @@ Slave struct {
     op_modes           OpMode[] = [] {
         @doc value "are the synchronization modes that the slave lists in its SII."
     }
-    switched_at        telem.TimeStamp = 0 {
+    switched_at        telem.TimeStamp?    {
         @doc value """
-            is when the Driver last switched the slave to Synnax only. 0 when it never
-            has.
+            is when the Driver last switched the slave to Synnax only. Absent when it
+            never has.
         """
     }
     identifier         string = "" {
