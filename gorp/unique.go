@@ -200,23 +200,23 @@ func (u *UniqueIndex[K, E, V]) Key(
 	return u.store.Holder(scopeOf(snap), v, nil)
 }
 
-// Value returns the value of the entry of the table of u under key, as seen by snap,
-// and false when no entry has key.
+// Value returns the value of the entry of the table of u under k, as seen by snap, and
+// false when no entry has k or the entry holds no value. As seen by snap includes a
+// commit in flight through a bare DB, and an entry that a delete in progress has not
+// yet removed.
 func (u *UniqueIndex[K, E, V]) Value(
 	ctx context.Context,
 	snap Snapshot,
-	key K,
+	k K,
 ) (V, bool, error) {
-	var none V
-	if err := u.store.Wait(ctx); err != nil {
-		return none, false, err
-	}
-	return u.store.Value(scopeOf(snap), key)
+	return u.read(ctx, scopeOf(snap), k)
 }
 
 // ValueOf returns the value of the entry target, in any table of the space of u, as
-// seen by snap, and false when its table has no entry under its key. It fails when no
-// index of the space is on the table of target.
+// seen by snap as Value reads it, and false when its table has no entry under its key
+// or the entry holds no value. It returns the parse error of a key that does not parse
+// as a key of that table, and fails when no index of the space is on the table of
+// target.
 func (u *UniqueIndex[K, E, V]) ValueOf(
 	ctx context.Context,
 	snap Snapshot,
@@ -229,7 +229,7 @@ func (u *UniqueIndex[K, E, V]) ValueOf(
 	}
 	var none V
 	return none, false, errors.Newf(
-		"[gorp] - no index of space %s is on table %s",
+		"[gorp] - no index of space %q is on table %s",
 		u.space,
 		target.Table,
 	)
@@ -244,12 +244,22 @@ func (u *UniqueIndex[K, E, V]) valueOf(
 	scope *txState,
 	target Target,
 ) (V, bool, error) {
-	var none V
 	k, err := key.Parse[K](target.Key)
 	if err != nil {
+		var none V
 		return none, false, err
 	}
-	if err = u.store.Wait(ctx); err != nil {
+	return u.read(ctx, scope, k)
+}
+
+// read returns the value of the entry under k, with the changes of scope applied.
+func (u *UniqueIndex[K, E, V]) read(
+	ctx context.Context,
+	scope *txState,
+	k K,
+) (V, bool, error) {
+	if err := u.store.Wait(ctx); err != nil {
+		var none V
 		return none, false, err
 	}
 	return u.store.Value(scope, k)
@@ -270,13 +280,22 @@ func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
 
 // release stages, in tx, the removal of the values of the entries with the text keys
 // keys.
-func (u *UniqueIndex[K, E, V]) release(tx Tx, keys []string) error {
+func (u *UniqueIndex[K, E, V]) release(
+	ctx context.Context,
+	tx Tx,
+	keys []string,
+) error {
+	if err := u.store.Wait(ctx); err != nil {
+		return err
+	}
 	for _, text := range keys {
 		k, err := key.Parse[K](text)
 		if err != nil {
 			return err
 		}
-		u.store.StageDelete(tx.txIdentity(), k)
+		if err = u.store.StageRelease(tx.txIdentity(), k); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -353,7 +372,7 @@ type checkedIndex[K Key, E Entry[K]] interface {
 	check(ctx context.Context, tx Tx, e *E) error
 	// release stages, in tx, the removal of the values of the entries with the text
 	// keys keys.
-	release(tx Tx, keys []string) error
+	release(ctx context.Context, tx Tx, keys []string) error
 	// spaceName returns the name of the space of the index.
 	spaceName() string
 	// canJoin reports why the index cannot join its space in r. Call it with the lock

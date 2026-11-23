@@ -536,7 +536,7 @@ var _ = Describe("UniqueIndex", func() {
 		) {
 			Expect(itemIndex.ValueOf(ctx, db, gorp.NewTarget("other", "d"))).Error().
 				To(MatchError(ContainSubstring(
-					"no index of space namespace.item is on table other",
+					`no index of space "namespace.item" is on table other`,
 				)))
 		})
 	})

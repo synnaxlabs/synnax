@@ -94,6 +94,9 @@ type delta[K, V comparable] struct {
 	// added counts the entries added to forward since the last reset. forward drops an
 	// entry when its last holder goes, so its length can be less than its peak.
 	added int
+	// released holds the value of each key that a release removed while its entry
+	// stays, as Lookup.StageRelease records it. It is nil until a release.
+	released map[K]V
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -111,6 +114,7 @@ func (d *delta[K, V]) reset() {
 	clear(d.forward)
 	clear(d.arena)
 	clear(d.keys)
+	clear(d.released)
 	d.arena, d.keys, d.added = d.arena[:0], d.keys[:0], 0
 }
 
@@ -306,6 +310,25 @@ func mergeValues[S Scope, K, V comparable](
 		return d.merge(committed, values)
 	}
 	return committed.Slice()
+}
+
+// committingState returns the state that a committing scope stages for key, and false
+// when no committing scope changes key.
+func committingState[S Scope, K, V comparable](
+	o *overlay[S, *delta[K, V]],
+	key K,
+) (staged[V], bool) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	for scope, d := range o.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		if s, ok := d.state[key]; ok {
+			return s, true
+		}
+	}
+	return staged[V]{}, false
 }
 
 // committingKeys returns the keys that committing scopes map to any of values.

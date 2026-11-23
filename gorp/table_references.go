@@ -206,9 +206,9 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 }
 
 // release implements registeredTable.
-func (t *Table[K, E]) release(tx Tx, keys []string) error {
+func (t *Table[K, E]) release(ctx context.Context, tx Tx, keys []string) error {
 	for _, u := range t.uniques {
-		if err := u.release(tx, keys); err != nil {
+		if err := u.release(ctx, tx, keys); err != nil {
 			return err
 		}
 	}

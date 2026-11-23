@@ -36,7 +36,7 @@ type registeredTable interface {
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
 	// release stages, in tx, the removal of the unique values of the entries with the
 	// text keys keys.
-	release(tx Tx, keys []string) error
+	release(ctx context.Context, tx Tx, keys []string) error
 	// referenceIndex returns the index of the reference named name among the references
 	// of the table, and false when the table has none of that name.
 	referenceIndex(name string) (int, bool)
@@ -671,7 +671,7 @@ func (w *planWalk) checkRestrictions() error {
 // unique values of every entry that p deletes, so a detached entry can take one.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 	if len(p.detaches) > 0 {
-		if err := r.release(tx, p); err != nil {
+		if err := r.release(ctx, tx, p); err != nil {
 			return err
 		}
 	}
@@ -698,22 +698,27 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 
 // release stages, in tx, the removal of the unique values of every entry that p
 // deletes.
-func (r *registry) release(tx Tx, p *deletePlan) error {
-	if err := r.releaseKeys(tx, p.table, p.requested); err != nil {
+func (r *registry) release(ctx context.Context, tx Tx, p *deletePlan) error {
+	if err := r.releaseKeys(ctx, tx, p.table, p.requested); err != nil {
 		return err
 	}
 	for name, keys := range p.cascades {
-		if err := r.releaseKeys(tx, name, keys); err != nil {
+		if err := r.releaseKeys(ctx, tx, name, keys); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *registry) releaseKeys(tx Tx, table string, keys set.Set[string]) error {
+func (r *registry) releaseKeys(
+	ctx context.Context,
+	tx Tx,
+	table string,
+	keys set.Set[string],
+) error {
 	t, err := r.table(table)
 	if err != nil {
 		return err
 	}
-	return t.release(tx, keys.Slice())
+	return t.release(ctx, tx, keys.Slice())
 }
