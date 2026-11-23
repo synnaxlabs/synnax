@@ -4370,14 +4370,14 @@ TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
     EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 0 does not exist");
 }
 
-/// @brief it should return the error of a channel that does not exist as is.
-TEST(HTTPReadTask, BuildReadersReturnsChannelRetrieveError) {
+/// @brief it should reject an endpoint that binds a channel that does not exist.
+TEST(HTTPReadTask, BuildReadersRejectsMissingChannel) {
     const auto client = new_test_client();
     synnax::channel::Channel missing;
     missing.key = 1;
-    ASSERT_OCCURRED_AS_P(
-        build_readers(client, {create_icd_endpoint(client, "/a", missing)}),
-        x::errors::NOT_FOUND
-    );
+    const auto err = build_readers(client, {create_icd_endpoint(client, "/a", missing)})
+                         .second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 1 does not exist");
 }
 }
