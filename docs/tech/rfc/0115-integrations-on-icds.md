@@ -36,10 +36,11 @@ place until then.
 ## 2 Principles
 
 1. **The ICD says what a message is; the task says how the rig moves it**: The ICD holds
-   a message's layout, how to find it in a shared stream (CAN ID and frame flags, line
-   prefix, JSON match), and what the sender promises (cycle time, min and max). The task
-   holds where the stream is (topic, path, port), the request it sends to get a reply,
-   the poll rate, the send period, and the channels.
+   a message's layout, how a byte stream splits into messages (framing), how to find it
+   in a shared stream (CAN ID and frame flags, line prefix, JSON match), and what the
+   sender promises (cycle time, min and max). The task holds where the stream is (topic,
+   path, port), the request it sends to get a reply, the poll rate, the send period, and
+   the channels.
 2. **The ICD holds no value a rig chooses**: Protocol values (the fill for a missing
    field, a constant, a send-time generator) are encoding and live in the ICD. A
    channel, or a constant one site picks, lives on the task.
@@ -78,6 +79,13 @@ This RFC changes the ICD in these ways:
 - A message gets a `cycle_time`, the send cycle the protocol states. DBC import fills it
   from `GenMsgCycleTime`. DBC files mark an event-triggered message with 0, so import
   leaves its `cycle_time` unset, and `Check` refuses a cycle time that is not positive.
+- An ICD gets an optional `framing`: delimiter, fixed length, sync with length and
+  checksum, COBS, or SLIP. A serial or TCP task on an ICD with no framing fails to
+  configure. UDP with no framing reads one message per datagram, and with framing splits
+  each datagram. MQTT, Kafka, HTTP, and CAN ignore it.
+- A float field's `default` can be NaN, so an optional float reads NaN when it is
+  missing. `Check` refuses an infinite default, and a write refuses a NaN default too,
+  because JSON cannot hold it.
 
 ### 3.1 Tasks
 
@@ -90,7 +98,8 @@ the poll rate of a queried message, and the `period` of a message a bus write ta
 on a cycle. The form fills `period` from the message's `cycle_time` when a write task
 first binds it. An MQTT write target has no period: it publishes one message for each
 command on any bound channel, with the last value of each other bound channel. Commands
-that arrive in one frame share one message. A polled serial, TCP, or UDP entry holds its
+that arrive in one frame share one message. An HTTP write endpoint holds `icd` and
+`message`, and sends requests the same way. A polled serial, TCP, or UDP entry holds its
 `query`, the request the device must receive before it answers, as an HTTP endpoint
 holds its request.
 
@@ -127,6 +136,11 @@ both directions and message matching, and Phase 29 adds stream framing (delimite
 length, sync, COBS, SLIP) in `driver/codec/framing`. A C++ spec runs the shared decode
 fixtures for each payload format as it lands. Each encoder spec decodes what it encodes
 and checks that the field values come back.
+
+Both codecs group a read's bindings by index channel. A field on a virtual channel is a
+group of its own. A field that fails to decode drops only its group, and the reader logs
+a warning. A float into a float32 or float64 channel can be any float, NaN and infinity
+included. Into any other data type, a value must be finite and fit.
 
 ### 3.3 The Driver reads ICDs
 
@@ -169,22 +183,32 @@ already defines.
 
 ICD v0 and MQTT v2 shipped in 0.62.0, and Kafka v0 and HTTP v4 shipped before it. ICD
 v1, MQTT v3, Kafka v1, and HTTP v5 are in no stable release, so they change in place
-until 0.63.0. Each carries a migration from the version that shipped:
+until 0.63.0. Every stored task and every import from a shipped version migrates. Each
+version carries a migration from the version that shipped:
 
 - ICD v1 migrates each v0 message, and lifts a v0 binary field that is not a number to
   unsigned.
 - MQTT v3 migrates read entries as v2 does, and migrates each v1 and v2 write target,
   including one in an 0.61.0 export, into an ICD message.
 - Kafka v1 migrates each v0 task into one ICD.
-- HTTP v5 migrates each v4 endpoint into one ICD message. An ICD default cannot be NaN,
-  so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
-  no `fill_value`. A missing required float field in such a task then writes NaN with a
-  warning, where v4 skipped the endpoint's group. A message has one index field, so a v4
-  endpoint with two fields bound to index channels keeps both fields but fails to
-  configure. Its status names the field to move, and the user splits the endpoint into
-  two, each with one index field.
+- HTTP v5 migrates each v4 read endpoint into one ICD message. An optional float field
+  with no `fill_value` gets the default NaN, which v4 wrote for it. An optional field of
+  another kind with no `fill_value` gets no default and a lift note, because v4 refused
+  that config. A message has one index field, so a v4 endpoint with two fields bound to
+  index channels keeps both fields but fails to configure. Its status names the field to
+  move, and the user splits the endpoint into two, each with one index field. Two fields
+  on one pointer keep reading one value into two channels. A lift note names both,
+  because `Check` reports the overlap.
+- HTTP v5 migrates each v4 write endpoint into one JSON message named "METHOD path", in
+  one ICD per task. A v4 write sent only the last sample of a frame. The v5 write sends
+  one request per sample.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
+
+A client and the Core share major.minor (RFC 0058), so the Python and TypeScript task
+clients of 0.62 do not work against 0.63. The Core does not lift a client's inline
+`fields` on save. The clients move to ICD messages, and their `fields` are removed after
+Phase 33.
 
 ## 5 Implementation phases
 
@@ -228,7 +252,7 @@ real adapter (§6.16).
 | 26    | Move the HTTP read form onto ICDs                            | `console/src/feature/http`                                                                                                         | 6, 25                                        |
 | 27    | Write HTTP requests through ICDs                             | `driver/http`, `driver/codec`, `core/pkg/service/http`, `console/src/feature/http`                                                 | 25                                           |
 | 28    | Encode and decode binary and text ICD messages in the Driver | `driver/codec`                                                                                                                     | 24                                           |
-| 29    | Add framing and transports to the Driver                     | `driver/transport`, `driver/bus`                                                                                                   | 28                                           |
+| 29    | Add framing and transports to the Driver                     | `driver/codec/framing`, `driver/transport`, `schemas/synnax/icd.oracle`                                                            | 28                                           |
 | 30    | Add serial, TCP, and UDP tasks                               | `driver/serial`, `driver/tcp`, `driver/udp`, `core/pkg/service/serial`, `console/src/feature/serial`, `console/src/flags/flags.ts` | 6, 29                                        |
 | 31    | Add CAN tasks                                                | `driver/can`, `core/pkg/service/can`, `console/src/feature/can`                                                                    | 6, 29                                        |
 | 32    | Document the bus integrations and remove the bus flag        | `site/docs`, `console/src/flags/flags.ts`, `.github/workflows`                                                                     | 30, 31                                       |
@@ -314,3 +338,15 @@ real adapter (§6.16).
     take the arrival time with no warning. Several index fields per message was
     rejected: it changes a read rule that MQTT and Kafka share, for a case that may not
     exist.
+21. **Framing is on the ICD**: How a stream splits into messages is the device's
+    protocol, so it sits beside the message layout (2026-11-23). A framing on the task
+    was rejected: two tasks on one device could split its stream two ways.
+22. **A failed field drops only its index group**: The other groups of the message still
+    write (2026-11-23). Dropping the whole message was rejected: one bad sensor would
+    stop every channel of its device.
+23. **A float default can be NaN**: v4 HTTP wrote NaN for a missing optional float with
+    no fill value, and the ICD must say the same (2026-11-23). A task-wide NaN fill was
+    rejected: it changed fields that the user never marked optional.
+24. **Stored data migrates; client code does not**: Every stored task and import from a
+    shipped release migrates (2026-11-23). A 0.62 client script is not lifted on save,
+    because a client and the Core share major.minor.
