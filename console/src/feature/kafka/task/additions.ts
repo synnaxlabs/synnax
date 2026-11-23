@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd, kafka } from "@synnaxlabs/client";
-import { type json, uuid } from "@synnaxlabs/x";
+import { type json, map, uuid } from "@synnaxlabs/x";
 
 import type { ReadRecord } from "@/feature/kafka/task/types";
 import { ICD } from "@/platform/icd";
@@ -213,7 +213,7 @@ export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecor
       bindings: fields.map(({ key }) => ({ field: key })),
     });
     for (const recordKey of recordKeys)
-      reads.set(recordKey, [...(reads.get(recordKey) ?? []), read]);
+      map.getOrInsert(reads, recordKey, () => []).push(read);
   }
   return [...reads].map(([recordKey, messages]) =>
     kafka.readRecordZ.parse({ icd: icdKey, recordKey, messages }),
