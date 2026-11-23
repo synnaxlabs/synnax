@@ -93,7 +93,16 @@ func sampleData(dt telem.DataType, raw jsontext.Value) []byte {
 		return MustSucceed(base64.StdEncoding.DecodeString(text))
 	}
 	var v any
-	Expect(json.Unmarshal(raw, &v)).To(Succeed())
+	// An integer reads without a float64, which holds only 53 bits.
+	switch kind, _ := payload.KindOf(dt); {
+	case raw.Kind() == '0' && kind == payload.KindUnsigned:
+		v = MustSucceed(strconv.ParseUint(string(raw), 10, 64))
+	case raw.Kind() == '0' &&
+		(kind == payload.KindInteger || kind == payload.KindTimestamp):
+		v = MustSucceed(strconv.ParseInt(string(raw), 10, 64))
+	default:
+		Expect(json.Unmarshal(raw, &v)).To(Succeed())
+	}
 	return unprefixed(dt, telem.NewSeriesFromAny(v, dt).Data)
 }
 
