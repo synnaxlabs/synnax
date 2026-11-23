@@ -126,7 +126,8 @@ export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
 
 /**
  * RemoveRange removes the reference to the same range or window as range from the
- * plot's ranges. No-op when there is none.
+ * plot's ranges. No-op when there is none. Relative x axes return to absolute time with
+ * auto bounds when no range left has a zero.
  */
 export const removeRangePayloadZ = z.object({
   range: ranger.refZ,
@@ -138,7 +139,8 @@ export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;
  * SetRanges replaces the plot's range references with ranges, such as when the user
  * edits a window. A reference to a range or window the plot already shows keeps its T0
  * and color unless the new reference sets them. Lines style channels, so they are
- * unaffected.
+ * unaffected. Relative x axes return to absolute time with auto bounds when no range
+ * left has a zero.
  */
 export const setRangesPayloadZ = z.object({
   ranges: ranger.refZ.array().default(() => []),
