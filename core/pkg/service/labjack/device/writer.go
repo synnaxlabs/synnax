@@ -57,15 +57,7 @@ func validateDevice(d Device) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	v := validate.New("device")
-	v.Ternaryf(
-		"ports",
-		d.Ports.Model() != d.Model,
-		"are for %s, not %s",
-		d.Ports.Model(),
-		d.Model,
-	)
-	return v.Error()
+	return d.ValidatePorts()
 }
 
 // Create stores d and writes an unknown status when it has none. An existing status
