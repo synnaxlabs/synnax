@@ -500,8 +500,22 @@ func (s *Server) placeholderCompletions(
 	pos, at protocol.Position,
 ) ([]protocol.CompletionItem, bool) {
 	f, ok := parseFormatString(str)
+	closed := ok
 	if !ok {
-		return nil, true
+		// An unclosed name in a placeholder hides the placeholder's close, so the name
+		// closes at the cursor, which moves no position before it.
+		text := str.GetText()
+		start := protocol.Position{
+			Line:      uint32(str.GetLine() - 1),
+			Character: uint32(str.GetColumn()),
+		}
+		cut := slices.Index(textPositions(start, text), at)
+		if cut < 0 {
+			return nil, true
+		}
+		if f, ok = parseFormatText(text[:cut]+"'"+text[cut:], start); !ok {
+			return nil, true
+		}
 	}
 	b := slices.Index(f.at, at)
 	for _, seg := range f.segs {
@@ -523,7 +537,7 @@ func (s *Server) placeholderCompletions(
 		}
 		quote = runeOffset(seg.Text, quote)
 		end := pos
-		if d < len(seg.Text) && seg.Text[d] == '\'' {
+		if closed && d < len(seg.Text) && seg.Text[d] == '\'' {
 			end = toUTF16In(line, f.at[f.bodyOff+seg.Offsets[d+1]])
 		}
 		replace := protocol.Range{

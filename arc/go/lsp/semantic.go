@@ -574,7 +574,16 @@ type formatString struct {
 // parseFormatString returns the format string of t, and false when t is not a format
 // string with a placeholder. prefixLen is set either way.
 func parseFormatString(t antlr.Token) (formatString, bool) {
-	f := formatString{text: t.GetText()}
+	return parseFormatText(t.GetText(), protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	})
+}
+
+// parseFormatText returns the format string of the literal text that starts at start,
+// as parseFormatString does.
+func parseFormatText(text string, start protocol.Position) (formatString, bool) {
+	f := formatString{text: text}
 	for f.prefixLen < 2 && f.prefixLen < len(f.text) &&
 		(f.text[f.prefixLen] == 'r' || f.text[f.prefixLen] == 'f') {
 		f.prefixLen++
@@ -589,10 +598,7 @@ func parseFormatString(t antlr.Token) (formatString, bool) {
 	}
 	f.segs, f.flags = segs, flags
 	f.bodyOff = f.prefixLen + 1
-	f.at = textPositions(protocol.Position{
-		Line:      uint32(t.GetLine() - 1),
-		Character: uint32(t.GetColumn()),
-	}, f.text)
+	f.at = textPositions(start, f.text)
 	return f, true
 }
 
