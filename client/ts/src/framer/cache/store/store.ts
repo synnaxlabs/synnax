@@ -68,7 +68,7 @@ const DEFAULT_LIVE_SAMPLES = 2 ** 17;
 const ENTRY_OVERHEAD = 256;
 
 // Moves the samples of the buffer's leading series into the block as fetched ones.
-const flushInto = (block: cacheBlock.RawBlock, buffer: dynamic.Dynamic): void => {
+const flushInto = (block: cacheBlock.Raw, buffer: dynamic.Dynamic): void => {
   const flushed = buffer.flush();
   if (flushed != null && flushed.length > 0)
     block.fill([flushed], block.coveredEnd, block.coveredCount);
@@ -83,7 +83,7 @@ interface Entry {
 // The stream's buffer of one channel, and the raw block it writes into.
 interface Live {
   buffer: dynamic.Dynamic;
-  block: cacheBlock.RawBlock | null;
+  block: cacheBlock.Raw | null;
 }
 
 // A sample of an index channel.
@@ -194,7 +194,7 @@ export class Store {
    * after the block changes, so its new size counts against the budget.
    */
   set(key: string, block: cacheBlock.Block): void {
-    if (block instanceof cacheBlock.RawBlock) {
+    if (block instanceof cacheBlock.Raw) {
       this.applyFloor(block);
       this.changed(block.channel);
       if (block.coveredCount > 0)
@@ -229,7 +229,7 @@ export class Store {
    * past the budget.
    * @returns the fetch, which the block keeps as pending until it settles.
    */
-  hold(block: cacheBlock.RawBlock, fetch: Promise<void>): Promise<void> {
+  hold(block: cacheBlock.Raw, fetch: Promise<void>): Promise<void> {
     const pending = fetch.finally(() => {
       if (block.pending !== pending) return;
       block.pending = null;
@@ -261,7 +261,7 @@ export class Store {
   delete(key: string): void {
     const entry = this.entries.get(key);
     if (entry == null) return;
-    if (entry.block instanceof cacheBlock.RawBlock) this.changed(entry.block.channel);
+    if (entry.block instanceof cacheBlock.Raw) this.changed(entry.block.channel);
     this.entries.delete(key);
     this.bytes -= entry.bytes;
   }
@@ -359,7 +359,7 @@ export class Store {
       .map(([key, { block }]) => [key, block] as const)
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
-      if (!(block instanceof cacheBlock.RawBlock)) this.delete(key);
+      if (!(block instanceof cacheBlock.Raw)) this.delete(key);
       else if (block.expire()) this.set(key, block);
     this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
   }
@@ -374,11 +374,11 @@ export class Store {
    * block comes back without its fetched samples.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  raw(ch: channel.Key, index: number): cacheBlock.RawBlock {
+  raw(ch: channel.Key, index: number): cacheBlock.Raw {
     const cached = this.findRaw(ch, index);
     const key = cacheBlock.rawKey(ch, index);
     if (cached == null) {
-      const block = new cacheBlock.RawBlock(ch, index, this.now);
+      const block = new cacheBlock.Raw(ch, index, this.now);
       this.set(key, block);
       return block;
     }
@@ -390,11 +390,11 @@ export class Store {
    * @returns the channel's raw block at the index, or undefined when none is cached.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  findRaw(ch: channel.Key, index: number): cacheBlock.RawBlock | undefined {
+  findRaw(ch: channel.Key, index: number): cacheBlock.Raw | undefined {
     const key = cacheBlock.rawKey(ch, index);
     const cached = this.get(key);
     if (cached == null) return undefined;
-    if (!(cached instanceof cacheBlock.RawBlock))
+    if (!(cached instanceof cacheBlock.Raw))
       throw new UnexpectedError(`block ${key} is not a raw block`);
     return cached;
   }
@@ -439,7 +439,7 @@ export class Store {
   }
 
   /** @returns the block the stream is writing the channel's samples into, if any. */
-  open(ch: channel.Key): cacheBlock.RawBlock | null {
+  open(ch: channel.Key): cacheBlock.Raw | null {
     return this.live.get(ch)?.block ?? null;
   }
 
@@ -448,7 +448,7 @@ export class Store {
    * replaces closes, complete when the stream moved past it. The store keeps an open
    * block.
    */
-  join(block: cacheBlock.RawBlock): void {
+  join(block: cacheBlock.Raw): void {
     const live = this.liveOf(block.channel);
     if (live.block === block) return;
     if (live.block != null) this.seal(live, live.block.index < block.index);
@@ -466,7 +466,7 @@ export class Store {
    * @param p - The piece.
    * @param newRun - True when the piece holds the first sample a writer wrote.
    */
-  append(block: cacheBlock.RawBlock, p: Series, newRun = false): void {
+  append(block: cacheBlock.Raw, p: Series, newRun = false): void {
     const live = this.liveOf(block.channel);
     const opened = live.block !== block;
     if (opened) this.join(block);
@@ -553,7 +553,7 @@ export class Store {
   // Moves the index's floor once more than half the sample limit streamed past it. The
   // new floor keeps a quarter of the limit, and never passes the commit point. Each
   // block of the index's channels at either floor takes it again.
-  private trim(index: channel.Key, open: cacheBlock.RawBlock): void {
+  private trim(index: channel.Key, open: cacheBlock.Raw): void {
     const prev = this.floors.get(index);
     const keep = this.liveSamples / 4;
     const committed = this.now().sub(COMMIT_MARGIN);
@@ -597,7 +597,7 @@ export class Store {
 
   // Drops the block's samples before the kept floor of its channel's index, and splits
   // its series at both floors, so that every channel of the index draws from them.
-  private applyFloor(block: cacheBlock.RawBlock): void {
+  private applyFloor(block: cacheBlock.Raw): void {
     const index = this.indexOf.get(block.channel);
     const floor = index == null ? undefined : this.floors.get(index);
     if (floor == null) return;
@@ -611,9 +611,9 @@ export class Store {
   }
 
   // Returns the cached raw block, leaving its recency alone.
-  private peekRaw(ch: channel.Key, index: number): cacheBlock.RawBlock | undefined {
+  private peekRaw(ch: channel.Key, index: number): cacheBlock.Raw | undefined {
     const block = this.entries.get(cacheBlock.rawKey(ch, index))?.block;
-    return block instanceof cacheBlock.RawBlock ? block : undefined;
+    return block instanceof cacheBlock.Raw ? block : undefined;
   }
 
   private changed(ch: channel.Key): void {

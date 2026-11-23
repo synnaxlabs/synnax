@@ -579,8 +579,7 @@ export class Joins {
     { series: times, runs }: Mapped,
     pos: number,
   ): boolean {
-    const pieces: Array<{ block: cacheBlock.RawBlock; p: Series; newRun: boolean }> =
-      [];
+    const pieces: Array<{ block: cacheBlock.Raw; p: Series; newRun: boolean }> = [];
     for (const span of spansOf(runs, pos, pos + s.length)) {
       const block = this.store.raw(m.key, span.block);
       let { from, offset } = span;
@@ -610,7 +609,7 @@ export class Joins {
 
 // Returns the end of the span of the newest sample of an index channel's block, and the
 // block offset after it. A block that holds none gives its start and offset 0.
-const newestOf = (block: cacheBlock.RawBlock): { end: bigint; count: number } => {
+const newestOf = (block: cacheBlock.Raw): { end: bigint; count: number } => {
   const live = block.buffer?.leadingBuffer;
   const newest = live != null && live.length > 0 ? live : block.fetched.at(-1);
   if (newest == null || newest.length === 0)

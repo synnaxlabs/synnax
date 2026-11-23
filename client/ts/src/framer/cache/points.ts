@@ -756,7 +756,7 @@ export class Points {
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
       : Infinity;
     const current = cacheBlock.rawIndex(now);
-    const blocks: cacheBlock.RawBlock[] = [];
+    const blocks: cacheBlock.Raw[] = [];
     // A block after the one of now only draws once it holds samples.
     for (let i = cacheBlock.rawIndex(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);

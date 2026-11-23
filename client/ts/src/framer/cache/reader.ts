@@ -46,11 +46,11 @@ export const COMMIT_MARGIN = TimeSpan.seconds(1);
 // the read up to the channel's newest sample, since the stream acked the channel before
 // it.
 interface Request {
-  block: cacheBlock.RawBlock;
+  block: cacheBlock.Raw;
   end: TimeStamp;
   catchUp: boolean;
   // The blocks the read filled, which a catch-up keeps until its caller releases them.
-  pinned?: Set<cacheBlock.RawBlock>;
+  pinned?: Set<cacheBlock.Raw>;
 }
 
 // One Core read from start to end over the blocks first to last, shared by every
@@ -173,7 +173,7 @@ export class Reader {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
     const { store } = this.props;
     const block = store.raw(ch, first);
-    const pinned = new Set<cacheBlock.RawBlock>();
+    const pinned = new Set<cacheBlock.Raw>();
     const release = (): void => store.repin(pinned, new Set());
     try {
       await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true, pinned });

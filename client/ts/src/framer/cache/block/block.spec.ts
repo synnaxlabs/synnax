@@ -211,12 +211,12 @@ describe("block", () => {
     });
   });
 
-  describe("RawBlock", () => {
+  describe("Raw", () => {
     const fetched = (offset: number, values: number[], tr: TimeRange): Series =>
       createValues(blockAlignment(0, offset), values, tr);
 
     it("should span one raw tile of the grid", () => {
-      const block = new cacheBlock.RawBlock(1, 3);
+      const block = new cacheBlock.Raw(1, 3);
       expect(block.range).toEqual(
         new TimeRange(
           grid.tileSpan(cacheBlock.RAW_LEVEL).mult(3),
@@ -228,19 +228,19 @@ describe("block", () => {
 
     describe("covers", () => {
       it("should cover nothing before a fill", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         expect(block.covers(seconds(1).range(seconds(2)))).toBe(false);
       });
 
       it("should cover a read that ends at or before the covered end", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill([], seconds(10), 0);
         expect(block.covers(seconds(1).range(seconds(10)))).toBe(true);
         expect(block.covers(seconds(9).range(seconds(11)))).toBe(false);
       });
 
       it("should cover a read past the block once the whole block is covered", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill([], block.range.end, 0);
         expect(block.covers(seconds(1).range(seconds(200)))).toBe(true);
       });
@@ -248,7 +248,7 @@ describe("block", () => {
 
     describe("trim", () => {
       it("should drop the series before the alignment and cover from start", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const kept = fetched(2, [3, 4], seconds(3).range(seconds(5)));
         block.fill(
           [fetched(0, [1, 2], seconds(1).range(seconds(3))), kept],
@@ -265,7 +265,7 @@ describe("block", () => {
 
     describe("split", () => {
       it("should split the series that holds the alignment into two views", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const whole = fetched(0, [1, 2, 3, 4], seconds(1).range(seconds(5)));
         block.fill([whole], seconds(5), 4);
         block.split(blockAlignment(0, 1), seconds(2));
@@ -281,7 +281,7 @@ describe("block", () => {
 
     describe("fill", () => {
       it("should record the covered end and the index samples before it", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
         expect(block.coveredEnd).toEqual(seconds(5));
         expect(block.coveredCount).toBe(2);
@@ -289,7 +289,7 @@ describe("block", () => {
       });
 
       it("should stamp the first fill only", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         expect(block.fetchedAt).toEqual(TimeStamp.ZERO);
         block.fill([], seconds(5), 0);
         const first = block.fetchedAt;
@@ -299,7 +299,7 @@ describe("block", () => {
       });
 
       it("should keep the series it already holds when a tail overlaps them", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const head = fetched(0, [1, 2, 3], seconds(1).range(seconds(4)));
         block.fill([head], seconds(3), 2);
         block.fill([fetched(2, [3, 4], seconds(3).range(seconds(5)))], seconds(6), 4);
@@ -308,7 +308,7 @@ describe("block", () => {
       });
 
       it("should start a trimmed series where the series before it ends", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill(
           [fetched(0, [1, 2, 3], seconds(1).range(seconds(4)))],
           seconds(3),
@@ -320,7 +320,7 @@ describe("block", () => {
       });
 
       it("should end a trimmed series where the series after it starts", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const next = fetched(4, [5, 6], seconds(5).range(seconds(7)));
         block.fill(
           [
@@ -345,7 +345,7 @@ describe("block", () => {
 
     describe("expire", () => {
       it("should drop the fetched samples, their coverage, and the seal", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
         block.sealed = true;
         expect(block.expire()).toBe(true);
@@ -356,13 +356,13 @@ describe("block", () => {
       });
 
       it("should report a block with nothing to drop", () => {
-        expect(new cacheBlock.RawBlock(1, 0).expire()).toBe(false);
+        expect(new cacheBlock.Raw(1, 0).expire()).toBe(false);
       });
     });
 
     describe("seriesIn", () => {
       it("should return the fetched series that overlap a range", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const early = fetched(0, [1], seconds(1).range(seconds(2)));
         const late = fetched(1, [2], seconds(8).range(seconds(9)));
         block.fill([early, late], seconds(9), 2);
@@ -370,7 +370,7 @@ describe("block", () => {
       });
 
       it("should return the open buffer after the fetched series", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const early = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([early], seconds(4), 1);
         const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
@@ -385,7 +385,7 @@ describe("block", () => {
       });
 
       it("should judge the open buffer by the span of its samples", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         buffer.write(
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
@@ -400,23 +400,23 @@ describe("block", () => {
 
     describe("held", () => {
       it("should not hold an empty block", () => {
-        expect(new cacheBlock.RawBlock(1, 0).held).toBe(false);
+        expect(new cacheBlock.Raw(1, 0).held).toBe(false);
       });
 
       it("should hold a block while the stream writes into it", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         expect(block.held).toBe(true);
       });
 
       it("should hold a block while a fetch fills it", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.pending = Promise.resolve();
         expect(block.held).toBe(true);
       });
 
       it("should hold a block while a subscription pins it", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
         block.pins++;
         expect(block.held).toBe(true);
@@ -425,7 +425,7 @@ describe("block", () => {
       });
 
       it("should not hold a block for a series a caller acquires", () => {
-        const block = new cacheBlock.RawBlock(1, 0);
+        const block = new cacheBlock.Raw(1, 0);
         const series = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([series], seconds(5), 1);
         series.acquire();
@@ -435,7 +435,7 @@ describe("block", () => {
     });
 
     it("should stop counting the bytes of the series it drops", () => {
-      const block = new cacheBlock.RawBlock(1, 0);
+      const block = new cacheBlock.Raw(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
       expect(block.bytes).toBe(2 * 4);
       block.expire();
@@ -443,7 +443,7 @@ describe("block", () => {
     });
 
     it("should count the bytes of every series it holds", () => {
-      const block = new cacheBlock.RawBlock(1, 0);
+      const block = new cacheBlock.Raw(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
       const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
