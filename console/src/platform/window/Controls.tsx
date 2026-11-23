@@ -58,6 +58,7 @@ export const Controls = ({
     <Buttons
       disabled={window?.resizable === false ? ["maximize"] : undefined}
       maximized={window?.maximized}
+      inactive={window?.focus === false}
       onClose={handleClose}
       onMaximize={handleMaximize}
       onMinimize={handleMinimize}

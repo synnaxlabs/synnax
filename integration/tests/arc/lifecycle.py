@@ -57,6 +57,67 @@ func nested_write_2() {val f32} {
 
 time.interval(100ms) -> nested_write_1()
 
+// Channels passed by position, alone and among literals.
+func positional_read(src chan u8) f32 {
+    if src == 1 {
+        return 1.0
+    }
+    return 0.0
+}
+
+func positional_write(dst chan f32) {
+    dst = 2.0
+}
+
+func positional_after(v f32, dst chan f32) {
+    dst = v
+}
+
+func positional_before(dst chan f32, v f32) {
+    dst = v
+}
+
+func positional_between(a f32, dst chan f32, b f32) {
+    dst = a + b
+}
+
+start_lifecycle_cmd -> positional_read(start_lifecycle_cmd) -> lifecycle_pos_read
+start_lifecycle_cmd -> positional_write(lifecycle_pos_write)
+start_lifecycle_cmd -> positional_after(3.0, lifecycle_pos_after)
+start_lifecycle_cmd -> positional_before(lifecycle_pos_before, 4.0)
+start_lifecycle_cmd -> positional_between(2.0, lifecycle_pos_between, 3.0)
+
+// Calls with no trigger run on each new value of a channel they read.
+func reactive_body() f32 {
+    return lifecycle_react_in
+}
+
+func reactive_literal(gain f32) f32 {
+    return lifecycle_react_in * gain
+}
+
+func reactive_chan(gain f32, src chan f32) f32 {
+    return src * gain
+}
+
+func reactive_bare(gain f32, src chan f32) {
+    lifecycle_react_bare = src * gain
+}
+
+reactive_body() -> lifecycle_react_body
+reactive_literal(2.0) -> lifecycle_react_literal
+reactive_chan(gain=3.0, src=lifecycle_react_in) -> lifecycle_react_named
+reactive_chan(4.0, lifecycle_react_in) -> lifecycle_react_positional
+
+start_lifecycle_cmd => reactive_main
+
+sequence reactive_main {
+    stage run {
+        1 -> lifecycle_react_ready
+        reactive_bare(5.0, lifecycle_react_in)
+    }
+}
+
 sequence main {
     stage press {
         SOME_CONST_1 => const_output
@@ -110,6 +171,24 @@ lifecycle_own_first -> lifecycle_own_second
 
 OWN_WRITE_STARTS = 5
 
+# The value each positional flow writes, by output channel.
+POSITIONAL_OUTPUTS = {
+    "lifecycle_pos_read": 1.0,
+    "lifecycle_pos_write": 2.0,
+    "lifecycle_pos_after": 3.0,
+    "lifecycle_pos_before": 4.0,
+    "lifecycle_pos_between": 5.0,
+}
+
+# The gain each reactive call applies to lifecycle_react_in, by output channel.
+REACTIVE_GAINS = {
+    "lifecycle_react_body": 1.0,
+    "lifecycle_react_literal": 2.0,
+    "lifecycle_react_named": 3.0,
+    "lifecycle_react_positional": 4.0,
+    "lifecycle_react_bare": 5.0,
+}
+
 
 class Lifecycle(ArcCase, ConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
@@ -126,6 +205,8 @@ class Lifecycle(ArcCase, ConsoleCase):
     8. Stale virtual channel signal does not trigger stage re-entry on first
        yield activation (regression for source node watermark bug)
     9. An Arc reads its own first write on every start
+    10. A flow passes a channel to a function by position, alone or among literals
+    11. A call with no trigger runs on each new value of a channel it reads
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -140,6 +221,9 @@ class Lifecycle(ArcCase, ConsoleCase):
         "end_test_cmd",
         "lifecycle_log",
         "signal_stage_log",
+        *POSITIONAL_OUTPUTS,
+        *REACTIVE_GAINS,
+        "lifecycle_react_ready",
     ]
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
     collect_notifications = True
@@ -162,6 +246,13 @@ class Lifecycle(ArcCase, ConsoleCase):
         )
         for ch in ("lifecycle_own_first", "lifecycle_own_second"):
             create_virtual_channel(self.client, ch, data_type=sy.DataType.UINT8)
+        for ch in POSITIONAL_OUTPUTS:
+            create_virtual_channel(self.client, ch)
+        for ch in ("lifecycle_react_in", *REACTIVE_GAINS):
+            create_virtual_channel(self.client, ch)
+        create_virtual_channel(
+            self.client, "lifecycle_react_ready", data_type=sy.DataType.UINT8
+        )
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -198,6 +289,11 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("Verifying transitive channel write (function call propagation)")
         self.wait_for_gt("arc_lifecycle_virt", 20)
 
+        # --- 0c. Verify channels passed to a function by position ---
+        self.log("Verifying positional channel inputs")
+        for channel, expected in POSITIONAL_OUTPUTS.items():
+            self.wait_for_near(channel, expected, tolerance=0.01)
+
         # --- 1. Verify select true branch: stable_for emits after pressure
         # stays above 25 PSI for 500ms, then select routes to warning status ---
         self.log("Waiting for 'Pressure stable above 25 PSI' (select true branch)")
@@ -216,6 +312,14 @@ class Lifecycle(ArcCase, ConsoleCase):
         # --- 2a. Verify global constant changed in vent stage ---
         self.log("Verifying SOME_CONST_2 *2 (-99.0) => const_output during vent stage")
         self.wait_for_near("const_output", -99.0, tolerance=0.01)
+
+        # --- 2b. Verify calls with no trigger run on each new value they read ---
+        self.log("Verifying reactive calls with no trigger")
+        self.wait_for_eq("lifecycle_react_ready", 1)
+        for value in (1.0, 2.0):
+            self.writer.write("lifecycle_react_in", value)
+            for channel, gain in REACTIVE_GAINS.items():
+                self.wait_for_near(channel, value * gain, tolerance=0.01)
 
         # --- 3. Regression: stale virtual channel must not trigger re-entry ---
         # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
