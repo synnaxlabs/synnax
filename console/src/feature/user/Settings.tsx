@@ -27,9 +27,9 @@ const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
   return (
     <Page.Card title="Password">
       <PlatformSettings.Body>
-        <Credential.Password.Form
+        <Credential.Password.SetForm
           subject={user.resourceID(userKey)}
-          onChanged={setChanged}
+          onMessage={(message) => setChanged(message != null)}
         />
         {changed && <Status.Summary variant="success" message="Changed password" />}
       </PlatformSettings.Body>

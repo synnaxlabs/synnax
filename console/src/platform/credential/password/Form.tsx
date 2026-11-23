@@ -9,28 +9,129 @@
 
 import "@/platform/credential/password/Form.css";
 
-import { type resource, status } from "@synnaxlabs/client";
+import { type auth, type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, User } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
-export interface FormProps {
+/** Receives the result of a change, or null once the user types again. */
+export type MessageHandler = (message: string | null) => void;
+
+interface CreateFormProps {
+  subject: resource.ID;
+  onCreate: () => void;
+  onMessage: MessageHandler;
+}
+
+const CreateForm = ({
+  subject,
+  onCreate,
+  onMessage,
+}: CreateFormProps): ReactElement => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const create = Credential.Password.useCreate({
+    afterSuccess: () => {
+      onMessage("Successfully created password");
+      onCreate();
+    },
+  });
+  Modals.useBusy(create.variant === "loading");
+  const handleUsername = (value: string) => {
+    setUsername(value);
+    onMessage(null);
+  };
+  const handlePassword = (value: string) => {
+    setPassword(value);
+    onMessage(null);
+  };
+  return (
+    <>
+      <Input.Text
+        value={username}
+        onChange={handleUsername}
+        placeholder="Username"
+        full="x"
+      />
+      <Flex.Box x wrap justify="end">
+        <Input.Text
+          value={password}
+          onChange={handlePassword}
+          placeholder="Password"
+          type="password"
+          className={CSS.BE("credential", "password")}
+        />
+        <Button.Button
+          className={CSS.BE("credential", "action")}
+          variant="filled"
+          status={status.keepVariants(create.variant, "loading")}
+          disabled={username === "" || password === ""}
+          onClick={() => create.update({ subject, username, password })}
+        >
+          Create password
+        </Button.Button>
+      </Flex.Box>
+    </>
+  );
+};
+
+interface RenameFormProps {
+  password: auth.password.Password;
+  onMessage: MessageHandler;
+}
+
+const RenameForm = ({ password, onMessage }: RenameFormProps): ReactElement => {
+  const [saved, setSaved] = useState(password.username);
+  const [username, setUsername] = useState(password.username);
+  const rename = Credential.Password.useRename({
+    afterSuccess: () => {
+      setSaved(username);
+      onMessage("Successfully changed username");
+    },
+  });
+  Modals.useBusy(rename.variant === "loading");
+  const handleUsername = (value: string) => {
+    setUsername(value);
+    onMessage(null);
+  };
+  return (
+    <Flex.Box x wrap justify="end">
+      <Input.Text
+        value={username}
+        onChange={handleUsername}
+        placeholder="Username"
+        className={CSS.BE("credential", "password")}
+      />
+      <Button.Button
+        className={CSS.BE("credential", "action")}
+        variant="filled"
+        status={status.keepVariants(rename.variant, "loading")}
+        disabled={username === "" || username === saved}
+        onClick={() => rename.update({ key: password.key, username })}
+      >
+        Set username
+      </Button.Button>
+    </Flex.Box>
+  );
+};
+
+export interface SetFormProps {
   /** The user whose password to set. */
   subject: resource.ID;
-  /** Called with true after a change succeeds, and with false on the next edit. */
-  onChanged: (changed: boolean) => void;
+  onMessage: MessageHandler;
 }
 
 /**
  * Sets the subject's password. The logged-in user must give the current password to
  * change their own.
  */
-export const Form = ({ subject, onChanged }: FormProps): ReactElement => {
+export const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
   const { data: currentKey } = User.useResultKey({});
   const own = currentKey === subject.key;
   const [password, setPassword] = useState("");
@@ -39,17 +140,17 @@ export const Form = ({ subject, onChanged }: FormProps): ReactElement => {
     afterSuccess: () => {
       setPassword("");
       setCurrentPassword("");
-      onChanged(true);
+      onMessage("Successfully changed password");
     },
   });
   Modals.useBusy(set.variant === "loading");
   const handleCurrentPassword = (value: string) => {
     setCurrentPassword(value);
-    onChanged(false);
+    onMessage(null);
   };
   const handlePassword = (value: string) => {
     setPassword(value);
-    onChanged(false);
+    onMessage(null);
   };
   const handleSet = () =>
     set.update(own ? { password, currentPassword } : { subject, password });
@@ -82,6 +183,63 @@ export const Form = ({ subject, onChanged }: FormProps): ReactElement => {
           Set password
         </Button.Button>
       </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+interface PasswordsProps {
+  subject: resource.ID;
+  onCreate: () => void;
+  onMessage: MessageHandler;
+}
+
+const Passwords = ({
+  subject,
+  onCreate,
+  onMessage,
+}: PasswordsProps): ReactElement | null => {
+  const passwords = Credential.Password.useResult({ subject });
+  if (passwords.variant === "error")
+    return <Text.Text status="error">{passwords.status.message}</Text.Text>;
+  if (passwords.data == null) return null;
+  if (passwords.data.length === 0)
+    return <CreateForm subject={subject} onCreate={onCreate} onMessage={onMessage} />;
+  return (
+    <>
+      <RenameForm password={passwords.data[0]} onMessage={onMessage} />
+      <SetForm subject={subject} onMessage={onMessage} />
+    </>
+  );
+};
+
+export interface FormProps {
+  /** The user whose password to create or change. */
+  subject: resource.ID;
+  onMessage: MessageHandler;
+}
+
+/**
+ * Changes the subject's username and password, or creates a password when the subject
+ * has none.
+ */
+export const Form = ({ subject, onMessage }: FormProps): ReactElement => {
+  const query = { subject };
+  const invalidate = Credential.Password.useInvalidate();
+  // This read has no live updates, so a remount is what fetches it again.
+  const [generation, setGeneration] = useState(0);
+  const handleCreate = () => {
+    invalidate(query);
+    setGeneration((g) => g + 1);
+  };
+  useEffect(() => () => invalidate(query), []);
+  return (
+    <Flex.Box y>
+      <Passwords
+        key={generation}
+        subject={subject}
+        onCreate={handleCreate}
+        onMessage={onMessage}
+      />
     </Flex.Box>
   );
 };

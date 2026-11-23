@@ -12,6 +12,7 @@ export * from "@/platform/core/detectConnection";
 export * from "@/platform/core/list";
 export * from "@/platform/core/oidc";
 export * from "@/platform/core/TokenKeeper";
+export * from "@/platform/core/useAcceptedMethods";
 export * from "@/platform/core/useConnectModal";
 export * from "@/platform/core/useConnParams";
 export * from "@/platform/core/useCopyLinkToClipboard";

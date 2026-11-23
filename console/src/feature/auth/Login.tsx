@@ -79,42 +79,31 @@ const errorMessage = (status: connection.Status): string | undefined => {
   return error.message;
 };
 
-interface Accepted {
-  password: boolean;
-  oidc: boolean;
-  // undefined while the providers load, or after their request fails
-  providers?: auth.OIDCLogin[];
-}
-
-const DEFAULT_ACCEPTED: Accepted = { password: true, oidc: false, providers: [] };
-
-// An unreachable Core, or one older than the methods endpoint, keeps the password
-// form: the connection status reports the first, and the second accepts passwords.
-const useAccepted = (core?: auth.TokenlessParams): Accepted => {
+// Undefined while the providers load, or after their request fails.
+const useProviders = (
+  core: auth.TokenlessParams | undefined,
+  oidc: boolean,
+): auth.OIDCLogin[] | undefined => {
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
-  const key = host == null || port == null ? null : `${host}:${port}:${secure}`;
-  const [found, setFound] = useState<{ key: string; accepted: Accepted } | null>(null);
+  const key =
+    !oidc || host == null || port == null ? null : `${host}:${port}:${secure}`;
+  const [found, setFound] = useState<{ key: string; providers: auth.OIDCLogin[] }>();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       if (key == null || host == null || port == null) return;
       const tokenless = auth.createTokenlessClient({ host, port, secure });
-      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
-      if (methods == null || signal.aborted) return;
-      const oidc = methods.includes("oidc");
-      const password = methods.includes("password");
-      setFound({ key, accepted: { password, oidc, providers: oidc ? undefined : [] } });
-      if (!oidc) return;
       handleError(async () => {
         const providers = await auth.retrieveProviders(tokenless);
-        if (!signal.aborted) setFound({ key, accepted: { password, oidc, providers } });
+        if (!signal.aborted) setFound({ key, providers });
       }, "Failed to retrieve the login providers");
     },
-    [host, port, secure],
+    [key],
   );
-  return found != null && found.key === key ? found.accepted : DEFAULT_ACCEPTED;
+  if (key == null) return [];
+  return found?.key === key ? found.providers : undefined;
 };
 
 /**
@@ -157,12 +146,12 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
-  const accepted = useAccepted(target);
-  const passwordAccepted = accepted.password;
-  const providers = accepted.providers ?? [];
+  const { password: passwordAccepted, oidc: oidcAccepted } =
+    Core.useAcceptedMethods(target);
+  const loadedProviders = useProviders(target, oidcAccepted);
+  const providers = loadedProviders ?? [];
   // a provider list that is still loading, or failed to load, says nothing yet
-  const noLogin =
-    !passwordAccepted && (!accepted.oidc || accepted.providers?.length === 0);
+  const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
   // a newer provider login replaces an older one, which then ends unreported
   const attempts = useRef(0);
