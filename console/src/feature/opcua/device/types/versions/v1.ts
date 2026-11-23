@@ -15,7 +15,7 @@ import {
   type Properties as BaseProperties,
   ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
-} from "@/feature/opcua/device/types/v0";
+} from "@/feature/opcua/device/types/versions/v0";
 
 const VERSION = "1.0.0";
 

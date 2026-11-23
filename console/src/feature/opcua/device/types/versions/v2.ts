@@ -14,13 +14,13 @@ import {
   connectionConfigZ as baseConnectionConfigZ,
   type makeZ,
   ZERO_CONNECTION_CONFIG as BASE_ZERO_CONNECTION_CONFIG,
-} from "@/feature/opcua/device/types/v0";
+} from "@/feature/opcua/device/types/versions/v0";
 import {
   type Properties as BaseProperties,
   propertiesZ as basePropertiesZ,
   readZ as baseReadZ,
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
-} from "@/feature/opcua/device/types/v1";
+} from "@/feature/opcua/device/types/versions/v1";
 
 const VERSION = "2.0.0";
 
