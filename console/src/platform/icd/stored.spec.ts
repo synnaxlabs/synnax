@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel } from "@synnaxlabs/client";
+import { type channel, icd } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
@@ -15,18 +15,27 @@ import { ICD } from "@/platform/icd";
 
 describe("ICD", () => {
   describe("bindingsOf", () => {
-    const [a, a2, b, c, g] = Array.from({ length: 5 }, () => uuid.create());
+    const [a, a2, b, c, g, i] = Array.from({ length: 6 }, () => uuid.create());
     const dataTypes = new Map<channel.Key, string>([
       [1, "float64"],
       [2, "string"],
+      [4, "int32"],
     ]);
     const channelsOf = (
-      fields: { key: string; pointer: string; type: "float" | "string" }[],
+      fields: {
+        key: string;
+        pointer: string;
+        type: "float" | "integer" | "string";
+        scale?: number;
+      }[],
       written = new Set<channel.Key>(),
     ) =>
-      ICD.bindingsOf({ "/a": 1, "/b": 2, "/gone": 3 }, fields, written, dataTypes).map(
-        ({ field, channel }) => [field, channel],
-      );
+      ICD.bindingsOf(
+        { "/a": 1, "/b": 2, "/gone": 3, "/i": 4 },
+        fields.map((f) => icd.jsonFieldZ.parse({ name: "field", ...f })),
+        written,
+        dataTypes,
+      ).map(({ field, channel }) => [field, channel]);
 
     it("should bind each field to the channel stored for its pointer", () => {
       const written = new Set<channel.Key>();
@@ -69,6 +78,18 @@ describe("ICD", () => {
 
     it("should bind no channel whose data type the kind does not convert to", () => {
       expect(channelsOf([{ key: a, pointer: "/a", type: "string" }])).toEqual([[a, 0]]);
+    });
+
+    it("should bind a scaled field to a float channel only", () => {
+      expect(
+        channelsOf([
+          { key: a, pointer: "/a", type: "integer", scale: 2 },
+          { key: i, pointer: "/i", type: "integer", scale: 2 },
+        ]),
+      ).toEqual([
+        [a, 1],
+        [i, 0],
+      ]);
     });
 
     it("should bind no channel whose data type is unknown", () => {

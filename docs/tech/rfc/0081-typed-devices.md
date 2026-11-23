@@ -219,7 +219,7 @@ Field groups per make:
   maps.
 - **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
   certificates), `read_indexes`, node channel maps
-  (`console/src/feature/opcua/device/types/v1.ts:18-30`).
+  (`console/src/feature/opcua/device/types/versions/v1.ts:18-30`).
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
