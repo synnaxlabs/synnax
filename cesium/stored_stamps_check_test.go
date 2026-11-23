@@ -294,9 +294,7 @@ var _ = Describe("Check: data written against stored stamps", func() {
 		Expect(read(ctx, idx, span(30, 32)).Series).To(BeEmpty())
 	})
 
-	It(
-		"Should end the sync of data against stamps that no sync made durable, when one "+
-			"goroutine syncs the data before the clock",
+	It("Should end the sync of data when one goroutine syncs it before its clock",
 		func(ctx SpecContext) {
 			c := unsynced(ctx, 40, 41)
 			w := writer(ctx, 40)
