@@ -85,6 +85,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to no holder computing a channel.
 	Computes func(Use) bool
+	// Outputs returns the keys of the channels that calculations write, as snap holds
+	// them, whether or not a subject can retrieve the calculations. The calculated line
+	// of a Where matches these channels.
+	//
+	// [OPTIONAL] - Defaults to none. A query on the calculated line then fails.
+	Outputs func(ctx context.Context, snap gorp.Snapshot) (Keys, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -114,6 +120,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
 	c.Computes = override.Nil(c.Computes, other.Computes)
+	c.Outputs = override.Nil(c.Outputs, other.Outputs)
 	return c
 }
 
@@ -137,7 +144,9 @@ type Service struct {
 	builtIns atomic.Pointer[builtInSet]
 	// builtInFilters holds the filters of MatchInternal.
 	builtInFilters builtInFilters
-	mu             struct {
+	// calculatedFilters holds the filters of MatchCalculated.
+	calculatedFilters calculatedFilters
+	mu                struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -164,6 +173,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	s.builtIns.Store(&builtInSet{})
 	s.builtInFilters = newBuiltInFilters(&s.builtIns)
+	s.calculatedFilters = newCalculatedFilters(cfg.Outputs)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -200,9 +210,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		indexes: s.indexes,
-		builtIn: &s.builtInFilters,
+		gorp:       s.table.NewRetrieve(),
+		indexes:    s.indexes,
+		builtIn:    &s.builtInFilters,
+		calculated: &s.calculatedFilters,
 	}
 }
 
