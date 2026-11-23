@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/symbol"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -80,10 +81,10 @@ func findRepositoryPrograms() ([]string, error) {
 }
 
 func newRepositoryRoot() *symbol.Symbol {
-	channels := make([]*symbol.Symbol, 0, len(repositoryChannels))
+	channels := make([]symbol.Symbol, 0, len(repositoryChannels))
 	id := 1
 	for name, t := range repositoryChannels {
-		channels = append(channels, &symbol.Symbol{
+		channels = append(channels, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindChannel,
 			Type: types.Chan(t),
@@ -91,7 +92,7 @@ func newRepositoryRoot() *symbol.Symbol {
 		})
 		id++
 	}
-	return arc.NewRoot(nil, channels...)
+	return symboltestutil.NewRoot(nil, channels...)
 }
 
 var _ = Describe("Repository programs", func() {

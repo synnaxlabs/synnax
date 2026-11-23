@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
@@ -355,7 +356,7 @@ var _ = Describe("Name upgrade", func() {
 			prog := MustSucceed(arc.CompileText(
 				ctx,
 				arc.Text{Raw: "pt -> out"},
-				arc.NewRoot(l.Channel.NewArcSymbolResolver(n.DB)),
+				symboltestutil.NewRoot(l.Channel.NewArcSymbolResolver(n.DB)),
 			))
 			deps := MustSucceed(runtime.NewDependencies(ctx, n.DB, l.Channel, prog))
 			Expect(deps.Reads.Contains(bound)).To(BeTrue())
