@@ -27,6 +27,7 @@ import { Fragment, type PropsWithChildren, type ReactElement, useState } from "r
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
 const path = Schematic.Symbol.formPath;
@@ -374,14 +375,18 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
         <Property field="hidden" label="Visible" icon={<Icon.Visible />}>
           <VisibleControl />
         </Property>
-        <Property field="blink" label="Blink" icon={<Icon.Dot />}>
-          <BlinkControl />
-        </Property>
-        <Property field="motion" label="Motion" icon={<Icon.Rotate />}>
-          <MotionControl />
-        </Property>
-        {issue != null && (
-          <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
+        {FLAGS.symbolMotion && (
+          <>
+            <Property field="blink" label="Blink" icon={<Icon.Dot />}>
+              <BlinkControl />
+            </Property>
+            <Property field="motion" label="Motion" icon={<Icon.Rotate />}>
+              <MotionControl />
+            </Property>
+            {issue != null && (
+              <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
+            )}
+          </>
         )}
       </Flex.Box>
     </InspectorContext>

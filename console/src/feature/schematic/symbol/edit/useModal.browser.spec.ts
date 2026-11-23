@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
@@ -515,6 +515,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("names the field and the kind in the tooltip of a paint", async () => {
+      const { fill } = await openPainted({});
+      fireEvent.pointerEnter(fill);
+      const tip = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(".lyra-tooltip");
+        assertDefined(el);
+        return el;
+      });
+      expect(tip.textContent).toBe("Fill: Drawing");
+    });
+
     it("saves the state color and shows the default entry where no entry matches", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
@@ -647,6 +658,95 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([all]),
+      );
+    });
+
+    // byState presses By state on the property with the label.
+    const byState = (label: string) => {
+      const header = screen.getByText(label).parentElement;
+      assertDefined(header);
+      fireEvent.click(within(header).getByText("By state"));
+    };
+    const atActive: schematic.symbol.Condition = {
+      type: "equals",
+      state: "active",
+      values: [1],
+    };
+    const atBase: schematic.symbol.Condition = {
+      type: "equals",
+      state: "active",
+      values: [0],
+    };
+
+    it("shows and hides a part at each value of a state", async () => {
+      const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [hide],
+      });
+      byState("Visible");
+      const visible = (v: string) =>
+        screen.getByLabelText<HTMLInputElement>(`Visible while ${v}`);
+      expect(visible("Active").checked).toBe(false);
+      fireEvent.click(visible("Active"));
+      await waitFor(() => expect(visible("Active").checked).toBe(true));
+      fireEvent.click(visible("Base"));
+      await waitFor(() => expect(visible("Base").checked).toBe(false));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toHaveLength(3);
+        expect(looks).toEqual(
+          expect.arrayContaining([
+            hide,
+            { key: expect.any(String), part: "body", when: atActive, hidden: false },
+            { key: expect.any(String), part: "body", when: atBase, hidden: true },
+          ]),
+        );
+      });
+    });
+
+    it("sets the blink and motion of a part at one value of a state", async () => {
+      const all: schematic.symbol.Look = {
+        key: "all",
+        when: atActive,
+        blink: { period: 1e9 },
+      };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [all],
+      });
+      byState("Blink");
+      const blink = (v: string) =>
+        screen.getByLabelText<HTMLInputElement>(`Blink while ${v}`);
+      expect(blink("Active").checked).toBe(true);
+      expect(blink("Active").disabled).toBe(true);
+      fireEvent.click(blink("Base"));
+      await waitFor(() => expect(blink("Base").checked).toBe(true));
+      byState("Motion");
+      const base = Array.from(
+        document.querySelectorAll<HTMLElement>(".console-schematic-inspector__value"),
+      ).find(
+        (row) =>
+          within(row).queryByText("Base") != null &&
+          within(row).queryByText("Spin") != null,
+      );
+      assertDefined(base);
+      fireEvent.click(within(base).getByText("Spin"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          all,
+          {
+            key: expect.any(String),
+            part: "body",
+            when: atBase,
+            blink: expect.any(Object),
+            motion: expect.objectContaining({ type: "spin" }),
+          },
+        ]),
       );
     });
 
