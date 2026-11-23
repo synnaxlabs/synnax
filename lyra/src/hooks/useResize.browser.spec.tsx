@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { box, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -175,5 +175,16 @@ describe("useResize", () => {
     await expect.poll(() => onResize.mock.calls.length).toBe(1);
     await userEvent.click(page.getByRole("button", { name: "Grow" }));
     await expect.poll(() => onResize.mock.calls.length).toBe(2);
+  });
+
+  it("should report a box that grew while it was disabled", async () => {
+    const onResize = vi.fn();
+    await renderThemed(<Toggle onResize={onResize} enabled />);
+    await expect.poll(() => onResize.mock.calls.length).toBe(1);
+    await userEvent.click(page.getByRole("button", { name: "Toggle" }));
+    await userEvent.click(page.getByRole("button", { name: "Grow" }));
+    await userEvent.click(page.getByRole("button", { name: "Toggle" }));
+    await expect.poll(() => onResize.mock.calls.length).toBe(2);
+    expect(box.width(onResize.mock.calls[1][0])).toBe(BOX.width + 10);
   });
 });
