@@ -9,7 +9,7 @@
 
 import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/labjack/task/commands";
 export * from "@/feature/labjack/task/create";

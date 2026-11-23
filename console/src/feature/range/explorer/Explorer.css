@@ -16,3 +16,33 @@
 .console-range-explorer__message {
     padding: 3rem 2rem;
 }
+
+/* As the frame narrows, the layout names go first, then the sort's name. A control
+   without its name is a square, as an icon button is. */
+@container view-frame (width < 88rem) {
+    .console-range-tree__layout {
+        justify-content: center;
+        min-width: var(--pluto-height-medium);
+        padding: 0;
+    }
+
+    .console-range-tree__layout-name {
+        display: none;
+    }
+}
+
+@container view-frame (width < 62rem) {
+    .console-range-explorer__sort {
+        min-width: 0;
+    }
+
+    .console-range-explorer__sort-trigger {
+        justify-content: center;
+        min-width: var(--pluto-height-medium);
+        padding: 0;
+    }
+
+    .console-range-explorer__sort-name {
+        display: none;
+    }
+}

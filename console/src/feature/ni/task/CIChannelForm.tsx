@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type deep, record, TimeSpan } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";

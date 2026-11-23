@@ -15,7 +15,7 @@ import {
 import { Errors, Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen, waitFor } from "@testing-library/react";
-import { type ComponentType, type FC } from "react";
+import type { ComponentType, FC } from "react";
 import { assert, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -23,7 +23,7 @@ import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { HTTP } from "@/feature/http";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
-import { type Task as PTask } from "@/platform/task";
+import type { Task as PTask } from "@/platform/task";
 import { createTaskStatus, renderTaskFormTab } from "@/platform/task/testutil";
 import { countEditableText } from "@/testutil";
 

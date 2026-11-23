@@ -19,15 +19,15 @@ const vectors = JSON.parse(readFileSync(VECTORS_URL, "utf-8")) as { ordered: str
 
 describe("uuids", () => {
   it("should order each vector before the next", () => {
-    for (let i = 1; i < vectors.ordered.length; i++) {
+    for (const [i, b] of vectors.ordered.entries()) {
       const a = vectors.ordered[i - 1];
-      const b = vectors.ordered[i];
+      if (a == null) continue;
       expect(compare.uuids(a, b), `${a} before ${b}`).toBe(-1);
       expect(compare.uuids(b, a), `${b} after ${a}`).toBe(1);
     }
   });
 
   it("should order a UUID the same as itself", () => {
-    expect(compare.uuids(vectors.ordered[0], vectors.ordered[0])).toBe(0);
+    for (const u of vectors.ordered) expect(compare.uuids(u, u)).toBe(0);
   });
 });

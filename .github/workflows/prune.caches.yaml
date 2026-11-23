@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+    timeout-minutes: 10
     steps:
       # A Go key ends in the hash of its inputs and the ID of the run that saved it. A
       # CodeQL key ends in the commit, the run ID, and the attempt. The rest names what

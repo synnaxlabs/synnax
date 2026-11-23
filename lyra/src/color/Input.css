@@ -23,7 +23,14 @@
         flex-grow: 0;
     }
 
+    /* Each state takes the width of a "#" and an 8-digit hex, so fields line up. The
+       code font makes ch the width of a hex digit. */
+    & .lyra-color-hex-text {
+        font-family: var(--pluto-code-font-family);
+        width: calc(10.5ch + 4rem);
+    }
+
     & input {
-        width: calc(9.5ch + 3rem);
+        min-width: 0;
     }
 }

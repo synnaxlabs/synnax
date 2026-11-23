@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@/context";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 
 /** What an item tells the control inside it. */
 export interface ItemContextValue {

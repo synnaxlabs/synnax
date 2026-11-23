@@ -9,7 +9,7 @@
 
 export * from "@/telem/aggregation";
 export * from "@/telem/clockSkew";
-export { type GLBufferController } from "@/telem/gl";
+export type { GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
 export * from "@/telem/types.gen";

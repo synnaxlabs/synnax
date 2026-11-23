@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { group } from "@synnaxlabs/client";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
-import { type Variant } from "@/schematic/node/registry";
+import type { Variant } from "@/schematic/node/registry";
 import { Safety } from "@/schematic/node/safety";
 import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
