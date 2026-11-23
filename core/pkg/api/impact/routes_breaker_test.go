@@ -193,7 +193,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 			apiimpact.PlanRequest{Change: deleteOf(keys...)},
 		))
 		Expect(p.Entries).To(BeEmpty())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 		// The subject knows the change, the empty visible list, and one hidden entry.
 		// Channel keys are a 12 bit node and a 20 bit counter, so it walks the node.
 		var confirmed []resource.ID
@@ -239,7 +239,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 				AuthedCtx(ctx, u),
 				apiimpact.PlanRequest{Change: deleteOf(index.Key())},
 			))
-			Expect(p.Hidden).To(Equal(uint32(1)))
+			Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 			Expect(p.Entries).To(HaveLen(1))
 			probe := func(guess resource.ID) string {
 				GinkgoHelper()
@@ -280,7 +280,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		})
 		changed, ok := errors.AsType[impact.PlanChangedError](err)
 		Expect(ok).To(BeTrue())
-		Expect(changed.Plan.Hidden).To(Equal(uint32(2)))
+		Expect(changed.Plan.Hidden).To(Equal(impact.Hidden{Restrict: 2}))
 		codec := errors.NewCodec(apiimpact.ErrorProvider())
 		payload := codec.Encode(err, false)
 		Expect(payload.Data).ToNot(ContainSubstring(first.Key.String()))
@@ -288,7 +288,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		decoded, ok := errors.AsType[impact.PlanChangedError](codec.Decode(payload))
 		Expect(ok).To(BeTrue())
 		Expect(decoded.Plan.Token).To(Equal(changed.Plan.Token))
-		Expect(decoded.Plan.Hidden).To(Equal(uint32(2)))
+		Expect(decoded.Plan.Hidden).To(Equal(impact.Hidden{Restrict: 2}))
 	})
 
 	It("Should round-trip a changed plan with a detach entry through the codec", func(

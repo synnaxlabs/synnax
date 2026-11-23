@@ -256,7 +256,7 @@ var _ = Describe("Restrict", func() {
 				Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
 					Change: deleteOf(),
 				}, &p)).To(Succeed())
-				Expect(p.Hidden).To(Equal(uint32(1)))
+				Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
 					Token:  p.Token,

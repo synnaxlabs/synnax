@@ -114,7 +114,7 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 
 // tokenSum returns an xxHash-64 of p, the plan of the delete of the channels with keys
 // as the caller sees it: the keys in sorted order, each visible entry's record and
-// effect, and the hidden count. Each field holds its length, so no two plans hash the
+// effect, and the hidden counts. Each field holds its length, so no two plans hash the
 // same bytes. The token detects a stale view, not a forged one, so it needs no
 // cryptographic hash.
 func tokenSum(keys []channel.Key, p Plan) uint64 {
@@ -140,7 +140,9 @@ func tokenSum(keys []channel.Key, p Plan) uint64 {
 		buf = appendField(buf, e.Record.Key)
 		buf = appendField(buf, string(e.Effect))
 	}
-	buf = binary.BigEndian.AppendUint32(buf, p.Hidden)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Restrict)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Cascade)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Detach)
 	return xxhash.Sum64(buf)
 }
 

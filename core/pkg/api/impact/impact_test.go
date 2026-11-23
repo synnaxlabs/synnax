@@ -157,7 +157,7 @@ var _ = Describe("Routes", Ordered, func() {
 			plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{Change: deleteOf(ch)}),
 		)
 		Expect(p.Entries).To(BeEmpty())
-		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 		Expect(p.Token).To(HaveLen(16))
 	})
 
@@ -251,7 +251,7 @@ var _ = Describe("Routes", Ordered, func() {
 				},
 				Default: new(impact.ChoiceCancel),
 			}},
-			Hidden: 2,
+			Hidden: impact.Hidden{Restrict: 2},
 			Token:  "0123456789abcdef0123456789abcdef",
 		}}
 		codec := errors.NewCodec(apiimpact.ErrorProvider())

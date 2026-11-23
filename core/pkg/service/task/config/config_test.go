@@ -573,8 +573,9 @@ var _ = Describe("Service", func() {
 				"arc_key": arcKey.String(),
 			}))
 			body := MustSucceed(svc.Export(ctx, db, key))
-			Expect(body).To(BeAssignableToTypeOf(arctask.Config{}))
-			Expect(body.(arctask.Config).ArcKey).To(Equal(arcKey))
+			cfg, ok := body.(arctask.Config)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.ArcKey).To(Equal(arcKey))
 		})
 
 		It("Should let an export's encoder options reach the record's fields", func(
