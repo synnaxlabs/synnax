@@ -26,16 +26,16 @@ export interface Paint {
 }
 
 /**
- * StateValue is the value of every state of a symbol, or the value of each state by its
- * key. A state with no value in the map reads its default entry, or the lower bound of
- * a number state.
+ * StateValues is the value of every state of a symbol, or the value of each state by
+ * its key. A state with no value in the map, or a NaN value, reads its default entry,
+ * or the lower bound of a number state.
  */
-export type StateValue = number | ReadonlyMap<string, number>;
+export type StateValues = number | ReadonlyMap<string, number>;
 
 /** PaintContext holds what a look needs to resolve its colors. */
 export interface PaintContext {
   /** value is the value of the states of the symbol. */
-  value: StateValue;
+  value: StateValues;
   resolve: (ref: clientColor.Ref) => color.Color | undefined;
   enumerations: ReadonlyMap<enumeration.Key, enumeration.Enumeration>;
   /** nodeColor is the color that `node` paint draws. */
@@ -66,7 +66,7 @@ const banded = (
  * NaN value, reads its lower bound. An enumeration state with no value, or a NaN value,
  * reads its default entry, which needs no match.
  */
-export const matched = (state: schematic.symbol.State, value: StateValue): number => {
+export const matched = (state: schematic.symbol.State, value: StateValues): number => {
   const v = typeof value === "number" ? value : value.get(state.key);
   if (v == null || Number.isNaN(v))
     return state.type === "enumeration" ? state.default : state.bounds.lower;
@@ -139,7 +139,7 @@ const resolvePaint = (
 const applies = (
   look: schematic.symbol.Look,
   states: Map<string, schematic.symbol.State>,
-  value: StateValue,
+  value: StateValues,
 ): boolean => {
   if (look.when == null) return true;
   const state = states.get(look.when.state);
@@ -170,15 +170,13 @@ const resolveLooks = (
 };
 
 // resolvePaints returns the paints of spec at ctx.value as band shows them, in the
-// order that they apply. When ctx.value is one number, a state override at that index
-// replaces the looks with its regions.
+// order that they apply. An override replaces the looks with its regions.
 const resolvePaints = (
   spec: schematic.symbol.Spec,
-  overrides: schematic.symbol.StateOverride[] | undefined,
+  override: schematic.symbol.StateOverride | undefined,
   ctx: PaintContext,
   band: Band,
 ): Paint[] => {
-  const override = typeof ctx.value === "number" ? overrides?.[ctx.value] : undefined;
   // An override color draws as a `color` paint does.
   const overridden = (field: Field, c: color.Color | undefined) =>
     c != null && banded(field, "color", band.builtIn)
@@ -288,10 +286,8 @@ export const useRegions = (
 const NO_PAINTS: Paint[] = [];
 
 export interface UsePaintsParams {
-  /**
-   * overrides replace the looks at the value of their index, when value is a number.
-   */
-  overrides?: schematic.symbol.StateOverride[];
+  /** override replaces the looks with its regions. */
+  override?: schematic.symbol.StateOverride;
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Crude;
   /**
@@ -308,8 +304,8 @@ export interface UsePaintsParams {
  */
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
-  value: StateValue,
-  { overrides, nodeColor, builtIn = false }: UsePaintsParams = {},
+  value: StateValues,
+  { override, nodeColor, builtIn = false }: UsePaintsParams = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
@@ -319,7 +315,7 @@ export const usePaints = (
       ? NO_PAINTS
       : resolvePaints(
           spec,
-          overrides,
+          override,
           { ...ctx, value, defaultEntryColor },
           { theme: t, builtIn },
         ),

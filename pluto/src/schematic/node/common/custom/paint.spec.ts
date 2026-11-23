@@ -17,8 +17,7 @@ import { createElement, type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
-import { createSynnaxWrapper } from "@/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const fixed = (hex: string) => ({
   type: "fixed" as const,
@@ -101,8 +100,11 @@ describe("Custom.usePaints state values", () => {
       ],
     });
 
-  const renderValues = async (value: Custom.StateValue): Promise<Custom.Paint[]> => {
-    const { result } = renderHook(() => Custom.usePaints(createValueSpec(), value), {
+  const renderValues = async (
+    value: Custom.StateValues,
+    spec: schematic.symbol.Spec = createValueSpec(),
+  ): Promise<Custom.Paint[]> => {
+    const { result } = renderHook(() => Custom.usePaints(spec, value), {
       wrapper: createSynnaxWrapper({ client: null }),
     });
     await waitFor(() => expect(result.current).not.toHaveLength(0));
@@ -161,11 +163,9 @@ describe("Custom.usePaints state values", () => {
           },
         ],
       });
-      const { result } = renderHook(() => Custom.usePaints(spec, values), {
-        wrapper: createSynnaxWrapper({ client: null }),
-      });
-      await waitFor(() => expect(result.current).not.toHaveLength(0));
-      expect(result.current).toEqual([{ selectors: [".body"], fill: RED }]);
+      expect(await renderValues(values, spec)).toEqual([
+        { selectors: [".body"], fill: RED },
+      ]);
     },
   );
 
@@ -212,7 +212,7 @@ describe("Custom.usePaints", () => {
 
   const renderPaints = async (
     spec: schematic.symbol.Spec,
-    value: Custom.StateValue,
+    value: Custom.StateValues,
     options?: Custom.UsePaintsParams,
   ): Promise<Custom.Paint[]> => {
     const { result } = renderHook(() => Custom.usePaints(spec, value, options), {
@@ -378,7 +378,7 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should draw the override at the value in place of the looks", async () => {
+    it("should draw the override in place of the looks", async () => {
       const spec = createSpec({ looks: [STROKE] });
       const regions = [
         {
@@ -388,33 +388,9 @@ describe("Custom.usePaints", () => {
           strokeColor: color.construct("#123456"),
         },
       ];
-      const overrides = [
-        { key: "closed", name: "Closed", regions },
-        { key: "open", name: "Open", regions: [] },
-      ];
-      expect(await renderPaints(spec, 0, { overrides })).toEqual([
+      const override = { key: "closed", name: "Closed", regions };
+      expect(await renderPaints(spec, 0, { override })).toEqual([
         { selectors: [".body"], stroke: color.construct("#123456") },
-      ]);
-    });
-
-    it("should ignore the overrides when the value is a map", async () => {
-      const spec = createSpec({ looks: [STROKE] });
-      const overrides = [
-        {
-          key: "closed",
-          name: "Closed",
-          regions: [
-            {
-              key: "body",
-              name: "Body",
-              selectors: [".body"],
-              strokeColor: color.construct("#123456"),
-            },
-          ],
-        },
-      ];
-      expect(await renderPaints(spec, new Map(), { overrides })).toEqual([
-        { selectors: [".body"], stroke: color.construct("#0000ff") },
       ]);
     });
   });
@@ -459,11 +435,8 @@ describe("Custom.usePaints", () => {
       const spec = createEntryFillSpec();
       const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
       await waitFor(() => expect(result.current).toBeDefined());
-      const overrides = [
-        { key: "closed", name: "Closed", regions: [] },
-        { key: "open", name: "Open", regions: result.current ?? [] },
-      ];
-      expect(await renderPaints(spec, 1, { overrides })).toEqual(
+      const override = { key: "open", name: "Open", regions: result.current ?? [] };
+      expect(await renderPaints(spec, 1, { override })).toEqual(
         await renderPaints(spec, 1),
       );
     });
@@ -494,8 +467,8 @@ describe("Custom.usePaints", () => {
           fillColor: WHITE,
         },
       ];
-      const overrides = [{ key: "base", name: "Base", regions }];
-      expect(await renderPaints(createSpec({}), 0, { overrides })).toEqual([
+      const override = { key: "base", name: "Base", regions };
+      expect(await renderPaints(createSpec({}), 0, { override })).toEqual([
         { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
       ]);
     });
