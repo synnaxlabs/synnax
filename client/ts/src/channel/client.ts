@@ -51,7 +51,6 @@ import {
   type Payload,
   payloadZ,
   resourceID,
-  retrieveBuiltInsResponseZ,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
@@ -424,14 +423,14 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // The built-in keys arrive with the first connection, and the Core checks the
-    // internal line until then. A reconnect fetches them again and keeps the last keys
-    // until the answer lands, since a list that checks the line itself needs them.
+    // Each connection asks the Core for the internal channels, and the Core checks the
+    // internal line until the first answer lands. A reconnect keeps the last keys until
+    // the next answer, since a list that checks the line itself needs them.
     let builtIns: Set<Key> | null = null;
     cache.onEpoch(() => {
-      this.retrieveBuiltIns()
-        .then((keys) => {
-          builtIns = new Set(keys);
+      this.execRetrieve({ where: { internal: { eq: true } } })
+        .then((channels) => {
+          builtIns = new Set(channels.map(({ key }) => key));
         })
         .catch((exc: unknown) => {
           if (isConnectionError(exc)) return;
@@ -676,20 +675,6 @@ export class Client extends query.Retriever<
       countLimitedResponseZ,
     );
     return count;
-  }
-
-  /**
-   * Retrieves the keys of the built-in channels, which Core services declare for their
-   * own work. Any caller may retrieve them.
-   */
-  async retrieveBuiltIns(): Promise<Key[]> {
-    const { keys } = await this.cfg.unary.send(
-      "/channel/retrieve-built-ins",
-      {},
-      z.object({}),
-      retrieveBuiltInsResponseZ,
-    );
-    return keys;
   }
 
   /** Renames the channels in one transaction, giving each key the name at its index. */
