@@ -88,6 +88,14 @@ describe("User.ProfileSettings", () => {
     expect(await screen.findByText(core.username)).toBeTruthy();
   });
 
+  it("should hide the username of a Core logged in through a provider", async () => {
+    const { as } = await loginAs("Engineer");
+    const core = createCore("Local", { username: "" });
+    await renderAs(as, <User.ProfileSettings />, createCoreState([core], core.key));
+    await screen.findByText("Name");
+    expect(screen.queryByText("Username")).toBeNull();
+  });
+
   it("should change the logged-in user's password", async () => {
     const { username, as } = await loginAs("Engineer");
     await renderAs(as, <User.ProfileSettings />);
