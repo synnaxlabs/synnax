@@ -17,6 +17,7 @@ import {
   createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
+  createTestUser,
   expectDeleted,
   expectLive,
   holdResponses,
@@ -460,7 +461,8 @@ describe("cached reads", () => {
 
   test("should keep a subscribed user unchanged on a remote username change", async () => {
     const r = await createEmptyRole(client);
-    const u = await createUser();
+    // a username belongs to a password, so the user needs one to be renamed
+    const { user: u } = await createTestUser(client, { role: empty.key });
     const seen: Array<query.Cached<user.User> | undefined> = [];
     const off = client.users.watch(u.key).onChange((res) => seen.push(res));
     try {
