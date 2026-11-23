@@ -252,6 +252,33 @@ type Spec = versions.Spec
 // diagrams.
 type Symbol = versions.Symbol
 
+// Ref is the symbol that a node draws.
+type Ref = versions.Ref
+
+// RefVariant is implemented by every Ref variant.
+type RefVariant = versions.RefVariant
+
+// RefType is the "type" value that selects a variant of Ref.
+type RefType = versions.RefType
+
+const (
+	// BuiltinRefType is a symbol that the Core ships.
+	BuiltinRefType RefType = versions.BuiltinRefType
+	// CustomRefType is a symbol that a user made.
+	CustomRefType RefType = versions.CustomRefType
+	// MissingRefType is a custom symbol that the Core does not have.
+	MissingRefType RefType = versions.MissingRefType
+)
+
+// BuiltinRef is a symbol that the Core ships.
+type BuiltinRef = versions.BuiltinRef
+
+// CustomRef is a symbol that a user made.
+type CustomRef = versions.CustomRef
+
+// MissingRef is a custom symbol that the Core does not have.
+type MissingRef = versions.MissingRef
+
 // Builtin is a symbol that the Core ships. Pluto holds its drawing.
 type Builtin struct {
 	// Name is the shipped name of the built-in, which never changes.

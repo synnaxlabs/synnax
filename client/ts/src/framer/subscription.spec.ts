@@ -23,7 +23,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import { UnexpectedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
@@ -151,8 +151,8 @@ const settledData = async (
       const contiguous = series.every((s, i) => {
         const prev = series[i - 1];
         if (prev == null) return true;
-        if (domainOf(prev.alignment) !== domainOf(s.alignment))
-          return offsetOf(s.alignment) === 0;
+        if (cacheBlock.domainOf(prev.alignment) !== cacheBlock.domainOf(s.alignment))
+          return cacheBlock.offsetOf(s.alignment) === 0;
         return s.alignment === prev.alignment + BigInt(prev.length);
       });
       return (
@@ -385,7 +385,9 @@ describe("Feed.subscribe", () => {
         const pairs = pairsOf(sub.value(index), sub.value(key));
         expect(pairs.length).toBeGreaterThan(0);
         pairs.forEach(([ys, times]) => {
-          expect(domainOf(ys.alignment)).toBe(BigInt(rawIndex(ys.timeRange.start)));
+          expect(cacheBlock.domainOf(ys.alignment)).toBe(
+            BigInt(cacheBlock.rawIndex(ys.timeRange.start)),
+          );
           expect(times[0]).toBe(ys.timeRange.start.valueOf());
         });
         stop();
@@ -455,8 +457,8 @@ describe("Feed.subscribe", () => {
       // The view opens shortly before a block edge, and the commit point passes the
       // edge while the catch-up read waits.
       const edge = grid.tileRange({
-        level: RAW_LEVEL,
-        index: rawIndex(START.add(TimeSpan.minutes(10))),
+        level: cacheBlock.RAW_LEVEL,
+        index: cacheBlock.rawIndex(START.add(TimeSpan.minutes(10))),
       }).end;
       const core = createCore({ now: edge.sub(TimeSpan.seconds(5)) });
       const { promise: released, resolve: release } = Promise.withResolvers<void>();
@@ -511,8 +513,8 @@ describe("Feed.subscribe", () => {
     it("should hold the samples of a writer that lags the commit point", async () => {
       // The newest written sample trails a block edge that the commit point passed.
       const edge = grid.tileRange({
-        level: RAW_LEVEL,
-        index: rawIndex(START.add(TimeSpan.minutes(10))),
+        level: cacheBlock.RAW_LEVEL,
+        index: cacheBlock.rawIndex(START.add(TimeSpan.minutes(10))),
       }).start;
       const lag = TimeSpan.seconds(3);
       const core = createCore({ now: edge.add(TimeSpan.milliseconds(1500)), lag });
@@ -543,16 +545,16 @@ describe("Feed.subscribe", () => {
         await settled(core, sub, core.index.key, span);
         const { series } = sub.value(core.index.key);
         series.series.forEach((s, i) => {
-          const block = Number(domainOf(s.alignment));
+          const block = Number(cacheBlock.domainOf(s.alignment));
           const first = new TimeStamp(s.at(0, true) as bigint);
           const last = new TimeStamp(s.at(-1, true) as bigint);
-          expect(rawIndex(first)).toBe(block);
-          expect(rawIndex(last)).toBe(block);
+          expect(cacheBlock.rawIndex(first)).toBe(block);
+          expect(cacheBlock.rawIndex(last)).toBe(block);
           const prev = series.series[i - 1];
           if (prev == null) return;
-          if (domainOf(prev.alignment) === domainOf(s.alignment))
+          if (cacheBlock.domainOf(prev.alignment) === cacheBlock.domainOf(s.alignment))
             expect(s.alignment).toBe(prev.alignment + BigInt(prev.length));
-          else expect(offsetOf(s.alignment)).toBe(0);
+          else expect(cacheBlock.offsetOf(s.alignment)).toBe(0);
         });
       } finally {
         stop();
@@ -759,8 +761,8 @@ describe("Feed.subscribe", () => {
     it("should draw samples stamped after the feed's clock", async () => {
       const core = createCore();
       const edge = grid.tileRange({
-        level: RAW_LEVEL,
-        index: rawIndex(core.now()) + 1,
+        level: cacheBlock.RAW_LEVEL,
+        index: cacheBlock.rawIndex(core.now()) + 1,
       }).start;
       core.advance(
         new TimeSpan(
@@ -1131,7 +1133,7 @@ describe("Feed.subscribe", () => {
           .poll(() => raw.slice(reads).some((tr) => tr.end.after(core.now())), POLL)
           .toBe(true);
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        const edge = core.now().sub(grid.tileSpan(RAW_LEVEL).mult(2));
+        const edge = core.now().sub(grid.tileSpan(cacheBlock.RAW_LEVEL).mult(2));
         raw
           .slice(reads)
           .forEach((tr) =>
@@ -2264,8 +2266,10 @@ describe("Feed.subscribe", () => {
       const key = core.data[0].key;
       const span = TimeSpan.minutes(2);
       const changed = new TimeRange(
-        grid.tileRange({ level: RAW_LEVEL, index: rawIndex(core.now().sub(span)) })
-          .start,
+        grid.tileRange({
+          level: cacheBlock.RAW_LEVEL,
+          index: cacheBlock.rawIndex(core.now().sub(span)),
+        }).start,
         core.now(),
       );
       const { feed, release, reads } = createHeld(
