@@ -31,6 +31,9 @@ export interface Lock {
 /** The lock of a value that the task reads already. */
 export const TAKEN: Lock = { checked: true, label: "In task" };
 
+/** The lock of the timestamp that indexes the picked values. */
+export const INDEX: Lock = { checked: true, label: "Index" };
+
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
   key: string;
@@ -50,8 +53,7 @@ interface PaneHeaderProps {
   note?: string;
   free: number;
   picked: number;
-  /** Absent for a pane that takes one value. */
-  onPickAll?: () => void;
+  onPickAll: () => void;
   onClear: () => void;
 }
 
@@ -86,16 +88,14 @@ export const PaneHeader = ({
             Clear
           </Button.Button>
         ) : (
-          onPickAll != null && (
-            <Button.Button
-              variant="text"
-              size="small"
-              disabled={free === 0}
-              onClick={onPickAll}
-            >
-              Select all
-            </Button.Button>
-          )
+          <Button.Button
+            variant="text"
+            size="small"
+            disabled={free === 0}
+            onClick={onPickAll}
+          >
+            Select all
+          </Button.Button>
         )}
       </Header.Actions>
     </Header.Header>
