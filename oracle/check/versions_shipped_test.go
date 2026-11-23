@@ -490,6 +490,92 @@ Channel union on type {
 			))
 		})
 
+		It("Should pass a create default added in a shipped version file", func() {
+			write(releaseRoot, v0Path, `
+Channel struct {
+    key  uuid @key
+    unit string
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Channel struct {
+    key  uuid = create {
+        @key
+    }
+    unit string
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
+		It("Should pass a now default added to a timestamp field", func() {
+			write(releaseRoot, v0Path, `
+TimeStamp int64
+
+Channel struct {
+    key        uuid @key
+    created_at TimeStamp
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+TimeStamp int64
+
+Channel struct {
+    key        uuid @key
+    created_at TimeStamp = now
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
+		DescribeTable("Should fail a member default named like a boundary default",
+			func(decl, member string) {
+				write(releaseRoot, v0Path, decl+`
+Channel struct {
+    key  uuid @key
+    mode Mode
+
+    @go marshal
+}
+`)
+				write(root, v0Path, decl+`
+Channel struct {
+    key  uuid @key
+    mode Mode = `+member+`
+
+    @go marshal
+}
+`)
+				Expect(messages()).To(ContainElement(
+					shapeChange("Channel.mode", "changes its default"),
+				))
+			},
+			Entry("an enum member named create", `
+Mode enum {
+    read   = "read"
+    create = "create"
+}
+`, "create"),
+			Entry("a union variant named now", `
+Mode union on type {
+    later {
+        at int64
+    }
+    now {}
+
+    @go marshal
+}
+`, "now"),
+		)
+
 		It("Should fail a member removed from a stored enum", func() {
 			write(releaseRoot, v0Path, `
 Mode enum {

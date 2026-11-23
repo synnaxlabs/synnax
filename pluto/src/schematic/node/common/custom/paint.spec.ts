@@ -15,7 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const fixed = (hex: string) => ({
   type: "fixed" as const,

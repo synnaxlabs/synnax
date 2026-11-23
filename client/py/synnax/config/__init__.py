@@ -92,7 +92,12 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
         return None
     except OSError as e:
         raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
-    raw: dict[str, Any] = json.loads(text)
+    except UnicodeDecodeError as e:
+        raise ConfigurationError(f"{path} is not valid JSON: {e}.") from e
+    try:
+        raw: dict[str, Any] = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ConfigurationError(f"{path} is not valid JSON: {e}.") from e
     return raw
 
 
@@ -209,7 +214,7 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
         return False
     try:
         raw = _read_desktop_file(path)
-    except (ValueError, ConfigurationError):
+    except ConfigurationError:
         # The file changes only the advice of errors, so a broken one must not break
         # a connection that names its Core.
         return False

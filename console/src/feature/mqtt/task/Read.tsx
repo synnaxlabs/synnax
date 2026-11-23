@@ -19,15 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import {
-  DataType,
-  deep,
-  map,
-  type payload,
-  primitive,
-  unique,
-  uuid,
-} from "@synnaxlabs/x";
+import { DataType, deep, map, primitive, unique, uuid } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -78,13 +70,6 @@ interface Format {
   form: ICD.FormatForm;
 }
 
-/** The field kind that a browsed sample of each JSON type starts as. */
-const SAMPLE_KINDS = {
-  number: "float",
-  boolean: "boolean",
-  string: "string",
-} as const satisfies Record<payload.JSONType, payload.Kind>;
-
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
 // A topic added by name has no topic yet, so its details open on the topic.
 const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
@@ -108,6 +93,8 @@ interface Draft {
   type: "plain";
   topic: string;
   fields: icd.JSONField[];
+  /** The key of the field in fields that indexes a new message. */
+  index?: icd.FieldKey;
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -115,18 +102,15 @@ type Addition = Draft | SparkplugReadEntry;
 
 const isDraft = (addition: Addition): addition is Draft => addition.type === "plain";
 
-const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
+/** @param index - The pointer of the leaf that indexes the message. */
+const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft => {
   const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
+  const fields = leaves.map((leaf, i) => ICD.createField(leaf, names[i]));
   return {
     type: "plain",
     topic,
-    fields: leaves.map((leaf, i) =>
-      icd.jsonFieldZ.parse({
-        name: names[i],
-        pointer: leaf.pointer,
-        type: SAMPLE_KINDS[leaf.type],
-      }),
-    ),
+    fields,
+    index: fields.find(({ pointer }) => pointer === index)?.key,
   };
 };
 
@@ -136,11 +120,13 @@ const DISCOVER_KIND: Kind<Addition> = {
   tagHint: "Select the tags to read. Each one becomes a channel.",
   noun: "field",
   tagNoun: "tag",
+  indexed: true,
   create: ({ topics, tags }) => [
-    ...[...topics].map(([topic, { leaves, pointers }]) =>
+    ...[...topics].map(([topic, { leaves, pointers, index }]) =>
       createDraft(
         topic,
-        leaves.filter((l) => pointers.has(l.pointer)),
+        leaves.filter((l) => pointers.has(l.pointer) || l.pointer === index),
+        index,
       ),
     ),
     ...[...tags.values()].map((t) => createSparkplugEntry(t)),
@@ -243,7 +229,7 @@ const createMessage = (
 const entryOf = (
   icdKey: icd.Key,
   topic: string,
-  read: Pick<icd.ReadMessage, "message" | "bindings">,
+  read: Pick<icd.ReadMessage, "message" | "index" | "bindings">,
 ): PlainReadEntry =>
   mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages: [read] });
 
@@ -252,9 +238,14 @@ interface AddTopicsResult {
   added: PlainReadEntry[];
   /**
    * The bindings that each held entry gains, by entry key. An entry whose message is
-   * gone reads the new one.
+   * gone reads the new one. An entry whose message had no fields gains the index.
    */
-  held: { key: string; message?: icd.MessageKey; bindings: icd.ReadBinding[] }[];
+  held: {
+    key: string;
+    message?: icd.MessageKey;
+    index?: icd.FieldKey;
+    bindings: icd.ReadBinding[];
+  }[];
 }
 
 /** @returns the bindings of the fields of a draft that the message reads. */
@@ -282,6 +273,7 @@ const createICD = async (
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
       message: messages[i].key,
+      index: d.index,
       bindings: bind(d, d.fields, messages[i].key),
     }),
   );
@@ -330,6 +322,7 @@ const addTopics = async ({
         const appended = appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
+          index: draft.index,
           bindings: bind(draft, appended, message.key),
         });
         continue;
@@ -341,9 +334,19 @@ const addTopics = async ({
       const bindings = bind(draft, draft.fields, created.key);
       if (entry == null)
         result.added.push(
-          entryOf(key, draft.topic, { message: created.key, bindings }),
+          entryOf(key, draft.topic, {
+            message: created.key,
+            index: draft.index,
+            bindings,
+          }),
         );
-      else result.held.push({ key: entry.key, message: created.key, bindings });
+      else
+        result.held.push({
+          key: entry.key,
+          message: created.key,
+          index: draft.index,
+          bindings,
+        });
     }
   });
   for (const [key, pending] of actions) await client.icds.dispatch(key, pending);
@@ -714,11 +717,19 @@ const Entries: FC<EntriesProps> = ({
     push([...added, ...tags]);
     for (const { messages } of added) made.current.add(messages[0].message);
     for (const { message } of grown) if (message != null) made.current.add(message);
-    grown.forEach(({ key, message, bindings }) => {
+    grown.forEach(({ key, message, index, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
-      if (message != null) ctx.set(read, icd.readMessageZ.parse({ message, bindings }));
-      else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+      if (message != null)
+        ctx.set(read, icd.readMessageZ.parse({ message, index, bindings }));
+      else {
+        const { value } = ctx.get(read);
+        ctx.set(read, {
+          ...value,
+          index: index ?? value.index,
+          bindings: [...value.bindings, ...bindings],
+        });
+      }
     });
     const firstAddition = additions[0];
     const firstKey = isDraft(firstAddition)

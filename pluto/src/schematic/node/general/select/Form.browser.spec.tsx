@@ -14,8 +14,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { SelectForm } from "@/schematic/node/general/select/Form";
-import { createConfig } from "@/schematic/node/registry";
+import { Node } from "@/schematic/node";
+import { Select } from "@/schematic/node/general/select";
 import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, pickOption, renderForm } from "@/testutil";
 
@@ -46,8 +46,8 @@ describe("SelectForm", () => {
       entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
     });
     const { findByRole, findByLabelText, value } = renderForm(
-      <SelectForm tab="options" onTabChange={vi.fn()} />,
-      createConfig({
+      <Select.spec.Form tab="options" onTabChange={vi.fn()} />,
+      Node.createConfig({
         variant: "select",
         options: [{ key: "open", name: "Open", value: 0 }],
       }),
@@ -73,9 +73,9 @@ describe("SelectForm", () => {
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {
-    const config = createConfig({ variant: "select", commandChannel: ch.key });
+    const config = Node.createConfig({ variant: "select", commandChannel: ch.key });
     const { findByLabelText, value } = renderForm(
-      <SelectForm tab="control" onTabChange={vi.fn()} />,
+      <Select.spec.Form tab="control" onTabChange={vi.fn()} />,
       config,
       schematic.selectNodeConfigZ,
       wrapper,
