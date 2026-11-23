@@ -99,7 +99,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const { preview } = useInspectorContext("Property");
   return (
     <Flex.Box x align="center" justify="between">
-      <Text.Text level="small" weight={500} gap="small">
+      <Text.Text level="small" gap="small">
         {icon}
         {label}
       </Text.Text>
@@ -147,10 +147,8 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
         <Flex.Box y gap={0}>
-          <Text.Text level="h5" weight={500}>
-            {part?.name ?? "Whole drawing"}
-          </Text.Text>
-          <Text.Text level="small" color={8}>
+          <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>
+          <Text.Text level="small" color={9}>
             {part == null
               ? "Looks here reach every shape."
               : "Click shapes in the drawing to add or remove them."}
