@@ -162,13 +162,15 @@ inline errors::Error load_file(const std::string &path) {
     std::istringstream lines(content);
     std::string line;
     while (std::getline(lines, line)) {
-        const auto entry = strings::trim(line);
+        const std::string entry(strings::trim(line));
         if (entry.empty() || entry.front() == '#') continue;
         const auto eq = entry.find('=');
         if (eq == std::string::npos) continue;
-        const auto name = strings::trim(entry.substr(0, eq));
+        const std::string name(strings::trim(entry.substr(0, eq)));
         if (name.empty() || std::getenv(name.c_str()) != nullptr) continue;
-        const auto value = strings::unquote(strings::trim(entry.substr(eq + 1)));
+        const auto value = strings::unquote(
+            std::string(strings::trim(entry.substr(eq + 1)))
+        );
         if (set(name, value) != 0)
             return errors::Error("failed to set " + name + " from " + path);
         VLOG(1) << "Loaded " << name << " from " << path;

@@ -81,31 +81,6 @@ type WriterResponse struct {
 	Authorized bool
 }
 
-// StreamWriter provides a streaming interface for writing telemetry to the DB.
-// StreamWriter provides the underlying functionality for Writer, and has almost exactly
-// the same semantics. The streaming interface is exposed as a confluence segment that
-// can accept one input stream and one output stream.
-//
-// To write a record, issue a WriterRequest to the StreamWriter's inlet. If the write
-// fails, the StreamWriter will send a WriterResponse with a negative WriterResponse.Ack
-// frame. All future writes will fail until the error is resolved. To resolve the error,
-// issue a WriterRequest with a WriterError command to the StreamWriter's inlet. The
-// StreamWriter will increment WriterResponse.SeqNum and send a WriterResponse with the
-// error. The error will be considered resolved, and the StreamWriter will resume normal
-// operation.
-//
-// StreamWriter is atomic, meaning the caller must issue a set with a WriterCommit
-// command to commit the write. If the commit fails, the StreamWriter will send a
-// WriterResponse with a negative WriterResponse.Ack frame. All future writes will fail
-// until the error is resolved. To resolve the error, see the above paragraph.
-//
-// To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that
-// all in-progress requests have been served before closing the outlet. Closing the
-// Writer will NOT commit any pending writes. Once the StreamWriter has released all
-// resources, the output stream will be closed and the StreamWriter will return any
-// accumulated error through the signal context provided to Flow.
-type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
-
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
