@@ -236,6 +236,7 @@ catalog:
   vscode-jsonrpc: ^10.0.0
   vscode-languageclient: ^11.0.0
   vscode-tmgrammar-test: ^0.1.3
+  webpack: ^5.112.2
   ws: ^8.23.0
   zod: ^4.6.7
 

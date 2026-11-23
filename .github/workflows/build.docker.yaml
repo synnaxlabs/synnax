@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Builds a module's image and pushes it to GitHub Container Registry. A fork's token
+# Builds an image and pushes it to GitHub Container Registry. A fork's token
 # cannot push, so a fork's pull request builds the image locally and uploads it as an
 # artifact named after its tag, which the start-service action loads.
 
@@ -18,10 +18,15 @@ on:
     inputs: &inputs
       module:
         description:
-          Module path containing the Dockerfile and go.mod (e.g. core,
+          Module path containing the Dockerfile and, for a Go image, go.mod (e.g. core,
           freighter/integration)
         required: true
         type: string
+      dockerfile:
+        description: Dockerfile to build, when it is not <module>/Dockerfile
+        required: false
+        type: string
+        default: ""
       repository:
         description: Image repository to push to (e.g. ghcr.io/synnaxlabs/synnax)
         required: true
@@ -70,24 +75,32 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # The tag hashes the Git objects of every path the Dockerfile copies and the files
-      # that drive the build. The Dockerfile pins each base image by digest, so two
+      # that drive the build. A Dockerfile that copies nothing hashes alone, so only its
+      # own edits rebuild it. The Dockerfile pins each base image by digest, so two
       # commits with the same sources share an image.
       - name: Tag the image
         id: tag
         env:
           MODULE: ${{ inputs.module }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
           REPOSITORY: ${{ inputs.repository }}
         run: |
-          dockerfile="$MODULE/Dockerfile"
-          go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
-          if ! grep -qF "FROM golang:$go_version@sha256:" "$dockerfile"; then
-            echo "::error file=$dockerfile::Pin golang:$go_version to match go.mod"
-            exit 1
+          dockerfile=${DOCKERFILE:-$MODULE/Dockerfile}
+          echo "dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
+          if [ -f "$MODULE/go.mod" ]; then
+            go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
+            if ! grep -qF "FROM golang:$go_version@sha256:" "$dockerfile"; then
+              echo "::error file=$dockerfile::Pin golang:$go_version to match go.mod"
+              exit 1
+            fi
           fi
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
-          read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
-            .github/workflows/build.docker.yaml"
+          paths=("$dockerfile")
+          if [ -n "$sources" ]; then
+            read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
+              .github/workflows/build.docker.yaml"
+          fi
           objects=$(git rev-parse "${paths[@]/#/HEAD:}")
           hash=$(sha256sum <<< "$objects" | cut -c1-32)
           echo "image=$REPOSITORY:src-$hash" >> "$GITHUB_OUTPUT"
@@ -113,7 +126,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
-          file: ./${{ inputs.module }}/Dockerfile
+          file: ./${{ steps.tag.outputs.dockerfile }}
           platforms: linux/amd64
           push: ${{ env.FORK != 'true' }}
           outputs:

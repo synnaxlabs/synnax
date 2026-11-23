@@ -22,7 +22,9 @@ import {
   type FlowControl,
   ReceiveOverflow,
   type Socket,
+  subprotocols,
   Unreachable,
+  UntrustedCertificate,
   WebSocketClient,
 } from "@/index";
 
@@ -155,8 +157,16 @@ describe("unreachable server", () => {
     },
   });
 
-  const streamError = async (connector: Connector): Promise<unknown> => {
-    const c = new WebSocketClient({ endpoint, codec: binary.JSON_CODEC, connector });
+  const streamError = async (
+    connector: Connector,
+    secure = false,
+  ): Promise<unknown> => {
+    const c = new WebSocketClient({
+      endpoint,
+      codec: binary.JSON_CODEC,
+      connector,
+      secure,
+    });
     return await c.stream("stream", messageSchema, messageSchema).then(
       () => null,
       (e: unknown) => e,
@@ -170,26 +180,52 @@ describe("unreachable server", () => {
     new DOMException(message, "NetworkError");
 
   test.each([
-    ["a Bun refused dial", withCode("Failed to connect", "ECONNREFUSED"), true],
     [
-      "a Bun TLS failure",
+      "a Bun refused dial",
+      withCode("Failed to connect", "ECONNREFUSED"),
+      "unreachable",
+    ],
+    [
+      "a Bun untrusted certificate",
       withCode("TLS handshake failed", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"),
-      false,
+      "untrusted",
     ],
-    ["a Deno refused dial", networkError("tcp connect error"), true],
     [
-      "a Deno TLS failure",
-      networkError("invalid peer certificate: UnknownIssuer"),
-      false,
+      "a Bun expired certificate",
+      withCode("TLS handshake failed", "CERT_HAS_EXPIRED"),
+      "runtime",
     ],
-    ["a Bun refused upgrade", new Error("Expected 101 status code: 404"), false],
-    ["a Deno refused upgrade", networkError("Invalid status code: 502"), false],
-  ])("should map %s", async (_, error, unreachable) => {
+    ["a Deno refused dial", networkError("tcp connect error"), "unreachable"],
+    [
+      "a Deno untrusted certificate",
+      networkError("invalid peer certificate: UnknownIssuer"),
+      "untrusted",
+    ],
+    ["a Bun refused upgrade", new Error("Expected 101 status code: 404"), "runtime"],
+    ["a Deno refused upgrade", networkError("Invalid status code: 502"), "runtime"],
+  ])("should map %s", async (_, error, kind) => {
     const err = await streamError(
       failingConnector((socket) => socket.onerror?.({ error })),
     );
-    expect(Unreachable.matches(err)).toBe(unreachable);
+    expect(Unreachable.matches(err)).toBe(kind === "unreachable");
+    expect(UntrustedCertificate.matches(err)).toBe(kind === "untrusted");
     expect(err).toMatchObject({ cause: error });
+  });
+
+  test("should name a possible certificate problem for a failed secure dial", async () => {
+    const err = await streamError(
+      failingConnector((socket) => socket.onclose?.({ code: 1006 })),
+      true,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+    expect(err).toHaveProperty("message", expect.stringContaining("certificate"));
+  });
+
+  test("should not name a certificate for a failed dial without TLS", async () => {
+    const err = await streamError(
+      failingConnector((socket) => socket.onclose?.({ code: 1006 })),
+    );
+    expect(err).toHaveProperty("message", "Unreachable");
   });
 
   test("should throw Unreachable when the socket closes before it opens", async () => {
@@ -390,13 +426,25 @@ describe("local server", () => {
       expect(req.url).toContain("freighterctxContent-Type=application%2Fjson");
     });
 
-    test("should send the token in the URL when dial does not send headers", async () => {
-      const req = await authorize({
-        fetch: async () => await Promise.reject(new Error("not used")),
-        dial: async (u) => new globalThis.WebSocket(u),
+    describe("connector that cannot send headers", () => {
+      test("should not put the token in the URL", async () => {
+        const req = await authorize({
+          fetch: async () => await Promise.reject(new Error("not used")),
+          dial: async (u) => new globalThis.WebSocket(u),
+        });
+        expect(req.url).not.toContain("test-token");
       });
-      expect(req.headers.authorization).toBeUndefined();
-      expect(req.url).toContain("freighterctxAuthorization=Bearer+test-token");
+
+      test("should send the token in a subprotocol", async () => {
+        const req = await authorize({
+          fetch: async () => await Promise.reject(new Error("not used")),
+          dial: async (u, headers) =>
+            new globalThis.WebSocket(u, subprotocols(headers.Authorization)),
+        });
+        expect(req.headers["sec-websocket-protocol"]).toEqual(
+          "synnax.v1, synnax.token.test-token",
+        );
+      });
     });
 
     describe("DOM WebSocket", () => {

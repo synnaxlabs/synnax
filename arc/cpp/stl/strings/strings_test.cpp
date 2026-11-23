@@ -301,6 +301,35 @@ TEST(StrModule, FromF64FormatsShortestRoundTrip) {
     EXPECT_EQ(call_from<double>(f, "call_from_f64", std::copysign(0.0, -1.0)), "-0");
 }
 
+/// @brief it should write an f64 in exponent notation below 1e-6 and from 1e21.
+TEST(StrModule, FromF64UsesExponentNotationOutsideFixedRange) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1e10), "10000000000");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1e20), "100000000000000000000");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1e21), "1e+21");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1e-6), "0.000001");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1.5e-7), "1.5e-7");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 5e-324), "5e-324");
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", std::numeric_limits<double>::max()),
+        "1.7976931348623157e+308"
+    );
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e30f), "1e+30");
+}
+
+/// @brief it should keep only the shortest digits of a float in fixed notation.
+TEST(StrModule, FromFloatKeepsOnlyTheShortestDigitsInFixedNotation) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e20f), "100000000000000000000");
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", 1000000000000000128.0),
+        "1000000000000000100"
+    );
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 0.0), "0");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 0.00012), "0.00012");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", -123.456), "-123.456");
+}
+
 TEST(StrModule, FromBoolFormatsTrueFalse) {
     StrModuleFixture f;
     EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 1), "true");
@@ -308,7 +337,8 @@ TEST(StrModule, FromBoolFormatsTrueFalse) {
     EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 42), "true");
 }
 
-TEST(StrModule, FromF64HandlesNaNAndInfinityWithGoCapitalization) {
+/// @brief it should write an f64 NaN as NaN and the infinities as Infinity.
+TEST(StrModule, FromF64HandlesNaNAndInfinity) {
     StrModuleFixture f;
     EXPECT_EQ(
         call_from<double>(f, "call_from_f64", std::numeric_limits<double>::quiet_NaN()),
@@ -316,15 +346,16 @@ TEST(StrModule, FromF64HandlesNaNAndInfinityWithGoCapitalization) {
     );
     EXPECT_EQ(
         call_from<double>(f, "call_from_f64", std::numeric_limits<double>::infinity()),
-        "+Inf"
+        "Infinity"
     );
     EXPECT_EQ(
         call_from<double>(f, "call_from_f64", -std::numeric_limits<double>::infinity()),
-        "-Inf"
+        "-Infinity"
     );
 }
 
-TEST(StrModule, FromF32HandlesNaNAndInfinityWithGoCapitalization) {
+/// @brief it should write an f32 NaN as NaN and the infinities as Infinity.
+TEST(StrModule, FromF32HandlesNaNAndInfinity) {
     StrModuleFixture f;
     EXPECT_EQ(
         call_from<float>(f, "call_from_f32", std::numeric_limits<float>::quiet_NaN()),
@@ -332,11 +363,11 @@ TEST(StrModule, FromF32HandlesNaNAndInfinityWithGoCapitalization) {
     );
     EXPECT_EQ(
         call_from<float>(f, "call_from_f32", std::numeric_limits<float>::infinity()),
-        "+Inf"
+        "Infinity"
     );
     EXPECT_EQ(
         call_from<float>(f, "call_from_f32", -std::numeric_limits<float>::infinity()),
-        "-Inf"
+        "-Infinity"
     );
 }
 
@@ -495,17 +526,21 @@ TEST(StrModule, FormatF64MatchesGoFmtSprintf) {
     );
 }
 
-TEST(StrModule, FormatF64HandlesNaNAndInfinityWithGoCapitalization) {
+/// @brief it should format an f64 NaN and the infinities under a spec.
+TEST(StrModule, FormatF64HandlesNaNAndInfinity) {
     StrModuleFixture f;
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double pos_inf = std::numeric_limits<double>::infinity();
     const double neg_inf = -pos_inf;
     EXPECT_EQ(call_format<double>(f, "call_format_f64", nan, "f"), "NaN");
-    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "f"), "+Inf");
-    EXPECT_EQ(call_format<double>(f, "call_format_f64", neg_inf, "f"), "-Inf");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "f"), "Infinity");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", neg_inf, "f"), "-Infinity");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "+f"), "+Infinity");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, " f"), " Infinity");
     EXPECT_EQ(call_format<double>(f, "call_format_f64", nan, "5f"), "  NaN");
-    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "6f"), "  +Inf");
-    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "05f"), " +Inf");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "10f"), "  Infinity");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", pos_inf, "010f"), "  Infinity");
+    EXPECT_EQ(call_format<double>(f, "call_format_f64", neg_inf, "-10e"), "-Infinity ");
 }
 
 static std::string

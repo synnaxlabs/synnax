@@ -178,30 +178,33 @@ export const Login = (): ReactElement => {
     const core = servingCore ?? selectedCore;
     if (core == null) return;
     const attempt = ++attempts.current;
-    handleError(async () => {
-      let failure: Error | undefined;
-      try {
-        if (Session.Runtime.ENGINE !== "tauri")
-          await Core.beginBrowserLogin(core.key, login);
-        else await Core.loginDesktop(core, login);
-      } catch (e) {
-        failure = errors.fromUnknown(e);
-      }
-      if (attempt !== attempts.current) return;
-      if (failure != null) throw failure;
-      if (Session.Runtime.ENGINE !== "tauri") return;
-      const current = Session.Core.selectState(store.getState(), core.key);
-      // the token is saved under the address the login started with
-      if (
-        current?.host !== core.host ||
-        current.port !== core.port ||
-        current.secure !== core.secure
-      )
-        throw new Error("The Core's address changed during the login. Log in again.");
-      // a user who left the login surface has moved on
-      if (mounted.current)
-        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
-    }, `Failed to log in with ${login.provider}`);
+    handleError(
+      async () => {
+        let failure: Error | undefined;
+        try {
+          if (Session.Runtime.ENGINE !== "tauri")
+            await Core.beginBrowserLogin(core.key, login);
+          else await Core.loginDesktop(core, login);
+        } catch (e) {
+          failure = errors.fromUnknown(e);
+        }
+        if (attempt !== attempts.current) return;
+        if (failure != null) throw failure;
+        if (Session.Runtime.ENGINE !== "tauri") return;
+        const current = Session.Core.selectState(store.getState(), core.key);
+        // the token is saved under the address the login started with
+        if (
+          current?.host !== core.host ||
+          current.port !== core.port ||
+          current.secure !== core.secure
+        )
+          throw new Error("The Core's address changed during the login. Log in again.");
+        // a user who left the login surface has moved on
+        if (mounted.current)
+          dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+      },
+      `Failed to log in with ${display(login).label}`,
+    );
   };
 
   const methods = Form.use<typeof credentialsZ>({

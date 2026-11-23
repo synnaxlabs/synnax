@@ -12,10 +12,7 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
-import {
-  OffPageReference,
-  offPageReferenceTooltip,
-} from "@/schematic/node/general/offPageReference/Primitive";
+import { Primitive } from "@/schematic/node/general/offPageReference/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
@@ -30,7 +27,7 @@ export const Symbol = ({
 }: NodeProps<schematic.OffPageReferenceNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <OffPageReference
+    <Primitive.OffPageReference
       className={Grid.DRAG_HANDLE_CLASS}
       onLabelChange={(label) => onConfigChange({ label: { ...labelConfig, label } })}
       label={labelConfig.label}
@@ -39,7 +36,7 @@ export const Symbol = ({
       fillColor={resolve(fillColor)}
       linked={page.key.length > 0}
       pageType={page.type}
-      title={offPageReferenceTooltip(page, doubleClickNavigationDisabled)}
+      title={Primitive.offPageReferenceTooltip(page, doubleClickNavigationDisabled)}
     />
   );
 };
