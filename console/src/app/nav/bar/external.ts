@@ -9,4 +9,3 @@
 
 export * from "@/app/nav/bar/Left";
 export * from "@/app/nav/bar/Top";
-export * from "@/platform/nav/Bar";

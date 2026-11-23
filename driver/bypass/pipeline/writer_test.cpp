@@ -96,6 +96,34 @@ TEST(WriterTest, PublishesToBusAndForwardsToCore) {
     ASSERT_EQ(received.size(), 1);
 }
 
+/// @brief it should send writes to the Core but not the bus while the control state
+/// is held, then deliver the held frames of a writer with authority in order.
+TEST(WriterTest, HoldDelaysBusUntilControlIsRead) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
+    const x::control::Subject owner{.key = "owner", .name = "owner"};
+    const x::control::Subject other{.key = "other", .name = "other"};
+    auto owned = ASSERT_NIL_P(factory.open_writer({.channels = {1}, .subject = owner}));
+    auto unowned = ASSERT_NIL_P(
+        factory.open_writer({.channels = {1}, .subject = other})
+    );
+    states->hold();
+    for (const double v: {1.0, 2.0})
+        ASSERT_NIL(owned->write(x::telem::Frame(1, x::telem::Series(v))));
+    ASSERT_NIL(unowned->write(x::telem::Frame(1, x::telem::Series(9.0))));
+    ASSERT_EQ(mock_factory->writes->size(), 3);
+    x::telem::Frame received;
+    ASSERT_FALSE(sub->try_pop(received));
+    states->set({{.subject = owner, .resource = 1, .authority = 200}});
+    std::vector<double> values;
+    while (sub->try_pop(received))
+        values.push_back(received.at<double>(1, 0));
+    ASSERT_EQ(values, (std::vector<double>{1.0, 2.0}));
+}
+
 TEST(WriterTest, WritesWithNoSubscribers) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();

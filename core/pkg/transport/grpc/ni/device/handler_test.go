@@ -36,8 +36,8 @@ var _ = Describe("Handler", func() {
 		transport.NIDeviceUpdate.BindHandler(func(
 			context.Context,
 			device.UpdateRequest,
-		) (struct{}, error) {
-			return struct{}{}, nil
+		) (device.UpdateResponse, error) {
+			return device.UpdateResponse{}, nil
 		})
 		transport.NIDeviceDelete.BindHandler(func(
 			context.Context,
@@ -104,9 +104,15 @@ var _ = Describe("Handler", func() {
 		transport.NIDeviceUpdate.BindHandler(func(
 			_ context.Context,
 			req device.UpdateRequest,
-		) (struct{}, error) {
+		) (device.UpdateResponse, error) {
 			received = req
-			return struct{}{}, nil
+			return device.UpdateResponse{Device: svcdevice.Device{
+				Key:          req.Key,
+				Rack:         rack.NewKey(1, 2),
+				Name:         "Stored",
+				ResourceName: "{GUID}",
+				Model:        "NI 9205",
+			}}, nil
 		})
 		update := svcdevice.Update{Variant: svcdevice.IdentityUpdate{
 			Identity: svcdevice.Identity{
@@ -117,12 +123,14 @@ var _ = Describe("Handler", func() {
 			},
 		}}
 		pbUpdate := MustSucceed(devicepb.UpdateToPB(update))
-		MustSucceed(grpcdevice.NewNIDeviceUpdateServiceClient(conn).Exec(
+		res := MustSucceed(grpcdevice.NewNIDeviceUpdateServiceClient(conn).Exec(
 			ctx,
 			&grpcdevice.UpdateRequest{Key: key.String(), Update: pbUpdate},
 		))
 		Expect(received.Key).To(Equal(key))
 		Expect(received.Update).To(Equal(update))
+		Expect(res.Device.Key).To(Equal(key.String()))
+		Expect(res.Device.Name).To(Equal("Stored"))
 	})
 
 	It("Should delete devices by key", func(ctx SpecContext) {

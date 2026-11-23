@@ -649,7 +649,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.failed.Store(false)
-	t.skips = driver.NewSkips("record")
+	t.skips = driver.NewSkips("record", driver.SkipHold)
 	t.disconnected = false
 	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{

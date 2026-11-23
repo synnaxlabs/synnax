@@ -19,8 +19,8 @@ import {
 import { describe, expect, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
+import { ValidationError } from "@/index";
 import {
   createTestClient,
   newIndexedPair,

@@ -13,12 +13,13 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
+func (db *DB) OpenIterator(cfg IteratorConfig) (*iterator, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
@@ -32,7 +33,15 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	return wrapStreamIterator(internal), nil
 }
 
-func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
+// NewStreamIterator opens a segment that reads the DB in time order, as OpenIterator
+// does. Each IteratorRequest sent to its inlet gets zero or more responses with frames,
+// then one response of the IteratorResponseVariantAck variant with the command, the
+// next sequence number, and whether the command succeeded. Close the inlet to close the
+// segment: it serves the requests in progress, closes its outlet, and returns any error
+// through the context passed to Flow.
+func (db *DB) NewStreamIterator(
+	cfg IteratorConfig,
+) (confluence.Segment[IteratorRequest, IteratorResponse], error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}

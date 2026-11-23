@@ -33,14 +33,14 @@ import {
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
-import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
-import type { Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,
   nodeDetailsZ,
   nodeIdentity,
   READ_NODE_COMMAND_TYPE,
-} from "@/feature/opcua/task/types";
+} from "@/feature/opcua/device/scan";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
+import type { Device } from "@/feature/opcua/device/types";
 import { CSS } from "@/platform/css";
 
 interface DetailsProps {

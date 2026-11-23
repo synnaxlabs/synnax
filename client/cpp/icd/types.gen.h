@@ -40,11 +40,13 @@ struct Where;
 struct Cursor;
 struct BaseField;
 struct ReadBinding;
+struct WriteBaseBinding;
 struct RetrieveRequest;
 struct TextBaseField;
 struct JSONBaseField;
 struct BinaryBaseField;
 struct ReadMessage;
+struct WriteMessage;
 struct Message;
 struct ICD;
 struct RetrieveResponse;
@@ -161,6 +163,112 @@ to_proto(const UUIDDefault &value);
 std::pair<UUIDDefault, x::errors::Error>
 uuid_default_from_proto(const ::service::icd::pb::UUIDDefault &pb);
 
+/// @brief FloatWriteValue is a fixed float.
+struct FloatWriteValue {
+    std::string type = ::x::payload::KIND_FLOAT;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Float value = 0;
+
+    static FloatWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief IntegerWriteValue is a fixed signed integer.
+struct IntegerWriteValue {
+    std::string type = ::x::payload::KIND_INTEGER;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Integer value = 0;
+
+    static IntegerWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnsignedWriteValue is a fixed unsigned integer.
+struct UnsignedWriteValue {
+    std::string type = ::x::payload::KIND_UNSIGNED;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Unsigned value = 0;
+
+    static UnsignedWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringWriteValue is a fixed string.
+struct StringWriteValue {
+    std::string type = ::x::payload::KIND_STRING;
+    /// @brief value is the string.
+    std::string value;
+
+    static StringWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanWriteValue is a fixed boolean.
+struct BooleanWriteValue {
+    std::string type = ::x::payload::KIND_BOOLEAN;
+    /// @brief value is the boolean.
+    bool value = false;
+
+    static BooleanWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TimestampWriteValue is a fixed timestamp.
+struct TimestampWriteValue {
+    std::string type = ::x::payload::KIND_TIMESTAMP;
+    /// @brief value is the timestamp.
+    ::x::telem::TimeStamp value = x::telem::TimeStamp(0);
+
+    static TimestampWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief JSONWriteValue is a fixed JSON value.
+struct JSONWriteValue {
+    std::string type = ::x::payload::KIND_JSON;
+    /// @brief value is the JSON text of the value.
+    std::string value;
+
+    static JSONWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UuidWriteValue is a fixed UUID.
+struct UuidWriteValue {
+    std::string type = ::x::payload::KIND_UUID;
+    /// @brief value is the UUID.
+    x::uuid::UUID value;
+
+    static UuidWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BytesWriteValue is fixed bytes.
+struct BytesWriteValue {
+    std::string type = ::x::payload::KIND_BYTES;
+    /// @brief value is the base64 text of the value.
+    std::string value;
+
+    static BytesWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteValue is a fixed value that a write binding sends as its field. Its type
+/// is the kind of the field.
+using WriteValue = std::variant<
+    FloatWriteValue,
+    IntegerWriteValue,
+    UnsignedWriteValue,
+    StringWriteValue,
+    BooleanWriteValue,
+    TimestampWriteValue,
+    JSONWriteValue,
+    UuidWriteValue,
+    BytesWriteValue>;
+
+WriteValue parse_write_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteValue &value);
+
 /// @brief Where is a filter that selects ICDs.
 struct Where {
     /// @brief and_ matches when every child matches.
@@ -263,6 +371,15 @@ struct ReadBinding {
     ::x::telem::DataType data_type = ::x::telem::DataType("");
 
     static ReadBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteBaseBinding carries the parts every write binding shares.
+struct WriteBaseBinding {
+    /// @brief field is the key of the message field to fill.
+    FieldKey field;
+
+    static WriteBaseBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -557,6 +674,45 @@ struct ReadMessage {
     static ReadMessage parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief ChannelWriteBinding fills a field with the values of a command channel.
+struct ChannelWriteBinding : public WriteBaseBinding {
+    std::string type = "channel";
+    /// @brief channel is the command channel whose values the field sends. 0 means that
+    /// a client creates the channel on configure.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief data_type is the data type of the command channel that a client creates
+    /// for the field. Absent takes float64 for a scaled field and the default of the
+    /// field's kind for any other. The Core ignores it once the channel exists.
+    std::optional<::x::telem::DataType> data_type;
+
+    static ChannelWriteBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ValueWriteBinding fills a field with a fixed value.
+struct ValueWriteBinding : public WriteBaseBinding {
+    std::string type = "value";
+    /// @brief value is the fixed value that the field sends.
+    WriteValue value;
+
+    static ValueWriteBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteBinding fills one message field with a command channel or a fixed value.
+using WriteBinding = std::variant<ChannelWriteBinding, ValueWriteBinding>;
+
+WriteBinding parse_write_binding(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteBinding &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const WriteBaseBinding &base(const WriteBinding &value) {
+    return std::visit(
+        [](const auto &v) -> const WriteBaseBinding & { return v; },
+        value
+    );
+}
 
 /// @brief DelimitedTextField is a field read from one item of a delimited text line.
 struct DelimitedTextField : public TextBaseField {
@@ -873,6 +1029,18 @@ binary_field_from_proto(const ::service::icd::pb::BinaryField &pb);
         value
     );
 }
+
+/// @brief WriteMessage sends one message of an ICD.
+struct WriteMessage {
+    /// @brief message is the key of the ICD message to send.
+    MessageKey message;
+    /// @brief bindings are the fields that command channels or fixed values fill. Each
+    /// other field sends its default.
+    std::vector<WriteBinding> bindings = {};
+
+    static WriteMessage parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {

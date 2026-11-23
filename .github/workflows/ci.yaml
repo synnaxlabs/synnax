@@ -296,10 +296,10 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: arc-cpp
       directories: arc/cpp
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -383,10 +383,10 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-cpp
       directories: client/cpp client/clib
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -674,11 +674,11 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: driver
       directories: driver
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -900,9 +900,9 @@ jobs:
       clang_tidy: true
       coverage_flag: freighter-cpp
       directories: freighter/cpp
-      macos: *full
+      macos: true
       targets: //freighter/cpp/...
-      windows: *full
+      windows: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1377,9 +1377,9 @@ jobs:
       clang_tidy: true
       coverage_flag: x-cpp
       directories: x/cpp
-      macos: *full
+      macos: true
       targets: //x/cpp/...
-      windows: *full
+      windows: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
