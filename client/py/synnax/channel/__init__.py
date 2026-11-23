@@ -8,8 +8,22 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.channel.client import Channel, Client
-from synnax.channel.payload import Key, Params, has_params
-from synnax.channel.retrieve import Retriever
+from synnax.channel.payload import (
+    Key,
+    Lookup,
+    Params,
+    has_params,
+    is_single,
+    nfc,
+    to_lookups,
+)
+from synnax.channel.retrieve import (
+    Resolved,
+    Retriever,
+    refuse_shared,
+    resolve,
+    resolve_open,
+)
 from synnax.channel.types_gen import (
     Cursor,
     Operation,
@@ -25,13 +39,21 @@ __all__ = [
     "Client",
     "Cursor",
     "Key",
+    "Lookup",
     "Operation",
     "Order",
     "Params",
     "Payload",
+    "Resolved",
     "Retriever",
     "Where",
     "WhereInput",
     "Writer",
     "has_params",
+    "is_single",
+    "nfc",
+    "refuse_shared",
+    "resolve",
+    "resolve_open",
+    "to_lookups",
 ]

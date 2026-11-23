@@ -9,9 +9,10 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TypeAlias
+from typing import TypeAlias, TypeIs
 
 from synnax import resource
 from synnax.channel.types_gen import (
@@ -60,7 +61,17 @@ def to_lookups(params: Params) -> list[Lookup]:
     return lookups
 
 
-def is_single(params: Params) -> bool:
+def nfc(lookup: Lookup) -> Lookup:
+    """Returns lookup in NFC, the form in which lookups compare."""
+    return unicodedata.normalize("NFC", lookup) if isinstance(lookup, str) else lookup
+
+
+def is_path(text: str) -> bool:
+    """Returns whether text names a channel by its path."""
+    return _PATH_SEPARATOR in text
+
+
+def is_single(params: Params) -> TypeIs[Key | str]:
     """Returns whether params names one channel by key, name, or path."""
     return isinstance(params, (Key, str))
 
@@ -82,7 +93,7 @@ def split_lookups(lookups: list[Lookup]) -> SplitLookups:
     for lookup in lookups:
         if isinstance(lookup, int):
             split.keys.append(lookup)
-        elif _PATH_SEPARATOR in lookup:
+        elif is_path(lookup):
             split.paths.append(lookup)
         else:
             split.names.append(lookup)
@@ -90,18 +101,13 @@ def split_lookups(lookups: list[Lookup]) -> SplitLookups:
 
 
 def lookup_where(lookups: list[Lookup]) -> Where:
-    """Returns the filter that looks up each channel in lookups. Lookups of several
-    kinds join in an or. An empty list selects no channel.
+    """Returns the filter that looks up each channel in lookups. Keys always select
+    with in. Lookups of several kinds join in an or. An empty list selects no channel.
     """
     split = split_lookups(lookups)
     branches: list[Where] = []
     if split.keys or not lookups:
-        keys = split.keys
-        branches.append(
-            Where(key=filter.Set[Key](eq=keys[0]))
-            if len(keys) == 1
-            else Where(key=filter.Set[Key](in_=keys))
-        )
+        branches.append(Where(key=filter.Set[Key](in_=split.keys)))
     if split.names:
         names = split.names
         branches.append(

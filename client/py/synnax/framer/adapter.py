@@ -7,65 +7,31 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import unicodedata
 import warnings
 from collections.abc import Mapping
 from typing import Any
 
 import synnax.channel.payload as channel
-from synnax.channel.retrieve import Retriever, match, resolve
-from synnax.exceptions import NotFoundError, PathError, ValidationError
+from synnax.channel.retrieve import (
+    Retriever,
+    match,
+    not_found,
+    refuse_shared,
+    resolve_open,
+)
+from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
 from x.telem import is_crude_series
 
 
-def _nfc(lookup: channel.Lookup) -> channel.Lookup:
-    return unicodedata.normalize("NFC", lookup) if isinstance(lookup, str) else lookup
-
-
-def _distinct(
-    lookups: list[channel.Lookup], each: list[channel.Payload]
-) -> list[channel.Payload]:
-    """Returns each channel of an open once, in the order of its first lookup. Lookups
-    compare in NFC, so a repeat of one lookup keeps one channel.
-
-    :raises ValidationError: If two different lookups name one channel.
-    """
-    first: dict[channel.Key, channel.Lookup] = {}
-    channels: list[channel.Payload] = []
-    for lookup, ch in zip(lookups, each, strict=True):
-        if ch.key not in first:
-            first[ch.key] = lookup
-            channels.append(ch)
-        elif _nfc(first[ch.key]) != _nfc(lookup):
-            raise ValidationError(
-                f"{json.dumps(first[ch.key])} and {json.dumps(lookup)} name one channel"
-            )
-    return channels
-
-
-def _refuse_shared(refs: list[channel.Lookup], keys: list[channel.Key]) -> None:
-    """Checks that the entries of one write name different channels.
-
-    :raises ValidationError: If two entries name one channel.
-    """
-    first: dict[channel.Key, channel.Lookup] = {}
-    for ref, key in zip(refs, keys, strict=True):
-        if key in first:
-            raise ValidationError(
-                f"{json.dumps(first[key])} and {json.dumps(ref)} name one channel"
-            )
-        first[key] = ref
-
-
 class ReadFrameAdapter:
     _aligned: bool
     _limited: bool
     _timestamps_included: bool
-    _labels: dict[channel.Key, str] | None
+    _labeled: bool
     _names: dict[channel.Key, str]
     _indexes: dict[channel.Key, channel.Key]
     _rank: dict[channel.Key | str, int]
@@ -93,7 +59,7 @@ class ReadFrameAdapter:
         )
         self._limited = isinstance(reduction, LimitReduction)
         self._timestamps_included = timestamps_included
-        self._labels = None
+        self._labeled = False
         self._names = {}
         self._indexes = {}
         self._rank = {}
@@ -101,9 +67,8 @@ class ReadFrameAdapter:
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
-        lookups = channel.to_lookups(channels)
-        each = resolve(self.retriever, lookups)
-        requested = _distinct(lookups, each)
+        resolved = resolve_open(self.retriever, channels)
+        requested = resolved.channels
         fetched = list(requested)
         if self._timestamps_included:
             fetched += self._retrieve_missing_indexes(fetched)
@@ -115,18 +80,22 @@ class ReadFrameAdapter:
                 keys=new_keys, data_types=[ch.data_type for ch in fetched]
             )
         self._names = {ch.key: ch.name for ch in fetched}
+        # A frame holds keys or names, never both, so a list that holds any key labels
+        # by key. Otherwise the frame names each channel by the name or path that first
+        # looked it up.
+        lookups = resolved.lookups
+        self._labeled = len(lookups) > 0 and all(isinstance(lk, str) for lk in lookups)
+        if self._labeled:
+            labels: dict[channel.Key, str] = {}
+            for lookup, ch in zip(lookups, resolved.each, strict=True):
+                if isinstance(lookup, str):
+                    labels.setdefault(ch.key, lookup)
+            self._names.update(labels)
         self._indexes = {
             ch.key: ch.key if ch.is_index else ch.index
             for ch in fetched
             if self._time_indexed(ch) and (ch.is_index or ch.index != 0)
         }
-        # A frame holds keys or names, never both, so a list that holds any key labels
-        # by key. Otherwise each channel takes the name or path that first named it.
-        self._labels = None
-        if len(lookups) > 0 and all(isinstance(lookup, str) for lookup in lookups):
-            self._labels = {}
-            for lookup, ch in zip(lookups, each, strict=True):
-                self._labels.setdefault(ch.key, str(lookup))
         self.keys = [ch.key for ch in requested]
         self.keys += [ch.key for ch in fetched if ch.key not in self.keys]
         self._rank = {}
@@ -161,11 +130,8 @@ class ReadFrameAdapter:
             ((k, s) for k, s in fr.items() if k in self._rank),
             key=lambda item: self._rank[item[0]],
         )
-        labels = self._labels
         fr.channels = [
-            labels.get(k, self._names[k])
-            if labels is not None and isinstance(k, channel.Key)
-            else k
+            self._names[k] if self._labeled and isinstance(k, channel.Key) else k
             for k, _ in items
         ]
         fr.series = [s for _, s in items]
@@ -178,6 +144,11 @@ class WriteFrameAdapter:
     _by_text: dict[str, list[channel.Payload]]
     _channels: dict[channel.Key, channel.Payload]
     _keys: list[channel.Key]
+    _last_entries: tuple[list[Any], list[channel.Key]] | None
+    """The entries of the last record or list and their checked channel keys, until an
+    update. Only entries of held references count, since a path can move between
+    records.
+    """
     _err_on_extra_chans: bool
     _strict_data_types: bool
     _suppress_warnings: bool
@@ -197,22 +168,23 @@ class WriteFrameAdapter:
         self._by_text = {}
         self._channels = {}
         self._keys = []
+        self._last_entries = None
         self._err_on_extra_chans = err_on_extra_chans
         self._strict_data_types = strict_data_types
         self._suppress_warnings = suppress_warnings
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
-        lookups = channel.to_lookups(channels)
-        each = resolve(self.retriever, lookups)
-        results = _distinct(lookups, each)
+        resolved = resolve_open(self.retriever, channels)
+        results = resolved.channels
         self._channels = {ch.key: ch for ch in results}
         self._by_text = {}
         for ch in results:
             self._hold(ch.name, ch)
-        for lookup, ch in zip(lookups, each, strict=True):
+        for lookup, ch in zip(resolved.lookups, resolved.each, strict=True):
             if isinstance(lookup, str):
                 self._hold(lookup, ch)
+        self._last_entries = None
         self._keys = [ch.key for ch in results]
         self.codec.update(
             keys=self._keys,
@@ -224,12 +196,11 @@ class WriteFrameAdapter:
     ) -> dict[channel.Key, Any]:
         """Returns data keyed by the key of each channel that its keys name.
 
+        :raises NotFoundError: Naming every key that finds no channel.
         :raises ValidationError: If two keys name one channel.
         """
-        refs = channel.to_lookups(list(data))
-        keys = self._resolve_keys(refs)
-        _refuse_shared(refs, keys)
-        return {key: data[k] for k, key in zip(data, keys, strict=True)}
+        keys = self._entry_keys(list(data))
+        return dict(zip(keys, data.values(), strict=True))
 
     @property
     def keys(self) -> list[channel.Key]:
@@ -254,38 +225,63 @@ class WriteFrameAdapter:
             )
         return held[0]
 
-    def _match_keys(self, refs: list[channel.Lookup]) -> list[channel.Key | None]:
-        """Returns the key of each reference, or None for a name or path that finds no
-        channel. A key is itself. A name or path answers from the held channels, by NFC
-        name or the NFC path that opened them, with no request. The other names and
-        paths go in one retrieve.
+    def _match_keys(
+        self, refs: list[channel.Lookup], *, names_fetched: bool = True
+    ) -> tuple[list[channel.Key | None], bool]:
+        """Returns the key of each reference, or None for one that finds no channel,
+        and whether every reference resolved with no request. A key is itself. A name
+        or path answers from the held channels, by NFC name or the NFC path that opened
+        them. The other paths, and the other names when names_fetched, go in one
+        retrieve.
         """
-        texts = [r for r in refs if isinstance(r, str)]
-        held = {t: self._held(t) for t in texts}
-        unheld = [t for t in held if held[t] is None]
-        for t, ch in zip(unheld, match(self.retriever, unheld), strict=True):
-            held[t] = ch
-            if ch is not None and ch.key in self._channels:
-                self._hold(t, ch)
+        texts: dict[str, channel.Payload | None] = {}
+        for r in refs:
+            if isinstance(r, str) and r not in texts:
+                texts[r] = self._held(r)
+        unheld = [
+            t
+            for t, ch in texts.items()
+            if ch is None and (names_fetched or channel.is_path(t))
+        ]
+        texts.update(zip(unheld, match(self.retriever, unheld), strict=True))
         keys: list[channel.Key | None] = []
         for r in refs:
-            if isinstance(r, channel.Key):
-                keys.append(r)
-            else:
-                ch = held[r]
+            if isinstance(r, str):
+                ch = texts[r]
                 keys.append(None if ch is None else ch.key)
-        return keys
+            else:
+                keys.append(r)
+        return keys, len(unheld) == 0
 
-    def _resolve_keys(self, refs: list[channel.Lookup]) -> list[channel.Key]:
-        """Returns the key of each reference, as _match_keys does.
+    def _resolve_keys(
+        self, refs: list[channel.Lookup]
+    ) -> tuple[list[channel.Key], bool]:
+        """Returns the key of each reference, and whether every one resolved with no
+        request, as _match_keys does.
 
-        :raises NotFoundError: Naming every name or path that finds no channel.
+        :raises NotFoundError: Naming every reference that finds no channel.
         """
-        keys = self._match_keys(refs)
+        keys, held = self._match_keys(refs)
         missing = [r for r, key in zip(refs, keys, strict=True) if key is None]
         if len(missing) > 0:
-            raise NotFoundError(f"channels not found matching {json.dumps(missing)}")
-        return [key for key in keys if key is not None]
+            raise not_found(missing)
+        return [key for key in keys if key is not None], held
+
+    def _entry_keys(self, entries: list[Any]) -> list[channel.Key]:
+        """Returns the key of each channel that the entries of a record or a list name.
+        Entries equal to the last ones reuse their checked keys.
+
+        :raises NotFoundError: Naming every entry that finds no channel.
+        :raises ValidationError: If two entries name one channel.
+        """
+        last = self._last_entries
+        if last is not None and last[0] == entries:
+            return last[1]
+        refs = channel.to_lookups(entries)
+        keys, held = self._resolve_keys(refs)
+        refuse_shared(refs, keys)
+        self._last_entries = (entries, keys) if held else None
+        return keys
 
     def adapt(
         self,
@@ -356,7 +352,7 @@ class WriteFrameAdapter:
                 but multiple series.
                 """
                 )
-            [key] = self._resolve_keys(channel.to_lookups(channels_or_data))
+            [key], _ = self._resolve_keys(channel.to_lookups(channels_or_data))
             return Frame([key], [Series(series)])
 
         if isinstance(channels_or_data, (list, tuple)):
@@ -376,9 +372,7 @@ class WriteFrameAdapter:
                 Received {n_channels} channels but only {n_series} series.
                 """
                 )
-            refs = channel.to_lookups(channels_or_data)
-            keys = self._resolve_keys(refs)
-            _refuse_shared(refs, keys)
+            keys = self._entry_keys(list(channels_or_data))
             return Frame(keys, [Series(series_list[i]) for i in range(len(keys))])
 
         if isinstance(channels_or_data, FramePayload):
@@ -392,7 +386,9 @@ class WriteFrameAdapter:
             adapted_refs: list[channel.Lookup] = []
             adapted_channels: list[channel.Key] = []
             adapted_series: list[Series] = []
-            matched = self._match_keys(channel.to_lookups(cols))
+            # The writer holds the name of each of its channels, so a name it does not
+            # hold names no channel of the writer.
+            matched, _ = self._match_keys(channel.to_lookups(cols), names_fetched=False)
             for col, found in zip(cols, matched, strict=True):
                 if found is None or (
                     isinstance(col, str) and found not in self._channels
@@ -406,13 +402,11 @@ class WriteFrameAdapter:
                 adapted_refs.append(col)
                 adapted_channels.append(found)
                 adapted_series.append(Series(channels_or_data[col]))
-            _refuse_shared(adapted_refs, adapted_channels)
+            refuse_shared(adapted_refs, adapted_channels)
             return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, Mapping):
-            refs = channel.to_lookups(list(channels_or_data))
-            keys = self._resolve_keys(refs)
-            _refuse_shared(refs, keys)
+            keys = self._entry_keys(list(channels_or_data))
             return Frame(keys, [Series(v) for v in channels_or_data.values()])
 
         raise TypeError(

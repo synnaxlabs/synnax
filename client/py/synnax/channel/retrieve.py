@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import json
-import unicodedata
+from dataclasses import dataclass
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -20,11 +20,12 @@ from synnax.channel.payload import (
     Params,
     Payload,
     lookup_where,
+    nfc,
     split_lookups,
     to_lookups,
 )
 from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse
-from synnax.exceptions import NotFoundError
+from synnax.exceptions import NotFoundError, ValidationError
 from synnax.util import sole
 
 
@@ -72,14 +73,37 @@ class Retriever:
         return self._client.send("/channel/retrieve", req, RetrieveResponse).channels
 
 
-def _nfc(lookup: Lookup) -> Lookup:
-    return unicodedata.normalize("NFC", lookup) if isinstance(lookup, str) else lookup
+def _text(lookups: object) -> str:
+    return json.dumps(lookups, ensure_ascii=False)
+
+
+def not_found(lookups: list[Lookup]) -> NotFoundError:
+    """Returns the error for lookups that find no channel."""
+    return NotFoundError(f"channels not found matching {_text(lookups)}")
+
+
+def named_twice(first: Lookup, second: Lookup) -> ValidationError:
+    """Returns the error for two lookups that name one channel."""
+    return ValidationError(f"{_text(first)} and {_text(second)} name one channel")
+
+
+def refuse_shared(refs: list[Lookup], keys: list[Key]) -> None:
+    """Checks that the entries of one write or record name different channels.
+
+    :param keys: The key of the channel of each entry.
+    :raises ValidationError: If two entries name one channel.
+    """
+    first: dict[Key, Lookup] = {}
+    for ref, key in zip(refs, keys, strict=True):
+        if key in first:
+            raise named_twice(first[key], ref)
+        first[key] = ref
 
 
 def match(r: Retriever, channels: Params) -> list[Payload | None]:
     """Returns the channel of each lookup in channels, in order, from one strict
     request, or None for a lookup that finds no channel. A channel matches a lookup by
-    its key, its name in NFC, or its path in NFC.
+    its key, its name, or its path, in NFC.
 
     :raises MultipleFoundError: If several channels hold a name.
     """
@@ -95,10 +119,10 @@ def match(r: Retriever, channels: Params) -> list[Payload | None]:
     for ch in r.filter(req):
         found[ch.key] = ch
         if named:
-            found[_nfc(ch.name)] = ch
+            found[ch.name] = ch
             if ch.path is not None:
-                found[_nfc(ch.path)] = ch
-    return [found.get(_nfc(lookup)) for lookup in lookups]
+                found[ch.path] = ch
+    return [found.get(nfc(lookup)) for lookup in lookups]
 
 
 def resolve(r: Retriever, channels: Params) -> list[Payload]:
@@ -112,5 +136,38 @@ def resolve(r: Retriever, channels: Params) -> list[Payload]:
     found = match(r, lookups)
     missing = [lk for lk, ch in zip(lookups, found, strict=True) if ch is None]
     if len(missing) > 0:
-        raise NotFoundError(f"channels not found matching {json.dumps(missing)}")
+        raise not_found(missing)
     return [ch for ch in found if ch is not None]
+
+
+@dataclass
+class Resolved:
+    """The channels of an open, a read, or an acquire."""
+
+    lookups: list[Lookup]
+    """The channels as the caller gave them, each payload as its key."""
+    each: list[Payload]
+    """The channel of each lookup, at the index of its lookup."""
+    channels: list[Payload]
+    """Each channel once, in the order of its first lookup."""
+
+
+def resolve_open(r: Retriever, channels: Params) -> Resolved:
+    """Resolves the channels of an open, a read, or an acquire in one strict request.
+    Lookups compare in NFC, so a repeat of one lookup keeps one channel.
+
+    :raises NotFoundError: Naming every lookup that finds no channel.
+    :raises ValidationError: If two different lookups name one channel.
+    :raises MultipleFoundError: If several channels hold a name.
+    """
+    lookups = to_lookups(channels)
+    each = resolve(r, lookups)
+    first: dict[Key, Lookup] = {}
+    distinct: list[Payload] = []
+    for lookup, ch in zip(lookups, each, strict=True):
+        if ch.key not in first:
+            first[ch.key] = lookup
+            distinct.append(ch)
+        elif nfc(first[ch.key]) != nfc(lookup):
+            raise named_twice(first[ch.key], lookup)
+    return Resolved(lookups=lookups, each=each, channels=distinct)
