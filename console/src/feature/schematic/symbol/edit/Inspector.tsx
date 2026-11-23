@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, type color, TimeSpan } from "@synnaxlabs/x";
+import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { parentGroup } from "@/feature/schematic/symbol/edit/group";
@@ -250,8 +250,6 @@ const MOTIONS: MotionGroup[] = [
 
 const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
 
-const RATE_BOUNDS: bounds.Bounds = { lower: 0, upper: Infinity };
-
 const MotionControl = (): ReactElement => {
   const { value, inherited, own, onChange, label } =
     useScope<"motion">("MotionControl");
@@ -309,7 +307,6 @@ const MotionControl = (): ReactElement => {
           size="small"
           value={moving.rate}
           onChange={(rate) => onChange({ ...moving, rate })}
-          bounds={RATE_BOUNDS}
           showDragHandle={false}
           endContent="/s"
           className={CSS.BE("schematic-inspector", "rate")}
