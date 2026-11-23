@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate } from "@synnaxlabs/client";
+import type { certificate } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -33,13 +33,26 @@ export const useList = ({
 
 export type RetrieveQuery = certificate.RetrieveSingleParams;
 
-export const { use } = Flux.createRetrieve<RetrieveQuery, certificate.Certificate>({
+export const { use, useResult } = Flux.createRetrieve<
+  RetrieveQuery,
+  certificate.Certificate
+>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) =>
     await client.certificates.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
     client.certificates.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) => client.certificates.watch(key).getCached(),
+});
+
+/** Creates a certificate, or replaces the certificate whose key exists. */
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  certificate.New,
+  certificate.Certificate
+>({
+  name: RESOURCE_NAME,
+  verbs: verbs.CREATE,
+  update: async ({ client, data }) => await client.certificates.set(data),
 });
 
 export interface RenameParams extends Pick<certificate.Certificate, "key" | "name"> {}

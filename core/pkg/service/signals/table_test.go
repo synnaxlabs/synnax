@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/telem"
@@ -140,6 +141,42 @@ var _ = Describe("Table", func() {
 				Where(gorp.MatchKeys[uuid.UUID, testUUIDEntry](e.Key)).
 				Exec(ctx, db)).To(Succeed())
 			Expect(receiveSamples(deletes)).To(Equal([][]byte{e.Key[:]}))
+		})
+
+		It("Should check a set once by the check that its commit made", func(
+			ctx SpecContext,
+		) {
+			setName := nextName()
+			marker := resource.ID{Type: "marker", Key: "set"}
+			checks := 0
+			Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
+				Changes:    uuidTable.Changes,
+				Resource:   testResource[uuid.UUID],
+				SetName:    setName,
+				DeleteName: nextName(),
+				SetCheck: func(e testUUIDEntry) signals.Check {
+					checks++
+					return func(allowed func(resource.ID) bool) bool {
+						return allowed(marker) && e.Name == "published"
+					}
+				},
+			})).To(Succeed())
+			MustOpen(sigs.Start(ctx))
+			set := retrieveChannel(ctx, setName)
+			sets := openStreamer(ctx, set.Key())
+			e := testUUIDEntry{Key: uuid.New(), Name: "published"}
+			Expect(uuidTable.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
+			sample := receiveSamples(sets)[0]
+			record := sigs.Records()[set.Key()]
+			admit := func(id resource.ID) bool { return id == marker }
+			Expect(MustSucceed(record.Check(sample))(admit)).To(BeTrue())
+			Expect(MustSucceed(record.Check(sample))(
+				func(resource.ID) bool { return false },
+			)).To(BeFalse())
+			Expect(checks).To(Equal(1))
+			unpublished := []byte(`{"key":"` + uuid.New().String() + `"}`)
+			Expect(record.Check(unpublished)).Error().
+				To(MatchError("[signals] - the check of a change is gone"))
 		})
 
 		It("Should write a numeric key as its raw bytes", func(ctx SpecContext) {

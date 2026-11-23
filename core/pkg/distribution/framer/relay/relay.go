@@ -157,6 +157,10 @@ func Open(configs ...Config) (*Relay, error) {
 	return r, nil
 }
 
+// StreamerBufferSize returns the most frames that the relay holds for each streamer
+// before it drops them.
+func (r *Relay) StreamerBufferSize() int { return r.cfg.StreamerBufferSize }
+
 func (r *Relay) Close() error {
 	r.demands.Close()
 	err := r.shutdown.Close()

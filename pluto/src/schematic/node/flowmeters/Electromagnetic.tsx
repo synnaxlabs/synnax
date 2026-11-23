@@ -11,7 +11,7 @@ import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 import svg from "@/schematic/node/flowmeters/Electromagnetic.svg?raw";
-import { type Props } from "@/schematic/node/flowmeters/props";
+import type { Props } from "@/schematic/node/flowmeters/props";
 
 const SPEC = Custom.createBuiltIn({
   svg,

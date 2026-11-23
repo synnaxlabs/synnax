@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export interface NegatedSwitchFieldProps extends Omit<
   Form.FieldProps<boolean, boolean>,

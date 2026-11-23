@@ -9,7 +9,7 @@
 
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { type Field, valueText } from "@/feature/ethercat/device/settings";
 

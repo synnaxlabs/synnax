@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { csv } from "@/csv";
@@ -78,6 +78,8 @@ export class JSONCodec implements Codec {
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();
+      // JSON has no non-finite number, so send the text that a float decodes.
+      if (typeof v === "number" && !Number.isFinite(v)) return String(v);
       return v;
     });
   }

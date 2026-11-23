@@ -619,6 +619,7 @@ func translateChannelsForward(
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
+			Concurrency: ch.Concurrency,
 			Internal:    builtIn(ch.Key()),
 			Group:       ch.Group,
 		}
@@ -639,6 +640,7 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 			LocalIndex:  ch.Index.LocalKey(),
 			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
+			Concurrency: ch.Concurrency,
 			Group:       ch.Group,
 		}
 		if ch.IsIndex {

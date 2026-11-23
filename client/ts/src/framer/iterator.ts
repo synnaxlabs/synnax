@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
+  disposable,
   errors,
   reductionZ,
   TimeRange,
@@ -24,7 +25,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame, frameZ, seriesFromPayload } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 import { IteratorCommand, IteratorResponseVariant } from "@/framer/types.gen";
 
@@ -76,6 +77,11 @@ export interface IteratorConfig extends z.input<typeof iteratorConfigZ> {}
  * the segment client's read method instead.
  */
 export class Iterator {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: StreamProxy<typeof iteratorReqZ, typeof iteratorResZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
@@ -210,9 +216,9 @@ export class Iterator {
   }
 
   /**
-   * Closes the iterator. An iterator MUST be closed after use, and this method
-   * should probably be placed in a 'finally' block. If the iterator is not closed,
-   * it may leak resources.
+   * Closes the iterator. An iterator MUST be closed after use: declare it with
+   * `await using`, or close it in a `finally` block. If the iterator is not closed, it
+   * may leak resources.
    * @throws the error that stopped the iterator, if a read failed.
    */
   async close(): Promise<void> {
@@ -224,12 +230,21 @@ export class Iterator {
   }
 
   private async execute(request: IteratorRequest): Promise<boolean> {
-    await this.stream.send(request);
+    try {
+      await this.stream.send(request);
+    } catch (err) {
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(err)) throw errors.fromUnknown(err);
+    }
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === IteratorResponseVariant.Ack) return res.ack;
-      this.value.push(this.adapter.adapt(new Frame(res.frame)));
+      if (res.frame == null) continue;
+      const { keys, series } = res.frame;
+      this.value.push(
+        this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload))),
+      );
     }
   }
 }

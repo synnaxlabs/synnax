@@ -27,7 +27,7 @@ import {
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { isChange, type Table, type TableEvent } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Data, FetchOptions, Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
 
@@ -283,6 +283,8 @@ export interface SpaceHooks {
    * synchronously. Defaults to 5 seconds.
    */
   teardownGrace?: TimeSpan;
+  /** The clock that the teardown grace reads. Defaults to the system clock. */
+  clock?: () => TimeStamp;
 }
 
 export const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
@@ -401,14 +403,17 @@ export class Space<
   private readonly detachEpoch?: destructor.Destructor;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
+  private readonly clock: () => TimeStamp;
   private sweepTimer?: ReturnType<typeof setTimeout>;
   /** Counts stale marks. */
   private marks = 0;
+  private closed = false;
 
   constructor(config: SpaceConfig<P, D, K, V>, hooks: SpaceHooks = {}) {
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.clock = hooks.clock ?? (() => TimeStamp.now());
     this.release = config.table.hold({
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
@@ -539,7 +544,7 @@ export class Space<
       query.handlers.delete(handler);
       if (query.handlers.size > 0) return;
       if (this.grace.isZero) return this.teardownQuery(query);
-      query.idleSince = TimeStamp.now();
+      query.idleSince = this.clock();
       this.armSweep();
     };
   }
@@ -579,8 +584,12 @@ export class Space<
     });
   }
 
-  /** Detaches the epoch subscription. Queries and handlers are dropped. */
+  /**
+   * Detaches the epoch subscription. Queries and handlers are dropped, and a fetch
+   * still in flight reports no failure.
+   */
   close(): void {
+    this.closed = true;
     this.detachEpoch?.();
     this.release();
     if (this.sweepTimer != null) {
@@ -638,7 +647,7 @@ export class Space<
 
   private sweep(): void {
     let anyIdle = false;
-    const now = TimeStamp.now();
+    const now = this.clock();
     this.queries.forEach((query) => {
       if (query.idleSince == null) return;
       if (query.handlers.size > 0) {
@@ -668,6 +677,8 @@ export class Space<
     exc: unknown,
     message = `failed to maintain ${this.config.name} answers`,
   ): void {
+    // A closed space has no subscribers left to answer.
+    if (this.closed) return;
     this.hooks.onError(new Error(message, { cause: exc }));
   }
 

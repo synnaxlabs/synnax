@@ -9,13 +9,31 @@
  * included in the file licenses/APL.txt.
  */
 
-/* One fill with a light border, and a line between its parts. */
+/* One fill with a light border, and a line between its parts. A chip wider than its
+   line shrinks its value first, then its other parts. The remove button never
+   shrinks. */
 .console-view__filter-chip {
     flex-shrink: 0;
+    max-width: 100%;
     overflow: hidden;
+
+    & > * {
+        flex-shrink: 1;
+        min-width: 0;
+    }
 
     & > * + * {
         border-left: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    }
+
+    /* Shrink scales with each part's width, so a far larger factor shrinks the value
+       nearly alone. */
+    & > .console-view__filter-value {
+        flex-shrink: 100;
+    }
+
+    & > .console-view__filter-remove {
+        flex-shrink: 0;
     }
 }
 
@@ -24,9 +42,14 @@
     padding: 0 1.75rem;
 }
 
+/* A dialog frame around a trigger shrinks, and the trigger with it. */
 .console-view__filter-trigger {
     --pluto-hover-bg: var(--pluto-gray-l3);
     --pluto-active-bg: var(--pluto-gray-l4);
+
+    justify-content: flex-start;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .console-view__filter-remove {

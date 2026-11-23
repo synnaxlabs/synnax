@@ -55,6 +55,8 @@ type (
 	Streamer                = streamer.Streamer
 )
 
+const StreamerResponseBufferSize = streamer.ResponseBufferSize
+
 const (
 	IteratorResponseVariantAck  = iterator.ResponseVariantAck
 	IteratorResponseVariantData = iterator.ResponseVariantData

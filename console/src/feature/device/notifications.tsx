@@ -21,7 +21,7 @@ import {
   useConfigureModal,
 } from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 
 const detailsZ = z.object({ make: z.unknown() });
 

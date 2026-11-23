@@ -9,7 +9,7 @@
 
 import { ADMIN_ROLE, type Directory, type Person, type Team } from "@/server/directory";
 import { unauthorized } from "@/server/errors";
-import { type Membership } from "@/server/organization";
+import type { Membership } from "@/server/organization";
 
 /** Session is what the portal knows about the logged-in user for one request. */
 export interface Session extends Membership, Person {
