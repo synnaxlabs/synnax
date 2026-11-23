@@ -19,7 +19,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
-import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { TaskControls } from "@/feature/arc/editor/controls";
 import { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import {
@@ -54,7 +54,7 @@ const renderControls = async (
     <Analytics.Provider sink={analytics}>
       <Suspense fallback={null}>
         <Arc.Suspended arcKey={arcKey}>
-          <TaskControls />
+          <TaskControls.TaskControls />
         </Arc.Suspended>
       </Suspense>
     </Analytics.Provider>,
