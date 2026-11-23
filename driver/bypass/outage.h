@@ -36,23 +36,34 @@ struct OutageConfig {
     /// @brief the longest wait between two tries to reach an unreachable Core.
     x::telem::TimeSpan max_reopen_interval = x::telem::MINUTE;
 
+    /// @brief reads the fields that p sets. Binds a field error to a size or interval
+    /// of 0 or less, and to a negative drain timeout, and keeps the value before it.
     template<typename Parser>
     void override(Parser &p) {
-        this->queue_size = p.field("queue_size", this->queue_size);
-        const auto span = [&p](const std::string &name, const x::telem::TimeSpan &def) {
-            const auto s = p.field(name, def.seconds());
-            return x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
+        const auto size = p.field("queue_size", this->queue_size);
+        if (size == 0)
+            p.field_err("queue_size", "must be greater than 0");
+        else
+            this->queue_size = size;
+        const auto span = [&p](
+                              const std::string &name,
+                              x::telem::TimeSpan &value,
+                              const bool zero_allowed
+                          ) {
+            const auto s = p.field(name, value.seconds());
+            if (s < 0 || (s == 0 && !zero_allowed)) {
+                p.field_err(
+                    name,
+                    zero_allowed ? "must not be negative" : "must be greater than 0"
+                );
+                return;
+            }
+            value = x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
         };
-        this->drain_timeout = span("drain_timeout", this->drain_timeout);
-        this->drop_report_interval = span(
-            "drop_report_interval",
-            this->drop_report_interval
-        );
-        this->reopen_interval = span("reopen_interval", this->reopen_interval);
-        this->max_reopen_interval = span(
-            "max_reopen_interval",
-            this->max_reopen_interval
-        );
+        span("drain_timeout", this->drain_timeout, true);
+        span("drop_report_interval", this->drop_report_interval, false);
+        span("reopen_interval", this->reopen_interval, false);
+        span("max_reopen_interval", this->max_reopen_interval, false);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const OutageConfig &cfg) {

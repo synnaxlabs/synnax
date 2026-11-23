@@ -211,14 +211,17 @@ class Forwarder {
         this->show("Dropped frames", description);
     }
 
-    /// @brief shows on the task status whether the queue lags or drops frames.
+    /// @brief shows on the task status whether the queue lags or drops frames. The
+    /// queue lags while it holds frames and the budget is more than half full, until it
+    /// empties or the budget drains below a quarter.
     void report() {
         if (!this->warn) return;
         const auto bytes = this->budget->used();
-        if (bytes * 2 >= this->budget->size())
-            this->lagging = true;
-        else if (bytes * 4 < this->budget->size())
+        if (this->queue_bytes.load(std::memory_order_relaxed) == 0 ||
+            bytes * 4 < this->budget->size())
             this->lagging = false;
+        else if (bytes * 2 >= this->budget->size())
+            this->lagging = true;
         if (this->dropped_total.load(std::memory_order_relaxed) > 0) {
             if (this->shown_message != "Dropped frames" ||
                 std::chrono::steady_clock::now() - this->drops_shown_at >=

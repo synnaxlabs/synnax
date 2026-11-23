@@ -656,6 +656,23 @@ TEST_F(RackConfigTest, LoadOutageConfigFromFile) {
     ASSERT_EQ(cfg.outage.max_reopen_interval, 30 * x::telem::SECOND);
 }
 
+/// @brief it should reject an outage interval of 0, which would spin the forwarders.
+TEST_F(RackConfigTest, RejectsAZeroOutageInterval) {
+    const std::string config_path = "/tmp/rack-config-test/outage-zero.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"outage": {"reopen_interval": 0}})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto [cfg, err] = Config::resolve(config_args, brk);
+    ASSERT_TRUE(err);
+    EXPECT_NE(err.data.find("reopen_interval"), std::string::npos);
+    EXPECT_EQ(cfg.outage.reopen_interval, x::telem::SECOND);
+}
+
 /// @brief it should load the outage config from environment variables.
 TEST_F(RackConfigTest, LoadOutageConfigFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_QUEUE_SIZE", "2097152");
