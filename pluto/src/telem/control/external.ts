@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { Status } from "@/telem/control/aether/controller";
+import type { control } from "@/telem/control/aether";
+
 export * from "@/telem/control/Chip";
 export * from "@/telem/control/Colors";
 export * from "@/telem/control/Controller";
 export * from "@/telem/control/Indicator";
 export * from "@/telem/control/Legend";
 export * from "@/telem/control/menu";
+
+export type Status = control.Status;

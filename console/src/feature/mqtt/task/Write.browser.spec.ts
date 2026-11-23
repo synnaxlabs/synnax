@@ -8,11 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  rejectRequests,
+} from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -23,9 +28,11 @@ import {
   removeField,
   retype,
   selectedIn,
+  setField,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
+  countFailedSaves,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
@@ -33,6 +40,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
+  toggleRefused,
 } from "@/platform/task/testutil";
 import { awaitTextEditingElement, commitTextEdit, getSwitchInput } from "@/testutil";
 
@@ -600,6 +608,202 @@ describe("MQTT Write form", () => {
               ],
             },
           }),
+        );
+      });
+
+      it("should send a refused binding once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite([target], {
+          onStatuses: (s) => (statuses = s),
+        });
+        await fieldGroup(setpoint.name);
+        // Pointer "" reads the whole document, which holds the value of setpoint.
+        const whole = createField("whole", "float", { pointer: "" });
+        await client.icds.dispatch(
+          target.icd,
+          icd.insert({
+            path: ["messages", target.message.message, "payload", "fields"],
+            value: whole,
+            after: setpoint.key,
+          }),
+        );
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), { ...whole, pointer: "/whole" });
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: whole.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
+      });
+
+      it("should send a refused unbind once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite(
+          [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ],
+          { onStatuses: (s) => (statuses = s) },
+        );
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        // Pointer /count/x reads inside count, so the Core refuses each save.
+        await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
+        await retype(client, messageOf(target), count, "string", setpoint.key);
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), setpoint);
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
+      });
+
+      it("should correct for a format that changes while a refused save is in flight", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite(
+          [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ],
+          { onStatuses: (s) => (statuses = s) },
+        );
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        const { responded, release } = holdResponses(client, "/task/dispatch");
+        // Pointer /count/x reads inside count, so the Core refuses the unbind of count.
+        await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
+        await retype(client, messageOf(target), count, "string", setpoint.key);
+        await responded;
+        const renamed = { ...setpoint, name: "target" };
+        await setField(client, messageOf(target), renamed);
+        await fieldGroup(renamed.name);
+        // The form corrects for the format a task after it renders the format.
+        await act(async () => await scheduler.nextTask());
+        release();
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(1);
+      });
+
+      it("should suit the bindings when the channels of the message fail to load", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd, dev] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+          createBroker(client),
+        ]);
+        const draft = await createDraft(
+          client,
+          createWriteConfig(dev.key, [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ]),
+        );
+        await removeField(client, messageOf(target), setpoint);
+        // A new client caches no channel, so its retrievals of cmd reach the Core.
+        const as = createTestClient();
+        const reject = rejectRequests(
+          as,
+          (t, req) =>
+            t === "/channel/retrieve" && JSON.stringify(req).includes(`${cmd.key}`),
+          new Error("channels unavailable"),
+        );
+        onTestFinished(() => reject.mockRestore());
+        let statuses: Status.NotificationSpec[] = [];
+        await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
+          client,
+          as,
+          taskKey: draft.key,
+          onStatuses: (s) => (statuses = s),
+        });
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [{ type: "channel", field: count.key, channel: cmd.key }],
+            },
+          }),
+        );
+        await waitFor(() =>
+          expect(statuses).toContainEqual(
+            expect.objectContaining({
+              message: "Failed to retrieve the channels of a message",
+              description: "channels unavailable",
+            }),
+          ),
         );
       });
     });

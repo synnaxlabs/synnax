@@ -22,7 +22,7 @@ import { Flex } from "@/flex";
 import type { Generic } from "@/generic";
 import type { Status } from "@/status";
 import { renderHighlight } from "@/text/highlight";
-import { isValidElement } from "@/util/children";
+import { isValidElement } from "@/util";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
