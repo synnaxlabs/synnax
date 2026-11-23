@@ -15,7 +15,7 @@ import { type RenderResult, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Path } from "@/feature/arc/editor/Path";
+import { Path } from "@/feature/arc/editor/path";
 import { createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -43,7 +43,7 @@ const renderPath = async (key: arc.Key): Promise<RenderResult> => {
   return await renderSuspended(
     <Suspense fallback={null}>
       <Arc.Suspended arcKey={key}>
-        <Path />
+        <Path.Path />
       </Arc.Suspended>
     </Suspense>,
     { wrapper },
