@@ -11,9 +11,27 @@
 
 # Manages the preview Cores on this host.
 #
-#   preview up <pr> <image>   Starts or replaces the Core for a pull request.
+#   preview up <pr> <image> [human|none <time>]
+#                             Starts or replaces the Core for a pull request, and
+#                             marks it as mark does. At the cap, it first removes a
+#                             preview: ones not marked human before ones marked
+#                             human, and within each, the one deployed or viewed
+#                             longest ago.
+#   preview mark <pr> human|none <time>
+#                             Sets whether a pull request waits on a human review, as
+#                             its labels showed at <time> (Unix seconds). A mark older
+#                             than the saved one changes nothing.
+#   preview upgrade           Starts Caddy, or recreates it without its access log
+#                             mount, and applies the CPU limit to the running
+#                             previews. Memory limits apply from the next deploy.
 #   preview down <pr>         Removes the Core for a pull request.
-#   preview sweep             Removes every Core deployed more than the TTL ago.
+#   preview sweep             Removes every Core marked none and not deployed or
+#                             viewed for the TTL.
+#   preview notices           Prints the notices of removed previews, one per line:
+#                             "<pr> <UTC time> evicted <pr that took its place>" or
+#                             "<pr> <UTC time> expired".
+#   preview ack [<pr> <UTC time>]...
+#                             Deletes the notices that the pairs name.
 
 set -euo pipefail
 
@@ -21,6 +39,8 @@ set -euo pipefail
 source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
+: "${PREVIEW_MAX:?}" "${PREVIEW_CPUS:?}" "${PREVIEW_MEMORY:?}" "${PREVIEW_LOGS:?}"
+: "${PREVIEW_GO_MEMORY:?}"
 
 # One command at a time, so a sweep never removes a preview that up just replaced.
 exec 9> "$PREVIEW_SITES/.lock"
@@ -33,6 +53,50 @@ prune_images() { docker image prune --all --force > /dev/null; }
 
 reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
 
+# Prints "<pr> <deployed>" for each preview.
+previews() {
+    docker ps --all --filter label=synnax.preview \
+        --format '{{.Label "synnax.preview"}} {{.Label "synnax.preview.deployed"}}'
+}
+
+mark_file() { echo "$PREVIEW_SITES/pr-$1.human"; }
+
+marked_human() { [[ $(cut -d' ' -f2 "$(mark_file "$1")" 2> /dev/null) == human ]]; }
+
+# A preview deployed before marks and access logs existed has neither, so nothing
+# shows whether it waits on a review or gets views. The sweep keeps it until its next
+# deploy writes a mark.
+marked_none() { [[ $(cut -d' ' -f2 "$(mark_file "$1")" 2> /dev/null) == none ]]; }
+
+# Notices stay on the host until a deploy job posts them and sends ack, so a run that
+# is cancelled or fails before it posts them loses none.
+NOTICES=$PREVIEW_SITES/notices
+TIME='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+
+notice() { echo "$1 $(date -u +%Y-%m-%dT%H:%M:%SZ) $2" >> "$NOTICES"; }
+
+# Prints the later of deployed time $2 and the last view of pull request $1. A
+# preview's access log changes on each request, so its time is the last view.
+active() {
+    local log="$PREVIEW_LOGS/pr-$1.log"
+    if [[ -f $log ]] && (($(date -r "$log" +%s) > $2)); then
+        date -r "$log" +%s
+    else
+        echo "$2"
+    fi
+}
+
+# Prints the pull requests of the previews other than $1, in the order up evicts them.
+eviction_order() {
+    local pr deployed human
+    previews | while read -r pr deployed; do
+        if [[ $pr == "$1" ]]; then continue; fi
+        human=0
+        if marked_human "$pr"; then human=1; fi
+        echo "$pr $human $(active "$pr" "$deployed")"
+    done | sort -k2,2n -k3,3n | cut -d' ' -f1
+}
+
 check_pr() {
     if [[ ! $1 =~ ^[0-9]+$ ]]; then
         echo "invalid pull request number: $1" >&2
@@ -40,21 +104,48 @@ check_pr() {
     fi
 }
 
+mark() {
+    local file saved
+    check_pr "$1"
+    if [[ ! $2 =~ ^(human|none)$ || ! $3 =~ ^[0-9]+$ ]]; then
+        echo "invalid review mark: $2 $3" >&2
+        exit 1
+    fi
+    file=$(mark_file "$1")
+    saved=$(cut -d' ' -f1 "$file" 2> /dev/null || echo 0)
+    if (($3 >= saved)); then echo "$3 $2" > "$file"; fi
+}
+
 up() {
     local pr=$1 image=$2 name
     check_pr "$pr"
+    mark "$pr" "${3:-none}" "${4:-0}"
     name=$(container "$pr")
-    # An unlicensed Core rejects every request but login. Fetched first, so a failure
-    # leaves the running Core in place.
+    # An unlicensed Core rejects every request but login. The license and the image come
+    # first, so a failure to get either leaves every running Core in place.
     SYNNAX_LICENSE_KEY=$(aws ssm get-parameter --region "$PREVIEW_REGION" \
         --name "$PREVIEW_LICENSE_PARAMETER" --with-decryption \
         --query Parameter.Value --output text)
     export SYNNAX_LICENSE_KEY
     docker pull --quiet "$image"
+    local order others=() other i
+    # A plain assignment, so a failed listing stops the deploy before the cap.
+    order=$(eviction_order "$pr")
+    if [[ -n $order ]]; then
+        while read -r other; do others+=("$other"); done <<< "$order"
+    fi
+    for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
+        # Written first, so a failed removal still gets a notice.
+        notice "${others[i]}" "evicted $pr"
+        # No prune here: it would delete the image pulled above.
+        remove "${others[i]}"
+    done
     docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
     docker run --detach --name "$name" --network preview --restart unless-stopped \
-        --memory 2g --cpus 1 --env SYNNAX_LICENSE_KEY \
+        --memory "$PREVIEW_MEMORY" --memory-swap "$PREVIEW_MEMORY" \
+        --cpus "$PREVIEW_CPUS" --env SYNNAX_LICENSE_KEY \
+        --env GOMEMLIMIT="$PREVIEW_GO_MEMORY" \
         --label synnax.preview="$pr" --label synnax.preview.deployed="$(date +%s)" \
         "$image" --listen 0.0.0.0:9090 --insecure --mem --no-driver > /dev/null
     prune_images
@@ -64,11 +155,16 @@ up() {
             http://localhost:9090/api/v1/connectivity/check; then
             # A Caddy reload closes every proxied websocket unless delayed, so without
             # the delay one preview's deploy breaks the streams of all the others.
-            {
-                printf 'pr-%s.%s {\n' "$pr" "$PREVIEW_DOMAIN"
-                printf '\treverse_proxy %s:9090 {\n' "$name"
-                printf '\t\tstream_close_delay 1h\n\t}\n}\n'
-            } > "$PREVIEW_SITES/pr-$pr.caddy"
+            cat > "$PREVIEW_SITES/pr-$pr.caddy" << SITE
+pr-$pr.$PREVIEW_DOMAIN {
+    log {
+        output file $PREVIEW_LOGS/pr-$pr.log
+    }
+    reverse_proxy $name:9090 {
+        stream_close_delay 1h
+    }
+}
+SITE
             reload_caddy
             return
         fi
@@ -79,32 +175,85 @@ up() {
     exit 1
 }
 
+remove() {
+    docker rm --force "$(container "$1")" > /dev/null
+    rm -f "$PREVIEW_SITES/pr-$1.caddy" "$PREVIEW_LOGS/pr-$1.log" "$(mark_file "$1")"
+    reload_caddy
+}
+
 down() {
     check_pr "$1"
-    docker rm --force "$(container "$1")" > /dev/null
-    rm -f "$PREVIEW_SITES/pr-$1.caddy"
-    reload_caddy
+    remove "$1"
     prune_images
+}
+
+upgrade() {
+    local mounts preview
+    # No Caddy container yet, on a new host, reads as no mounts.
+    mounts=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' caddy \
+        2> /dev/null || true)
+    if [[ " $mounts " != *" $PREVIEW_LOGS "* ]]; then
+        mkdir -p "$PREVIEW_LOGS"
+        docker rm --force caddy > /dev/null
+        docker run --detach --name caddy --network preview --restart unless-stopped \
+            --publish 443:443 --volume /etc/caddy:/etc/caddy:ro \
+            --volume "$PREVIEW_LOGS:$PREVIEW_LOGS" --volume caddy_data:/data \
+            caddy:2.10 > /dev/null
+    fi
+    # A running Core cannot get GOMEMLIMIT, so a lower memory limit could kill it.
+    for preview in $(docker ps --all --quiet --filter label=synnax.preview); do
+        docker update --cpus "$PREVIEW_CPUS" "$preview" > /dev/null
+    done
 }
 
 sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
-    docker ps --all --filter label=synnax.preview \
-        --format '{{.Label "synnax.preview"}} {{.Label "synnax.preview.deployed"}}' \
-        | while read -r pr deployed; do
-            if ((deployed < cutoff)); then down "$pr"; fi
-        done
+    previews | while read -r pr deployed _; do
+        if ! marked_none "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
+            continue
+        fi
+        notice "$pr" expired
+        down "$pr"
+    done
     # A failed deploy can leave a pulled image that no container uses.
     prune_images
 }
 
+notices() { if [[ -f $NOTICES ]]; then cat "$NOTICES"; fi; }
+
+ack() {
+    local rest
+    if (($# % 2)); then
+        echo "usage: preview ack [<pr> <UTC time>]..." >&2
+        exit 2
+    fi
+    while (($#)); do
+        check_pr "$1"
+        if [[ ! $2 =~ $TIME ]]; then
+            echo "invalid notice time: $2" >&2
+            exit 1
+        fi
+        if [[ -f $NOTICES ]]; then
+            rest=$(awk -v pr="$1" -v at="$2" '!($1 == pr && $2 == at)' "$NOTICES")
+            if [[ -n $rest ]]; then echo "$rest" > "$NOTICES"; else rm "$NOTICES"; fi
+        fi
+        shift 2
+    done
+}
+
 case "${1:-}" in
-    up) up "$2" "$3" ;;
+    up) up "$2" "$3" "${4:-}" "${5:-}" ;;
+    mark) mark "$2" "${3:-}" "${4:-}" ;;
+    upgrade) upgrade ;;
     down) down "$2" ;;
     sweep) sweep ;;
+    notices) notices ;;
+    ack) ack "${@:2}" ;;
     *)
-        echo "usage: preview up <pr> <image> | down <pr> | sweep" >&2
+        echo "usage: preview up <pr> <image> [human|none <time>]" \
+            "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" \
+            "| notices | ack [<pr> <UTC time>]..." >&2
         exit 2
         ;;
 esac

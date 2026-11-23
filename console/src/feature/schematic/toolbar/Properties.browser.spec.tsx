@@ -154,7 +154,6 @@ describe("Schematic toolbar Properties", () => {
     it("shows an edit that another client makes to the selected element", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
-      await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
       await act(async () => {

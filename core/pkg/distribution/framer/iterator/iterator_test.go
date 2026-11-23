@@ -215,6 +215,22 @@ var _ = Describe("Close", func() {
 	})
 })
 
+var _ = Describe("Context", func() {
+	It("Should stop the iterator when the open context ends", func(ctx SpecContext) {
+		s := DeferClose(openScenario(ctx))
+		openCtx, cancel := context.WithCancel(ctx)
+		iter := MustSucceed(s.dist.Framer.OpenIterator(openCtx, iterator.Config{
+			Keys:   s.keys,
+			Bounds: telem.TimeRangeMax,
+		}))
+		cancel()
+		Eventually(iter.Error).Should(MatchError(context.Canceled))
+		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(iter.Close()).To(MatchError(context.Canceled))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
 var _ = Describe("Read failure", func() {
 	It("Should return the read error from Close", func(ctx SpecContext) {
 		faulty := WrapFaultyFS(xfs.NewMem())

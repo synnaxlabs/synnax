@@ -68,6 +68,25 @@ void assert_refuses(
     EXPECT_EQ(err.data, "message frame: field " + icd::base(f).name + ": " + text);
 }
 
+/// @brief returns a message named frame with fields, which binds the fields of keys to
+/// uint8 channels.
+BinaryMessage multiplexed(
+    const std::vector<icd::BinaryField> &fields,
+    const std::vector<icd::FieldKey> &keys
+) {
+    BinaryMessage m{.name = "frame", .payload = {.fields = fields}};
+    for (const auto &k: keys)
+        m.bindings.push_back({.field = k, .data_type = x::telem::UINT8_T});
+    return m;
+}
+
+/// @brief asserts that creating a decoder for m fails with text.
+void assert_refuses_message(const BinaryMessage &m, const std::string &text) {
+    const auto [dec, err] = Binary::create({m});
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, text);
+}
+
 /// @brief returns the one sample that a decoder for f bound to dt decodes from bytes.
 template<typename T>
 T decode_one(
@@ -280,12 +299,133 @@ TEST(Binary, RefuseDefaultNotFinite) {
     assert_refuses(f, x::telem::FLOAT64_T, "default: NaN is not finite");
 }
 
-/// @brief it should refuse a multiplexed field.
-TEST(Binary, RefuseMultiplexed) {
-    auto f = field<icd::UnsignedBinaryField>("v", 8, 8);
-    f.multiplexor = x::uuid::create();
-    f.multiplex_values = {1};
-    assert_refuses(f, x::telem::UINT8_T, "multiplexed fields are not supported yet");
+/// @brief it should decode only the fields that the multiplexor of a frame selects.
+TEST(Binary, DecodeMultiplexed) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    auto b = field<icd::UnsignedBinaryField>("b", 8, 8);
+    b.multiplexor = mode.key;
+    b.multiplex_values = {2, 3};
+    auto dec = ASSERT_NIL_P(
+        Binary::create({multiplexed({mode, a, b}, {a.key, b.key})})
+    );
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 16);
+    EXPECT_EQ(dec.samples(0)[1].size(), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+    ASSERT_EQ(dec.samples(0)[1].size(), 1);
+    EXPECT_EQ(dec.samples(0)[1].at<std::uint8_t>(0), 32);
+}
+
+/// @brief it should write the default of a field that the multiplexor does not select.
+TEST(Binary, DecodeMultiplexedDefault) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    a.default_ = 7;
+    auto dec = ASSERT_NIL_P(Binary::create({multiplexed({mode, a}, {a.key})}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 7);
+}
+
+/// @brief it should select a field only when each multiplexor in its chain holds one of
+/// its values.
+TEST(Binary, DecodeCascadedMultiplexors) {
+    const auto outer = field<icd::UnsignedBinaryField>("outer", 0, 8);
+    auto inner = field<icd::IntegerBinaryField>("inner", 8, 8);
+    inner.multiplexor = outer.key;
+    inner.multiplex_values = {1};
+    auto v = field<icd::UnsignedBinaryField>("v", 16, 8);
+    v.multiplexor = inner.key;
+    v.multiplex_values = {-1};
+    auto dec = ASSERT_NIL_P(Binary::create({multiplexed({outer, inner, v}, {v.key})}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 9);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+}
+
+/// @brief it should reject a payload too short for a multiplexor, and name the first
+/// multiplexor that does not fit.
+TEST(Binary, RejectShortForMultiplexors) {
+    const auto bank = field<icd::UnsignedBinaryField>("bank", 0, 8);
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 16, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = bank.key;
+    a.multiplex_values = {1};
+    a.default_ = 0;
+    auto b = field<icd::UnsignedBinaryField>("b", 8, 8);
+    b.multiplexor = mode.key;
+    b.multiplex_values = {1};
+    b.default_ = 0;
+    auto dec = ASSERT_NIL_P(
+        Binary::create({multiplexed({bank, mode, a, b}, {a.key, b.key})})
+    );
+    const auto [message, err] = dec.decode(std::vector<std::uint8_t>{1, 0});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field mode: the payload has 2 bytes and the field needs 3");
+}
+
+/// @brief it should refuse a multiplexor that is not a field of the message.
+TEST(Binary, RefuseMissingMultiplexor) {
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    const auto key = x::uuid::create();
+    a.multiplexor = key;
+    a.multiplex_values = {1};
+    assert_refuses(
+        a,
+        x::telem::UINT8_T,
+        "multiplexor " + key.to_string() + " does not exist"
+    );
+}
+
+/// @brief it should refuse a float multiplexor.
+TEST(Binary, RefuseFloatMultiplexor) {
+    const auto mode = field<icd::FloatBinaryField>("mode", 0, 32);
+    auto a = field<icd::UnsignedBinaryField>("a", 32, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    assert_refuses_message(
+        multiplexed({mode, a}, {a.key}),
+        "message frame: field a: multiplexor mode is a float field"
+    );
+}
+
+/// @brief it should refuse a multiplexed field with no multiplex values.
+TEST(Binary, RefuseEmptyMultiplexValues) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    assert_refuses_message(
+        multiplexed({mode, a}, {a.key}),
+        "message frame: field a: multiplex values are empty"
+    );
+}
+
+/// @brief it should refuse multiplexors that select each other.
+TEST(Binary, RefuseMultiplexorCycle) {
+    auto x = field<icd::UnsignedBinaryField>("x", 0, 8);
+    auto y = field<icd::UnsignedBinaryField>("y", 8, 8);
+    x.multiplexor = y.key;
+    x.multiplex_values = {1};
+    y.multiplexor = x.key;
+    y.multiplex_values = {1};
+    auto a = field<icd::UnsignedBinaryField>("a", 16, 8);
+    a.multiplexor = x.key;
+    a.multiplex_values = {1};
+    assert_refuses_message(
+        multiplexed({x, y, a}, {a.key}),
+        "message frame: field a: multiplexors form a cycle"
+    );
 }
 
 /// @brief it should refuse a field that ends past the length of its payload.

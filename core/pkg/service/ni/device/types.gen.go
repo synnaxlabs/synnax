@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
+	"regexp"
 )
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
@@ -51,6 +52,8 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a device.
 type Status = versions.Status
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Where is a filter that selects NI devices.
 type Where struct {
@@ -123,6 +126,7 @@ type Configuration struct {
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
 	v.NotEmptyString("name", c.Name)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(c.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	return v.Error()
 }
 

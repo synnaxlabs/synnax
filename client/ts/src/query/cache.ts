@@ -295,9 +295,8 @@ export class Cache {
   }
 
   /**
-   * Ensures the change stream is open, opening it on first call. Callers that
-   * populate or read tables await this first so no change is missed between a
-   * fetch and the stream opening.
+   * Ensures the change stream is open, opening it on first call. Each open reconciles
+   * the records cached before it, so a caller need not await this before a fetch.
    * @throws {AccessDeniedError} if the caller cannot stream the mirrored
    * channels. Answers stop being maintained until a later call succeeds.
    */
@@ -331,19 +330,11 @@ export class Cache {
         // Both run before the stream's first frame.
         onOpen: () => {
           if (this.streamer !== streamer) return;
-          this.clearPendingDeletes();
           this.unmaintained = false;
-          this._live = true;
-          this.epochCount = 1;
-          this.epochObserver.notify(this.epochCount);
-          this.trim();
+          this.goLive();
         },
         onReopen: () => {
-          if (this.streamer !== streamer) return;
-          this.clearPendingDeletes();
-          this._live = true;
-          this.bumpEpoch();
-          this.trim();
+          if (this.streamer === streamer) this.goLive();
         },
         onDead: (error) => {
           if (this.streamer !== streamer) return;
@@ -367,8 +358,8 @@ export class Cache {
   }
 
   /**
-   * The connection epoch: 0 before streaming starts, 1 once live, incremented
-   * on every reconnect. Changes may have been missed between epochs.
+   * The connection epoch: 0 before streaming starts, incremented each time the stream
+   * goes live. Changes may have been missed between epochs.
    */
   get epoch(): number {
     return this.epochCount;
@@ -403,8 +394,8 @@ export class Cache {
 
   /**
    * Re-checks every cached entry against the cluster: refreshes entries that
-   * still exist and tombstones entries that vanished. Runs after every
-   * reconnect for tables that declare a fetch.
+   * still exist and tombstones entries that vanished. Runs each time the stream goes
+   * live for tables that declare a fetch.
    */
   private async reconcile(): Promise<void> {
     await Promise.all(
@@ -450,14 +441,19 @@ export class Cache {
     this.tables.forEach(({ clearPendingDeletes }) => clearPendingDeletes());
   }
 
-  private bumpEpoch(): void {
+  /**
+   * Bumps the epoch and reconciles every table. Records fetched before the stream went
+   * live, or while it was down, may have missed a change.
+   */
+  private goLive(): void {
+    this.clearPendingDeletes();
+    this._live = true;
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
     this.reconcile().catch((exc: unknown) =>
-      this.onError(
-        new Error("failed to reconcile caches after reconnect", { cause: exc }),
-      ),
+      this.onError(new Error("failed to reconcile caches", { cause: exc })),
     );
+    this.trim();
   }
 
   /**

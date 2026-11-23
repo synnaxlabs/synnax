@@ -183,15 +183,18 @@ func (e *JSONEncoder) templateField(
 		return xjson.TemplateField{}, 0, nil, err
 	}
 	tf := xjson.TemplateField{Label: "field " + b.Name, Pointer: pointer}
+	if f.Variant == nil {
+		return xjson.TemplateField{}, 0, nil, errUntyped
+	}
 	def, err := defaultOf(f)
 	if err != nil {
-		return xjson.TemplateField{}, 0, nil, err
+		return xjson.TemplateField{}, 0, nil, errors.Wrap(err, "default")
 	}
 	binding, ok := bound[b.Key]
 	if !ok {
 		if !def.defined() {
 			return xjson.TemplateField{}, 0, nil, errors.Wrap(
-				validate.ErrValidation, "no channel and no default",
+				validate.ErrValidation, "needs a channel or a default",
 			)
 		}
 		tf.Literal = def.literal
@@ -391,7 +394,16 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	return f, nil
 }
 
-// defaultOf returns the default of jf, or the zero fieldDefault when jf has none.
+// CheckDefault returns a validation error when f cannot send its default, such as JSON
+// text that is not valid. The error does not name the default, so the caller adds the
+// path of the value.
+func CheckDefault(f icd.JSONField) error {
+	_, err := defaultOf(f)
+	return err
+}
+
+// defaultOf returns the default of jf, or the zero fieldDefault when jf has none. Its
+// errors do not name the default.
 func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 	var (
 		d   fieldDefault
@@ -424,7 +436,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		}
 	case icd.JSONJSONField:
 		if v.Default != nil {
-			d.literal, err = jsonDefault(*v.Default)
+			d.literal, err = jsonText(*v.Default)
 		}
 	case icd.UuidJSONField:
 		if v.Default != nil {
@@ -435,7 +447,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 			d.literal, err = bytesDefault(*v.Default)
 		}
 	case nil:
-		err = errors.Wrap(validate.ErrValidation, "type is required")
+		err = errUntyped
 	}
 	if err != nil {
 		return fieldDefault{}, err
@@ -457,7 +469,7 @@ func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {
 		}, nil
 	case nil:
 	}
-	return nil, nil, errUntypedDefault
+	return nil, nil, errUntyped
 }
 
 func uuidDefault(d icd.UUIDDefault) ([]byte, generator, error) {
@@ -471,7 +483,7 @@ func uuidDefault(d icd.UUIDDefault) ([]byte, generator, error) {
 		}, nil
 	case nil:
 	}
-	return nil, nil, errUntypedDefault
+	return nil, nil, errUntyped
 }
 
 // appendUUID appends id to dst as a JSON string.
@@ -485,7 +497,7 @@ func appendUUID(dst []byte, id uuid.UUID) ([]byte, error) {
 
 func bytesDefault(text string) ([]byte, error) {
 	if _, err := xjson.DecodeBase64(text); err != nil {
-		return nil, errors.Wrap(err, "default")
+		return nil, err
 	}
 	return quote(text)
 }

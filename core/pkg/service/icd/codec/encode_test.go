@@ -580,9 +580,10 @@ var _ = Describe("JSONEncoder", func() {
 				MatchError(expected),
 			))
 		},
-		Entry("a field with no binding and no default",
+		Entry(
+			"a field with no binding and no default",
 			message([]icd.JSONField{floatField("temp", uuid.New(), 1, 0)}),
-			"message command: field temp: no channel and no default: validation error",
+			"message command: field temp: needs a channel or a default: validation error",
 		),
 		Entry(
 			"a bytes default that is not base64",
@@ -604,8 +605,7 @@ var _ = Describe("JSONEncoder", func() {
 				Pointer: "/doc",
 				Default: new(`{"id":`),
 			}}}),
-			"message command: field doc: default is not valid JSON: "+
-				"validation error",
+			"message command: field doc: default: not valid JSON: validation error",
 		),
 		Entry("a timestamp default with no type",
 			message([]icd.JSONField{{Variant: icd.TimestampJSONField{
@@ -813,3 +813,45 @@ var _ = Describe("JSONEncoder", func() {
 })
 
 var fixedKey = uuid.MustParse("00000000-0000-4000-8000-0000000000aa")
+
+var _ = Describe("CheckDefault", func() {
+	DescribeTable("Should accept a default that its field can send",
+		func(v icd.JSONFieldVariant) {
+			Expect(codec.CheckDefault(icd.JSONField{Variant: v})).To(Succeed())
+		},
+		Entry("no default", icd.JSONJSONField{}),
+		Entry("JSON text", icd.JSONJSONField{Default: new(`{"max":10}`)}),
+		Entry("base64 text", icd.BytesJSONField{Default: new("AQI=")}),
+		Entry("a finite float", icd.FloatJSONField{Default: new(payload.Float(2.5))}),
+	)
+
+	DescribeTable("Should refuse a default without naming it",
+		func(v icd.JSONFieldVariant, expected string) {
+			Expect(codec.CheckDefault(icd.JSONField{Variant: v})).
+				To(MatchError(expected))
+		},
+		Entry("JSON text that is not valid",
+			icd.JSONJSONField{Default: new("{")},
+			"not valid JSON: validation error",
+		),
+		Entry("text that is not base64",
+			icd.BytesJSONField{Default: new("AQI")},
+			"not canonical base64: validation error",
+		),
+		Entry("a float that is not finite",
+			icd.FloatJSONField{Default: new(payload.Float(math.NaN()))},
+			"NaN is not a JSON number: validation error",
+		),
+		Entry("a timestamp default with no type",
+			icd.TimestampJSONField{
+				TimeFormat: payload.TimeFormatUnixNs,
+				Default:    &icd.TimestampDefault{},
+			},
+			"type is required: validation error",
+		),
+		Entry("a UUID default with no type",
+			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
+			"type is required: validation error",
+		),
+	)
+})
