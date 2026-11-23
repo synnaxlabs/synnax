@@ -16,6 +16,7 @@
 
 import {
   channel,
+  DataType,
   group,
   type label,
   lineplot,
@@ -23,7 +24,7 @@ import {
   type panel,
   ranger,
   type resource,
-  type status,
+  status,
   Synnax,
   table,
 } from "@synnaxlabs/client";
@@ -71,6 +72,10 @@ const KEYS = {
     "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e61",
     "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e62",
   ],
+  arcs: {
+    bar: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e70",
+    alarm: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e71",
+  },
 } as const;
 
 interface Channels {
@@ -410,6 +415,95 @@ const STATUSES: status.New[] = [
   },
 ];
 
+const BAR_PROGRAM = `import time
+
+func convert() {
+    preview_tank_pt_bar = sample_tank_pt * 0.0689476
+}
+
+time.interval(period=100ms) -> convert()
+`;
+
+const ALARM_PROGRAM = `import time
+
+func check() {
+    high u8 $= 0
+    if sample_tank_pt > 400 {
+        high = 1
+    } else {
+        high = 0
+    }
+    preview_tank_pt_high = high
+}
+
+time.interval(period=100ms) -> check()
+`;
+
+// The bar converter runs, and the alarm is configured but stopped, so the task toolbar
+// shows both states.
+const createArcs = async (client: Synnax): Promise<void> => {
+  const k = KEYS.arcs;
+  await client.channels.create(
+    [
+      { name: "preview_tank_pt_bar", dataType: DataType.FLOAT64, virtual: true },
+      { name: "preview_tank_pt_high", dataType: DataType.UINT8, virtual: true },
+    ],
+    { retrieveIfNameExists: true },
+  );
+  // Deleting an Arc deletes its task, which stops the old program.
+  await client.arcs.delete([k.bar, k.alarm]);
+  await client.arcs.create([
+    {
+      key: k.bar,
+      name: "Tank pressure in bar",
+      type: "automation",
+      source: { mode: "text", text: { raw: BAR_PROGRAM } },
+    },
+    {
+      key: k.alarm,
+      name: "Tank pressure alarm",
+      type: "automation",
+      source: { mode: "text", text: { raw: ALARM_PROGRAM } },
+    },
+  ]);
+  const [rack] = await client.racks.retrieve({ integrations: "arc", embedded: true });
+  if (rack == null) throw new Error("No rack can run Arc programs");
+  const bar = await client.arcs.updateTask(k.bar, { rack: rack.key });
+  await client.arcs.updateTask(k.alarm, { rack: rack.key });
+  if (bar == null) throw new Error("The bar converter has no task");
+  const state = await bar.executeCommandSync({ type: "start" });
+  if (state.variant === "error") throw status.toError(state);
+};
+
+// Throwaway credentials for an in-memory preview. The preview comment lists them.
+const USERS = [
+  { username: "admin", name: "Ada Admin", role: "Owner" },
+  { username: "engineer", name: "Eli Engineer", role: "Engineer" },
+  { username: "operator", name: "Olga Operator", role: "Operator" },
+  { username: "viewer", name: "Vic Viewer", role: "Viewer" },
+];
+const PASSWORD = "seldon";
+
+const createUsers = async (client: Synnax): Promise<void> => {
+  const roles = await client.access.roles.retrieve({});
+  const roleKey = (name: string): string => {
+    const role = roles.find((r) => r.name === name);
+    if (role == null) throw new Error(`Role ${name} not found`);
+    return role.key;
+  };
+  const usernames = USERS.map((u) => u.username);
+  const found = await client.users.retrieve({ usernames });
+  if (found.length > 0) await client.users.delete(found.map((u) => u.key));
+  await client.users.create(
+    USERS.map(({ username, name, role }) => ({
+      username,
+      name,
+      password: PASSWORD,
+      role: roleKey(role),
+    })),
+  );
+};
+
 const deleteOld = async (client: Synnax): Promise<void> => {
   const { operations: o, review: r, valves: v } = KEYS;
   await Promise.all([
@@ -435,4 +529,6 @@ await createChannelGroup(client, ch);
 await createLabels(client);
 await createRanges(client);
 await client.statuses.set(STATUSES);
+await createArcs(client);
+await createUsers(client);
 await client.close();
