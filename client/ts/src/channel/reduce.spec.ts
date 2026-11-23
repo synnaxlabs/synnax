@@ -10,9 +10,9 @@
 import { control } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import type { Action, Stored } from "@/channel/actions";
+import { type Action, set, type Stored } from "@/channel/actions";
 import { isCalculated } from "@/channel/payload";
-import { createOf } from "@/channel/reduce";
+import { createOf, reduceAll } from "@/channel/reduce";
 
 const create = (stored: Partial<Stored>): Action => ({
   type: "create",
@@ -42,6 +42,34 @@ describe("channel reduce", () => {
     it("should not mark a created virtual channel with no expression calculated", () => {
       const created = createOf(create({}));
       expect(created != null && isCalculated(created)).toBe(false);
+    });
+  });
+
+  describe("reduceAll", () => {
+    const created = createOf(create({}));
+    if (created == null) throw new Error("expected a created channel");
+    const setExpression = (value: string): Action =>
+      set({ path: ["expression"], value });
+
+    it("should mark a virtual channel calculated when its expression arrives", () => {
+      const { next, targets } = reduceAll(created, [setExpression("return 1")]);
+      expect(isCalculated(next)).toBe(true);
+      expect(targets).toContain("calculated");
+    });
+
+    it("should keep the calculation fields of a cached channel at its create", () => {
+      const calculated = createOf(create({ expression: "return 1" }));
+      if (calculated == null) throw new Error("expected a created channel");
+      const { next } = reduceAll(calculated, [create({})]);
+      expect(next.expression).toBe("return 1");
+      expect(isCalculated(next)).toBe(true);
+    });
+
+    it("should unmark a channel whose expression is cleared", () => {
+      const calculated = createOf(create({ expression: "return 1" }));
+      if (calculated == null) throw new Error("expected a created channel");
+      const { next } = reduceAll(calculated, [setExpression("")]);
+      expect(isCalculated(next)).toBe(false);
     });
   });
 });

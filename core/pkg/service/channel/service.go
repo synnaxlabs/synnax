@@ -37,16 +37,9 @@ import (
 // LimitChecker returns an error when a count of external channels exceeds the limit.
 type LimitChecker = func(types.Uint20) error
 
-// Fill holds the expression and operations of the calculation that writes a channel. A
-// create action carries them for clients that read them from the channel.
-type Fill struct {
-	Expression string
-	Operations []Operation
-}
-
-// Filler returns the fill of each channel among keys that a calculation writes, as tx
-// sees them.
-type Filler = func(ctx context.Context, tx gorp.Tx, keys ...Key) (map[Key]Fill, error)
+// OutputAnnouncer announces through w, in tx, the calculation fields of each channel
+// among keys that a calculation writes.
+type OutputAnnouncer = func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -84,11 +77,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
-	// Fills fills the create action of a stored channel that a create links to a new
-	// index.
+	// AnnounceOutputs announces the calculation fields of a stored channel that a
+	// create links to a new index, since its create action holds none.
 	//
-	// [OPTIONAL] - Defaults to filling nothing.
-	Fills Filler
+	// [OPTIONAL] - Defaults to announcing nothing.
+	AnnounceOutputs OutputAnnouncer
 	// Computes reports whether the holder of a use computes the channel, as a
 	// calculation computes the channel it writes. Declare never adopts a computed
 	// channel as a built-in.
@@ -122,7 +115,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
-	c.Fills = override.Nil(c.Fills, other.Fills)
+	c.AnnounceOutputs = override.Nil(c.AnnounceOutputs, other.AnnounceOutputs)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }
