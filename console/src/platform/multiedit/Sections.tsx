@@ -12,7 +12,7 @@ import "@/platform/multiedit/Sections.css";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
-import { notation, TimeSpan } from "@synnaxlabs/x";
+import { notation } from "@synnaxlabs/x";
 import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -28,10 +28,8 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
 );
 
 export interface StalenessSectionProps extends PropsWithChildren {
-  /** The timeout, in `unit`. */
+  /** The timeout in nanoseconds. */
   timeout?: number;
-  /** The unit of the stored timeout. Defaults to nanoseconds. */
-  unit?: TimeSpan;
   onTimeoutChange: (value: number) => void;
 }
 
@@ -39,7 +37,6 @@ export interface StalenessSectionProps extends PropsWithChildren {
 export const StalenessSection = ({
   children,
   timeout,
-  unit = TimeSpan.NANOSECOND,
   onTimeoutChange,
 }: StalenessSectionProps): ReactElement => (
   <Form.Section title="Staleness">
@@ -47,12 +44,8 @@ export const StalenessSection = ({
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline
-        value={
-          timeout == null
-            ? Staleness.DEFAULT_TIMEOUT
-            : Number(unit.mult(timeout).valueOf())
-        }
-        onChange={(ns) => onTimeoutChange(ns / Number(unit.valueOf()))}
+        value={timeout ?? Staleness.DEFAULT_TIMEOUT}
+        onChange={onTimeoutChange}
         check={Staleness.checkTimeout}
       />
     </Input.Item>

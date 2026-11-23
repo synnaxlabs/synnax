@@ -700,6 +700,27 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should keep wide integer enum values and a non-first default", func() {
+			source := `
+				@py output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+			resp := MustGenerate(source, "serial", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain("class BaudRate(IntEnum):").
+				ToContain("baud_230400 = 230400").
+				ToContain("baud_rate: BaudRate = BaudRate.baud_19200")
+		})
+
 		It("Should generate IntEnum for integer enums", func() {
 			source := `
 				@py output "out"
