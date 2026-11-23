@@ -437,7 +437,7 @@ var _ = Describe("Service", func() {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdEntry("plant/x", f.ic, read)}
 			}, "entries.0.messages.0.bindings.0.channel",
-				"because only the index field can. Move field ts into its own message"),
+				"because only the index field can. Bind field ts to a data channel"),
 			Entry("a channel that two entries write", func(f format) []map[string]any {
 				return []map[string]any{
 					icdEntry(
