@@ -264,12 +264,11 @@ func (c *collector) reachHash(ref resolution.TypeRef) error {
 	return nil
 }
 
-// wireFields returns the fields of t that have a JSON form.
+// wireFields returns the fields of t that have a JSON form. A field typed by a type
+// parameter with a default takes the default, as in the Go type.
 func wireFields(t resolution.Type, table *resolution.Table) []resolution.Field {
-	return slices.DeleteFunc(
-		slices.Clone(resolution.UnifiedFields(t, table)),
-		wireOmitted,
-	)
+	fields, _ := resolution.RecordFields(t, table)
+	return slices.DeleteFunc(fields, wireOmitted)
 }
 
 // markedFields returns the @patch fields of a struct.
@@ -509,7 +508,7 @@ func distinctShape(
 
 // structShape returns the shape of the Go value of the struct typ.
 func structShape(typ resolution.Type, form resolution.StructForm) (shape, error) {
-	if form.IsGeneric() {
+	if len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return shape{}, errors.Newf(
 			"%s: content hashing does not support a generic struct",
 			typ.QualifiedName,

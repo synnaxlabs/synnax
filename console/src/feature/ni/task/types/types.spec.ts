@@ -504,8 +504,7 @@ describe("deploy configs", () => {
               ...NI.Task.createAIChannel(),
               key: "1",
               device: "34",
-              minVal,
-              maxVal,
+              range: { lower: minVal, upper: maxVal },
               disabled,
             },
           ],
@@ -518,7 +517,7 @@ describe("deploy configs", () => {
     ["above", 5, -5],
     ["equal to", 5, 5],
   ])("should reject a minimum value %s the maximum value", (_, minVal, maxVal) => {
-    expect(rangeIssues(minVal, maxVal)).toEqual([["channels", 1, "minVal"]]);
+    expect(rangeIssues(minVal, maxVal)).toEqual([["channels", 1, "range", "lower"]]);
   });
 
   it("should accept a minimum value below the maximum value", () => {
@@ -535,7 +534,9 @@ describe("deploy configs", () => {
       NI.Task.deployAnalogWriteConfigZ,
       NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({
         device: "34",
-        channels: [{ ...NI.Task.createAOChannel(), key: "0", minVal: 1, maxVal: 0 }],
+        channels: [
+          { ...NI.Task.createAOChannel(), key: "0", range: { lower: 1, upper: 0 } },
+        ],
       }),
     ],
     [
@@ -547,8 +548,7 @@ describe("deploy configs", () => {
             ...NI.Task.createCIChannel(),
             key: "0",
             device: "34",
-            minVal: 1,
-            maxVal: 0,
+            range: { lower: 1, upper: 0 },
           },
         ],
       }),
@@ -558,7 +558,7 @@ describe("deploy configs", () => {
       .safeParse(config)
       .error?.issues.filter(({ message }) => message === RANGE_MESSAGE)
       .map(({ path }) => path);
-    expect(paths).toEqual([["channels", 0, "minVal"]]);
+    expect(paths).toEqual([["channels", 0, "range", "lower"]]);
   });
 });
 

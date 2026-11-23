@@ -290,8 +290,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto sensitivity = ch.sensitivity;
     const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
@@ -333,8 +333,8 @@ inline x::errors::Error apply(
         ch,
         ch.scaled_by_excitation
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto sensitivity = ch.sensitivity;
     const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
@@ -373,8 +373,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto sensitivity = ch.sensitivity;
     const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
@@ -411,8 +411,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -443,8 +443,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -474,8 +474,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto ext_shunt_resistor_val = ch.ext_shunt_resistor_val;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto shunt_resistor_loc = get_shunt_resistor_loc(ch.shunt_resistor_loc);
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto units = DAQmx_Val_Amps;
@@ -507,8 +507,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto ext_shunt_resistor_val = ch.ext_shunt_resistor_val;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto shunt_resistor_loc = get_shunt_resistor_loc(ch.shunt_resistor_loc);
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto units = DAQmx_Val_Amps;
@@ -540,8 +540,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -580,8 +580,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TableConfig table_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -620,8 +620,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -662,8 +662,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto sensitivity = ch.sensitivity;
     const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
@@ -701,8 +701,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto hysteresis = ch.hysteresis;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto threshold_level = ch.threshold_level;
     auto units = DAQmx_Val_Hz;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -767,8 +767,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -807,8 +807,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TableConfig table_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -847,8 +847,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -887,8 +887,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto r0 = ch.r0;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto rtd_type = get_rtd_type(ch.rtd_type);
@@ -921,8 +921,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     auto units = DAQmx_Val_Ohms;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -958,8 +958,8 @@ inline x::errors::Error apply(
     const auto gage_factor = ch.gage_factor;
     const auto initial_bridge_voltage = ch.initial_bridge_voltage;
     const auto lead_wire_resistance = ch.lead_wire_resistance;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto nominal_gage_resistance = ch.nominal_gage_resistance;
     const auto poisson_ratio = ch.poisson_ratio;
     const auto strain_config = get_strain_config(ch.strain_config);
@@ -1017,8 +1017,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1051,8 +1051,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::VoltageExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto r1 = ch.r1;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto [units, units_err] = parse_units(ch.units);
@@ -1084,8 +1084,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1124,8 +1124,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TableConfig table_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1164,8 +1164,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const BridgeConfig bridge_config(ch, ch);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1206,8 +1206,8 @@ inline x::errors::Error apply(
     const ExcitationConfig excitation_config(
         static_cast<const ::synnax::ni::CurrentExcitation &>(ch)
     );
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto sensitivity = ch.sensitivity;
     const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
@@ -1245,8 +1245,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto units = DAQmx_Val_Volts;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -1274,8 +1274,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto units = DAQmx_Val_Volts;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -1305,8 +1305,8 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto bridge_config = parse_bridge_config(ch.bridge_config);
     const ExcitationConfig excitation_config(ch, ch.scaled_by_excitation);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto units = DAQmx_Val_Volts;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -1338,8 +1338,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ao" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     auto units = DAQmx_Val_Amps;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1387,8 +1387,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ao" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     auto units = DAQmx_Val_Volts;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1489,8 +1489,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto decoding_type = get_ci_decoding_type(ch.decoding_type);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto pulses_per_rev = ch.pulses_per_rev;
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
@@ -1547,8 +1547,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto edge = get_ci_edge(ch.active_edge);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal = ch.terminal;
     auto [key, key_err] = scale->apply(dmx);
     if (key_err) return key_err;
@@ -1622,10 +1622,10 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto divisor = ch.divisor;
     const auto edge = get_ci_edge(ch.edge);
-    const auto max_val = ch.max_val;
+    const auto max_val = ch.range.upper;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
     const auto meas_time = ch.meas_time.seconds();
-    const auto min_val = ch.min_val;
+    const auto min_val = ch.range.lower;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1746,8 +1746,8 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto decoding_type = get_ci_decoding_type(ch.decoding_type);
     const auto dist_per_pulse = ch.dist_per_pulse;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
     auto [units, units_err] = parse_units(ch.units);
@@ -1804,10 +1804,10 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto divisor = ch.divisor;
     const auto edge = get_ci_edge(ch.starting_edge);
-    const auto max_val = ch.max_val;
+    const auto max_val = ch.range.upper;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
     const auto meas_time = ch.meas_time.seconds();
-    const auto min_val = ch.min_val;
+    const auto min_val = ch.range.lower;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1853,8 +1853,8 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto edge = get_ci_edge(ch.starting_edge);
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1896,8 +1896,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1940,8 +1940,8 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto first_edge = get_ci_edge(ch.first_edge);
     const auto first_terminal = ch.first_terminal;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
+    const auto max_val = ch.range.upper;
+    const auto min_val = ch.range.lower;
     const auto second_edge = get_ci_edge(ch.second_edge);
     const auto second_terminal = ch.second_terminal;
     auto [units, units_err] = parse_units(ch.units);
@@ -2034,8 +2034,8 @@ inline x::errors::Error apply(
         task_handle,
         loc.c_str(),
         ctx.cfg_path.c_str(),
-        ch.min_val,
-        ch.max_val,
+        ch.range.lower,
+        ch.range.upper,
         units,
         parse_thermocouple_type(ch.thermocouple_type),
         cjc.source,

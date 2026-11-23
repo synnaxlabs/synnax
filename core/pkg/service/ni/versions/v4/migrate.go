@@ -11,6 +11,7 @@ package v4
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"reflect"
 	"uuid"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/errors"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"go.uber.org/zap"
 )
@@ -118,6 +120,21 @@ func MigrateDOChannel(ctx context.Context, old v3.DOChannel) (DOChannel, error) 
 	return ch, nil
 }
 
+// MigrateMinMaxVal lifts a v3 minimum and maximum into a v4 range, swapping a reversed
+// pair. An equal pair returns a zero range, which the config migrations replace with
+// the default range of the channel type.
+func MigrateMinMaxVal(ctx context.Context, old v3.MinMaxVal) (MinMaxVal, error) {
+	m, err := autoMigrateMinMaxVal(ctx, old)
+	if err != nil || old.MinVal == old.MaxVal {
+		return m, err
+	}
+	m.Range = spatial.ClosedBounds{
+		Lower: min(old.MinVal, old.MaxVal),
+		Upper: max(old.MinVal, old.MaxVal),
+	}
+	return m, nil
+}
+
 // MigrateAnalogReadConfig lifts a v3 analog read config to v4. A thermocouple whose
 // cold-junction port clamps is disabled.
 func MigrateAnalogReadConfig(
@@ -149,6 +166,9 @@ func MigrateAnalogReadConfig(
 			cfg.Channels[i].Variant = n
 		}
 	}
+	for i := range cfg.Channels {
+		cfg.Channels[i].Variant = defaultRange(cfg.Channels[i].Variant)
+	}
 	return cfg, nil
 }
 
@@ -168,8 +188,15 @@ func MigrateAnalogWriteConfig(
 			v.Frequency = 1
 			cfg.Channels[i].Variant = v
 		}
+		cfg.Channels[i].Variant = defaultRange(cfg.Channels[i].Variant)
 	}
 	return cfg, nil
+}
+
+// MigrateCIChannel lifts a v3 counter input channel to v4. See MigrateMinMaxVal for its
+// range.
+func MigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, error) {
+	return autoMigrateCIChannel(ctx, old)
 }
 
 // MigrateCounterReadConfig lifts a v3 counter read config to v4.
@@ -177,7 +204,14 @@ func MigrateCounterReadConfig(
 	ctx context.Context,
 	old v3.CounterReadConfig,
 ) (CounterReadConfig, error) {
-	return autoMigrateCounterReadConfig(ctx, old)
+	cfg, err := autoMigrateCounterReadConfig(ctx, old)
+	if err != nil {
+		return CounterReadConfig{}, err
+	}
+	for i := range cfg.Channels {
+		cfg.Channels[i].Variant = defaultRange(cfg.Channels[i].Variant)
+	}
+	return cfg, nil
 }
 
 // MigrateCIChannel lifts a v3 counter input channel to v4. A frequency or period
@@ -482,3 +516,43 @@ var DigitalWriteMigration = migrate.NewInstrumentedEntry(
 	migrationKey,
 	logged(MigrateDigitalWriteConfig, logDigitalWrite),
 )
+
+// defaultRange returns variant with a zero range replaced by the default range of its
+// type. A variant without a range returns unchanged.
+func defaultRange[V any](variant V) V {
+	val := reflect.ValueOf(variant)
+	if !val.IsValid() {
+		return variant
+	}
+	ptr := reflect.New(val.Type())
+	ptr.Elem().Set(val)
+	r, ok := embeddedRange(ptr)
+	if !ok || r.Range != (spatial.ClosedBounds{}) {
+		return variant
+	}
+	def := reflect.New(val.Type())
+	as[interface{ SetDefaults() }](def.Interface()).SetDefaults()
+	d, _ := embeddedRange(def)
+	r.Range = d.Range
+	return as[V](ptr.Elem().Interface())
+}
+
+// embeddedRange returns the MinMaxVal that the struct ptr points to embeds, or false
+// for a struct without one.
+func embeddedRange(ptr reflect.Value) (*MinMaxVal, bool) {
+	field := ptr.Elem().FieldByName("MinMaxVal")
+	if !field.IsValid() || field.Type() != reflect.TypeFor[MinMaxVal]() {
+		return nil, false
+	}
+	return as[*MinMaxVal](field.Addr().Interface()), true
+}
+
+// as returns v as a T. It panics when v is not a T, which reflection on a variant of
+// a known type rules out.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("%T is not a %T", v, t))
+	}
+	return t
+}

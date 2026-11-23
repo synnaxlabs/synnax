@@ -111,8 +111,7 @@ const checkAnalogRate = (
 };
 
 interface RangedChannel {
-  minVal: number;
-  maxVal: number;
+  range: closedBounds.ClosedBounds;
   customScale: ni.Scale;
 }
 
@@ -161,7 +160,7 @@ const format = (value: number): number => Number(value.toPrecision(6));
  * units, so the check maps them back to pre-scaled units first.
  */
 const checkRange = (
-  { minVal, maxVal, customScale }: RangedChannel,
+  { range: { lower: minVal, upper: maxVal }, customScale }: RangedChannel,
   ranges: closedBounds.ClosedBounds[],
   { units, symbol }: Measure,
   path: (string | number)[],
@@ -187,7 +186,7 @@ const checkRange = (
     const given = `${minVal} to ${maxVal} ${customScale.scaledUnits}`;
     message += `, which the scale gives for ${given}`;
   }
-  report([...path, maxFits ? "minVal" : "maxVal"], message);
+  report([...path, "range", maxFits ? "lower" : "upper"], message);
 };
 
 /**

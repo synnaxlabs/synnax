@@ -11,7 +11,16 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/patch"
+import (
+	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/patch"
+)
+
+// HashContent writes the content of the value to h, without its keys.
+func (cb *ClosedBounds) HashContent(h *content.Hash) {
+	h.Float(cb.Lower)
+	h.Float(cb.Upper)
+}
 
 // Patch applies the path action at c, which is not done, to the value.
 func (d *Dimensions) Patch(c patch.Cursor) error {

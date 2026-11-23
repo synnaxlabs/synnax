@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from x import spatial
 
 """
 This example demonstrates how to configure and start an Analog Write Task on a National
@@ -90,15 +91,13 @@ tsk = sy.ni.AnalogWriteTask(
             # The port on the device that the analog output is connected to.
             port=0,
             # The minimum and maximum voltage values for the output.
-            min_val=-10.0,
-            max_val=10.0,
+            range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
         ),
         sy.ni.AOVoltageChannel(
             cmd_channel=ao_1_cmd.key,
             state_channel=ao_1_state.key,
             port=1,
-            min_val=-10.0,
-            max_val=10.0,
+            range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
         ),
     ],
 )

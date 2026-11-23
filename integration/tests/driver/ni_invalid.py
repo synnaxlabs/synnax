@@ -28,6 +28,7 @@ from tests.driver.task import (
     create_index,
     run_and_expect_rejection,
 )
+from x import spatial
 
 
 class NIInvalidConfig(TestCase):
@@ -74,8 +75,7 @@ class NIInvalidConfig(TestCase):
                         index=idx.key,
                     ),
                     terminal_config="Cfg_Default",
-                    min_val=-10.0,
-                    max_val=10.0,
+                    range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
                 ),
             ],
         )
@@ -105,8 +105,7 @@ class NIInvalidConfig(TestCase):
                     current_excit_source="Internal",
                     current_excit_val=0.001,
                     r0=100.0,
-                    min_val=0.0,
-                    max_val=100.0,
+                    range=spatial.ClosedBounds(lower=0.0, upper=100.0),
                 ),
             ],
         )
@@ -131,8 +130,7 @@ class NIInvalidConfig(TestCase):
                         index=idx.key,
                     ),
                     terminal_config="Cfg_Default",
-                    min_val=-1000.0,
-                    max_val=1000.0,
+                    range=spatial.ClosedBounds(lower=-1000.0, upper=1000.0),
                 ),
             ],
         )
@@ -160,8 +158,7 @@ class NIInvalidConfig(TestCase):
                         port=0,
                         channel=shared_ch_key,
                         terminal_config="Cfg_Default",
-                        min_val=-10.0,
-                        max_val=10.0,
+                        range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
                     ),
                 ],
             )
@@ -240,8 +237,7 @@ class NIMissingLibraries(HardwareCase):
                     port=0,
                     channel=ch_key,
                     terminal_config="Cfg_Default",
-                    min_val=-10.0,
-                    max_val=10.0,
+                    range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
                 ),
             ],
         )

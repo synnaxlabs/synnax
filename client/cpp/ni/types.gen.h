@@ -232,10 +232,8 @@ constexpr const char
 
 /// @brief MinMaxVal bounds the expected signal range in scaled units.
 struct MinMaxVal {
-    /// @brief min_val is the minimum expected value, in scaled units.
-    double min_val = 0;
-    /// @brief max_val is the maximum expected value, in scaled units.
-    double max_val = 1;
+    /// @brief range is the expected signal range, in scaled units.
+    ::x::spatial::ClosedBounds range = {.lower = 0, .upper = 1};
 
     static MinMaxVal parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1300,10 +1298,7 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public Min
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
-    CIFrequencyChannel() {
-        this->min_val = 2;
-        this->max_val = 100;
-    }
+    CIFrequencyChannel() { this->range = {.lower = 2, .upper = 100}; }
 
     static CIFrequencyChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1341,10 +1336,7 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMax
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
-    CIPeriodChannel() {
-        this->min_val = 0.000001;
-        this->max_val = 0.100000;
-    }
+    CIPeriodChannel() { this->range = {.lower = 0.000001, .upper = 0.100000}; }
 
     static CIPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1362,10 +1354,7 @@ struct CIPulseWidthChannel : public BaseCIChannel,
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
-    CIPulseWidthChannel() {
-        this->min_val = 0.000001;
-        this->max_val = 0.100000;
-    }
+    CIPulseWidthChannel() { this->range = {.lower = 0.000001, .upper = 0.100000}; }
 
     static CIPulseWidthChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1381,10 +1370,7 @@ struct CISemiPeriodChannel : public BaseCIChannel,
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
-    CISemiPeriodChannel() {
-        this->min_val = 0.000001;
-        this->max_val = 0.100000;
-    }
+    CISemiPeriodChannel() { this->range = {.lower = 0.000001, .upper = 0.100000}; }
 
     static CISemiPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1406,10 +1392,7 @@ struct CITwoEdgeSepChannel : public BaseCIChannel,
     /// @brief second_terminal is the terminal the second edge's signal is wired to.
     std::string second_terminal = "";
 
-    CITwoEdgeSepChannel() {
-        this->min_val = 0.000001;
-        this->max_val = 1;
-    }
+    CITwoEdgeSepChannel() { this->range = {.lower = 0.000001, .upper = 1}; }
 
     static CITwoEdgeSepChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1431,10 +1414,7 @@ struct CIVelocityLinearChannel : public BaseCIChannel,
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
 
-    CIVelocityLinearChannel() {
-        this->min_val = 0;
-        this->max_val = 1;
-    }
+    CIVelocityLinearChannel() { this->range = {.lower = 0, .upper = 1}; }
 
     static CIVelocityLinearChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1456,10 +1436,7 @@ struct CIVelocityAngularChannel : public BaseCIChannel,
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
 
-    CIVelocityAngularChannel() {
-        this->min_val = 0;
-        this->max_val = 1;
-    }
+    CIVelocityAngularChannel() { this->range = {.lower = 0, .upper = 1}; }
 
     static CIVelocityAngularChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1517,10 +1494,7 @@ struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale, public Min
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
-    CIDutyCycleChannel() {
-        this->min_val = 2;
-        this->max_val = 10000;
-    }
+    CIDutyCycleChannel() { this->range = {.lower = 2, .upper = 10000}; }
 
     static CIDutyCycleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

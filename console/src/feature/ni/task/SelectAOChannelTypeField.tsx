@@ -76,7 +76,7 @@ export const SelectAOChannelTypeField = ({
       const range = unscaled ? defaultAORange(value, hardware) : undefined;
       set(path, {
         ...merged,
-        ...(range != null && { minVal: range.lower, maxVal: range.upper }),
+        ...(range != null && { range }),
         type: next.type,
       } as AOChannel);
     }}

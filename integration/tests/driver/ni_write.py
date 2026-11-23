@@ -17,6 +17,7 @@ from tests.driver.task import (
     create_channel,
     create_index,
 )
+from x import spatial
 from x.telem import to_float
 
 
@@ -177,8 +178,7 @@ def _ao_voltage_channels(
             index=state_idx.key,
         ),
         port=0,
-        min_val=0,
-        max_val=100,
+        range=spatial.ClosedBounds(lower=0, upper=100),
         custom_scale=map_scale,
     )
     nominal = sy.ni.AOVoltageChannel(
@@ -195,8 +195,7 @@ def _ao_voltage_channels(
             index=state_idx.key,
         ),
         port=1,
-        min_val=-10,
-        max_val=10,
+        range=spatial.ClosedBounds(lower=-10, upper=10),
     )
     lin_scaled = sy.ni.AOVoltageChannel(
         cmd_channel=create_channel(
@@ -212,8 +211,7 @@ def _ao_voltage_channels(
             index=state_idx.key,
         ),
         port=2,
-        min_val=0,
-        max_val=100,
+        range=spatial.ClosedBounds(lower=0, upper=100),
         custom_scale=lin_scale,
     )
     return [map_scaled, nominal, lin_scaled]
@@ -258,8 +256,7 @@ def _ao_current_channels(
             index=state_idx.key,
         ),
         port=0,
-        min_val=0,
-        max_val=100,
+        range=spatial.ClosedBounds(lower=0, upper=100),
         custom_scale=map_scale,
     )
     nominal = sy.ni.AOCurrentChannel(
@@ -276,8 +273,7 @@ def _ao_current_channels(
             index=state_idx.key,
         ),
         port=1,
-        min_val=0.004,
-        max_val=0.020,
+        range=spatial.ClosedBounds(lower=0.004, upper=0.020),
     )
     lin_scaled = sy.ni.AOCurrentChannel(
         cmd_channel=create_channel(
@@ -293,8 +289,7 @@ def _ao_current_channels(
             index=state_idx.key,
         ),
         port=2,
-        min_val=0,
-        max_val=100,
+        range=spatial.ClosedBounds(lower=0, upper=100),
         custom_scale=lin_scale,
     )
     return [map_scaled, nominal, lin_scaled]

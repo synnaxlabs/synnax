@@ -515,14 +515,8 @@ Scale union on type {
 }
 
 MinMaxVal struct {
-    min_val float64 = 0 {
-        @default group "range"
-        @doc value     "is the minimum expected value, in scaled units."
-        @go validate   lt max_val "Minimum value must be less than maximum value"
-    }
-    max_val float64 = 1 {
-        @default group "range"
-        @doc value     "is the maximum expected value, in scaled units."
+    range spatial.ClosedBounds = { lower = 0, upper = 1 } {
+        @doc value "is the expected signal range, in scaled units."
     }
 
     @doc value  "bounds the expected signal range in scaled units."
@@ -1214,14 +1208,6 @@ BaseCIChannel struct {
 
 CIChannel union on type extends BaseCIChannel {
     ci_frequency extends CustomScale, MinMaxVal {
-        min_val     float64 = 2 {
-            @default group "range"
-            @doc value     "is the minimum expected frequency."
-        }
-        max_val     float64 = 100 {
-            @default group "range"
-            @doc value     "is the maximum expected frequency."
-        }
         units       CIFreqUnits = hz {
             @doc value "are the units of the frequency measurement."
         }
@@ -1244,6 +1230,9 @@ CIChannel union on type extends BaseCIChannel {
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
         }
+        range       spatial.ClosedBounds = { lower = 2, upper = 100 } {
+            @doc value "is the expected frequency range."
+        }
 
         @doc value "measures signal frequency."
     }
@@ -1264,14 +1253,6 @@ CIChannel union on type extends BaseCIChannel {
         @doc value "counts signal edges."
     }
     ci_period extends CustomScale, MinMaxVal {
-        min_val       float64 = 0.000001 {
-            @default group "range"
-            @doc value     "is the minimum expected period, in the selected units."
-        }
-        max_val       float64 = 0.1 {
-            @default group "range"
-            @doc value     "is the maximum expected period, in the selected units."
-        }
         units         CITimeUnits = seconds {
             @doc value "are the units of the period measurement."
         }
@@ -1294,18 +1275,13 @@ CIChannel union on type extends BaseCIChannel {
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
         }
+        range         spatial.ClosedBounds = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected period range, in the selected units."
+        }
 
         @doc value "measures signal period."
     }
     ci_pulse_width extends CustomScale, MinMaxVal {
-        min_val       float64 = 0.000001 {
-            @default group "range"
-            @doc value     "is the minimum expected pulse width, in the selected units."
-        }
-        max_val       float64 = 0.1 {
-            @default group "range"
-            @doc value     "is the maximum expected pulse width, in the selected units."
-        }
         units         CITimeUnits = seconds {
             @doc value "are the units of the pulse-width measurement."
         }
@@ -1315,36 +1291,26 @@ CIChannel union on type extends BaseCIChannel {
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
         }
+        range         spatial.ClosedBounds = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected pulse width range, in the selected units."
+        }
 
         @doc value "measures pulse width."
     }
     ci_semi_period extends CustomScale, MinMaxVal {
-        min_val  float64 = 0.000001 {
-            @default group "range"
-            @doc value     "is the minimum expected semi-period, in the selected units."
-        }
-        max_val  float64 = 0.1 {
-            @default group "range"
-            @doc value     "is the maximum expected semi-period, in the selected units."
-        }
         units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
         }
         terminal string = "" {
             @doc value "is the terminal the counter signal is wired to."
         }
+        range    spatial.ClosedBounds = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected semi-period range, in the selected units."
+        }
 
         @doc value "measures semi-period."
     }
     ci_two_edge_sep extends CustomScale, MinMaxVal {
-        min_val         float64 = 0.000001 {
-            @default group "range"
-            @doc value     "is the minimum expected separation, in the selected units."
-        }
-        max_val         float64 = 1 {
-            @default group "range"
-            @doc value     "is the maximum expected separation, in the selected units."
-        }
         units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."
         }
@@ -1360,18 +1326,13 @@ CIChannel union on type extends BaseCIChannel {
         second_terminal string = "" {
             @doc value "is the terminal the second edge's signal is wired to."
         }
+        range           spatial.ClosedBounds = { lower = 0.000001, upper = 1 } {
+            @doc value "is the expected separation range, in the selected units."
+        }
 
         @doc value "measures the separation between two edges."
     }
     ci_velocity_linear extends CustomScale, MinMaxVal {
-        min_val        float64 = 0 {
-            @default group "range"
-            @doc value     "is the minimum expected velocity."
-        }
-        max_val        float64 = 1 {
-            @default group "range"
-            @doc value     "is the maximum expected velocity."
-        }
         units          CILinearVelocityUnits = m_per_s {
             @doc value "are the units of the velocity measurement."
         }
@@ -1387,18 +1348,13 @@ CIChannel union on type extends BaseCIChannel {
         terminal_b     string = "" {
             @doc value "is the terminal for encoder channel B."
         }
+        range          spatial.ClosedBounds = { lower = 0, upper = 1 } {
+            @doc value "is the expected velocity range."
+        }
 
         @doc value "measures linear velocity from an encoder."
     }
     ci_velocity_angular extends CustomScale, MinMaxVal {
-        min_val        float64 = 0 {
-            @default group "range"
-            @doc value     "is the minimum expected velocity."
-        }
-        max_val        float64 = 1 {
-            @default group "range"
-            @doc value     "is the maximum expected velocity."
-        }
         units          CIAngularVelocityUnits = rpm {
             @doc value "are the units of the velocity measurement."
         }
@@ -1414,6 +1370,9 @@ CIChannel union on type extends BaseCIChannel {
         }
         terminal_b     string = "" {
             @doc value "is the terminal for encoder channel B."
+        }
+        range          spatial.ClosedBounds = { lower = 0, upper = 1 } {
+            @doc value "is the expected velocity range."
         }
 
         @doc value "measures angular velocity from an encoder."
@@ -1464,19 +1423,14 @@ CIChannel union on type extends BaseCIChannel {
         @doc value "measures angular position from an encoder."
     }
     ci_duty_cycle extends CustomScale, MinMaxVal {
-        min_val     float64 = 2 {
-            @default group "range"
-            @doc value     "is the minimum expected duty-cycle frequency."
-        }
-        max_val     float64 = 10000 {
-            @default group "range"
-            @doc value     "is the maximum expected duty-cycle frequency."
-        }
         active_edge CIEdge = rising {
             @doc value "selects the edge the counter responds to."
         }
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
+        }
+        range       spatial.ClosedBounds = { lower = 2, upper = 10000 } {
+            @doc value "is the expected duty-cycle frequency range."
         }
 
         @doc value "measures the duty cycle of a signal."

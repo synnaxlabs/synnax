@@ -63,8 +63,7 @@ export const SelectCIChannelTypeField = ({
       set(path, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
-        ...("minVal" in next && { minVal: next.minVal }),
-        ...("maxVal" in next && { maxVal: next.maxVal }),
+        ...("range" in next && { range: next.range }),
       } as CIChannel);
     }}
   />

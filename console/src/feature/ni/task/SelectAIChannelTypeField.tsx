@@ -74,7 +74,7 @@ export const SelectAIChannelTypeField = ({
       const range = scaled ? undefined : defaultAIRange(prevType, merged, hardware);
       set(path, {
         ...merged,
-        ...(range != null && { minVal: range.lower, maxVal: range.upper }),
+        ...(range != null && { range }),
         type: next.type,
       } as AIChannel);
     }}

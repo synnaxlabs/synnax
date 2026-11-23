@@ -9,6 +9,7 @@
 
 import synnax as sy
 from synnax import ni
+from x import spatial
 
 """
 This example demonstrates how to configure and start a multi-device Analog Read Task
@@ -70,16 +71,14 @@ task = ni.AnalogReadTask(
             channel=voltage_chan.key,
             device=v_dev.key,
             port=0,
-            min_val=-10.0,
-            max_val=10.0,
+            range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             terminal_config="Diff",
         ),
         ni.AICurrentChannel(
             channel=current_chan.key,
             device=c_dev.key,
             port=0,
-            min_val=0.004,
-            max_val=0.02,
+            range=spatial.ClosedBounds(lower=0.004, upper=0.02),
             shunt_resistor_loc="Internal",
             ext_shunt_resistor_val=249.0,
         ),
@@ -89,8 +88,7 @@ task = ni.AnalogReadTask(
             port=0,
             units="DegC",
             thermocouple_type="J",
-            min_val=-50.0,
-            max_val=500.0,
+            range=spatial.ClosedBounds(lower=-50.0, upper=500.0),
             cjc=ni.BuiltInCJC(),
         ),
     ],

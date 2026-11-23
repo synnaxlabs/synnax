@@ -19,6 +19,7 @@ from tests.driver.ni_task import (
     NIDigitalReadTaskCase,
 )
 from tests.driver.task import collect_samples, create_channel, create_index
+from x import spatial
 
 
 class NIAnalogReadHS(NIAnalogReadTaskCase):
@@ -46,8 +47,7 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Cfg_Default",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             )
             for i in range(2)
         ]
@@ -129,8 +129,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Cfg_Default",
-                min_val=500,
-                max_val=700,
+                range=spatial.ClosedBounds(lower=500, upper=700),
                 custom_scale=map_scale,
             ),
             sy.ni.AIVoltageChannel(
@@ -142,8 +141,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Cfg_Default",
-                min_val=600,
-                max_val=1800,
+                range=spatial.ClosedBounds(lower=600, upper=1800),
                 custom_scale=lin_scale,
             ),
             sy.ni.AIVoltageChannel(
@@ -155,8 +153,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Cfg_Default",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
         ]
 
@@ -366,8 +363,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
-                min_val=0.0,
-                max_val=1000.0,
+                range=spatial.ClosedBounds(lower=0.0, upper=1000.0),
             ),
             sy.ni.AIResistanceChannel(
                 device=mod2.key,
@@ -381,8 +377,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 resistance_config="2Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
-                min_val=0.0,
-                max_val=10000.0,
+                range=spatial.ClosedBounds(lower=0.0, upper=10000.0),
             ),
             sy.ni.AIResistanceChannel(
                 device=mod2.key,
@@ -396,8 +391,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
-                min_val=0.0,
-                max_val=1000.0,
+                range=spatial.ClosedBounds(lower=0.0, upper=1000.0),
             ),
             # --- E101Mod5 / NI 9211 (thermocouple) ---
             sy.ni.AIThermocoupleChannel(
@@ -412,8 +406,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegC",
                 thermocouple_type="J",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=-50.0,
-                max_val=500.0,
+                range=spatial.ClosedBounds(lower=-50.0, upper=500.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
@@ -427,8 +420,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegF",
                 thermocouple_type="K",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=32.0,
-                max_val=932.0,
+                range=spatial.ClosedBounds(lower=32.0, upper=932.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
@@ -442,8 +434,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegC",
                 thermocouple_type="T",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=-50.0,
-                max_val=300.0,
+                range=spatial.ClosedBounds(lower=-50.0, upper=300.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
@@ -457,8 +448,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="Kelvins",
                 thermocouple_type="E",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=223.0,
-                max_val=773.0,
+                range=spatial.ClosedBounds(lower=223.0, upper=773.0),
             ),
             # --- E101Mod6 / NI 9211 (thermocouple) ---
             sy.ni.AIThermocoupleChannel(
@@ -473,8 +463,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegC",
                 thermocouple_type="R",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=0.0,
-                max_val=1500.0,
+                range=spatial.ClosedBounds(lower=0.0, upper=1500.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
@@ -488,8 +477,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegF",
                 thermocouple_type="S",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=32.0,
-                max_val=2732.0,
+                range=spatial.ClosedBounds(lower=32.0, upper=2732.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
@@ -503,8 +491,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegC",
                 thermocouple_type="B",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=250.0,
-                max_val=1700.0,
+                range=spatial.ClosedBounds(lower=250.0, upper=1700.0),
             ),
             sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
@@ -518,8 +505,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 units="DegR",
                 thermocouple_type="N",
                 cjc=sy.ni.BuiltInCJC(),
-                min_val=491.0,
-                max_val=1851.0,
+                range=spatial.ClosedBounds(lower=491.0, upper=1851.0),
             ),
             # --- E101Mod7 / NI 9219 (RTD) ---
             sy.ni.AIRTDChannel(
@@ -537,8 +523,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=-50.0,
-                max_val=200.0,
+                range=spatial.ClosedBounds(lower=-50.0, upper=200.0),
             ),
             sy.ni.AIRTDChannel(
                 device=mod7.key,
@@ -555,8 +540,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=32.0,
-                max_val=212.0,
+                range=spatial.ClosedBounds(lower=32.0, upper=212.0),
             ),
             sy.ni.AIRTDChannel(
                 device=mod7.key,
@@ -573,8 +557,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=-50.0,
-                max_val=200.0,
+                range=spatial.ClosedBounds(lower=-50.0, upper=200.0),
             ),
             sy.ni.AIRTDChannel(
                 device=mod7.key,
@@ -591,8 +574,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=273.0,
-                max_val=373.0,
+                range=spatial.ClosedBounds(lower=273.0, upper=373.0),
             ),
             # --- E101Mod8 / NI 9219 (RTD) ---
             sy.ni.AIRTDChannel(
@@ -610,8 +592,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=491.0,
-                max_val=671.0,
+                range=spatial.ClosedBounds(lower=491.0, upper=671.0),
             ),
             sy.ni.AIRTDChannel(
                 device=mod8.key,
@@ -628,8 +609,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=-50.0,
-                max_val=200.0,
+                range=spatial.ClosedBounds(lower=-50.0, upper=200.0),
             ),
             sy.ni.AIRTDChannel(
                 device=mod8.key,
@@ -646,8 +626,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=32.0,
-                max_val=212.0,
+                range=spatial.ClosedBounds(lower=32.0, upper=212.0),
             ),
         ]
 
@@ -719,8 +698,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                min_val=0.004,
-                max_val=0.02,
+                range=spatial.ClosedBounds(lower=0.004, upper=0.02),
                 shunt_resistor_loc="Internal",
                 ext_shunt_resistor_val=249.0,
             ),
@@ -733,8 +711,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                min_val=0.004,
-                max_val=0.02,
+                range=spatial.ClosedBounds(lower=0.004, upper=0.02),
                 shunt_resistor_loc="Internal",
                 ext_shunt_resistor_val=249.0,
             ),
@@ -749,8 +726,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Diff",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
             sy.ni.AIVoltageChannel(
                 device=mod4.key,
@@ -762,8 +738,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="RSE",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
         ]
 
@@ -798,8 +773,7 @@ class NIReadVoltageUSB(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="RSE",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
             sy.ni.AIVoltageChannel(
                 port=1,
@@ -810,8 +784,7 @@ class NIReadVoltageUSB(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="RSE",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
         ]
 
@@ -855,8 +828,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Diff",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
             sy.ni.AIVoltageChannel(
                 device=mod1.key,
@@ -868,8 +840,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="Diff",
-                min_val=-5.0,
-                max_val=5.0,
+                range=spatial.ClosedBounds(lower=-5.0, upper=5.0),
             ),
             sy.ni.AIVoltageChannel(
                 device=mod1.key,
@@ -881,8 +852,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="NRSE",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             ),
             # --- E102Mod2 / NI 9234 (PseudoDiff) ---
             sy.ni.AIVoltageChannel(
@@ -895,8 +865,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="PseudoDiff",
-                min_val=-5.0,
-                max_val=5.0,
+                range=spatial.ClosedBounds(lower=-5.0, upper=5.0),
             ),
             sy.ni.AIVoltageChannel(
                 device=mod2.key,
@@ -908,8 +877,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 terminal_config="PseudoDiff",
-                min_val=-5.0,
-                max_val=5.0,
+                range=spatial.ClosedBounds(lower=-5.0, upper=5.0),
             ),
         ]
 
@@ -1011,8 +979,7 @@ class NICounterReadFrequency(NICounterReadTaskCase):
                     data_type=sy.DataType.FLOAT64,
                     index=idx.key,
                 ),
-                min_val=1,
-                max_val=10000,
+                range=spatial.ClosedBounds(lower=1, upper=10000),
                 units="Hz",
                 edge="Rising",
                 meas_method="LowFreq1Ctr",

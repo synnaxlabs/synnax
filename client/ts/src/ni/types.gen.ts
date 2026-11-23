@@ -230,10 +230,8 @@ export type AccelChargeSensitivityUnits = z.infer<typeof accelChargeSensitivityU
 
 /** MinMaxVal bounds the expected signal range in scaled units. */
 export const minMaxValZ = z.object({
-  /** minVal is the minimum expected value, in scaled units. */
-  minVal: z.number().default(0),
-  /** maxVal is the maximum expected value, in scaled units. */
-  maxVal: z.number().default(1),
+  /** range is the expected signal range, in scaled units. */
+  range: spatial.closedBoundsZ().prefault({ lower: 0, upper: 1 }),
 });
 export interface MinMaxVal extends z.infer<typeof minMaxValZ> {}
 
@@ -1405,10 +1403,6 @@ export const ciFrequencyChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_frequency"),
-    /** minVal is the minimum expected frequency. */
-    minVal: z.number().default(2),
-    /** maxVal is the maximum expected frequency. */
-    maxVal: z.number().default(100),
     /** units are the units of the frequency measurement. */
     units: ciFreqUnitsZ.default("Hz"),
     /** edge selects the edge the counter responds to. */
@@ -1423,6 +1417,8 @@ export const ciFrequencyChannelZ = baseCIChannelZ
     divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
+    /** range is the expected frequency range. */
+    range: spatial.closedBoundsZ().prefault({ lower: 2, upper: 100 }),
   });
 export interface CIFrequencyChannel extends z.infer<typeof ciFrequencyChannelZ> {}
 
@@ -1446,10 +1442,6 @@ export const ciPeriodChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_period"),
-    /** minVal is the minimum expected period, in the selected units. */
-    minVal: z.number().default(0.000001),
-    /** maxVal is the maximum expected period, in the selected units. */
-    maxVal: z.number().default(0.1),
     /** units are the units of the period measurement. */
     units: ciTimeUnitsZ.default("Seconds"),
     /** startingEdge selects the edge that starts a period measurement. */
@@ -1464,6 +1456,8 @@ export const ciPeriodChannelZ = baseCIChannelZ
     divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
+    /** range is the expected period range, in the selected units. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 0.1 }),
   });
 export interface CIPeriodChannel extends z.infer<typeof ciPeriodChannelZ> {}
 
@@ -1473,16 +1467,14 @@ export const ciPulseWidthChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_pulse_width"),
-    /** minVal is the minimum expected pulse width, in the selected units. */
-    minVal: z.number().default(0.000001),
-    /** maxVal is the maximum expected pulse width, in the selected units. */
-    maxVal: z.number().default(0.1),
     /** units are the units of the pulse-width measurement. */
     units: ciTimeUnitsZ.default("Seconds"),
     /** startingEdge selects the edge that starts a pulse-width measurement. */
     startingEdge: ciEdgeZ.default("Rising"),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
+    /** range is the expected pulse width range, in the selected units. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 0.1 }),
   });
 export interface CIPulseWidthChannel extends z.infer<typeof ciPulseWidthChannelZ> {}
 
@@ -1492,14 +1484,12 @@ export const ciSemiPeriodChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_semi_period"),
-    /** minVal is the minimum expected semi-period, in the selected units. */
-    minVal: z.number().default(0.000001),
-    /** maxVal is the maximum expected semi-period, in the selected units. */
-    maxVal: z.number().default(0.1),
     /** units are the units of the semi-period measurement. */
     units: ciTimeUnitsZ.default("Seconds"),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
+    /** range is the expected semi-period range, in the selected units. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 0.1 }),
   });
 export interface CISemiPeriodChannel extends z.infer<typeof ciSemiPeriodChannelZ> {}
 
@@ -1509,10 +1499,6 @@ export const ciTwoEdgeSepChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_two_edge_sep"),
-    /** minVal is the minimum expected separation, in the selected units. */
-    minVal: z.number().default(0.000001),
-    /** maxVal is the maximum expected separation, in the selected units. */
-    maxVal: z.number().default(1),
     /** units are the units of the two-edge-separation measurement. */
     units: ciTimeUnitsZ.default("Seconds"),
     /** firstEdge selects the edge that starts the measurement. */
@@ -1523,6 +1509,8 @@ export const ciTwoEdgeSepChannelZ = baseCIChannelZ
     firstTerminal: z.string().default(""),
     /** secondTerminal is the terminal the second edge's signal is wired to. */
     secondTerminal: z.string().default(""),
+    /** range is the expected separation range, in the selected units. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 1 }),
   });
 export interface CITwoEdgeSepChannel extends z.infer<typeof ciTwoEdgeSepChannelZ> {}
 
@@ -1532,10 +1520,6 @@ export const ciVelocityLinearChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_velocity_linear"),
-    /** minVal is the minimum expected velocity. */
-    minVal: z.number().default(0),
-    /** maxVal is the maximum expected velocity. */
-    maxVal: z.number().default(1),
     /** units are the units of the velocity measurement. */
     units: ciLinearVelocityUnitsZ.default("m/s"),
     /** decodingType selects the encoder decoding type. */
@@ -1546,6 +1530,8 @@ export const ciVelocityLinearChannelZ = baseCIChannelZ
     terminalA: z.string().default(""),
     /** terminalB is the terminal for encoder channel B. */
     terminalB: z.string().default(""),
+    /** range is the expected velocity range. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0, upper: 1 }),
   });
 export interface CIVelocityLinearChannel extends z.infer<
   typeof ciVelocityLinearChannelZ
@@ -1557,10 +1543,6 @@ export const ciVelocityAngularChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_velocity_angular"),
-    /** minVal is the minimum expected velocity. */
-    minVal: z.number().default(0),
-    /** maxVal is the maximum expected velocity. */
-    maxVal: z.number().default(1),
     /** units are the units of the velocity measurement. */
     units: ciAngularVelocityUnitsZ.default("RPM"),
     /** decodingType selects the encoder decoding type. */
@@ -1571,6 +1553,8 @@ export const ciVelocityAngularChannelZ = baseCIChannelZ
     terminalA: z.string().default(""),
     /** terminalB is the terminal for encoder channel B. */
     terminalB: z.string().default(""),
+    /** range is the expected velocity range. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0, upper: 1 }),
   });
 export interface CIVelocityAngularChannel extends z.infer<
   typeof ciVelocityAngularChannelZ
@@ -1628,14 +1612,12 @@ export const ciDutyCycleChannelZ = baseCIChannelZ
   .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_duty_cycle"),
-    /** minVal is the minimum expected duty-cycle frequency. */
-    minVal: z.number().default(2),
-    /** maxVal is the maximum expected duty-cycle frequency. */
-    maxVal: z.number().default(10000),
     /** activeEdge selects the edge the counter responds to. */
     activeEdge: ciEdgeZ.default("Rising"),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
+    /** range is the expected duty-cycle frequency range. */
+    range: spatial.closedBoundsZ().prefault({ lower: 2, upper: 10000 }),
   });
 export interface CIDutyCycleChannel extends z.infer<typeof ciDutyCycleChannelZ> {}
 
