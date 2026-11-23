@@ -29,6 +29,29 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (cb CommandBinding) EncodeOrc(w *orc.Writer) error {
+	w.String(cb.Key)
+	w.Uint32(uint32(cb.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cb *CommandBinding) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if cb.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		cb.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	w.String(e.Key)
 	if err := e.Source.EncodeOrc(w); err != nil {
@@ -156,6 +179,48 @@ func (ec *EdgeConfig) DecodeOrc(r *orc.Reader) error {
 		ec.Variant = v
 	default:
 		return errors.Newf("EdgeConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (fc FormatConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(fc.Units)
+	if fc.Precision != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*fc.Precision))
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(fc.Notation))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (fc *FormatConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if fc.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			fc.Precision = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		fc.Notation = notation.Notation(rawV)
 	}
 	return nil
 }
@@ -1251,6 +1316,57 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 	case GroupBoxNodeConfig:
 		w.String("group_box")
 		w.Bool(v.Locked)
+	case SymbolNodeConfig:
+		w.String("symbol")
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Spec.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Color != nil {
+			w.Bool(true)
+			if err := v.Color.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Disabled)
+		w.Bool(v.MotionDisabled)
+		w.Int64(int64(v.OnClickDelay))
+		w.Bool(v.States != nil)
+		if v.States != nil {
+			w.Uint32(uint32(len(v.States)))
+			for i := range v.States {
+				if err := v.States[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.Bool(v.Commands != nil)
+		if v.Commands != nil {
+			w.Uint32(uint32(len(v.Commands)))
+			for i := range v.Commands {
+				if err := v.Commands[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Control != nil {
+			w.Bool(true)
+			if err := v.Control.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
 	default:
 		return errors.Newf("NodeConfig: nil or unknown variant %T", nc.Variant)
 	}
@@ -2940,6 +3056,96 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		nc.Variant = v
+	case "symbol":
+		var v SymbolNodeConfig
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Spec.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv servicecolor.Ref
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Color = &hv
+			}
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.MotionDisabled, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.OnClickDelay = telem.TimeSpan(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.States = make([]StateBinding, n)
+				for i := range v.States {
+					if err = v.States[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Commands = make([]CommandBinding, n)
+				for i := range v.Commands {
+					if err = v.Commands[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ControlStateConfig
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Control = &hv
+			}
+		}
+		nc.Variant = v
 	default:
 		return errors.Newf("NodeConfig: unknown variant %q", tag)
 	}
@@ -3306,6 +3512,237 @@ func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if sec.StrokeWidth, err = r.Uint8(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Source) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case ChannelSource:
+		w.String("channel")
+		if v.Key != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Key))
+		} else {
+			w.Bool(false)
+		}
+		if v.Command != nil {
+			w.Bool(true)
+			w.Uint32(uint32(*v.Command))
+		} else {
+			w.Bool(false)
+		}
+	case LocalSource:
+		w.String("local")
+		w.Float64(float64(v.Value))
+	default:
+		return errors.Newf("Source: nil or unknown variant %T", s.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Source) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "channel":
+		var v ChannelSource
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Key = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv channel.Key
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					hv = channel.Key(rawV)
+				}
+				v.Command = &hv
+			}
+		}
+		s.Variant = v
+	case "local":
+		var v LocalSource
+		if v.Value, err = r.Float64(); err != nil {
+			return err
+		}
+		s.Variant = v
+	default:
+		return errors.Newf("Source: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sb StateBinding) EncodeOrc(w *orc.Writer) error {
+	w.String(sb.Units)
+	if sb.Precision != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*sb.Precision))
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(sb.Notation))
+	w.String(sb.Key)
+	if sb.Source != nil {
+		w.Bool(true)
+		if err := sb.Source.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if sb.Enumeration != nil {
+		w.Bool(true)
+		w.Write((*sb.Enumeration)[:])
+	} else {
+		w.Bool(false)
+	}
+	if sb.Match != nil {
+		w.Bool(true)
+		if err := sb.Match.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if sb.Bounds != nil {
+		w.Bool(true)
+		w.Float64(float64((*sb.Bounds).Lower))
+		w.Float64(float64((*sb.Bounds).Upper))
+	} else {
+		w.Bool(false)
+	}
+	if sb.Default != nil {
+		w.Bool(true)
+		w.Float64(float64(*sb.Default))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sb *StateBinding) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sb.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			sb.Precision = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sb.Notation = notation.Notation(rawV)
+	}
+	if sb.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Source
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sb.Source = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv enumeration.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			sb.Enumeration = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv symbol.Matcher
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sb.Match = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv spatial.Bounds
+			if hv.Lower, err = r.Float64(); err != nil {
+				return err
+			}
+			if hv.Upper, err = r.Float64(); err != nil {
+				return err
+			}
+			sb.Bounds = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			sb.Default = &hv
+		}
 	}
 	return nil
 }
