@@ -172,6 +172,22 @@ describe("Symbol form", () => {
       });
     const INVALID = "Minimum value must be less than maximum value";
 
+    it("should start a within match at 0.9 to 1.1 on an exact symbol", async () => {
+      const exact = await client.schematics.symbols.create({
+        name: "Lamp",
+        data: schematic.symbol.specZ.parse({
+          drawing: { type: "svg", markup: "<svg/>" },
+          variant: "static",
+          states: [{ type: "enumeration", key: "active", name: "Active" }],
+        }),
+      });
+      const { findByText, value } = await render({
+        spec: { type: "custom", key: exact.key },
+      });
+      fireEvent.click(await findByText("Within"));
+      expect(value(path.states)).toEqual([within(0.9, 1.1)]);
+    });
+
     it("should hold a minimum above the maximum until the pair is valid", async () => {
       const { findByLabelText, getByLabelText, getByText, value } = await render({
         spec: VALVE,
