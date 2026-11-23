@@ -217,3 +217,25 @@ func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool
 		maxLen,
 	)
 }
+
+// MinBytes returns true and attaches an error to v if value holds fewer than minLen
+// bytes.
+func (v *Validator) MinBytes[T ~[]byte](field string, value T, minLen int) bool {
+	return v.Ternaryf(
+		field,
+		len(value) < minLen,
+		"must be at least %d bytes long",
+		minLen,
+	)
+}
+
+// MaxBytes returns true and attaches an error to v if value holds more than maxLen
+// bytes.
+func (v *Validator) MaxBytes[T ~[]byte](field string, value T, maxLen int) bool {
+	return v.Ternaryf(
+		field,
+		len(value) > maxLen,
+		"must be at most %d bytes long",
+		maxLen,
+	)
+}

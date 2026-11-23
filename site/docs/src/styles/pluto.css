@@ -216,8 +216,9 @@ article table th p {
     margin: 0;
 }
 
-/* Dialog component */
-.lyra-dialog__bg.lyra--visible {
+/* Dialog component. The backdrop blurs, so fixed overlays in the modal still place
+   against the window. */
+.lyra-dialog__bg::backdrop {
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
 }

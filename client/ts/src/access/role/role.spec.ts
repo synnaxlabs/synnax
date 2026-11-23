@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { Action } from "@/access/action/types.gen";
+import type { access } from "@/access";
 import { role } from "@/access/role";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/index";
@@ -168,7 +168,7 @@ describe("role", () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
       const grantee = await viewer.users.current.retrieve();
-      const granted = async (action: Action) =>
+      const granted = async (action: access.Action) =>
         await viewer.access.granted.retrieve(grantee, {
           objects: channel.TYPE_RESOURCE_ID,
           action,

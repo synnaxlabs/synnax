@@ -17,7 +17,7 @@ import { math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
-import type { Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
 import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
 import type { HeldEntry } from "@/feature/mqtt/task/types";
@@ -49,14 +49,14 @@ export interface Kind<E extends HeldEntry> {
   single?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: E[]) => E[];
-  /** @returns what a topic added by name adds. */
-  createTopic: (topic: string) => E;
+  /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
+  createTopic?: (topic: string) => E;
   /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
   createTag?: () => E;
 }
 
 export interface Params<E extends HeldEntry> {
-  device: Device;
+  device: Device.Device;
   /** What the task holds now. */
   entries: E[];
 }
@@ -71,8 +71,8 @@ export const Discover = <E extends HeldEntry>({
   close,
   kind,
 }: DiscoverProps<E>) => {
-  const { createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
-  const [mode, setMode] = useState<Mode>("topics");
+  const { createTopic, createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
+  const [mode, setMode] = useState<Mode>(createTopic == null ? "sparkplug" : "topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
 
@@ -92,23 +92,25 @@ export const Discover = <E extends HeldEntry>({
     <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
       <Modal.Header icon={<Icon.Logo.MQTT />}>{[kind.title, device.name]}</Modal.Header>
       <ICD.Picker.Bar>
-        {createTag != null && (
+        {createTopic != null && createTag != null && (
           <Select.Buttons<Mode> value={mode} onChange={setMode}>
             <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
             <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
           </Select.Buttons>
         )}
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey="topics" hint={hint}>
-        <TopicPicker
-          device={device}
-          entries={entries}
-          single={kind.single}
-          value={topicPicks}
-          onChange={setTopicPicks}
-          onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
-        />
-      </ICD.Picker.Frame>
+      {createTopic != null && (
+        <ICD.Picker.Frame itemKey="topics" hint={hint}>
+          <TopicPicker
+            device={device}
+            entries={entries}
+            single={kind.single}
+            value={topicPicks}
+            onChange={setTopicPicks}
+            onAddByName={(topic) => close([...picked(), createTopic(topic)])}
+          />
+        </ICD.Picker.Frame>
+      )}
       {createTag != null && (
         <ICD.Picker.Frame itemKey="sparkplug" hint={tagHint}>
           <TagPicker

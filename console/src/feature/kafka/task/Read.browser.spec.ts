@@ -18,6 +18,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import {
@@ -37,6 +38,7 @@ import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
+import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -359,7 +361,7 @@ const createScanTask = async (dev: device.Device) => {
   await startRackHeartbeat(client, rck);
   return await rck.createTask({
     name: uniqueName("kafka_scan"),
-    type: Kafka.Task.SCAN_TYPE,
+    type: Kafka.Device.SCAN_TYPE,
     config: {},
   });
 };
@@ -697,7 +699,7 @@ describe("Kafka read form", () => {
         await dialog.findByRole("checkbox", { name: "Record /temperature" }),
       );
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
@@ -748,7 +750,7 @@ describe("Kafka read form", () => {
           await dialog.findByRole("checkbox", { name: `Record ${pointer}` }),
         );
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
@@ -893,6 +895,36 @@ describe("Kafka read form", () => {
       expect(records[1].messages[0].message).toBe(messages[1].key);
     });
 
+    it("should add a later record to the ICD that the most records read", async () => {
+      const messages: icd.Message[] = ["pump", "fan"].map((name) => ({
+        key: uuid.create(),
+        name,
+        payload: { format: "json", fields: [createField(name, "float")] },
+      }));
+      const home = await client.icds.create({ name: uniqueName("home"), messages });
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        records: messages.map(({ key, name }) =>
+          kafka.readRecordZ.parse({
+            icd: home.key,
+            recordKey: name,
+            messages: [{ message: key, bindings: [] }],
+          }),
+        ),
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf() });
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(4);
+        return next;
+      });
+      expect(records[3].icd).toBe(home.key);
+      const { messages: held } = await client.icds.retrieve(home.key);
+      expect(held.map(({ key }) => key)).toContain(records[3].messages[0].message);
+    });
+
     it("should open one Add data dialog for a double click", async () => {
       await renderRead();
       const button = await screen.findByRole("button", { name: "Add data" });
@@ -939,7 +971,7 @@ describe("Kafka read form", () => {
       { name: "gone", note: "Message not found", change: removeMessage },
       {
         name: "not JSON",
-        note: "The format of this message is not JSON. Open it to change its format.",
+        note: "The format of this message is not JSON. Open it in the editor to change its format.",
         change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
           await client.icds.dispatch(
             key,
@@ -1153,7 +1185,7 @@ describe("Kafka read form", () => {
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       await dialog.findByText("1 field selected");
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
@@ -1925,6 +1957,167 @@ describe("Kafka read form", () => {
       );
       const { messages } = await client.icds.retrieve({ key: rec.icd });
       expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should read a message of another ICD with each of its fields", async () => {
+      const pressure = createField("pressure", "float");
+      const mode = createField("mode", "string");
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [pressure, mode] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickMessageFormat("Any key", message.name, shared.name);
+      await waitFor(async () =>
+        expect((await retrieveRecords(draft.key))[0]).toMatchObject({
+          icd: shared.key,
+          messages: [
+            {
+              message: message.key,
+              bindings: [
+                { field: pressure.key, channel: 0 },
+                { field: mode.key, channel: 0 },
+              ],
+            },
+          ],
+        }),
+      );
+      await screen.findByRole("treeitem", { name: /^pressure/ });
+      await screen.findByRole("treeitem", { name: /^mode/ });
+    });
+
+    it("should delete a message with no fields that the task made when its record stops reading it", async () => {
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [createField("pressure", "float")] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft, dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { data: browseOf(listTopic("plant", { records: 0 })) },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(/The topic holds no records/);
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      await pickMessageFormat("Any key", message.name, shared.name);
+      await waitFor(async () =>
+        expect((await client.icds.retrieve({ key: rec.icd })).messages).toEqual([]),
+      );
+    });
+
+    /** @returns a record that a deploy bound to a float channel for /temperature. */
+    const createBoundRecord = async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const rec = await createRecord({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const beforeRender = async (dev: device.Device) =>
+        await storeChannels(dev.key, rec, {
+          index: 0,
+          channels: { "/temperature": ch.key },
+        });
+      return { ch, rec, beforeRender };
+    };
+
+    /** Picks a message of another ICD whose temperature field is of kind. */
+    const switchTemperature = async (kind: payload.Kind) => {
+      const { ch, rec, beforeRender } = await createBoundRecord();
+      const next = createField("temperature", kind);
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [next] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft } = await renderRead({ records: [rec], beforeRender });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickMessageFormat("Any key", message.name, shared.name);
+      return { ch, next, draft };
+    };
+
+    it("should keep the channel of a pointer whose new field fits its data type", async () => {
+      const { ch, next, draft } = await switchTemperature("integer");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: ch.key, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should give a new channel to a pointer whose new field does not fit its data type", async () => {
+      const { next, draft } = await switchTemperature("string");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should wait for the data types of the stored channels before it binds", async () => {
+      const { rec, beforeRender } = await createBoundRecord();
+      // A new client has no channels cached, so the form fetches the stored one.
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({ records: [rec], beforeRender, as: viewer });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      const format = await findDialogTriggerByText("Any key");
+      const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+        name: "Read temperature",
+      });
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      expect(format.getAttribute("aria-disabled")).toBe("true");
+      expect(read.disabled).toBe(true);
+      release();
+      await waitFor(() => {
+        expect(addField.getAttribute("aria-disabled")).toBeNull();
+        expect(format.getAttribute("aria-disabled")).toBeNull();
+        expect(read.disabled).toBe(false);
+      });
+    });
+
+    it("should wait for the data types before a message of a record adds a field", async () => {
+      const { rec, beforeRender } = await createBoundRecord();
+      await addMessage(rec, "status", [createField("mode", "string")], KIND_MATCH);
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({ records: [rec], beforeRender, as: viewer });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      release();
+      await waitFor(() => expect(addField.getAttribute("aria-disabled")).toBeNull());
     });
   });
 

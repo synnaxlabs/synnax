@@ -11,9 +11,9 @@ import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import type { Dynamic } from "@/framer/cache/dynamic";
-import { tileAt, tileRange } from "@/framer/cache/grid";
-import { buildInsertionPlan } from "@/framer/cache/insertion";
+import type { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
+import { insertion } from "@/framer/cache/insertion";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
@@ -39,7 +39,7 @@ export interface Block {
 }
 
 /** @returns the tile of the raw block that holds the timestamp. */
-export const rawTile = (ts: TimeStamp): number => tileAt(ts, RAW_LEVEL);
+export const rawTile = (ts: TimeStamp): number => grid.tileAt(ts, RAW_LEVEL);
 
 /** @returns the store key of the channel's raw block at the tile. */
 export const rawKey = (ch: channel.Key, tile: number): string => `${ch}/raw/${tile}`;
@@ -163,7 +163,7 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
   for (const ts of timestamps)
     for (let lo = 0; lo < ts.length;) {
       const tile = rawTile(new TimeStamp(ts.data[lo]));
-      const range = tileRange({ level: RAW_LEVEL, tile });
+      const range = grid.tileRange({ level: RAW_LEVEL, tile });
       const hi = search(ts, range.end.valueOf(), lo);
       const part = map.getOrInsert(parts, tile, () => ({
         timestamps: [],
@@ -208,7 +208,7 @@ export class RawBlock implements Block {
   coveredCount = 0;
   private _fetched: Series[] = [];
   /** The channel's live buffer while a stream writes into the block. */
-  buffer: Dynamic | null = null;
+  buffer: dynamic.Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
   pending: Promise<void> | null = null;
 
@@ -217,7 +217,7 @@ export class RawBlock implements Block {
     readonly tile: number,
     private readonly now: () => TimeStamp = () => TimeStamp.now(),
   ) {
-    this.range = tileRange({ level: RAW_LEVEL, tile });
+    this.range = grid.tileRange({ level: RAW_LEVEL, tile });
     this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
   }
@@ -379,7 +379,7 @@ export class RawBlock implements Block {
   }
 
   private insert(series: Series): void {
-    const plan = buildInsertionPlan(
+    const plan = insertion.buildPlan(
       this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );

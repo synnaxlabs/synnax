@@ -27,8 +27,6 @@ interface RenderProps extends Partial<
   options: schematic.StateIndicatorNodeConfig["options"];
   className?: string;
   matchedOptionKey?: string | null;
-  /** Colors the label while the state channel is stale. */
-  staleColor?: color.Crude;
 }
 
 export const StateIndicator = ({
@@ -39,7 +37,6 @@ export const StateIndicator = ({
   strokeColor,
   inlineSize,
   size = "medium",
-  staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   // The matched state's color drives the chassis; the stroke color is the fallback so
@@ -70,11 +67,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text
-          level={SIZE_LEVELS[size]}
-          color={color.cssString(staleColor)}
-          variant="code"
-        >
+        <Text.Text level={SIZE_LEVELS[size]} variant="code">
           {label}
         </Text.Text>
       </div>

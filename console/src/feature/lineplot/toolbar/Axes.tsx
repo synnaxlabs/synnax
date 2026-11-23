@@ -147,6 +147,7 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
             resetValue={75}
             dragScale={AXES_BOUNDS_DRAG_SCALE}
             bounds={{ lower: 1, upper: 200 }}
+            integer
             value={axis.tickSpacing}
             onChange={handleTickSpacingChange}
             endContent="px"
