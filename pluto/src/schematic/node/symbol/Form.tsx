@@ -9,9 +9,11 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
 import { deep, notation } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -21,7 +23,7 @@ import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import type { FormProps } from "@/schematic/node/spec";
-import { useResolved } from "@/schematic/node/symbol/resolve";
+import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -169,13 +171,22 @@ const CommandField = ({ command }: CommandFieldProps): ReactElement => {
   );
 };
 
-const useSpec = (): schematic.symbol.Spec | undefined =>
-  useResolved(Base.useFieldValue(path.spec)).spec;
+const useSymbol = (): Resolved => useResolved(Base.useFieldValue(path.spec));
+
+const MissingSection = (): ReactElement => (
+  <Base.Section title="Symbol">
+    <Text.Text level="p" status="warning">
+      <Icon.Warning />
+      The symbol of this node was not found.
+    </Text.Text>
+  </Base.Section>
+);
 
 const TelemetryForm = (): ReactElement => {
-  const spec = useSpec();
+  const { spec, missing } = useSymbol();
   return (
     <Base.Sections x>
+      {missing && <MissingSection />}
       {spec?.states.map((state) => (
         <StateSection key={state.key} state={state} />
       ))}
@@ -187,9 +198,11 @@ const TelemetryForm = (): ReactElement => {
 };
 
 const ControlForm = (): ReactElement => {
-  const commands = useSpec()?.commands.filter((c) => c.state == null) ?? [];
+  const { spec, missing } = useSymbol();
+  const commands = spec?.commands.filter((c) => c.state == null) ?? [];
   return (
     <Base.Sections x>
+      {missing && <MissingSection />}
       {commands.length > 0 && (
         <Base.Section title="Commands">
           {commands.map((command) => (

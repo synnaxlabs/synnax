@@ -49,7 +49,12 @@ describe("Symbol form", () => {
         <Form tab="telemetry" onTabChange={vi.fn()} />,
         parse({
           spec: valve,
-          states: [{ key: "active", source: { type: "channel" } }],
+          states: [
+            schematic.stateBindingZ.parse({
+              key: "active",
+              source: { type: "channel" },
+            }),
+          ],
         }),
         schematic.symbolNodeConfigZ,
         createSynnaxWrapper({ client: null }),
@@ -60,6 +65,19 @@ describe("Symbol form", () => {
       ]);
     });
   });
+
+  it.each(["telemetry", "control"] as const)(
+    "should warn on the %s tab when the symbol is missing",
+    (tab) => {
+      const { getByText } = renderForm(
+        <Form tab={tab} onTabChange={vi.fn()} />,
+        parse({ spec: { type: "missing", key: id.create() } }),
+        schematic.symbolNodeConfigZ,
+        createSynnaxWrapper({ client: null }),
+      );
+      expect(getByText("The symbol of this node was not found.")).toBeDefined();
+    },
+  );
 
   describe("custom symbol", () => {
     const client = createTestClient();
