@@ -258,6 +258,51 @@ TEST(Reader, WritesMultiplexedFieldWithDefault) {
     ASSERT_EQ(fr.at<double>(3, 0), 9.0);
 }
 
+/// @brief it should add no series for a virtual channel whose field the multiplexors of
+/// a frame do not select.
+TEST(Reader, AddsNoSeriesForUnselectedVirtualChannel) {
+    auto [e, mux] = multiplexed();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("a", 1, mux, 1),
+        channel(2, x::telem::FLOAT64_T, 0)
+    );
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 2),
+        channel(3, x::telem::FLOAT64_T)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(2);
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{2, 7, 9}, RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 3}));
+}
+
+/// @brief it should reject a binary index field that takes a default.
+TEST(Reader, RejectsBinaryIndexFieldWithDefault) {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    auto t = byte_field("t", 0);
+    t.default_ = x::payload::Unsigned{5};
+    e.bind<synnax::icd::BinaryPayload>(t, channel(1, x::telem::TIMESTAMP_T));
+    e.reads[0].index = t.key;
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "message frame: the index field t cannot take a default");
+}
+
+/// @brief it should reject a binary index field, since a binary field cannot write
+/// timestamps.
+TEST(Reader, RejectsBinaryIndexField) {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    const auto t = byte_field("t", 0);
+    e.bind<synnax::icd::BinaryPayload>(t, channel(1, x::telem::TIMESTAMP_T));
+    e.reads[0].index = t.key;
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame: field t: cannot write unsigned values to timestamp channels"
+    );
+}
+
 /// @brief it should reject two fields on one index channel that different multiplexor
 /// values select.
 TEST(Reader, RejectsIndexGroupWithDifferentSelections) {
