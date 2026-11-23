@@ -19,7 +19,7 @@ import { aether } from "@/aether/aether";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { control } from "@/telem/control/aether";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 interface RenderOptions {
   config?: Control.StateConfig;

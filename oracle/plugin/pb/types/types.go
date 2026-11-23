@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -85,23 +86,39 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	err := structCollector.ForEach(
+	if err := p.generateStructFiles(
+		req,
+		resp,
+		structCollector,
+		unionCollector,
+	); err != nil {
+		return nil, err
+	}
+	if err := p.generateEnumFiles(req, resp, structCollector); err != nil {
+		return nil, err
+	}
+	if err := p.generateUnionFiles(req, resp, unionCollector); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// generateStructFiles adds a file to resp for each output path that holds structs, with
+// the enums they reference and the unions at the same path. It removes those unions
+// from unionCollector.
+func (p *Plugin) generateStructFiles(
+	req *plugin.Request,
+	resp *plugin.Response,
+	structCollector *framework.Collector,
+	unionCollector *framework.Collector,
+) error {
+	return structCollector.ForEach(
 		func(outputPath string, structs []resolution.Type) error {
 			namespace := ""
 			if len(structs) > 0 {
 				namespace = structs[0].Namespace
 			}
-			enums := enum.CollectReferenced(structs, req.Resolutions)
-			enums = framework.MergeTypes(
-				enums,
-				enum.CollectNamespaceEnums(
-					namespace,
-					outputPath,
-					req.Resolutions,
-					"pb",
-					enum.FindPBOutputPath,
-				),
-			)
+			enums := collectEnums(structs, namespace, outputPath, req.Resolutions)
 			var unions []resolution.Type
 			if unionCollector.Has(outputPath) {
 				unions = unionCollector.Remove(outputPath)
@@ -109,115 +126,108 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			if !hasEmittableType(structs, enums, unions) {
 				return nil
 			}
-			content, err := p.generateFile(
-				outputPath,
-				structs,
-				enums,
-				unions,
-				req.Resolutions,
-				req.RepoRoot,
-			)
-			if err != nil {
-				return errors.Wrapf(err, "failed to generate %s", outputPath)
-			}
-			filename := namespace + ".proto"
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, filename),
-				Content: content,
-			})
-			return nil
+			return p.addFile(req, resp, outputPath, namespace, structs, enums, unions)
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
+}
 
-	// Emit pb output for schemas that opt into @pb but contain only enums
-	// (no structs). Cross-namespace fields that reference these enums rely
-	// on the foreign translator existing; without this pass the schema
-	// silently produces nothing and the dependent schema fails to compile.
+// generateEnumFiles adds a file to resp for each output path of a schema that holds
+// only enums and opts into pb output. Cross-namespace fields that reference these enums
+// need the foreign translator to exist.
+func (p *Plugin) generateEnumFiles(
+	req *plugin.Request,
+	resp *plugin.Response,
+	structCollector *framework.Collector,
+) error {
 	enumCollector := framework.NewCollector("pb", req).
 		WithPathFunc(func(typ resolution.Type) string {
 			return enum.FindPBOutputPath(typ, req.Resolutions)
 		}).
 		WithSkipFunc(nil)
 	if err := enumCollector.AddAll(req.Resolutions.EnumTypes()); err != nil {
-		return nil, err
+		return err
 	}
-	err = enumCollector.ForEach(func(outputPath string, enums []resolution.Type) error {
-		if structCollector.Has(outputPath) {
-			return nil
-		}
-		var kept []resolution.Type
-		for _, e := range enums {
-			if !omit.IsSkipped(e, "pb") {
-				kept = append(kept, e)
+	return enumCollector.ForEach(
+		func(outputPath string, enums []resolution.Type) error {
+			if structCollector.Has(outputPath) {
+				return nil
 			}
-		}
-		if len(kept) == 0 {
-			return nil
-		}
-		namespace := kept[0].Namespace
-		content, err := p.generateFile(
-			outputPath,
-			nil,
-			kept,
-			nil,
-			req.Resolutions,
-			req.RepoRoot,
-		)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		filename := namespace + ".proto"
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
-			Content: content,
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = unionCollector.ForEach(
-		func(outputPath string, unions []resolution.Type) error {
-			namespace := unions[0].Namespace
-			enums := enum.CollectReferenced(unions, req.Resolutions)
-			enums = framework.MergeTypes(
-				enums,
-				enum.CollectNamespaceEnums(
-					namespace,
-					outputPath,
-					req.Resolutions,
-					"pb",
-					enum.FindPBOutputPath,
-				),
-			)
-			content, err := p.generateFile(
-				outputPath,
-				nil,
-				enums,
-				unions,
-				req.Resolutions,
-				req.RepoRoot,
-			)
-			if err != nil {
-				return errors.Wrapf(err, "failed to generate %s", outputPath)
+			var kept []resolution.Type
+			for _, e := range enums {
+				if !omit.IsSkipped(e, "pb") {
+					kept = append(kept, e)
+				}
 			}
-			filename := namespace + ".proto"
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, filename),
-				Content: content,
-			})
-			return nil
+			if len(kept) == 0 {
+				return nil
+			}
+			return p.addFile(req, resp, outputPath, kept[0].Namespace, nil, kept, nil)
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
+}
 
-	return resp, nil
+// generateUnionFiles adds a file to resp for each output path left in unionCollector,
+// along with the enums its unions reference.
+func (p *Plugin) generateUnionFiles(
+	req *plugin.Request,
+	resp *plugin.Response,
+	unionCollector *framework.Collector,
+) error {
+	return unionCollector.ForEach(
+		func(outputPath string, unions []resolution.Type) error {
+			namespace := unions[0].Namespace
+			enums := collectEnums(unions, namespace, outputPath, req.Resolutions)
+			return p.addFile(req, resp, outputPath, namespace, nil, enums, unions)
+		},
+	)
+}
+
+// collectEnums returns the enums that types reference, merged with the enums of
+// namespace that generate at outputPath.
+func collectEnums(
+	types []resolution.Type,
+	namespace string,
+	outputPath string,
+	table *resolution.Table,
+) []resolution.Type {
+	return framework.MergeTypes(
+		enum.CollectReferenced(types, table),
+		enum.CollectNamespaceEnums(
+			namespace,
+			outputPath,
+			table,
+			"pb",
+			enum.FindPBOutputPath,
+		),
+	)
+}
+
+// addFile generates the proto file for namespace at outputPath and appends it to resp.
+func (p *Plugin) addFile(
+	req *plugin.Request,
+	resp *plugin.Response,
+	outputPath string,
+	namespace string,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	unions []resolution.Type,
+) error {
+	content, err := p.generateFile(
+		outputPath,
+		structs,
+		enums,
+		unions,
+		req.Resolutions,
+		req.RepoRoot,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate %s", outputPath)
+	}
+	resp.Files = append(resp.Files, plugin.File{
+		Path:    fmt.Sprintf("%s/%s", outputPath, namespace+".proto"),
+		Content: content,
+	})
+	return nil
 }
 
 // hasEmittableType reports whether at least one type survives @pb omit
@@ -264,34 +274,8 @@ func (p *Plugin) generateFile(
 		table:      table,
 	}
 
-	for _, e := range enums {
-		if e.FilePath == filePath && !omit.IsSkipped(e, "pb") {
-			data.Enums = append(data.Enums, p.processEnum(e))
-		}
-	}
-
-	for _, entry := range structs {
-		if omit.IsSkipped(entry, "pb") {
-			continue
-		}
-		msg, err := p.processStruct(entry, data)
-		if err != nil {
-			return nil, err
-		}
-		if !msg.Skip {
-			data.Messages = append(data.Messages, msg)
-		}
-	}
-
-	for _, entry := range unions {
-		if omit.IsSkipped(entry, "pb") {
-			continue
-		}
-		msg, err := p.processUnion(entry, data)
-		if err != nil {
-			return nil, err
-		}
-		data.Messages = append(data.Messages, msg)
+	if err := p.addTypes(data, structs, enums, unions); err != nil {
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -299,6 +283,49 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// addTypes adds to data the enums, structs, and unions that survive @pb omit filtering.
+// It keeps only the enums declared in the file that data generates.
+func (p *Plugin) addTypes(
+	data *templateData,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	unions []resolution.Type,
+) error {
+	for _, e := range enums {
+		if e.FilePath != data.filePath || omit.IsSkipped(e, "pb") {
+			continue
+		}
+		ed, err := p.processEnum(e)
+		if err != nil {
+			return err
+		}
+		data.Enums = append(data.Enums, ed)
+	}
+	for _, entry := range structs {
+		if omit.IsSkipped(entry, "pb") {
+			continue
+		}
+		msg, err := p.processStruct(entry, data)
+		if err != nil {
+			return err
+		}
+		if !msg.Skip {
+			data.Messages = append(data.Messages, msg)
+		}
+	}
+	for _, entry := range unions {
+		if omit.IsSkipped(entry, "pb") {
+			continue
+		}
+		msg, err := p.processUnion(entry, data)
+		if err != nil {
+			return err
+		}
+		data.Messages = append(data.Messages, msg)
+	}
+	return nil
 }
 
 // derivePackageName names the proto package generated at outputPath for the schema
@@ -324,10 +351,17 @@ func deriveGoPackage(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (p *Plugin) processEnum(e resolution.Type) (enumData, error) {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
-		return enumData{Name: e.Name}
+		return enumData{Name: e.Name}, nil
+	}
+	if form.IsIntEnum && len(form.Values) > 0 && form.Values[0].IntValue() != 0 {
+		return enumData{}, errors.Newf(
+			"enum %s cannot be written to protobuf: its first member %s has value "+
+				"%d, and proto3 needs the first member to be 0",
+			e.Name, form.Values[0].Name, form.Values[0].IntValue(),
+		)
 	}
 
 	ed := enumData{
@@ -340,11 +374,15 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 
 	for i, v := range form.Values {
 		number := i // Default to sequential for string enums
-		switch n := v.Value.(type) {
-		case int64:
+		if n, ok := v.Value.(int64); ok {
+			if n < math.MinInt32 || n > math.MaxInt32 {
+				return enumData{}, errors.Newf(
+					"enum %s cannot be written to protobuf: its member %s has value "+
+						"%d, and proto3 needs every member to fit in int32",
+					e.Name, v.Name, n,
+				)
+			}
 			number = int(n)
-		case int:
-			number = n
 		}
 		ed.Values = append(ed.Values, enumValueData{
 			Name:   prefix + toScreamingSnake(v.Name),
@@ -352,7 +390,7 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 		})
 	}
 
-	return ed
+	return ed, nil
 }
 
 func (p *Plugin) processStruct(
@@ -518,6 +556,7 @@ func (p *Plugin) processField(
 	number int,
 	data *templateData,
 ) (fieldData, error) {
+	field.Type = protoShape(field.Type)
 	if arrays.IsFixedSizeUint8(field.Type, data.table) {
 		return fieldData{
 			Name:       casing.FieldSnake(field.Name),
@@ -650,6 +689,15 @@ func (p *Plugin) generateNestedArrayWrapper(
 	return wrapperName, nil
 }
 
+// protoShape follows a type parameter to its default, the type typeToProto renders for
+// it. A type parameter with no default stays as it is and renders as Any.
+func protoShape(ref resolution.TypeRef) resolution.TypeRef {
+	for ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
+		ref = *ref.TypeParam.Default
+	}
+	return ref
+}
+
 func (p *Plugin) typeToProto(
 	typeRef resolution.TypeRef,
 	data *templateData,
@@ -669,29 +717,10 @@ func (p *Plugin) typeToProto(
 
 	switch form := resolved.Form.(type) {
 	case resolution.PrimitiveForm:
-		mapping := primitiveMapper.Map(form.Name)
-		if mapping.TargetType == "any" {
-			return "", errors.Newf(
-				"primitive type %q has no protobuf mapping",
-				form.Name,
-			)
-		}
-		for _, imp := range mapping.Imports {
-			data.imports.add(imp.Path)
-		}
-		return mapping.TargetType, nil
+		return primitiveToProto(form, data)
 
 	case resolution.BuiltinGenericForm:
-		if form.Name == "Array" {
-			if len(typeRef.TypeArgs) > 0 {
-				return p.typeToProto(typeRef.TypeArgs[0], data)
-			}
-			return "", errors.New("Array type has no type arguments")
-		}
-		if form.Name == "Map" {
-			return p.resolveMapType(typeRef, data)
-		}
-		return "", errors.Newf("unknown builtin generic type %q", form.Name)
+		return p.builtinGenericToProto(form, typeRef, data)
 
 	case resolution.StructForm:
 		if inst, ok := instance.Of(typeRef, data.Namespace, data.table); ok {
@@ -723,6 +752,38 @@ func (p *Plugin) typeToProto(
 			resolved.Form,
 			resolved.Name,
 		)
+	}
+}
+
+func primitiveToProto(
+	form resolution.PrimitiveForm,
+	data *templateData,
+) (string, error) {
+	mapping := primitiveMapper.Map(form.Name)
+	if mapping.TargetType == "any" {
+		return "", errors.Newf("primitive type %q has no protobuf mapping", form.Name)
+	}
+	for _, imp := range mapping.Imports {
+		data.imports.add(imp.Path)
+	}
+	return mapping.TargetType, nil
+}
+
+func (p *Plugin) builtinGenericToProto(
+	form resolution.BuiltinGenericForm,
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
+	switch form.Name {
+	case "Array":
+		if len(typeRef.TypeArgs) > 0 {
+			return p.typeToProto(typeRef.TypeArgs[0], data)
+		}
+		return "", errors.New("Array type has no type arguments")
+	case "Map":
+		return p.resolveMapType(typeRef, data)
+	default:
+		return "", errors.Newf("unknown builtin generic type %q", form.Name)
 	}
 }
 
@@ -766,29 +827,12 @@ func (p *Plugin) processUnion(
 		name = entry.Name
 	}
 	md := messageData{Name: name, Doc: doc.Get(entry.Domains)}
-
-	fieldNumber := 1
-	for _, baseRef := range form.Extends {
-		target, _, ok := resolution.Dealias(baseRef, data.table)
-		if !ok {
-			continue
-		}
-		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
-			continue
-		}
-		base, _ := baseRef.Resolve(data.table)
-		protoType, err := p.typeToProto(baseRef, data)
-		if err != nil {
-			return messageData{}, errors.Wrapf(err, "union %q base", entry.Name)
-		}
-		md.Fields = append(md.Fields, fieldData{
-			Name:   casing.FieldSnake(base.Name),
-			Type:   protoType,
-			Number: fieldNumber,
-		})
-		fieldNumber++
+	var err error
+	if md.Fields, err = p.unionBaseFields(entry, form, data); err != nil {
+		return messageData{}, err
 	}
 
+	fieldNumber := len(md.Fields) + 1
 	oneof := &oneofData{Name: "variant"}
 	for _, v := range form.Variants {
 		// The union's bases are one shared message field, not per-variant, so a
@@ -821,6 +865,36 @@ func (p *Plugin) processUnion(
 	}
 	md.Oneof = oneof
 	return md, nil
+}
+
+// unionBaseFields returns one message field for each struct base that the union entry
+// extends, numbered from 1.
+func (p *Plugin) unionBaseFields(
+	entry resolution.Type,
+	form resolution.UnionForm,
+	data *templateData,
+) ([]fieldData, error) {
+	var fields []fieldData
+	for _, baseRef := range form.Extends {
+		target, _, ok := resolution.Dealias(baseRef, data.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		base, _ := baseRef.Resolve(data.table)
+		protoType, err := p.typeToProto(baseRef, data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "union %q base", entry.Name)
+		}
+		fields = append(fields, fieldData{
+			Name:   casing.FieldSnake(base.Name),
+			Type:   protoType,
+			Number: len(fields) + 1,
+		})
+	}
+	return fields, nil
 }
 
 func (p *Plugin) resolveStructType(
@@ -890,6 +964,17 @@ func (p *Plugin) resolveMapType(
 		)
 	}
 
+	for _, arg := range typeRef.TypeArgs[:2] {
+		arg = protoShape(arg)
+		if arg.IsTypeParam() {
+			continue
+		}
+		if kind, _ := resolution.CollectionKind(arg, data.table); kind == "Array" {
+			return "", errors.New(
+				"protobuf map keys and values cannot be lists; wrap the list in a struct",
+			)
+		}
+	}
 	keyType, err := p.typeToProto(typeRef.TypeArgs[0], data)
 	if err != nil {
 		return "", errors.Wrap(err, "map key type")

@@ -9,6 +9,7 @@
 
 import {
   bounds,
+  box,
   color,
   DataType,
   MultiSeries,
@@ -20,11 +21,12 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { XAxis } from "@/lineplot/aether/XAxis";
+import { Layout } from "@/lineplot/aether/layout";
+import { type BreakAction, type BreaksRequest, XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { Line } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
@@ -72,7 +74,13 @@ interface Mount {
   xAxis: XAxis;
   axis: YAxis;
   setVisible: (line: string, visible: boolean) => void;
+  setXAxis: (state: Record<string, unknown>) => void;
+  calls: canvasTest.RecordingGL["calls"];
+  lower2d: canvasTest.Recorder["lower2d"];
 }
+
+// across returns a layout of one segment over b, so a y axis bounds its lines inside b.
+const across = (b: bounds.Bounds): Layout => new Layout([b], box.DECIMAL);
 
 describe("YAxis", () => {
   const teardowns: (() => void)[] = [];
@@ -92,7 +100,8 @@ describe("YAxis", () => {
     xAxis = {},
   }: MountProps = {}): Mount => {
     const recorder = canvasTest.record();
-    (recorder as { gl: unknown }).gl = GL;
+    const { gl, calls } = canvasTest.createGL();
+    (recorder as { gl: unknown }).gl = gl;
     const stack = buildStack({
       registry: {
         [lineTest.Host.TYPE]: lineTest.Host,
@@ -105,11 +114,14 @@ describe("YAxis", () => {
     const xPath = [...stack.basePath, "host", "x1"];
     const path = [...xPath, "y1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, {
-      location: "bottom",
-      autoBoundPadding: 0,
-      ...xAxis,
-    });
+    const setXAxis = (state: Record<string, unknown>): void =>
+      stack.driver.update(xPath, XAxis.TYPE, {
+        location: "bottom",
+        autoBoundPadding: 0,
+        ...xAxis,
+        ...state,
+      });
+    setXAxis({});
     stack.driver.update(path, YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
@@ -117,8 +129,8 @@ describe("YAxis", () => {
     });
     const setVisible = (line: string, visible: boolean): void =>
       stack.driver.update([...path, line], Line.TYPE, {
-        ...lines[line],
         color: color.construct("#ff0000"),
+        ...lines[line],
         visible,
       });
     Object.keys(lines).forEach((line) => setVisible(line, !hidden.includes(line)));
@@ -127,8 +139,72 @@ describe("YAxis", () => {
       xAxis: stack.driver.find<XAxis>(xPath),
       axis: stack.driver.find<YAxis>(path),
       setVisible,
+      setXAxis,
+      calls,
+      lower2d: recorder.lower2d,
     };
   };
+
+  describe("render", () => {
+    it("should draw a raised line over the other lines", () => {
+      const RAISED = color.construct("#00ff00");
+      const m = mount({
+        lines: {
+          raised: {
+            x: sourceSpec([0, 50]),
+            y: sourceSpec([1, 2]),
+            color: RAISED,
+            raised: true,
+          },
+          plain: { x: sourceSpec([0, 50]), y: sourceSpec([3, 4]) },
+        },
+      });
+      const region = box.construct(0, 0, 800, 600);
+      const raised: Array<() => void> = [];
+      m.axis.render(
+        {
+          grid: {},
+          plot: region,
+          viewport: box.DECIMAL,
+          container: region,
+          canvases: ["gl"],
+          hold: false,
+          breaksHidden: false,
+          openBreaks: [],
+          layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
+        },
+        raised,
+      );
+      raised.forEach((draw) => draw());
+      const colors = m.calls
+        .filter((c) => c.op === "uniform4fv")
+        .map((c) => [...(c.args[1] as Iterable<number>)]);
+      expect(colors.length).toBeGreaterThan(1);
+      expect(colors.at(-1)).toEqual(color.rgba1(RAISED));
+      expect(colors[0]).not.toEqual(color.rgba1(RAISED));
+    });
+
+    it("should draw the x axis before it returns the error of an x source", () => {
+      const m = mount();
+      const failed = vi.spyOn(Line.prototype, "xBounds").mockImplementation(() => {
+        throw new Error("x source failed");
+      });
+      teardowns.push(() => failed.mockRestore());
+      const region = box.construct(0, 0, 800, 600);
+      const props = {
+        grid: {},
+        plot: region,
+        viewport: box.DECIMAL,
+        container: region,
+        canvases: ["lower2d" as const],
+        hold: false,
+        breaksHidden: false,
+        openBreaks: [],
+      };
+      expect(m.xAxis.render(props, [])?.[2]?.message).toBe("x source failed");
+      expect(m.lower2d.calls.length).toBeGreaterThan(0);
+    });
+  });
 
   describe("autoBoundPadding", () => {
     it("should default to 10% on a y axis and 1% on an x axis", () => {
@@ -144,29 +220,49 @@ describe("YAxis", () => {
   describe("bounds", () => {
     it("should cover every visible line", () => {
       const m = mount();
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
     });
 
     it("should exclude a hidden line", () => {
       const m = mount();
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
+    });
+
+    it("should bound each line over its own span", () => {
+      const m = mount();
+      const spans = new Map([["railed", { lower: 20, upper: 60 }]]);
+      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should give no bounds for a line whose span holds no time", () => {
+      const m = mount();
+      const spans = new Map([["railed", { lower: 30, upper: 30 }]]);
+      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should exclude a hidden line inside a finite x window", () => {
       const m = mount();
       const xWindow = { lower: 0, upper: 5 };
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 100 });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 2 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 2 });
     });
 
     it("should exclude a hidden line when the x window clips out every sample", () => {
       const m = mount();
       const xWindow = { lower: 20, upper: 30 };
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 100 });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(xWindow))).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should use the x axis bounds of the visible lines as its window", () => {
@@ -174,21 +270,24 @@ describe("YAxis", () => {
       m.setVisible("railed", false);
       const xBounds = m.xAxis.bounds(false);
       expect(xBounds).toEqual({ lower: 0, upper: 10 });
-      expect(m.axis.bounds(false, xBounds)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(xBounds))).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should include a line again when it is shown", () => {
       const m = mount();
       m.setVisible("railed", false);
       m.setVisible("railed", true);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
     });
 
     it("should fall back to decimal bounds when every line is hidden", () => {
       const m = mount();
       m.setVisible("nominal", false);
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual(bounds.DECIMAL);
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual(bounds.DECIMAL);
     });
 
     it("should pad the data bounds by the auto bound padding", () => {
@@ -196,14 +295,20 @@ describe("YAxis", () => {
         lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) } },
         axis: { autoBoundPadding: 0.1 },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -1, upper: 11 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: -1,
+        upper: 11,
+      });
     });
 
     it("should expand equal data bounds by one", () => {
       const m = mount({
         lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([5, 5]) } },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 4, upper: 6 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 4,
+        upper: 6,
+      });
     });
 
     it("should ignore a line without data", () => {
@@ -213,7 +318,10 @@ describe("YAxis", () => {
           line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) },
         },
       });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 0, upper: 10 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 0,
+        upper: 10,
+      });
     });
 
     it("should fall back to an hour from now on an empty time axis", () => {
@@ -221,7 +329,7 @@ describe("YAxis", () => {
       vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
       const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
       const now = TimeStamp.now();
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
         lower: Number(now.valueOf()),
         upper: Number(now.add(TimeSpan.HOUR).valueOf()),
       });
@@ -231,31 +339,48 @@ describe("YAxis", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
       const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
-      const first = m.axis.bounds(false, bounds.INFINITE);
+      const first = m.axis.bounds(false, across(bounds.INFINITE));
       vi.setSystemTime(new Date("2030-01-02T04:04:05Z"));
-      const second = m.axis.bounds(false, bounds.INFINITE);
+      const second = m.axis.bounds(false, across(bounds.INFINITE));
       expect(second.lower).toBeGreaterThan(first.lower);
       expect(second.lower).toBe(Number(TimeStamp.now().valueOf()));
     });
 
     it("should exclude a line that is hidden when it mounts", () => {
       const m = mount({ hidden: ["railed"] });
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
     });
 
     it("should keep the held bounds when a line is hidden during a hold", () => {
       const m = mount();
-      m.axis.bounds(false, bounds.INFINITE);
+      m.axis.bounds(false, across(bounds.INFINITE));
       m.setVisible("railed", false);
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 100 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 100,
+      });
+    });
+
+    it("should drop the held x bounds when the x axis changes tick type", () => {
+      const m = mount({ xAxis: { type: "time" } });
+      m.xAxis.bounds(false);
+      m.setVisible("railed", false);
+      m.setXAxis({ type: "relative" });
+      expect(m.xAxis.bounds(true)).toEqual({ lower: 0, upper: 10 });
     });
 
     it("should exclude a hidden line when the hold ends", () => {
       const m = mount();
-      m.axis.bounds(false, bounds.INFINITE);
+      m.axis.bounds(false, across(bounds.INFINITE));
       m.setVisible("railed", false);
-      m.axis.bounds(true, bounds.INFINITE);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      m.axis.bounds(true, across(bounds.INFINITE));
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
     });
 
     it("should hold bounds only once its lines load", () => {
@@ -264,12 +389,21 @@ describe("YAxis", () => {
       const m = mount({
         lines: { loading: { x: sourceSpec([0, 5, 10]), y: specOf(y) } },
       });
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 3,
+      });
       y.status = telem.SUCCESS_STATUS;
       y.setValue(seriesValue([1, 200]));
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 200,
+      });
       y.setValue(seriesValue([1, 2]));
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
+      expect(m.axis.bounds(true, across(bounds.INFINITE))).toEqual({
+        lower: 1,
+        upper: 200,
+      });
     });
 
     it("should change only the automatic bound of a partly manual axis", () => {
@@ -277,14 +411,17 @@ describe("YAxis", () => {
         axis: { bounds: { lower: -5, upper: 500 }, manualBounds: { lower: true } },
       });
       m.setVisible("railed", false);
-      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -5, upper: 3 });
+      expect(m.axis.bounds(false, across(bounds.INFINITE))).toEqual({
+        lower: -5,
+        upper: 3,
+      });
     });
   });
 
   describe("xBounds", () => {
     it("should return the x bounds of every visible line", () => {
       const m = mount();
-      expect(m.axis.xBounds().map((b) => b.bounds)).toEqual([
+      expect(m.axis.traces().map((b) => b.bounds)).toEqual([
         { lower: 0, upper: 10 },
         { lower: 0, upper: 50 },
       ]);
@@ -293,19 +430,19 @@ describe("YAxis", () => {
     it("should exclude a hidden line", () => {
       const m = mount();
       m.setVisible("railed", false);
-      expect(m.axis.xBounds().map((b) => b.bounds)).toEqual([{ lower: 0, upper: 10 }]);
+      expect(m.axis.traces().map((b) => b.bounds)).toEqual([{ lower: 0, upper: 10 }]);
     });
 
     it("should return no bounds when every line is hidden", () => {
       const m = mount({ hidden: ["nominal", "railed"] });
-      expect(m.axis.xBounds()).toEqual([]);
+      expect(m.axis.traces()).toEqual([]);
     });
 
     it("should report loading while a visible line's x source loads", () => {
       const x = telemTest.source(seriesValue([0, 5, 10]));
       x.status = telem.LOADING_STATUS;
       const m = mount({ lines: { loading: { x: specOf(x), y: sourceSpec([1, 2]) } } });
-      expect(m.axis.xBounds()[0].loading).toBe(true);
+      expect(m.axis.traces()[0].loading).toBe(true);
     });
   });
 });
@@ -317,11 +454,18 @@ describe("XAxis", () => {
     teardowns.length = 0;
   });
 
+  type XSource = telemTest.TestSource<[bounds.Bounds, MultiSeries]>;
+
   // Mounts an x axis with a y axis per entry, each holding lines of the given x bounds.
+  // A line given a source reads its x bounds from it.
   const mount = (
-    yAxes: Record<string, Array<{ x: bounds.Bounds; edge?: telem.Edge }>>,
+    yAxes: Record<
+      string,
+      Array<{ x: bounds.Bounds; edge?: telem.Edge; source?: XSource }>
+    >,
+    xState: Record<string, unknown> = {},
+    recorder: canvasTest.Recorder = canvasTest.record(),
   ): XAxis => {
-    const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
       registry: {
@@ -334,15 +478,16 @@ describe("XAxis", () => {
     });
     const xPath = [...stack.basePath, "host", "x1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, { location: "bottom", autoBoundPadding: 0 });
+    stack.driver.update(xPath, XAxis.TYPE, {
+      location: "bottom",
+      autoBoundPadding: 0,
+      ...xState,
+    });
     Object.entries(yAxes).forEach(([yKey, lines]) => {
       const yPath = [...xPath, yKey];
       stack.driver.update(yPath, YAxis.TYPE, { location: "left", autoBoundPadding: 0 });
-      lines.forEach(({ x: b, edge }, i) => {
-        const x = telemTest.source<[bounds.Bounds, MultiSeries]>([
-          b,
-          new MultiSeries(),
-        ]);
+      lines.forEach(({ x: b, edge, source }, i) => {
+        const x: XSource = source ?? telemTest.source([b, new MultiSeries()]);
         x.edge = edge;
         stack.driver.update([...yPath, `line${i}`], Line.TYPE, {
           x: specOf(x),
@@ -420,6 +565,299 @@ describe("XAxis", () => {
         ],
       });
       expect(x.bounds(false)).toEqual({ lower: 970, upper: 1000 });
+    });
+  });
+
+  describe("collapsed gaps", () => {
+    const S = Number(TimeSpan.SECOND.valueOf());
+    const DAY = Number(TimeSpan.DAY.valueOf());
+    // Two windows of a minute, a day apart, on one y axis.
+    const WINDOWS = {
+      y1: [
+        { x: { lower: 0, upper: 60 * S } },
+        { x: { lower: DAY, upper: DAY + 60 * S } },
+      ],
+    };
+    const props = (openBreaks: number[] = []) => ({
+      hold: false,
+      breaksHidden: false,
+      viewport: box.DECIMAL,
+      openBreaks,
+    });
+    const segmentBounds = (x: XAxis) => x.layout(props()).segments.map((s) => s.bounds);
+
+    it("should give each window far from the others its own segment", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(segmentBounds(x)).toEqual([
+        { lower: 0, upper: 63 * S },
+        { lower: DAY - 3 * S, upper: DAY + 60 * S },
+      ]);
+    });
+
+    it("should lay out one segment while its breaks are hidden", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout({ ...props(), breaksHidden: true });
+      expect(layout.segments.map((s) => s.bounds)).toEqual([
+        { lower: 0, upper: DAY + 60 * S },
+      ]);
+    });
+
+    it("should lay out one segment on an axis that is not a time axis", () => {
+      const x = mount(WINDOWS, { type: "linear" });
+      expect(segmentBounds(x)).toHaveLength(1);
+    });
+
+    it("should draw each line with the scale of the segment of its window", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props());
+      expect(layout.segment("line0")).toBe(layout.segments[0]);
+      expect(layout.segment("line1")).toBe(layout.segments[1]);
+    });
+
+    it("should report the outer edges of its segments as its bounds", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(x.layout(props()).bounds).toEqual({ lower: 0, upper: DAY + 60 * S });
+    });
+
+    it("should move the outer edge of a segment to a manual bound", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: 30 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)[0]).toEqual({ lower: 30 * S, upper: 63 * S });
+    });
+
+    it("should drop the segments outside a manual bound", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: DAY - S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: DAY - S, upper: DAY + 60 * S }]);
+    });
+
+    it("should start a manual lower bound in a gap at the segment past the gap", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: 3600 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: DAY - 3 * S, upper: DAY + 60 * S }]);
+    });
+
+    it("should end a manual upper bound in a gap at the segment before the gap", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: false, upper: true },
+        bounds: { lower: 0, upper: DAY - 3600 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: 0, upper: 63 * S }]);
+    });
+
+    it("should keep a manual window inside one gap as set", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: true },
+        bounds: { lower: 3600 * S, upper: 7200 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: 3600 * S, upper: 7200 * S }]);
+    });
+
+    it("should keep a manual lower bound before the first segment", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: -60 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)[0]).toEqual({ lower: -60 * S, upper: 63 * S });
+    });
+
+    it("should keep its segments while it holds", () => {
+      const moved: XSource = telemTest.source([WINDOWS.y1[1].x, new MultiSeries()]);
+      const x = mount(
+        { y1: [WINDOWS.y1[0], { ...WINDOWS.y1[1], source: moved }] },
+        { type: "time" },
+      );
+      const before = segmentBounds(x);
+      expect(before).toHaveLength(2);
+      moved.setValue([{ lower: 2 * DAY, upper: 2 * DAY + 60 * S }, new MultiSeries()]);
+      const held = x.layout({ ...props(), hold: true }).segments.map((s) => s.bounds);
+      expect(held).toEqual(before);
+      expect(segmentBounds(x)).not.toEqual(before);
+    });
+
+    it("should hide and show its breaks while it holds", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(segmentBounds(x)).toHaveLength(2);
+      const held = (breaksHidden: boolean) =>
+        x.layout({ ...props(), hold: true, breaksHidden }).segments;
+      expect(held(true)).toHaveLength(1);
+      expect(held(false)).toHaveLength(2);
+    });
+
+    it("should draw a band over each seam in view", () => {
+      const recorder = canvasTest.record();
+      const x = mount(WINDOWS, { type: "time" }, recorder);
+      const plot = box.construct(0, 0, 800, 600);
+      x.render(
+        {
+          ...props(),
+          grid: {},
+          plot,
+          container: plot,
+          canvases: ["upper2d"],
+        },
+        [],
+      );
+      // The two segments hold 63 and 63 seconds, so the seam is at the middle.
+      const lines = recorder.upper2d.calls
+        .filter((c) => c.op === "moveTo")
+        .map((c) => c.args[0]);
+      expect(lines).toEqual([394.5, 406.5]);
+      // The band ends short of the mark on the axis at the bottom of the plot.
+      const ends = recorder.upper2d.calls
+        .filter((c) => c.op === "lineTo")
+        .map((c) => c.args[1]);
+      expect(ends).toEqual([592, 592]);
+    });
+  });
+
+  describe("breaks", () => {
+    const S = Number(TimeSpan.SECOND.valueOf());
+    const DAY = Number(TimeSpan.DAY.valueOf());
+    const WINDOWS = {
+      y1: [
+        { x: { lower: 0, upper: 60 * S } },
+        { x: { lower: DAY, upper: DAY + 60 * S } },
+      ],
+    };
+    // The segments hold 63 seconds each, so the seam is at the middle of the plot.
+    const PLOT = box.construct(0, 0, 800, 600);
+    const SEAM_X = 400;
+    const GAP = 63 * S;
+    const props = (openBreaks: number[] = []) => ({
+      hold: false,
+      breaksHidden: false,
+      viewport: box.DECIMAL,
+      openBreaks,
+    });
+    const view = (lower: number, upper: number): box.Box =>
+      box.construct({ x: lower, y: 0 }, { x: upper, y: 1 }, 0, 0, box.DECIMAL.root);
+    const request = (
+      action: BreakAction,
+      viewport = box.DECIMAL,
+      selection = box.ZERO,
+    ): BreaksRequest => ({ action, viewport, held: [], selection });
+    const toggle = (x: number, source: "plot" | "axis" = "plot"): BreakAction => ({
+      variant: "toggle",
+      x,
+      source,
+    });
+    // shown returns the values at the x edges of a view, with openBreaks open.
+    const shown = (x: XAxis, openBreaks: number[], viewport: box.Box) => {
+      const layout = x.layout({ ...props(openBreaks), viewport });
+      return [layout.reverse(0), layout.reverse(1)];
+    };
+
+    it("should open the break under a click on the plot", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const change = x.breaks(props(), request(toggle(SEAM_X + 3)), PLOT);
+      expect(change?.openBreaks).toEqual([GAP]);
+    });
+
+    it("should change nothing for a click away from every break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(x.breaks(props(), request(toggle(SEAM_X + 20)), PLOT)).toBeNull();
+    });
+
+    it("should keep the values at the edges of the view in view", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const zoomed = view(0.25, 0.75);
+      const before = shown(x, [], zoomed);
+      const change = x.breaks(props(), request(toggle(SEAM_X), zoomed), PLOT);
+      expect(change).not.toBeNull();
+      const after = shown(x, change!.openBreaks, change!.viewport);
+      expect(after[0]).toBeCloseTo(before[0], -3);
+      expect(after[1]).toBeCloseTo(before[1], -3);
+    });
+
+    it("should keep a selection that ends at a seam on its side of the break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const before = x.layout(props());
+      const selection = view(0.25, before.segments[1].position.lower);
+      const req = { ...request(toggle(SEAM_X)), selection };
+      const change = x.breaks(props(), req, PLOT);
+      expect(change).not.toBeNull();
+      const after = x.layout(props(change!.openBreaks));
+      const upper = after.reverseHome(box.right(change!.selection));
+      expect(upper).toBeCloseTo(before.segments[0].bounds.upper, -3);
+    });
+
+    it("should map the selection and the held views through time", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const selection = view(0.1, 0.2);
+      const req = { ...request(toggle(SEAM_X)), selection, held: [view(0.6, 0.9)] };
+      const change = x.breaks(props(), req, PLOT);
+      expect(change).not.toBeNull();
+      const before = x.layout(props());
+      const after = x.layout(props(change!.openBreaks));
+      const values = (l: Layout, b: box.Box) => {
+        const { lower, upper } = box.xBounds(b);
+        return [l.reverseHome(lower), l.reverseHome(upper)];
+      };
+      values(after, change!.selection).forEach((v, i) =>
+        expect(v).toBeCloseTo(values(before, selection)[i], -3),
+      );
+      values(after, change!.held[0]).forEach((v, i) =>
+        expect(v).toBeCloseTo(values(before, req.held[0])[i], -3),
+      );
+    });
+
+    it("should not close an open break on a click on the plot", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props([GAP]));
+      const mark = layout.mark(layout.gaps[0]) * box.width(PLOT);
+      expect(x.breaks(props([GAP]), request(toggle(mark)), PLOT)).toBeNull();
+    });
+
+    it("should close an open break on a click on its axis mark", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props([GAP]));
+      const mark = layout.mark(layout.gaps[0]) * box.width(PLOT);
+      const change = x.breaks(props([GAP]), request(toggle(mark, "axis")), PLOT);
+      expect(change?.openBreaks).toEqual([]);
+    });
+
+    it("should open and close every break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const all = (open: boolean): BreakAction => ({ variant: "all", open });
+      expect(x.breaks(props(), request(all(true)), PLOT)?.openBreaks).toEqual([GAP]);
+      expect(x.breaks(props([GAP]), request(all(false)), PLOT)?.openBreaks).toEqual([]);
+      expect(x.breaks(props(), request(all(false)), PLOT)).toBeNull();
+    });
+
+    it("should open the breaks that a set names", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const set: BreakAction = { variant: "set", open: [GAP] };
+      expect(x.breaks(props(), request(set), PLOT)?.openBreaks).toEqual([GAP]);
+      expect(x.breaks(props([GAP]), request(set), PLOT)).toBeNull();
+    });
+
+    it("should keep the width of a view inside a gap that closes", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const inGap = view(0.4, 0.6);
+      const action: BreakAction = { variant: "all", open: false };
+      const change = x.breaks(props([GAP]), request(action, inGap), PLOT);
+      const { lower, upper } = box.xBounds(change!.viewport);
+      expect(upper - lower).toBeCloseTo(0.2);
+      expect((lower + upper) / 2).toBeCloseTo(0.5);
+    });
+
+    it("should drop open breaks whose gaps the axis no longer has", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const close: BreakAction = { variant: "all", open: false };
+      expect(x.breaks(props([12345]), request(close), PLOT)?.openBreaks).toEqual([]);
     });
   });
 });

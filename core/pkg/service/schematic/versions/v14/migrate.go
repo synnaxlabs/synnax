@@ -13,15 +13,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
 // level, and axis color of an edge, shape, or readout as a color reference. Each such
-// color becomes a fixed color, and an absent color stays absent.
+// color becomes a fixed color, and an absent color stays absent. It drops the staleness
+// color.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
@@ -69,7 +73,25 @@ func MigrateScaleIndicatorConfig(
 	return cfg, nil
 }
 
-// MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors.
+// MigrateStalenessConfig lifts a v13 staleness config to v14. It drops the staleness
+// color.
+func MigrateStalenessConfig(
+	ctx context.Context,
+	old v13.StalenessConfig,
+) (StalenessConfig, error) {
+	return autoMigrateStalenessConfig(ctx, old)
+}
+
+// MigrateToggleConfig lifts a v13 toggle config to v14. See MigrateStalenessConfig.
+func MigrateToggleConfig(
+	ctx context.Context,
+	old v13.ToggleConfig,
+) (ToggleConfig, error) {
+	return autoMigrateToggleConfig(ctx, old)
+}
+
+// MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors. A
+// custom node keeps its state overrides.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -82,6 +104,7 @@ func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, err
 	} else {
 		cfg.Variant = migrateReadoutColors(old.Variant, cfg.Variant)
 	}
+	cfg.Variant = migrateCustomStates(old.Variant, cfg.Variant)
 	return cfg, nil
 }
 
@@ -178,6 +201,29 @@ func migrateReadoutColors(
 		return n
 	}
 	return migrated
+}
+
+func migrateCustomStates(
+	old v13.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	switch o := old.(type) {
+	case v13.CustomActuatorNodeConfig:
+		n := as[CustomActuatorNodeConfig](migrated)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		return n
+	case v13.CustomStaticNodeConfig:
+		n := as[CustomStaticNodeConfig](migrated)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		return n
+	}
+	return migrated
+}
+
+func migrateStateOverrides(old []symbolv4.State) []symbol.StateOverride {
+	return lo.Map(old, func(s symbolv4.State, _ int) symbol.StateOverride {
+		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}
+	})
 }
 
 // as returns a migrated variant as a T. It panics when v is not a T, since a generated

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -188,29 +187,44 @@ var _ = Describe("Built-in named colors", func() {
 			Exists(ctx, tx)).To(BeTrue())
 	})
 
-	It("Should create only the missing built-ins and their palette", func(
-		ctx SpecContext,
-	) {
+	DescribeTable(
+		"Should refuse to move a built-in out of the Series palette",
+		func(ctx SpecContext, toPalette bool) {
+			svc := open(ctx)
+			first := byName(series(ctx, svc), "Series 1")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				var next any
+				if toPalette {
+					g := group.Group{Name: "Coolant", Scope: resource.TypeColor}
+					if err := groups.NewWriter(tx).Create(ctx, &g); err != nil {
+						return err
+					}
+					next = g.Key
+				}
+				return svc.NewWriter(tx).Apply(ctx, first.Key, color.NewSetAction(
+					color.SetPayload{Path: []string{"group"}, Value: next},
+				))
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot move built-in color Series 1 out of the Series palette",
+				)),
+			))
+			Expect(series(ctx, svc)).To(HaveLen(16))
+		},
+		Entry("to another palette", true),
+		Entry("to no palette", false),
+	)
+
+	It("Should create only the missing built-ins", func(ctx SpecContext) {
 		svc := open(ctx)
 		named := series(ctx, svc)
 		first := byName(named, "Series 1")
 		second := byName(named, "Series 2")
-		g := MustSucceed(palette(ctx))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := svc.NewWriter(tx)
-			for _, n := range named {
-				if err := w.Apply(ctx, n.Key, color.NewSetAction(
-					color.SetPayload{Path: []string{"group"}, Value: nil},
-				)); err != nil {
-					return err
-				}
-			}
-			if err := w.Apply(ctx, second.Key, color.NewSetAction(
+			if err := svc.NewWriter(tx).Apply(ctx, second.Key, color.NewSetAction(
 				color.SetPayload{Path: []string{"name"}, Value: "Coolant"},
 			)); err != nil {
-				return err
-			}
-			if err := groups.NewWriter(tx).Delete(ctx, g.Key); err != nil {
 				return err
 			}
 			// A release that adds a built-in finds it missing, as here.
@@ -219,33 +233,9 @@ var _ = Describe("Built-in named colors", func() {
 				Exec(ctx, tx)
 		})).To(Succeed())
 		Expect(svc.Close()).To(Succeed())
-		svc = open(ctx)
-		Expect(series(ctx, svc)).To(Equal([]color.Named{first}))
-		var stored color.Named
-		Expect(svc.NewRetrieve().
-			Where(color.MatchKeys(second.Key)).
-			Entry(&stored).
-			Exec(ctx, db)).To(Succeed())
-		Expect(stored.Name).To(Equal("Coolant"))
-		Expect(stored.Group).To(BeNil())
-	})
-
-	It("Should not create a deleted palette again", func(ctx SpecContext) {
-		svc := open(ctx)
-		g := MustSucceed(palette(ctx))
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := svc.NewWriter(tx)
-			for _, n := range series(ctx, svc) {
-				if err := w.Apply(ctx, n.Key, color.NewSetAction(
-					color.SetPayload{Path: []string{"group"}, Value: nil},
-				)); err != nil {
-					return err
-				}
-			}
-			return groups.NewWriter(tx).Delete(ctx, g.Key)
-		})).To(Succeed())
-		Expect(svc.Close()).To(Succeed())
-		open(ctx)
-		Expect(palette(ctx)).Error().To(MatchError(query.ErrNotFound))
+		named = series(ctx, open(ctx))
+		Expect(named).To(HaveLen(16))
+		Expect(byName(named, "Series 1")).To(Equal(first))
+		Expect(byName(named, "Coolant").Key).To(Equal(second.Key))
 	})
 })

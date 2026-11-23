@@ -99,7 +99,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, enumeration.ResourceID)
 }
 
-// Retrieve returns the enumerations that req selects and that the subject can retrieve.
+// Retrieve returns the enumerations that req selects and that the subject can retrieve,
+// with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -113,7 +114,33 @@ func (s *Service) Retrieve(
 	if err = q.Where(bind.Filter(snap, enumeration.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Enumerations); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each enumeration, leaving out the records that the subject
+// cannot retrieve. An enumeration with no readable uses gets empty uses, so the
+// response tells it apart from an enumeration whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	enumerations []enumeration.Enumeration,
+) error {
+	for i := range enumerations {
+		uses, err := s.internal.Uses(ctx, snap, enumerations[i].Key)
+		if err != nil {
+			return err
+		}
+		enumerations[i].Uses = lo.Filter(
+			uses,
+			func(id resource.ID, _ int) bool { return snap.Allowed(id) },
+		)
+	}
+	return nil
 }
 
 // RetrieveBuiltinsResponse holds the built-in enumerations.
@@ -131,42 +158,6 @@ func (s *Service) RetrieveBuiltins(
 	return RetrieveBuiltinsResponse{Enumerations: enumeration.Builtins()}, nil
 }
 
-// RetrieveDependentsRequest names the enumeration whose users to list.
-type RetrieveDependentsRequest struct {
-	// Key is the key of the enumeration.
-	Key enumeration.Key `json:"key" msgpack:"key"`
-}
-
-var _ bind.Named = RetrieveDependentsRequest{}
-
-// Named implements bind.Named. It returns the enumeration that the request names.
-func (r RetrieveDependentsRequest) Named() []resource.ID {
-	return []resource.ID{enumeration.ResourceID(r.Key)}
-}
-
-// RetrieveDependentsResponse holds the records that use an enumeration.
-type RetrieveDependentsResponse struct {
-	// Dependents are the IDs of the records that use the enumeration.
-	Dependents []resource.ID `json:"dependents" msgpack:"dependents"`
-}
-
-// RetrieveDependents returns the ID of each record that uses the enumeration and that
-// the subject can retrieve. Each record that uses the enumeration refuses its delete.
-func (s *Service) RetrieveDependents(
-	ctx context.Context,
-	snap bind.Snapshot,
-	req RetrieveDependentsRequest,
-) (RetrieveDependentsResponse, error) {
-	deps, err := s.internal.Dependents(ctx, snap, req.Key)
-	if err != nil {
-		return RetrieveDependentsResponse{}, err
-	}
-	return RetrieveDependentsResponse{Dependents: lo.Filter(
-		deps,
-		func(id resource.ID, _ int) bool { return snap.Allowed(id) },
-	)}, nil
-}
-
 // DispatchRequest carries an action sequence to apply to one enumeration. DispatchKey
 // is echoed on the broadcast so the sender recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[enumeration.Key, enumeration.Action]
@@ -181,6 +172,33 @@ func (s *Service) Dispatch(
 	return struct{}{}, s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+}
+
+// ReplaceRequest names the enumeration to replace and the one that replaces it.
+type ReplaceRequest struct {
+	// From is the key of the enumeration to delete.
+	From enumeration.Key `json:"from" msgpack:"from"`
+	// To is the key of the enumeration that each user of From moves to.
+	To enumeration.Key `json:"to" msgpack:"to"`
+}
+
+var _ bind.Copy = ReplaceRequest{}
+
+// Sources implements bind.Copy. The subject needs retrieve on To even when nothing uses
+// From.
+func (r ReplaceRequest) Sources() []resource.ID {
+	return []resource.ID{enumeration.ResourceID(r.To)}
+}
+
+// Replace moves each record that uses the enumeration From to the enumeration To, then
+// deletes From. It returns a validation error when From is built in or equals To, and a
+// not found error when From or To does not exist.
+func (s *Service) Replace(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ReplaceRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).Replace(ctx, req.From, req.To)
 }
 
 // DeleteRequest selects the enumerations to delete.

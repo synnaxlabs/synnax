@@ -56,7 +56,8 @@ describe("kafka scan task", () => {
         args: { device: id.create(), topics: ["plant/a"] },
       });
       expect(state.variant).toBe("error");
-      expect(state.message).toMatch(/^retrieving device .*not found/);
+      expect(state.message).toBe("Failed to execute command");
+      expect(state.description).toMatch(/^retrieving device .*not found/);
     },
   );
 });

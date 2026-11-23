@@ -31,7 +31,9 @@ describe("Kafka.Task create", () => {
   });
 
   it("should create a read task with the given config", async () => {
-    const config = Kafka.Task.READ_SCHEMAS.config.parse({ topic: "pressure" });
+    const config = Kafka.Task.READ_SCHEMAS.config.parse({
+      topics: [{ name: "pressure" }],
+    });
     const tsk = await createWithHook(
       Kafka.Task.useCreateRead,
       Kafka.Task.READ_SCHEMAS,
@@ -39,7 +41,7 @@ describe("Kafka.Task create", () => {
         config,
       },
     );
-    expect(tsk.config.topic).toBe("pressure");
+    expect(tsk.config.topics.map(({ name }) => name)).toEqual(["pressure"]);
   });
 
   it("should create a write task that publishes the channel and timestamp", async () => {

@@ -57,6 +57,21 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Status[any], from, to label.Key) {
+				if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {
+					return k1 == to
+				}) {
+					e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {
+						return k1 == from
+					})
+				} else {
+					for i2 := range e.Labels {
+						if e.Labels[i2] == from {
+							e.Labels[i2] = to
+						}
+					}
+				}
+			},
 		}),
 		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
 			Name:     "owner",
@@ -69,6 +84,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []gorp.Target{resourceTarget(*e.Owner)}
+			},
+			Retarget: func(e *Status[any], from, to gorp.Target) {
+				if e.Owner != nil && (gorp.Target{Table: string((*e.Owner).Type), Key: (*e.Owner).Key}) == from {
+					e.Owner.Key = to.Key
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Status[any]](

@@ -10,24 +10,14 @@
 import type { rack, Synnax, task } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
-import {
-  type Device,
-  MAKE,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/opcua/device/types";
-import {
-  type CertificateInfo,
-  SCAN_TYPE,
-  type ScannedNode,
-} from "@/feature/opcua/task/types";
-import { createRunningRack } from "@/platform/device/testutil";
+import { Device } from "@/feature/opcua/device";
+import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
+import { dragOnto } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
-export const SERVER_CERTIFICATE: CertificateInfo = {
+export const SERVER_CERTIFICATE: Device.CertificateInfo = {
   pem: `-----BEGIN CERTIFICATE-----
 MIIBbjCCARSgAwIBAgIUbAC1w3Ys7iTmtmRuMq9Yc9mWGIYwCgYIKoZIzj0EAwIw
 HTEbMBkGA1UEAwwSVGVzdCBPUEMgVUEgU2VydmVyMB4XDTI2MTAyODAzMjYwNFoX
@@ -46,7 +36,7 @@ IQDyvwdbi7qXLS7bkjYtMlxZ94PTGKApVOsBgqdDntq6EA==
 
 export interface CreateOPCDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
   /** The rack of the device. A new rack when absent. */
   rack?: rack.Key;
 }
@@ -55,7 +45,7 @@ export interface CreateOPCDeviceOptions {
 export const createOPCDevice = async (
   client: Synnax,
   { configured = true, properties, rack }: CreateOPCDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rackKey = rack ?? (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create(
     {
@@ -63,12 +53,12 @@ export const createOPCDevice = async (
       name: uniqueName("opc_server"),
       rack: rackKey,
       location: "opc.tcp://localhost:4840",
-      make: MAKE,
+      make: Device.MAKE,
       model: "OPC UA server",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };
 
@@ -76,7 +66,7 @@ export const createOPCDevice = async (
  * Creates a variable node with a unique name, as the browser lists it. A structure node
  * has no data type.
  */
-export const createVariableNode = (dataType: string = ""): ScannedNode => {
+export const createVariableNode = (dataType: string = ""): Device.ScannedNode => {
   const name = uniqueName("Node").replace(/_/g, "");
   return {
     key: `ns=1;s=${name}`,
@@ -89,14 +79,18 @@ export const createVariableNode = (dataType: string = ""): ScannedNode => {
   };
 };
 
-/** Creates a running rack with an OPC UA scan task, and a device on that rack. */
+/**
+ * Creates a rack that reports as running until the test ends, with an OPC UA scan task
+ * and a device on that rack.
+ */
 export const createScannedDevice = async (
   client: Synnax,
-): Promise<{ scan: task.Task; device: Device }> => {
+): Promise<{ scan: task.Task; device: Device.Device }> => {
   const rack = await createRunningRack(client, "opc");
+  await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("opcua_scan"),
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     config: {},
   });
   return { scan, device: await createOPCDevice(client, { rack: rack.key }) };
@@ -104,10 +98,10 @@ export const createScannedDevice = async (
 
 /** Creates the member at field of a structure node, as the browser lists it. */
 export const createMember = (
-  node: ScannedNode,
+  node: Device.ScannedNode,
   field: string,
   dataType: string,
-): ScannedNode => ({
+): Device.ScannedNode => ({
   ...node,
   key: `${node.nodeId}/${field}`,
   name: field,
@@ -115,8 +109,15 @@ export const createMember = (
   field,
 });
 
-/** Drags the browser node with the name onto the element that shows the target. */
-export const dragNode = async (name: string, target: string): Promise<void> => {
-  fireEvent.dragStart(await screen.findByText(name));
-  fireEvent.drop(await screen.findByText(new RegExp(target)));
-};
+/**
+ * Drags the browser node with the name onto the task channel row whose node line shows
+ * the node name and ID of target.
+ */
+export const dragNode = async (
+  name: string,
+  { nodeName, nodeId }: { nodeName: string; nodeId: string },
+): Promise<void> =>
+  dragOnto(
+    await screen.findByText(name),
+    await screen.findByText(`${nodeName} ${nodeId}`),
+  );

@@ -21,14 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import type { Reader, Store, Tx } from "@/server/db/db";
-import {
-  event,
-  invitation,
-  type Organization,
-  organization,
-  referral,
-} from "@/server/db/schema";
+import { type Reader, schema, type Store, type Tx } from "@/server/db";
 import { type Account, type Directory, isInternal } from "@/server/directory";
 import { notFound } from "@/server/errors";
 import { type Machine, machinesFor } from "@/server/license/desktop";
@@ -45,7 +38,11 @@ import {
 } from "@/server/usage";
 
 const desktopEvents = (...where: (SQL | undefined)[]): SQL | undefined =>
-  and(eq(organization.kind, "personal"), inArray(event.kind, DESKTOP), ...where);
+  and(
+    eq(schema.organization.kind, "personal"),
+    inArray(schema.event.kind, DESKTOP),
+    ...where,
+  );
 
 /**
  * usageOf reads the Desktop usage of every user, or of `userIDs`, at `now`. A user
@@ -58,24 +55,27 @@ export const usageOf = async (
 ): Promise<Map<string, Usage>> => {
   const rows = await db
     .select({
-      userID: organization.ownerUserID,
+      userID: schema.organization.ownerUserID,
       lastLogin:
-        sql<Date | null>`max(${event.at}) filter (where ${eq(event.kind, "link")})`.mapWith(
-          event.at,
+        sql<Date | null>`max(${schema.event.at}) filter (where ${eq(schema.event.kind, "link")})`.mapWith(
+          schema.event.at,
         ),
-      lastActive: max(event.at),
-      days: sql<number>`count(distinct (${event.at} at time zone 'UTC')::date) filter (where ${gte(event.at, since("month", now))})`.mapWith(
+      lastActive: max(schema.event.at),
+      days: sql<number>`count(distinct (${schema.event.at} at time zone 'UTC')::date) filter (where ${gte(schema.event.at, since("month", now))})`.mapWith(
         Number,
       ),
     })
-    .from(event)
-    .innerJoin(organization, eq(event.organization, organization.key))
+    .from(schema.event)
+    .innerJoin(
+      schema.organization,
+      eq(schema.event.organization, schema.organization.key),
+    )
     .where(
       desktopEvents(
-        userIDs == null ? undefined : inArray(organization.ownerUserID, userIDs),
+        userIDs == null ? undefined : inArray(schema.organization.ownerUserID, userIDs),
       ),
     )
-    .groupBy(organization.ownerUserID);
+    .groupBy(schema.organization.ownerUserID);
   return new Map(
     rows.flatMap(({ userID, ...usage }) => (userID == null ? [] : [[userID, usage]])),
   );
@@ -105,14 +105,14 @@ export const list = async (
 
 /** Membership is one team a user belongs to. */
 export interface Membership {
-  organization: Organization;
+  organization: schema.Organization;
   role: string;
 }
 
 /** Detail is everything the staff console shows about one account. */
 export interface Detail extends Entry {
   /** personal is the user's personal organization, or null before their first visit. */
-  personal: Organization | null;
+  personal: schema.Organization | null;
   /** machines are the user's Desktop machines that hold a seat. */
   machines: Machine[];
   teams: Membership[];
@@ -132,7 +132,10 @@ export const retrieve = async (
   const account = await directory.account(userID);
   if (account == null) throw notFound("User");
   const [[personal], usage, memberships] = await Promise.all([
-    store.query.select().from(organization).where(eq(organization.ownerUserID, userID)),
+    store.query
+      .select()
+      .from(schema.organization)
+      .where(eq(schema.organization.ownerUserID, userID)),
     usageOf(store.query, now, [userID]),
     directory.memberships(userID),
   ]);
@@ -153,10 +156,10 @@ export const retrieve = async (
 const purgeRecords = async (tx: Tx, userID: string): Promise<void> => {
   const [personal] = await tx
     .select()
-    .from(organization)
-    .where(eq(organization.ownerUserID, userID));
+    .from(schema.organization)
+    .where(eq(schema.organization.ownerUserID, userID));
   if (personal != null) await purge(tx, personal);
-  await tx.delete(referral).where(eq(referral.userID, userID));
+  await tx.delete(schema.referral).where(eq(schema.referral.userID, userID));
 };
 
 /**
@@ -172,7 +175,9 @@ export const remove = async (
   const addresses = await directory.addresses(userID);
   await store.transact(async (tx) => {
     await purgeRecords(tx, userID);
-    await tx.delete(invitation).where(inArray(invitation.email, addresses));
+    await tx
+      .delete(schema.invitation)
+      .where(inArray(schema.invitation.email, addresses));
     await directory.deleteAccount(userID);
   });
 };
@@ -246,16 +251,23 @@ export const summarize = async (
   const end = new Date(start.getTime() + DAY_MS);
   const accounts = await directory.users();
   const external = notInArray(
-    organization.ownerUserID,
+    schema.organization.ownerUserID,
     accounts.filter((a) => isInternal(a.email)).map((a) => a.userID),
   );
   const activeIn = async (period: Period): Promise<number> => {
     const [row] = await store.query
-      .select({ n: countDistinct(organization.ownerUserID) })
-      .from(event)
-      .innerJoin(organization, eq(event.organization, organization.key))
+      .select({ n: countDistinct(schema.organization.ownerUserID) })
+      .from(schema.event)
+      .innerJoin(
+        schema.organization,
+        eq(schema.event.organization, schema.organization.key),
+      )
       .where(
-        desktopEvents(external, gte(event.at, since(period, start)), lt(event.at, end)),
+        desktopEvents(
+          external,
+          gte(schema.event.at, since(period, start)),
+          lt(schema.event.at, end),
+        ),
       );
     return row.n;
   };
@@ -264,12 +276,21 @@ export const summarize = async (
     activeIn("week"),
     activeIn("month"),
     store.query
-      .select({ userID: organization.ownerUserID })
-      .from(event)
-      .innerJoin(organization, eq(event.organization, organization.key))
-      .where(and(eq(organization.kind, "personal"), eq(event.kind, "link"), external))
-      .groupBy(organization.ownerUserID)
-      .having(and(gte(min(event.at), start), lt(min(event.at), end))),
+      .select({ userID: schema.organization.ownerUserID })
+      .from(schema.event)
+      .innerJoin(
+        schema.organization,
+        eq(schema.event.organization, schema.organization.key),
+      )
+      .where(
+        and(
+          eq(schema.organization.kind, "personal"),
+          eq(schema.event.kind, "link"),
+          external,
+        ),
+      )
+      .groupBy(schema.organization.ownerUserID)
+      .having(and(gte(min(schema.event.at), start), lt(min(schema.event.at), end))),
   ]);
   return {
     day: start,

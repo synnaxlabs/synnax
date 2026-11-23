@@ -15,6 +15,7 @@ export * from "@/schematic/node/common/grid";
 export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
 export * from "@/schematic/node/common/handle";
 export * from "@/schematic/node/common/label";
+export * from "@/schematic/node/common/options";
 export * from "@/schematic/node/common/orientation";
 export * from "@/schematic/node/common/primitive";
 export * from "@/schematic/node/common/region";

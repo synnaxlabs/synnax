@@ -11,7 +11,6 @@ import type { record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { query } from "@/query";
-import { bindDerived, deriveTrigger } from "@/query/derived";
 
 interface Task extends record.Keyed<string> {
   key: string;
@@ -33,53 +32,77 @@ interface ComposedTask extends record.Keyed<string> {
 const task = (key: string, name: string): Task => ({ key, name });
 
 const newTables = () => {
-  const tasks = new query.Table<string, Task>({ onError: () => {} });
-  const statuses = new query.Table<string, Status>({ onError: () => {} });
-  const composed = new query.Table<string, ComposedTask>({ onError: () => {} });
+  const cache = new query.Cache({ openStreamer: null });
+  const tasks = cache.createTable<string, Task>({ name: "tasks" });
+  const statuses = cache.createTable<string, Status>({ name: "statuses" });
   const compose = (t: Task): ComposedTask => ({
     ...t,
     status: statuses.get((s) => s.task === t.key)[0]?.message,
   });
-  return { tasks, statuses, composed, compose };
+  return { cache, tasks, statuses, compose };
 };
 
-const bindAll = ({
-  tasks,
-  statuses,
-  composed,
-  compose,
-}: ReturnType<typeof newTables>) =>
-  bindDerived(composed, {
+const derive = (
+  { cache, tasks, statuses, compose }: ReturnType<typeof newTables>,
+  trigger: query.DeriveTrigger<string> = query.deriveTrigger(statuses, (event) =>
+    event.variant === "set" ? [event.value.task] : "all",
+  ),
+) =>
+  cache.derive<string, Task, ComposedTask>({
+    name: "tasks.composed",
     source: tasks,
     compose,
-    triggers: [
-      deriveTrigger(statuses, (event) =>
-        event.variant === "set" ? [event.value.task] : "all",
-      ),
-    ],
+    triggers: [trigger],
   });
 
 describe("derived", () => {
-  it("composes existing source entries on bind", () => {
+  it("composes existing source entries on derive", () => {
     const tables = newTables();
     tables.tasks.set(task("t1", "one"));
-    bindAll(tables);
-    expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
+    const composed = derive(tables);
+    expect(composed.get("t1")).toEqual({ key: "t1", name: "one" });
+  });
+
+  it("drops a composed entry when its source trims the record", () => {
+    const tables = newTables();
+    const composed = derive(tables);
+    tables.tasks.set(task("t1", "one"));
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    query.partialUpdate(tables.tasks, "t1", { name: "two" });
+    expect(composed.get("t1")).toBeUndefined();
+  });
+
+  it("drops a trimmed composed entry silently and tells its holders", () => {
+    const tables = newTables();
+    const composed = derive(tables);
+    tables.tasks.set(task("t1", "one"));
+    const events = vi.fn();
+    composed.subscribeBatch(events);
+    const drop = vi.fn();
+    composed.hold({ held: () => [], drop });
+    const version = composed.version();
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    expect(composed.has("t1")).toBe(false);
+    expect(drop).toHaveBeenCalledWith(new Set(["t1"]));
+    expect(events).not.toHaveBeenCalled();
+    expect(composed.version()).toBe(version);
   });
 
   it("materializes a composed entry when the source entry is set", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set(task("t1", "one"));
-    expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
+    expect(composed.get("t1")).toEqual({ key: "t1", name: "one" });
   });
 
   it("recomposes when a watched table event affects the entry", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set(task("t1", "one"));
     tables.statuses.set({ key: "s1", task: "t1", message: "running" });
-    expect(tables.composed.get("t1")).toEqual({
+    expect(composed.get("t1")).toEqual({
       key: "t1",
       name: "one",
       status: "running",
@@ -88,57 +111,56 @@ describe("derived", () => {
 
   it("keeps the source entries that the derived table needs through a trim", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set([task("t1", "one"), task("t2", "two")]);
-    tables.composed.subscribe(vi.fn(), "t1");
+    composed.subscribe(vi.fn(), "t1");
     tables.tasks.trim(tables.tasks.size);
     expect(tables.tasks.trim(0)).toEqual(["t2"]);
   });
 
-  it("stops keeping the source entries once unbound", () => {
+  it("stops keeping the source entries once closed", async () => {
     const tables = newTables();
-    const unbind = bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set(task("t1", "one"));
-    tables.composed.subscribe(vi.fn(), "t1");
-    unbind();
+    composed.subscribe(vi.fn(), "t1");
+    await tables.cache.close();
     tables.tasks.trim(tables.tasks.size);
     expect(tables.tasks.trim(0)).toEqual(["t1"]);
   });
 
   it("replaces entry identity exactly when composition changes", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set(task("t1", "one"));
-    const first = tables.composed.get("t1");
+    const first = composed.get("t1");
     // A watch event that leaves the composition unchanged must be silenced.
     tables.statuses.set({ key: "s1", task: "t2", message: "elsewhere" });
-    expect(tables.composed.get("t1")).toBe(first);
+    expect(composed.get("t1")).toBe(first);
     tables.statuses.set({ key: "s2", task: "t1", message: "running" });
-    const second = tables.composed.get("t1");
+    const second = composed.get("t1");
     expect(second).not.toBe(first);
     expect(second?.status).toEqual("running");
   });
 
   it("recomposes every entry on an all projection", () => {
     const tables = newTables();
-    bindDerived(tables.composed, {
-      source: tables.tasks,
-      compose: tables.compose,
-      triggers: [deriveTrigger(tables.statuses, () => "all")],
-    });
+    const composed = derive(
+      tables,
+      query.deriveTrigger(tables.statuses, () => "all"),
+    );
     tables.tasks.set([task("t1", "one"), task("t2", "two")]);
     tables.statuses.set({ key: "s1", task: "t2", message: "done" });
-    expect(tables.composed.get("t2")?.status).toEqual("done");
+    expect(composed.get("t2")?.status).toEqual("done");
   });
 
   it("tombstones the last composed entry when the source entry is deleted", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set(task("t1", "one"));
     tables.statuses.set({ key: "s1", task: "t1", message: "running" });
     tables.tasks.delete("t1");
-    expect(tables.composed.get("t1")).toBeUndefined();
-    expect(tables.composed.getTombstone("t1")?.corpse).toEqual({
+    expect(composed.get("t1")).toBeUndefined();
+    expect(composed.getTombstone("t1")?.corpse).toEqual({
       key: "t1",
       name: "one",
       status: "running",
@@ -147,18 +169,18 @@ describe("derived", () => {
 
   it("keeps no derived corpse when a rolled-back source set is undone", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     const rollback = tables.tasks.set(task("t1", "one"));
     rollback();
-    expect(tables.composed.get("t1")).toBeUndefined();
-    expect(tables.composed.status("t1")).toEqual("unknown");
+    expect(composed.get("t1")).toBeUndefined();
+    expect(composed.status("t1")).toEqual("unknown");
   });
 
   it("flushes a bulk source write into the derived table as one batch", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     const batches = vi.fn();
-    tables.composed.subscribeBatch(batches);
+    composed.subscribeBatch(batches);
     tables.tasks.set([task("t1", "one"), task("t2", "two"), task("t3", "three")]);
     expect(batches).toHaveBeenCalledTimes(1);
     expect(batches.mock.calls[0][0]).toHaveLength(3);
@@ -166,26 +188,18 @@ describe("derived", () => {
 
   it("recomposes once for a bulk write to a watched table", () => {
     const tables = newTables();
-    bindAll(tables);
+    const composed = derive(tables);
     tables.tasks.set([task("t1", "one"), task("t2", "two")]);
     const batches = vi.fn();
-    tables.composed.subscribeBatch(batches);
+    composed.subscribeBatch(batches);
     tables.statuses.set([
       { key: "s1", task: "t1", message: "running" },
       { key: "s2", task: "t2", message: "done" },
     ]);
     expect(batches).toHaveBeenCalledTimes(1);
     expect(batches.mock.calls[0][0]).toHaveLength(2);
-    expect(tables.composed.get("t1")?.status).toEqual("running");
-    expect(tables.composed.get("t2")?.status).toEqual("done");
-  });
-
-  it("detaches every subscription through the returned destructor", () => {
-    const tables = newTables();
-    const detach = bindAll(tables);
-    detach();
-    tables.tasks.set(task("t1", "one"));
-    expect(tables.composed.get("t1")).toBeUndefined();
+    expect(composed.get("t1")?.status).toEqual("running");
+    expect(composed.get("t2")?.status).toEqual("done");
   });
 });
 

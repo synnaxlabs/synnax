@@ -175,6 +175,74 @@ var _ = Describe("Plugin", func() {
 			)
 		})
 
+		It(
+			"Should give a type-parameter field the array shape of its default",
+			func() {
+				resp := MustGenerate(`
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Box struct<T = uint8[]> {
+						value T
+					}
+
+					Pair struct<T = uint8[2]> {
+						value T
+					}
+				`, "thing", loader, p)
+				ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+					"message Box {\n  repeated uint32 value = 1;\n}",
+					"message Pair {\n  bytes value = 1;\n}",
+				)
+			},
+		)
+
+		It(
+			"Should judge a type-parameter map value by its default",
+			func() {
+				resp := MustGenerate(`
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Box struct<T extends uint8[]> {
+						m map<string, T>
+					}
+				`, "thing", loader, p)
+				ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+					"map<string, google.protobuf.Any> m = 1;",
+				)
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Lines struct {
+						a string
+					}
+
+					Box struct<T extends Lines = uint8[]> {
+						m map<string, T>
+					}
+				`, "thing", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"protobuf map keys and values cannot be lists",
+				)))
+			},
+		)
+
+		It("Should fail on a list map value", func() {
+			req := MustGenerateRequest(`
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					lines map<string, uint8[]>
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"protobuf map keys and values cannot be lists",
+			)))
+		})
+
 		It("Should fail when two generic uses share a message name", func() {
 			for _, ns := range []string{"first", "second"} {
 				loader.Add("schemas/"+ns, `
@@ -304,6 +372,50 @@ var _ = Describe("Plugin", func() {
 					`fields "key" and "subject" share protobuf number 1`,
 				)))
 			})
+
+			It("Should fail on an integer enum member outside int32", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/serial"
+					@pb
+
+					Rate enum {
+						none = 0
+						huge = 2147483648
+					}
+
+					Port struct {
+						rate Rate
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"its member huge has value 2147483648, and proto3 needs every " +
+						"member to fit in int32",
+				)))
+			})
+
+			It(
+				"Should keep a uint32 integer enum's values as proto enum numbers",
+				func() {
+					req := MustGenerateRequest(`
+					@go output "core/pkg/service/serial"
+					@pb
+
+					Rate enum {
+						none = 0
+						baud_230400 = 230400
+					}
+
+					Port struct {
+						rate Rate
+					}
+				`, "test", loader)
+					resp := MustSucceed(p.Generate(req))
+					ExpectContent(
+						resp,
+						".proto",
+					).ToContain("RATE_BAUD_230400 = 230400;")
+				},
+			)
 
 			It("Should fail when a field takes a reserved number", func() {
 				req := MustGenerateRequest(`
@@ -810,8 +922,8 @@ var _ = Describe("Plugin", func() {
 					@pb
 
 					Status enum {
-						active = 1
-						inactive = 2
+						active = 0
+						inactive = 1
 					}
 
 					DebugLevel enum {
@@ -828,6 +940,29 @@ var _ = Describe("Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+
+			It("Should refuse an int enum whose first member is not 0", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Size enum {
+						one = 1
+						four = 4
+					}
+
+					Task struct {
+						size Size
+					}
+				`
+				req := MustGenerateRequest(source, "size", loader)
+				Expect(p.Generate(req)).Error().To(
+					MatchError(ContainSubstring(
+						"enum Size cannot be written to protobuf: its first member one " +
+							"has value 1, and proto3 needs the first member to be 0",
+					)),
+				)
 			})
 
 			It(

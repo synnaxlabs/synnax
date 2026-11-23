@@ -10,14 +10,7 @@
 import { errors } from "@synnaxlabs/x";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
-import type { Query, Store } from "@/server/db/db";
-import {
-  type Event,
-  event,
-  type License,
-  license,
-  organization,
-} from "@/server/db/schema";
+import { type Query, schema, type Store } from "@/server/db";
 import { expiring } from "@/server/license/notice";
 import type { Mailer } from "@/server/mail";
 
@@ -33,7 +26,7 @@ const daysLeft = (expiresAt: Date, now: Date): number =>
  * sentDays returns the windows already warned for `expiresAt`. A warning sent before
  * its window opened was for an earlier expiry.
  */
-const sentDays = (notices: Event[], expiresAt: Date): Set<number> =>
+const sentDays = (notices: schema.Event[], expiresAt: Date): Set<number> =>
   new Set(
     notices.flatMap((e) => {
       const { days } = e.detail as { days?: number };
@@ -46,7 +39,11 @@ const sentDays = (notices: Event[], expiresAt: Date): Set<number> =>
  * none is. The most urgent unsent window wins, so a missed earlier window never sends
  * after a later one has become due.
  */
-export const dueNotice = (lic: License, notices: Event[], now: Date): number | null => {
+export const dueNotice = (
+  lic: schema.License,
+  notices: schema.Event[],
+  now: Date,
+): number | null => {
   if (lic.expiresAt == null || lic.revokedAt != null) return null;
   const left = daysLeft(lic.expiresAt, now);
   if (left <= 0) return null;
@@ -84,15 +81,18 @@ export const sweep = async ({
   now,
 }: SweepArgs): Promise<Sent[]> => {
   const rows = await store.query
-    .select({ license, organization })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
+    .select({ license: schema.license, organization: schema.organization })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
+    )
     .where(
       and(
-        isNotNull(license.expiresAt),
-        isNull(license.revokedAt),
+        isNotNull(schema.license.expiresAt),
+        isNull(schema.license.revokedAt),
         // A desktop license renews itself while the app runs; nobody is warned.
-        ne(license.edition, "desktop"),
+        ne(schema.license.edition, "desktop"),
       ),
     );
   const sent: Sent[] = [];
@@ -106,12 +106,12 @@ export const sweep = async ({
       const notice = await store.transact(async (tx): Promise<Sent | null> => {
         const [locked] = await tx
           .select()
-          .from(license)
-          .where(eq(license.key, key))
+          .from(schema.license)
+          .where(eq(schema.license.key, key))
           .for("update");
         const days = dueNotice(locked, await notices(tx, key), now);
         if (days == null) return null;
-        await tx.insert(event).values({
+        await tx.insert(schema.event).values({
           at: now,
           kind: "expiry_notice",
           actor: "system",
@@ -138,8 +138,10 @@ export const sweep = async ({
   return sent;
 };
 
-const notices = async (q: Query, licenseKey: string): Promise<Event[]> =>
+const notices = async (q: Query, licenseKey: string): Promise<schema.Event[]> =>
   await q
     .select()
-    .from(event)
-    .where(and(eq(event.license, licenseKey), eq(event.kind, "expiry_notice")));
+    .from(schema.event)
+    .where(
+      and(eq(schema.event.license, licenseKey), eq(schema.event.kind, "expiry_notice")),
+    );

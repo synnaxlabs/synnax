@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/color/json.gen.h"
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
-#include "x/cpp/color/color.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
@@ -28,14 +28,18 @@ inline Range Range::parse(x::json::Parser parser) {
     return Range{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
+        .has_children = parser.field<bool>("has_children", false),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
-        .color = parser.field<std::optional<::x::color::Color>>("color"),
+        .color = parser.has("color")
+                   ? std::optional<::synnax::color::Ref>(
+                         ::synnax::color::parse_ref(parser.child("color"))
+                     )
+                   : std::nullopt,
         .labels = parser.field<std::vector<::synnax::label::Key>>(
             "labels",
             std::vector<::synnax::label::Key>{}
         ),
         .parent = parser.field<std::optional<Key>>("parent"),
-        .has_children = parser.field<bool>("has_children", false),
     };
 }
 
@@ -43,8 +47,9 @@ inline x::json::json Range::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    j["has_children"] = this->has_children;
     j["time_range"] = this->time_range.to_json();
-    if (this->color.has_value()) j["color"] = this->color->to_json();
+    if (this->color.has_value()) j["color"] = ::synnax::color::to_json(*this->color);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->labels)
@@ -52,7 +57,6 @@ inline x::json::json Range::to_json() const {
         j["labels"] = arr;
     }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
-    j["has_children"] = this->has_children;
     return j;
 }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Kind, kindZ } from "@/payload/types.gen";
-import { type CrudeDataType, DataType } from "@/telem/telem";
+import { type CrudeDataType, DataType } from "@/telem";
 
 /**
  * @returns the kind of a read field that writes to a channel of the given data type,

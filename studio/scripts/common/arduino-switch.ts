@@ -95,7 +95,7 @@ export const arduinoSwitchScript =
       const aside = await frameLegend(session, symbol);
       await session.moveTo(aside);
       await session.hold(900);
-      await session.click(symbol.locator(".lyra-input__switch-indicator").first(), {
+      await session.click(symbol.locator(".pluto-switch-symbol").first(), {
         zoom: false,
       });
       // The command reaches the fixture, and its echo comes back, on wall time.

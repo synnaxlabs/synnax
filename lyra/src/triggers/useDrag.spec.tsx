@@ -19,7 +19,7 @@ import {
   vi,
 } from "vitest";
 
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 interface DraggableProps {

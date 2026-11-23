@@ -27,6 +27,10 @@ export const TICK_TYPES = ["linear", "time"] as const;
 export const tickTypeZ = z.enum(TICK_TYPES);
 export type TickType = z.infer<typeof tickTypeZ>;
 
+export const TIME_MODES = ["absolute", "relative"] as const;
+export const timeModeZ = z.enum(TIME_MODES);
+export type TimeMode = z.infer<typeof timeModeZ>;
+
 export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
 export const yAxisKeyZ = z.enum(Y_AXIS_KEYS);
 export type YAxisKey = z.infer<typeof yAxisKeyZ>;
@@ -206,6 +210,8 @@ export const axisZ = z.object({
    * carry "time" when bound to a timestamp channel.
    */
   type: tickTypeZ.optional(),
+  /** timeMode selects where an x axis draws the ranges. Null is absolute. */
+  timeMode: timeModeZ.optional(),
 });
 export interface Axis extends z.infer<typeof axisZ> {}
 

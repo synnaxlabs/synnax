@@ -49,6 +49,7 @@ var (
 
 type (
 	reductionFn  = func(telem.Series, int64, *telem.Series) int64
+	avgFn        = func(telem.Series, int64, *op.Mean, *telem.Series) int64
 	derivativeFn = func(
 		telem.Series,
 		telem.Series,
@@ -342,15 +343,19 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}
-	reductionMap, ok := ops[nodeCfg.Node.Type]
-	if !ok {
+	nodeType := nodeCfg.Node.Type
+	if _, ok := ops[nodeType]; !ok && nodeType != avgSymbolName {
 		return nil, query.ErrNotFound
 	}
 	inputIdx, err := nodeCfg.State.ResolveInput(ir.DefaultInputParam)
 	if err != nil {
 		return nil, err
 	}
-	reductionFn := reductionMap[nodeCfg.State.Input(inputIdx).DataType]
+	dataType := nodeCfg.State.Input(inputIdx).DataType
+	reductionFn := ops[nodeType][dataType]
+	if nodeType == avgSymbolName {
+		reductionFn = withMean(avgOps[dataType])
+	}
 	resetIdx := -1
 	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
@@ -421,22 +426,7 @@ func (r *avgNode) Next(ctx node.Context) {
 		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
 	}
 
-	shouldReset := false
-
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
-		resetTime := r.InputTime(r.resetIdx)
-		for i := range resetData.Len() {
-			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
-			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
-				shouldReset = true
-				break
-			}
-		}
-		if resetTime.Len() > 0 {
-			r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
-		}
-	}
+	shouldReset := r.resetSignaled()
 
 	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
 	if duration > 0 && inputTime.Len() > 0 {
@@ -467,6 +457,41 @@ func (r *avgNode) Next(ctx node.Context) {
 	} else {
 		r.StampCycle(ctx, 0)
 	}
+	alignment, timeRange := r.outputBounds(inputData)
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
+	r.Emit(ctx, 0)
+}
+
+// resetSignaled reports whether the reset input holds a true sample newer than the last
+// reset, and moves the last reset time to its newest sample.
+func (r *avgNode) resetSignaled() bool {
+	if r.resetIdx < 0 {
+		return false
+	}
+	signaled := false
+	resetData := r.Input(r.resetIdx)
+	resetTime := r.InputTime(r.resetIdx)
+	for i := range resetData.Len() {
+		ts := resetTime.ValueAt[telem.TimeStamp](int(i))
+		if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
+			signaled = true
+			break
+		}
+	}
+	if resetTime.Len() > 0 {
+		r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
+	}
+	return signaled
+}
+
+// outputBounds returns the alignment and time range of the output for inputData,
+// widened to cover the reset input.
+func (r *avgNode) outputBounds(
+	inputData telem.Series,
+) (telem.Alignment, telem.TimeRange) {
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
 	if r.resetIdx >= 0 {
@@ -480,52 +505,33 @@ func (r *avgNode) Next(ctx node.Context) {
 			timeRange.End = resetData.TimeRange.End
 		}
 	}
-	r.Output(0).Alignment = alignment
-	r.Output(0).TimeRange = timeRange
-	r.OutputTime(0).Alignment = alignment
-	r.OutputTime(0).TimeRange = timeRange
-	r.Emit(ctx, 0)
+	return alignment, timeRange
 }
 
-// avgTimeStamp sums offsets from the running average, since a sum of raw epoch
-// timestamps overflows int64 after a few samples.
-func avgTimeStamp(input telem.Series, prevCount int64, output *telem.Series) int64 {
-	inputLen := input.Len()
-	if inputLen == 0 {
-		return prevCount
+// withMean gives an Avg reduction its own running state. Avg clears the state when
+// the count restarts, so every reset path clears it.
+func withMean(avg avgFn) reductionFn {
+	var mean op.Mean
+	return func(input telem.Series, prevCount int64, output *telem.Series) int64 {
+		return avg(input, prevCount, &mean, output)
 	}
-	if output.Len() == 0 {
-		prevCount = 0
-	}
-	*output = output.Resized(1)
-	if prevCount == 0 {
-		output.SetValueAt(0, input.ValueAt[telem.TimeStamp](0))
-	}
-	base := output.ValueAt[telem.TimeStamp](0)
-	var offsetSum telem.TimeSpan
-	for i := range int(inputLen) {
-		offsetSum += telem.TimeSpan(input.ValueAt[telem.TimeStamp](i) - base)
-	}
-	totalCount := prevCount + inputLen
-	output.SetValueAt(0, base.Add(offsetSum/telem.TimeSpan(totalCount)))
-	return totalCount
 }
 
 var (
+	avgOps = map[telem.DataType]avgFn{
+		telem.Float64T:   op.AvgF64,
+		telem.Float32T:   op.AvgF32,
+		telem.Int64T:     op.AvgI64,
+		telem.TimestampT: op.AvgI64,
+		telem.Int32T:     op.AvgI32,
+		telem.Int16T:     op.AvgI16,
+		telem.Int8T:      op.AvgI8,
+		telem.Uint64T:    op.AvgU64,
+		telem.Uint32T:    op.AvgU32,
+		telem.Uint16T:    op.AvgU16,
+		telem.Uint8T:     op.AvgU8,
+	}
 	ops = map[string]map[telem.DataType]reductionFn{
-		avgSymbolName: {
-			telem.Float64T:   op.AvgF64,
-			telem.Float32T:   op.AvgF32,
-			telem.Int64T:     op.AvgI64,
-			telem.TimestampT: avgTimeStamp,
-			telem.Int32T:     op.AvgI32,
-			telem.Int16T:     op.AvgI16,
-			telem.Int8T:      op.AvgI8,
-			telem.Uint64T:    op.AvgU64,
-			telem.Uint32T:    op.AvgU32,
-			telem.Uint16T:    op.AvgU16,
-			telem.Uint8T:     op.AvgU8,
-		},
 		minSymbolName: {
 			telem.Float64T:   op.MinF64,
 			telem.Float32T:   op.MinF32,

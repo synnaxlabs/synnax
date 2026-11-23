@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port uint32 = 0 {
+        port uint16 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -518,6 +518,7 @@ MinMaxVal struct {
     min_val float64 = 0 {
         @default group "range"
         @doc value     "is the minimum expected value, in scaled units."
+        @go validate   lt max_val "Minimum value must be less than maximum value"
     }
     max_val float64 = 1 {
         @default group "range"
@@ -676,7 +677,7 @@ BaseAIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
@@ -1198,7 +1199,7 @@ BaseCIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
@@ -1230,10 +1231,11 @@ CIChannel union on type extends BaseCIChannel {
         meas_method CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time   float64 = 0.000006 {
-            @doc value """
-                is the averaging window for high-frequency measurement, in seconds.
-            """
+        meas_time   telem.TimeSpan = 6000 {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @ts type      telem.NumericTimeSpan
+            @validate max 9007199254740991
+            @validate min 1
         }
         divisor     uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."
@@ -1279,10 +1281,11 @@ CIChannel union on type extends BaseCIChannel {
         meas_method   CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time     float64 = 0.001 {
-            @doc value """
-                is the averaging window for high-frequency measurement, in seconds.
-            """
+        meas_time     telem.TimeSpan = 1000000 {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @ts type      telem.NumericTimeSpan
+            @validate max 9007199254740991
+            @validate min 1
         }
         divisor       uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."
@@ -1511,7 +1514,7 @@ BaseAOChannel struct {
     disabled bool = false {
         @doc value "is true when the channel is excluded from the task."
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1527,8 +1530,9 @@ AOChannel union on type extends BaseAOChannel {
         wave_type WaveType = sine {
             @doc value "selects the waveform to generate."
         }
-        frequency float64 = 0 {
-            @doc value "is the waveform frequency, in Hertz."
+        frequency float64  {
+            @doc value   "is the waveform frequency, in Hertz."
+            @validate gt 0
         }
         amplitude float64 = 0 {
             @doc value "is the waveform amplitude."
@@ -1568,7 +1572,7 @@ DIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     line     uint8 = 0 {
@@ -1604,7 +1608,7 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               uint32 = 0 {
+    port               uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
     line               uint8 = 0 {

@@ -57,6 +57,13 @@ static std::string build_url(
     return result;
 }
 
+bool valid_url(const std::string &url) {
+    CURLU *u = curl_url();
+    const bool valid = curl_url_set(u, CURLUPART_URL, url.c_str(), 0) == CURLUE_OK;
+    curl_url_cleanup(u);
+    return valid;
+}
+
 Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
     std::map<std::string, std::string> query_params = req.query_params;
     if (conn.auth.type == "api_key" && conn.auth.send_as == "query_param")

@@ -231,7 +231,10 @@ hotfire = client.ranges.create(
 const myRange = await client.ranges.retrieve("My Range");
 
 // Create a label
-const label = await client.labels.create({ name: "Hotfire", color: "#FF0000" });
+const label = await client.labels.create({
+  name: "Hotfire",
+  color: { type: "fixed", value: "#FF0000" },
+});
 
 // Add the label to the range
 await myRange.addLabel(label.key);

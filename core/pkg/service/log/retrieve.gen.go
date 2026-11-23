@@ -68,6 +68,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Log, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, project.Key]{
 			Name:     "project",
@@ -79,6 +84,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Log, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
 			},
 		}),
 		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
@@ -100,6 +110,13 @@ func newIndexes() indexes {
 					}
 					return false
 				})
+			},
+			Retarget: func(e *Log, from, to channel.Key) {
+				for i3 := range e.Channels {
+					if e.Channels[i3].Channel == from {
+						e.Channels[i3].Channel = to
+					}
+				}
 			},
 		}),
 		channelsColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, color.Key]{
@@ -124,6 +141,19 @@ func newIndexes() indexes {
 					if e.Channels[i5].Color != nil {
 						if v6, ok := e.Channels[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
 							e.Channels[i5].Color = nil
+						}
+					}
+				}
+			},
+			Retarget: func(e *Log, from, to color.Key) {
+				for i7 := range e.Channels {
+					if e.Channels[i7].Color != nil {
+						switch v8 := e.Channels[i7].Color.Variant.(type) {
+						case color.NamedRef:
+							if v8.Key == from {
+								v8.Key = to
+							}
+							e.Channels[i7].Color.Variant = v8
 						}
 					}
 				}

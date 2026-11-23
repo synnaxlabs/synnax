@@ -16,6 +16,7 @@
 #include <utility>
 #include <variant>
 
+#include "client/cpp/color/types.gen.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/color/color.h"
@@ -45,7 +46,7 @@ inline std::string dispatch_create(
     const std::string &parent,
     const std::string &color_hex
 ) {
-    std::optional<x::color::Color> c;
+    std::optional<synnax::color::Ref> c;
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::parse(color_hex);
         if (err) {
@@ -55,7 +56,7 @@ inline std::string dispatch_create(
             );
             return "";
         }
-        c = parsed;
+        c = synnax::color::FixedRef{.value = parsed};
     }
     synnax::ranger::Range r;
     r.name = name;
@@ -63,7 +64,7 @@ inline std::string dispatch_create(
         x::telem::TimeStamp::now(),
         x::telem::TIME_STAMP_MAX
     };
-    r.color = c;
+    r.color = std::move(c);
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {

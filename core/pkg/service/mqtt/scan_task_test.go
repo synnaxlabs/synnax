@@ -355,14 +355,15 @@ var _ = Describe("Scan task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 			Expect(stat.Message).To(Equal("Command executed successfully"))
 		}
-		expectError := func(stat task.Status, message types.GomegaMatcher) {
+		expectError := func(stat task.Status, description types.GomegaMatcher) {
 			GinkgoHelper()
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(message)
+			Expect(stat.Description).To(description)
 		}
 		expectFailure := func(stat task.Status, message string) {
 			GinkgoHelper()
-			expectError(stat, Equal(message))
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(message))
 			Expect(stat.Description).ToNot(BeEmpty())
 		}
 
@@ -899,7 +900,7 @@ var _ = Describe("Scan task", func() {
 				},
 			})
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal(
+			Expect(stat.Description).To(Equal(
 				"the broker refused the subscription to plant/#",
 			))
 		})
@@ -911,7 +912,7 @@ var _ = Describe("Scan task", func() {
 				Args: msgpack.EncodedJSON{"device": "missing"},
 			})
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal(
+			Expect(stat.Description).To(Equal(
 				"Devices with keys [missing] not found: not found: query",
 			))
 		})
@@ -1036,7 +1037,7 @@ var _ = Describe("Scan task", func() {
 			})
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(
-				stat.Message,
+				stat.Description,
 			).To(Equal("topics: must be non-empty: validation error"))
 		})
 
@@ -1051,7 +1052,7 @@ var _ = Describe("Scan task", func() {
 			})
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(
-				stat.Message,
+				stat.Description,
 			).To(Equal(`topics: must not repeat "plant/temp": validation error`))
 		})
 	})

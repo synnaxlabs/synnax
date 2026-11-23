@@ -2146,22 +2146,6 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::device::DELETE_CHANNEL;
 
-    // Create the frame with device key on the device_delete channel
-    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    x::telem::Frame signal_frame(1);
-    signal_frame.emplace(
-        device_delete_ch.key,
-        x::telem::Series(std::string("device-to-delete"))
-    );
-    reads->push_back(std::move(signal_frame));
-
-    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
-        std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(std::vector{
-            pipeline::testutil::StreamerConfig{reads, nullptr, x::errors::NIL}
-        })
-    );
-
     // Pre-populate remote devices so init() loads them into dev_states
     synnax::device::Device existing_dev;
     existing_dev.key = "device-to-delete";
@@ -2177,7 +2161,8 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
         remote_devices,
         created_devices
     );
-    cluster_api->streamer_factory = std::move(streamer_factory);
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signals = std::make_shared<SignalQueue>();
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
@@ -2196,14 +2181,23 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        x::telem::HERTZ * 50,
         std::move(cluster_api)
     );
 
     scan_task.start();
-
-    // Wait for signal thread to process and device to be removed
-    ASSERT_EVENTUALLY_FALSE(scanner_ptr->has_device("device-to-delete"));
+    ASSERT_EVENTUALLY_TRUE(scanner_ptr->has_device("device-to-delete"));
+    x::telem::Frame signal_frame(1);
+    signal_frame.emplace(
+        device_delete_ch.key,
+        x::telem::Series(std::string("device-to-delete"))
+    );
+    cluster_api_ptr->signals->send(std::move(signal_frame));
+    // A scan in progress during the delete can still hold the device, so check the
+    // second scan after it.
+    const auto scans = cluster_api_ptr->scans.load();
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), scans + 2);
+    EXPECT_FALSE(scanner_ptr->has_device("device-to-delete"));
 
     scan_task.stop();
 }

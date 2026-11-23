@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { failOnConsoleOutput } from "@/testutil/console";
+import { failOnConsoleOutput } from "@/testutil";
 
 // The x setup file calls failOnConsoleOutput, so these specs run under the check.
 describe("failOnConsoleOutput", () => {

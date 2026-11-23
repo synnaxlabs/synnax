@@ -96,11 +96,15 @@ func tokensAdjacent(a, b antlr.Token) bool {
 		a.GetColumn()+len(a.GetText()) == b.GetColumn()
 }
 
-func DetectCompletionContext(content string, pos protocol.Position) CompletionContext {
-	if isPositionInComment(content, pos) {
+func DetectCompletionContext(
+	content string,
+	pos protocol.Position,
+	cfg parser.Config,
+) CompletionContext {
+	if isPositionInComment(content, pos, cfg) {
 		return ContextComment
 	}
-	tokens := tokenizeContent(content)
+	tokens := tokenizeContent(content, cfg)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	if len(tokensBeforeCursor) == 0 {
 		return ContextStatementStart
@@ -147,8 +151,12 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	return ContextUnknown
 }
 
-func isPositionInComment(content string, pos protocol.Position) bool {
-	allTokens := tokenizeContent(content)
+func isPositionInComment(
+	content string,
+	pos protocol.Position,
+	cfg parser.Config,
+) bool {
+	allTokens := tokenizeContent(content, cfg)
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
 	for _, t := range allTokens {
@@ -617,8 +625,12 @@ func isAuthorityEntryContext(tokens []antlr.Token) bool {
 
 // extractAuthorityExistingChannels returns channel names already listed in the
 // authority block before the cursor position.
-func extractAuthorityExistingChannels(content string, pos protocol.Position) []string {
-	tokens := tokenizeContent(content)
+func extractAuthorityExistingChannels(
+	content string,
+	pos protocol.Position,
+	cfg parser.Config,
+) []string {
+	tokens := tokenizeContent(content, cfg)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	// Find the opening paren of the authority block.
 	parenDepth := 0
@@ -733,8 +745,12 @@ func isArrow(t antlr.Token) bool {
 	return tt == parser.ArcLexerARROW || tt == parser.ArcLexerTRANSITION
 }
 
-func extractInputContext(content string, pos protocol.Position) *inputContextInfo {
-	tokens := tokenizeContent(content)
+func extractInputContext(
+	content string,
+	pos protocol.Position,
+	cfg parser.Config,
+) *inputContextInfo {
+	tokens := tokenizeContent(content, cfg)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	result := findInputParen(tokensBeforeCursor)
 	if result == nil {

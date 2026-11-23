@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -161,6 +163,116 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 	})
 }
 
+// checkArrayDefaultSize enforces that a fixed-size array in a field's own default has
+// exactly as many elements as the array. It checks the default itself, array elements,
+// and the fields of a struct literal whose type is a struct, an alias of one, or a
+// union variant. It does not check a struct literal typed through a type parameter, a
+// distinct type, or a map, nor a default that a struct inherits.
+func checkArrayDefaultSize(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		checkArraySizes(c, typ, f, f.Type, *f.Default)
+	})
+}
+
+func checkArraySizes(
+	c *analysisCtx,
+	typ resolution.Type,
+	f resolution.Field,
+	ref resolution.TypeRef,
+	val resolution.ExpressionValue,
+) {
+	switch val.Kind {
+	case resolution.ValueKindArray:
+		size, ok := resolution.ArraySize(ref, c.table)
+		if ok && int64(len(val.Elements)) != size {
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"default of field %q in %q has an array of %d elements, but its type "+
+					"holds exactly %d",
+				f.Name,
+				typ.Name,
+				len(val.Elements),
+				size,
+			))
+		}
+		elem, ok := arrayElement(ref, c.table)
+		if !ok {
+			return
+		}
+		for _, el := range val.Elements {
+			checkArraySizes(c, typ, f, elem, el)
+		}
+	case resolution.ValueKindStruct:
+		fields, ok := literalFields(ref, val, c.table)
+		if !ok {
+			return
+		}
+		for _, fv := range val.Fields {
+			if field, ok := lo.Find(fields, func(field resolution.Field) bool {
+				return field.Name == fv.Name
+			}); ok {
+				checkArraySizes(c, typ, f, field.Type, fv.Value)
+			}
+		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent:
+	}
+}
+
+// literalFields returns the fields that a struct literal val of type ref can set: the
+// fields of a struct with its type arguments applied, or of the union variant that val
+// names.
+func literalFields(
+	ref resolution.TypeRef,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+) ([]resolution.Field, bool) {
+	resolved, target, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return nil, false
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		args := resolution.TypeArgMap(form.TypeParams, target.TypeArgs)
+		fields := lo.Map(
+			resolution.UnifiedFields(resolved, table),
+			func(field resolution.Field, _ int) resolution.Field {
+				field.Type = resolution.SubstituteTypeRef(field.Type, args)
+				return field
+			},
+		)
+		return fields, true
+	case resolution.UnionForm:
+		disc, ok := lo.Find(val.Fields, func(fv resolution.StructFieldValue) bool {
+			return fv.Name == form.Discriminator
+		})
+		if !ok {
+			return nil, false
+		}
+		variant, ok := form.Variant(disc.Value.StringValue)
+		if !ok {
+			return nil, false
+		}
+		return resolution.UnifiedVariantFields(resolved, variant, table), true
+	}
+	return nil, false
+}
+
+// arrayElement returns the element type of the array that ref resolves to.
+func arrayElement(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	collection, ok := resolution.Collection(ref, table)
+	if !ok || collection.Name != "Array" || len(collection.TypeArgs) == 0 {
+		return resolution.TypeRef{}, false
+	}
+	return collection.TypeArgs[0], true
+}
+
 // forEachDefaultedField calls fn for every field carrying a default on every struct
 // declared in the file under analysis.
 func forEachDefaultedField(c *analysisCtx, fn func(resolution.Type, resolution.Field)) {
@@ -203,14 +315,16 @@ func defaultInvariantViolation(
 			return "", false
 		}
 		form, ok := ev.Type.Form.(resolution.EnumForm)
-		if !ok || !form.IsIntEnum {
-			// A string enum has no zero member (its zero is ""), so any default is
-			// safe.
+		if !ok {
 			return "", false
 		}
-		if len(form.Values) > 0 && form.Values[0].Name != ev.Variant.Name {
-			return "an integer-enum default that is not the zeroth member leaves the " +
-				"zeroth member (the zero value) as a valid, distinct value", true
+		// A string enum, or an integer enum with no member of 0, has no valid zero.
+		if zero, ok := form.ZeroMember(); ok && zero.Name != ev.Variant.Name {
+			return fmt.Sprintf(
+				"an integer-enum default other than %q, the member of value 0, leaves "+
+					"that member (the zero value) as a valid, distinct value",
+				zero.Name,
+			), true
 		}
 	case resolution.ValueKindString,
 		resolution.ValueKindInt,
@@ -256,61 +370,65 @@ func checkDefaultGroups(c *analysisCtx) {
 		if !c.owns(typ) {
 			continue
 		}
-		form, ok := typ.Form.(resolution.StructForm)
+		if form, ok := typ.Form.(resolution.StructForm); ok {
+			checkStructDefaultGroups(c, typ, form)
+		}
+	}
+}
+
+func checkStructDefaultGroups(
+	c *analysisCtx, typ resolution.Type, form resolution.StructForm,
+) {
+	var order []string
+	members := make(map[string][]resolution.Field)
+	for _, f := range form.Fields {
+		dom, ok := f.Domains[defaultDomain]
 		if !ok {
 			continue
 		}
-		var order []string
-		members := make(map[string][]resolution.Field)
-		for _, f := range form.Fields {
-			dom, ok := f.Domains[defaultDomain]
-			if !ok {
-				continue
-			}
-			for _, expr := range dom.Expressions {
-				if expr.Name != groupExpr {
-					c.diag.Add(diagnostics.Errorf(
-						nil,
-						"field %q in %q declares unknown default expression %q; the "+
-							"only one is `group`.",
-						f.Name, typ.Name, expr.Name,
-					))
-				}
-			}
-			name, marked := defaultGroup(f)
-			if !marked {
-				continue
-			}
-			if name == "" {
+		for _, expr := range dom.Expressions {
+			if expr.Name != groupExpr {
 				c.diag.Add(diagnostics.Errorf(
 					nil,
-					"field %q in %q declares `@default group` with no name; write "+
-						"`@default group \"<name>\"` and give every field in the group "+
-						"the same name.",
-					f.Name, typ.Name,
+					"field %q in %q declares unknown default expression %q; the "+
+						"only one is `group`.",
+					f.Name, typ.Name, expr.Name,
 				))
-				continue
 			}
-			if _, seen := members[name]; !seen {
-				order = append(order, name)
-			}
-			members[name] = append(members[name], f)
-			checkGroupMember(c, typ, f, name)
 		}
-		for _, name := range order {
-			if len(members[name]) > 1 {
-				continue
-			}
+		name, marked := defaultGroup(f)
+		if !marked {
+			continue
+		}
+		if name == "" {
 			c.diag.Add(diagnostics.Errorf(
 				nil,
-				"default group %q in %q has one member, %q. A group guards its fill on "+
-					"every member being zero, so a lone member guards on itself and "+
-					"fills nothing. Add the fields it belongs with, or drop the marker.",
-				name,
-				typ.Name,
-				members[name][0].Name,
+				"field %q in %q declares `@default group` with no name; write "+
+					"`@default group \"<name>\"` and give every field in the group "+
+					"the same name.",
+				f.Name, typ.Name,
 			))
+			continue
 		}
+		if _, seen := members[name]; !seen {
+			order = append(order, name)
+		}
+		members[name] = append(members[name], f)
+		checkGroupMember(c, typ, f, name)
+	}
+	for _, name := range order {
+		if len(members[name]) > 1 {
+			continue
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default group %q in %q has one member, %q. A group guards its fill on "+
+				"every member being zero, so a lone member guards on itself and "+
+				"fills nothing. Add the fields it belongs with, or drop the marker.",
+			name,
+			typ.Name,
+			members[name][0].Name,
+		))
 	}
 }
 

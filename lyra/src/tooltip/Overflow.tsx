@@ -10,18 +10,25 @@
 import { type ReactElement, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Portal } from "@/portal";
 import { formatTip } from "@/tooltip/Dialog";
 import { Frame } from "@/tooltip/Frame";
 import { useVisibility } from "@/tooltip/useVisibility";
 
-const FADE_SELECTOR = `.${CSS.BM("text", "overflow", "fade")}`;
+const FADE_CLASS = CSS.BM("text", "overflow", "fade");
+const CLAMP_CLASS = CSS.BM("text", "line-clamp");
+const CUT_SELECTOR = `.${FADE_CLASS}, .${CLAMP_CLASS}`;
 
+// A clamped label wraps, so only its height shows a cut.
 const isCut = (el: HTMLElement): boolean =>
-  !el.isContentEditable && el.scrollWidth > el.clientWidth;
+  !el.isContentEditable &&
+  (el.classList.contains(CLAMP_CLASS)
+    ? el.scrollHeight > el.clientHeight
+    : el.scrollWidth > el.clientWidth);
 
 /**
  * Shows the full text of a cut label in a tooltip while the pointer rests on it. A
- * label is cut when it fades because it outruns its box. Mount it once inside {@link
+ * label is cut when it outruns its box or its line clamp. Mount it once inside {@link
  * Config}.
  */
 export const Overflow = (): ReactElement | null => {
@@ -34,7 +41,7 @@ export const Overflow = (): ReactElement | null => {
     const handleOver = (e: PointerEvent): void => {
       const label =
         e.target instanceof Element
-          ? e.target.closest<HTMLElement>(FADE_SELECTOR)
+          ? e.target.closest<HTMLElement>(CUT_SELECTOR)
           : null;
       if (label === hoveredRef.current) return;
       hoveredRef.current = label;
@@ -57,13 +64,17 @@ export const Overflow = (): ReactElement | null => {
     };
   }, [hover, close]);
   if (anchor == null) return null;
+  // A modal makes the page outside it inert and covers it, so a label in a modal gets
+  // its tooltip in the modal.
   return (
-    <Frame
-      anchor={anchor}
-      className={closing ? CSS.M("closing") : undefined}
-      onAnchorLost={() => close(true)}
-    >
-      {formatTip(anchor.textContent)}
-    </Frame>
+    <Portal.Target element={anchor.closest("dialog")}>
+      <Frame
+        anchor={anchor}
+        className={closing ? CSS.M("closing") : undefined}
+        onAnchorLost={() => close(true)}
+      >
+        {formatTip(anchor.textContent)}
+      </Frame>
+    </Portal.Target>
   );
 };

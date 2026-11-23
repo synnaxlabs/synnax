@@ -433,60 +433,6 @@ describe("Mosaic", () => {
     });
   });
 
-  describe("useDragTab", () => {
-    it("should picture a dragged tab without its close button", () => {
-      const ClosableTab = (): ReactElement => {
-        const { startDrag, onDragEnd } = Mosaic.useDragTab();
-        return (
-          <Tabs.Frame initialValue="a">
-            <Tabs.Selector>
-              <Tabs.Tab
-                itemKey="a"
-                draggable
-                onDragStart={(e) => startDrag(e, "a")}
-                onDragEnd={onDragEnd}
-              >
-                Tab a
-                <Tabs.Close />
-              </Tabs.Tab>
-            </Tabs.Selector>
-          </Tabs.Frame>
-        );
-      };
-      render(
-        <Haul.Provider>
-          <ClosableTab />
-        </Haul.Provider>,
-      );
-      fireEvent.dragStart(screen.getByRole("tab", { name: /Tab a/ }));
-      const layer = document.querySelector(".lyra-haul__layer");
-      expect(layer?.textContent).toBe("Tab a");
-      expect(layer?.querySelector('[aria-label="Close"]')).toBeNull();
-      expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
-    });
-
-    it("should haul a tab dragged from one leaf onto another", () => {
-      const onDrop = vi.fn();
-      render(
-        <Haul.Provider>
-          <Mosaic.Frame onDrop={onDrop}>
-            <LeafTabs nodeKey={1} tabs={["a", "b"]} />
-            <LeafTabs nodeKey={2} tabs={["c"]} />
-          </Mosaic.Frame>
-        </Haul.Provider>,
-      );
-      fireEvent.dragStart(screen.getByRole("tab", { name: "Tab a" }));
-      stubLeafRects(leaf(2));
-      drop(leaf(2), 200, 150);
-      expect(onDrop).toHaveBeenCalledWith({
-        nodeKey: 2,
-        tabKey: "a",
-        location: "center",
-        index: undefined,
-      });
-    });
-  });
-
   describe("Split", () => {
     beforeEach(() => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(

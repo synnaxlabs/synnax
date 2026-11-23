@@ -12,17 +12,31 @@ import { MAKE } from "@/feature/kafka/device/types";
 import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
 import { Device } from "@/platform/device";
 
+const EMPTY_CONTENT = "No Kafka clusters connected";
+
+const useConnect = (): Device.SelectConnect => {
+  const openConnect = useConnectModal();
+  return { title: NETWORK.title, open: () => openConnect() };
+};
+
+export const useNoneSelected = (): Device.NoneSelectedParams => ({
+  make: MAKE,
+  emptyContent: EMPTY_CONTENT,
+  connect: useConnect(),
+});
+
 export const Select = () => {
   const openConnect = useConnectModal();
+  const connect = useConnect();
   return (
     <Device.Select
       onConfigure={(deviceKey) => void openConnect({ deviceKey })}
-      emptyContent="No Kafka clusters connected"
+      emptyContent={EMPTY_CONTENT}
       label="Kafka cluster"
       make={MAKE}
       icon={NETWORK.icon}
       locationFormat={NETWORK.location}
-      connect={{ title: NETWORK.title, open: () => openConnect() }}
+      connect={connect}
     />
   );
 };

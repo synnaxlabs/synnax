@@ -12,6 +12,7 @@ import fs from "fs";
 import path from "path";
 
 import type { Page, Source } from "@/util/checks/check";
+import { toPosix } from "@/util/filePath";
 
 const PAGES_DIR = "./src/pages";
 const DOCS_DIR = "./src/docs";
@@ -23,7 +24,7 @@ const listFiles = (root: string): string[] => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const child = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(child);
-      else files.push(path.relative(root, child));
+      else files.push(toPosix(path.relative(root, child)));
     }
   };
   walk(root);

@@ -16,41 +16,37 @@ import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 // Times a schematic of 300 custom symbols mounting, through the parse, the sanitizer,
-// and the first paint of their states.
+// and the first draw of their paints.
 
 const COUNT = 300;
 
 const SPEC: schematic.symbol.Spec = {
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87 42">' +
-    '<path class="body" fill="none" stroke="#cfd1d4" stroke-width="2" ' +
-    'd="M43.5 21L6.4 2.2C4.4 1.2 2 2.6 2 4.9V37.1C2 39.4 4.4 40.8 6.4 39.8L43.5 21Z' +
-    'M43.5 21L80.6 2.2C82.6 1.2 85 2.6 85 4.9V37.1C85 39.4 82.6 40.8 80.6 39.8L43.5 21Z"/>' +
-    "</svg>",
-  states: [
-    {
-      key: "base",
-      name: "Base",
-      regions: [
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          strokeColor: [207, 209, 212, 1],
-        },
-      ],
-    },
-  ],
-  variant: "static",
+  drawing: {
+    type: "svg",
+    markup:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87 42">' +
+      '<path class="body" fill="none" stroke="#cfd1d4" stroke-width="2" ' +
+      'd="M43.5 21L6.4 2.2C4.4 1.2 2 2.6 2 4.9V37.1C2 39.4 4.4 40.8 6.4 39.8L43.5 21Z' +
+      'M43.5 21L80.6 2.2C82.6 1.2 85 2.6 85 4.9V37.1C85 39.4 82.6 40.8 80.6 39.8L43.5 21Z"/>' +
+      "</svg>",
+  },
+  parts: [],
   handles: [],
+  states: [],
+  commands: [],
+  looks: [],
+  interactions: [],
+  variant: "static",
   scale: 1,
   strokeScaled: false,
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
 };
 
+const PAINTS: Custom.Paint[] = [{ selectors: [".body"], stroke: [207, 209, 212, 1] }];
+
 const SYMBOLS = Array.from({ length: COUNT }, (_, i) => (
   <Primitive.Div key={i}>
-    <Custom.Drawing spec={SPEC} />
+    <Custom.Drawing spec={SPEC} paints={PAINTS} />
   </Primitive.Div>
 ));
 

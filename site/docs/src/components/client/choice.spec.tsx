@@ -44,6 +44,12 @@ describe("client choice", () => {
       expect(Client.QUERY.initial?.()).toBe("python");
     });
 
+    it("should keep the stored choice when a link names no client", () => {
+      Client.QUERY.onChange?.("typescript");
+      Client.QUERY.onChange?.("rust");
+      expect(Client.QUERY.initial?.()).toBe("typescript");
+    });
+
     it("should ignore a stored value that is not a client", () => {
       localStorage.setItem("docs.client", "rust");
       expect(Client.QUERY.initial?.()).toBeNull();

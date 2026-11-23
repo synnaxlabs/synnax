@@ -10,9 +10,5 @@
 import { Device as PDevice } from "@synnaxlabs/pluto";
 
 import { SCHEMAS } from "@/feature/kafka/device/types";
-import { Device as PlatformDevice } from "@/platform/device";
 
-const { useResult } = PDevice.createRetrieve(SCHEMAS);
-
-/** The device the form's config names, or undefined until it resolves or on failure. */
-export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
+export const { use } = PDevice.createRetrieve(SCHEMAS);

@@ -15,7 +15,12 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import type { License } from "@/platform/license";
+import type { Portal } from "@/platform/portal";
+import {
+  createTestPortal,
+  TEST_URL,
+  type TestPortal,
+} from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 
@@ -55,14 +60,14 @@ interface Harness {
   activate: Mock<Account.RenewDeps["license"]["activate"]>;
   deactivate: Mock<Account.RenewDeps["license"]["deactivate"]>;
   store: TestStore;
-  renew: Mock<Account.RenewDeps["renew"]>;
+  hub: TestPortal["fetch"];
   onError: Mock<(error: Error) => void>;
   statuses: () => Status.NotificationSpec[];
 }
 
 interface SetupOptions {
   license?: license.License;
-  result?: License.RenewResult;
+  result?: Portal.RenewResult;
   account?: Session.Account.SliceState;
   interval?: TimeSpan;
   deactivateError?: Error;
@@ -83,13 +88,13 @@ const setup = async ({
     if (deactivateError != null) throw deactivateError;
     return infoOf(undefined);
   });
-  const renew = vi.fn(async () => {
+  const { client: portal, fetch: hub } = createTestPortal(async () => {
     if (renewError != null) throw renewError;
-    return result;
+    if (result.variant === "renewed") return Response.json({ key: result.key });
+    return Response.json({ error: result.message, code: "unlinked" }, { status: 403 });
   });
   const onError = vi.fn<(error: Error) => void>();
   const deps: Partial<Account.RenewDeps> = {
-    renew,
     interval,
     license: { retrieve, activate, deactivate },
     onError,
@@ -102,6 +107,7 @@ const setup = async ({
     {
       client: createTestClient(),
       preloadedState: { [Session.Account.SLICE_NAME]: account },
+      portal,
     },
   );
   return {
@@ -109,7 +115,7 @@ const setup = async ({
     activate,
     deactivate,
     store,
-    renew,
+    hub,
     onError,
     statuses: () => rendered.current,
   };
@@ -119,7 +125,10 @@ describe("Account.useRenew", () => {
   it("should renew and apply the license key while the license has weeks to run", async () => {
     const h = await setup({ license: expiringIn(TimeSpan.days(20)) });
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
-    expect(h.renew).toHaveBeenCalledWith("shh");
+    expect(h.hub).toHaveBeenCalledWith(
+      `${TEST_URL}/api/desktop/renew`,
+      expect.objectContaining({ headers: { authorization: "Bearer shh" } }),
+    );
   });
 
   it("should renew when no license applies", async () => {
@@ -132,7 +141,7 @@ describe("Account.useRenew", () => {
       license: expiringIn(TimeSpan.days(20)),
       interval: TimeSpan.milliseconds(20),
     });
-    await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(h.hub.mock.calls.length).toBeGreaterThan(1));
   });
 
   it("should stay quiet when the hub is unreachable and weeks remain", async () => {
@@ -141,7 +150,7 @@ describe("Account.useRenew", () => {
       renewError: new Error("Failed to fetch"),
       interval: TimeSpan.milliseconds(20),
     });
-    await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(h.hub.mock.calls.length).toBeGreaterThan(1));
     expect(h.statuses()).toEqual([]);
     expect(h.onError).toHaveBeenCalledWith(
       new Error("failed to renew the license", { cause: new Error("Failed to fetch") }),
@@ -163,7 +172,7 @@ describe("Account.useRenew", () => {
   it("should leave a perpetual license alone", async () => {
     const h = await setup({ license: DESKTOP_LICENSE });
     await waitFor(() => expect(h.retrieve).toHaveBeenCalled());
-    expect(h.renew).not.toHaveBeenCalled();
+    expect(h.hub).not.toHaveBeenCalled();
   });
 
   it("should remove the license key once the hub has unlinked the machine", async () => {

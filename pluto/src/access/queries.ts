@@ -66,7 +66,14 @@ export const isGranted = ({ client, query }: IsGrantedParams): boolean => {
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
-const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
+/**
+ * Returns the Flux result of a permission query, which tells a grant that is still
+ * loading apart from a denial.
+ */
+export const { useResult: useResultGranted } = Flux.createRetrieve<
+  PermissionsQuery,
+  boolean
+>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   // A read that never lands reads as a denial, so a moment of dead connection would
   // lock the subject out of surfaces it can in fact reach.
@@ -100,6 +107,60 @@ export const useDeleteGranted = (id: resource.ID | resource.ID[]): boolean =>
 
 export const useCreateGranted = (id: resource.ID | resource.ID[]): boolean =>
   useGranted({ objects: id, action: "create" });
+
+type FilterQuery = { objects: resource.ID[]; action: access.Action };
+
+const grantedAmong = (
+  client: Synnax,
+  grantee: access.Grantee,
+  { objects, action }: FilterQuery,
+): resource.ID[] | undefined => {
+  const verdicts = objects.map((id) =>
+    client.access.granted.watch(grantee, { objects: id, action }).getCached(),
+  );
+  if (verdicts.some((v) => v == null)) return undefined;
+  return objects.filter((_, i) => verdicts[i] === true);
+};
+
+const { useResult: useResultFilter } = Flux.createRetrieve<FilterQuery, resource.ID[]>({
+  name: PERMISSION_PLURAL_RESOURCE_NAME,
+  retryUnreachable: true,
+  retrieve: async ({ client, query: { objects, action } }) => {
+    const grantee = await client.users.current.retrieve();
+    const verdicts = await Promise.all(
+      objects.map(
+        async (id) =>
+          await client.access.granted.retrieve(grantee, { objects: id, action }),
+      ),
+    );
+    return objects.filter((_, i) => verdicts[i]);
+  },
+  onChange: ({ client, query }, handler) =>
+    subscribeForCurrent(
+      client,
+      (grantee) => {
+        const stops = query.objects.map((id) =>
+          client.access.granted
+            .watch(grantee, { objects: id, action: query.action })
+            .onChange(() => handler(grantedAmong(client, grantee, query))),
+        );
+        return () => stops.forEach((stop) => stop());
+      },
+      () => handler(undefined),
+    ),
+  getCached: ({ client, query }) => {
+    const grantee = granteeOf(client);
+    if (grantee == null) return undefined;
+    return grantedAmong(client, grantee, query);
+  },
+});
+
+/**
+ * @returns the resources among the given ones that the user can update, kept live as
+ * the grants change. Empty until the grants load.
+ */
+export const useUpdatable = (ids: resource.ID[]): resource.ID[] =>
+  useResultFilter({ objects: ids, action: "update" }).data ?? [];
 
 export interface GrantedParams extends Omit<IsGrantedParams, "query"> {
   id: resource.ID | resource.ID[];

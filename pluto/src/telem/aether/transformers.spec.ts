@@ -10,63 +10,57 @@
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { TestSource } from "@/telem/aether/testutil/source";
-import {
-  BandColor,
-  type BandColorProps,
-  RollingAverage,
-  StringifyNumber,
-  WithinBounds,
-} from "@/telem/aether/transformers";
+import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 
 describe("StringifyNumber", () => {
   it("formats a number value with prefix and suffix", () => {
-    const t = new StringifyNumber({ precision: 2, prefix: "$", suffix: " USD" });
-    t.setSources({ in: new TestSource(42) });
+    const t = new telem.StringifyNumber({ precision: 2, prefix: "$", suffix: " USD" });
+    t.setSources({ in: new telemTest.TestSource(42) });
     expect(t.value().data).toBe("$42.00 USD");
   });
 
   it("preserves full precision for a bigint value above 2^53 in standard notation", () => {
-    const t = new StringifyNumber({ precision: 0, notation: "standard" });
-    t.setSources({ in: new TestSource(1778020940471336960n) });
+    const t = new telem.StringifyNumber({ precision: 0, notation: "standard" });
+    t.setSources({ in: new telemTest.TestSource(1778020940471336960n) });
     expect(t.value().data).toBe("1778020940471336960");
   });
 
   it("does not crash and returns a finite string for a bigint value", () => {
-    const t = new StringifyNumber({ precision: 2, notation: "scientific" });
-    t.setSources({ in: new TestSource(1778020940471336960n) });
+    const t = new telem.StringifyNumber({ precision: 2, notation: "scientific" });
+    t.setSources({ in: new telemTest.TestSource(1778020940471336960n) });
     expect(t.value().data).toBe("1.78ᴇ18");
   });
 
   it("returns an empty string for NaN", () => {
-    const t = new StringifyNumber({ precision: 2 });
-    t.setSources({ in: new TestSource(NaN) });
+    const t = new telem.StringifyNumber({ precision: 2 });
+    t.setSources({ in: new telemTest.TestSource(NaN) });
     expect(t.value().data).toBe("");
   });
 });
 
 describe("RollingAverage", () => {
   it("returns the value unchanged when windowSize is less than 2", () => {
-    const t = new RollingAverage({ windowSize: 1 });
-    t.setSources({ in: new TestSource(42) });
+    const t = new telem.RollingAverage({ windowSize: 1 });
+    t.setSources({ in: new telemTest.TestSource(42) });
     expect(t.value().data).toBe(42);
   });
 
   it("coerces a bigint value to a number", () => {
-    const t = new RollingAverage({ windowSize: 1 });
-    t.setSources({ in: new TestSource(123n) });
+    const t = new telem.RollingAverage({ windowSize: 1 });
+    t.setSources({ in: new telemTest.TestSource(123n) });
     expect(t.value().data).toBe(123);
   });
 
   it("returns the latest value until the window holds a sample", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    t.setSources({ in: new TestSource(42) });
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    t.setSources({ in: new telemTest.TestSource(42) });
     expect(t.value().data).toBe(42);
   });
 
   it("averages the samples the window holds before it fills", () => {
-    const t = new RollingAverage({ windowSize: 4 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 4 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.setValue(2);
@@ -75,8 +69,8 @@ describe("RollingAverage", () => {
   });
 
   it("averages the last windowSize samples once the window fills", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     [1, 2, 3, 10, 20, 30].forEach((v) => source.setValue(v));
@@ -84,8 +78,8 @@ describe("RollingAverage", () => {
   });
 
   it("reports NaN while a NaN sample sits in the window", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.setValue(4);
@@ -96,8 +90,8 @@ describe("RollingAverage", () => {
   });
 
   it("recovers once a NaN sample slides out of the window", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.setValue(NaN);
@@ -106,8 +100,8 @@ describe("RollingAverage", () => {
   });
 
   it("should hold its window when a change keeps the appended count", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.appended = 1;
@@ -119,8 +113,8 @@ describe("RollingAverage", () => {
   });
 
   it("should add a sample whose appended count grows while its time holds", () => {
-    const t = new RollingAverage({ windowSize: 3 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 3 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.time = TimeStamp.seconds(10);
@@ -133,8 +127,8 @@ describe("RollingAverage", () => {
 
   // Staleness counts arrivals, so a window above 1 must not stretch the countdown.
   it("notifies on every sample, even with a window above 1", () => {
-    const t = new RollingAverage({ windowSize: 5 });
-    const source = new TestSource(0);
+    const t = new telem.RollingAverage({ windowSize: 5 });
+    const source = new telemTest.TestSource(0);
     t.setSources({ in: source });
     const handler = vi.fn();
     t.onChange(handler);
@@ -145,21 +139,21 @@ describe("RollingAverage", () => {
 
 describe("WithinBounds", () => {
   it("returns true for a value inside the bounds", () => {
-    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
-    t.setSources({ in: new TestSource(10) });
+    const t = new telem.WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new telemTest.TestSource(10) });
     expect(t.value().data).toBe(true);
   });
 
   it("returns false for a value outside the bounds", () => {
-    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
-    t.setSources({ in: new TestSource(20) });
+    const t = new telem.WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new telemTest.TestSource(20) });
     expect(t.value().data).toBe(false);
   });
 
   it("returns true inside bounds stored with the lower above the upper", () => {
     const value = (v: number): boolean => {
-      const t = new WithinBounds({ trueBound: { lower: 15, upper: 5 } });
-      t.setSources({ in: new TestSource(v) });
+      const t = new telem.WithinBounds({ trueBound: { lower: 15, upper: 5 } });
+      t.setSources({ in: new telemTest.TestSource(v) });
       return t.value().data;
     };
     expect(value(5)).toBe(true);
@@ -171,8 +165,8 @@ describe("WithinBounds", () => {
   // Staleness counts arrivals, so a sample that leaves the boolean unchanged must still
   // reach the listener.
   it("notifies on every sample, even when the boolean stays the same", () => {
-    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
-    const source = new TestSource(10);
+    const t = new telem.WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    const source = new telemTest.TestSource(10);
     t.setSources({ in: source });
     const handler = vi.fn();
     t.onChange(handler);
@@ -187,17 +181,17 @@ describe("BandColor", () => {
   const yellow = color.construct("#ffff00");
   const red = color.construct("#ff0000");
   const blue = color.construct("#0000ff");
-  const BANDS: BandColorProps["bands"] = [
+  const BANDS: telem.BandColorProps["bands"] = [
     { key: "a", threshold: 100, color: red },
     { key: "b", threshold: 50, color: yellow },
   ];
 
   const create = (
-    props: BandColorProps,
+    props: telem.BandColorProps,
     value: number | string,
-  ): [BandColor, TestSource<number | string>] => {
-    const t = new BandColor(props);
-    const source = new TestSource(value);
+  ): [telem.BandColor, telemTest.TestSource<number | string>] => {
+    const t = new telem.BandColor(props);
+    const source = new telemTest.TestSource(value);
     t.setSources({ source });
     return [t, source];
   };
@@ -288,7 +282,7 @@ describe("BandColor", () => {
         },
         10,
       );
-      const phase = new TestSource(0);
+      const phase = new telemTest.TestSource(0);
       t.setSources({ phase });
       expect(t.value().data).toEqual(red);
       phase.setValue(1);
@@ -299,7 +293,7 @@ describe("BandColor", () => {
 
     it("should hold the color of a band that does not flash", () => {
       const [t] = create({ bands: BANDS, background: green }, 75);
-      const phase = new TestSource(1);
+      const phase = new telemTest.TestSource(1);
       t.setSources({ phase });
       expect(t.value().data).toEqual(yellow);
     });
@@ -325,7 +319,7 @@ describe("BandColor", () => {
         },
         10,
       );
-      const phase = new TestSource(0);
+      const phase = new telemTest.TestSource(0);
       t.setSources({ phase });
       const handler = vi.fn();
       t.onChange(handler);

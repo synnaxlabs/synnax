@@ -37,4 +37,13 @@ describe("platform choice", () => {
     Platform.QUERY.onChange?.("Docker");
     expect(document.documentElement.dataset.os).toBe("Linux");
   });
+
+  it.each(["linux", "rust", ""])(
+    "should keep the reader's own platform when a link names %j",
+    (platform) => {
+      document.documentElement.dataset.os = "Windows";
+      Platform.QUERY.onChange?.(platform);
+      expect(document.documentElement.dataset.os).toBe("Windows");
+    },
+  );
 });

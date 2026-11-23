@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { APIContext } from "astro";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Portal } from "@/portal";
@@ -71,6 +72,19 @@ describe("respond", () => {
       expect(await body(res)).toEqual({ error: "Logged out.", code: "unlinked" });
     });
 
+    it("should log the cause of a 5xx HTTP error", () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const cause = new Error("mail: down");
+      toResponse(new HTTPError(502, "Mail failed.", undefined, { cause }));
+      expect(log).toHaveBeenCalledExactlyOnceWith(cause);
+    });
+
+    it("should not log the cause of a 4xx HTTP error", () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      toResponse(badRequest("Bad input.", { cause: new Error("parse") }));
+      expect(log).not.toHaveBeenCalled();
+    });
+
     it("should hide a value that is not an error", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const res = toResponse("boom");
@@ -108,6 +122,25 @@ describe("respond", () => {
         body: { label: "Rig", maxVersion: null },
       });
       expect(await form(context)).toEqual({ label: "Rig" });
+    });
+
+    it("should answer a body it cannot parse with a 400", async () => {
+      for (const [type, raw] of [
+        ["application/json", "{"],
+        ["text/plain", "x"],
+      ]) {
+        const request = new Request("https://portal.synnaxlabs.com/", {
+          method: "POST",
+          headers: { "content-type": type },
+          body: raw,
+        });
+        const res = await handle(async () => {
+          await form({ request } as APIContext);
+          return new Response(null, { status: 204 });
+        });
+        expect(res.status).toBe(400);
+        expect(await body(res)).toEqual({ error: "The request body is malformed" });
+      }
     });
 
     it("should read a posted form", async () => {

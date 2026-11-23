@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -97,6 +98,13 @@ icd::JSONMatch match(const std::string &pointer, const V &value) {
     return m;
 }
 
+/// @brief returns a present rule at pointer.
+icd::JSONMatch present(const std::string &pointer) {
+    icd::PresentJSONMatch m;
+    m.pointer = pointer;
+    return m;
+}
+
 /// @brief asserts that a decoder for routed(first, second) decodes doc as status
 /// without allocating, once a first decode is done.
 void assert_decodes_without_allocating(
@@ -105,10 +113,10 @@ void assert_decodes_without_allocating(
     const std::string_view doc
 ) {
     auto dec = ASSERT_NIL_P(JSON::create(routed(first, second)));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), std::size_t{1});
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), std::size_t{1});
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
 }
@@ -144,8 +152,8 @@ TEST(JSON, ReplacesSamplesOnEachDecode) {
     auto dec = ASSERT_NIL_P(
         JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)})
     );
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), std::size_t{0});
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), std::size_t{0});
     ASSERT_EQ(dec.samples(0)[0].values<double>(), std::vector<double>{2});
 }
 
@@ -157,6 +165,41 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     const auto [message, err] = dec.decode("not json");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
+}
+
+/// @brief it should give a timestamp field with a now default the time of each decode.
+TEST(JSON, DecodesNowDefault) {
+    auto m = reading<icd::TimestampJSONField>(x::telem::TIMESTAMP_T);
+    std::get<icd::TimestampJSONField>(m.payload.fields[0])
+        .default_ = icd::NowTimestampDefault{};
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
+    const auto stamp = dec.samples(0)[0].at<x::telem::TimeStamp>(0);
+    ASSERT_GE(stamp, before);
+    ASSERT_LE(stamp, x::telem::TimeStamp::now());
+}
+
+/// @brief it should give a UUID field with a random default a new UUID on each decode.
+TEST(JSON, DecodesRandomDefault) {
+    auto m = reading<icd::UuidJSONField>(x::telem::UUID_T);
+    std::get<icd::UuidJSONField>(m.payload.fields[0])
+        .default_ = icd::RandomUUIDDefault{};
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
+    const auto first = dec.samples(0)[0].uuids()[0];
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
+    ASSERT_NE(first, x::uuid::NIL);
+    ASSERT_NE(dec.samples(0)[0].uuids()[0], first);
+}
+
+/// @brief it should reject a JSON field whose default is not JSON text.
+TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
+    auto m = reading<icd::JSONJSONField>(x::telem::JSON_T);
+    std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = "{";
+    const auto err = JSON::create({m}).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
 }
 
 /// @brief it should decode a document without allocating when a string match rule
@@ -176,6 +219,16 @@ TEST(JSON, DecodesWithoutAllocatingByNumber) {
         match<icd::FloatJSONMatch>("/id", 2.5),
         match<icd::IntegerJSONMatch>("/id", 7),
         R"({"id":7,"temp":40,"count":3,"state":"run"})"
+    );
+}
+
+/// @brief it should decode a document without allocating when a present rule finds its
+/// message.
+TEST(JSON, DecodesWithoutAllocatingByPresence) {
+    assert_decodes_without_allocating(
+        present("/other"),
+        present("/temp"),
+        R"({"other":null,"temp":40,"count":3,"state":"run"})"
     );
 }
 }

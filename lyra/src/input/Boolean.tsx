@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/input/Boolean.css";
+
 import type { ReactElement, ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useItemStatus, useLabelledBy } from "@/input/Item";
 import type { InputProps } from "@/input/types";
-import { preventDefault } from "@/util/event";
+import { preventDefault } from "@/util";
 
 export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
@@ -76,7 +78,7 @@ export const Boolean = ({
   return (
     <Button.Button
       el="label"
-      variant={variant === "shadow" ? "outlined" : variant}
+      variant={variant}
       className={CSS.cls(
         CSS.BE("input", inputType),
         checkedIcon != null && CSS.M("icon"),

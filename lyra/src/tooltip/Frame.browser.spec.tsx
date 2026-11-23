@@ -109,16 +109,40 @@ describe("Tooltip.Frame", () => {
     expect(frame.style.left).toBe(`${window.innerWidth - 200}px`);
   });
 
-  it("should measure the tooltip at the origin", () => {
-    const anchor = createAnchor({ ...ANCHOR_RECT, left: 980, right: 1000, x: 980 });
-    render(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
-    const frame = getFrame() as HTMLElement;
-    // The box reads narrower once placed, as a wrapped one near the edge does.
-    Object.defineProperty(frame, "offsetWidth", {
-      get: () => (frame.style.left === "0px" ? 200 : 50),
-    });
-    window.dispatchEvent(new Event("resize"));
-    expect(frame.style.left).toBe(`${window.innerWidth - 200}px`);
+  it("should keep its size when the anchor moves it off the right edge", async () => {
+    const errors: string[] = [];
+    const handleError = (e: ErrorEvent): void => {
+      errors.push(e.message);
+    };
+    window.addEventListener("error", handleError);
+    // Wider than the room on either side of the anchor, the tooltip runs past the
+    // right edge when centered above it.
+    const width = window.innerWidth;
+    const anchor = document.createElement("div");
+    anchor.style.cssText = "position: fixed; top: 300px; height: 20px";
+    anchor.style.left = `${Math.round(width * 0.36)}px`;
+    anchor.style.width = `${Math.round(width * 0.6)}px`;
+    document.body.appendChild(anchor);
+    // A fractional width wraps in any narrower box.
+    const tipWidth = Math.floor(width * 0.68) + 0.3;
+    render(
+      <Tooltip.Frame anchor={anchor} location={{ x: "center", y: "top" }}>
+        <span style={{ display: "inline-block", width: `${tipWidth}px` }}>a</span>
+        <span style={{ display: "inline-block", width: "20px" }}>b</span>
+      </Tooltip.Frame>,
+    );
+    const frame = getFrame();
+    assert(frame != null);
+    const { left } = frame.style;
+    expect(left).toBe(`${width - frame.offsetWidth}px`);
+    const height = frame.offsetHeight;
+    anchor.style.left = `${Math.round(width * 0.12)}px`;
+    anchor.style.width = `${Math.round(width * 0.48)}px`;
+    await expect.poll(() => frame.style.left).not.toBe(left);
+    window.removeEventListener("error", handleError);
+    anchor.remove();
+    expect(errors).toEqual([]);
+    expect(frame.offsetHeight).toBe(height);
   });
 
   it("should report a lost anchor once it leaves the document", () => {

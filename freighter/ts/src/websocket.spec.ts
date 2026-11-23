@@ -309,6 +309,15 @@ describe("local server", () => {
     await expect(stream.receive()).rejects.toThrow(ReceiveOverflow);
   });
 
+  test("should throw EOF on send after the server closes the socket", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    ws.close();
+    await closed;
+    await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+  });
+
   test("should wait to send while the socket buffer is full", async () => {
     const stream = await dial({ sendHighWaterMark: 1024 });
     const { ws, req } = await connected;

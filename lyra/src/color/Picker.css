@@ -13,6 +13,15 @@
     width: 44rem;
     padding: 1.5rem;
 
+    /* An open view's width outranks this one, so the view keeps its measured width. */
+    &:where(.lyra-color-picker--tabbed) {
+        width: calc(
+            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
+                (var(--pluto-color-picker-columns) - 1) *
+                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
+        );
+    }
+
     /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
        titles, and the swatches: eight 21 px swatches across, with 6 px gaps. */
     &.lyra-color-picker--tabbed {
@@ -20,11 +29,6 @@
         --pluto-color-picker-inset: 1.5rem;
         --pluto-color-picker-gap: 1rem;
 
-        width: calc(
-            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
-                (var(--pluto-color-picker-columns) - 1) *
-                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
-        );
         min-height: 0;
         padding: 0;
 
@@ -69,6 +73,18 @@
             padding: var(--pluto-color-picker-inset);
         }
 
+        /* A create item keeps its own margin from the sides and the bottom, so the
+           footer adds the same space under its hairline. What replaces the item, such
+           as a name entry, takes the same margin. */
+        & > .lyra-color-picker__footer {
+            padding-top: 1rem;
+            border-top: var(--pluto-border);
+
+            & > :not(.lyra-create-list-item) {
+                margin: 0 1rem 1rem;
+            }
+        }
+
         & .lyra-color-picker__grid {
             display: grid;
             grid-template-columns: repeat(
@@ -77,11 +93,13 @@
             );
             gap: var(--pluto-color-picker-gap);
 
-            & .lyra-color-swatch.lyra-btn {
+            /* Any button in a palette grid, slotted ones too, takes a swatch cell. */
+            & > .lyra-btn {
                 width: 100%;
                 min-width: 0;
                 height: auto;
                 min-height: 0;
+                padding: 0;
                 aspect-ratio: 1;
             }
 

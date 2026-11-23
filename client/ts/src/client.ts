@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
@@ -34,7 +34,7 @@ import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
 import { enumeration } from "@/enumeration";
-import { nodeSystem, resolveParams } from "@/env";
+import { env } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
@@ -44,6 +44,7 @@ import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
+import { ni } from "@/ni";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -68,6 +69,11 @@ export const synnaxParamsZ = z.object({
   password: z.string().min(1, "Password is required").optional(),
   /** An API key to log in with, in place of a username and password. */
   apiKey: z.string().min(1, "API key is required").optional(),
+  /**
+   * An OpenID Connect authorization code to log in with once, in place of a username
+   * and password.
+   */
+  oidc: auth.oidcCredentialsZ.optional(),
   /** The token of an earlier login to resume, in place of a username and password. */
   token: z.string().min(1).optional(),
   /**
@@ -111,14 +117,33 @@ export const synnaxParamsZ = z.object({
   onRetry: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
     .optional(),
+  /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
+  // custom, not z.function: parse would wrap the clock and check every reading
+  clock: z.custom<() => TimeStamp>((v) => typeof v === "function").optional(),
+  /** Runs on every request and stream the client opens, after its own middleware. */
+  // custom, not z.function: parse would wrap each middleware and check every call
+  middleware: z
+    .custom<Middleware[]>(
+      (v) => Array.isArray(v) && v.every((m) => typeof m === "function"),
+    )
+    .optional(),
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
 const constructorParamsZ = synnaxParamsZ
-  .refine((p) => p.apiKey == null || (p.username == null && p.password == null), {
-    message: "Give either an API key or a username and password, not both",
-    path: ["apiKey"],
-  })
+  .refine(
+    (p) =>
+      [
+        p.username != null || p.password != null,
+        p.apiKey != null,
+        p.oidc != null,
+      ].filter(Boolean).length <= 1,
+    {
+      message:
+        "Give one of a username and password, an API key, or an OpenID Connect code",
+      path: ["apiKey"],
+    },
+  )
   .refine((p) => p.caCert == null || p.secure, {
     message: "caCert requires secure; leave secure out or set it to true",
     path: ["secure"],
@@ -139,14 +164,15 @@ export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
 }
 
 /**
- * The authority a client logs in with: its credentials when both are given or its API
- * key, else the token or cookie. A client with none fails its first request with an
- * AuthError.
+ * The authority a client logs in with: its credentials when both are given, its API
+ * key, or its OpenID Connect code, else the token or cookie. A client with none fails
+ * its first request with an AuthError.
  */
 const authorityOf = ({
   username,
   password,
   apiKey,
+  oidc,
   token,
   sessionCookie,
   sessionPersistent,
@@ -154,6 +180,7 @@ const authorityOf = ({
   credentials:
     username != null && password != null ? { username, password } : undefined,
   apiKey,
+  oidc,
   token,
   cookie: sessionCookie,
   persistent: sessionPersistent,
@@ -191,8 +218,8 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
   log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
   modbus_server: null,
-  ni_chassis: null,
-  ni_device: null,
+  ni_chassis: changes(ni.chassis.SET_CHANNEL_NAME, ni.chassis.DELETE_CHANNEL_NAME),
+  ni_device: changes(ni.device.SET_CHANNEL_NAME, ni.device.DELETE_CHANNEL_NAME),
   node: null,
   opcua_server: null,
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
@@ -246,6 +273,7 @@ export default class Synnax extends framer.Client {
   readonly tasks: task.Client;
   readonly racks: rack.Client;
   readonly devices: device.Client;
+  readonly ni: ni.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
@@ -276,7 +304,9 @@ export default class Synnax extends framer.Client {
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
    * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
-   * the host. Used only when no credentials or token are given.
+   * the host. Used only when no credentials, token, or OpenID Connect code are given.
+   * @param props.oidc - An OpenID Connect authorization code to log in with once. Later
+   * logins resume the session it opened.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
@@ -304,10 +334,10 @@ export default class Synnax extends framer.Client {
    * Deno.
    */
   constructor(params: ConstructorParams = {}) {
-    const system = nodeSystem();
+    const system = env.nodeSystem();
     const parsedParams = zod.parse(
       constructorParamsZ,
-      resolveParams(params, globalThis.process?.env, system),
+      env.resolveParams(params, globalThis.process?.env, system),
     );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
@@ -355,6 +385,7 @@ export default class Synnax extends framer.Client {
       onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onStreamRetry: parsedParams.onRetry,
       onError: parsedParams.onInternalError,
+      clock: parsedParams.clock,
     });
     this.cache = cache;
     this.conn = new connection.Client({
@@ -384,6 +415,7 @@ export default class Synnax extends framer.Client {
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
+    if (parsedParams.middleware != null) transport.use(...parsedParams.middleware);
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
@@ -404,7 +436,11 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
-    this.enumerations = new enumeration.Client({ unary, cache });
+    this.enumerations = new enumeration.Client({
+      unary,
+      cache,
+      usesChannels: [schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME],
+    });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
@@ -455,6 +491,7 @@ export default class Synnax extends framer.Client {
       cache,
       statuses: this.statuses,
     });
+    this.ni = new ni.Client({ unary, cache, statuses: this.statuses });
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,

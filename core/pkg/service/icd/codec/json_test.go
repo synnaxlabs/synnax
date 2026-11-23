@@ -64,14 +64,25 @@ type decodeCase struct {
 	Samples   []json.RawMessage `json:"samples"`
 }
 
-func decodeEntries() []TableEntry {
+func fixtureEntry(path string) TableEntry {
+	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+}
+
+// fixturePaths returns the fixtures in the dir folder of testdata.
+func fixturePaths(dir string) []string {
 	GinkgoHelper()
 	paths := MustSucceed(
-		filepath.Glob(filepath.Join("..", "testdata", "decode", "*.json")),
+		filepath.Glob(filepath.Join("..", "testdata", dir, "*.json")),
 	)
 	Expect(paths).ToNot(BeEmpty())
-	return lo.Map(paths, func(path string, _ int) TableEntry {
-		return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+	return paths
+}
+
+// fixtureEntries returns an entry for each fixture in the dir folder of testdata.
+func fixtureEntries(dir string) []TableEntry {
+	GinkgoHelper()
+	return lo.Map(fixturePaths(dir), func(path string, _ int) TableEntry {
+		return fixtureEntry(path)
 	})
 }
 
@@ -118,6 +129,32 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
+func readDecodeFixture(path string) decodeFixture {
+	GinkgoHelper()
+	var f decodeFixture
+	Expect(
+		json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+	).To(Succeed())
+	Expect(f.Description).ToNot(BeEmpty())
+	return f
+}
+
+func (m fixtureMessage) jsonMessage() codec.JSONMessage {
+	return codec.JSONMessage{
+		Name:    m.Name,
+		Payload: m.Payload,
+		Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
+			return codec.Binding{Field: b.Field, DataType: b.DataType}
+		}),
+	}
+}
+
+func (f decodeFixture) messages() []codec.JSONMessage {
+	return lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
+		return m.jsonMessage()
+	})
+}
+
 // newSamples returns empty sample slices for each binding of each message.
 func newSamples(messages []codec.JSONMessage) [][][]byte {
 	return lo.Map(messages, func(m codec.JSONMessage, _ int) [][]byte {
@@ -127,20 +164,8 @@ func newSamples(messages []codec.JSONMessage) [][][]byte {
 
 var _ = Describe("JSON", func() {
 	DescribeTable("Should decode the documents of a fixture", func(path string) {
-		var f decodeFixture
-		Expect(
-			json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
-		).To(Succeed())
-		Expect(f.Description).ToNot(BeEmpty())
-		messages := lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
-			return codec.JSONMessage{
-				Name:    m.Name,
-				Payload: m.Payload,
-				Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
-					return codec.Binding{Field: b.Field, DataType: b.DataType}
-				}),
-			}
-		})
+		f := readDecodeFixture(path)
+		messages := f.messages()
 		if f.Error != "" {
 			Expect(codec.NewJSON(messages)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -187,7 +212,7 @@ var _ = Describe("JSON", func() {
 				}
 			}
 		}
-	}, decodeEntries())
+	}, fixtureEntries("decode"))
 
 	It("Should reject a match rule with no type", func() {
 		key := uuid.New()
@@ -204,6 +229,102 @@ var _ = Describe("JSON", func() {
 			MatchError(validate.ErrValidation),
 			MatchError("message status: match type is required: validation error"),
 		))
+	})
+
+	Describe("Generated defaults", func() {
+		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+			GinkgoHelper()
+			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+			}}))
+		}
+
+		It("Should fill a missing timestamp with the time of the read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "ts", Scale: 1, Pointer: "/ts",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+			}}, telem.TimestampT)
+			samples := [][][]byte{make([][]byte, 1)}
+			before := telem.Now()
+			_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+			after := telem.Now()
+			Expect(ok).To(BeTrue())
+			read := telem.TimeStamp(telem.ByteOrder.Uint64(samples[0][0]))
+			Expect(read).To(BeNumerically(">=", before))
+			Expect(read).To(BeNumerically("<=", after))
+		})
+
+		It("Should fill a missing UUID with a new random UUID on each read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "id", Scale: 1, Pointer: "/id",
+				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}}, telem.UUIDT)
+			samples := [][][]byte{make([][]byte, 1)}
+			for range 2 {
+				_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+				Expect(ok).To(BeTrue())
+			}
+			read := samples[0][0]
+			Expect(read).To(HaveLen(32))
+			first, second := uuid.UUID(read[:16]), uuid.UUID(read[16:])
+			Expect(first).ToNot(Equal(second))
+			Expect(first[6] >> 4).To(Equal(byte(4)))
+			Expect(second[6] >> 4).To(Equal(byte(4)))
+		})
+
+		It("Should fill a missing JSON value with every digit of its default", func() {
+			dec := decoder(icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id": 9007199254740993}`),
+			}}, telem.JSONT)
+			samples := [][][]byte{make([][]byte, 1)}
+			_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+			Expect(ok).To(BeTrue())
+			Expect(string(samples[0][0][4:])).To(Equal(`{"id":9007199254740993}`))
+		})
+
+		It("Should reject a JSON default that is not valid JSON", func() {
+			f := icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id":`),
+			}}
+			Expect(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.JSONT}},
+			}})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					"message reading: field doc: default: not valid JSON: validation error",
+				),
+			))
+		})
+
+		DescribeTable("Should reject a default with no type",
+			func(f icd.JSONField, dt telem.DataType) {
+				Expect(codec.NewJSON([]codec.JSONMessage{{
+					Name:     "reading",
+					Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+					Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+				}})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("message reading: field v: default: type is required: "+
+						"validation error"),
+				))
+			},
+			Entry("for a timestamp", icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{},
+			}}, telem.TimestampT),
+			Entry("for a UUID", icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				Default: &icd.UUIDDefault{},
+			}}, telem.UUIDT),
+		)
 	})
 
 	It("Should append to the samples of earlier documents", func() {

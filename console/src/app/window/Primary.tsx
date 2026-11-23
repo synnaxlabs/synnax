@@ -18,7 +18,7 @@ import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
-import { Guard } from "@/app/window/Guard";
+import { Guard } from "@/app/window/guard";
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
@@ -56,7 +56,7 @@ export const Primary = (): ReactElement => {
   return (
     <>
       <SideEffect />
-      <Guard>
+      <Guard.Guard>
         <ProjectSideEffect />
         <div
           className={CSS.cls(
@@ -74,7 +74,7 @@ export const Primary = (): ReactElement => {
             <Nav.Drawer.Bottom />
           </Flex.Box>
         </div>
-      </Guard>
+      </Guard.Guard>
     </>
   );
 };

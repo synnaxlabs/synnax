@@ -13,9 +13,10 @@
 
 #include <utility>
 
+#include "client/cpp/color/json.gen.h"
+#include "client/cpp/color/proto.gen.h"
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/label/types.gen.h"
-#include "x/cpp/color/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 
@@ -29,7 +30,7 @@ Label::to_proto() const {
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     {
-        auto [v, err] = this->color.to_proto();
+        auto [v, err] = ::synnax::color::to_proto(this->color);
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
@@ -46,7 +47,7 @@ Label::from_proto(const ::service::label::pb::Label &pb) {
     }
     cpp.name = pb.name();
     {
-        auto [v, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::synnax::color::ref_from_proto(pb.color());
         if (err) return {{}, err};
         cpp.color = v;
     }

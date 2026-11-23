@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, color, schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import {
@@ -26,7 +26,7 @@ import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Border } from "@/schematic/node/common/border";
 import { Tank } from "@/schematic/node/vessels/tank";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const state = z.object({ cornerRadii: z.unknown() }).loose();
 
@@ -119,7 +119,6 @@ describe("Tank.Symbol named colors", () => {
   ): Promise<HTMLElement> => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const { container } = render(
       <ReactFlowProvider>
         <Haul.Provider>

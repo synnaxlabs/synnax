@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color } from "@synnaxlabs/x";
+import { box, color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { theming } from "@/theming/aether";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -37,7 +37,7 @@ class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   }
 }
 
-const FOUND: FindResult = {
+const FOUND: line.FindResult = {
   key: "line",
   position: { x: 0.5, y: 0.5 },
   value: { x: 1, y: 2 },
@@ -59,7 +59,9 @@ const texts = (recorder: canvasTest.Recorder): string[] =>
 const arcs = (recorder: canvasTest.Recorder): number =>
   recorder.upper2d.calls.filter((c) => c.op === "arc").length;
 
-const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } => {
+const mount = (
+  state: Partial<z.input<typeof tooltip.tooltipStateZ>> = {},
+): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } => {
   const recorder = canvasTest.record();
   const h = renderAether(Requestor, {
     state: {},
@@ -69,20 +71,32 @@ const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } 
     children: {
       [TOOLTIP_KEY]: {
         type: tooltip.Tooltip.TYPE,
-        state: { position: { x: 200, y: 100 } },
+        state: { position: { x: 200, y: 100 }, ...state },
       },
     },
   });
   return { recorder, component: h.child<tooltip.Tooltip>(TOOLTIP_KEY) };
 };
 
-const found = (key: string, y: number): FindResult => ({
+// noBreak finds no closed break under the cursor.
+const noBreak = () => null;
+
+const found = (key: string, y: number): line.FindResult => ({
   ...FOUND,
   key,
   label: key,
   value: { x: 1, y },
   position: { x: 0.5, y: Number.isFinite(y) ? 0.5 : NaN },
 });
+
+// fontOf returns the font that drew text, or undefined when nothing drew it.
+const fontOf = (recorder: canvasTest.Recorder, text: string): string | undefined => {
+  let font = "";
+  for (const c of recorder.upper2d.calls)
+    if (c.op === "set:font") font = String(c.args[0]);
+    else if (c.op === "fillText" && c.args[0] === text) return font;
+  return undefined;
+};
 
 describe("Tooltip", () => {
   it("should list a non-finite value without a dot", () => {
@@ -93,19 +107,31 @@ describe("Tooltip", () => {
       found("inf", Infinity),
       found("negInf", -Infinity),
     ];
-    component.render({ findByXDecimal: () => results, region: REGION });
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => results,
+      region: REGION,
+    });
     expect(texts(recorder)).toEqual(
       expect.arrayContaining(["finite", "2", "nan", "NaN", "inf", "∞", "negInf", "-∞"]),
     );
     const finiteOnly = mount();
-    finiteOnly.component.render({ findByXDecimal: () => [results[0]], region: REGION });
+    finiteOnly.component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => [results[0]],
+      region: REGION,
+    });
     expect(arcs(recorder)).toBe(arcs(finiteOnly.recorder));
   });
 
   it("should list every line when all of them fit in the plot", () => {
     const { recorder, component } = mount();
     const results = ["a", "b", "c"].map((k) => found(k, 1));
-    component.render({ findByXDecimal: () => results, region: REGION });
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => results,
+      region: REGION,
+    });
     expect(texts(recorder)).toEqual(expect.arrayContaining(["a", "b", "c"]));
     expect(texts(recorder).some((t) => t.endsWith("more"))).toBe(false);
   });
@@ -115,16 +141,108 @@ describe("Tooltip", () => {
     const results = Array.from({ length: 12 }, (_, i) => found(`line-${i}`, i));
     // 100 px holds 5 items: the time, 3 lines, and "and 9 more".
     const region = box.construct(0, 0, 400, 100);
-    component.render({ findByXDecimal: () => results, region });
+    component.render({ hiddenAt: noBreak, findByXDecimal: () => results, region });
     const labels = texts(recorder).filter((t) => t.startsWith("line-"));
     expect(labels).toHaveLength(3);
     expect(texts(recorder)).toContain("and 9 more");
   });
 
+  it("should head the list with the time from zero on a relative axis", () => {
+    const { recorder, component } = mount({ relative: true });
+    const result = { ...FOUND, value: { x: 1.25e9, y: 2 } };
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => [result],
+      region: REGION,
+    });
+    expect(texts(recorder)).toContain("T+1.250 s");
+  });
+
+  it("should list each range under its channel, from the highest value", () => {
+    const { recorder, component } = mount({ relative: true });
+    const entry = (channel: string, range: string, y: number): line.FindResult => ({
+      ...found(`${channel}/${range}`, y),
+      label: channel,
+      tooltipGroup: channel,
+      tooltipLabel: range,
+    });
+    const results = [
+      entry("ch1", "r1", 1),
+      entry("ch1", "r2", 3),
+      entry("ch2", "r1", 5),
+      entry("ch2", "r2", 4),
+    ];
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => results,
+      region: REGION,
+    });
+    expect(texts(recorder).filter((t) => /^(ch|r)\d$/.test(t))).toEqual([
+      "ch1",
+      "r2",
+      "r1",
+      "ch2",
+      "r1",
+      "r2",
+    ]);
+  });
+
+  it("should keep two lines that share a label under their own headings", () => {
+    const { recorder, component } = mount({ relative: true });
+    const entry = (line: string, range: string, y: number): line.FindResult => ({
+      ...found(`${line}/${range}`, y),
+      label: "pressure",
+      tooltipGroup: line,
+      tooltipLabel: range,
+    });
+    const results = [entry("a", "r1", 1), entry("b", "r1", 2)];
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => results,
+      region: REGION,
+    });
+    expect(texts(recorder).filter((t) => t === "pressure")).toHaveLength(2);
+  });
+
+  it("should draw the entry of the line under the cursor in bold", () => {
+    const { recorder, component } = mount();
+    const near = found("near", 1);
+    const far = { ...found("far", 2), position: { x: 0.5, y: 0.1 } };
+    const props = {
+      hiddenAt: noBreak,
+      findByXDecimal: () => [near, far],
+      region: REGION,
+    };
+    component.render(props);
+    component.render(props);
+    expect(fontOf(recorder, "near")).toContain("700");
+    expect(fontOf(recorder, "far")).not.toContain("700");
+  });
+
+  it("should stop growing at a label wider than its cap", () => {
+    const widthOf = (label: string): number => {
+      const { recorder, component } = mount();
+      component.render({
+        hiddenAt: noBreak,
+        findByXDecimal: () => [{ ...found(label, 2) }],
+        region: box.construct(0, 0, 4000, 200),
+      });
+      const call = recorder.upper2d.calls.find((c) => c.op === "roundRect");
+      if (call == null) throw new Error("the tooltip drew no container");
+      return Number(call.args[2]);
+    };
+    expect(widthOf("x".repeat(100))).toBe(widthOf("x".repeat(200)));
+    expect(widthOf("x".repeat(10))).toBeLessThan(widthOf("x".repeat(100)));
+  });
+
   it("should leave out a line with no sample under the cursor", () => {
     const { recorder, component } = mount();
     const missing = { ...found("missing", NaN), value: { x: NaN, y: NaN } };
-    component.render({ findByXDecimal: () => [FOUND, missing], region: REGION });
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => [FOUND, missing],
+      region: REGION,
+    });
     expect(texts(recorder)).not.toContain("missing");
   });
 
@@ -144,7 +262,11 @@ describe("Tooltip", () => {
     });
     const component = h.child<tooltip.Tooltip>(TOOLTIP_KEY);
     const draw = (): void =>
-      component.render({ findByXDecimal: () => [FOUND], region: REGION });
+      component.render({
+        hiddenAt: noBreak,
+        findByXDecimal: () => [FOUND],
+        region: REGION,
+      });
     draw();
     expect(strokeStyles(recorder)).toContain(color.hex(DARK.colors.gray.l7));
     const provider = h.providers.theming!;
@@ -159,5 +281,42 @@ describe("Tooltip", () => {
     recorder.clear();
     draw();
     expect(strokeStyles(recorder)).toContain(color.hex(LIGHT.colors.gray.l7));
+  });
+
+  describe("over a closed break", () => {
+    const HIDDEN = {
+      lower: Number(TimeStamp.seconds(1000).valueOf()),
+      upper: Number(TimeStamp.seconds(1000).add(TimeSpan.hours(23)).valueOf()),
+    };
+
+    it("should list the time the break hides and how to show it", () => {
+      const { recorder, component } = mount();
+      component.render({
+        hiddenAt: () => HIDDEN,
+        findByXDecimal: () => [FOUND],
+        region: REGION,
+      });
+      const start = new TimeStamp(HIDDEN.lower).toString("dateTime", "local");
+      expect(texts(recorder)).toEqual([
+        "Hidden",
+        "23h",
+        "From",
+        start,
+        "To",
+        new TimeStamp(HIDDEN.upper).toString("dateTime", "local"),
+        "Click to show",
+      ]);
+      expect(arcs(recorder)).toBe(0);
+    });
+
+    it("should clear the hovered line", () => {
+      const { component } = mount({ hovered: { key: FOUND.key, x: 1 } });
+      component.render({
+        hiddenAt: () => HIDDEN,
+        findByXDecimal: () => [FOUND],
+        region: REGION,
+      });
+      expect(component.state.hovered).toBeNull();
+    });
   });
 });

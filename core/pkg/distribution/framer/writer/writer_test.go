@@ -116,7 +116,7 @@ var _ = Describe("Writer", func() {
 				},
 			))).To(BeTrue())
 			MustCommit(w)
-			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
@@ -125,6 +125,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"hello", "world", "foo"}))
+			Expect(iter.Close()).To(Succeed())
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
 			floatCh := channel.Channel{
@@ -150,7 +151,7 @@ var _ = Describe("Writer", func() {
 				},
 			))).To(BeTrue())
 			MustCommit(w)
-			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
 			}))
@@ -159,6 +160,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"a", "b", "c"}))
+			Expect(iter.Close()).To(Succeed())
 		})
 	})
 

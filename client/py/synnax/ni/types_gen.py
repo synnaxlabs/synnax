@@ -594,7 +594,7 @@ class BaseAIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
     device: device_.Key = ""
 
     @_override
@@ -634,7 +634,7 @@ class BaseCIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
     device: device_.Key = ""
 
     @_override
@@ -653,7 +653,7 @@ class BaseAOChannel(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
 
     @_override
     def __hash__(self) -> int:
@@ -676,7 +676,7 @@ class DIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
     line: int = Field(default=0, ge=0, le=31)
 
     @_override
@@ -704,7 +704,7 @@ class DOChannel(BaseModel):
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     cmd_channel_name: str = ""
     state_channel_name: str = ""
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
     line: int = Field(default=0, ge=0, le=31)
 
     @_override
@@ -831,7 +831,7 @@ class ChanCJC(BaseModel):
     """Reads the reference temperature from another channel."""
 
     source: Literal["chan"] = "chan"
-    port: int = Field(default=0, ge=0, le=4294967295)
+    port: int = Field(default=0, ge=0, le=65535)
 
 
 # Is the cold-junction compensation for a thermocouple. The source selects where
@@ -1316,7 +1316,9 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CIFreqUnits = "Hz"
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.000006
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(6000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
@@ -1340,7 +1342,9 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CITimeUnits = "Seconds"
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.001000
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
@@ -1468,7 +1472,7 @@ class AOFuncGenChannel(BaseAOChannel):
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
-    frequency: float = 0
+    frequency: float = Field(gt=0, allow_inf_nan=False)
     amplitude: float = 0
     offset: float = 0
 

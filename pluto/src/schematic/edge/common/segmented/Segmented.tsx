@@ -41,7 +41,7 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import type { Edge, Spec } from "@/schematic/edge/spec";
-import { internalNodeBox, selectZoom } from "@/vis/diagram/util";
+import { Diagram } from "@/vis/diagram";
 
 interface CurrentlyDragging {
   segments: Segment[];
@@ -60,7 +60,8 @@ export interface PathProps extends Omit<
 const useNodeBox = (key: string): box.Box =>
   useNodesStore(
     useEqualSelector(
-      ({ nodeLookup }: NodesStore) => internalNodeBox(nodeLookup.get(key) ?? null),
+      ({ nodeLookup }: NodesStore) =>
+        Diagram.internalNodeBox(nodeLookup.get(key) ?? null),
       box.equals,
     ),
   );
@@ -78,7 +79,7 @@ const create = (Path: FC<PathProps>): Edge => {
   }): ReactElement | null => {
     const resolve = Color.useResolve();
     const flow = useReactFlow();
-    const zoom = useViewportStore(selectZoom);
+    const zoom = useViewportStore(Diagram.selectZoom);
     const crossings = Jumps.useCrossings(edgeKey);
     const sourceBox = useNodeBox(sourceNode);
     const targetBox = useNodeBox(targetNode);

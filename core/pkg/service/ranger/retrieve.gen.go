@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
@@ -36,6 +37,7 @@ type indexes struct {
 	timeRangeEnd   *gorp.SortedIndex[Key, Range, telem.TimeStamp]
 	labels         *gorp.KeyReference[Key, Range, label.Key]
 	parent         *gorp.KeyReference[Key, Range, Key]
+	colorKey       *gorp.KeyReference[Key, Range, color.Key]
 	search         *gorp.SearchIndex[Key, Range]
 }
 
@@ -69,6 +71,21 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Range, from, to label.Key) {
+				if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {
+					return k1 == to
+				}) {
+					e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {
+						return k1 == from
+					})
+				} else {
+					for i2 := range e.Labels {
+						if e.Labels[i2] == from {
+							e.Labels[i2] = to
+						}
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
 			Name:     "parent",
@@ -81,6 +98,65 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []Key{*e.Parent}
+			},
+			Retarget: func(e *Range, from, to Key) {
+				if e.Parent != nil && *e.Parent == from {
+					*e.Parent = to
+				}
+			},
+		}),
+		colorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, color.Key]{
+			Name:     "color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Range) []color.Key {
+				var targets []color.Key
+				if e.Color != nil {
+					switch v1 := e.Color.Variant.(type) {
+					case color.NamedRef:
+						targets = append(targets, v1.Key)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Range, t color.Key) {
+				if e.Color != nil {
+					if v3, ok := e.Color.Variant.(color.NamedRef); ok && v3.Key == t {
+						e.Color = nil
+					}
+				}
+			},
+			Retarget: func(e *Range, from, to color.Key) {
+				if e.Color != nil {
+					switch v4 := e.Color.Variant.(type) {
+					case color.NamedRef:
+						if v4.Key == from {
+							v4.Key = to
+						}
+						e.Color.Variant = v4
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Range,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				if e.Color != nil {
+					if v2, ok := e.Color.Variant.(color.NamedRef); ok && v2.Key == t {
+						e.Color.Variant = target.Inline()
+					}
+				}
+				return nil
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Range](
@@ -109,6 +185,7 @@ func (i indexes) references() []gorp.Reference[Key, Range] {
 	return []gorp.Reference[Key, Range]{
 		i.labels,
 		i.parent,
+		i.colorKey,
 	}
 }
 

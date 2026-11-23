@@ -14,6 +14,21 @@ package v14
 import "github.com/synnaxlabs/x/patch"
 
 // Patch applies the path action at c, which is not done, to the value.
+func (cb *CommandBinding) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&cb.Key, c.Next())
+	case "channel":
+		return patch.Value(&cb.Channel, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (cb *CommandBinding) PatchKey() string { return cb.Key }
+
+// Patch applies the path action at c, which is not done, to the value.
 func (e *Edge) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "config":
@@ -64,6 +79,51 @@ func (s *Schematic) Patch(c patch.Cursor) error {
 		return c.UnknownField()
 	}
 }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (sb *StateBinding) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "units":
+		return patch.OptionalValue(&sb.FormatConfig.Units, c.Next())
+	case "precision":
+		return patch.OptionalValue(&sb.FormatConfig.Precision, c.Next())
+	case "notation":
+		return patch.OptionalValue(&sb.FormatConfig.Notation, c.Next())
+	case "key":
+		return patch.Value(&sb.Key, c.Next())
+	case "source":
+		if c = c.Next(); c.Done() || sb.Source == nil {
+			return patch.OptionalValue(&sb.Source, c)
+		}
+		next := *sb.Source
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sb.Source = &next
+		return nil
+	case "enumeration":
+		return patch.OptionalValue(&sb.Enumeration, c.Next())
+	case "match":
+		if c = c.Next(); c.Done() || sb.Match == nil {
+			return patch.OptionalValue(&sb.Match, c)
+		}
+		next := *sb.Match
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sb.Match = &next
+		return nil
+	case "bounds":
+		return patch.OptionalValue(&sb.Bounds, c.Next())
+	case "default":
+		return patch.OptionalValue(&sb.Default, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (sb *StateBinding) PatchKey() string { return sb.Key }
 
 // Patch applies the path action at c, which is not done, to the value.
 func (ec *EdgeConfig) Patch(c patch.Cursor) error {
@@ -1687,6 +1747,19 @@ func (nc *NodeConfig) Patch(c patch.Cursor) error {
 		}
 		nc.Variant = v
 		return nil
+	case SymbolNodeConfig:
+		c, ok := c.Guard("variant", "symbol")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "variant" {
+			return patch.Discriminator(nc, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		nc.Variant = v
+		return nil
 	default:
 		return patch.Absent(nc, c, "variant")
 	}
@@ -1989,8 +2062,6 @@ func (tnc *ThrusterNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&tnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ThrusterNodeConfig) {
 			tnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&tnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&tnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -2509,8 +2580,6 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&gnc.StalenessConfig.StalenessTimeout, c.Next(), func(def *GaugeNodeConfig) {
 			gnc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&gnc.StalenessConfig.StalenessColor, c.Next())
 	case "position":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&gnc.Position, c, func(def *GaugeNodeConfig) {
@@ -2572,8 +2641,6 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&inc.StalenessConfig.StalenessTimeout, c.Next(), func(def *InputNodeConfig) {
 			inc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&inc.StalenessConfig.StalenessColor, c.Next())
 	case "size":
 		return patch.Defaulted(&inc.Size, c.Next(), func(def *InputNodeConfig) {
 			inc.Size = def.Size
@@ -2641,8 +2708,6 @@ func (lnc *LightNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&lnc.StalenessConfig.StalenessTimeout, c.Next(), func(def *LightNodeConfig) {
 			lnc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&lnc.StalenessConfig.StalenessColor, c.Next())
 	case "channel":
 		return patch.Value(&lnc.Channel, c.Next())
 	case "threshold":
@@ -2801,8 +2866,6 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.StalenessConfig.StalenessTimeout, c.Next(), func(def *SelectNodeConfig) {
 			snc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&snc.StalenessConfig.StalenessColor, c.Next())
 	case "size":
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SelectNodeConfig) {
 			snc.Size = def.Size
@@ -2827,6 +2890,8 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "options":
 		return patch.List(&snc.Options, c.Next())
+	case "enumeration":
+		return patch.OptionalValue(&snc.Enumeration, c.Next())
 	case "disabled":
 		return patch.Value(&snc.Disabled, c.Next())
 	case "on_click_delay":
@@ -2873,8 +2938,6 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.ScaleIndicatorConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ScaleNodeConfig) {
 			snc.ScaleIndicatorConfig.StalenessConfig.StalenessTimeout = def.ScaleIndicatorConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.StalenessConfig.StalenessColor, c.Next())
 	case "bounds":
 		return patch.Defaulted(&snc.ScaleIndicatorConfig.Bounds, c.Next(), func(def *ScaleNodeConfig) {
 			snc.ScaleIndicatorConfig.Bounds = def.ScaleIndicatorConfig.Bounds
@@ -2966,8 +3029,6 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.StalenessConfig.StalenessTimeout, c.Next(), func(def *SetpointNodeConfig) {
 			snc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&snc.StalenessConfig.StalenessColor, c.Next())
 	case "size":
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SetpointNodeConfig) {
 			snc.Size = def.Size
@@ -3033,8 +3094,6 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&sinc.StalenessConfig.StalenessTimeout, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&sinc.StalenessConfig.StalenessColor, c.Next())
 	case "channel":
 		return patch.Value(&sinc.Channel, c.Next())
 	case "stroke_color":
@@ -3053,6 +3112,8 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "options":
 		return patch.List(&sinc.Options, c.Next())
+	case "enumeration":
+		return patch.OptionalValue(&sinc.Enumeration, c.Next())
 	case "size":
 		return patch.Defaulted(&sinc.Size, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.Size = def.Size
@@ -3080,8 +3141,6 @@ func (sdnc *StringDisplayNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&sdnc.StalenessConfig.StalenessTimeout, c.Next(), func(def *StringDisplayNodeConfig) {
 			sdnc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&sdnc.StalenessConfig.StalenessColor, c.Next())
 	case "stroke_color":
 		if c = c.Next(); c.Done() || sdnc.StrokeColor == nil {
 			return patch.OptionalValue(&sdnc.StrokeColor, c)
@@ -3141,8 +3200,6 @@ func (snc *SwitchNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *SwitchNodeConfig) {
 			snc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&snc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&snc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3238,8 +3295,6 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&vnc.StalenessConfig.StalenessTimeout, c.Next(), func(def *ValueNodeConfig) {
 			vnc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&vnc.StalenessConfig.StalenessColor, c.Next())
 	case "position":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&vnc.Position, c, func(def *ValueNodeConfig) {
@@ -3330,8 +3385,6 @@ func (anc *AgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&anc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *AgitatorNodeConfig) {
 			anc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&anc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&anc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3374,8 +3427,6 @@ func (cbanc *CrossBeamAgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&cbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *CrossBeamAgitatorNodeConfig) {
 			cbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&cbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&cbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3418,8 +3469,6 @@ func (fbanc *FlatBladeAgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&fbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *FlatBladeAgitatorNodeConfig) {
 			fbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&fbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&fbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3537,8 +3586,6 @@ func (hanc *HelicalAgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&hanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *HelicalAgitatorNodeConfig) {
 			hanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&hanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&hanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3581,8 +3628,6 @@ func (panc *PaddleAgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *PaddleAgitatorNodeConfig) {
 			panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3625,8 +3670,6 @@ func (panc *PropellerAgitatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *PropellerAgitatorNodeConfig) {
 			panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3669,8 +3712,6 @@ func (rmnc *RotaryMixerNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&rmnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *RotaryMixerNodeConfig) {
 			rmnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&rmnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&rmnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3738,8 +3779,6 @@ func (cpnc *CavityPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&cpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *CavityPumpNodeConfig) {
 			cpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&cpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&cpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3782,8 +3821,6 @@ func (ccnc *CentrifugalCompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&ccnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *CentrifugalCompressorNodeConfig) {
 			ccnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&ccnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&ccnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3826,8 +3863,6 @@ func (cnc *CompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&cnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *CompressorNodeConfig) {
 			cnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&cnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&cnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3870,8 +3905,6 @@ func (dpnc *DiaphragmPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&dpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *DiaphragmPumpNodeConfig) {
 			dpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&dpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&dpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3914,8 +3947,6 @@ func (epnc *EjectionPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&epnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *EjectionPumpNodeConfig) {
 			epnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&epnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&epnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -3958,8 +3989,6 @@ func (ecnc *EjectorCompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&ecnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *EjectorCompressorNodeConfig) {
 			ecnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&ecnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&ecnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4002,8 +4031,6 @@ func (lrcnc *LiquidRingCompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&lrcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *LiquidRingCompressorNodeConfig) {
 			lrcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&lrcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&lrcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4046,8 +4073,6 @@ func (ppnc *PistonPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&ppnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *PistonPumpNodeConfig) {
 			ppnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&ppnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&ppnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4090,8 +4115,6 @@ func (pnc *PumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&pnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *PumpNodeConfig) {
 			pnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&pnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&pnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4134,8 +4157,6 @@ func (rvcnc *RollerVaneCompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&rvcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *RollerVaneCompressorNodeConfig) {
 			rvcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&rvcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&rvcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4178,8 +4199,6 @@ func (spnc *ScrewPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&spnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ScrewPumpNodeConfig) {
 			spnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&spnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&spnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4222,8 +4241,6 @@ func (tcnc *TurboCompressorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&tcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *TurboCompressorNodeConfig) {
 			tcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&tcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&tcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4266,8 +4283,6 @@ func (vpnc *VacuumPumpNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&vpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *VacuumPumpNodeConfig) {
 			vpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&vpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&vpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4485,8 +4500,6 @@ func (avnc *AngledValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&avnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *AngledValveNodeConfig) {
 			avnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&avnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&avnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4587,8 +4600,6 @@ func (bvnc *BallValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *BallValveNodeConfig) {
 			bvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&bvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&bvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4660,8 +4671,6 @@ func (bvonc *ButterflyValveOneNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bvonc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ButterflyValveOneNodeConfig) {
 			bvonc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&bvonc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&bvonc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4704,8 +4713,6 @@ func (bvtnc *ButterflyValveTwoNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bvtnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ButterflyValveTwoNodeConfig) {
 			bvtnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&bvtnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&bvtnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4848,8 +4855,6 @@ func (fwvnc *FourWayValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&fwvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *FourWayValveNodeConfig) {
 			fwvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&fwvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&fwvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -4892,8 +4897,6 @@ func (gvnc *GateValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&gvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *GateValveNodeConfig) {
 			gvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&gvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&gvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5098,8 +5101,6 @@ func (svnc *SolenoidValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&svnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *SolenoidValveNodeConfig) {
 			svnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&svnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&svnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5173,8 +5174,6 @@ func (twvnc *ThreeWayValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&twvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ThreeWayValveNodeConfig) {
 			twvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&twvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&twvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5217,8 +5216,6 @@ func (twbvnc *ThreeWayBallValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&twbvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ThreeWayBallValveNodeConfig) {
 			twbvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&twbvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&twbvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5261,8 +5258,6 @@ func (vnc *ValveNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&vnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *ValveNodeConfig) {
 			vnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&vnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&vnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5390,8 +5385,6 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&tnc.StalenessTimeout, c.Next(), func(def *TankNodeConfig) {
 			tnc.StalenessTimeout = def.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&tnc.StalenessColor, c.Next())
 	case "bounds":
 		return patch.Defaulted(&tnc.Bounds, c.Next(), func(def *TankNodeConfig) {
 			tnc.Bounds = def.Bounds
@@ -5534,8 +5527,6 @@ func (canc *CustomActuatorNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&canc.ToggleConfig.StalenessConfig.StalenessTimeout, c.Next(), func(def *CustomActuatorNodeConfig) {
 			canc.ToggleConfig.StalenessConfig.StalenessTimeout = def.ToggleConfig.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&canc.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
 		return patch.Value(&canc.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
@@ -5590,6 +5581,124 @@ func (gbnc *GroupBoxNodeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "locked":
 		return patch.Value(&gbnc.Locked, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (snc *SymbolNodeConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "label":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.LabeledConfig.Label, c, func(def *SymbolNodeConfig) {
+				snc.LabeledConfig.Label = def.LabeledConfig.Label
+			})
+		}
+		return snc.LabeledConfig.Label.Patch(c)
+	case "orientation":
+		return patch.Defaulted(&snc.LabeledConfig.Orientation, c.Next(), func(def *SymbolNodeConfig) {
+			snc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
+		})
+	case "scale":
+		return patch.Defaulted(&snc.ScaledConfig.Scale, c.Next(), func(def *SymbolNodeConfig) {
+			snc.ScaledConfig.Scale = def.ScaledConfig.Scale
+		})
+	case "staleness_timeout":
+		return patch.Defaulted(&snc.StalenessConfig.StalenessTimeout, c.Next(), func(def *SymbolNodeConfig) {
+			snc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
+		})
+	case "spec":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&snc.Spec, c)
+		}
+		return snc.Spec.Patch(c)
+	case "color":
+		if c = c.Next(); c.Done() || snc.Color == nil {
+			return patch.OptionalValue(&snc.Color, c)
+		}
+		next := *snc.Color
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.Color = &next
+		return nil
+	case "disabled":
+		return patch.Value(&snc.Disabled, c.Next())
+	case "motion_disabled":
+		return patch.Value(&snc.MotionDisabled, c.Next())
+	case "on_click_delay":
+		return patch.Value(&snc.OnClickDelay, c.Next())
+	case "states":
+		return patch.List(&snc.States, c.Next())
+	case "commands":
+		return patch.List(&snc.Commands, c.Next())
+	case "control":
+		if c = c.Next(); c.Done() || snc.Control == nil {
+			return patch.OptionalValue(&snc.Control, c)
+		}
+		next := *snc.Control
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.Control = &next
+		return nil
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (s *Source) Patch(c patch.Cursor) error {
+	switch v := s.Variant.(type) {
+	case ChannelSource:
+		c, ok := c.Guard("type", "channel")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	case LocalSource:
+		c, ok := c.Guard("type", "local")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	default:
+		return patch.Absent(s, c, "type")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (cs *ChannelSource) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.OptionalValue(&cs.Key, c.Next())
+	case "command":
+		return patch.OptionalValue(&cs.Command, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (ls *LocalSource) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "value":
+		return patch.Value(&ls.Value, c.Next())
 	default:
 		return c.UnknownField()
 	}

@@ -64,6 +64,12 @@ public:
     /// @brief records the name and config of the task, once a fetch knows them.
     void set_task(const std::string &name, const std::string &config_hash);
 
+    /// @brief records a newer config of the task, for a start that configures it again.
+    /// The joined starts leave the operation, since they joined for the older config.
+    /// @returns the starts that left. The caller runs them as their own commands.
+    std::vector<synnax::task::Command>
+    change_config(const std::string &name, const std::string &config_hash);
+
     /// @returns the name and config hash of the task, for a status of the operation.
     [[nodiscard]] std::pair<std::string, std::string> task_info();
 

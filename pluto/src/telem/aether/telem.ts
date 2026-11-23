@@ -78,6 +78,11 @@ export interface ValueProps {
   points?: number;
   /** True when every sample must fall inside the bounds of the returned series. */
   extremesKept?: boolean;
+  /**
+   * The span of x the caller draws. A source that reads by span fetches no tiles wholly
+   * outside it, but may return data that crosses its edges.
+   */
+  span?: bounds.Bounds;
 }
 
 export interface Telem {

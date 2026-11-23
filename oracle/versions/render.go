@@ -313,30 +313,9 @@ func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 		r.keptExpressions(v.Domains),
 		r.extraVariantLines(typeName, v.Name)...,
 	)
-	if v.Inline && r.opts.Resolve != nil {
-		if t, ok := r.opts.Resolve(v.Type.Name); ok {
-			if sf, isStruct := t.Form.(resolution.StructForm); isStruct {
-				head := v.Name
-				if len(sf.Extends) > 0 {
-					head += " extends " + r.refList(sf.Extends)
-				}
-				r.line(head + " {")
-				r.indent++
-				r.renderOmissions(sf.OmittedFields)
-				for _, field := range sf.Fields {
-					r.renderField(typeName, v.Name+".", field)
-				}
-				if len(exprs) > 0 {
-					r.line("")
-					for _, e := range exprs {
-						r.line(e)
-					}
-				}
-				r.indent--
-				r.line("}")
-				return
-			}
-		}
+	if sf, ok := r.inlineStruct(v); ok {
+		r.renderInlineVariant(typeName, v.Name, sf, exprs)
+		return
 	}
 	head := v.Name + " " + r.ref(v.Type)
 	if len(exprs) == 0 {
@@ -347,6 +326,44 @@ func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 	r.indent++
 	for _, e := range exprs {
 		r.line(e)
+	}
+	r.indent--
+	r.line("}")
+}
+
+// inlineStruct returns the synthetic struct of an inline variant.
+func (r *renderer) inlineStruct(
+	v resolution.UnionVariant,
+) (resolution.StructForm, bool) {
+	if !v.Inline || r.opts.Resolve == nil {
+		return resolution.StructForm{}, false
+	}
+	t, ok := r.opts.Resolve(v.Type.Name)
+	if !ok {
+		return resolution.StructForm{}, false
+	}
+	sf, ok := t.Form.(resolution.StructForm)
+	return sf, ok
+}
+
+func (r *renderer) renderInlineVariant(
+	typeName, variant string, sf resolution.StructForm, exprs []string,
+) {
+	head := variant
+	if len(sf.Extends) > 0 {
+		head += " extends " + r.refList(sf.Extends)
+	}
+	r.line(head + " {")
+	r.indent++
+	r.renderOmissions(sf.OmittedFields)
+	for _, field := range sf.Fields {
+		r.renderField(typeName, variant+".", field)
+	}
+	if len(exprs) > 0 {
+		r.line("")
+		for _, e := range exprs {
+			r.line(e)
+		}
 	}
 	r.indent--
 	r.line("}")

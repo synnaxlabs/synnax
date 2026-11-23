@@ -11,13 +11,18 @@ package channel
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/math"
 )
 
-type counter struct{ ctr *kv.AtomicInt64Counter }
+type counter struct {
+	// mu makes the key cap check and the add one step.
+	mu  sync.Mutex
+	ctr *kv.AtomicInt64Counter
+}
 
 func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
 	ctr, err := kv.NewCounter(ctx, db, key)
@@ -28,6 +33,8 @@ func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, er
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctr.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}

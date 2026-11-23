@@ -7,6 +7,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -92,8 +93,10 @@ you trust it on the server again.
 
 ## Kubernetes example
 
-```yaml
-apiVersion: v1
+<Releases.Code
+  lang="yaml"
+  product="driver"
+  code={({ current }) => `apiVersion: v1
 kind: Secret
 metadata:
   name: synnax-driver
@@ -117,7 +120,7 @@ spec:
     spec:
       containers:
         - name: driver
-          image: registry.example.com/synnax-driver:0.61.5
+          image: registry.example.com/synnax-driver:${current.version}
           command:
             - synnax-driver
             - start
@@ -145,7 +148,7 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 1Gi
-```
+            storage: 1Gi`}
+/>
 
 Run one replica for each API key.

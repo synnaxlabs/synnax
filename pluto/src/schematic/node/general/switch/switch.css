@@ -10,110 +10,165 @@
  */
 
 /*
- * The switch draws itself from the input theme, so a colored switch paints its own
- * track and knob. On fills the track. Off tints the track and paints the knob, which
- * keeps the two states apart. A disabled switch keeps the input theme's look.
+ * The switch draws as the Lyra switch: a track and a knob that moves to the far end
+ * when on. A colored switch paints both from the symbol color. On fills the track. Off
+ * tints the track and paints the knob, which keeps the two states apart. A disabled
+ * switch keeps the input theme's look.
  */
-.pluto-switch-symbol--colored .lyra-input__switch:not(.lyra--disabled) {
-    .lyra-input__switch-indicator {
-        background: oklch(from var(--pluto-symbol-display) l c h / 25%);
+.pluto-switch-symbol {
+    cursor: pointer;
+
+    .pluto-switch-symbol__track,
+    .pluto-switch-symbol__knob,
+    .pluto-switch-symbol__hold rect {
+        stroke: none;
     }
 
-    .lyra-input__switch-indicator::before {
-        background: var(--pluto-symbol-display);
+    .pluto-switch-symbol__track {
+        fill: var(--pluto-gray-l4);
+        transition: fill 0.15s;
     }
 
-    input:checked ~ .lyra-input__switch-indicator {
-        background: var(--pluto-symbol-display);
-    }
+    /* The Lyra switch stops growing the gap around its knob above scale 2. The knob
+       keeps its center, so a scale about it draws that gap. */
+    .pluto-switch-symbol__knob {
+        --pluto-switch-knob-scale: calc(
+            (9.375 - min(1.875, 3.75 / var(--pluto-switch-scale))) / 7.5
+        );
 
-    input:checked ~ .lyra-input__switch-indicator::before {
-        background: var(--pluto-gray-l1);
-    }
-}
-
-/*
- * Zero the button chrome so the symbol box hugs the track at every scale.
- */
-.pluto-symbol-primitive > .lyra-btn.lyra-input__switch {
-    min-height: 0;
-    padding: 0;
-
-    /* Transition only paint so geometry tracks resize drags instantly. Flex must not
-       shrink the indicator into the narrower vertical box. */
-    .lyra-input__switch-indicator {
-        flex: none;
-        transition: background 0.15s;
-    }
-
-    .lyra-input__switch-indicator::before {
+        fill: var(--pluto-gray-l7);
+        transform-origin: 9.375px 9.375px;
+        transform: scale(var(--pluto-switch-knob-scale));
         transition:
             transform 0.15s,
-            background 0.15s;
+            fill 0.15s;
+    }
+
+    .pluto-switch-symbol__hold {
+        display: none;
+        pointer-events: none;
+    }
+
+    &.pluto-switch-symbol--on {
+        .pluto-switch-symbol__track {
+            fill: var(--pluto-primary-m1);
+        }
+
+        .pluto-switch-symbol__knob {
+            fill: var(--pluto-primary-p1);
+            transform: translateX(18.75px) scale(var(--pluto-switch-knob-scale));
+        }
+    }
+
+    &.pluto-switch-symbol--disabled {
+        cursor: not-allowed;
+
+        .pluto-switch-symbol__track {
+            fill: var(--pluto-gray-l3-50);
+        }
+
+        .pluto-switch-symbol__knob {
+            fill: var(--pluto-gray-l6-70);
+        }
+
+        &.pluto-switch-symbol--on {
+            .pluto-switch-symbol__track {
+                fill: color-mix(in srgb, var(--pluto-gray-l3), var(--pluto-primary-m1));
+            }
+
+            .pluto-switch-symbol__knob {
+                fill: color-mix(in srgb, var(--pluto-gray-l6), var(--pluto-primary-p1));
+            }
+        }
+    }
+
+    &.pluto-switch-symbol--colored:not(.pluto-switch-symbol--disabled) {
+        .pluto-switch-symbol__track {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%);
+        }
+
+        .pluto-switch-symbol__knob {
+            fill: var(--pluto-symbol-display);
+        }
+
+        &.pluto-switch-symbol--on {
+            .pluto-switch-symbol__track {
+                fill: var(--pluto-symbol-display);
+            }
+
+            .pluto-switch-symbol__knob {
+                fill: var(--pluto-gray-l1);
+            }
+        }
     }
 }
 
-/*
- * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and rotating
- * an HTML element leaves its layout box unrotated. So swap the box by hand and rotate
- * the flex-centered indicator inside it.
- */
-.pluto-symbol-primitive.lyra--direction-y > .lyra-input__switch {
-    width: var(--pluto-switch-height);
-    height: var(--pluto-switch-width);
-}
-
-.pluto-symbol-primitive.lyra--direction-y
-    .lyra-input__switch
-    .lyra-input__switch-indicator {
-    rotate: -90deg;
-}
-
-/* The knob is the track's ::before, so ::after carries the hold sweep. */
+/* While a delayed switch is held, a shade fills the track from the side that the knob
+   leaves. A colored switch tints the shade. */
 .pluto-switch-symbol--delayed {
-    .lyra-input__switch-indicator::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-
-        /* An image, not a color: the keyframe owns background-color for the dim. */
-        background-image: linear-gradient(
-            oklch(from var(--pluto-symbol-display) l c h / 20%),
-            oklch(from var(--pluto-symbol-display) l c h / 20%)
-        );
+    .pluto-switch-symbol__hold {
+        display: inline;
         clip-path: inset(0 100% 0 0);
     }
 
-    &.pluto--pressed .lyra-input__switch-indicator::after {
-        animation: delay var(--pluto-toggle-delay) linear;
-        clip-path: inset(0 0 0 0);
+    .pluto-switch-symbol__shade,
+    .pluto-switch-symbol__tint {
+        fill: transparent;
     }
 
-    /* The sweep runs the way the knob will travel, so an on switch fills toward off. */
-    input:checked ~ .lyra-input__switch-indicator::after {
+    &.pluto-switch-symbol--colored .pluto-switch-symbol__tint {
+        fill: oklch(from var(--pluto-symbol-display) l c h / 20%);
+    }
+
+    &.pluto-switch-symbol--on .pluto-switch-symbol__hold {
         clip-path: inset(0 0 0 100%);
     }
 
-    &.pluto--pressed input:checked ~ .lyra-input__switch-indicator::after {
-        animation-name: delay-reverse;
+    &.pluto--pressed {
+        .pluto-switch-symbol__hold {
+            animation: switch-symbol-hold var(--pluto-toggle-delay) linear;
+            clip-path: inset(0 0 0 0);
+        }
+
+        .pluto-switch-symbol__shade {
+            animation: switch-symbol-shade var(--pluto-toggle-delay) linear;
+        }
+    }
+
+    &.pluto--pressed.pluto-switch-symbol--on .pluto-switch-symbol__hold {
+        animation-name: switch-symbol-hold-reverse;
+    }
+}
+
+@keyframes switch-symbol-hold {
+    0% {
+        clip-path: inset(0 100% 0 0);
+    }
+
+    99%,
+    100% {
         clip-path: inset(0 0 0 0);
     }
 }
 
-@keyframes delay-reverse {
+@keyframes switch-symbol-hold-reverse {
     0% {
         clip-path: inset(0 0 0 100%);
-        background-color: rgb(0 0 0 / 40%);
     }
 
-    99% {
+    99%,
+    100% {
         clip-path: inset(0 0 0 0);
-        background-color: rgb(0 0 0 / 40%);
+    }
+}
+
+@keyframes switch-symbol-shade {
+    0%,
+    99% {
+        fill: rgb(0 0 0 / 40%);
     }
 
     100% {
-        clip-path: inset(0 0 0 0);
+        fill: transparent;
     }
 }

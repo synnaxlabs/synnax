@@ -72,7 +72,7 @@ var _ = Describe("Status", Ordered, func() {
 	}
 	createLabel := func(ctx SpecContext, name string) label.Key {
 		GinkgoHelper()
-		l := &label.Label{Name: name}
+		l := &label.Label{Name: name, Color: labelColor}
 		Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 		return l.Key
 	}
@@ -915,7 +915,7 @@ var _ = Describe("Status", Ordered, func() {
 			It(
 				"Should return empty when no statuses have the specified label",
 				func(ctx SpecContext) {
-					l := &label.Label{Name: "status-unused-label"}
+					l := &label.Label{Name: "status-unused-label", Color: labelColor}
 					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
@@ -1185,7 +1185,10 @@ var _ = Describe("Status", Ordered, func() {
 				})).To(Succeed())
 				labels := make([]label.Key, 10)
 				for i := range labels {
-					l := &label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+					l := &label.Label{
+						Name:  fmt.Sprintf("Concurrent %d", i),
+						Color: labelColor,
+					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return labelSvc.NewWriter(tx).Create(ctx, l)
 					})).To(Succeed())

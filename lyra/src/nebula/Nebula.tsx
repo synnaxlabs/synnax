@@ -95,6 +95,36 @@ const inkOf = (canvas: HTMLCanvasElement): Ink =>
     ? LIGHT_INK
     : DARK_INK;
 
+/** Composites an antialiased dot into an alpha buffer, as a source-over fill would. */
+const stamp = (
+  coverage: Float32Array,
+  width: number,
+  height: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  alpha: number,
+): void => {
+  const reach = radius + 0.5;
+  const x0 = Math.max(0, Math.floor(cx - reach));
+  const x1 = Math.min(width - 1, Math.ceil(cx + reach));
+  const y0 = Math.max(0, Math.floor(cy - reach));
+  const y1 = Math.min(height - 1, Math.ceil(cy + reach));
+  for (let py = y0; py <= y1; py++) {
+    const dy = py + 0.5 - cy;
+    for (let px = x0; px <= x1; px++) {
+      const dx = px + 0.5 - cx;
+      const edge = reach - Math.sqrt(dx * dx + dy * dy);
+      if (edge <= 0) continue;
+      const a = alpha * Math.min(1, edge);
+      const i = py * width + px;
+      coverage[i] = a + coverage[i] * (1 - a);
+    }
+  }
+};
+
+// One bitmap, not a fill per dot: WebKit replays each canvas fill when it paints, and
+// tens of thousands of fills hold its main thread for seconds.
 const draw = (canvas: HTMLCanvasElement, seed: number): void => {
   const ctx = canvas.getContext("2d");
   if (ctx == null) return;
@@ -102,11 +132,13 @@ const draw = (canvas: HTMLCanvasElement, seed: number): void => {
   const dpr = window.devicePixelRatio;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  // Resizing the canvas also clears it and resets the context state.
+  // Resizing the canvas also clears it.
   canvas.width = w * dpr;
   canvas.height = h * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = ink.color;
+  const { width, height } = canvas;
+  // createImageData throws on an empty canvas.
+  if (width === 0 || height === 0) return;
+  const coverage = new Float32Array(width * height);
   const cols = Math.ceil(w / PITCH) + 2;
   const rows = Math.ceil(h / PITCH) + 2;
   for (let j = 0; j < rows; j++)
@@ -120,9 +152,9 @@ const draw = (canvas: HTMLCanvasElement, seed: number): void => {
       v = Math.max(0, (v - FLOOR) / (1 - FLOOR)) ** GAMMA;
       const r = (v * PITCH * DOT_SCALE) / 2;
       if (r < 0.1) continue;
-      // Sub-pixel arcs render as fuzzy smears on WebKit, and any hard on/off
-      // cutoff draws a visible level-set rim. Dots below the clean-rendering
-      // radius keep that radius and fade by alpha instead.
+      // Sub-pixel dots render as fuzzy smears, and any hard on/off cutoff draws a
+      // visible level-set rim. Dots below the clean-rendering radius keep that radius
+      // and fade by alpha instead.
       let radius = r;
       let alpha = ink.intensity;
       if (r < MIN_RADIUS) {
@@ -130,11 +162,19 @@ const draw = (canvas: HTMLCanvasElement, seed: number): void => {
         alpha = ink.intensity * (r / MIN_RADIUS) ** 2;
         if (alpha < 0.02) continue;
       }
-      ctx.globalAlpha = alpha;
-      ctx.beginPath();
-      ctx.arc(x, y, Math.min(radius, PITCH * 0.72), 0, Math.PI * 2);
-      ctx.fill();
+      radius = Math.min(radius, PITCH * 0.72);
+      stamp(coverage, width, height, x * dpr, y * dpr, radius * dpr, alpha);
     }
+  const image = ctx.createImageData(width, height);
+  const [red, green, blue] = color.construct(ink.color);
+  for (let i = 0; i < coverage.length; i++) {
+    if (coverage[i] === 0) continue;
+    image.data[i * 4] = red;
+    image.data[i * 4 + 1] = green;
+    image.data[i * 4 + 2] = blue;
+    image.data[i * 4 + 3] = Math.round(coverage[i] * 255);
+  }
+  ctx.putImageData(image, 0, 0);
 };
 
 /**
@@ -155,7 +195,9 @@ export const Nebula = (): ReactElement => {
       if (frame != null) return;
       frame = requestAnimationFrame(() => {
         frame = null;
-        draw(canvas, SEED);
+        // The observer also reports a canvas that leaves the page, which has no styles
+        // to read. It reports again when the canvas comes back.
+        if (canvas.isConnected) draw(canvas, SEED);
       });
     };
     // observe reports the first size at once, so re-subscribing on a theme change

@@ -23,6 +23,7 @@
 #include "x/cpp/payload/json.gen.h"
 #include "x/cpp/payload/number.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::icd {
 
@@ -50,30 +51,17 @@ inline x::json::json BaseField::to_json() const {
     return j;
 }
 
-inline BinaryField BinaryField::parse(x::json::Parser parser) {
-    BinaryField result;
+inline TextBaseField TextBaseField::parse(x::json::Parser parser) {
+    TextBaseField result;
     static_cast<BaseField &>(result) = BaseField::parse(parser);
-    result.start_bit = parser.field<std::uint16_t>("start_bit", 0);
-    result.bit_length = parser.field<std::uint8_t>("bit_length", 8);
-    result.byte_order = parser.field<std::string>("byte_order", "little_endian");
-    result.kind = parser.field<std::string>("kind", "unsigned");
-    result.multiplexor = parser.field<std::optional<FieldKey>>("multiplexor");
-    result.multiplex_values = parser.field<std::vector<std::int32_t>>(
-        "multiplex_values",
-        std::vector<std::int32_t>{}
-    );
+    result.default_ = parser.field<std::optional<::x::payload::Float>>("default");
     return result;
 }
 
-inline x::json::json BinaryField::to_json() const {
+inline x::json::json TextBaseField::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
-    j["start_bit"] = this->start_bit;
-    j["bit_length"] = this->bit_length;
-    j["byte_order"] = this->byte_order;
-    j["kind"] = this->kind;
-    if (this->multiplexor.has_value()) j["multiplexor"] = this->multiplexor->to_json();
-    j["multiplex_values"] = this->multiplex_values;
+    if (this->default_.has_value()) j["default"] = *this->default_;
     return j;
 }
 
@@ -108,6 +96,7 @@ inline Message Message::parse(x::json::Parser parser) {
         .key = parser.field<MessageKey>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .payload = parse_payload(parser.child("payload")),
+        .cycle_time = parser.field<std::optional<::x::telem::TimeSpan>>("cycle_time"),
     };
 }
 
@@ -116,6 +105,7 @@ inline x::json::json Message::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["payload"] = ::synnax::icd::to_json(this->payload);
+    if (this->cycle_time.has_value()) j["cycle_time"] = this->cycle_time->nanoseconds();
     return j;
 }
 
@@ -194,6 +184,69 @@ inline x::json::json ReadMessage::to_json() const {
     j["message"] = this->message.to_json();
     if (this->index.has_value()) j["index"] = this->index->to_json();
     j["bindings"] = x::json::to_array(this->bindings);
+    return j;
+}
+
+inline WriteBaseBinding WriteBaseBinding::parse(x::json::Parser parser) {
+    return WriteBaseBinding{
+        .field = parser.field<FieldKey>("field"),
+    };
+}
+
+inline x::json::json WriteBaseBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field.to_json();
+    return j;
+}
+
+inline WriteMessage WriteMessage::parse(x::json::Parser parser) {
+    return WriteMessage{
+        .message = parser.field<MessageKey>("message"),
+        .bindings = [&] {
+            std::vector<WriteBinding> result;
+            if (parser.has("bindings"))
+                parser.iter("bindings", [&result](x::json::Parser &p) {
+                    result.push_back(parse_write_binding(p));
+                });
+            return result;
+        }(),
+    };
+}
+
+inline x::json::json WriteMessage::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["message"] = this->message.to_json();
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->bindings)
+            arr.push_back(::synnax::icd::to_json(item));
+        j["bindings"] = arr;
+    }
+    return j;
+}
+
+inline BinaryBaseField BinaryBaseField::parse(x::json::Parser parser) {
+    BinaryBaseField result;
+    static_cast<BaseField &>(result) = BaseField::parse(parser);
+    result.start_bit = parser.field<std::uint16_t>("start_bit", 0);
+    result.bit_length = parser.field<std::uint8_t>("bit_length", 8);
+    result.byte_order = parser.field<std::string>("byte_order", "little_endian");
+    result.multiplexor = parser.field<std::optional<FieldKey>>("multiplexor");
+    result.multiplex_values = parser.field<std::vector<std::int32_t>>(
+        "multiplex_values",
+        std::vector<std::int32_t>{}
+    );
+    return result;
+}
+
+inline x::json::json BinaryBaseField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
+    j["start_bit"] = this->start_bit;
+    j["bit_length"] = this->bit_length;
+    j["byte_order"] = this->byte_order;
+    if (this->multiplexor.has_value()) j["multiplexor"] = this->multiplexor->to_json();
+    j["multiplex_values"] = this->multiplex_values;
     return j;
 }
 
@@ -277,9 +330,60 @@ inline x::json::json FieldIdentifier::to_json() const {
     return j;
 }
 
+inline FloatBinaryField FloatBinaryField::parse(x::json::Parser parser) {
+    FloatBinaryField result;
+    static_cast<BinaryBaseField &>(result) = BinaryBaseField::parse(parser);
+    result.default_ = parser.field<std::optional<::x::payload::Float>>("default");
+    result.kind = parser.field<std::string>("kind");
+    return result;
+}
+
+inline x::json::json FloatBinaryField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BinaryBaseField::to_json(); parent.is_object())
+        j.update(parent);
+    if (this->default_.has_value()) j["default"] = *this->default_;
+    j["kind"] = this->kind;
+    return j;
+}
+
+inline IntegerBinaryField IntegerBinaryField::parse(x::json::Parser parser) {
+    IntegerBinaryField result;
+    static_cast<BinaryBaseField &>(result) = BinaryBaseField::parse(parser);
+    result.default_ = parser.field<std::optional<::x::payload::Integer>>("default");
+    result.kind = parser.field<std::string>("kind");
+    return result;
+}
+
+inline x::json::json IntegerBinaryField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BinaryBaseField::to_json(); parent.is_object())
+        j.update(parent);
+    if (this->default_.has_value()) j["default"] = *this->default_;
+    j["kind"] = this->kind;
+    return j;
+}
+
+inline UnsignedBinaryField UnsignedBinaryField::parse(x::json::Parser parser) {
+    UnsignedBinaryField result;
+    static_cast<BinaryBaseField &>(result) = BinaryBaseField::parse(parser);
+    result.default_ = parser.field<std::optional<::x::payload::Unsigned>>("default");
+    result.kind = parser.field<std::string>("kind");
+    return result;
+}
+
+inline x::json::json UnsignedBinaryField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BinaryBaseField::to_json(); parent.is_object())
+        j.update(parent);
+    if (this->default_.has_value()) j["default"] = *this->default_;
+    j["kind"] = this->kind;
+    return j;
+}
+
 inline DelimitedTextField DelimitedTextField::parse(x::json::Parser parser) {
     DelimitedTextField result;
-    static_cast<BaseField &>(result) = BaseField::parse(parser);
+    static_cast<TextBaseField &>(result) = TextBaseField::parse(parser);
     result.position = parser.field<std::uint32_t>("position", 0);
     result.encoding = parser.field<std::string>("encoding");
     return result;
@@ -287,7 +391,8 @@ inline DelimitedTextField DelimitedTextField::parse(x::json::Parser parser) {
 
 inline x::json::json DelimitedTextField::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = TextBaseField::to_json(); parent.is_object())
+        j.update(parent);
     j["position"] = this->position;
     j["encoding"] = this->encoding;
     return j;
@@ -295,7 +400,7 @@ inline x::json::json DelimitedTextField::to_json() const {
 
 inline TaggedTextField TaggedTextField::parse(x::json::Parser parser) {
     TaggedTextField result;
-    static_cast<BaseField &>(result) = BaseField::parse(parser);
+    static_cast<TextBaseField &>(result) = TextBaseField::parse(parser);
     result.tag = parser.field<std::string>("tag");
     result.encoding = parser.field<std::string>("encoding");
     return result;
@@ -303,9 +408,63 @@ inline TaggedTextField TaggedTextField::parse(x::json::Parser parser) {
 
 inline x::json::json TaggedTextField::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = TextBaseField::to_json(); parent.is_object())
+        j.update(parent);
     j["tag"] = this->tag;
     j["encoding"] = this->encoding;
+    return j;
+}
+
+inline ConstantTimestampDefault
+ConstantTimestampDefault::parse(x::json::Parser parser) {
+    ConstantTimestampDefault result;
+    result.value = parser.field<::x::telem::TimeStamp>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ConstantTimestampDefault::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value.nanoseconds();
+    j["type"] = this->type;
+    return j;
+}
+
+inline NowTimestampDefault NowTimestampDefault::parse(x::json::Parser parser) {
+    NowTimestampDefault result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NowTimestampDefault::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline ConstantUUIDDefault ConstantUUIDDefault::parse(x::json::Parser parser) {
+    ConstantUUIDDefault result;
+    result.value = parser.field<x::uuid::UUID>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ConstantUUIDDefault::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline RandomUUIDDefault RandomUUIDDefault::parse(x::json::Parser parser) {
+    RandomUUIDDefault result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json RandomUUIDDefault::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
     return j;
 }
 
@@ -423,7 +582,11 @@ inline TimestampJSONField TimestampJSONField::parse(x::json::Parser parser) {
     TimestampJSONField result;
     static_cast<JSONBaseField &>(result) = JSONBaseField::parse(parser);
     result.time_format = parser.field<std::string>("time_format");
-    result.default_ = parser.field<std::optional<::x::telem::TimeStamp>>("default");
+    result.default_ = parser.has("default")
+                        ? std::optional<TimestampDefault>(
+                              parse_timestamp_default(parser.child("default"))
+                          )
+                        : std::nullopt;
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -433,7 +596,8 @@ inline x::json::json TimestampJSONField::to_json() const {
     if (const auto parent = JSONBaseField::to_json(); parent.is_object())
         j.update(parent);
     j["time_format"] = this->time_format;
-    if (this->default_.has_value()) j["default"] = this->default_->nanoseconds();
+    if (this->default_.has_value())
+        j["default"] = ::synnax::icd::to_json(*this->default_);
     j["type"] = this->type;
     return j;
 }
@@ -441,6 +605,7 @@ inline x::json::json TimestampJSONField::to_json() const {
 inline JSONJSONField JSONJSONField::parse(x::json::Parser parser) {
     JSONJSONField result;
     static_cast<JSONBaseField &>(result) = JSONBaseField::parse(parser);
+    result.default_ = parser.field<std::optional<std::string>>("default");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -449,6 +614,7 @@ inline x::json::json JSONJSONField::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = JSONBaseField::to_json(); parent.is_object())
         j.update(parent);
+    if (this->default_.has_value()) j["default"] = *this->default_;
     j["type"] = this->type;
     return j;
 }
@@ -456,6 +622,11 @@ inline x::json::json JSONJSONField::to_json() const {
 inline UuidJSONField UuidJSONField::parse(x::json::Parser parser) {
     UuidJSONField result;
     static_cast<JSONBaseField &>(result) = JSONBaseField::parse(parser);
+    result.default_ = parser.has("default")
+                        ? std::optional<UUIDDefault>(
+                              parse_uuid_default(parser.child("default"))
+                          )
+                        : std::nullopt;
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -464,6 +635,8 @@ inline x::json::json UuidJSONField::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = JSONBaseField::to_json(); parent.is_object())
         j.update(parent);
+    if (this->default_.has_value())
+        j["default"] = ::synnax::icd::to_json(*this->default_);
     j["type"] = this->type;
     return j;
 }
@@ -471,6 +644,7 @@ inline x::json::json UuidJSONField::to_json() const {
 inline BytesJSONField BytesJSONField::parse(x::json::Parser parser) {
     BytesJSONField result;
     static_cast<JSONBaseField &>(result) = JSONBaseField::parse(parser);
+    result.default_ = parser.field<std::optional<std::string>>("default");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -479,6 +653,7 @@ inline x::json::json BytesJSONField::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = JSONBaseField::to_json(); parent.is_object())
         j.update(parent);
+    if (this->default_.has_value()) j["default"] = *this->default_;
     j["type"] = this->type;
     return j;
 }
@@ -568,6 +743,21 @@ inline x::json::json BooleanJSONMatch::to_json() const {
     return j;
 }
 
+inline PresentJSONMatch PresentJSONMatch::parse(x::json::Parser parser) {
+    PresentJSONMatch result;
+    static_cast<JSONBaseMatch &>(result) = JSONBaseMatch::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PresentJSONMatch::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = JSONBaseMatch::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
 inline BinaryPayload BinaryPayload::parse(x::json::Parser parser) {
     BinaryPayload result;
     result.length = parser.field<std::optional<std::uint16_t>>("length");
@@ -576,10 +766,14 @@ inline BinaryPayload BinaryPayload::parse(x::json::Parser parser) {
                                 parse_identifier(parser.child("identifier"))
                             )
                           : std::nullopt;
-    result.fields = parser.field<std::vector<BinaryField>>(
-        "fields",
-        std::vector<BinaryField>{}
-    );
+    result.fields = [&] {
+        std::vector<BinaryField> result;
+        if (parser.has("fields"))
+            parser.iter("fields", [&result](x::json::Parser &p) {
+                result.push_back(parse_binary_field(p));
+            });
+        return result;
+    }();
     result.format = parser.field<std::string>("format");
     return result;
 }
@@ -589,7 +783,12 @@ inline x::json::json BinaryPayload::to_json() const {
     if (this->length.has_value()) j["length"] = *this->length;
     if (this->identifier.has_value())
         j["identifier"] = ::synnax::icd::to_json(*this->identifier);
-    j["fields"] = x::json::to_array(this->fields);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->fields)
+            arr.push_back(::synnax::icd::to_json(item));
+        j["fields"] = arr;
+    }
     j["format"] = this->format;
     return j;
 }
@@ -654,6 +853,171 @@ inline x::json::json JSONPayload::to_json() const {
     return j;
 }
 
+inline FloatWriteValue FloatWriteValue::parse(x::json::Parser parser) {
+    FloatWriteValue result;
+    result.value = parser.field<::x::payload::Float>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FloatWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline IntegerWriteValue IntegerWriteValue::parse(x::json::Parser parser) {
+    IntegerWriteValue result;
+    result.value = parser.field<::x::payload::Integer>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json IntegerWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnsignedWriteValue UnsignedWriteValue::parse(x::json::Parser parser) {
+    UnsignedWriteValue result;
+    result.value = parser.field<::x::payload::Unsigned>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnsignedWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringWriteValue StringWriteValue::parse(x::json::Parser parser) {
+    StringWriteValue result;
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline BooleanWriteValue BooleanWriteValue::parse(x::json::Parser parser) {
+    BooleanWriteValue result;
+    result.value = parser.field<bool>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BooleanWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline TimestampWriteValue TimestampWriteValue::parse(x::json::Parser parser) {
+    TimestampWriteValue result;
+    result.value = parser.field<::x::telem::TimeStamp>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TimestampWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value.nanoseconds();
+    j["type"] = this->type;
+    return j;
+}
+
+inline JSONWriteValue JSONWriteValue::parse(x::json::Parser parser) {
+    JSONWriteValue result;
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json JSONWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UuidWriteValue UuidWriteValue::parse(x::json::Parser parser) {
+    UuidWriteValue result;
+    result.value = parser.field<x::uuid::UUID>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UuidWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline BytesWriteValue BytesWriteValue::parse(x::json::Parser parser) {
+    BytesWriteValue result;
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BytesWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ChannelWriteBinding ChannelWriteBinding::parse(x::json::Parser parser) {
+    ChannelWriteBinding result;
+    static_cast<WriteBaseBinding &>(result) = WriteBaseBinding::parse(parser);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ChannelWriteBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = WriteBaseBinding::to_json(); parent.is_object())
+        j.update(parent);
+    j["channel"] = this->channel;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ValueWriteBinding ValueWriteBinding::parse(x::json::Parser parser) {
+    ValueWriteBinding result;
+    static_cast<WriteBaseBinding &>(result) = WriteBaseBinding::parse(parser);
+    result.value = parse_write_value(parser.child("value"));
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ValueWriteBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = WriteBaseBinding::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = ::synnax::icd::to_json(this->value);
+    j["type"] = this->type;
+    return j;
+}
+
 inline Identifier parse_identifier(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "can") return CanIdentifier::parse(parser);
@@ -666,6 +1030,19 @@ inline x::json::json to_json(const Identifier &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
+inline BinaryField parse_binary_field(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("kind");
+    if (discriminator == "float") return FloatBinaryField::parse(parser);
+    if (discriminator == "integer") return IntegerBinaryField::parse(parser);
+    if (discriminator == "unsigned") return UnsignedBinaryField::parse(parser);
+    parser.field_err("kind", "unknown BinaryField kind: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const BinaryField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
 inline TextField parse_text_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("encoding");
     if (discriminator == "delimited") return DelimitedTextField::parse(parser);
@@ -675,6 +1052,30 @@ inline TextField parse_text_field(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const TextField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline TimestampDefault parse_timestamp_default(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "constant") return ConstantTimestampDefault::parse(parser);
+    if (discriminator == "now") return NowTimestampDefault::parse(parser);
+    parser.field_err("type", "unknown TimestampDefault type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const TimestampDefault &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline UUIDDefault parse_uuid_default(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "constant") return ConstantUUIDDefault::parse(parser);
+    if (discriminator == "random") return RandomUUIDDefault::parse(parser);
+    parser.field_err("type", "unknown UUIDDefault type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const UUIDDefault &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
@@ -704,6 +1105,7 @@ inline JSONMatch parse_json_match(x::json::Parser parser) {
     if (discriminator == "unsigned") return UnsignedJSONMatch::parse(parser);
     if (discriminator == "string") return StringJSONMatch::parse(parser);
     if (discriminator == "boolean") return BooleanJSONMatch::parse(parser);
+    if (discriminator == "present") return PresentJSONMatch::parse(parser);
     parser.field_err("type", "unknown JSONMatch type: " + discriminator);
     return {};
 }
@@ -722,6 +1124,37 @@ inline Payload parse_payload(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Payload &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteValue parse_write_value(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "float") return FloatWriteValue::parse(parser);
+    if (discriminator == "integer") return IntegerWriteValue::parse(parser);
+    if (discriminator == "unsigned") return UnsignedWriteValue::parse(parser);
+    if (discriminator == "string") return StringWriteValue::parse(parser);
+    if (discriminator == "boolean") return BooleanWriteValue::parse(parser);
+    if (discriminator == "timestamp") return TimestampWriteValue::parse(parser);
+    if (discriminator == "json") return JSONWriteValue::parse(parser);
+    if (discriminator == "uuid") return UuidWriteValue::parse(parser);
+    if (discriminator == "bytes") return BytesWriteValue::parse(parser);
+    parser.field_err("type", "unknown WriteValue type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteValue &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteBinding parse_write_binding(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "channel") return ChannelWriteBinding::parse(parser);
+    if (discriminator == "value") return ValueWriteBinding::parse(parser);
+    parser.field_err("type", "unknown WriteBinding type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteBinding &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

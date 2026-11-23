@@ -73,6 +73,14 @@ export interface Tab {
 
 export interface Tabs extends Record<string, Tab> {}
 
+/** A lazy component that specs can load before it first renders. */
+export interface LazyComponent<
+  P extends object = record.Empty,
+> extends LazyExoticComponent<FC<P>> {
+  /** Loads the module ahead of the first render. The module loads only once. */
+  preload: () => Promise<void>;
+}
+
 /**
  * Returns a component that loads the export `name` of `load`'s module on first render,
  * keeping that module out of the startup bundle. Tabs render it inside a Suspense
@@ -81,7 +89,21 @@ export interface Tabs extends Record<string, Tab> {}
 export const lazyComponent = <K extends string, P extends object = record.Empty>(
   load: () => Promise<Record<K, FC<P>>>,
   name: K,
-): LazyExoticComponent<FC<P>> => lazy(async () => ({ default: (await load())[name] }));
+): LazyComponent<P> => {
+  let loaded: Promise<FC<P>> | undefined;
+  const loadComponent = async (): Promise<FC<P>> => {
+    loaded ??= load().then((module) => module[name]);
+    return await loaded;
+  };
+  return Object.assign(
+    lazy(async () => ({ default: await loadComponent() })),
+    {
+      preload: async () => {
+        await loadComponent();
+      },
+    },
+  );
+};
 
 const [RendererContext, useRendererContext] = context.create<Tabs>({
   defaultValue: {},

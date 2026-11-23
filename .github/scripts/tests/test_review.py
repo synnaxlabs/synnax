@@ -21,11 +21,13 @@ from review import (
     Fix,
     Review,
     Target,
+    authority,
     gh as call_gh,
     outside_findings,
     parse,
     post,
     render,
+    replies,
     reviewed,
 )
 
@@ -128,8 +130,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
-        if path == f"repos/{REPO}/collaborators/member/permission":
-            return "write\n"
+        if path.startswith(f"repos/{REPO}/collaborators/"):
+            return ("write" if path.endswith("/member/permission") else "read") + "\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -263,6 +265,30 @@ class TestInlineFindings:
         gh.threads = [posted(finding())]
         post(record(finding()), target=TARGET, gh=gh)
         assert gh.written("PATCH", "pulls/comments/9") == []
+
+    @pytest.mark.parametrize("path", ["a.go", "image.png"])
+    def test_should_post_one_off_the_changed_lines_as_a_file_thread(
+        self, gh: FakeGH, path: str
+    ) -> None:
+        post(record(finding(path=path, line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [posted] = gh.written("POST", "pulls/7/comments")
+        assert {k: v for k, v in posted.items() if k != "body"} == {
+            "commit_id": "head",
+            "path": path,
+            "subject_type": "file",
+        }
+        heading, where, _ = posted["body"].split("\n\n", 2)
+        assert heading.endswith("**Samples return old data**")
+        assert where == f"[`{path}:10`](https://github.com/{REPO}/blob/head/{path}#L10)"
+        assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_skip_a_file_finding_an_open_thread_of_the_bot_holds(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        post(record(finding(line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/comments") == []
 
     def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
@@ -429,17 +455,14 @@ class TestOutsideFindings:
     """Tests listing findings off the diff in the bot's one outside-diff comment."""
 
     def test_should_post_them_in_a_new_comment(self, gh: FakeGH) -> None:
-        post(
-            record(finding(line=10), finding(path="b.go", line=1, title="Gone")),
-            target=TARGET,
-            gh=gh,
-        )
+        post(record(finding(path="b.go", line=1, title="Gone")), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
+        assert gh.written("POST", "pulls/7/comments") == []
         [comment] = gh.written("POST", "issues/7/comments")
         body = comment["body"]
         assert body.startswith(OUTSIDE)
         assert "These findings could not be posted inline." in body
-        assert f"[`a.go:10`](https://github.com/{REPO}/blob/head/a.go#L10)" in body
+        assert f"[`b.go:1`](https://github.com/{REPO}/blob/head/b.go#L1)" in body
         assert "**Gone**" in body
 
     def test_should_edit_the_bot_comment_when_none_remain(self, gh: FakeGH) -> None:
@@ -604,6 +627,33 @@ class TestReviewed:
     def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
         assert reviewed(TARGET, gh) == []
+
+
+def conversation(id: int, body: str, login: str, kind: str = "User") -> dict[str, Any]:
+    """A comment on the pull request in the shape that `comments` serves."""
+    return {
+        "id": id,
+        "login": login if kind == "User" else f"{login}[bot]",
+        "author": {"__typename": kind, "login": login},
+        "body": body,
+    }
+
+
+class TestReplies:
+    """Tests reading the comments on the pull request that mention the bot."""
+
+    def test_should_keep_those_of_members_and_agents(self, gh: FakeGH) -> None:
+        member = conversation(1, "@sedosaur `b.go:3` checks it.", "member")
+        agent = conversation(2, "@Sedosaur `b.go:3` checks it.", "synnax-codex", "Bot")
+        gh.comments = [
+            member,
+            conversation(3, "@sedosaur it is fine.", "reader"),
+            conversation(4, "@sedosaur it is fine.", "dependabot", "Bot"),
+            conversation(5, "Looks good to me.", "member"),
+            conversation(6, "> @sedosaur review\n\nThanks.", "member"),
+            agent,
+        ]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [member, agent]
 
 
 class TestGH:

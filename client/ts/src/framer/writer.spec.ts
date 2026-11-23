@@ -20,9 +20,8 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import { NotFoundError } from "@/index";
+import { NotFoundError, UnauthorizedError, ValidationError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,
@@ -437,6 +436,43 @@ describe("Writer", () => {
         const { writer } = await openEndable();
         await writer.close();
         await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+      });
+    });
+
+    describe("setAuthority after the Core closes the writer with an error", () => {
+      const time = new channel.Channel({
+        key: 1,
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+      test("should throw the error the Core closed the writer with", async () => {
+        const state = { opened: false };
+        const stream = {
+          send: () => {
+            if (state.opened) throw new EOF();
+          },
+          closeSend: () => {},
+          received: () => false,
+          receive: async () => {
+            if (state.opened) throw new ValidationError("invalid frame");
+            state.opened = true;
+            return {
+              command: framer.WriterCommand.Open,
+              end: TimeStamp.ZERO,
+              authorized: true,
+            };
+          },
+        };
+        const transport = { withCodec: () => transport, stream: async () => stream };
+        const writer = await framer.Writer._open(
+          async () => [time.payload],
+          transport as unknown as WebSocketClient,
+          { channels: [time.key] },
+        );
+        await expect(writer.setAuthority(10)).rejects.toThrow(ValidationError);
+        await expect(writer.close()).rejects.toThrow(ValidationError);
       });
     });
 

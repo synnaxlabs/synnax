@@ -268,15 +268,15 @@ custom symbol has **State overrides**. See
 | Source    | Averaging window | Shows the mean of the last N samples, from 1 to 100. The stored data does not change. |
 | Format    | Notation         | Standard, scientific, or engineering.                                                 |
 | Format    | Precision        | The number of decimal places, from 0 to 10. Default 2.                                |
-| Staleness | Color            | The color of the symbol when its data is stale.                                       |
 | Staleness | Timeout          | The time with no new sample before the symbol is stale, such as `5s` or `1min 30s`.   |
 
 **Timeout** is 5 seconds by default, and 1 second at least. A number with no unit is in
 seconds. A value under 1 second shows a message and does not save.
 
 <Note.Note variant="info">
-  A symbol is stale when no new sample has arrived within the timeout. Give it a timeout
-  longer than the longest gap you expect between changes.
+  A symbol is stale when no new sample has arrived within the timeout. A stale symbol
+  shows a clock indicator and keeps its colors. Give it a timeout longer than the
+  longest gap you expect between changes.
 </Note.Note>
 
 ### Control tab
@@ -284,13 +284,13 @@ seconds. A value under 1 second shows a message and does not save.
 Valves, pumps, switches, setpoints, text inputs, selects, and other actuators have these
 fields:
 
-| Section   | Field          | Description                                                                |
-| --------- | -------------- | -------------------------------------------------------------------------- |
-| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.        |
-| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol. |
-| Command   | Delay          | The time that an operator must press and hold before the symbol writes.    |
-| Command   | Control chip   | Shows the chip that tells who has control of the channel.                  |
-| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                        |
+| Section   | Field        | Description                                                                |
+| --------- | ------------ | -------------------------------------------------------------------------- |
+| State     | Channel      | The channel that sets how the symbol looks, such as open or closed.        |
+| Command   | Channel      | The channel that the Console writes to when an operator clicks the symbol. |
+| Command   | Delay        | The time that an operator must press and hold before the symbol writes.    |
+| Command   | Control chip | Shows the chip that tells who has control of the channel.                  |
+| Staleness | Timeout      | The same as on the [Telemetry tab](#telemetry-tab).                        |
 
 On a setpoint, text input, or select, the state channel sets the value under the field.
 
@@ -398,7 +398,7 @@ Ask an administrator for access.
 </Problem.Fix>
 </Problem.Body>
 
-### A value shows the stale color
+### A symbol shows the stale indicator
 
 <Problem.Body>
 <Problem.Cause>

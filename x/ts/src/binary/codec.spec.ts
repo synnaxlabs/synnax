@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { binary } from "@/binary";
 import { color } from "@/color";
+import { payload } from "@/payload";
 import { zod } from "@/zod";
 
 describe("Codec", () => {
@@ -111,6 +112,59 @@ describe("Codec", () => {
       const parsed = JSON.parse(encoded);
       expect(parsed.value).toEqual(42);
     });
+
+    describe("bytes", () => {
+      const schema = z.object({ data: binary.bytesZ });
+      const data = new Uint8Array([0xfb, 0xff, 0x00, 0x61, 0x73, 0x6d, 0xff]);
+
+      it("should encode bytes as standard, padded base64 text", () => {
+        const encoded = binary.JSON_CODEC.encodeString({ data }, schema);
+        expect(JSON.parse(encoded)).toEqual({ data: "+/8AYXNt/w==" });
+      });
+
+      it("should encode a Node Buffer as base64 text", () => {
+        const encoded = binary.JSON_CODEC.encodeString(
+          { data: Buffer.from(data) },
+          schema,
+        );
+        expect(JSON.parse(encoded)).toEqual({ data: "+/8AYXNt/w==" });
+      });
+
+      it("should decode base64 text to bytes", () => {
+        const decoded = binary.JSON_CODEC.decodeString(
+          '{"data":"+/8AYXNt/w=="}',
+          schema,
+        );
+        expect(decoded.data).toEqual(data);
+      });
+
+      it.each(['"+/8AYXNt/w"', '"-_8AYXNt_w=="', "[251, 255]"])(
+        "should reject bytes written as %s",
+        (wire) => {
+          expect(() =>
+            binary.JSON_CODEC.decodeString(`{"data":${wire}}`, schema),
+          ).toThrow(zod.ParseError);
+        },
+      );
+    });
+
+    it("should encode a non-finite number as its text", () => {
+      const encoded = binary.JSON_CODEC.encodeString({
+        values: [NaN, Infinity, -Infinity, 1.5],
+      });
+      expect(JSON.parse(encoded)).toEqual({
+        values: ["NaN", "Infinity", "-Infinity", 1.5],
+      });
+    });
+
+    it.each([NaN, Infinity, -Infinity])(
+      "should encode and decode a float of %s",
+      (value) => {
+        const schema = z.object({ value: payload.floatZ });
+        const encoded = binary.JSON_CODEC.encode({ value }, schema);
+        expect(binary.JSON_CODEC.decode(encoded, schema).value).toBe(value);
+      },
+    );
   });
 
   describe("CSV", () => {

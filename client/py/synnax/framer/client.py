@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TypeAlias, overload
 
 import synnax.channel.payload as channel
@@ -258,7 +258,7 @@ class Client:
     @overload
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Key | str,
         *,
         reduction: Reduction | None = None,
@@ -267,7 +267,7 @@ class Client:
     @overload
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: _FrameParams,
         *,
         reduction: Reduction | None = None,
@@ -276,14 +276,15 @@ class Client:
     @deprecate_positional("reduction")
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
         """Reads telemetry from the channels between the two timestamps.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The samples of every range arrive in time order.
         :param channels: A single channel key or name, or a sequence of channel keys or
         names.
         :param reduction: How the Core reduces the samples of each channel. A
@@ -305,7 +306,7 @@ class Client:
     @deprecate_positional("dest", "reduction")
     def read_csv(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -315,7 +316,8 @@ class Client:
         Reads telemetry from the channels between the two timestamps into a CSV file.
         The Core writes the CSV, so the client never holds the whole export in memory.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The CSV has one header, then the rows of every range in time order.
         :param channels: The keys or names of the channels to read from.
         :param dest: The path of the CSV file to write. It must end in .csv.
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
@@ -326,7 +328,7 @@ class Client:
     @deprecate_positional("dest", "reduction")
     def read_tdms(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -337,7 +339,8 @@ class Client:
         file. The Core writes the file, so the client never holds the whole export in
         memory.
 
-        :param tr: The time range to read from.
+        :param tr: The time range to read from, or a sequence of time ranges in any
+        order. The file holds the samples of every range in time order.
         :param channels: The keys or names of the channels to read from.
         :param dest: The path of the TDMS file to write. It must end in .tdms.
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
@@ -403,6 +406,7 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
@@ -417,6 +421,9 @@ class Client:
         :param keep_alive: Interval at which the Core sends keep-alive responses. A read
         that stays silent for three intervals raises Unreachable. Zero disables
         detection. Numbers are seconds.
+        :param on_missed: Called when the Core drops frames because the streamer fell
+        behind. Called once for each run of drops, after a logged warning. The stream
+        continues, and the dropped frames never arrive.
         """
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
@@ -427,6 +434,7 @@ class Client:
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
             keep_alive=keep_alive,
+            on_missed=on_missed,
         )
 
     @deprecate_positional(
@@ -440,6 +448,7 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
@@ -450,6 +459,7 @@ class Client:
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
             keep_alive=keep_alive,
+            on_missed=on_missed,
         )
         await s._open()
         return s

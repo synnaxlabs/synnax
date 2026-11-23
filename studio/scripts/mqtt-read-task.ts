@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { openDiscover, pickValues, submitDiscover } from "./common/mqtt";
+import { openDiscover } from "./common/mqtt";
+import { pickValues, submitPicks } from "./common/picker";
 import { MQTT, serverTaskScript } from "./common/server";
 import { choose } from "./common/task";
 
@@ -28,7 +29,7 @@ export default serverTaskScript(MQTT, {
     await session.hold(1200);
     await session.click(topic, { text: true });
     await pickValues(session, dialog, ["temperature", "pressure"]);
-    await submitDiscover(session, dialog, form, "Add 2 fields");
+    await submitPicks(session, dialog, form, "Add 2 fields");
 
     const temperature = form.getByRole("treeitem").filter({
       has: form.page().getByRole("checkbox", { name: "Read temperature", exact: true }),

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { MAKE } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import {
   READ_SCHEMAS,
   READ_TYPE,
@@ -21,18 +21,20 @@ import {
 import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+export const DEFAULT_READ_NAME = "HTTP read task";
+
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP read task", type: READ_TYPE, config: cfg };
+  return { name: DEFAULT_READ_NAME, type: READ_TYPE, config: cfg };
 };
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues: getReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable: Selector.Selectable = {
@@ -54,7 +56,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues: getWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable: Selector.Selectable = {

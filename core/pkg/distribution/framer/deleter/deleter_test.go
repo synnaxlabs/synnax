@@ -57,7 +57,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 					i = MustOpen(
 						s.dist.Framer.OpenIterator(
-							ctx,
+							GinkgoT().Context(),
 							iterator.Config{
 								Keys:   s.keys,
 								Bounds: telem.TimeRangeMax,

@@ -296,10 +296,10 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: arc-cpp
       directories: arc/cpp
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -383,10 +383,10 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-cpp
       directories: client/cpp client/clib
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -406,6 +406,8 @@ jobs:
       free_threaded: true
       macos: *full
       type_check_dir: ./synnax ./examples ./tests
+      # Not Windows on ARM: cryptography, which asyncua needs, has no wheel for it.
+      ubuntu_arm: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -444,7 +446,9 @@ jobs:
       package: client
       packed: true
       runtimes: true
+      ubuntu_arm: *full
       windows: *full
+      windows_arm: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -464,6 +468,8 @@ jobs:
       directory: console
       package: console
       shards: 3
+      # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
+      webkit_runs: 3
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -584,7 +590,7 @@ jobs:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
           disable_search: true
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           files: console/src-tauri/lcov.info
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -668,11 +674,11 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: driver
       directories: driver
-      macos: *full
+      macos: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
-      windows: *full
+      windows: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -714,8 +720,9 @@ jobs:
 
   # Fails on the exported identifiers no other package uses that the change adds, and
   # on every one of a module and usage that .github/exports-go.json gates, for Linux. It
-  # checks each changed module and each module that depends on one. Check - Go exports
-  # reports every finding each night.
+  # checks each changed module and each module that depends on one. It counts the module
+  # of each pending entry as changed, so the change that adds its caller fails on the
+  # entry. Check - Go exports reports every finding each night.
   exports-go:
     needs: changes
     if:
@@ -741,9 +748,11 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$BASE"
           changed=$(git diff --name-only "$BASE" HEAD)
+          pending=$(jq -r '(.pending // [])[].module + "/go.mod"' \
+            .github/exports-go.json)
           # shellcheck disable=SC2086
-          affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
-            xargs)
+          affected=$(printf '%s\n%s\n' "$changed" "$pending" |
+            python3 .github/scripts/go_affected.py $MODULES | xargs)
           if grep -qx .github/exports-go.json <<< "$changed"; then
             affected=$MODULES
           fi
@@ -891,9 +900,9 @@ jobs:
       clang_tidy: true
       coverage_flag: freighter-cpp
       directories: freighter/cpp
-      macos: *full
+      macos: true
       targets: //freighter/cpp/...
-      windows: *full
+      windows: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -951,6 +960,8 @@ jobs:
       coverage_module: freighter
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      macos: *full
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1161,6 +1172,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'portal')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       coverage_flag: portal
       directory: site/portal
       macos: *full
@@ -1365,9 +1377,9 @@ jobs:
       clang_tidy: true
       coverage_flag: x-cpp
       directories: x/cpp
-      macos: *full
+      macos: true
       targets: //x/cpp/...
-      windows: *full
+      windows: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

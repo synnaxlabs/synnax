@@ -306,6 +306,10 @@ type Proof struct {
 	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
 	Key           string                 `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
+	Provider      string                 `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	Code          string                 `protobuf:"bytes,6,opt,name=code,proto3" json:"code,omitempty"`
+	Verifier      string                 `protobuf:"bytes,7,opt,name=verifier,proto3" json:"verifier,omitempty"`
+	RedirectUri   string                 `protobuf:"bytes,8,opt,name=redirect_uri,json=redirectUri,proto3" json:"redirect_uri,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -364,6 +368,34 @@ func (x *Proof) GetPassword() string {
 func (x *Proof) GetKey() string {
 	if x != nil {
 		return x.Key
+	}
+	return ""
+}
+
+func (x *Proof) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *Proof) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Proof) GetVerifier() string {
+	if x != nil {
+		return x.Verifier
+	}
+	return ""
+}
+
+func (x *Proof) GetRedirectUri() string {
+	if x != nil {
+		return x.RedirectUri
 	}
 	return ""
 }
@@ -1102,12 +1134,16 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x04User\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"+\n" +
 	"\x0fMethodsResponse\x12\x18\n" +
-	"\amethods\x18\x01 \x03(\tR\amethods\"i\n" +
+	"\amethods\x18\x01 \x03(\tR\amethods\"\xd8\x01\n" +
 	"\x05Proof\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x10\n" +
-	"\x03key\x18\x04 \x01(\tR\x03key\"/\n" +
+	"\x03key\x18\x04 \x01(\tR\x03key\x12\x1a\n" +
+	"\bprovider\x18\x05 \x01(\tR\bprovider\x12\x12\n" +
+	"\x04code\x18\x06 \x01(\tR\x04code\x12\x1a\n" +
+	"\bverifier\x18\a \x01(\tR\bverifier\x12!\n" +
+	"\fredirect_uri\x18\b \x01(\tR\vredirectUri\"/\n" +
 	"\aSubject\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"\x8a\x01\n" +

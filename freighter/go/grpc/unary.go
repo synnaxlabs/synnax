@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -122,9 +121,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 					Role:     iCtx.Role,
 				}
 				if err != nil {
-					return oCtx, u.Errors.Decode(
-						errors.ParsePayload(status.Convert(err).Message()),
-					)
+					return oCtx, translateGRPCError(u.Errors, err)
 				}
 				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err

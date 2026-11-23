@@ -60,6 +60,11 @@ export const enumerationZ = z.object({
   name: z.string().min(1),
   /** entries are the states of the enumeration. */
   entries: entryZ.array().default(() => []),
+  /**
+   * uses are the resources that use the enumeration and that the caller can read,
+   * filled only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Enumeration extends z.infer<typeof enumerationZ> {}
 
@@ -126,6 +131,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most enumerations to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

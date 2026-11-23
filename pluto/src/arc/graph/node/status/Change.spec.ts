@@ -10,14 +10,14 @@
 import { status } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { configZ } from "@/arc/graph/node/status/config";
+import { Status } from "@/arc/graph/node/status";
 
 const TYPE = "status.set" as const;
 
 describe("Change config schema", () => {
   it("Should parse a valid configuration", () => {
     expect(
-      configZ.parse({
+      Status.configZ.parse({
         type: TYPE,
         key_or_name: "alarm",
         variant: "success",
@@ -29,12 +29,12 @@ describe("Change config schema", () => {
   it("Should accept each allowed variant", () => {
     for (const variant of status.VARIANTS)
       expect(
-        configZ.parse({ type: TYPE, key_or_name: "k", variant, message: "m" }),
+        Status.configZ.parse({ type: TYPE, key_or_name: "k", variant, message: "m" }),
       ).toEqual({ type: TYPE, key_or_name: "k", variant, message: "m" });
   });
 
   it("Should reject an unknown variant", () => {
-    const result = configZ.safeParse({
+    const result = Status.configZ.safeParse({
       type: TYPE,
       key_or_name: "k",
       variant: "bogus",
@@ -47,7 +47,11 @@ describe("Change config schema", () => {
   });
 
   it("Should reject a missing key_or_name", () => {
-    const result = configZ.safeParse({ type: TYPE, variant: "info", message: "m" });
+    const result = Status.configZ.safeParse({
+      type: TYPE,
+      variant: "info",
+      message: "m",
+    });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toContainEqual(
       expect.objectContaining({ code: "invalid_type", path: ["key_or_name"] }),
@@ -55,7 +59,11 @@ describe("Change config schema", () => {
   });
 
   it("Should reject a missing message", () => {
-    const result = configZ.safeParse({ type: TYPE, key_or_name: "k", variant: "info" });
+    const result = Status.configZ.safeParse({
+      type: TYPE,
+      key_or_name: "k",
+      variant: "info",
+    });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toContainEqual(
       expect.objectContaining({ code: "invalid_type", path: ["message"] }),
@@ -63,7 +71,11 @@ describe("Change config schema", () => {
   });
 
   it("Should reject a missing variant", () => {
-    const result = configZ.safeParse({ type: TYPE, key_or_name: "k", message: "m" });
+    const result = Status.configZ.safeParse({
+      type: TYPE,
+      key_or_name: "k",
+      message: "m",
+    });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toContainEqual(
       expect.objectContaining({ code: "invalid_value", path: ["variant"] }),

@@ -48,7 +48,7 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	GinkgoHelper()
 	sym := defaults.Fill(symbol.Symbol{
 		Name:  "Inlet",
-		Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+		Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 		Group: &g.Key,
 	})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -120,7 +120,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			})
 			created := defaults.Fill(symbol.Symbol{
 				Name: "concurrent",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &created)

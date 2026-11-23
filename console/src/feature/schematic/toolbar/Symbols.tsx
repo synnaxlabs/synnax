@@ -123,6 +123,7 @@ export interface RemoteListItemProps extends List.ItemProps<string> {}
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
+  const paints = Schematic.Node.Custom.usePaints(symbol?.data, 0);
   const variant: Schematic.Node.CustomVariant =
     symbol == null ? "custom_actuator" : Schematic.Node.customVariant(symbol);
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
@@ -150,7 +151,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       items: [Schematic.createHaulItem(createParams())],
       preview: (
         <Schematic.Node.Primitive.Div orientation="left">
-          <Schematic.Node.Custom.Drawing spec={symbol.data} />
+          <Schematic.Node.Custom.Drawing spec={symbol.data} paints={paints} />
         </Schematic.Node.Primitive.Div>
       ),
       anchor: "corner",

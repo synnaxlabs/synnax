@@ -487,3 +487,10 @@ var _ = Describe("ImportGroup", func() {
 		)
 	})
 })
+
+var _ = Describe("RetrieveBuiltins", func() {
+	It("Should return the symbols that the Core ships", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.RetrieveBuiltins(ctx, struct{}{}))
+		Expect(res.Builtins).To(Equal(symbol.Builtins()))
+	})
+})

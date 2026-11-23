@@ -30,16 +30,7 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { createFactory, type CreateOptions } from "@/telem/aether/factory";
-import {
-  ChannelData,
-  type ChannelDataProps,
-  type Client,
-  DISCONNECTED_STATUS,
-  streamChannelStringValue,
-  streamChannelValue,
-} from "@/telem/aether/remote";
-import type { NumberSource, StringSource, ValueProps } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { line } from "@/vis/line/aether";
 
@@ -80,7 +71,7 @@ describe("remote", () => {
   const connect = (
     core: SyntheticCore,
     props: Partial<framer.FeedProps> = {},
-  ): Client => {
+  ): telem.Client => {
     const client = telemTest.createClient(core, { ...OPTIONS, ...props });
     closers.push(async () => await client.feed.close());
     return client;
@@ -88,19 +79,24 @@ describe("remote", () => {
 
   describe("channel values", () => {
     const createNumber = (
-      client: Client | null,
+      client: telem.Client | null,
       ch: channel.Key,
-      options?: CreateOptions,
-    ): NumberSource => {
-      const spec = streamChannelValue({ channel: ch });
-      const source = createFactory(client).create(spec, options) as NumberSource;
+      options?: telem.CreateOptions,
+    ): telem.NumberSource => {
+      const spec = telem.streamChannelValue({ channel: ch });
+      const source = telem
+        .createFactory(client)
+        .create(spec, options) as telem.NumberSource;
       closers.push(() => source.cleanup?.());
       return source;
     };
 
-    const createString = (client: Client | null, ch: channel.Key): StringSource => {
-      const spec = streamChannelStringValue({ channel: ch });
-      const source = createFactory(client).create(spec) as StringSource;
+    const createString = (
+      client: telem.Client | null,
+      ch: channel.Key,
+    ): telem.StringSource => {
+      const spec = telem.streamChannelStringValue({ channel: ch });
+      const source = telem.createFactory(client).create(spec) as telem.StringSource;
       closers.push(() => source.cleanup?.());
       return source;
     };
@@ -350,11 +346,11 @@ describe("remote", () => {
 
   describe("ChannelData", () => {
     const create = (
-      client: Client | null,
-      props: Partial<ChannelDataProps>,
-      options?: CreateOptions,
-    ): ChannelData => {
-      const source = new ChannelData(
+      client: telem.Client | null,
+      props: Partial<telem.ChannelDataProps>,
+      options?: telem.CreateOptions,
+    ): telem.ChannelData => {
+      const source = new telem.ChannelData(
         client,
         { channel: 0, window: staticWindow(HOME), ...props },
         options,
@@ -364,7 +360,10 @@ describe("remote", () => {
       return source;
     };
 
-    const settle = async (source: ChannelData, props?: ValueProps): Promise<void> =>
+    const settle = async (
+      source: telem.ChannelData,
+      props?: telem.ValueProps,
+    ): Promise<void> =>
       await expect.poll(() => source.value(props).status.variant, POLL).toBe("success");
 
     // Counts the reductions of every read the Core serves.
@@ -379,7 +378,7 @@ describe("remote", () => {
       return { client, reductions };
     };
 
-    const view = (start: TimeSpan, end: TimeSpan, points = 1000): ValueProps => ({
+    const view = (start: TimeSpan, end: TimeSpan, points = 1000): telem.ValueProps => ({
       bounds: { lower: ns(START.add(start)), upper: ns(START.add(end)) },
       points,
     });
@@ -684,6 +683,23 @@ describe("remote", () => {
       await expect.poll(last, POLL).toBe(newest(core, key).at(-1));
     });
 
+    it("should read the value bounds of a static window across its view", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      await settle(y);
+      const lower = ns(START);
+      const upper = ns(HOME.end) + ns(new TimeStamp(TimeSpan.minutes(1)));
+      y.value({ extremesKept: true, bounds: { lower, upper } });
+      const kept = subscribe.mock.calls
+        .map(([request]) => request.limit)
+        .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+      expect(kept).toEqual([
+        expect.objectContaining({ view: new TimeRange(BigInt(lower), BigInt(upper)) }),
+      ]);
+    });
+
     it("should bound a static index by its home view", async () => {
       const core = createCore();
       const x = create(connect(core), {
@@ -754,6 +770,30 @@ describe("remote", () => {
             view: new TimeRange(BigInt(lower), BigInt(upper)),
           }),
         ]);
+      });
+
+      it("should draw only the tiles inside the span it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const y = create(client, { channel: core.data[0].key, window: OPEN });
+        const lower = ns(FROM);
+        const upper = lower + ns(new TimeStamp(TimeSpan.minutes(1)));
+        await expect
+          .poll(() => {
+            y.value({
+              bounds: { lower, upper },
+              points: 100,
+              span: { lower, upper: Infinity },
+            });
+            return subscribe.mock.calls.length;
+          }, POLL)
+          .toBeGreaterThan(0);
+        expect(subscribe.mock.calls[0][0].limit).toEqual(
+          expect.objectContaining({
+            bound: new TimeRange(BigInt(lower), TimeStamp.MAX),
+          }),
+        );
       });
 
       it("should have no bounds for a range that has not started", async () => {
@@ -881,7 +921,9 @@ describe("remote", () => {
       const END = START.add(TimeSpan.minutes(5));
       const SPAN = TimeSpan.seconds(10);
 
-      const createLine = (core: SyntheticCore): [ChannelData, ChannelData] => {
+      const createLine = (
+        core: SyntheticCore,
+      ): [telem.ChannelData, telem.ChannelData] => {
         const client = connect(core);
         const props = { channel: core.data[0].key, window: dynamicWindow(SPAN) };
         return [
@@ -916,7 +958,7 @@ describe("remote", () => {
         await settle(y);
         expect(y.value().edge).toBeUndefined();
         const { upper } = x.value().data[0];
-        const shown: ValueProps = {
+        const shown: telem.ValueProps = {
           extremesKept: true,
           bounds: { lower: upper - ns(new TimeStamp(SPAN)), upper },
         };
@@ -953,9 +995,9 @@ describe("remote", () => {
 
     // Returns the client with its channel retrievals run through retrieve.
     const withRetrieve = (
-      client: Client,
-      retrieve: Client["channels"]["retrieve"],
-    ): Client => ({ ...client, channels: { retrieve } });
+      client: telem.Client,
+      retrieve: telem.Client["channels"]["retrieve"],
+    ): telem.Client => ({ ...client, channels: { retrieve } });
 
     it("should retry a channel retrieval that fails to connect", async () => {
       const core = createCore();
@@ -1025,7 +1067,7 @@ describe("remote", () => {
     const LIVE_START = TimeStamp.seconds(100);
     const PERIOD = TimeSpan.milliseconds(100);
 
-    const createLive = (): { core: SyntheticCore; client: Client } => {
+    const createLive = (): { core: SyntheticCore; client: telem.Client } => {
       const core = new SyntheticCore({
         rate: 10,
         start: LIVE_START,
@@ -1038,7 +1080,7 @@ describe("remote", () => {
     // number of its samples.
     const stream = async (
       core: SyntheticCore,
-      client: Client,
+      client: telem.Client,
       key: channel.Key,
       count: number,
     ): Promise<void> => {
@@ -1059,14 +1101,14 @@ describe("remote", () => {
     // with the index as the line's X channel or with no X channel.
     const createLine = (
       core: SyntheticCore,
-      client: Client,
+      client: telem.Client,
       span: TimeSpan,
       indexAsX: boolean,
-    ): [ChannelData, ChannelData] => {
+    ): [telem.ChannelData, telem.ChannelData] => {
       const yChannel = core.data[0].key;
       const xChannel = indexAsX ? core.index.key : 0;
-      const create = (props: Partial<ChannelDataProps>): ChannelData => {
-        const source = new ChannelData(
+      const create = (props: Partial<telem.ChannelDataProps>): telem.ChannelData => {
+        const source = new telem.ChannelData(
           client,
           { channel: yChannel, window: dynamicWindow(span), xChannel, ...props },
           undefined,
@@ -1086,7 +1128,11 @@ describe("remote", () => {
       Array.from({ length: to - from }, (_, i) => from + i);
 
     // Returns the index of every sample a line of x and y draws, in order.
-    const drawn = (x: ChannelData, y: ChannelData, shown?: ValueProps): number[] =>
+    const drawn = (
+      x: telem.ChannelData,
+      y: telem.ChannelData,
+      shown?: telem.ValueProps,
+    ): number[] =>
       line
         .buildDrawOperations(
           x.value(shown).data[1],
@@ -1151,7 +1197,7 @@ describe("remote", () => {
         await expect
           .poll(() => drawn(x, y), POLL)
           .toEqual(expect.arrayContaining(samples(from, to)));
-        const paused: ValueProps = {
+        const paused: telem.ValueProps = {
           bounds: { lower: ns(end.sub(span)), upper: ns(end) },
           points: 2000,
         };
@@ -1170,24 +1216,26 @@ describe("remote", () => {
 
   describe("disconnected", () => {
     it("should still create remote sources from a null-client factory", () => {
-      const factory = createFactory(null);
-      expect(factory.create(streamChannelValue({ channel: 1 }))).not.toBeNull();
+      const factory = telem.createFactory(null);
+      expect(factory.create(telem.streamChannelValue({ channel: 1 }))).not.toBeNull();
     });
 
     it("should report a disconnected status once instead of throwing", () => {
       const statuses: cstatus.Crude[] = [];
-      const source = createFactory(null).create(streamChannelValue({ channel: 1 }), {
-        onStatusChange: (s) => statuses.push(s),
-      }) as NumberSource;
+      const source = telem
+        .createFactory(null)
+        .create(telem.streamChannelValue({ channel: 1 }), {
+          onStatusChange: (s) => statuses.push(s),
+        }) as telem.NumberSource;
       expect(source.value().data).toBeNaN();
       // A repeated read must not report again: the source is rebuilt on reconnect.
       expect(source.value().data).toBeNaN();
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+      expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
     });
 
     it("should return empty, loaded data from a disconnected line source", () => {
       const statuses: cstatus.Crude[] = [];
-      const source = new ChannelData(
+      const source = new telem.ChannelData(
         null,
         { channel: 1, window: staticWindow(HOME) },
         { onStatusChange: (s) => statuses.push(s) },
@@ -1196,7 +1244,7 @@ describe("remote", () => {
       expect(data[0]).toStrictEqual(bounds.INVALID);
       expect(data[1]).toHaveLength(0);
       expect(status.variant).not.toBe("loading");
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+      expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
     });
   });
 });

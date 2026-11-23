@@ -12,10 +12,12 @@
 package kafka
 
 import (
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
@@ -39,28 +41,88 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
+			Name:     "topics.records.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Topics {
+					for _, v2 := range v1.Records {
+						targets = append(targets, v2.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t icd.Key) {
+				for i3 := range e.Topics {
+					e.Topics[i3].Records = slices.DeleteFunc(e.Topics[i3].Records, func(v4 ReadRecord) bool {
+						if v4.ICD == t {
+							return true
+						}
+						return false
+					})
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to icd.Key) {
+				for i5 := range e.Topics {
+					for i6 := range e.Topics[i5].Records {
+						if e.Topics[i5].Records[i6].ICD == from {
+							e.Topics[i5].Records[i6].ICD = to
+						}
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "records.fields.channel",
+			Name:     "topics.records.messages.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
-				for _, v1 := range e.Records {
-					for _, v2 := range v1.Fields {
-						if v2.Channel != 0 {
-							targets = append(targets, v2.Channel)
+				for _, v1 := range e.Topics {
+					for _, v2 := range v1.Records {
+						for _, v3 := range v2.Messages {
+							for _, v4 := range v3.Bindings {
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							}
 						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
-				for i3 := range e.Records {
-					for i4 := range e.Records[i3].Fields {
-						if e.Records[i3].Fields[i4].Channel == t {
-							e.Records[i3].Fields[i4].Channel = 0
+				for i5 := range e.Topics {
+					for i6 := range e.Topics[i5].Records {
+						for i7 := range e.Topics[i5].Records[i6].Messages {
+							for i8 := range e.Topics[i5].Records[i6].Messages[i7].Bindings {
+								if e.Topics[i5].Records[i6].Messages[i7].Bindings[i8].Channel == t {
+									e.Topics[i5].Records[i6].Messages[i7].Bindings[i8].Channel = 0
+								}
+							}
+						}
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i9 := range e.Topics {
+					for i10 := range e.Topics[i9].Records {
+						for i11 := range e.Topics[i9].Records[i10].Messages {
+							for i12 := range e.Topics[i9].Records[i10].Messages[i11].Bindings {
+								if e.Topics[i9].Records[i10].Messages[i11].Bindings[i12].Channel == from {
+									e.Topics[i9].Records[i10].Messages[i11].Bindings[i12].Channel = to
+								}
+							}
 						}
 					}
 				}
@@ -89,6 +151,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -108,6 +175,13 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for i2 := range e.Channels {
 					if e.Channels[i2].Channel == t {
 						e.Channels[i2].Channel = 0
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i3 := range e.Channels {
+					if e.Channels[i3].Channel == from {
+						e.Channels[i3].Channel = to
 					}
 				}
 			},

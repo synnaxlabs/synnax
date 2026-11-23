@@ -141,6 +141,10 @@ const open = async (name: string, right = false): Promise<HTMLElement> => {
 
 const top = (el: Element): number => el.getBoundingClientRect().top;
 
+const move = (target: HTMLElement, clientX: number, clientY: number): void => {
+  fireEvent.pointerMove(target, { pointerType: "mouse", clientX, clientY });
+};
+
 // The theme sets its tokens on render, so a spec resolves the token after it renders.
 const lit = (): string => resolve("var(--pluto-gray-l4)", "background-color");
 
@@ -219,10 +223,6 @@ describe("Menu.Sub", () => {
   });
 
   describe("light", () => {
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
     it("should keep its item lit while the pointer is in the submenu", async () => {
       await open("Move");
       await userEvent.hover(item("Up"));
@@ -230,15 +230,22 @@ describe("Menu.Sub", () => {
     });
 
     it("should not light the items the pointer crosses toward the submenu", async () => {
-      await open("Labels");
+      await renderThemed(<Dropdown />);
+      await shown("Filter");
       const labels = item("Labels");
       const stage = item("Stage");
-      // The aim lasts 300 ms, and a slow runner can take longer to move the pointer.
-      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
-      await userEvent.hover(labels, { position: { x: 10, y: 14 } });
+      // The real pointer rests on stage, so the browser hovers it.
       await userEvent.hover(stage, {
         position: { x: stage.getBoundingClientRect().width - 4, y: 4 },
       });
+      fireEvent.click(labels);
+      await shown("Labels");
+      // A slow hover can outlast the 300 ms aim, so synthetic moves cross stage. Fake
+      // timers do not help: Vitest runs them while a pointer action waits.
+      const from = labels.getBoundingClientRect();
+      const to = stage.getBoundingClientRect();
+      move(labels, from.left + 10, from.top + 14);
+      move(stage, to.right - 4, to.top + 4);
       expect(computed(stage, "background-color")).toBe(resolve("transparent"));
       expect(computed(labels, "background-color")).toBe(lit());
     });
@@ -416,10 +423,6 @@ describe("Menu.Sub", () => {
 
   const queryContent = (name: string): HTMLElement | null =>
     screen.queryByRole("dialog", { name });
-
-  const move = (target: HTMLElement, clientX: number, clientY: number): void => {
-    fireEvent.pointerMove(target, { pointerType: "mouse", clientX, clientY });
-  };
 
   const advance = (ms: number): void => {
     act(() => {

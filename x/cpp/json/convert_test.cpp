@@ -1405,6 +1405,42 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthThirteen) {
     );
 }
 
+/// @brief it should reject an ISO 8601 day past the end of its month.
+TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
+    for (const auto *input:
+         {"2023-02-29T00:00:00Z",
+          "2024-02-30T00:00:00Z",
+          "2100-02-29T00:00:00Z",
+          "2001-04-31T00:00:00Z",
+          "2001-11-31T00:00:00Z",
+          "2001-01-32T00:00:00Z",
+          "2001-12-99T00:00:00Z"})
+        ASSERT_OCCURRED_AS_P(
+            x::json::to_sample_value(
+                json(input),
+                x::telem::TIMESTAMP_T,
+                x::json::TimeFormat::ISO8601
+            ),
+            x::json::CONVERSION_ERROR
+        );
+}
+
+/// @brief it should accept an ISO 8601 date on the last day of its month.
+TEST(ToSampleValue, StringToTimestampISO8601LastDayOfMonth) {
+    for (const auto *input:
+         {"2024-02-29T00:00:00Z",
+          "2000-02-29T00:00:00Z",
+          "2001-04-30T00:00:00Z",
+          "2001-12-31T00:00:00Z"})
+        ASSERT_NIL_P(
+            x::json::to_sample_value(
+                json(input),
+                x::telem::TIMESTAMP_T,
+                x::json::TimeFormat::ISO8601
+            )
+        );
+}
+
 TEST(ToSampleValue, StringToTimestampISO8601DayZero) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
@@ -1486,6 +1522,84 @@ TEST(ToSampleValue, StringToTimestampISO8601JustDate) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
             json("2001-09-09"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should reject an ISO 8601 timestamp after the maximum timestamp.
+TEST(ToSampleValue, StringToTimestampISO8601AfterMaxTimestamp) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("2300-01-01T00:00:00Z"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should reject an ISO 8601 timestamp before the minimum timestamp.
+TEST(ToSampleValue, StringToTimestampISO8601BeforeMinTimestamp) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("1600-01-01T00:00:00Z"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should parse the maximum ISO 8601 timestamp.
+TEST(ToSampleValue, StringToTimestampISO8601MaxTimestamp) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json("2262-04-11T23:47:16.854775807Z"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        )
+    );
+    ASSERT_EQ(
+        std::get<x::telem::TimeStamp>(sv),
+        x::telem::TimeStamp(std::numeric_limits<int64_t>::max())
+    );
+}
+
+/// @brief it should parse the minimum ISO 8601 timestamp.
+TEST(ToSampleValue, StringToTimestampISO8601MinTimestamp) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json("1677-09-21T00:12:43.145224192Z"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        )
+    );
+    ASSERT_EQ(
+        std::get<x::telem::TimeStamp>(sv),
+        x::telem::TimeStamp(std::numeric_limits<int64_t>::min())
+    );
+}
+
+/// @brief it should reject an ISO 8601 timestamp one nanosecond after the maximum.
+TEST(ToSampleValue, StringToTimestampISO8601JustAfterMaxTimestamp) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("2262-04-11T23:47:16.854775808Z"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::ISO8601
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should reject an ISO 8601 timestamp one nanosecond before the minimum.
+TEST(ToSampleValue, StringToTimestampISO8601JustBeforeMinTimestamp) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("1677-09-21T00:12:43.145224191Z"),
             x::telem::TIMESTAMP_T,
             x::json::TimeFormat::ISO8601
         ),

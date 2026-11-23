@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { color } from "@/color";
+import { enumeration } from "@/enumeration";
 import { group } from "@/group";
 import { project } from "@/project";
 import { resource } from "@/resource";
@@ -143,8 +144,6 @@ export const stalenessConfigZ = z.object({
   stalenessTimeout: telem.numericTimeSpanZ
     .check(z.gte(1000000000), z.lte(9007199254740991))
     .default(5000000000),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: xcolor.colorZ.optional(),
 });
 export interface StalenessConfig extends z.infer<typeof stalenessConfigZ> {}
 
@@ -175,6 +174,26 @@ export const scaledConfigZ = z.object({
 });
 export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
 
+/** FormatConfig is how a node shows a number. */
+export const formatConfigZ = z.object({
+  /** units is the unit suffix shown after the value. Absent shows none. */
+  units: z.string().optional(),
+  /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
+  precision: zod.uint8.max(17).optional(),
+  /** notation is the notation of the value. Absent shows standard notation. */
+  notation: notation.notationZ.optional(),
+});
+export interface FormatConfig extends z.infer<typeof formatConfigZ> {}
+
+/** CommandBinding is the channel of a command that has no state. */
+export const commandBindingZ = z.object({
+  /** key is the key of the command of the symbol. */
+  key: z.string(),
+  /** channel is the channel that the command writes to. */
+  channel: channel.keyZ,
+});
+export interface CommandBinding extends z.infer<typeof commandBindingZ> {}
+
 /** Order is a sort of schematics. */
 export const orderZ = z.object({
   /** field is the field to sort by. Records with equal values sort by key. */
@@ -186,6 +205,39 @@ export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** ChannelSource reads a channel. */
+export const channelSourceZ = z.object({
+  type: z.literal("channel"),
+  /** key is the channel that the state reads. */
+  key: channel.keyZ.optional(),
+  /** command is the channel that the commands of the state write to. */
+  command: channel.keyZ.optional(),
+});
+export interface ChannelSource extends z.infer<typeof channelSourceZ> {}
+
+/** LocalSource holds a value in the node. */
+export const localSourceZ = z.object({
+  type: z.literal("local"),
+  /** value is the value that the state reads and its commands write. */
+  value: z.number(),
+});
+export interface LocalSource extends z.infer<typeof localSourceZ> {}
+
+export const SOURCE_TYPES = ["channel", "local"] as const;
+export const sourceTypeZ = z.enum(SOURCE_TYPES);
+export type SourceType = z.infer<typeof sourceTypeZ>;
+
+/** Source is where a state reads its value. */
+export const sourceZ = z.discriminatedUnion("type", [channelSourceZ, localSourceZ]);
+export type Source = ChannelSource | LocalSource;
+
+export const SOURCE_SCHEMAS: {
+  [K in SourceType]: z.ZodType<Extract<Source, { type: K }>>;
+} = {
+  channel: channelSourceZ,
+  local: localSourceZ,
+};
 
 /** SegmentedEdgeConfig is the configuration shared by every segmented edge variant. */
 export const segmentedEdgeConfigZ = z.object({
@@ -271,6 +323,16 @@ export const cursorZ = z.object({
   name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
+
+export const stateBindingZ = formatConfigZ.extend({
+  key: z.string(),
+  source: zod.nullToUndefined(sourceZ),
+  enumeration: enumeration.keyZ.optional(),
+  match: zod.nullToUndefined(symbol.matcherZ),
+  bounds: spatial.boundsZ().optional(),
+  default: z.number().optional(),
+});
+export interface StateBinding extends z.infer<typeof stateBindingZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -789,6 +851,11 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   inlineSize: zod.uint16.min(1).default(100),
   /** options is the set of selectable states. */
   options: stateMappingZ.array().default(() => []),
+  /**
+   * enumeration is the enumeration whose entries the select offers in place of its
+   * options.
+   */
+  enumeration: enumeration.keyZ.optional(),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks. */
@@ -880,6 +947,11 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     inlineSize: zod.uint16.min(1).default(100),
     /** options is the set of displayable states. */
     options: stateMappingZ.array().default(() => []),
+    /**
+     * enumeration is the enumeration whose entries the indicator shows in place of its
+     * options.
+     */
+    enumeration: enumeration.keyZ.optional(),
     /** size is the rendered size preset of the indicator. */
     size: componentSizeZ.default("medium"),
   });
@@ -1386,10 +1458,10 @@ export const customActuatorNodeConfigZ = toggleConfigZ.extend({
   /** specKey is the key of the custom symbol spec this instance renders. */
   specKey: z.string(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
+   * stateOverrides contains per-instance replacements of the spec's region colors, one
+   * for each value that the node draws, in value order: Base, then Active.
    */
-  stateOverrides: symbol.stateZ.array().default(() => []),
+  stateOverrides: symbol.stateOverrideZ.array().default(() => []),
 });
 export interface CustomActuatorNodeConfig extends z.infer<
   typeof customActuatorNodeConfigZ
@@ -1403,10 +1475,10 @@ export const customStaticNodeConfigZ = labeledConfigZ
     /** specKey is the key of the custom symbol spec this instance renders. */
     specKey: z.string(),
     /**
-     * stateOverrides contains per-instance overrides of the spec's visual states, matched
-     * to the spec's states by key.
+     * stateOverrides contains per-instance replacements of the spec's region colors, one
+     * for each value that the node draws, in value order: Base, then Active.
      */
-    stateOverrides: symbol.stateZ.array().default(() => []),
+    stateOverrides: symbol.stateOverrideZ.array().default(() => []),
   });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
@@ -1422,6 +1494,33 @@ export const groupBoxNodeConfigZ = z.object({
   locked: z.boolean().default(false),
 });
 export interface GroupBoxNodeConfig extends z.infer<typeof groupBoxNodeConfigZ> {}
+
+/** SymbolNodeConfig is the configuration for a node that draws a symbol. */
+export const symbolNodeConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("symbol"),
+    /** spec is the symbol that the node draws. */
+    spec: symbol.refZ,
+    /** color is the color that node paint reads. */
+    color: zod.nullToUndefined(color.refZ),
+    /** disabled is true when the node takes no clicks. */
+    disabled: z.boolean().default(false),
+    /** motionDisabled is true when the node draws no motion. */
+    motionDisabled: z.boolean().default(false),
+    /** onClickDelay is the debounce delay applied to clicks. */
+    onClickDelay: telem.numericTimeSpanZ
+      .check(z.gte(0), z.lte(2147483647000000))
+      .default(0),
+    /** states are how the node reads the states of its symbol. */
+    states: stateBindingZ.array().default(() => []),
+    /** commands are the channels of the commands that have no state. */
+    commands: commandBindingZ.array().default(() => []),
+    /** control is the control state display configuration. */
+    control: controlStateConfigZ.optional(),
+  });
+export interface SymbolNodeConfig extends z.infer<typeof symbolNodeConfigZ> {}
 
 export const NODE_CONFIG_TYPES = [
   "cap",
@@ -1528,6 +1627,7 @@ export const NODE_CONFIG_TYPES = [
   "custom_actuator",
   "custom_static",
   "group_box",
+  "symbol",
 ] as const;
 export const nodeConfigTypeZ = z.enum(NODE_CONFIG_TYPES);
 export type NodeConfigType = z.infer<typeof nodeConfigTypeZ>;
@@ -1641,6 +1741,7 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
   z.lazy(() => customActuatorNodeConfigZ),
   z.lazy(() => customStaticNodeConfigZ),
   z.lazy(() => groupBoxNodeConfigZ),
+  z.lazy(() => symbolNodeConfigZ),
 ]);
 export type NodeConfig =
   | CapNodeConfig
@@ -1746,7 +1847,8 @@ export type NodeConfig =
   | TJunctionNodeConfig
   | CustomActuatorNodeConfig
   | CustomStaticNodeConfig
-  | GroupBoxNodeConfig;
+  | GroupBoxNodeConfig
+  | SymbolNodeConfig;
 
 export const NODE_CONFIG_SCHEMAS: {
   [K in NodeConfigType]: z.ZodType<Extract<NodeConfig, { variant: K }>>;
@@ -1855,6 +1957,7 @@ export const NODE_CONFIG_SCHEMAS: {
   custom_actuator: customActuatorNodeConfigZ,
   custom_static: customStaticNodeConfigZ,
   group_box: groupBoxNodeConfigZ,
+  symbol: symbolNodeConfigZ,
 };
 
 /** Node is a diagram node representing a symbol in the schematic. */

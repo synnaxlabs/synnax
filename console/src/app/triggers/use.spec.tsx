@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type Synnax as Client } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
@@ -24,6 +24,8 @@ import {
 import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Vis } from "@/app/vis";
+
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
@@ -32,7 +34,6 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -41,7 +42,12 @@ import {
 } from "@/platform/panel/testutil";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestClientWithGrants,
+  createTestClientWithHeldGrants,
+  type TestStore,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -109,8 +115,16 @@ const renderTriggers = async (ui?: ReactNode) => {
 
 // The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
 // above every panel scope, the way the app shell mounts them.
-const renderLiveTriggers = async (panelKey: panel.Key) => {
-  const { wrapper: Panels, store } = await createPanelWrapper({ client });
+const renderLiveTriggers = async (
+  panelKey: panel.Key,
+  as: Client = client,
+  skipPermissionLoad?: boolean,
+) => {
+  const { wrapper: Panels, store } = await createPanelWrapper({
+    client: as,
+    project: await createPanelProject(client),
+    skipPermissionLoad,
+  });
   await primePanel(Panels, panelKey);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Panels>
@@ -122,7 +136,7 @@ const renderLiveTriggers = async (panelKey: panel.Key) => {
     () => {
       Triggers.use();
       return {
-        canCreateTab: useSelectorVisible(),
+        canCreateTab: Vis.useSelectorVisible(),
         canEditPanel: PlatformPanel.useCanEditActive(),
       };
     },
@@ -272,6 +286,72 @@ describe("app/triggers", () => {
       await waitFor(() => expect(canEditPanel()).toBe(true));
       act(() => press(CONTROL, "KeyW"));
       await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
+    });
+
+    it("should do nothing until the grant to edit the panel loads", async () => {
+      mocks.engine = "tauri";
+      const closed = viewTab();
+      const kept = viewTab();
+      const pan = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [closed, kept],
+      });
+      const { client: editor, release: resume } = await createTestClientWithHeldGrants(
+        client,
+        { retrieve: [panel.TYPE_RESOURCE_ID], update: [panel.TYPE_RESOURCE_ID] },
+      );
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
+      focusTab(store, pan.key, closed.key);
+      expect(canEditPanel()).toBeUndefined();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(true);
+      resume();
+      await waitFor(() => expect(canEditPanel()).toBe(true));
+      act(() => press(CONTROL, "KeyW"));
+      await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
+    });
+
+    it("should close the window with no tab focused while the grant loads", async () => {
+      mocks.engine = "tauri";
+      const pan = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [viewTab()],
+      });
+      const { client: editor } = await createTestClientWithHeldGrants(client, {
+        retrieve: [panel.TYPE_RESOURCE_ID],
+        update: [panel.TYPE_RESOURCE_ID],
+      });
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
+      expect(canEditPanel()).toBeUndefined();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(false);
+    });
+
+    it("should close the window for a user who may not edit the panel", async () => {
+      mocks.engine = "tauri";
+      const tab = viewTab();
+      const pan = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
+      const reader = await createTestClientWithGrants(client, {
+        retrieve: [panel.TYPE_RESOURCE_ID],
+      });
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, reader);
+      focusTab(store, pan.key, tab.key);
+      await waitFor(() => expect(canEditPanel()).toBe(false));
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(false);
+      expect(await leafTabs(pan.key)).toEqual([tab]);
     });
   });
 

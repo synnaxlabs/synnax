@@ -12,6 +12,7 @@ import type { Component } from "@synnaxlabs/lyra/component";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { useResultMultiple } from "@/label/queries";
 
 export interface TagsProps {
@@ -27,11 +28,12 @@ export interface TagsProps {
  */
 export const Tags = ({ keys, size = "small" }: TagsProps): ReactElement | null => {
   const labels = useResultMultiple({ keys }).data;
+  const colors = Color.useValues(labels?.map(({ color }) => color) ?? []);
   if (labels == null || labels.length === 0) return null;
   return (
     <>
-      {labels.map(({ key, name, color }) => (
-        <Tag.Tag key={key} color={color} size={size}>
+      {labels.map(({ key, name }, i) => (
+        <Tag.Tag key={key} color={colors[i]} size={size}>
           {name}
         </Tag.Tag>
       ))}

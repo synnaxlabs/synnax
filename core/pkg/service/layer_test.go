@@ -33,6 +33,7 @@ import (
 	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -40,6 +41,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
+	httpv3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	kafkav1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
@@ -72,6 +81,7 @@ import (
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	taskv3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	taskv4 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/confluence"
@@ -83,8 +93,39 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// markTaskChain marks the task migrations up to lastApplied as applied, as a Core of
+// that release leaves the store.
+func markTaskChain(ctx context.Context, db *gorp.DB, lastApplied string) {
+	GinkgoHelper()
+	chain := lo.Map(
+		taskversions.NewMigrations(taskversions.MigrationsConfig{}),
+		func(m gorp.Migration, _ int) string { return m.Key() },
+	)
+	Expect(chain).To(ContainElement(lastApplied))
+	markApplied(ctx, db, "Task", chain[:slices.Index(chain, lastApplied)+1]...)
+}
+
+// markApplied marks the migrations of namespace with keys as applied.
+func markApplied(ctx context.Context, db *gorp.DB, namespace string, keys ...string) {
+	GinkgoHelper()
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:        db,
+		Namespace: namespace,
+		Migrations: lo.Map(keys, func(key string, _ int) gorp.Migration {
+			return migrate.New(
+				key,
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					return nil
+				},
+			)
+		}),
+	})).To(Succeed())
+}
 
 var _ = Describe("Layer", func() {
 	It("Should report the expiry of the Core's CA and listener certificates",
@@ -334,26 +375,7 @@ var _ = Describe("Layer", func() {
 		) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			chain := lo.Map(
-				taskversions.NewMigrations(taskversions.MigrationsConfig{}),
-				func(m gorp.Migration, _ int) string { return m.Key() },
-			)
-			Expect(chain).To(ContainElement(lastApplied))
-			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:        db,
-				Namespace: "Task",
-				Migrations: lo.Map(
-					chain[:slices.Index(chain, lastApplied)+1],
-					func(key string, _ int) gorp.Migration {
-						return migrate.New(
-							key,
-							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
-								return nil
-							},
-						)
-					},
-				),
-			})).To(Succeed())
+			markTaskChain(ctx, db, lastApplied)
 			store := func(name string, snapshot bool) uuid.UUID {
 				GinkgoHelper()
 				key := uuid.New()
@@ -431,6 +453,180 @@ var _ = Describe("Layer", func() {
 				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
 			},
 		),
+	)
+
+	// The snapshot gets no ICD, because the task chain deletes it and its config before
+	// the ICD step runs.
+	DescribeTable(
+		"Should move the records of a stored Kafka read config into an ICD",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			storeTask func(context.Context, *gorp.DB, uuid.UUID, string, bool) error,
+			snapshotStored bool,
+		) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			markTaskChain(ctx, db, lastApplied)
+			store := func(name string, snapshot bool) uuid.UUID {
+				GinkgoHelper()
+				key := uuid.New()
+				Expect(storeTask(ctx, db, key, name, snapshot)).To(Succeed())
+				Expect(gorp.WrapWriter[uuid.UUID, kafkav0.ReadConfig](db).Set(
+					ctx,
+					kafkav0.ReadConfig{
+						Key:   key,
+						Topic: "plant",
+						Records: []kafkav0.ReadRecord{{
+							Key:       "r1",
+							RecordKey: "pump",
+							Fields: []kafkav0.ReadField{{
+								Key:      "level",
+								Name:     "level",
+								Pointer:  "/level",
+								DataType: telem.Float64T,
+							}},
+						}},
+					},
+				)).To(Succeed())
+				return key
+			}
+			live := store("Live", false)
+			var snapshot uuid.UUID
+			if snapshotStored {
+				snapshot = store("Snapshot", true)
+			}
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			var icds []icd.ICD
+			Expect(layer.ICD.NewRetrieve().Entries(&icds).Exec(ctx, db)).To(Succeed())
+			Expect(icds).To(HaveLen(1))
+			Expect(icds[0].Name).To(Equal("Live"))
+			var cfg kafka.ReadConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, kafka.ReadConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, kafka.ReadConfig](live)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Inline).To(BeNil())
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Records).To(HaveLen(1))
+			Expect(cfg.Topics[0].Records[0].ICD).To(Equal(icds[0].Key))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(live)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.Kafka.Read.Hash(ctx, db, live))))
+			if snapshotStored {
+				Expect(gorp.NewRetrieve[uuid.UUID, kafka.ReadConfig]().
+					Where(gorp.MatchKeys[uuid.UUID, kafka.ReadConfig](snapshot)).
+					Exists(ctx, db)).To(BeFalse())
+			}
+			for _, k := range []uuid.UUID{live, snapshot} {
+				Expect(db.Get(kafkav1.StagedRecordsKVKey(k))).Error().
+					To(MatchError(query.ErrNotFound))
+			}
+		},
+		Entry(
+			"from Core v0.61, which stored task v3 and snapshots",
+			"v61_task_range",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				t := taskv3.Task{
+					Key:      key,
+					Name:     name,
+					Type:     kafka.ReadTaskType,
+					Snapshot: snapshot,
+				}
+				if snapshot {
+					t.Range = new(uuid.New())
+				}
+				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
+			},
+			true,
+		),
+		Entry(
+			"from Core v0.62, which stored task v4",
+			"v62_task_drop_snapshot",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				_ bool,
+			) error {
+				return gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+					ctx,
+					taskv4.Task{Key: key, Name: name, Type: kafka.ReadTaskType},
+				)
+			},
+			false,
+		),
+	)
+
+	It("Should move the fields of a stored HTTP read config into an ICD in one start",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			markTaskChain(ctx, db, "v62_task_drop_snapshot")
+			markApplied(
+				ctx,
+				db,
+				types.Name[httpv4.ReadConfig](),
+				httpv3.Migration.Key(),
+				httpv4.Migration.Key(),
+			)
+			key := uuid.New()
+			Expect(gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+				ctx,
+				taskv4.Task{Key: key, Name: "Tank farm", Type: "http_read"},
+			)).To(Succeed())
+			Expect(gorp.WrapWriter[uuid.UUID, httpv4.ReadConfig](db).Set(
+				ctx,
+				httpv4.ReadConfig{Key: key, Endpoints: []httpv4.ReadEndpoint{{
+					Key:    "ep",
+					Method: "GET",
+					Path:   "/level",
+					Fields: []httpv4.ReadField{{
+						Key:      "level",
+						Pointer:  "/level",
+						DataType: telem.Float64T,
+					}},
+				}}},
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			Expect(db.Get(httpv5.StagedFieldsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
+			var cfg http.ReadConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, http.ReadConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, http.ReadConfig](key)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Endpoints).To(HaveLen(1))
+			ep := cfg.Endpoints[0]
+			Expect(ep.Fields).To(HaveLen(1))
+			var ic icd.ICD
+			Expect(layer.ICD.NewRetrieve().
+				Where(icd.MatchKeys(*ep.ICD)).
+				Entry(&ic).
+				Exec(ctx, db)).To(Succeed())
+			Expect(ic.Name).To(Equal("Tank farm"))
+			Expect(ic.Messages).To(HaveLen(1))
+			Expect(ic.Messages[0].Name).To(Equal("GET /level"))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.HTTP.Read.Hash(ctx, db, key))))
+		},
 	)
 
 	It(
@@ -1010,5 +1206,36 @@ var _ = Describe("Auth methods", func() {
 			[]auth.Method{},
 			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
 		),
+		Entry(
+			"no OIDC without a provider",
+			[]auth.Method{auth.MethodPassword, auth.MethodOIDC},
+			[]auth.Method{auth.MethodPassword},
+		),
 	)
+	It("Should accept OIDC with a provider", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			OIDCProviders: []oidc.Provider{{
+				Name:     "idp",
+				Issuer:   "https://idp.example.com",
+				ClientID: "synnax",
+			}},
+		}))
+		Expect(layer.Auth.Methods()).To(Equal([]auth.Method{
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+			auth.MethodPassword,
+		}))
+	})
+	It("Should reject OIDC as the only method without a provider", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		Expect(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodOIDC},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("oidc needs at least one provider")),
+		))
+	})
 })

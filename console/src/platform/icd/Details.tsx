@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd } from "@synnaxlabs/client";
+import { channel, type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -18,15 +18,16 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import type { FC, ReactElement } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
-import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { defaultDataType } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
+import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
@@ -37,29 +38,7 @@ import {
   reindex,
   type TreeField,
 } from "@/platform/icd/read";
-import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
-
-interface OpenInEditorProps {
-  icdKey: icd.Key;
-}
-
-const EditorButton = ({ icdKey }: OpenInEditorProps): ReactElement => {
-  const openTab = Panel.useOpenTab();
-  return (
-    <Button.Button
-      variant="text"
-      size="small"
-      tooltip="Open in the ICD editor"
-      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
-    >
-      <Icon.Library />
-      Open in editor
-    </Button.Button>
-  );
-};
-
-const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => null;
 
 export interface AddFieldProps {
   onClick: () => void;
@@ -238,6 +217,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
   const sourceDisabled = PForm.useFieldValue(path.disabled);
+  const formatted = PForm.useFieldValue(fieldsPath(message)[field.key], {
+    ctx: format,
+  });
   const i = bindings.findIndex(({ field: key }) => key === field.key);
   const preview =
     i < 0
@@ -254,7 +236,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} />}
+            actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
         </PForm.Form>
         <PForm.Section title="Channel">
@@ -268,8 +250,8 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
                 channel={preview.channel}
-                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-                hideDataTypes={hiddenDataTypes(field.type)}
+                defaultDataType={defaultDataType(formatted)}
+                hideDataTypes={hiddenDataTypes(formatted)}
               />
             </>
           )}
@@ -288,6 +270,57 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
+export interface MessageStatusProps {
+  /** The message in the ICD, or null when the ICD has no message with its key. */
+  message: icd.Message | null;
+  /** Says why the ICD has no such message, and what to do now. */
+  missingDescription: string;
+  /** Actions beside the note on a message that is not JSON. */
+  actions?: ReactNode;
+}
+
+/**
+ * Warns when the ICD has no such message, when the message is not JSON, or when it has
+ * no fields.
+ */
+export const MessageStatus = ({
+  message,
+  missingDescription,
+  actions,
+}: MessageStatusProps): ReactElement | null => {
+  if (message == null)
+    return (
+      <PForm.Section title="Message">
+        <Status.Summary
+          variant="warning"
+          message="Message not found"
+          description={missingDescription}
+          center={false}
+        />
+      </PForm.Section>
+    );
+  if (message.payload.format !== "json")
+    return (
+      <PForm.Section title="Message" actions={actions}>
+        <Text.Text color={9}>
+          The format of this message is not JSON.
+          {FLAGS.icds && " Open it in the editor to change its format."}
+        </Text.Text>
+      </PForm.Section>
+    );
+  if (message.payload.fields.length > 0) return null;
+  return (
+    <PForm.Section title="Message">
+      <Status.Summary
+        variant="warning"
+        message="Message has no fields"
+        description="A task cannot deploy a message with no fields. Add a field to the message."
+        center={false}
+      />
+    </PForm.Section>
+  );
+};
+
 /** The timestamp of a message that a source reads, and the problems of its format. */
 export const MessageSections: FC<MessageSectionsProps> = ({
   format,
@@ -297,6 +330,7 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   const { path, read } = rest;
   const plan = usePlan(path, read);
   const icdKey = PForm.useFieldValue(path.icd);
+  const several = PForm.useFieldValue(path.messages).length > 1;
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
     optional: true,
@@ -305,24 +339,14 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   const fields = jsonFields(message);
   return (
     <>
-      {message == null && (
-        <PForm.Section title="Message">
-          <Status.Summary
-            variant="warning"
-            message="Message not found"
-            description={missingDescription}
-            center={false}
-          />
-        </PForm.Section>
-      )}
-      {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
-          <Text.Text color={9}>
-            The format of this message is not JSON.
-            {FLAGS.icds && " Open it to change its format."}
-          </Text.Text>
-        </PForm.Section>
-      )}
+      <MessageStatus
+        message={message}
+        missingDescription={missingDescription}
+        // A source that reads one message opens the editor from its format picker.
+        actions={
+          several && <OpenInEditor icdKey={icdKey} message={readMessage.message} />
+        }
+      />
       <PForm.Section title="Timestamp">
         <TimestampFields {...rest} fields={fields} plan={plan} />
       </PForm.Section>
@@ -336,6 +360,8 @@ export const MessageSections: FC<MessageSectionsProps> = ({
 export interface MessageDetailsProps extends MessageSectionsProps {
   /** Titles the section that matches the values of the message, such as "Documents". */
   matchTitle: string;
+  /** Names the match option that takes every payload, such as "Any document". */
+  anyLabel: string;
   onAddField: () => void;
   addFieldDisabled?: boolean;
 }
@@ -343,6 +369,7 @@ export interface MessageDetailsProps extends MessageSectionsProps {
 /** The name and match of a message of a source that reads several. */
 export const MessageDetails: FC<MessageDetailsProps> = ({
   matchTitle,
+  anyLabel,
   onAddField,
   addFieldDisabled = false,
   ...rest
@@ -364,7 +391,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
               actions={
                 <>
                   <AddField onClick={onAddField} disabled={addFieldDisabled} />
-                  <OpenInEditor icdKey={icdKey} />
+                  <OpenInEditor icdKey={icdKey} message={key} />
                 </>
               }
             >
@@ -381,6 +408,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
                   "format",
                   "json",
                 )}
+                anyLabel={anyLabel}
               />
             </PForm.Section>
           </PForm.Form>

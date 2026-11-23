@@ -10,18 +10,18 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useKeyedListeners } from "@/store/store";
+import { Store } from "@/store";
 
 describe("useKeyedListeners", () => {
   describe("initialization", () => {
     it("should return notifyListeners and subscribe functions", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       expect(result.current.notifyListeners).toBeInstanceOf(Function);
       expect(result.current.subscribe).toBeInstanceOf(Function);
     });
 
     it("should maintain stable references across re-renders", () => {
-      const { result, rerender } = renderHook(() => useKeyedListeners<string>());
+      const { result, rerender } = renderHook(() => Store.useKeyedListeners<string>());
       const initialNotifyListeners = result.current.notifyListeners;
       const initialSubscribe = result.current.subscribe;
 
@@ -34,7 +34,7 @@ describe("useKeyedListeners", () => {
 
   describe("subscribe", () => {
     it("should subscribe a listener without a key", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -50,7 +50,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should subscribe a listener with a specific key", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -65,7 +65,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should return unsubscribe function that removes listener", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       let unsubscribe: () => void;
@@ -89,7 +89,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should handle multiple listeners", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -109,7 +109,7 @@ describe("useKeyedListeners", () => {
 
   describe("notifyListeners", () => {
     it("should notify listeners without keys for any notification", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const globalListener = vi.fn();
 
       act(() => {
@@ -128,7 +128,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should accept a single key in place of an array", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const matching = vi.fn();
       const other = vi.fn();
 
@@ -145,7 +145,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should only notify listeners with matching keys", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const listener3 = vi.fn();
@@ -166,7 +166,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should notify listeners when their key is included in the array", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -181,7 +181,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should not notify listeners when their key is not included", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -196,7 +196,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should handle empty notification array", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const keyedListener = vi.fn();
       const globalListener = vi.fn();
 
@@ -216,7 +216,7 @@ describe("useKeyedListeners", () => {
 
   describe("key types", () => {
     it("should work with string keys", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -231,7 +231,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should work with number keys", () => {
-      const { result } = renderHook(() => useKeyedListeners<number>());
+      const { result } = renderHook(() => Store.useKeyedListeners<number>());
       const listener = vi.fn();
 
       act(() => {
@@ -248,7 +248,7 @@ describe("useKeyedListeners", () => {
 
   describe("edge cases", () => {
     it("should keep a listener on every key it subscribes to", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
       let unsubscribeFirst: () => void;
 
@@ -276,7 +276,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should notify a listener once per call", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       act(() => {
@@ -292,7 +292,7 @@ describe("useKeyedListeners", () => {
     });
 
     it("should handle unsubscribing a non-existent listener gracefully", () => {
-      const { result } = renderHook(() => useKeyedListeners<string>());
+      const { result } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
 
       let unsubscribe: () => void;
@@ -315,7 +315,7 @@ describe("useKeyedListeners", () => {
 
   describe("cleanup", () => {
     it("should clean up listeners when component unmounts", () => {
-      const { result, unmount } = renderHook(() => useKeyedListeners<string>());
+      const { result, unmount } = renderHook(() => Store.useKeyedListeners<string>());
       const listener = vi.fn();
       act(() => {
         result.current.subscribe(listener);

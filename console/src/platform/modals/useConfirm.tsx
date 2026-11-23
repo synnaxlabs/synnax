@@ -29,6 +29,7 @@ interface ButtonProps {
   variant?: status.Variant;
   label?: string;
   delay?: number;
+  disabled?: boolean;
 }
 
 export interface ConfirmParams {
@@ -79,12 +80,13 @@ const CancelButton = ({
     {label}
   </Button.Button>
 );
-interface LayoutProps extends ConfirmParams, PropsWithChildren {
+export interface ConfirmLayoutProps extends ConfirmParams, PropsWithChildren {
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-const Layout = ({
+/** A confirm: a message, a description, and Cancel and Confirm buttons. */
+export const ConfirmLayout = ({
   message,
   description,
   confirm = {},
@@ -94,7 +96,7 @@ const Layout = ({
   onConfirm,
   onCancel,
   children,
-}: LayoutProps) => (
+}: ConfirmLayoutProps) => (
   <Modal.Frame className={CSS.B("confirm")}>
     <Modal.Header icon={icon}>{title}</Modal.Header>
     <Modal.Body gap="medium" className={CSS.BE("confirm", "body")}>
@@ -117,7 +119,11 @@ const Confirm = ({
   close,
   ...rest
 }: Session.Modals.ContentProps<ConfirmParams, boolean>) => (
-  <Layout {...rest} onConfirm={() => close(true)} onCancel={() => close(false)} />
+  <ConfirmLayout
+    {...rest}
+    onConfirm={() => close(true)}
+    onCancel={() => close(false)}
+  />
 );
 
 export const useConfirm = createPrompt<boolean, ConfirmParams>(Confirm);
@@ -146,7 +152,7 @@ const ConfirmWithOption = ({
   const labelID = `${id}-label`;
   const [checked, setChecked] = useState(false);
   return (
-    <Layout
+    <ConfirmLayout
       {...rest}
       onConfirm={() => close({ option: checked })}
       onCancel={() => close()}
@@ -168,7 +174,7 @@ const ConfirmWithOption = ({
           {description != null && <Text.Text color={9}>{description}</Text.Text>}
         </Flex.Box>
       </Flex.Box>
-    </Layout>
+    </ConfirmLayout>
   );
 };
 

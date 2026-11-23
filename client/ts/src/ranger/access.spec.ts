@@ -29,7 +29,7 @@ describe("range", () => {
       const randomRange = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange(1n, 1000n),
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await expect(userClient.ranges.retrieve(randomRange.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -45,7 +45,7 @@ describe("range", () => {
       const randomRange = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange(1n, 1000n),
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       const retrieved = await userClient.ranges.retrieve(randomRange.key);
       expect(retrieved.key).toBe(randomRange.key);
@@ -61,7 +61,7 @@ describe("range", () => {
       await userClient.ranges.create({
         name: "test",
         timeRange: new TimeRange(1n, 1000n),
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
     });
 
@@ -75,7 +75,7 @@ describe("range", () => {
         userClient.ranges.create({
           name: "test",
           timeRange: new TimeRange(1n, 1000n),
-          color: "#E774D0",
+          color: { type: "fixed", value: "#E774D0" },
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -89,7 +89,7 @@ describe("range", () => {
       const randomRange = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange(1n, 1000n),
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await userClient.ranges.delete(randomRange.key);
       await expect(userClient.ranges.retrieve(randomRange.key)).rejects.toThrow(
@@ -106,7 +106,7 @@ describe("range", () => {
       const randomRange = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange(1n, 1000n),
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await expect(userClient.ranges.delete(randomRange.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -114,7 +114,10 @@ describe("range", () => {
     });
 
     it("should give the label keys of a range to a caller that cannot read the labels", async () => {
-      const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
+      const lbl = await client.labels.create({
+        name: "test",
+        color: { type: "fixed", value: "#FF0000" },
+      });
       const rng = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange({ start: 1, end: 2 }),

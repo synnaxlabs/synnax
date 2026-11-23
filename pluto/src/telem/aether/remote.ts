@@ -281,6 +281,16 @@ const viewRange = (view: bounds.Bounds): TimeRange | undefined => {
   );
 };
 
+// Returns the time range of a span, or undefined for a span with no finite edge.
+const spanRange = (span: bounds.Bounds): TimeRange | undefined => {
+  const { lower, upper } = span;
+  if (!Number.isFinite(lower) && !Number.isFinite(upper)) return undefined;
+  return new TimeRange(
+    Number.isFinite(lower) ? BigInt(Math.max(Math.floor(lower), 0)) : TimeStamp.MIN,
+    Number.isFinite(upper) ? BigInt(Math.ceil(upper)) : TimeStamp.MAX,
+  );
+};
+
 /**
  * A series source that draws a channel across the view passed to value(), or across
  * the home view when none is passed. A live line draws its newest samples at full
@@ -312,6 +322,7 @@ export class ChannelData
   private drawView?: bounds.Bounds;
   private drawPoints = 0;
   private drawSettling = false;
+  private drawSpan?: bounds.Bounds;
   private boundsView?: bounds.Bounds;
   private boundsPoints = 0;
   // boundsRead is true when a bounds read ran since the last draw.
@@ -356,7 +367,9 @@ export class ChannelData
     this.setProps(next);
     const key = this.channel?.key;
     if (key == null) return true;
-    this.draw?.update(this.drawRequest(key, this.drawView, this.drawSettling));
+    this.draw?.update(
+      this.drawRequest(key, this.drawView, this.drawSettling, this.drawSpan),
+    );
     this.bounds?.update(this.boundsRequest(key, this.boundsView));
     return true;
   }
@@ -365,7 +378,7 @@ export class ChannelData
     return this.props.window.variant === "dynamic";
   }
 
-  value({ bounds: view, points, extremesKept = false }: ValueProps = {}): Result<
+  value({ bounds: view, points, extremesKept = false, span }: ValueProps = {}): Result<
     [bounds.Bounds, MultiSeries]
   > {
     if (points != null) this.points = points;
@@ -382,7 +395,7 @@ export class ChannelData
     const { series, time, streaming } =
       extremesKept && !this.xy
         ? this.readBounds(client, ch.key, view)
-        : this.readDraw(client, ch.key, view, points != null);
+        : this.readDraw(client, ch.key, view, points != null, span);
     this.streaming = streaming === true;
     const status = this.status();
     this.failures.observe(status);
@@ -405,19 +418,22 @@ export class ChannelData
     key: channel.Key,
     view: bounds.Bounds | undefined,
     draws: boolean,
+    span: bounds.Bounds | undefined,
   ): framer.Snapshot {
     const settling = !draws && view != null;
     const target = draws || settling ? view : undefined;
+    const targetSpan = draws || settling ? span : undefined;
     if (
       this.draw == null ||
-      ((draws || settling) && this.drawChanged(target, settling))
+      ((draws || settling) && this.drawChanged(target, settling, targetSpan))
     ) {
-      const request = this.drawRequest(key, target, settling);
+      const request = this.drawRequest(key, target, settling, targetSpan);
       if (this.draw == null) this.draw = this.subscribe(client, request);
       else this.draw.update(request);
       this.drawView = target && { ...target };
       this.drawPoints = this.points;
       this.drawSettling = settling;
+      this.drawSpan = targetSpan && { ...targetSpan };
     }
     // A line that stops reading its bounds closes them at its next draw.
     if (draws) {
@@ -430,13 +446,19 @@ export class ChannelData
     return snapshot;
   }
 
-  private drawChanged(view: bounds.Bounds | undefined, settling: boolean): boolean {
+  private drawChanged(
+    view: bounds.Bounds | undefined,
+    settling: boolean,
+    span: bounds.Bounds | undefined,
+  ): boolean {
     const last = this.drawView;
     return (
       settling !== this.drawSettling ||
       this.points !== this.drawPoints ||
       view?.lower !== last?.lower ||
-      view?.upper !== last?.upper
+      view?.upper !== last?.upper ||
+      span?.lower !== this.drawSpan?.lower ||
+      span?.upper !== this.drawSpan?.upper
     );
   }
 
@@ -444,6 +466,7 @@ export class ChannelData
     key: channel.Key,
     view: bounds.Bounds | undefined,
     settling: boolean,
+    span: bounds.Bounds | undefined,
   ): framer.PointsRequest {
     const { window, aggregation } = this.props;
     if (this.xy)
@@ -459,22 +482,23 @@ export class ChannelData
     };
     const range = view == null ? undefined : viewRange(view);
     if (range != null) limit.view = range;
+    const boundary = span == null ? undefined : spanRange(span);
+    if (boundary != null) limit.bound = boundary;
     if (settling) limit.settling = true;
     return { keys: [key], window, limit };
   }
 
-  // Reads the samples that bound the home view, reduced with min_max so they keep the
-  // extremes that other aggregations drop. A window that streams ends at the newest
-  // sample of every line on its axis, so it bounds the view the caller passes instead.
-  // The draw serves until the first ones load.
+  // Reads the samples that bound the view the caller passes, or the home view when it
+  // passes none, reduced with min_max so they keep the extremes that other aggregations
+  // drop. A line can draw past its window, so the view can too. The draw serves until
+  // the first ones load.
   private readBounds(
     client: Client,
     key: channel.Key,
     view: bounds.Bounds | undefined,
   ): framer.Snapshot {
     this.boundsRead = true;
-    const range =
-      (this.live || this.streaming) && view != null ? viewRange(view) : undefined;
+    const range = view == null ? undefined : viewRange(view);
     const target = range == null ? undefined : view;
     if (
       this.bounds == null ||

@@ -11,6 +11,7 @@ import { DataType, id, math, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
+import { NotFoundError } from "@/index";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -119,6 +120,36 @@ describe("Reader", () => {
       ).toEqual([
         [index.name, data.name],
         ["1000000000", "10"],
+      ]);
+    });
+    it("should export one header and the rows of several time ranges", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      await client.write(TimeStamp.seconds(1), {
+        [index.key]: secondsLinspace(1, 8),
+        [data.key]: [1, 2, 3, 4, 5, 6, 7, 8],
+      });
+      const stream = await client.readCSV(
+        [
+          { start: TimeStamp.seconds(6), end: TimeStamp.seconds(8) },
+          { start: TimeStamp.seconds(1), end: TimeStamp.seconds(3) },
+        ],
+        [data.key],
+      );
+      expect(await streamToRecords(stream)).toEqual([
+        [index.name, data.name],
+        ["1000000000", "1"],
+        ["2000000000", "2"],
+        ["6000000000", "6"],
+        ["7000000000", "7"],
       ]);
     });
     it("should export multiple channels with different indexes", async () => {
@@ -874,6 +905,20 @@ describe("Reader", () => {
       const file = await streamToString(stream);
       expect(file.startsWith("TDSm")).toBe(true);
       expect(file).toContain(`/'${index.name}'/'${data.name}'`);
+    });
+  });
+
+  describe("missing channels", () => {
+    it("should throw a NotFoundError when reading CSV from a missing channel", async () => {
+      await expect(
+        client.readCSV({ start: 0, end: 1 }, [`missing-${id.create()}`]),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should throw a NotFoundError when reading TDMS from a missing channel", async () => {
+      await expect(
+        client.readTDMS({ start: 0, end: 1 }, [`missing-${id.create()}`]),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

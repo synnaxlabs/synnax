@@ -131,7 +131,7 @@ var _ = Describe("ImEx", func() {
 			}`, ch1, ch2)), imex.ImportOptions{Parent: proj.ResourceID()})
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{ch1, ch2}))
-			Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
+			Expect(uncolored(res.Ranges)).To(Equal([]ranger.Ref{recentRef}))
 			// Lines are derived from the channels and ranges bindings on create.
 			Expect(res.Lines).To(HaveLen(2))
 		})
@@ -319,7 +319,7 @@ var _ = Describe("ImEx", func() {
 					Y3: []channel.Key{},
 					Y4: []channel.Key{},
 				}))
-				Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
+				Expect(uncolored(res.Ranges)).To(Equal([]ranger.Ref{recentRef}))
 			},
 		)
 

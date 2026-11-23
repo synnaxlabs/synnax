@@ -16,6 +16,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
+	"reflect"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,6 +76,48 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateCAPair()).To(Succeed())
 		})
 	})
+	Describe("CreateCAPairIfMissing", func() {
+		DescribeTable("Should create the pair when the certificate is missing",
+			func(reuse bool) {
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:            fs,
+					AllowKeyReuse: new(reuse),
+					KeySize:       testutil.SmallKeySize,
+				}))
+				Expect(f.CreateCAPairIfMissing()).To(Succeed())
+				cfg := f.Config()
+				_, before := MustSucceed2(f.Loader.LoadCAPair())
+				Expect(cfg.FS.Remove(cfg.CACertPath)).To(Succeed())
+				Expect(f.CreateCAPairIfMissing()).To(Succeed())
+				_, after := MustSucceed2(f.Loader.LoadCAPair())
+				Expect(reflect.DeepEqual(after, before)).To(Equal(reuse))
+			},
+			Entry("without key reuse", false),
+			Entry("with key reuse", true),
+		)
+		It("Should leave a certificate without its key untouched", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				FS:      fs,
+				KeySize: testutil.SmallKeySize,
+			}))
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			cfg := f.Config()
+			Expect(cfg.FS.Remove(cfg.CAKeyPath)).To(Succeed())
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			Expect(cfg.FS.Exists(cfg.CAKeyPath)).To(BeFalse())
+		})
+		It("Should leave an existing pair untouched", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				FS:      fs,
+				KeySize: testutil.SmallKeySize,
+			}))
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			before, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			after, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(after.Equal(before)).To(BeTrue())
+		})
+	})
 	Describe("Node Generation", func() {
 		It("Should generate a node certificate and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -128,6 +171,23 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateNodePairIfStale()).To(Succeed())
 			c, _ := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
+		})
+		It("Should create the pair when only the node key exists", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove(f.Config().AbsoluteNodeCertPath())).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
+		})
+		It("Should create the pair when only the node certificate exists", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove(f.Config().AbsoluteNodeKeyPath())).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			MustSucceed(f.Loader.LoadNodeTLS())
 		})
 		It("Should fail on a node certificate it cannot parse", func() {
 			f := newFactory("synnaxlabs.com")

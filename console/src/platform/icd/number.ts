@@ -66,15 +66,24 @@ const carry = <V extends Value>(
  * that parses and does not fit drops, so a half-typed one stays for the deploy check. A
  * field that holds no number starts with none.
  */
-export const numberOptionsOf = (field: icd.JSONField, kind: Kind): NumberOptions => {
-  const held: Held =
-    field.type === "float" || field.type === "integer" || field.type === "unsigned"
-      ? field
-      : { enumValues: [] };
+export const numberOptionsOf = (field: icd.JSONField, kind: Kind): NumberOptions =>
+  field.type === "float" || field.type === "integer" || field.type === "unsigned"
+    ? optionsOf(field, field.type, kind)
+    : optionsOf({ enumValues: [] }, undefined, kind);
+
+/**
+ * @returns the default of field as a binary field of kind. It carries over as the
+ * default of a JSON field does in numberOptionsOf.
+ */
+export const binaryOptionsOf = (field: icd.BinaryField, kind: Kind): NumberOptions =>
+  optionsOf({ enumValues: [], default: field.default }, field.kind, kind);
+
+/** @returns held, the options of a field of kind from, as options of kind. */
+const optionsOf = (held: Held, from: Kind | undefined, kind: Kind): NumberOptions => {
   if (kind === "float") return { type: kind, ...carry(held, toFloat) };
   const toKind = (value: Value): string | null => {
     const v = toDecimal(value, kind);
-    if (field.type !== kind || typeof value !== "string") return v;
+    if (from !== kind || typeof value !== "string") return v;
     return v != null || !DECIMAL.test(value) ? value : null;
   };
   return { type: kind, ...carry(held, toKind) };

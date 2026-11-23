@@ -17,9 +17,15 @@ import { Icon } from "@/icon";
 
 /** Props for {@link CreateListItem}. */
 export interface CreateListItemProps extends Omit<ButtonProps, "size"> {
-  /** Item scale matching the list the button sits under. */
+  /** The scale of the list the button sits under. A small item is a small button. */
   size?: "small" | "medium" | "large";
 }
+
+// A large item keeps medium text in its larger box.
+const BUTTON_SIZES: Record<
+  NonNullable<CreateListItemProps["size"]>,
+  ButtonProps["size"]
+> = { small: "small", medium: "medium", large: "medium" };
 
 /** A pinned create action styled to read as a list's last item. */
 export const CreateListItem = ({
@@ -29,6 +35,7 @@ export const CreateListItem = ({
   ...rest
 }: CreateListItemProps): ReactElement => (
   <Button
+    size={BUTTON_SIZES[size]}
     variant="text"
     textColor={9}
     justify="start"

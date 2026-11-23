@@ -12,7 +12,7 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/pages/api/webhooks/clerk";
-import { activation, event, license, organization, referral } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A, NOW } from "@/server/license/testutil";
 import { joined } from "@/server/slack";
@@ -86,7 +86,8 @@ describe("POST /api/webhooks/clerk", () => {
     );
   };
 
-  const organizations = async () => await store.query.select().from(organization);
+  const organizations = async () =>
+    await store.query.select().from(schema.organization);
 
   describe("verification", () => {
     beforeEach(() => {
@@ -216,7 +217,7 @@ describe("POST /api/webhooks/clerk", () => {
         license: lic.key,
         fingerprint: [HASH_A],
       });
-      await store.query.insert(event).values({
+      await store.query.insert(schema.event).values({
         at: NOW,
         kind: "link",
         actor: "user_ada",
@@ -226,15 +227,15 @@ describe("POST /api/webhooks/clerk", () => {
       });
       expect((await post(userDeleted)).status).toBe(204);
       expect(await organizations()).toEqual([]);
-      expect(await store.query.select().from(license)).toEqual([]);
-      expect(await store.query.select().from(activation)).toEqual([]);
-      expect(await store.query.select().from(event)).toEqual([]);
+      expect(await store.query.select().from(schema.license)).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
+      expect(await store.query.select().from(schema.event)).toEqual([]);
     });
 
     it("should delete the referral the user claimed", async () => {
       await createReferral(store, { userID: "user_ada", claimedAt: NOW });
       await post(userDeleted);
-      expect(await store.query.select().from(referral)).toEqual([]);
+      expect(await store.query.select().from(schema.referral)).toEqual([]);
     });
 
     it("should keep the personal organizations of other users", async () => {

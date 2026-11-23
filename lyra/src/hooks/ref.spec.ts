@@ -11,7 +11,7 @@ import { act, render, renderHook } from "@testing-library/react";
 import { createElement, type RefObject, useLayoutEffect } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { useCombinedRefs, useCombinedStateAndRef, useSyncedRef } from "@/hooks/ref";
+import { useCombinedRefs, useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 
 describe("useSyncedRef", () => {
   it("should update the ref before a child's layout effect reads it", () => {

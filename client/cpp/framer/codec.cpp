@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -124,11 +125,6 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
 
     const auto &state = this->states.at(this->seq_num);
 
-    if (frame.channels->size() != state.keys.size()) {
-        flags.all_channels_present = false;
-        byte_array_size += frame.channels->size() * KEY_SIZE;
-    }
-
     this->sorting_indices.resize(frame.size());
     for (size_t i = 0; i < frame.channels->size(); i++) {
         auto k = frame.channels->at(i);
@@ -153,6 +149,11 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
         this->sorting_indices[i] = {k, i};
     }
     std::ranges::sort(sorting_indices);
+
+    if (!std::ranges::equal(sorting_indices | std::views::keys, state.keys)) {
+        flags.all_channels_present = false;
+        byte_array_size += frame.channels->size() * KEY_SIZE;
+    }
 
     flags.equal_lens = !state.has_variable_data_types;
     size_t cur_data_size = 0;

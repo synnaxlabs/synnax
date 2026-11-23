@@ -1,0 +1,16 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* With no footer, the list draws the border and takes the corners of the box around it,
+   which a packed dialog squares where the list joins the search field. */
+.lyra-select__frame > .lyra-list__scroll {
+    border-radius: inherit;
+}

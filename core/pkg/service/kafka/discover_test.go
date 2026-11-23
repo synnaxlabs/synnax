@@ -264,7 +264,7 @@ var _ = Describe("Discover", func() {
 		It("Should report a device that does not exist", func(ctx SpecContext) {
 			stat := command(ctx, "browse", map[string]any{"device": "missing"}, nil)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(HavePrefix("retrieving device missing: "))
+			Expect(stat.Description).To(HavePrefix("retrieving device missing: "))
 		})
 	})
 
@@ -446,7 +446,7 @@ var _ = Describe("Discover", func() {
 			}, &struct{}{})
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(
-				stat.Message,
+				stat.Description,
 			).To(Equal("topics: must be non-empty: validation error"))
 		})
 
@@ -458,7 +458,7 @@ var _ = Describe("Discover", func() {
 				"topics": []string{topic, topic},
 			}, &struct{}{})
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).
+			Expect(stat.Description).
 				To(Equal(fmt.Sprintf("topics: must not repeat %q: validation error", topic)))
 		})
 

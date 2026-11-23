@@ -64,6 +64,8 @@ type refInfo struct {
 	// Zero is the Go zero value of a scalar field that holds no target while it is
 	// zero, because its default is zero. It is empty for any other field.
 	Zero string
+	// RetargetBody is the body of the reference's Retarget function.
+	RetargetBody string
 }
 
 // HoldsNone reports whether an entry can hold no target through the field.
@@ -224,89 +226,31 @@ func extractRef(
 	if isSlice {
 		elem = elem.TypeArgs[0]
 	}
-	for _, expr := range field.Domains["ref"].Expressions {
-		if !refExpressions.Contains(expr.Name) {
-			return fail("has unknown expression %s", expr.Name)
-		}
-		if singleRefExpressions.Contains(expr.Name) && len(expr.Values) > 1 {
-			return fail("needs one value for %s, not %d", expr.Name, len(expr.Values))
-		}
-		if flagRefExpressions.Contains(expr.Name) && len(expr.Values) > 0 {
-			return fail("needs no value for %s, not %d", expr.Name, len(expr.Values))
-		}
+	onDelete, kind, problem := refMode(field)
+	if problem != "" {
+		return fail("%s", problem)
 	}
-	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
-		field,
-		"ref",
-		"on_delete",
-	)]
-	if !ok {
-		return fail("needs on_delete cascade, restrict, detach, or inline")
-	}
-	kind, ok := kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
-	if !ok {
-		return fail("needs kind place or use")
-	}
-	isOptional := field.Optional && !isSlice
-	var zero string
-	if !isOptional && !isSlice && isZeroDefault(field.Default) {
-		zero = zeroValue(elem, table, func() string {
+	info := newRefInfo(field, elem, onDelete, kind, isSlice)
+	if !info.IsOptional && !isSlice && isZeroDefault(field.Default) {
+		info.Zero = zeroValue(elem, table, func() string {
 			return r.ResolveTypeRef(elem, ctx)
 		})
 	}
-	if onDelete == "Detach" && !isOptional && !isSlice && zero == "" && !inArray {
+	if onDelete == "Detach" && !info.IsOptional && !isSlice && info.Zero == "" &&
+		!inArray {
 		return fail("needs to be optional, an array, or zero by default to detach")
 	}
 	types := refTypes(field)
-	info := refInfo{
-		FieldName:   field.Name,
-		GoName:      naming.GetFieldName(field),
-		StructField: naming.LowerFirst(naming.GetFieldName(field)),
-		OnDelete:    onDelete,
-		Kind:        kind,
-		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
-		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
-		IsOptional:  isOptional,
-		IsSlice:     isSlice,
-		IsID:        elem.Name == resourceIDType,
-		Zero:        zero,
-	}
 	info.ElemGoType = r.ResolveTypeRef(elem, ctx)
-	if info.IsID {
-		if len(types) == 0 {
-			return fail("needs types to name the resource types it may reference")
-		}
-		for _, t := range types {
-			if !rt.names.Contains(t) {
-				return fail("names unknown resource type %s", t)
-			}
-		}
-		info.Tables = types
-	} else {
-		if len(types) > 0 {
-			return fail("can name types only when it holds resource IDs")
-		}
-		target, ok := rt.byKey[elem.Name]
-		if !ok {
-			return fail("needs the key type of a resource, not %s", elem.Name)
-		}
-		if other, ok := rt.conflicts[elem.Name]; ok {
-			return fail(
-				"has key type %s, which identifies both %s and %s",
-				elem.Name,
-				target,
-				other,
-			)
-		}
-		info.Tables = []string{target}
+	tables, problem := refTables(info.IsID, elem, types, rt)
+	if problem != "" {
+		return fail("%s", problem)
 	}
+	info.Tables = tables
 	if onDelete == "Inline" {
-		if info.IsID {
-			return fail("needs the key type of one resource to inline")
-		}
-		record := rt.records[info.Tables[0]]
-		if len(resolution.TypeParams(record.Form)) > 0 {
-			return fail("cannot inline the generic type %s", record.Name)
+		record, problem := inlineRecord(info, rt)
+		if problem != "" {
+			return fail("%s", problem)
 		}
 		info.TargetGoType = r.ResolveTypeRef(
 			resolution.TypeRef{Name: record.QualifiedName},
@@ -317,6 +261,118 @@ func extractRef(
 		return fail("can be acyclic only when it references its own type")
 	}
 	return info, nil
+}
+
+// newRefInfo returns the reference that field holds to elem, without its Go types, zero
+// value, or tables.
+func newRefInfo(
+	field resolution.Field,
+	elem resolution.TypeRef,
+	onDelete, kind string,
+	isSlice bool,
+) refInfo {
+	return refInfo{
+		FieldName:   field.Name,
+		GoName:      naming.GetFieldName(field),
+		StructField: naming.LowerFirst(naming.GetFieldName(field)),
+		OnDelete:    onDelete,
+		Kind:        kind,
+		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
+		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
+		IsOptional:  field.Optional && !isSlice,
+		IsSlice:     isSlice,
+		IsID:        elem.Name == resourceIDType,
+	}
+}
+
+// refMode returns the on_delete and kind of field's @ref, or what is wrong with its
+// expressions.
+func refMode(field resolution.Field) (onDelete, kind, problem string) {
+	if problem := refExpressionProblem(field); problem != "" {
+		return "", "", problem
+	}
+	onDelete, ok := onDeleteNames[plugindomain.GetStringFromField(
+		field,
+		"ref",
+		"on_delete",
+	)]
+	if !ok {
+		return "", "", "needs on_delete cascade, restrict, detach, or inline"
+	}
+	kind, ok = kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
+	if !ok {
+		return "", "", "needs kind place or use"
+	}
+	return onDelete, kind, ""
+}
+
+// inlineRecord returns the record type that an inline reference copies, or what keeps
+// info from inlining it.
+func inlineRecord(info refInfo, rt resourceTypes) (resolution.Type, string) {
+	if info.IsID {
+		return resolution.Type{}, "needs the key type of one resource to inline"
+	}
+	record := rt.records[info.Tables[0]]
+	if len(resolution.TypeParams(record.Form)) > 0 {
+		return resolution.Type{}, "cannot inline the generic type " + record.Name
+	}
+	return record, ""
+}
+
+// refExpressionProblem returns what is wrong with the expressions of field's @ref, or
+// "" when nothing is.
+func refExpressionProblem(field resolution.Field) string {
+	for _, expr := range field.Domains["ref"].Expressions {
+		if !refExpressions.Contains(expr.Name) {
+			return "has unknown expression " + expr.Name
+		}
+		if singleRefExpressions.Contains(expr.Name) && len(expr.Values) > 1 {
+			return fmt.Sprintf(
+				"needs one value for %s, not %d", expr.Name, len(expr.Values),
+			)
+		}
+		if flagRefExpressions.Contains(expr.Name) && len(expr.Values) > 0 {
+			return fmt.Sprintf(
+				"needs no value for %s, not %d", expr.Name, len(expr.Values),
+			)
+		}
+	}
+	return ""
+}
+
+// refTables returns the resource types that a reference to elem may name, or what is
+// wrong with the reference. isID is true when elem is a resource ID, which names its
+// types in the types expression.
+func refTables(
+	isID bool, elem resolution.TypeRef, types []string, rt resourceTypes,
+) ([]string, string) {
+	if isID {
+		if len(types) == 0 {
+			return nil, "needs types to name the resource types it may reference"
+		}
+		for _, t := range types {
+			if !rt.names.Contains(t) {
+				return nil, "names unknown resource type " + t
+			}
+		}
+		return types, ""
+	}
+	if len(types) > 0 {
+		return nil, "can name types only when it holds resource IDs"
+	}
+	target, ok := rt.byKey[elem.Name]
+	if !ok {
+		return nil, "needs the key type of a resource, not " + elem.Name
+	}
+	if other, ok := rt.conflicts[elem.Name]; ok {
+		return nil, fmt.Sprintf(
+			"has key type %s, which identifies both %s and %s",
+			elem.Name,
+			target,
+			other,
+		)
+	}
+	return []string{target}, ""
 }
 
 // refTypes returns the resource types named by the types expression of field's @ref.

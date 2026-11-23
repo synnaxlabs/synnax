@@ -72,6 +72,12 @@ def dismiss(t: Target, gh: GH, *, comment: int | None, key: str) -> bool:
     found = threads(t, gh)
     replies = {c["databaseId"] for th in found for c in th.replies}
     if comment is not None and comment not in replies:
+        finding = next((th for th in found if th.comment == comment), None)
+        if finding is not None:
+            raise ValueError(
+                f"comment {comment} is the finding {finding.title!r}, not a reply. "
+                "Give a reply on its thread, or its title as the finding."
+            )
         raise ValueError(
             f"comment {comment} is not on a finding of pull request {t.pr}"
         )

@@ -459,6 +459,154 @@ var _ = Describe("Check with a base", func() {
 	)
 })
 
+const caller = "https://github.com/synnaxlabs/synnax/pull/1"
+
+func pending(receiver, name string) exports.Pending {
+	return exports.Pending{
+		Module:   "testdata/a",
+		Package:  "example.com/a/lib",
+		Receiver: receiver,
+		Name:     name,
+		Caller:   caller,
+	}
+}
+
+var _ = Describe("Check with pending entries", func() {
+	newTestedAndSide := []edit{
+		{libGo, "func Tested() {}\n", ""},
+		{libTestGo, "lib.Tested", "lib.Used"},
+		{libGo, "func (Square) Side()", "func (Op) Side()"},
+		{libGo, "Square{}.Side()", "Op{}.Side()"},
+	}
+
+	DescribeTable("Should drop the findings that pending entries name beside a base",
+		func(ctx SpecContext, entries []exports.Pending, expected []finding) {
+			findings := MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Base:    copyModules(newTestedAndSide...),
+				Pending: entries,
+			}))
+			Expect(summarize(findings)).To(Equal(expected))
+		},
+		Entry(
+			"a function",
+			[]exports.Pending{pending("", "Tested")},
+			[]finding{{File: "lib.go", Kind: "method", Name: "Side"}},
+		),
+		Entry(
+			"a function and a method",
+			[]exports.Pending{pending("", "Tested"), pending("Square", "Side")},
+			[]finding{},
+		),
+	)
+
+	DescribeTable("Should return a validation error for a stale entry beside a base",
+		func(ctx SpecContext, entry exports.Pending, name string) {
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Base:    copyModules(),
+				Pending: []exports.Pending{entry},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(name+" (caller "+caller+")")),
+				MatchError(ContainSubstring("delete the entry")),
+			))
+		},
+		Entry("an identifier that another package uses", pending("", "Used"),
+			"example.com/a/lib.Used"),
+		Entry("an identifier that is gone", pending("", "Gone"),
+			"example.com/a/lib.Gone"),
+		Entry("a method of another receiver", pending("Op", "Side"),
+			"example.com/a/lib.Op.Side"),
+	)
+
+	It(
+		"Should not judge an entry of a module that it does not check",
+		func(ctx SpecContext) {
+			Expect(MustSucceed(exports.Check(ctx, exports.Config{
+				Modules:   []string{"testdata/b"},
+				Workspace: []string{"testdata/a", "testdata/c"},
+				GOOS:      []string{"linux"},
+				Base:      copyModules(),
+				Pending:   []exports.Pending{pending("", "Used")},
+			}))).To(BeEmpty())
+		},
+	)
+
+	It("Should have no effect without a base", func(ctx SpecContext) {
+		findings := MustSucceed(exports.Check(ctx, exports.Config{
+			Modules: modules,
+			GOOS:    []string{"linux"},
+			Pending: []exports.Pending{pending("", "Internal"), pending("", "Used")},
+		}))
+		Expect(findings).To(ContainElement(HaveField("Name", "Internal")))
+	})
+
+	DescribeTable("Should return a validation error for an invalid entry",
+		func(ctx SpecContext, entry exports.Pending, message string) {
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Pending: []exports.Pending{entry},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(message)),
+			))
+		},
+		Entry(
+			"an unknown module",
+			exports.Pending{
+				Module:  "testdata/x",
+				Package: "example.com/x",
+				Name:    "X",
+				Caller:  caller,
+			},
+			"pending module testdata/x",
+		),
+		Entry(
+			"no package",
+			exports.Pending{Module: "testdata/a", Name: "Used", Caller: caller},
+			"pending .Used (caller "+caller+") must name a package, a name, and a caller",
+		),
+		Entry(
+			"no name",
+			exports.Pending{
+				Module:  "testdata/a",
+				Package: "example.com/a/lib",
+				Caller:  caller,
+			},
+			"must name a package, a name, and a caller",
+		),
+		Entry(
+			"no caller",
+			exports.Pending{
+				Module:  "testdata/a",
+				Package: "example.com/a/lib",
+				Name:    "Used",
+			},
+			"must name a package, a name, and a caller",
+		),
+	)
+})
+
+var _ = Describe("Pending", func() {
+	Describe("String", func() {
+		It("Should name the package and the caller", func() {
+			Expect(pending("", "Used").String()).To(Equal(
+				"example.com/a/lib.Used (caller " + caller + ")",
+			))
+		})
+
+		It("Should name the receiver of a method", func() {
+			Expect(pending("Square", "Side").String()).To(Equal(
+				"example.com/a/lib.Square.Side (caller " + caller + ")",
+			))
+		})
+	})
+})
+
 var _ = Describe("Finding", func() {
 	Describe("String", func() {
 		It("Should name the receiver of a method", func() {

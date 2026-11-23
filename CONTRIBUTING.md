@@ -61,8 +61,10 @@ a maintainer approves the head, and Sedosaur scores the head 5/5.
 ## Review tiers
 
 The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
-report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
-label.
+report that `Check - Classify` compares changes or fails, and lowers it again when a
+later run passes. A reviewer can raise it by swapping the label, and the classifier
+never lowers a tier that a person set. To keep a tier the classifier raised, remove
+`review/human` and add it again.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                                                                                                                 |
 | -------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,8 +88,8 @@ head gets no second review on one base once one succeeds, and a push that leaves
 diff the same, as a merge of the base does, gets the last review at once. To review that
 head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. To
 make Sedosaur stop reporting a finding, someone with write access replies
-`@sedosaur dismiss` and a reason on its thread. A finding outside the diff has no
-thread: they run
+`@sedosaur dismiss` and a reason on its thread. A finding on a file outside the diff has
+no thread: they run
 `gh workflow run dismiss.sedosaur.yaml -f pr=<number> -f finding='<title>' -f reason='<why>'`,
 with `path:<file>` after the title when two findings share it. Sedosaur resolves the
 thread, later reviews of the PR leave the finding out, and the head scores 5/5 once
@@ -95,22 +97,25 @@ every finding is dismissed. To show that a finding is wrong, a writer or an agen
 replies on its thread with evidence: the code, the type, or the test that settles it.
 Sedosaur checks the reply against the head, then withdraws the finding and resolves the
 thread, or replies why it holds. Later reviews leave a withdrawn finding out until its
-file changes. Sedosaur answers any other reply of a writer or an agent, such as "Fixed
-in <commit>", with how to dismiss. The gate does not wait for a human approval on either
-tier, except on a fork. A pull request Dependabot opened and wrote every commit of
-passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
-check the PR's paths select failed. A merge into `main` goes through a merge queue,
-which reruns CI with the integration suite added before the branch moves. A queue
-entry's CI builds `main` with the entries ahead of it and the entry itself, and selects
-checks from the entry's own change. An entry skips the integration suite when its own
-change touches only unit tests. The queue merges an entry only after it and every entry
-ahead of it pass. GitHub refuses a queue on a wildcard branch pattern, so a `release/**`
-merge goes in directly, and CI runs again on the pushed commit. The queue also runs the
-gate again on each entry. A release runs the integration suite itself. Nobody bypasses
-the rules on `main`: when Sedosaur is down, pull requests wait for it. The gate script
-is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
-`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
-`Check - Rulesets` workflow fails each day until GitHub matches the files.
+file changes. For a finding with no thread, they put the evidence in a PR comment that
+mentions `@sedosaur`. A comment starts no review: the review of the next push, or of a
+`repeat=true` dispatch, weighs it. Sedosaur answers any other reply of a writer or an
+agent, such as "Fixed in <commit>", with how to dismiss. The gate does not wait for a
+human approval on either tier, except on a fork. A pull request Dependabot opened and
+wrote every commit of passes the gate without a review. `OK` is the CI workflow's last
+job: it fails when any check the PR's paths select failed. A merge into `main` goes
+through a merge queue, which reruns CI with the integration suite added before the
+branch moves. A queue entry's CI builds `main` with the entries ahead of it and the
+entry itself, and selects checks from the entry's own change. An entry skips the
+integration suite when its own change touches only unit tests. The queue merges an entry
+only after it and every entry ahead of it pass. GitHub refuses a queue on a wildcard
+branch pattern, so a `release/**` merge goes in directly, and CI runs again on the
+pushed commit. The queue also runs the gate again on each entry. A release runs the
+integration suite itself. Nobody bypasses the rules on `main`: when Sedosaur is down,
+pull requests wait for it. The gate script is `.github/scripts/check_review.sh`, the
+rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
+applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
+until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
@@ -135,11 +140,11 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` is on only where its expression says. To ship in Desktop, its
-expression names `DESKTOP`, so it is on in Desktop builds and off in the Console build.
-A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the owner,
-the Linear umbrella issue, and the release that removes it. A flag past that release is
-a bug: promote or delete.
+`console/src/flags/flags.ts` is on only where its expression says. To ship in Desktop,
+its expression names `DESKTOP`, so it is on in Desktop builds and off in the Console
+build. A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the
+owner, the Linear umbrella issue, and the release that removes it. A flag past that
+release is a bug: promote or delete.
 
 1. **Land dark** in `review/human` PRs. The reviewer confirms the Console build
    tree-shakes the code out.

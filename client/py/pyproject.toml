@@ -131,6 +131,7 @@ markers = [
     "internal: mark test as an internal test",
     "icd: mark test as an ICD test",
     "label: mark test as a label test",
+    "kafka: mark test as a kafka test",
     "labjack: mark test as a labjack test",
     "lineplot: mark test as a line plot test",
     "log: mark test as a log test",
