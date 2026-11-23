@@ -90,14 +90,14 @@ func (o Operation) Validate() error {
 	return v.Error()
 }
 
-// Created is a channel that a create action carries, with the expression and operations
-// of the calculation that writes it for clients that read them from the channel.
+// Created is a channel that a create action carries. It holds no field that a retrieve
+// hides, so its expression and operations are empty.
 type Created struct {
 	Channel
-	// Expression is the expression of the calculation that writes the channel, or empty
-	// when none writes it.
+	// Expression is empty. A set after the create carries the expression to each
+	// subject who reads the calculation that writes the channel.
 	Expression string `json:"expression" msgpack:"expression"`
-	// Operations are the operations of the calculation that writes the channel.
+	// Operations are empty. A set after the create carries them, as the expression.
 	Operations []Operation `json:"operations" msgpack:"operations"`
 }
 
