@@ -53,8 +53,7 @@ interface PaneHeaderProps {
   note?: string;
   free: number;
   picked: number;
-  /** Absent for a pane that takes one value. */
-  onPickAll?: () => void;
+  onPickAll: () => void;
   onClear: () => void;
 }
 
@@ -89,16 +88,14 @@ export const PaneHeader = ({
             Clear
           </Button.Button>
         ) : (
-          onPickAll != null && (
-            <Button.Button
-              variant="text"
-              size="small"
-              disabled={free === 0}
-              onClick={onPickAll}
-            >
-              Select all
-            </Button.Button>
-          )
+          <Button.Button
+            variant="text"
+            size="small"
+            disabled={free === 0}
+            onClick={onPickAll}
+          >
+            Select all
+          </Button.Button>
         )}
       </Header.Actions>
     </Header.Header>

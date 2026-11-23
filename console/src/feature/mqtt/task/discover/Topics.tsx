@@ -118,15 +118,9 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
     }),
   );
 
-/**
- * The values a click on a topic picks: each free one. A single pick takes the first
- * number or boolean, or else the first string.
- */
-const defaultPointers = (free: Leaf[], single: boolean): Set<string> => {
-  if (!single) return new Set(free.map((l) => l.pointer));
-  const first = free.find((l) => l.type !== "string") ?? free.at(0);
-  return new Set(first == null ? [] : [first.pointer]);
-};
+/** The values a click on a topic picks: each free one. */
+const defaultPointers = (free: Leaf[]): Set<string> =>
+  new Set(free.map((l) => l.pointer));
 
 /** The values picked from one topic, with the fields they came from. */
 export interface TopicPick {
@@ -144,10 +138,10 @@ type Taken = Map<string, Set<string>>;
 const takenBy = (
   entries: HeldEntry[],
   topics: ListedTopic[],
-  single: boolean,
+  whole: boolean,
 ): Taken => {
   const plain = entries.flatMap((e) => (e.type === "plain" ? [e] : []));
-  if (!single)
+  if (!whole)
     return new Map(
       plain.map((e) => [e.topic, new Set(e.fields.map((f) => f.pointer))]),
     );
@@ -179,11 +173,14 @@ const toItem = (
   { name, path, topic, topics }: Folder,
   picks: TopicPicks,
   taken: Taken,
+  whole: boolean,
   indexed: boolean,
 ): ICD.Picker.TreeItem => {
   const pickable = topics.filter((t) => freeLeaves(t, taken, indexed).length > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
-  const values = math.sum(topics.map((t) => picks.get(t.topic)?.pointers.size ?? 0));
+  const values = whole
+    ? topics.filter((t) => picks.has(t.topic)).length
+    : math.sum(topics.map((t) => picks.get(t.topic)?.pointers.size ?? 0));
   let meta = "";
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";
@@ -205,12 +202,13 @@ const toItems = (
   folders: Folder[],
   picks: TopicPicks,
   taken: Taken,
+  whole: boolean,
   indexed: boolean,
   into: ICD.Picker.TreeItem[] = [],
 ): ICD.Picker.TreeItem[] => {
   for (const f of folders) {
-    into.push(toItem(f, picks, taken, indexed));
-    toItems(f.children, picks, taken, indexed, into);
+    into.push(toItem(f, picks, taken, whole, indexed));
+    toItems(f.children, picks, taken, whole, indexed, into);
   }
   return into;
 };
@@ -221,7 +219,7 @@ interface TopicValuesProps {
   taken: Set<string>;
   /** The pointer of the timestamp that the picks take with them. */
   index?: string;
-  single: boolean;
+  whole: boolean;
   onChange: (value: Set<string>) => void;
 }
 
@@ -230,7 +228,7 @@ const TopicValues = ({
   value,
   taken,
   index,
-  single,
+  whole,
   onChange,
 }: TopicValuesProps) => {
   const [raw, setRaw] = useState(false);
@@ -257,16 +255,16 @@ const TopicValues = ({
         note={topic.retained ? "Retained" : undefined}
         free={free.length}
         picked={value.size}
-        onPickAll={single ? undefined : () => onChange(new Set(free))}
+        onPickAll={() => onChange(new Set(free))}
         onClear={() => onChange(new Set())}
       />
       <ICD.Picker.Values
         noun="Field"
         groups={[{ values }]}
         value={[...value]}
-        // A single pick replaces the one before.
+        // A whole pick holds every free field, so one tick or untick moves them all.
         onChange={(keys) =>
-          onChange(new Set(single ? keys.filter((k) => !value.has(k)).slice(-1) : keys))
+          onChange(new Set(whole ? (keys.length > value.size ? free : []) : keys))
         }
       />
       <Flex.Box y align="start" className={CSS.BE("mqtt-discover", "raw")}>
@@ -302,24 +300,27 @@ export interface TopicPickerProps {
   device: Device.Device;
   /** What the task holds now. */
   entries: HeldEntry[];
-  /** Each topic takes one value, and a topic that the task holds takes none. */
-  single?: boolean;
+  /** Each pick is a whole topic, and a topic that the task holds takes none. */
+  whole?: boolean;
   /** A pick of a topic that the task does not read takes its index too. */
   indexed?: boolean;
   value: TopicPicks;
   onChange: (value: TopicPicks) => void;
   onAddByName: (topic: string) => void;
+  /** Shows at the foot of the list, such as a field that every pick shares. */
+  children?: ReactNode;
 }
 
 /** Lists the JSON topics the broker publishes, and the fields of the one selected. */
 export const TopicPicker = ({
   device,
   entries,
-  single = false,
+  whole = false,
   indexed = false,
   value,
   onChange,
   onAddByName,
+  children,
 }: TopicPickerProps) => {
   const [term, setTerm] = useState("");
   const [scope, setScope] = useState("");
@@ -339,13 +340,13 @@ export const TopicPicker = ({
   const listing = result.data;
   const topics = listing?.topics ?? NO_TOPICS;
 
-  const taken = takenBy(entries, topics, single);
+  const taken = takenBy(entries, topics, whole);
   const trimmed = term.trim();
   const visible = topics.filter((t) => search.matches(t.topic, trimmed));
   const folders = buildFolders(visible);
   const paths = byPath(folders);
   const nodes = toNodes(folders);
-  const items = toItems(folders, value, taken, indexed);
+  const items = toItems(folders, value, taken, whole, indexed);
   const initialExpanded = branchPaths(topics);
   const active = selected ?? topics[0]?.topic ?? null;
   const activeTopic = topics.find((t) => t.topic === active) ?? null;
@@ -361,7 +362,7 @@ export const TopicPicker = ({
     for (const t of pickable) {
       const pointers = all
         ? new Set<string>()
-        : defaultPointers(freeLeaves(t, taken, indexed), single);
+        : defaultPointers(freeLeaves(t, taken, indexed));
       const index = indexOf(t, taken, indexed);
       if (pointers.size === 0) next.delete(t.topic);
       else next.set(t.topic, { leaves: t.leaves, pointers, index });
@@ -409,7 +410,7 @@ export const TopicPicker = ({
         value={value.get(activeTopic.topic)?.pointers ?? new Set()}
         taken={taken.get(activeTopic.topic) ?? new Set()}
         index={index}
-        single={single}
+        whole={whole}
         onChange={(pointers) => {
           const next = new Map(value);
           if (pointers.size === 0) next.delete(activeTopic.topic);
@@ -468,6 +469,7 @@ export const TopicPicker = ({
         <ICD.Picker.SideAction onClick={() => onAddByName(trimmed)}>
           {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
         </ICD.Picker.SideAction>
+        {children}
       </ICD.Picker.Side>
       <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>

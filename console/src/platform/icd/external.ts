@@ -24,3 +24,5 @@ export * from "@/platform/icd/Plans";
 export * from "@/platform/icd/read";
 export * from "@/platform/icd/stored";
 export * from "@/platform/icd/tree";
+export * from "@/platform/icd/ValueField";
+export * from "@/platform/icd/write";
