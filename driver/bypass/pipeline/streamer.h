@@ -26,13 +26,21 @@
 #include "driver/pipeline/control.h"
 
 namespace driver::bypass::pipeline {
+/// @brief whether the Core half reopens after err. A stream only reads, so an
+/// interrupted open or read reopens too.
+inline bool reopens(const x::errors::Error &err) {
+    const auto kind = synnax::errors::classify(err);
+    return kind == synnax::errors::Kind::TRANSIENT ||
+           kind == synnax::errors::Kind::INTERRUPTED;
+}
+
 /// @brief a pipeline Streamer that merges local bus frames with Core frames. The Core
 /// half reads on a background thread, so bus frames never wait for the Core. No
 /// authority filtering is applied here; the bypass Writer filters unauthorized channels
 /// before it publishes to the bus.
 ///
-/// After a transient Core error (synnax::errors::classify), the Core half reopens with
-/// backoff and no retry limit, and read() keeps returning bus frames. Any other Core
+/// After a Core error for which reopens() holds, the Core half reopens with backoff
+/// and no retry limit, and read() keeps returning bus frames. Any other Core
 /// error ends read() with that error.
 class Streamer final : public ::driver::pipeline::Streamer {
     std::shared_ptr<::driver::pipeline::StreamerFactory> factory;
@@ -131,13 +139,11 @@ public:
 private:
     void run_core(x::errors::Error err) {
         if (this->core != nullptr) err = this->read_core();
-        while (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
-               this->breaker.running() && this->breaker.wait_unlimited(err))
+        while (reopens(err) && this->breaker.running() &&
+               this->breaker.wait_unlimited(err))
             err = this->stream_core();
         // A close_send() that ends the wait for the Core is not a Core failure.
-        if (!this->breaker.running() &&
-            synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT)
-            err = freighter::STREAM_CLOSED;
+        if (!this->breaker.running() && reopens(err)) err = freighter::STREAM_CLOSED;
         {
             std::lock_guard lock(this->server_mu);
             this->server_err = err;
@@ -214,9 +220,7 @@ public:
         if (this->subject.group != 0)
             config.exclude_groups.push_back(this->subject.group);
         auto [core, open_err] = this->server->open_streamer(config);
-        if (open_err &&
-            synnax::errors::classify(open_err) != synnax::errors::Kind::TRANSIENT)
-            return {nullptr, open_err};
+        if (open_err && !reopens(open_err)) return {nullptr, open_err};
         auto subscription = this->bus->subscribe(config.channels);
         VLOG(1) << "[bus.streamer_factory] opened streamer for "
                 << config.channels.size() << " channels, subject=" << this->subject.name

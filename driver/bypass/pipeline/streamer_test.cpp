@@ -184,13 +184,14 @@ void reopens_core_after(const x::errors::Error &read_err) {
     ASSERT_NIL(streamer->close());
 }
 
-/// @brief it should reopen the Core streamer after a transient Core error, and
-/// deliver Core frames again.
+/// @brief it should reopen the Core streamer after a transient or interrupted Core
+/// error, and deliver Core frames again.
 TEST(StreamerTest, ReopensCoreAfterTransientError) {
     for (const auto &read_err:
          {freighter::UNREACHABLE,
           freighter::TRANSPORT,
-          synnax::errors::LICENSE_MISSING})
+          synnax::errors::LICENSE_MISSING,
+          synnax::errors::INTERRUPTED})
         reopens_core_after(read_err);
 }
 

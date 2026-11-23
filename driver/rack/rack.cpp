@@ -23,7 +23,11 @@ bool Rack::should_exit(
     const bool reconnecting
 ) {
     if (!err) return false;
-    if (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
+    // The rack only reads from the Core and opens streams, so it resends a call that
+    // the Core interrupted.
+    if (const auto kind = synnax::errors::classify(err);
+        (kind == synnax::errors::Kind::TRANSIENT ||
+         kind == synnax::errors::Kind::INTERRUPTED) &&
         (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err)))
         return false;
     // A stop came first, so the error did not stop the rack.

@@ -111,7 +111,11 @@ public:
         auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
         if (!err)
             this->cfg = std::move(cfg);
-        else if (synnax::errors::classify(err) != synnax::errors::Kind::TRANSIENT)
+        else if (
+            const auto kind = synnax::errors::classify(err);
+            kind != synnax::errors::Kind::TRANSIENT &&
+            kind != synnax::errors::Kind::INTERRUPTED
+        )
             return {connection::Pool::Connection(nullptr, nullptr, ""), err};
         return this->pool->acquire(this->cfg, this->log_prefix);
     }
