@@ -9,14 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  DisconnectedError,
-  icd,
-  mqtt,
-  query,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -24,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
@@ -239,27 +232,6 @@ const messagePrefix = (
   const prefix = namePrefix(deviceName, topic);
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
-
-/**
- * @returns the bindings of fields, each to the channel stored for its pointer. A field
- * gets no channel when its stored channel is in written, as the Core refuses a channel
- * that two bindings write, or when it does not convert to the data type of the channel
- * in dataTypes. Adds the channels it binds to written.
- */
-const bindingsOf = (
-  stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
-  written: Set<channel.Key>,
-  dataTypes: ReadonlyMap<channel.Key, string>,
-): icd.ReadBinding[] =>
-  fields.map((f) => {
-    const ch = stored[f.pointer] ?? 0;
-    const dataType = dataTypes.get(ch);
-    if (written.has(ch) || dataType == null || !ICD.converts(f, dataType))
-      return icd.readBindingZ.parse({ field: f.key });
-    written.add(ch);
-    return icd.readBindingZ.parse({ field: f.key, channel: ch });
-  });
 
 /** Inserts entries into the lists of one ICD. */
 type Inserter = Pick<ICD.FormatForm, "insert">;
@@ -695,18 +667,7 @@ const Entries: FC<EntriesProps> = ({
   const { push } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
   const stored = device.properties.read;
-  const storedKeys = unique
-    .unique(Object.values(stored).flatMap(({ channels }) => Object.values(channels)))
-    .filter((key) => key !== 0);
-  const { data: storedChannels, variant } = Channel.useResultMultiple(
-    storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
-  );
-  // Each control that binds waits for the data types of the stored channels, as the
-  // Core refuses a channel that the field does not convert to.
-  const bindDisabled = storedKeys.length > 0 && variant !== "success";
-  const dataTypes = new Map(
-    storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),
-  );
+  const { dataTypes, bindDisabled } = ICD.useStoredDataTypes(stored);
   const {
     tree,
     handleSelect,
@@ -732,7 +693,7 @@ const Entries: FC<EntriesProps> = ({
           ? topicChannels(stored, entry, entry.messages[0].message)
           : (storedOf(stored, entry, read)?.channels ?? {});
       const written = writtenChannels(ctx.get(root.config.entries).value);
-      return bindingsOf(channels, [field], written, dataTypes)[0];
+      return ICD.bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (entry, held) =>
       nextMessageName(ctx.get(plainPath(entry)).value, held),
@@ -766,7 +727,7 @@ const Entries: FC<EntriesProps> = ({
     const written = writtenChannels(entries);
     const bind: Bind = ({ topic }, fields, message) => {
       const entry = plain.find((e) => e.topic === topic) ?? { topic, messages: [] };
-      return bindingsOf(
+      return ICD.bindingsOf(
         topicChannels(stored, entry, message),
         fields,
         written,
