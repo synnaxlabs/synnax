@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { useEffect, useSyncExternalStore } from "react";
+import { deep } from "@synnaxlabs/x";
+import { useEffect } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 import type { z } from "zod";
 
 import { Aether } from "@/aether";
@@ -41,7 +43,15 @@ export const use = ({
     initialState: memoProps,
     methods: symbolNode.methodsZ,
   });
-  const readings = useSyncExternalStore(subscribe, () => getSnapshot().readings);
+  // Each state update parses readings into a new object, so equal readings must not
+  // render again.
+  const readings = useSyncExternalStoreWithSelector(
+    subscribe,
+    getSnapshot,
+    undefined,
+    (s) => s.readings,
+    deep.equal,
+  );
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);

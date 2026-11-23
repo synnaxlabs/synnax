@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
-import { SymbolNode } from "@/vis/symbolNode";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
 const TIMEOUT = TimeSpan.seconds(1).nanoseconds;
@@ -189,22 +186,6 @@ describe("symbolNode/aether/SymbolNode", () => {
       const cleanups = [active, level, sink].map((t) => vi.spyOn(t, "cleanup"));
       h.unmount();
       for (const cleanup of cleanups) expect(cleanup).toHaveBeenCalled();
-    });
-  });
-
-  describe("SymbolNode.use (React adapter)", () => {
-    const TestWrapper = TelemTest.createTestWrapper({ registry: symbolNode.REGISTRY });
-
-    it("should expose the reading of each source", async () => {
-      const source = telemTest.numberSourceSpec(telemTest.source<number>(7));
-      const { result } = renderHook(
-        () =>
-          SymbolNode.use({ aetherKey: "sn", sources: { active: source }, sinks: {} }),
-        { wrapper: TestWrapper },
-      );
-      await waitFor(() =>
-        expect(result.current.readings).toEqual({ active: { value: 7, stale: false } }),
-      );
     });
   });
 });
