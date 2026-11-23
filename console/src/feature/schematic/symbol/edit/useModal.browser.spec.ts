@@ -192,7 +192,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       expect(
         await screen.findByText(
-          "Looks here reach every shape. Click a shape to select its part or make one.",
+          "Looks here reach every shape. Click a shape to select its part or add one.",
         ),
       ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
@@ -576,6 +576,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       fireEvent.click(await screen.findByText("Body"));
       await screen.findByRole("heading", { name: "Body" });
+      return symbol;
+    };
+
+    // openDrawing opens the editor on a new symbol that draws markup and has no parts.
+    const openDrawing = async (markup: string) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("drawn"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, drawing: { type: "svg", markup } },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await screen.findByRole("heading", { name: "Whole drawing" });
       return symbol;
     };
 
@@ -1116,19 +1134,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("makes a part of a shape clicked with the whole drawing selected", async () => {
-      const grp = await createParentGroup();
-      const payload = createSymbolPayload(uniqueName("clicked"));
-      const symbol = await client.schematics.symbols.create({
-        ...payload,
-        group: grp.key,
-        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS } },
-      });
-      await renderModalOpener(
-        Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, group: grp.key }],
-        { client, additionalRegistry: theming.REGISTRY },
-      );
-      await screen.findByRole("heading", { name: "Whole drawing" });
+      const symbol = await openDrawing(TWO_RECTS);
       fireEvent.click(findShape("b"));
       expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
       fireEvent.click(findButton("Save"));
@@ -1338,19 +1344,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds only the clicked shape of a group to a part", async () => {
-      const grp = await createParentGroup();
-      const payload = createSymbolPayload(uniqueName("grouped"));
-      const symbol = await client.schematics.symbols.create({
-        ...payload,
-        group: grp.key,
-        data: { ...payload.data, drawing: { type: "svg", markup: GROUPED } },
-      });
-      await renderModalOpener(
-        Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, group: grp.key }],
-        { client, additionalRegistry: theming.REGISTRY },
-      );
-      await screen.findByRole("heading", { name: "Whole drawing" });
+      const symbol = await openDrawing(GROUPED);
       fireEvent.click(findShape("c"));
       await screen.findByRole("heading", { name: "Part 1" });
       fireEvent.click(findButton("Save"));

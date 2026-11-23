@@ -285,10 +285,9 @@ const holds = (doc: Document, outer: string, inner: string): boolean => {
 
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, and selector covers the shapes inside its
- * shape, so every part drops their selectors, and the other parts drop selector. A
- * shape inside a group that part holds takes the group out of part, and a shape inside
- * a group that another part holds stays there, so the parts stay the same.
+ * already did. The other parts drop selector. Every part drops the shapes inside its
+ * shape. A shape inside a group that part holds takes the group out of part. A shape
+ * inside a group that another part holds changes nothing.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,
