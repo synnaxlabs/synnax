@@ -89,6 +89,14 @@ type GraphSource struct {
 
 func (GraphSource) isSourceVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (g GraphSource) Validate() error {
+	v := validate.New("GraphSource")
+	v.Exec(func() error { return validate.PathedError(g.Graph.Validate(), "graph") })
+	return v.Error()
+}
+
 // Source is the source code of an Arc. The mode selects text or a graph.
 type Source struct {
 	Variant SourceVariant
@@ -180,6 +188,8 @@ func (u Source) Validate() error {
 	v.Ternary("mode", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case TextSource:
+		v.Exec(variant.Validate)
+	case GraphSource:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()
