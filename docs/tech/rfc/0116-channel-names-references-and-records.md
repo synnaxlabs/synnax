@@ -637,17 +637,18 @@ with the Core.
   creates the built-in as two actions, the rename first, so text that names the user
   channel follows it. Every first free suffix in this RFC (`Declare`, the Phase 7
   migration, a displaced channel) skips tombstone paths.
-- **Access**: An entry for a record that the caller cannot retrieve is a count, with no
-  name or text. Applying an entry needs update access on its record, or delete access
-  for a delete. An entry that the caller may not apply fails the apply with an access
-  error that names no record; one pick covers all hidden entries. A delete of data by
-  path needs delete access on each piece.
+- **Access**: An entry for a record that the caller cannot retrieve is a count for its
+  effect, with no name or text. Applying an entry needs update access on its record, or
+  delete access for a delete. An entry that the caller may not apply fails the apply
+  with an access error that names no record; one pick covers all hidden entries that
+  restrict the change. A delete of data by path needs delete access on each piece.
 - **Folders**: A folder delete deletes the folder's tombstones first, and lists them, so
   the group guard sees only live members (`core/pkg/service/group/service.go:397-423`).
 - **Routes**: `/impact/plan` and `/impact/apply`. A plan carries a token, an 8 B
   xxHash-64 over length-prefixed fields: the change, each visible entry, and the hidden
-  count. It holds no hidden data. A pick names an entry by its record. The Console shows
-  one dialog for every plan; the clients, imports, and Git apply pass picks.
+  count for each effect. It holds no hidden data. A pick names an entry by its record.
+  The Console shows one dialog for every plan; the clients, imports, and Git apply pass
+  picks.
 - **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
   plans the Gorp entries again and compares each text holder's hash; a holder that
   changed reruns its edit once, inline, with no retry loop. It also lexes each text
