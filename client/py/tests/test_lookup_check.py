@@ -223,11 +223,13 @@ class TestControllerLookupCheck:
         one value would be lost.
         """
         ch, _ = in_group(client)
+        values: Any = {ch.key: 1.0, ch.name: 2.0}
+        authorities: Any = {ch.key: 100, ch.name: 200}
         with client.control.acquire(name="shared", read=None, write=[ch.key]) as ctrl:
             with pytest.raises(sy.ValidationError, match="name one channel"):
-                ctrl.set({ch.key: 1.0, ch.name: 2.0})
+                ctrl.set(values)
             with pytest.raises(sy.ValidationError, match="name one channel"):
-                ctrl.set_authority({ch.key: 100, ch.name: 200})
+                ctrl.set_authority(authorities)
 
     def test_read_acquire_names_a_miss(self, client: sy.Synnax) -> None:
         """Should refuse a read acquire of a name that finds no channel, as a write
