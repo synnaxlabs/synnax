@@ -6190,6 +6190,33 @@ var _ = Describe("Analyze", func() {
 	})
 })
 
+var _ = Describe("Integer enum values", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+	DescribeTable(
+		"Should refuse a value that some generator cannot write",
+		func(members, wantErr string) {
+			_, diag := Analyze("Size enum {\n"+members+"\n}", "test", loader)
+			Expect(diag.Error()).To(ContainSubstring(wantErr))
+		},
+		Entry("a negative value", "low = -1",
+			"enum Size member low has value -1, which is not from 0 to 255"),
+		Entry("a value over 255", "low = 0\nhigh = 256",
+			"enum Size member high has value 256, which is not from 0 to 255"),
+		Entry("two members with one value", "one = 1\nuno = 1",
+			"enum Size members one and uno have the same value 1"),
+	)
+
+	It("Should accept the values 0 and 255 with gaps between members", func() {
+		_, diag := Analyze(
+			"Size enum {\nlow = 0\nmid = 4\nhigh = 255\n}",
+			"test",
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue())
+	})
+})
+
 var _ = Describe("Union enum discriminator", func() {
 	var loader *MockFileLoader
 	BeforeEach(func() { loader = NewMockFileLoader() })
