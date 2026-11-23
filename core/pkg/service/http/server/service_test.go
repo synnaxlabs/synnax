@@ -228,6 +228,9 @@ var _ = Describe("Service", func() {
 			Entry("a duplicate write", func(s *server.Server) {
 				s.Writes = []server.Write{write("/valve", 3), write("valve", 4)}
 			}),
+			Entry("a duplicate write with doubled slashes", func(s *server.Server) {
+				s.Writes = []server.Write{write("/valve", 3), write("//valve//", 4)}
+			}),
 		)
 
 		It("Should normalize the paths and queries of bindings", func(ctx SpecContext) {

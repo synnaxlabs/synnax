@@ -24,9 +24,9 @@ import (
 // normalizePath returns path with one leading '/' and no trailing '/'. The root path is
 // empty.
 func normalizePath(path string) string {
-	path = strings.TrimRight(path, "/")
-	if path == "" || strings.HasPrefix(path, "/") {
-		return path
+	path = strings.Trim(path, "/")
+	if path == "" {
+		return ""
 	}
 	return "/" + path
 }
