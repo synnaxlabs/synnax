@@ -147,6 +147,19 @@ describe("CounterRead", () => {
     );
   });
 
+  it("should read a measurement time typed alone as seconds", async () => {
+    const { container } = await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
+    );
+    const input = await waitFor(() =>
+      getInputByItemLabel(container, "Measurement time"),
+    );
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "0.003" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(input.value).toBe("3ms"));
+  });
+
   it("should reveal the divisor field for two-counter large-range measurement", async () => {
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" })]),
