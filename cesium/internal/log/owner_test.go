@@ -207,11 +207,10 @@ var _ = Describe("Log", func() {
 				Sequence:   1,
 			}
 			change(&cfg)
-			Expect(cfg.Validate()).To(SatisfyAll(
+			Expect(log.Start(cfg)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
-			Expect(log.Start(cfg)).Error().To(MatchError(validate.ErrValidation))
 		},
 		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
 		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
@@ -600,7 +599,7 @@ var _ = Describe("Log", func() {
 				Expect(last.Clean).To(BeTrue())
 				Expect(last.Sequence).To(Equal(uint64(6)))
 				Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
-					To(MatchError(log.ErrClosed))
+					To(MatchError("log is closed"))
 			})
 
 			It("Should fail queued and later entries when the context of Run ends, "+

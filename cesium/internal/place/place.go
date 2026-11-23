@@ -21,9 +21,6 @@ import (
 // the format of their file.
 var ErrCorrupt = errors.New("corrupt")
 
-// Size is the number of bytes of an encoded place.
-const Size = 32
-
 const (
 	kindSegment uint8 = 1
 	kindCheck   uint8 = 2

@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	// ErrClosed is the error of a call on a closed handle.
-	ErrClosed = errors.New("segment handle is closed")
+	// errClosed is the error of a call on a closed handle.
+	errClosed = errors.New("segment handle is closed")
 	// ErrDirSync is the error of a failed sync of the directory entry of a new segment.
 	ErrDirSync = errors.New("directory sync failed")
 )
@@ -72,7 +72,7 @@ func (h *Handle) acquire() (xfs.File, error) {
 		case h.busy:
 			b.cond.Wait()
 		case h.closed:
-			return nil, errors.Wrapf(ErrClosed, "segment file %s", h.name)
+			return nil, errors.Wrapf(errClosed, "segment file %s", h.name)
 		case h.file != nil:
 			h.refs++
 			h.unlink()
@@ -198,7 +198,7 @@ func (h *Handle) sync() error {
 	switch {
 	case h.closed:
 		b.mu.Unlock()
-		return errors.Wrapf(ErrClosed, "segment file %s", h.name)
+		return errors.Wrapf(errClosed, "segment file %s", h.name)
 	case h.failed != nil:
 		b.mu.Unlock()
 		return h.failed
@@ -244,7 +244,7 @@ func dir(name string) string {
 }
 
 // Close closes the file of h, with no sync, once no call uses it. Every later call
-// returns ErrClosed.
+// fails.
 func (h *Handle) Close() error {
 	b := h.b
 	b.mu.Lock()
