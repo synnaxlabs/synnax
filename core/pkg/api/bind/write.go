@@ -244,8 +244,8 @@ func (s *Service) recordNeeds(
 }
 
 // linkNeeds adds the access that the links c adds and removes need to needs. A link to
-// owner, to a record that the write creates or deletes, or that places c in a record
-// that subject owns needs none.
+// owner, a link to a record that the write creates or deletes, and a place link into a
+// record that subject owns need none.
 func (s *Service) linkNeeds(
 	ctx context.Context,
 	tx gorp.Tx,

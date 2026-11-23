@@ -41,8 +41,9 @@ type ServiceConfig struct {
 	Held []string
 	// Owned names the tables of the records that a user or rack can own through a use
 	// link to it, such as draft panels and file certificates. A change to a record that
-	// the subject owns before and after it needs nothing on the record itself, and nor
-	// does placing a record in it or taking one out.
+	// the subject owns before and after it needs nothing on the record itself. Placing
+	// a
+	// record in it or taking one out needs nothing either.
 	Owned []string
 	// OwnedPlaces names the tables that an owned record can be placed in, or taken
 	// out of, with retrieve in place of update on the target, such as projects.
