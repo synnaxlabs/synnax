@@ -29,6 +29,8 @@ export interface HeaderProps extends Omit<
   /** Sits after the breadcrumb, such as a badge that says where the item is. */
   badge?: ReactNode;
   closeHidden?: boolean;
+  /** Disables the close button, such as while the modal saves. */
+  closeDisabled?: boolean;
 }
 
 const CLOSE_TOOLTIP = (
@@ -47,6 +49,7 @@ export const Header = ({
   children,
   className,
   closeHidden = false,
+  closeDisabled = false,
   ...rest
 }: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
@@ -78,6 +81,7 @@ export const Header = ({
           <Button.Button
             aria-label="Close"
             onClick={close}
+            disabled={closeDisabled}
             size="medium"
             variant="text"
             textColor={8}

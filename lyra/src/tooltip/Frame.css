@@ -25,6 +25,9 @@
        it. Its width depends on its content and the window alone. */
     width: max-content;
     max-width: min(70rem, 100vw);
+
+    /* A long name with no spaces, such as a record name, wraps inside the box. */
+    overflow-wrap: anywhere;
     animation: lyra-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 

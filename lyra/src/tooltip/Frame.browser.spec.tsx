@@ -145,6 +145,15 @@ describe("Tooltip.Frame", () => {
     expect(frame.offsetHeight).toBe(height);
   });
 
+  it("should wrap a long word with no spaces inside the box", () => {
+    const anchor = createAnchor();
+    render(<Tooltip.Frame anchor={anchor}>{"pressure_".repeat(40)}</Tooltip.Frame>);
+    const frame = getFrame();
+    assert(frame != null);
+    expect(frame.scrollWidth).toBe(frame.clientWidth);
+    anchor.remove();
+  });
+
   it("should report a lost anchor once it leaves the document", () => {
     const anchor = createAnchor();
     const onAnchorLost = vi.fn();

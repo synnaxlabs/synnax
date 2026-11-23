@@ -198,6 +198,16 @@ describe("Modal", () => {
       renderModal(<Modal.Header closeHidden>Title</Modal.Header>);
       expect(screen.queryByLabelText("Close")).toBeNull();
     });
+
+    it("should not close the enclosing dialog from a disabled close button", () => {
+      const { onVisibleChange } = renderModal(
+        <Modal.Header closeDisabled>Title</Modal.Header>,
+      );
+      const close = screen.getByLabelText("Close");
+      expect(close).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(close);
+      expect(onVisibleChange).not.toHaveBeenCalled();
+    });
   });
 
   describe("Body", () => {
