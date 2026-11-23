@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import unicodedata
 from collections.abc import Mapping
 
 from synnax import channel
@@ -32,12 +31,12 @@ class State:
         self._keys = {ch.name: ch.key for ch in channels}
         if texts is not None:
             for text, key in texts.items():
-                self._keys[unicodedata.normalize("NFC", text)] = key
+                self._keys[channel.nfc(text)] = key
         self.value = {}
 
     def _key(self, ch: channel.Key | str) -> channel.Key:
         if isinstance(ch, str):
-            return self._keys[unicodedata.normalize("NFC", ch)]
+            return self._keys[channel.nfc(ch)]
         return ch
 
     def update(self, frame: Frame) -> None:

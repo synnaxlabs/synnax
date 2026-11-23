@@ -93,6 +93,8 @@ def refuse_shared(refs: list[Lookup], keys: list[Key]) -> None:
     :param keys: The key of the channel of each entry.
     :raises ValidationError: If two entries name one channel.
     """
+    if len(set(keys)) == len(keys):
+        return
     first: dict[Key, Lookup] = {}
     for ref, key in zip(refs, keys, strict=True):
         if key in first:

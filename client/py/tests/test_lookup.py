@@ -8,13 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import unicodedata
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pytest
 
 import synnax as sy
+from alamos import NOOP
+from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import RetrieveRequest
+from synnax.framer.adapter import WriteFrameAdapter
 from x.strings import random_name
 from x.telem import seconds_linspace
 
@@ -209,3 +212,50 @@ class TestFramerLookups:
         client.write(sy.TimeStamp.now(), index.key, seconds_linspace(1, count=3))
         client.delete(path, sy.TimeRange.MAX)
         assert len(client.read(sy.TimeRange.MAX, index.key)) == 0
+
+
+class TestWriteAdapterRecords:
+    """Records on a stub retriever, so each adapt sends no request."""
+
+    @staticmethod
+    def adapter(width: int) -> tuple[WriteFrameAdapter, list[sy.channel.Payload]]:
+        held = [
+            sy.channel.Payload(
+                key=i + 1, name=f"ch_{i}", data_type=sy.DataType.FLOAT64, virtual=True
+            )
+            for i in range(width)
+        ]
+
+        class Stub(Retriever):
+            def __init__(self) -> None:
+                self.instrumentation = NOOP
+
+            @override
+            def filter(self, req: RetrieveRequest) -> list[sy.channel.Payload]:
+                return list(held)
+
+        a = WriteFrameAdapter(retriever=Stub())
+        a.update([ch.key for ch in held])
+        return a, held
+
+    @pytest.mark.parametrize("width", [3, 20])
+    def test_refuse_a_held_record_that_names_one_channel_twice(
+        self, width: int
+    ) -> None:
+        """Should refuse a record whose key and name give one channel, in a short
+        record and in a long one.
+        """
+        a, held = self.adapter(width)
+        record: dict[Any, Any] = {ch.name: 1.0 for ch in held}
+        record[held[0].key] = 2.0
+        with pytest.raises(sy.ValidationError, match="name one channel"):
+            a.adapt(record)
+
+    def test_alternate_two_record_shapes(self) -> None:
+        """Should key each record by its own channels when records alternate shapes."""
+        a, held = self.adapter(4)
+        first = {held[0].name: 1.0, held[1].name: 2.0}
+        second = {held[2].name: 3.0, held[3].name: 4.0}
+        for _ in range(2):
+            assert a.adapt(first).channels == [held[0].key, held[1].key]
+            assert a.adapt(second).channels == [held[2].key, held[3].key]

@@ -12,7 +12,7 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TypeAlias, TypeIs
+from typing import TypeAlias, TypeIs, overload
 
 from synnax import resource
 from synnax.channel.types_gen import (
@@ -38,7 +38,8 @@ Lookup: TypeAlias = Key | str
 Params: TypeAlias = Lookup | Payload | Sequence[Lookup | Payload]
 
 _PATH_SEPARATOR = "."
-_MAX_KEY = 4294967295
+MAX_KEY = 4294967295
+"""The largest channel key."""
 
 
 def to_lookups(params: Params) -> list[Lookup]:
@@ -53,12 +54,24 @@ def to_lookups(params: Params) -> list[Lookup]:
         elif isinstance(p, str):
             lookups.append(p)
         elif isinstance(p, int):
-            if not 0 <= p <= _MAX_KEY:
+            if not 0 <= p <= MAX_KEY:
                 raise ValidationError(f"{p} is not a channel key")
             lookups.append(p)
         else:
             raise TypeError(f"{p!r} is not a channel key, name, path, or payload")
     return lookups
+
+
+@overload
+def nfc(lookup: str) -> str: ...
+
+
+@overload
+def nfc(lookup: Key) -> Key: ...
+
+
+@overload
+def nfc(lookup: Lookup) -> Lookup: ...
 
 
 def nfc(lookup: Lookup) -> Lookup:

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import unicodedata
 import warnings
 from collections.abc import Mapping
 from typing import Any
@@ -140,15 +139,30 @@ class ReadFrameAdapter:
         return fr
 
 
+def _distinct(keys: list[channel.Key]) -> bool:
+    """Returns whether keys holds no key twice. A short list is scanned in place, so a
+    write of a few channels allocates no set.
+    """
+    if len(keys) > 16:
+        return len(set(keys)) == len(keys)
+    i = 1
+    while i < len(keys):
+        if keys.index(keys[i]) != i:
+            return False
+        i += 1
+    return True
+
+
 class WriteFrameAdapter:
     _by_text: dict[str, list[channel.Payload]]
     _channels: dict[channel.Key, channel.Payload]
     _keys: list[channel.Key]
-    _last_entries: tuple[list[Any], list[channel.Key]] | None
-    """The entries of the last record or list and their checked channel keys, until an
-    update. Only entries of held references count, since a path can move between
-    records.
+    _last_entries: tuple[Any, ...] | None
+    """The entries of the last record or list, until an update. Only entries of held
+    references count, since a path can move between records.
     """
+    _last_keys: list[channel.Key]
+    """The checked channel keys of _last_entries."""
     _err_on_extra_chans: bool
     _strict_data_types: bool
     _suppress_warnings: bool
@@ -169,6 +183,7 @@ class WriteFrameAdapter:
         self._channels = {}
         self._keys = []
         self._last_entries = None
+        self._last_keys = []
         self._err_on_extra_chans = err_on_extra_chans
         self._strict_data_types = strict_data_types
         self._suppress_warnings = suppress_warnings
@@ -199,7 +214,7 @@ class WriteFrameAdapter:
         :raises NotFoundError: Naming every key that finds no channel.
         :raises ValidationError: If two keys name one channel.
         """
-        keys = self._entry_keys(list(data))
+        keys = self._entry_keys(tuple(data))
         return dict(zip(keys, data.values(), strict=True))
 
     @property
@@ -207,7 +222,7 @@ class WriteFrameAdapter:
         return self._keys
 
     def _hold(self, text: str, ch: channel.Payload) -> None:
-        held = self._by_text.setdefault(unicodedata.normalize("NFC", text), [])
+        held = self._by_text.setdefault(channel.nfc(text), [])
         if all(c.key != ch.key for c in held):
             held.append(ch)
 
@@ -216,7 +231,7 @@ class WriteFrameAdapter:
 
         :raises ValidationError: If the writer holds several channels with that name.
         """
-        held = self._by_text.get(unicodedata.normalize("NFC", text))
+        held = self._by_text.get(channel.nfc(text))
         if held is None:
             return None
         if len(held) > 1:
@@ -267,20 +282,44 @@ class WriteFrameAdapter:
             raise not_found(missing)
         return [key for key in keys if key is not None], held
 
-    def _entry_keys(self, entries: list[Any]) -> list[channel.Key]:
+    def _entry_keys(self, entries: tuple[Any, ...]) -> list[channel.Key]:
         """Returns the key of each channel that the entries of a record or a list name.
         Entries equal to the last ones reuse their checked keys.
 
         :raises NotFoundError: Naming every entry that finds no channel.
         :raises ValidationError: If two entries name one channel.
         """
-        last = self._last_entries
-        if last is not None and last[0] == entries:
-            return last[1]
+        if entries == self._last_entries:
+            return self._last_keys
+        keys = self._held_keys(entries)
+        if keys is not None and _distinct(keys):
+            self._last_entries = entries
+            self._last_keys = keys
+            return keys
+        self._last_entries = None
         refs = channel.to_lookups(entries)
-        keys, held = self._resolve_keys(refs)
+        if keys is None:
+            keys, _ = self._resolve_keys(refs)
         refuse_shared(refs, keys)
-        self._last_entries = (entries, keys) if held else None
+        return keys
+
+    def _held_keys(self, entries: tuple[Any, ...]) -> list[channel.Key] | None:
+        """Returns the key of each entry when each is a key, a payload, or a name or
+        path that the writer holds, and None otherwise.
+        """
+        keys: list[channel.Key] = [0] * len(entries)
+        for i, e in enumerate(entries):
+            if isinstance(e, str):
+                ch = self._held(e)
+                if ch is None:
+                    return None
+                keys[i] = ch.key
+            elif isinstance(e, channel.Payload):
+                keys[i] = e.key
+            elif isinstance(e, int) and 0 <= e <= channel.MAX_KEY:
+                keys[i] = e
+            else:
+                return None
         return keys
 
     def adapt(
@@ -291,18 +330,14 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         frame = self._adapt(channels_or_data, series)
-        channels: list[channel.Payload] = []
-        extra: set[channel.Key | str] = set()
-        for col in frame.channels:
+        for i, col in enumerate(frame.channels):
             ch = self._channels.get(col) if isinstance(col, channel.Key) else None
             if ch is None:
-                extra.add(col)
-            else:
-                channels.append(ch)
-        if extra:
-            raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
-
-        for i, (ch, series) in enumerate(zip(channels, frame.series, strict=True)):
+                extra = {c for c in frame.channels if c not in self._channels}
+                raise PathError(
+                    "keys", ValidationError(f"frame has extra keys {extra}")
+                )
+            series = frame.series[i]
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
                     raise PathError(
@@ -372,7 +407,7 @@ class WriteFrameAdapter:
                 Received {n_channels} channels but only {n_series} series.
                 """
                 )
-            keys = self._entry_keys(list(channels_or_data))
+            keys = self._entry_keys(tuple(channels_or_data))
             return Frame(keys, [Series(series_list[i]) for i in range(len(keys))])
 
         if isinstance(channels_or_data, FramePayload):
@@ -406,7 +441,7 @@ class WriteFrameAdapter:
             return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, Mapping):
-            keys = self._entry_keys(list(channels_or_data))
+            keys = self._entry_keys(tuple(channels_or_data))
             return Frame(keys, [Series(v) for v in channels_or_data.values()])
 
         raise TypeError(
