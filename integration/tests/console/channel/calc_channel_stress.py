@@ -60,7 +60,14 @@ class CalcChannelStress(ConsoleCase):
         existing = self.client.channels.retrieve([name])
         if existing:
             return existing[0]
-        calc = self.client.calculations.create(name=name, expression=expression)
+        try:
+            calc = self.client.calculations.create(name=name, expression=expression)
+        except sy.PathError:
+            # Another run created the channel first.
+            existing = self.client.channels.retrieve([name])
+            if not existing:
+                raise
+            return existing[0]
         return self.client.channels.retrieve(calc.output)
 
     def _start_stress_writer(self) -> None:

@@ -24,6 +24,7 @@ from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
     CountLimitedResponse,
     Cursor,
+    Operation,
     Order,
     Payload,
     RetrieveBuiltInsResponse,
@@ -71,10 +72,13 @@ class Channel(Payload):
         key: Key = 0,
         virtual: bool = False,
         internal: bool = False,
+        expression: str = "",
+        operations: list[Operation] | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
         uses: list[Use] | None = None,
+        calculated: bool = False,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -94,9 +98,14 @@ class Channel(Payload):
         channels do not store any data, and are used for streaming purposes only.
         :param internal: Boolean indicating whether the channel is internal. Internal
         channels are not visible to the user and are used for internal purposes only.
+        :param expression: The expression of the calculation that writes the channel, as
+            the Core reports it. Create a calculation with client.calculations.create.
+        :param operations: The operations of the calculation that writes the channel, as
+            the Core reports them.
         :param group: The group the channel sits in, if any.
         :param uses: The records that read or write the channel, set only when a
             retrieve asks for them.
+        :param calculated: Whether a calculation writes the channel. The Core sets it.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -111,10 +120,13 @@ class Channel(Payload):
             index=index,
             internal=internal,
             virtual=virtual,
+            expression=expression,
+            operations=operations or [],
             concurrency=concurrency,
             status=status,
             group=group,
             uses=uses,
+            calculated=calculated,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -201,7 +213,10 @@ class Channel(Payload):
             is_index=self.is_index,
             virtual=self.virtual,
             internal=self.internal,
+            expression=self.expression,
+            operations=self.operations,
             group=self.group,
+            calculated=self.calculated,
         )
 
 
@@ -631,11 +646,10 @@ class Client:
         self._creator.set_group(normalize(keys), group)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
-        # A payload from the Core holds fields that __init__ does not take.
-        sugared = [Channel.model_construct(**dict(c)) for c in channels]
-        for ch in sugared:
-            ch._cached_frame_client = self._frame_client
-        return sugared
+        return [
+            Channel(**c.model_dump(), _frame_client=self._frame_client, _client=self)
+            for c in channels
+        ]
 
 
 def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:

@@ -104,7 +104,8 @@ all of these properties after you create the channel.
 <Field.List>
 
 <Field.Item label="Type" console="Operation" field="type" type="string" required>
-  `min`, `max`, `avg`, `derivative`, or `none`.
+  `min`, `max`, `avg`, or `derivative`. For no operation, leave the list empty. The
+  Console shows this as **None**.
 </Field.Item>
 
 <Field.Item label="Window" field="duration" type="TimeSpan" default="0">
@@ -112,14 +113,9 @@ all of these properties after you create the channel.
   never resets.
 </Field.Item>
 
-<Field.Item
-  label="Reset channel"
-  field={{ py: "reset_channel", ts: "resetChannel" }}
-  type="number"
-  default="0"
->
+<Field.Item label="Reset channel" field="reset" type="number">
   The key of a `boolean` channel. `min`, `max`, or `avg` resets when this channel
-  receives `true`, and `0` means no reset channel.
+  receives `true`. Leave it unset for no reset channel.
 </Field.Item>
 
 </Field.List>

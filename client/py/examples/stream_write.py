@@ -59,8 +59,14 @@ calculations = {
     "stream_write_avg_squared": "return stream_write_avg ^ 2",
 }
 for name, expression in calculations.items():
-    if not client.channels.retrieve([name]):
+    if client.channels.retrieve([name]):
+        continue
+    try:
         client.calculations.create(name=name, expression=expression)
+    except sy.PathError:
+        # Another run of the example created the channel first.
+        if not client.channels.retrieve([name]):
+            raise
 
 # Open the writer as a context manager. Using a context manager is recommended as the
 # context manager will automatically close the writer when we are done writing. We will
