@@ -252,26 +252,18 @@ func (s *Service) applyCalculation(
 			"only a calculated channel can change its expression or operations",
 		)
 	}
-	doc := calculationDocument{
-		Expression: c.Expression,
-		Operations: calculation.ToChannelOperations(c.Operations),
-	}
-	for _, a := range acts {
-		if doc, err = editDocument(doc, a); err != nil {
-			return nil, err
-		}
-	}
-	ops, err := calculation.FromChannelOperations(doc.Operations)
+	doc, ops, err := edited(c, acts)
 	if err != nil {
-		return nil, validate.PathedError(err, "operations")
+		return nil, err
 	}
 	before, err := s.channelOf(ctx, tx, key)
 	if err != nil {
 		return nil, err
 	}
+	w := s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey)
 	// The reads that Apply adds belong to the calculation, which the old API does not
 	// show.
-	if _, err = s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(
+	if _, err = w.Apply(
 		ctx,
 		c.Key,
 		calculation.NewSetAction(calculation.SetPayload{
@@ -285,8 +277,9 @@ func (s *Service) applyCalculation(
 	); err != nil {
 		return nil, err
 	}
-	if edits := recordEdits(acts, doc.Expression, ops); len(edits) > 0 {
-		s.internal.NewWriter(tx).WithDispatchKey(dispatchKey).Announce(key, edits...)
+	edits := recordEdits(acts, doc.Expression, ops)
+	if err = s.announceEdits(ctx, tx, w, key, edits); err != nil {
+		return nil, err
 	}
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
@@ -297,6 +290,49 @@ func (s *Service) applyCalculation(
 		Value: after.DataType,
 	})
 	return &set, nil
+}
+
+// edited returns the document of c after acts, and its operations as the calculation
+// holds them.
+func edited(
+	c calculation.Calculation,
+	acts []channel.Action,
+) (calculationDocument, []calculation.Operation, error) {
+	doc := calculationDocument{
+		Expression: c.Expression,
+		Operations: calculation.ToChannelOperations(c.Operations),
+	}
+	var err error
+	for _, a := range acts {
+		if doc, err = editDocument(doc, a); err != nil {
+			return doc, nil, err
+		}
+	}
+	ops, err := calculation.FromChannelOperations(doc.Operations)
+	if err != nil {
+		return doc, nil, validate.PathedError(err, "operations")
+	}
+	return doc, ops, nil
+}
+
+// announceEdits announces edits of the channel with key through w, to the readers of
+// its calculation as the edit leaves it.
+func (s *Service) announceEdits(
+	ctx context.Context,
+	tx gorp.Tx,
+	w calculation.Writer,
+	key channel.Key,
+	edits []channel.Action,
+) error {
+	if len(edits) == 0 {
+		return nil
+	}
+	edited, err := s.calculations.Outputs(ctx, tx, key)
+	if err != nil {
+		return err
+	}
+	w.Announce(key, edited[key], edits...)
+	return nil
 }
 
 // recordEdits returns a channel set action for each of the expression and the

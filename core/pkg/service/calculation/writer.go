@@ -47,6 +47,17 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// Announce attaches acts for output to the transaction of w on the channel stream as
+// one batch, which goes only to a subject who reads c. The acts carry calculation
+// fields that the channel no longer stores to the clients that read them from it.
+func (w Writer) Announce(output channel.Key, c Calculation, acts ...channel.Action) {
+	w.svc.announce(w.tx, w.channelWriter(), output, c, acts...)
+}
+
+func (w Writer) channelWriter() channel.Writer {
+	return w.channels.NewWriter(w.tx).WithDispatchKey(w.dispatchKey)
+}
+
 // Create creates the calculation and gives it a key when it has none. Its output must
 // be a virtual channel that is not an index or a built-in channel, and that no other
 // record writes. It returns an error wrapping validate.ErrValidation when the
@@ -77,6 +88,7 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 		return err
 	}
 	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
+	w.Announce(c.Output, *c, fieldsOf(*c, true)...)
 	return nil
 }
 
@@ -124,9 +136,7 @@ func (w Writer) CreateOutput(
 	}
 	output.DataType = result.ChanDataType
 	created := []channel.Channel{output}
-	if err = w.channels.NewWriter(w.tx).
-		WithDispatchKey(w.dispatchKey).
-		WithFill(FillOf(*c)).
+	if err = w.channelWriter().
 		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
 		if b, ok := errors.AsType[channel.BatchError](err); ok {
 			err = b.Err
@@ -390,9 +400,25 @@ func (w Writer) SetReads(
 // Delete deletes the calculations with the given keys. A key with no calculation is not
 // an error. The output of each one stays as a channel with no producer.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.table.NewDelete().
+	var deleted []Calculation
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Calculation](keys...)).
-		Exec(ctx, w.tx)
+		SkipMissingKeys().
+		Entries(&deleted).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Calculation](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// Who read a calculation before the delete learns that it no longer writes its
+	// output.
+	for _, c := range deleted {
+		w.Announce(c.Output, c, fieldsOf(c, false)...)
+	}
+	return nil
 }
 
 // sameKeys reports whether a and b hold the same keys, in any order and with any
