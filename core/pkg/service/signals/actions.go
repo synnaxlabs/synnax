@@ -50,8 +50,7 @@ type ActionConfig[K gorp.Key, A any] struct {
 	// BatchChecks returns the lookup of the check of each batch that the transaction of
 	// c attached, by the key of its entry and its number. It runs once for each commit
 	// with batches. A streamer sends a batch only to a subject that passes its check,
-	// in
-	// place of a check of Resource.
+	// in place of a check of Resource. A nil check leaves the batch to Resource.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
 	BatchChecks func(c gorp.Commit) func(key K, seq uint64) (Check, bool)

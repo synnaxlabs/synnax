@@ -400,8 +400,9 @@ export class Client extends query.Retriever<
         });
     });
     const lines = createLines(() => builtIns);
-    // A query ranks as a search only for a line that stays the Core's. The internal
-    // line waits for the built-in keys instead, so its list pages by key.
+    // Only the Core decides the members of a query with a line that stays the Core's.
+    // The internal line waits for the built-in keys instead, then the client places
+    // each change itself.
     const lasting = createLines(() => new Set());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
