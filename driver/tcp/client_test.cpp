@@ -113,6 +113,9 @@ TEST(Client, FailWhenPeerCloses) {
 /// keep failing.
 TEST(Client, FailWriteAtTimeout) {
     Server s;
+    // A fixed receive buffer stops Windows from growing the loopback window, which lets
+    // the peer take all of big without reading.
+    s.acceptor.set_option(asio::socket_base::receive_buffer_size(64 * 1024));
     auto client = s.connect();
     const std::vector<std::uint8_t> big(std::size_t{64} * 1024 * 1024);
     const auto err = client->write(big, 50 * x::telem::MILLISECOND);
