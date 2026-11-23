@@ -169,7 +169,9 @@ own controls as the fallback.
 ### 3.8 Error classification
 
 `synnax::errors::classify` (`client/cpp/errors`) sorts each Core error into one kind,
-from one table. The first matching row wins. Each caller sets how long it waits.
+from one table. The first matching row wins. Each caller sets how long it waits. A
+caller may retry a `REJECTED` error that it knows clears, as the drainer of §3.3 retries
+`sy.control.unauthorized`.
 
 | Kind        | Types                                                                                                                                                                           | Caller               |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
