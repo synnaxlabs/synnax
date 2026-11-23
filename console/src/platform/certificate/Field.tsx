@@ -25,9 +25,6 @@ import { Secret } from "@/platform/secret";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
-const hasPrivateKey = (c: certificate.Certificate): boolean =>
-  c.source === "stored" ? c.privateKey != null : c.privateKeyFile != null;
-
 interface ControlProps extends Input.Control<certificate.Key> {
   defaultName: string;
   rack: rack.Key;
@@ -45,9 +42,9 @@ const Control = ({
   privateKeyRequired,
   preview,
 }: ControlProps): ReactElement => {
+  const onRack = Secret.whereOnRack(rack);
   const list = Certificate.useList({
-    query: { where: Secret.whereOnRack(rack) },
-    filter: privateKeyRequired ? hasPrivateKey : undefined,
+    query: { where: privateKeyRequired ? { ...onRack, keyed: true } : onRack },
   });
   const result = Certificate.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(certificate.TYPE_RESOURCE_ID);
