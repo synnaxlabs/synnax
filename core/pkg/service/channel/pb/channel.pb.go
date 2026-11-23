@@ -696,10 +696,14 @@ type Where struct {
 	// virtual matches virtual channels, or every other channel when false. The channel
 	// API counts the output of a calculation as not virtual.
 	Virtual *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
+	// calculated matches the outputs of calculations, or every other channel when false.
+	// The channel API checks it against every calculation, also one that the subject
+	// cannot retrieve.
+	Calculated *bool `protobuf:"varint,11,opt,name=calculated,proto3,oneof" json:"calculated,omitempty"`
 	// groups matches the channels in any of the given groups.
-	Groups *GroupKeyList `protobuf:"bytes,11,opt,name=groups,proto3" json:"groups,omitempty"`
+	Groups *GroupKeyList `protobuf:"bytes,12,opt,name=groups,proto3" json:"groups,omitempty"`
 	// grouped matches the channels in a group, or in no group when false.
-	Grouped       *bool `protobuf:"varint,12,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
+	Grouped       *bool `protobuf:"varint,13,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -804,6 +808,13 @@ func (x *Where) GetVirtual() bool {
 	return false
 }
 
+func (x *Where) GetCalculated() bool {
+	if x != nil && x.Calculated != nil {
+		return *x.Calculated
+	}
+	return false
+}
+
 func (x *Where) GetGroups() *GroupKeyList {
 	if x != nil {
 		return x.Groups
@@ -861,7 +872,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
 	"\x03_eq\"&\n" +
 	"\fGroupKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xd1\x05\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x85\x06\n" +
 	"\x05Where\x12/\n" +
 	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
 	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
@@ -873,9 +884,12 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
 	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
 	"\avirtual\x18\n" +
-	" \x01(\bH\aR\avirtual\x88\x01\x01\x128\n" +
-	"\x06groups\x18\v \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
-	"\agrouped\x18\f \x01(\bH\bR\agrouped\x88\x01\x01B\x06\n" +
+	" \x01(\bH\aR\avirtual\x88\x01\x01\x12#\n" +
+	"\n" +
+	"calculated\x18\v \x01(\bH\bR\n" +
+	"calculated\x88\x01\x01\x128\n" +
+	"\x06groups\x18\f \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\r \x01(\bH\tR\agrouped\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\x0e\n" +
@@ -885,7 +899,8 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\t_is_indexB\v\n" +
 	"\t_internalB\n" +
 	"\n" +
-	"\b_virtualB\n" +
+	"\b_virtualB\r\n" +
+	"\v_calculatedB\n" +
 	"\n" +
 	"\b_grouped*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +

@@ -156,6 +156,10 @@ type Where struct {
 	// Virtual matches virtual channels, or every other channel when false. The channel
 	// API counts the output of a calculation as not virtual.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
+	// Calculated matches the outputs of calculations, or every other channel when
+	// false. The channel API checks it against every calculation, also one that the
+	// subject cannot retrieve.
+	Calculated *bool `json:"calculated,omitzero" msgpack:"calculated,omitempty"`
 	// Groups matches the channels in any of the given groups.
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the channels in a group, or in no group when false.

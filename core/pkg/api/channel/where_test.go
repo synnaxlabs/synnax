@@ -46,15 +46,15 @@ type vectorRecord struct {
 	Calculated  bool           `json:"calculated"`
 }
 
-func usesVirtual(w channel.Where) bool {
-	return w.Virtual != nil ||
-		slices.ContainsFunc(w.And, usesVirtual) ||
-		slices.ContainsFunc(w.Or, usesVirtual) ||
-		(w.Not != nil && usesVirtual(*w.Not))
+func readsOutputs(w channel.Where) bool {
+	return w.Virtual != nil || w.Calculated != nil ||
+		slices.ContainsFunc(w.And, readsOutputs) ||
+		slices.ContainsFunc(w.Or, readsOutputs) ||
+		(w.Not != nil && readsOutputs(*w.Not))
 }
 
-// The channel service counts every virtual channel, so the filter vectors whose cases
-// hold the API's meaning of virtual run here.
+// Only the channel API knows the outputs of calculations, so the filter vectors whose
+// cases read them run here.
 var _ = Describe("Filter vectors", Ordered, func() {
 	var (
 		v       = MustSucceed(vectors.Read[vectorRecord, channel.Where]("channels"))
@@ -160,7 +160,7 @@ var _ = Describe("Filter vectors", Ordered, func() {
 		lo.FilterMap(
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
-				return Entry(c.Name, c), usesVirtual(c.Where)
+				return Entry(c.Name, c), readsOutputs(c.Where)
 			},
 		),
 	)

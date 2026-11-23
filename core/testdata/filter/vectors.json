@@ -1639,6 +1639,54 @@
         "server_computed": true
       },
       {
+        "name": "calculated keeps only the outputs of calculations",
+        "where": {
+          "calculated": true
+        },
+        "expected": ["c"],
+        "server_computed": true
+      },
+      {
+        "name": "not calculated keeps every other channel",
+        "where": {
+          "calculated": false
+        },
+        "expected": ["a", "b", "d", "e"],
+        "server_computed": true
+      },
+      {
+        "name": "or of not virtual and calculated keeps the channels with data",
+        "where": {
+          "or": [
+            {
+              "virtual": false
+            },
+            {
+              "calculated": true
+            }
+          ]
+        },
+        "expected": ["a", "b", "c", "e"],
+        "server_computed": true
+      },
+      {
+        "name": "virtual and not calculated keeps the plain virtual channels",
+        "where": {
+          "and": [
+            {
+              "virtual": true
+            },
+            {
+              "not": {
+                "calculated": true
+              }
+            }
+          ]
+        },
+        "expected": ["d"],
+        "server_computed": true
+      },
+      {
         "name": "or of name and internal",
         "where": {
           "or": [

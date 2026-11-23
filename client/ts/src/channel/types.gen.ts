@@ -104,6 +104,7 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
+  calculated?: boolean;
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -137,6 +138,12 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().optional(),
+  /**
+   * calculated matches the outputs of calculations, or every other channel when false.
+   * The channel API checks it against every calculation, also one that the subject
+   * cannot retrieve.
+   */
+  calculated: z.boolean().optional(),
   /** groups matches the channels in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the channels in a group, or in no group when false. */

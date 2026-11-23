@@ -884,6 +884,25 @@ class TestChannelRetrieveFilters:
             create_channels[1].key,
         }
 
+    def test_calculated(self, client: sy.Synnax) -> None:
+        """Should keep only the outputs of calculations or only the other channels"""
+        prefix = random_name()
+        plain = client.channels.create(
+            name=f"{prefix}_plain", data_type=sy.DataType.FLOAT32, virtual=True
+        )
+        calc = client.calculations.create(name=f"{prefix}_out", expression="return 2")
+        keys = [plain.key, calc.output]
+        assert self.keys(client.channels.retrieve(keys, calculated=True)) == {
+            calc.output
+        }
+        assert self.keys(client.channels.retrieve(keys, calculated=False)) == {
+            plain.key
+        }
+        either = client.channels.retrieve(
+            keys, or_=[{"virtual": False}, {"calculated": True}]
+        )
+        assert self.keys(either) == {calc.output}
+
     def test_is_index(
         self,
         client: sy.Synnax,

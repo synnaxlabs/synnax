@@ -399,6 +399,9 @@ func WhereToPB(r channel.Where) (*Where, error) {
 	if r.Virtual != nil {
 		pb.Virtual = r.Virtual
 	}
+	if r.Calculated != nil {
+		pb.Calculated = r.Calculated
+	}
 	if r.Groups != nil {
 		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
@@ -479,6 +482,9 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 	}
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual
+	}
+	if pb.Calculated != nil {
+		r.Calculated = pb.Calculated
 	}
 	if pb.Groups != nil {
 		vals, err := func() ([]group.Key, error) {

@@ -56,7 +56,7 @@ import {
   TYPE_RESOURCE_ID,
   type Use,
 } from "@/channel/types.gen";
-import { createLines, holdsVirtual } from "@/channel/where";
+import { createLines, readsOutputs } from "@/channel/where";
 import {
   compareCursors,
   cursor,
@@ -411,10 +411,10 @@ export class Client extends query.Retriever<
         serverComputed: (query) => serverComputed(lasting, query.where),
         triggers: [
           uses.trigger,
-          // Only the Core checks a virtual line, and a channel crosses it when a
-          // calculation starts or stops writing it.
+          // Only the Core checks a virtual or calculated line, and a channel crosses it
+          // when a calculation starts or stops writing it.
           query.trigger(cfg.outputs, (event, query: RetrieveRequest) =>
-            holdsVirtual(query.where) ? [event.key] : null,
+            readsOutputs(query.where) ? [event.key] : null,
           ),
         ],
       },

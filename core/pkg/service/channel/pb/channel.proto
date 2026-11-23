@@ -136,8 +136,12 @@ message Where {
   // virtual matches virtual channels, or every other channel when false. The channel
   // API counts the output of a calculation as not virtual.
   optional bool virtual = 10;
+  // calculated matches the outputs of calculations, or every other channel when false.
+  // The channel API checks it against every calculation, also one that the subject
+  // cannot retrieve.
+  optional bool calculated = 11;
   // groups matches the channels in any of the given groups.
-  GroupKeyList groups = 11;
+  GroupKeyList groups = 12;
   // grouped matches the channels in a group, or in no group when false.
-  optional bool grouped = 12;
+  optional bool grouped = 13;
 }

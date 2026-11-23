@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Retrieve is a builder for querying channels.
@@ -49,6 +50,17 @@ func MatchInternal(internal bool) Filter {
 		return matchBuiltIn
 	}
 	return matchNotBuiltIn
+}
+
+// MatchCalculated returns a filter that fails every query it is in. Only the channel
+// API knows which channels calculations write, and it replaces the calculated line of
+// a Where before the Where reaches the service.
+func MatchCalculated(bool) Filter {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.MatchKeysFunc[Key, Channel](func(gorp.Context) ([]Key, error) {
+			return nil, errors.New("only the channel API can match the calculated line")
+		})
+	}
 }
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or

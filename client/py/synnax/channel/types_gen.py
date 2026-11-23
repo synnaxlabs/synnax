@@ -120,6 +120,9 @@ class Where(BaseModel):
         internal: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels, or every other channel when false. The
             channel API counts the output of a calculation as not virtual.
+        calculated: Matches the outputs of calculations, or every other channel when
+            false. The channel API checks it against every calculation, also one that
+            the subject cannot retrieve.
         groups: Matches the channels in any of the given groups.
         grouped: Matches the channels in a group, or in no group when false.
     """
@@ -136,6 +139,7 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
+    calculated: bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -160,6 +164,7 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
+        "calculated": bool,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },

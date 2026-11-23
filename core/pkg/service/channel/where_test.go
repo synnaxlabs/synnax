@@ -42,12 +42,13 @@ type record struct {
 	Calculated  bool           `json:"calculated"`
 }
 
-// usesVirtual reports whether w or a child of w filters on virtual.
-func usesVirtual(w channel.Where) bool {
-	return w.Virtual != nil ||
-		slices.ContainsFunc(w.And, usesVirtual) ||
-		slices.ContainsFunc(w.Or, usesVirtual) ||
-		(w.Not != nil && usesVirtual(*w.Not))
+// readsOutputs reports whether w or a child of w holds a line that the outputs of
+// calculations decide: virtual or calculated.
+func readsOutputs(w channel.Where) bool {
+	return w.Virtual != nil || w.Calculated != nil ||
+		slices.ContainsFunc(w.And, readsOutputs) ||
+		slices.ContainsFunc(w.Or, readsOutputs) ||
+		(w.Not != nil && readsOutputs(*w.Not))
 }
 
 var _ = Describe("Where", Ordered, func() {
@@ -116,13 +117,23 @@ var _ = Describe("Where", Ordered, func() {
 		lo.FilterMap(
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
-				// These cases hold the channel API's meaning of virtual, in which the
-				// output of a calculation is not virtual. The service counts every
-				// virtual channel.
-				return Entry(c.Name, c), !usesVirtual(c.Where)
+				// Only the channel API knows the outputs of calculations, so it runs
+				// these cases.
+				return Entry(c.Name, c), !readsOutputs(c.Where)
 			},
 		),
 	)
+
+	It("Should fail a retrieve that holds the calculated line", func(ctx SpecContext) {
+		f := MustSucceed(channel.MatchWhere(channel.Where{
+			Not: &channel.Where{Calculated: new(true)},
+		}))
+		Expect(chSvc.NewRetrieve().
+			Where(f).
+			Entries(&[]channel.Channel{}).
+			Exec(ctx, chDB)).
+			To(MatchError("only the channel API can match the calculated line"))
+	})
 
 	It("Should return a path error for an invalid regex", func() {
 		var w channel.Where

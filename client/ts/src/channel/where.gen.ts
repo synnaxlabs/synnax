@@ -30,6 +30,8 @@ export interface Lines {
   internal:
     ((record: Payload, value: NonNullable<Where["internal"]>) => boolean) | null;
   virtual: ((record: Payload, value: NonNullable<Where["virtual"]>) => boolean) | null;
+  calculated:
+    ((record: Payload, value: NonNullable<Where["calculated"]>) => boolean) | null;
   groups: ((record: Payload, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Payload, value: NonNullable<Where["grouped"]>) => boolean) | null;
 }
@@ -65,6 +67,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.virtual == null) throw new Error("only the Core can check virtual");
     if (!lines.virtual(record, where.virtual)) return false;
   }
+  if (where.calculated != null) {
+    if (lines.calculated == null) throw new Error("only the Core can check calculated");
+    if (!lines.calculated(record, where.calculated)) return false;
+  }
   if (where.groups != null) {
     if (lines.groups == null) throw new Error("only the Core can check groups");
     if (!lines.groups(record, where.groups)) return false;
@@ -88,6 +94,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.name?.regex != null ||
     (where.internal != null && lines.internal == null) ||
     (where.virtual != null && lines.virtual == null) ||
+    (where.calculated != null && lines.calculated == null) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null));
 
@@ -109,6 +116,12 @@ const inputs = {
    * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().exactOptional(),
+  /**
+   * calculated matches the outputs of calculations, or every other channel when false.
+   * The channel API checks it against every calculation, also one that the subject
+   * cannot retrieve.
+   */
+  calculated: z.boolean().exactOptional(),
   /** groups matches the channels in any of the given groups. */
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the channels in a group, or in no group when false. */
@@ -161,6 +174,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "isIndex",
         "internal",
         "virtual",
+        "calculated",
         "groups",
         "grouped",
       ]),

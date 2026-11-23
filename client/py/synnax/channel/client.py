@@ -391,6 +391,7 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        calculated: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -417,6 +418,7 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        calculated: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -440,6 +442,7 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        calculated: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -464,6 +467,7 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        calculated: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -491,6 +495,7 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        calculated: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -545,6 +550,8 @@ class Client:
         :param internal: Keeps only internal or only non-internal channels.
         :param virtual: Keeps only virtual channels that are not calculated, or only
             the other channels.
+        :param calculated: Keeps only the outputs of calculations, or only the other
+            channels.
         :param groups: Keeps channels in any of these groups.
         :param grouped: Keeps only channels in a group when True, and only channels in
             no group when False.

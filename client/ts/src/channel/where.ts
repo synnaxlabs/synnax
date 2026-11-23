@@ -13,18 +13,22 @@ import type { Key, Payload, Where } from "@/channel/types.gen";
 import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
-/** @returns whether where, or a where that it holds, has a virtual line. */
-export const holdsVirtual = (where?: Where): boolean =>
+/**
+ * @returns whether where, or a where that it holds, has a line that the outputs of
+ * calculations decide: virtual or calculated.
+ */
+export const readsOutputs = (where?: Where): boolean =>
   where != null &&
   (where.virtual != null ||
-    where.and?.some(holdsVirtual) === true ||
-    where.or?.some(holdsVirtual) === true ||
-    holdsVirtual(where.not));
+    where.calculated != null ||
+    where.and?.some(readsOutputs) === true ||
+    where.or?.some(readsOutputs) === true ||
+    readsOutputs(where.not));
 
 /**
  * @returns the typed lines of a channel Where. The internal line checks the keys that
  * builtIns returns, and only the Core checks it while builtIns returns null. Only the
- * Core checks the virtual line.
+ * Core checks the virtual and calculated lines.
  */
 export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
   ...group.MEMBER_LINES,
@@ -35,4 +39,5 @@ export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
       filter.matchesSet(value, keys.has(ch.key));
   },
   virtual: null,
+  calculated: null,
 });

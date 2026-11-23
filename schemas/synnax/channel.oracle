@@ -397,6 +397,14 @@ Where filter Channel {
             counts the output of a calculation as not virtual.
         """
     }
+    calculated  bool        {
+        @cpp omit
+        @doc value """
+            matches the outputs of calculations, or every other channel when false. The
+            channel API checks it against every calculation, also one that the subject
+            cannot retrieve.
+        """
+    }
     groups      group.Key[] {
         @cpp omit
         @doc value "matches the channels in any of the given groups."
