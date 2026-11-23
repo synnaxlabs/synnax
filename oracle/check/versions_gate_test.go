@@ -1162,6 +1162,7 @@ Entry struct {
 	}
 	max_val float64 = 1 {` + entryRules + `
 	}
+	limit float64
 }
 
 Window union on variant {
@@ -1189,6 +1190,7 @@ Entry struct {
 	}
 	max_val float64 = 1 {` + entryRules + `
 	}
+	limit float64
 ` + entryGo + `
 }
 
@@ -1208,9 +1210,10 @@ Channel struct {
 `
 		}
 		const (
-			validate = "\n\t\t@validate max 17"
-			group    = "\n\t\t@default group \"range\""
-			fields   = "\t@go fields \"Size int\""
+			validate   = "\n\t\t@validate max 17"
+			group      = "\n\t\t@default group \"range\""
+			goValidate = "\n\t\t@go validate lt limit"
+			fields     = "\t@go fields \"Size int\""
 		)
 
 		DescribeTable("Should fail a live rule that the frozen definer lacks",
@@ -1231,6 +1234,8 @@ Channel struct {
 					"Entry.min_val does not match v0's"),
 			Entry("on a default group", group, "", "",
 				"the live @default on Entry.min_val"),
+			Entry("on a Go validate rule", goValidate, "", "",
+				"the live @go validate on Entry.min_val"),
 			Entry("on a Go method rule", "", "", fields,
 				"the live @go method rules on Entry"),
 			Entry("on an inline variant payload", "", validate, "",

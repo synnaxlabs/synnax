@@ -23,7 +23,7 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import { useIsPreview } from "@/platform/task/useIsPreview";
-import { ContextMenu } from "@/platform/task/views/ContextMenu";
+import { Views } from "@/platform/task/views";
 
 interface StaticField {
   key: string;
@@ -200,7 +200,7 @@ export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement 
   );
   const menuProps = Menu.useContextMenu();
   const menu = ({ keys }: Menu.ContextMenuMenuProps) => (
-    <ContextMenu keys={keys} onRemove={handleRemove} />
+    <Views.ContextMenu keys={keys} onRemove={handleRemove} />
   );
   const actions = !isPreview && (
     <>

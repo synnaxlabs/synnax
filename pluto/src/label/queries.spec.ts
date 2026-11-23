@@ -198,7 +198,6 @@ describe("queries", () => {
       });
       const observer = createTestClient();
       await observer.connect();
-      await waitForStreamLive(observer.connection);
       await observer.ranges.retrieve(rng.key);
       const { result } = renderHook(Label.useEditFor, { wrapper });
       await act(async () => {

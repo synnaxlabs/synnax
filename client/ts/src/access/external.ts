@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { type Action, ACTIONS, actionZ } from "@/access/action/types.gen";
+export * from "@/access/action/external";
 export * from "@/access/client";
 export * from "@/access/enforce";
 export * from "@/access/granted";
