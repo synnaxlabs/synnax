@@ -16,7 +16,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { bounds, deep, notation } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
@@ -133,24 +133,47 @@ interface BoundsInputsProps {
   onChange: (next: bounds.Bounds) => void;
 }
 
-const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => (
-  <>
-    <Input.Item label="Min value" padHelpText={false}>
-      <Input.Numeric
-        value={value.lower}
-        bounds={{ ...bounds.INFINITE, upper: value.upper }}
-        onChange={(lower) => onChange({ ...value, lower })}
-      />
-    </Input.Item>
-    <Input.Item label="Max value" padHelpText={false}>
-      <Input.Numeric
-        value={value.upper}
-        bounds={{ ...bounds.INFINITE, lower: value.lower }}
-        onChange={(upper) => onChange({ ...value, upper })}
-      />
-    </Input.Item>
-  </>
-);
+interface Held {
+  typed: bounds.Bounds;
+  /** The stored bounds when the hold started. */
+  stored: bounds.Bounds;
+}
+
+const INVALID_BOUNDS = "Minimum value must be less than maximum value";
+
+/**
+ * Edits a pair of bounds. The Core refuses bounds whose lower is not below its upper,
+ * so the fields hold such a pair with an error and save nothing until it is valid. A
+ * change to the stored bounds drops the held pair.
+ */
+const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => {
+  const [held, setHeld] = useState<Held>();
+  const stale = held != null && !bounds.equals(held.stored, value);
+  if (stale) setHeld(undefined);
+  const holding = held != null && !stale;
+  const shown = holding ? held.typed : value;
+  const handleChange = (key: keyof bounds.Bounds) => (v: number) => {
+    const next = { ...shown, [key]: v };
+    if (next.lower >= next.upper) return setHeld({ typed: next, stored: value });
+    setHeld(undefined);
+    onChange(next);
+  };
+  return (
+    <>
+      <Input.Item
+        label="Min value"
+        padHelpText={false}
+        status={holding ? "error" : undefined}
+        helpText={holding ? INVALID_BOUNDS : undefined}
+      >
+        <Input.Numeric value={shown.lower} onChange={handleChange("lower")} />
+      </Input.Item>
+      <Input.Item label="Max value" padHelpText={false}>
+        <Input.Numeric value={shown.upper} onChange={handleChange("upper")} />
+      </Input.Item>
+    </>
+  );
+};
 
 interface DefaultEntryProps {
   enumeration: enumeration.Key;
