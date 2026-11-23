@@ -97,6 +97,7 @@ inline x::json::json ReadField::to_json() const {
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
@@ -121,6 +122,7 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
 inline x::json::json ReadEndpoint::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key;
+    j["disabled"] = this->disabled;
     j["method"] = this->method;
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);

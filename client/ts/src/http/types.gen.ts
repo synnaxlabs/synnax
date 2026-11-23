@@ -128,6 +128,8 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 export const readEndpointZ = z.object({
   /** key uniquely identifies the endpoint within the task. */
   key: z.string().default(id.create),
+  /** disabled is true when the endpoint is excluded from the task. */
+  disabled: z.boolean().default(false),
   /** method is the HTTP method used to poll the endpoint. */
   method: methodZ.default("GET"),
   /** path is the URL path appended to the device's base URL. */

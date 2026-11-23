@@ -157,6 +157,7 @@ class ReadEndpoint(BaseModel):
 
     Attributes:
         key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
         method: Is the HTTP method used to poll the endpoint.
         path: Is the URL path appended to the device's base URL.
         headers: Contains additional headers merged into the request.
@@ -171,6 +172,7 @@ class ReadEndpoint(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
     method: Method = "GET"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)

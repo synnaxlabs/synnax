@@ -184,6 +184,8 @@ WriteField parse_write_field(x::json::Parser parser);
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
     std::string key;
+    /// @brief disabled is true when the endpoint is excluded from the task.
+    bool disabled = false;
     /// @brief method is the HTTP method used to poll the endpoint.
     std::string method = METHOD_GET;
     /// @brief path is the URL path appended to the device's base URL.
