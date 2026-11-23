@@ -529,6 +529,19 @@ describe("symbol editor spec", () => {
       expect(Spec.owner(spec, "#c")?.key).toBe("group");
     });
 
+    it("should return the part that holds a span of a text", () => {
+      const text = createSpec({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg">' +
+            '<text id="t"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ key: "label", name: "Label", selectors: ["#s"] }],
+      });
+      expect(Spec.owner(text, "#t")?.key).toBe("label");
+    });
+
     it("should return undefined for a shape that no part holds", () => {
       expect(Spec.owner(spec, "#d")).toBeUndefined();
     });
@@ -546,6 +559,30 @@ describe("symbol editor spec", () => {
     it("should remove a selector that the part already has", () => {
       const next = Spec.toggleSelector(createSpec(), "body", "#body");
       expect(next[0].selectors).toEqual([]);
+    });
+
+    const labeled = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<text id="t"><tspan id="s">Tank</tspan></text><rect id="seat"/></svg>',
+      },
+      parts: [
+        { key: "body", name: "Body", selectors: ["#s", "#t"] },
+        { key: "seat", name: "Seat", selectors: ["#seat"] },
+      ],
+    });
+
+    it("should take the spans of a text out with the text", () => {
+      expect(Spec.toggleSelector(labeled, "body", "#t")[0].selectors).toEqual([]);
+    });
+
+    it("should move the spans of a text with the text", () => {
+      expect(Spec.toggleSelector(labeled, "seat", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: ["#seat", "#t"] },
+      ]);
     });
 
     const grouped = createSpec({

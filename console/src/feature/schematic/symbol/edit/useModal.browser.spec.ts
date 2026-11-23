@@ -1053,6 +1053,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("takes the spans of a text out with the text", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<text id="t" y="8"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#s", "#t"] }],
+      });
+      fireEvent.click(findShape("s"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
     it("toggles the text of a span clicked", async () => {
       const symbol = await openPainted({
         drawing: {
