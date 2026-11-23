@@ -1097,10 +1097,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
       fireEvent.click(screen.getByText("Select parent group"));
       await waitFor(() =>
-        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
       );
       // The group sits in no group, so the action leaves.
       expect(screen.queryByText("Select parent group")).toBeNull();
