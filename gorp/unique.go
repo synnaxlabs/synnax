@@ -190,6 +190,61 @@ func (u *UniqueIndex[K, E, V]) holder(
 	return NewTarget(u.table, k), true, nil
 }
 
+// Value returns the value of the entry of the table of u under key, as seen by snap,
+// and false when no entry has key.
+func (u *UniqueIndex[K, E, V]) Value(
+	ctx context.Context,
+	snap Snapshot,
+	key K,
+) (V, bool, error) {
+	var none V
+	if err := u.store.Wait(ctx); err != nil {
+		return none, false, err
+	}
+	return u.store.Value(scopeOf(snap), key)
+}
+
+// ValueOf returns the value of the entry target, in any table of the space of u, as
+// seen by snap, and false when its table has no entry under its key. It fails when no
+// index of the space is on the table of target.
+func (u *UniqueIndex[K, E, V]) ValueOf(
+	ctx context.Context,
+	snap Snapshot,
+	target Target,
+) (V, bool, error) {
+	for _, m := range *u.members.members.Load() {
+		if m.on(target.Table) {
+			return m.valueOf(ctx, scopeOf(snap), target)
+		}
+	}
+	var none V
+	return none, false, errors.Newf(
+		"[gorp] - no index of space %s is on table %s",
+		u.space,
+		target.Table,
+	)
+}
+
+// on implements uniqueMember.
+func (u *UniqueIndex[K, E, V]) on(table string) bool { return u.table == table }
+
+// valueOf implements uniqueMember.
+func (u *UniqueIndex[K, E, V]) valueOf(
+	ctx context.Context,
+	scope *txState,
+	target Target,
+) (V, bool, error) {
+	var none V
+	k, err := key.Parse[K](target.Key)
+	if err != nil {
+		return none, false, err
+	}
+	if err = u.store.Wait(ctx); err != nil {
+		return none, false, err
+	}
+	return u.store.Value(scope, k)
+}
+
 // spaceName implements checkedIndex.
 func (u *UniqueIndex[K, E, V]) spaceName() string { return u.space }
 
@@ -264,6 +319,11 @@ type checkedIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
+	// on reports whether the index is on the table named table.
+	on(table string) bool
+	// valueOf returns the value of target, an entry of the table of the index, with the
+	// changes of scope applied, and false when the table has no entry under its key.
+	valueOf(ctx context.Context, scope *txState, target Target) (V, bool, error)
 }
 
 // uniqueSpace is the set of UniqueIndexes of one space on a DB.

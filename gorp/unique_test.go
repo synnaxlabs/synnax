@@ -330,6 +330,77 @@ var _ = Describe("UniqueIndex", func() {
 		})
 	})
 
+	Describe("Value", func() {
+		var itemIndex *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling]
+		BeforeEach(func(ctx SpecContext) {
+			openDB()
+			openFolders(ctx)
+			itemIndex = newItemIndex()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:         db,
+				Name:       "item",
+				Indexes:    []gorp.Index[uint32, uniqueItem]{itemIndex},
+				References: []gorp.Reference[uint32, uniqueItem]{newItemFolderRef()},
+			}))
+		})
+
+		It("Should return the value of an entry by key, as the snapshot sees it", func(
+			ctx SpecContext,
+		) {
+			Expect(createFolder(ctx, db, uniqueFolder{Key: "c", Name: "c"})).
+				To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 4, Folder: "c", Name: "pt"})).
+				To(Succeed())
+			v, held := MustSucceed2(itemIndex.Value(ctx, db, 4))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "c", Name: "pt"}))
+			_, held = MustSucceed2(itemIndex.Value(ctx, db, 99))
+			Expect(held).To(BeFalse())
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			Expect(createItem(ctx, tx, uniqueItem{Key: 5, Name: "staged"})).
+				To(Succeed())
+			v, held = MustSucceed2(itemIndex.Value(ctx, tx, 5))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Name: "staged"}))
+			_, held = MustSucceed2(itemIndex.Value(ctx, db, 5))
+			Expect(held).To(BeFalse())
+		})
+
+		It("Should return the value of an entry of any table of the space", func(
+			ctx SpecContext,
+		) {
+			Expect(createFolder(ctx, db, uniqueFolder{Key: "c", Name: "c"})).
+				To(Succeed())
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "d", Parent: "c", Name: "d"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 6, Folder: "d", Name: "pt"})).
+				To(Succeed())
+			valueOf := func(t gorp.Target) (uniqueSibling, bool) {
+				GinkgoHelper()
+				return MustSucceed2(itemIndex.ValueOf(ctx, db, t))
+			}
+			v, held := valueOf(gorp.NewTarget("folder", "d"))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "c", Name: "d"}))
+			v, held = valueOf(itemTarget(6))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "d", Name: "pt"}))
+			_, held = valueOf(gorp.NewTarget("folder", "z"))
+			Expect(held).To(BeFalse())
+		})
+
+		It("Should fail for a table that no index of the space is on", func(
+			ctx SpecContext,
+		) {
+			Expect(itemIndex.ValueOf(ctx, db, gorp.NewTarget("other", "d"))).Error().
+				To(MatchError(ContainSubstring(
+					"no index of space namespace.item is on table other",
+				)))
+		})
+	})
+
 	Describe("Stored duplicates", func() {
 		BeforeEach(func(ctx SpecContext) {
 			openDB()
