@@ -537,10 +537,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect id="a" width="10" height="10"/></svg>',
       );
+      // The inspector heading repeats the name, so the row is the match in the list.
       const row = (name: string): HTMLElement => {
         const item = screen
-          .getByText(name)
-          .closest<HTMLElement>(".console-schematic-part-list-item");
+          .getAllByText(name)
+          .map((el) => el.closest<HTMLElement>(".console-schematic-part-list-item"))
+          .find((el) => el != null);
         assertDefined(item);
         return item;
       };
