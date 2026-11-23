@@ -209,8 +209,8 @@ public:
         return mw.exec(ctx, this, request);
     }
 
-    /// @implements UnaryClient::send
-    std::pair<RS, x::errors::Error> send(
+    /// @implements UnaryClient::send_until
+    std::pair<RS, x::errors::Error> send_until(
         const std::string &target,
         RQ &request,
         const std::chrono::system_clock::time_point deadline

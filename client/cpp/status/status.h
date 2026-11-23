@@ -274,7 +274,7 @@ public:
         req.set_time(time.nanoseconds());
         const std::string target = "/status/set_by_key_or_name";
         auto [res, err] = timeout.has_value()
-                            ? this->set_by_key_or_name_client->send(
+                            ? this->set_by_key_or_name_client->send_until(
                                   target,
                                   req,
                                   std::chrono::time_point_cast<

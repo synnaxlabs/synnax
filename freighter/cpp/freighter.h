@@ -258,14 +258,17 @@ public:
     virtual std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) = 0;
 
-    /// @brief sends the request to the target, and gives up at deadline.
+    /// @brief sends the request to the target, and gives up at deadline. A transport
+    /// with no deadlines, such as a fake in a test, ignores deadline.
     /// @returns the response and an error, which is TIMEOUT when the target does not
     /// answer before deadline.
-    virtual std::pair<RS, x::errors::Error> send(
+    virtual std::pair<RS, x::errors::Error> send_until(
         const std::string &target,
         RQ &request,
-        std::chrono::system_clock::time_point deadline
-    ) = 0;
+        std::chrono::system_clock::time_point /*deadline*/
+    ) {
+        return this->send(target, request);
+    }
 
     virtual ~UnaryClient() = default;
 };

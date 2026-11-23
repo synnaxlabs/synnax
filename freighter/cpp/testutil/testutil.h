@@ -47,7 +47,7 @@ public:
         return this->exec(target, request, std::nullopt);
     }
 
-    std::pair<RS, x::errors::Error> send(
+    std::pair<RS, x::errors::Error> send_until(
         const std::string &target,
         RQ &request,
         const std::chrono::system_clock::time_point deadline

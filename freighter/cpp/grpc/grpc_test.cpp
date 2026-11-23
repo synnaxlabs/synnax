@@ -469,7 +469,7 @@ TEST_F(DeadlineTest, UnaryFailsAtCallerDeadline) {
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, this->target);
     auto sent = std::async(std::launch::async, [&client] {
         auto mes = test::Message();
-        return client.send(
+        return client.send_until(
             "",
             mes,
             std::chrono::system_clock::now() + std::chrono::milliseconds(300)
