@@ -11,6 +11,7 @@ package v5_test
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -307,6 +308,38 @@ var _ = Describe("ResolveReadConfig", func() {
 		Expect(as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default).
 			To(BeNil())
 	})
+
+	It("Should give an optional float field with no fill value the default NaN",
+		func(ctx SpecContext) {
+			ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{
+					{Key: "o", Pointer: "/o", Optional: true, DataType: telem.Float32T},
+					{Key: "r", Pointer: "/r", DataType: telem.Float64T},
+				},
+			}), nil)
+			Expect(notes).To(BeEmpty())
+			fields := jsonFields(ic)
+			d := as[icdv1.FloatJSONField](fields[0].Variant).Default
+			Expect(d).ToNot(BeNil())
+			Expect(math.IsNaN(float64(*d))).To(BeTrue())
+			Expect(as[icdv1.FloatJSONField](fields[1].Variant).Default).To(BeNil())
+		},
+	)
+
+	It("Should note an optional field with no fill value that is not a float",
+		func(ctx SpecContext) {
+			ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{
+					{Key: "o", Pointer: "/o", Optional: true, DataType: telem.Int32T},
+				},
+			}), nil)
+			Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
+			Expect(as[icdv1.IntegerJSONField](jsonFields(ic)[0].Variant).Default).
+				To(BeNil())
+		},
+	)
 
 	Describe("Read check", func() {
 		found := map[channel.Key]icdv0.Channel{

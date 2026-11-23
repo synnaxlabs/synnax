@@ -38,7 +38,8 @@ import (
 // through snap with channels. A field binds no channel when it is disabled, when its
 // channel does not exist, or when an earlier field writes that channel. The index of a
 // read is the field that writes an index channel, and it takes no fill value. Any other
-// fill value becomes the default of its field. note receives the path and each change.
+// fill value becomes the default of its field, and an optional float field with no fill
+// value takes the default NaN. note receives the path and each change.
 // ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
@@ -161,8 +162,9 @@ func readFields(
 
 // liftFills turns the fill value of each field of staged into the default of its field
 // in ic, whose messages hold the endpoints of staged in order, at paths. It drops the
-// fill value of the field that indexes names for each endpoint. note receives the path
-// of each fill value that it drops.
+// fill value of the field that indexes names for each endpoint, and lifts each optional
+// field with no fill value through liftOptional. note receives the path of each fill
+// value that it drops.
 func liftFills(
 	ic icdv1.ICD,
 	staged []InlineEndpoint,
@@ -176,19 +178,35 @@ func liftFills(
 			panic("lifted message " + ic.Messages[i].Name + " is not a JSON message")
 		}
 		for j, f := range e.Fields {
-			if f.FillValue == nil {
-				continue
-			}
 			at := paths[i] + ".fields." + strconv.Itoa(j)
-			if indexes[i] != "" && f.Key == indexes[i] {
+			switch {
+			case f.FillValue == nil:
+				if f.Optional {
+					liftOptional(&p.Fields[j], at, note)
+				}
+			case indexes[i] != "" && f.Key == indexes[i]:
 				note(at, "fill value was dropped, because the index takes no default")
-				continue
-			}
-			if err := liftFill(&p.Fields[j], *f.FillValue); err != nil {
-				note(at, "fill value was dropped: "+err.Error())
+			default:
+				if err := liftFill(&p.Fields[j], *f.FillValue); err != nil {
+					note(at, "fill value was dropped: "+err.Error())
+				}
 			}
 		}
 	}
+}
+
+// liftOptional gives field, an optional field with no fill value, the default NaN, as a
+// read before ICDs wrote NaN for its missing value. note receives path when field is
+// not a float field, as only a float holds NaN.
+func liftOptional(field *icdv1.JSONField, path string, note func(path, change string)) {
+	v, ok := field.Variant.(icdv1.FloatJSONField)
+	if !ok {
+		note(path, "has no default, because it is optional with no fill value and is "+
+			"not a float. A read skips each document that has no value for it")
+		return
+	}
+	v.Default = new(payload.Float(math.NaN()))
+	field.Variant = v
 }
 
 func toInline(f ReadField, _ int) icdv0.InlineField {

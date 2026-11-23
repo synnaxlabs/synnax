@@ -12,7 +12,6 @@ package v5
 import (
 	"context"
 	"encoding/json/v2"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -24,8 +23,7 @@ import (
 )
 
 // MigrateReadConfig lifts a v4 read config to v5, with the fields of each endpoint
-// staged in Inline. NaN fill turns on when an optional field has no fill value, because
-// an ICD default cannot be NaN.
+// staged in Inline.
 func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
 	if err != nil || len(old.Endpoints) == 0 {
@@ -34,10 +32,6 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 	staged := make([]InlineEndpoint, len(old.Endpoints))
 	for i, ep := range old.Endpoints {
 		staged[i] = InlineEndpoint{Key: ep.Key, Index: ep.Index, Fields: ep.Fields}
-		cfg.NanFillEnabled = cfg.NanFillEnabled || slices.ContainsFunc(
-			ep.Fields,
-			func(f ReadField) bool { return f.Optional && f.FillValue == nil },
-		)
 	}
 	cfg.Inline = &InlineRead{Endpoints: staged}
 	return cfg, nil
