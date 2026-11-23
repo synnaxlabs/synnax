@@ -183,6 +183,29 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("div.leaver left the page inside the callback for");
   });
 
+  it("should name an element that a callback put back on the page", async () => {
+    const returner = box(root, "returner", 10);
+    observe(returner, () => {});
+    const deep = box(nest(root, 3), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      root.append(returner);
+    });
+    await frames(2);
+    // The browser reports a zero size for the element off the page.
+    returner.remove();
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain(
+      "div.returner came back on the page inside the callback for",
+    );
+  });
+
   it("should leave out an element that leaves the page with its observer", async () => {
     const subtree = box(root, "subtree", 10);
     const child = box(subtree, "child", 10);

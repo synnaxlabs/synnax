@@ -150,10 +150,11 @@ const label = (element: Element): string => {
 
 /**
  * Wraps the global ResizeObserver to name the cause of each ResizeObserver loop error.
- * Each report lists the observed elements that a callback resized or took off the page
- * in the frame of the error, with the stack that created the observer, and the targets
- * observed after a callback, with the stack that observed them. It lists only those at
- * or above the shallowest target of the loop pass of that callback.
+ * Each report lists the observed elements that a callback resized, took off the page,
+ * or put back on it in the frame of the error, with the stack that created the
+ * observer, and the targets observed after a callback, with the stack that observed
+ * them. It lists only those at or above the shallowest target of the loop pass of that
+ * callback.
  *
  * @param report - Receives each report.
  * @returns a function that puts back the previous ResizeObserver and stops reporting.
@@ -223,7 +224,8 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     const callback = `${phase} the callback for ${targets}, of the observer`;
     for (const [element, size] of before) {
       if (!element.isConnected) {
-        before.delete(element);
+        if (size === ZERO) continue;
+        before.set(element, ZERO);
         // The browser then reports a zero size from the depth of the element off the
         // page.
         if (observed.has(element) && (size.width > 0 || size.height > 0)) {
@@ -239,10 +241,14 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       const after = measure(element);
       if (!resized(element, size, after)) continue;
       const same = after.width === size.width && after.height === size.height;
-      const resize = same
-        ? `its content size from ${size.inner} to ${after.inner}`
-        : `from ${formatSize(size)} to ${formatSize(after)}`;
-      const text = `${label(element)} changed ${resize} ${callback} created at:`;
+      // The browser reports an element put back on the page as a change from zero.
+      const change =
+        size === ZERO
+          ? "came back on the page"
+          : same
+            ? `changed its content size from ${size.inner} to ${after.inner}`
+            : `changed from ${formatSize(size)} to ${formatSize(after)}`;
+      const text = `${label(element)} ${change} ${callback} created at:`;
       changes.push({ text: `${text}\n${origin}`, depth: depth(element), pass: during });
       before.set(element, after);
     }
@@ -259,7 +265,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     closeLate();
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
-      if (element.isConnected) before.set(element, measure(element));
+      before.set(element, element.isConnected ? measure(element) : ZERO);
     // The browser gathers the changed targets of every observer before a pass, then
     // calls each observer with any at most once. No script runs between a pass and the
     // gathering of the next.
