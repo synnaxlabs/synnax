@@ -16,7 +16,7 @@ import { Channel, License } from "@synnaxlabs/pluto";
 import { type deep, math, primitive, strings, unique } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import type { SlaveDevice } from "@/feature/ethercat/device/types";
+import type { Device } from "@/feature/ethercat/device";
 import type { IndexOptions } from "@/feature/ethercat/task/configure";
 import {
   type Channel as TaskChannel,
@@ -33,7 +33,7 @@ import {
 import { CSS } from "@/platform/css";
 
 /** @returns the keys of the channels that the slaves map, indexes among them. */
-const mappedKeys = (slaves: SlaveDevice[]): number[] =>
+const mappedKeys = (slaves: Device.SlaveDevice[]): number[] =>
   unique.unique(
     slaves
       .flatMap((s) => [
@@ -62,7 +62,7 @@ interface Creation {
 const creationsOf = (
   { indexProperty, nameSuffix }: IndexOptions,
   pdoType: PDOType,
-  slaves: SlaveDevice[],
+  slaves: Device.SlaveDevice[],
   channels: TaskChannel[],
   existing: DataTypes,
 ): Creation[] =>
@@ -113,7 +113,7 @@ export interface ChannelUsageProps {
   /** The path of the channels of the task in the form. */
   path: deep.Target<TaskChannel[]>;
   /** The slaves that the channels use, or undefined while they load. */
-  slaves: SlaveDevice[] | undefined;
+  slaves: Device.SlaveDevice[] | undefined;
 }
 
 /**

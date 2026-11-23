@@ -7,18 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
+
 import { createStatic, createToggle } from "@/schematic/node/common/create";
-import { Agitator } from "@/schematic/node/process/Agitator";
-import { CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
-import { FlatBladeAgitator } from "@/schematic/node/process/FlatBladeAgitator";
-import { HeatExchangerGeneral } from "@/schematic/node/process/HeatExchangerGeneral";
-import { HeatExchangerM } from "@/schematic/node/process/HeatExchangerM";
-import { HeatExchangerStraightTube } from "@/schematic/node/process/HeatExchangerStraightTube";
-import { HelicalAgitator } from "@/schematic/node/process/HelicalAgitator";
-import { PaddleAgitator } from "@/schematic/node/process/PaddleAgitator";
-import { PropellerAgitator } from "@/schematic/node/process/PropellerAgitator";
-import { RotaryMixer } from "@/schematic/node/process/RotaryMixer";
-import { StaticMixer } from "@/schematic/node/process/StaticMixer";
+import { Agitator, SYMBOL as AGITATOR } from "@/schematic/node/process/Agitator";
+import {
+  CrossBeamAgitator,
+  SYMBOL as CROSS_BEAM_AGITATOR,
+} from "@/schematic/node/process/CrossBeamAgitator";
+import {
+  FlatBladeAgitator,
+  SYMBOL as FLAT_BLADE_AGITATOR,
+} from "@/schematic/node/process/FlatBladeAgitator";
+import {
+  HeatExchangerGeneral,
+  SYMBOL as HEAT_EXCHANGER_GENERAL,
+} from "@/schematic/node/process/HeatExchangerGeneral";
+import {
+  HeatExchangerM,
+  SYMBOL as HEAT_EXCHANGER_M,
+} from "@/schematic/node/process/HeatExchangerM";
+import {
+  HeatExchangerStraightTube,
+  SYMBOL as HEAT_EXCHANGER_STRAIGHT_TUBE,
+} from "@/schematic/node/process/HeatExchangerStraightTube";
+import {
+  HelicalAgitator,
+  SYMBOL as HELICAL_AGITATOR,
+} from "@/schematic/node/process/HelicalAgitator";
+import {
+  PaddleAgitator,
+  SYMBOL as PADDLE_AGITATOR,
+} from "@/schematic/node/process/PaddleAgitator";
+import {
+  PropellerAgitator,
+  SYMBOL as PROPELLER_AGITATOR,
+} from "@/schematic/node/process/PropellerAgitator";
+import {
+  RotaryMixer,
+  SYMBOL as ROTARY_MIXER,
+} from "@/schematic/node/process/RotaryMixer";
+import {
+  StaticMixer,
+  SYMBOL as STATIC_MIXER,
+} from "@/schematic/node/process/StaticMixer";
 
 const agitator = createToggle({
   variant: "agitator",
@@ -91,3 +123,18 @@ export const REGISTRY = {
   rotary_mixer: rotaryMixer.spec,
   static_mixer: staticMixer.spec,
 } as const;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS = {
+  agitator: AGITATOR,
+  cross_beam_agitator: CROSS_BEAM_AGITATOR,
+  flat_blade_agitator: FLAT_BLADE_AGITATOR,
+  heat_exchanger_general: HEAT_EXCHANGER_GENERAL,
+  heat_exchanger_m: HEAT_EXCHANGER_M,
+  heat_exchanger_straight_tube: HEAT_EXCHANGER_STRAIGHT_TUBE,
+  helical_agitator: HELICAL_AGITATOR,
+  paddle_agitator: PADDLE_AGITATOR,
+  propeller_agitator: PROPELLER_AGITATOR,
+  rotary_mixer: ROTARY_MIXER,
+  static_mixer: STATIC_MIXER,
+} as const satisfies Record<string, schematic.symbol.Spec>;

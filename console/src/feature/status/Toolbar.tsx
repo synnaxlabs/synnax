@@ -23,7 +23,7 @@ import { Access, Label, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
-import { contextMenu } from "@/feature/status/list/ContextMenu";
+import { List as StatusList } from "@/feature/status/list";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import type { Nav } from "@/platform/nav";
@@ -54,7 +54,7 @@ const List = (): ReactElement => {
       value={selected}
       onChange={setSelected}
     >
-      <Menu.ContextMenu menu={contextMenu} {...menuProps} />
+      <Menu.ContextMenu menu={StatusList.contextMenu} {...menuProps} />
       <BaseList.Scroll full="y" onContextMenu={menuProps.open}>
         <BaseList.Items<status.Key> emptyContent={<NoStatuses />}>
           {listItem}

@@ -52,13 +52,14 @@ const renderValue = async (channel: channel.Key) => {
 };
 
 describe("Value.Symbol deleted channel", () => {
-  it("should say Deleted channel inside its box, with no badge below", async () => {
+  it("should show the deleted badge below its box, with nothing in the box", async () => {
     const ch = await createChannel();
     await client.channels.delete(ch.key);
-    const { findByText, container } = await renderValue(ch.key);
+    const { findByText } = await renderValue(ch.key);
     const text = await findByText("Deleted channel");
-    expect(text.closest(`.${CSS.BE("value", "content")}`)).not.toBeNull();
-    expect(container.querySelector(".lyra-badge")).toBeNull();
+    expect(text.closest(".lyra-badge")).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("grid", "item")}`)).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("value", "content")}`)).toBeNull();
   });
 
   it("should say nothing while its channel exists", async () => {

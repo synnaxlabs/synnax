@@ -1954,7 +1954,8 @@ public:
     /// the total number of samples read.
     size_t fill_from(binary::Reader &reader) {
         this->ensure_exclusive();
-        auto n_read = reader.read(this->data() + this->byte_size(), this->byte_cap());
+        const auto room = this->byte_cap() - this->byte_size();
+        auto n_read = reader.read(this->data() + this->byte_size(), room);
         this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {
             this->sample_count = 0;

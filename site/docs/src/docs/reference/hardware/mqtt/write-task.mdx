@@ -8,7 +8,6 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -23,24 +22,32 @@ value back from the device with a [read task](/reference/hardware/mqtt/read-task
 
 <Divider.Divider x />
 
-## Targets
+## Message formats
 
-A target is one topic and one command channel. Each value written to the command channel
-publishes one message to the topic:
+A plain target publishes the JSON payload of one message of an
+[interface control document (ICD)](/reference/hardware/icds) to one topic. Each field of
+the message sends a command from a command channel, a fixed value, or its
+[default](/reference/hardware/icds/reference#defaults).
 
-- **Pointer** -> where the value goes in a JSON payload, such as `/position`. An empty
-  pointer sends the bare value as the whole payload, with no other fields.
-- **JSON type** -> the value goes out as a number, a string, or a boolean. With a
-  string, the **Enum mapping** turns numbers into text labels, such as `1` into `OPEN`.
-- **Additional fields** -> the same fields in each payload. A static field adds a fixed
-  value, and a generated field adds a new UUID or the current time.
+- **Commands** -> commands written at the same time go out in one payload. A field with
+  no new command sends the last command of its channel.
+- **First commands** -> the target sends nothing until each field with a channel and no
+  default has a command.
+- **Dropped commands** -> the task drops a command that its field cannot hold, such as
+  NaN in a JSON number or a value outside the min and max of its field, and shows a
+  warning.
 
-With the pointer `/position`, a static field `/source`, and a generated UUID at `/id`, a
-command of 42 publishes:
+For a message where `/position` has a command channel, `/source` has the fixed value
+`synnax`, and `/id` has a random UUID default, a command of 42 publishes:
 
 ```json
 { "position": 42, "source": "synnax", "id": "6f1c2e3a-..." }
 ```
+
+When you upgrade the Core, it moves the targets of each write task from an earlier
+version into a new ICD named after the task, with one message for each target. A static
+field becomes a fixed default, and a generated field becomes a current time or random
+UUID default.
 
 <Divider.Divider x />
 
@@ -49,23 +56,24 @@ command of 42 publishes:
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
+In the Console, a write task commands
+[Sparkplug B tags](/reference/hardware/mqtt/sparkplug#command-tags). To publish an ICD
+message to a plain topic, create the task in Python. The Console lists the plain targets
+of a task with their topic settings.
+
 1. In the devices toolbar, right-click the broker and select **Create write task**. You
    can also run the "Create MQTT write task" command.
-2. Click **Add targets**. Select a topic, then select the field that carries the command
-   value. For a topic that publishes rarely, click **Add a topic by name**.
-3. Click **Add** _N_ **targets**. Each field becomes a target.
-4. Select a target to set its **Pointer** and **JSON type**. To add fields to the
-   payload, click **Static** or **Generated** under **Additional fields**.
-5. Click <Icon.Play /> (**Start**).
+2. Click **Add targets**. Select an edge node, then select the tags to command.
+3. Click **Add** _N_ **targets**.
+4. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel for each target.
-
-<Video id="hardware/mqtt/write-task" label="Create and start an MQTT write task" />
 
   </Fragment>
   <Fragment slot="python">
 
-Python does not create channels. Create the command channel and its index first.
+Python does not create channels. Create the command channel, its index, and the ICD
+first.
 
 ```python
 import synnax as sy
@@ -79,19 +87,34 @@ cmd = client.channels.create(
     name="valve1_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
 )
 
+position = sy.icd.FloatJSONField(name="position", pointer="/position")
+source = sy.icd.StringJSONField(name="source", pointer="/source")
+id_field = sy.icd.UuidJSONField(
+    name="id", pointer="/id", default=sy.icd.RandomUUIDDefault()
+)
+command = sy.icd.Message(
+    name="plant/valve1/set",
+    payload=sy.icd.JSONPayload(fields=[position, source, id_field]),
+)
+valve1 = client.icds.create(name="Valve 1", messages=[command])
+
 task = mqtt.WriteTask(
     name="Valve 1 commands",
     device=broker.key,
     targets=[
         mqtt.PlainWriteTarget(
             topic="plant/valve1/set",
-            channel=mqtt.ChannelField(pointer="/position", channel=cmd.key),
-            fields=[
-                mqtt.StaticWriteField(
-                    pointer="/source", json_type="string", value="synnax"
-                ),
-                mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
-            ],
+            icd=valve1.key,
+            message=sy.icd.WriteMessage(
+                message=command.key,
+                bindings=[
+                    sy.icd.ChannelWriteBinding(field=position.key, channel=cmd.key),
+                    sy.icd.ValueWriteBinding(
+                        field=source.key,
+                        value=sy.icd.StringWriteValue(value="synnax"),
+                    ),
+                ],
+            ),
         )
     ],
 )
@@ -124,31 +147,28 @@ send one.
 
 ## Target reference
 
-A target has these settings:
+A plain target has these settings:
 
-| Setting                                           | Default       | Notes                                                      |
-| ------------------------------------------------- | ------------- | ---------------------------------------------------------- |
-| Topic <small>`topic`</small>                      |               | The topic to publish to. No wildcards.                     |
-| Quality of service <small>`qos`</small>           | At least once | At most once (0), at least once (1), or exactly once (2).  |
-| Retain <small>`retained`</small>                  | Off           | Asks the broker to keep the message for later subscribers. |
-| Pointer <small>`channel.pointer`</small>          | Empty         | Empty sends the bare value as the whole payload.           |
-| JSON type <small>`channel.json_type`</small>      | Number        | Number, string, or boolean.                                |
-| Time format <small>`channel.time_format`</small>  | ISO 8601      | For a `timestamp` command channel.                         |
-| Channel <small>`channel.channel`</small>          |               | The command channel.                                       |
-| Enum mapping <small>`channel.enum_values`</small> | None          | With a string JSON type, maps numbers to text labels.      |
+| Setting                                 | Default       | Notes                                                      |
+| --------------------------------------- | ------------- | ---------------------------------------------------------- |
+| Topic <small>`topic`</small>            |               | The topic to publish to. No wildcards.                     |
+| Quality of service <small>`qos`</small> | At least once | At most once (0), at least once (1), or exactly once (2).  |
+| Retain <small>`retained`</small>        | Off           | Asks the broker to keep the message for later subscribers. |
+| ICD <small>`icd`</small>                |               | The ICD that holds the message.                            |
+| Message <small>`message`</small>        |               | The message to publish, and the bindings of its fields.    |
 
-An additional field has these settings:
+A binding fills one field of the message from a command channel or a fixed value:
 
-| Setting                                  | Default  | Notes                                      |
-| ---------------------------------------- | -------- | ------------------------------------------ |
-| Pointer <small>`pointer`</small>         |          | Where the value goes.                      |
-| JSON type <small>`json_type`</small>     | Number   | Static fields only. The type of the value. |
-| Value <small>`value`</small>             |          | Static fields only. The fixed value.       |
-| Generator <small>`generator`</small>     | UUID     | Generated fields only. UUID or timestamp.  |
-| Time format <small>`time_format`</small> | ISO 8601 | Generated timestamps only.                 |
+| Setting                          | Default | Notes                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------- |
+| Kind <small>`type`</small>       |         | `channel` or `value`.                                               |
+| Field <small>`field`</small>     |         | The field to fill.                                                  |
+| Channel <small>`channel`</small> |         | Channel bindings only. The command channel whose commands it sends. |
+| Value <small>`value`</small>     |         | Value bindings only. The fixed value that it sends.                 |
 
-In code, a target is `PlainWriteTarget`, its command channel is `ChannelField`, and the
-additional fields are `StaticWriteField` and `GeneratedWriteField`.
+In code, a plain target is `PlainWriteTarget`, and its message is `icd.WriteMessage`. A
+binding to a command channel is `icd.ChannelWriteBinding`, and a binding to a fixed
+value is `icd.ValueWriteBinding`.
 
 <Divider.Divider x />
 
@@ -181,13 +201,39 @@ Add a target, or enable one.
 <Problem.Item message={"target ...: channel ... does not exist"}>
 <Problem.Cause>
 
-The command channel of a target was deleted.
+The command channel of a target was deleted, or a channel binding of a plain target has
+no channel (`channel` is 0).
 
 </Problem.Cause>
 <Problem.Fix>
 
-Remove the target, then add it again with **Add targets**. The Console creates a new
-command channel when you start the task.
+For a Sparkplug B tag, remove the target, then add it again with **Add targets**. The
+Console creates a new command channel when you start the task.
+
+For a plain target, start the task in the Console. The Console creates a command channel
+for each binding that has no channel, or whose channel was deleted.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={[
+    "field ...: ... is below the min ...",
+    "field ...: ... is above the max ...",
+    "field ...: ... decodes to ..., which is below the min ...",
+    "field ...: ... decodes to ..., which is above the max ...",
+  ]}
+>
+<Problem.Cause>
+
+A fixed value of a plain target, or the default of a field in the ICD, is outside the
+min and max of the field after the scale and offset of the field.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the fixed value or the default, or change the min or the max of the field in the
+ICD.
 
 </Problem.Fix>
 </Problem.Item>

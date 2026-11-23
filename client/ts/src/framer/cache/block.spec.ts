@@ -26,8 +26,8 @@ import {
   rawTile,
   split,
 } from "@/framer/cache/block";
-import { Dynamic } from "@/framer/cache/dynamic";
-import { tileSpan } from "@/framer/cache/grid";
+import { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
 import { UnexpectedError } from "@/index";
 
 const seconds = (s: number): TimeStamp => TimeStamp.seconds(s);
@@ -53,7 +53,7 @@ const blockAlignment = (index: number, offset: number): bigint =>
 describe("block", () => {
   describe("rawIndex", () => {
     it("should return the index of the raw block that holds a timestamp", () => {
-      const span = tileSpan(RAW_LEVEL);
+      const span = grid.tileSpan(RAW_LEVEL);
       expect(rawTile(TimeStamp.ZERO)).toBe(0);
       expect(rawTile(new TimeStamp(span.valueOf() - 1n))).toBe(0);
       expect(rawTile(new TimeStamp(span.valueOf()))).toBe(1);
@@ -129,7 +129,7 @@ describe("block", () => {
   });
 
   describe("split", () => {
-    const span = tileSpan(RAW_LEVEL);
+    const span = grid.tileSpan(RAW_LEVEL);
     // Returns index samples at the given offsets from the start of raw block 0.
     const createIndex = (alignment: bigint, ...ms: number[]): Series =>
       new Series({
@@ -221,7 +221,10 @@ describe("block", () => {
     it("should span one raw tile of the grid", () => {
       const block = new RawBlock(1, 3);
       expect(block.range).toEqual(
-        new TimeRange(tileSpan(RAW_LEVEL).mult(3), tileSpan(RAW_LEVEL).mult(4)),
+        new TimeRange(
+          grid.tileSpan(RAW_LEVEL).mult(3),
+          grid.tileSpan(RAW_LEVEL).mult(4),
+        ),
       );
       expect(block.coveredEnd).toEqual(block.range.start);
     });
@@ -373,7 +376,7 @@ describe("block", () => {
         const block = new RawBlock(1, 0);
         const early = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([early], seconds(4), 1);
-        const buffer = new Dynamic({ dynamicBufferSize: 10 });
+        const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         buffer.write(
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
         );
@@ -386,7 +389,7 @@ describe("block", () => {
 
       it("should judge the open buffer by the span of its samples", () => {
         const block = new RawBlock(1, 0);
-        const buffer = new Dynamic({ dynamicBufferSize: 10 });
+        const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         buffer.write(
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
         );
@@ -405,7 +408,7 @@ describe("block", () => {
 
       it("should hold a block while the stream writes into it", () => {
         const block = new RawBlock(1, 0);
-        block.buffer = new Dynamic({ dynamicBufferSize: 10 });
+        block.buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         expect(block.held).toBe(true);
       });
 
@@ -445,7 +448,7 @@ describe("block", () => {
     it("should count the bytes of every series it holds", () => {
       const block = new RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
-      const buffer = new Dynamic({ dynamicBufferSize: 10 });
+      const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
         new MultiSeries([createValues(9n, [1], seconds(11).range(seconds(12)))]),
       );
