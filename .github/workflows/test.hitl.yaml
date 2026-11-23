@@ -18,9 +18,10 @@ on:
   # and the last attempt leaves four hours. An attempt does nothing once a run on main
   # passed its tests that day.
   schedule:
-    - cron: "0 6 * * *" # after the nightly build frees the bots
-    - cron: "0 8 * * *"
-    - cron: "0 10 * * *" # the last attempt; the notify job names it
+    # Off the hour, when GitHub drops the most scheduled runs.
+    - cron: "7 6 * * *" # after the nightly build frees the bots
+    - cron: "7 8 * * *"
+    - cron: "7 10 * * *" # the last attempt
   workflow_dispatch:
 
 permissions:
@@ -246,16 +247,32 @@ jobs:
           RUNNING: ${{ steps.services.outputs.running }}
         run: Start-Service -Name ($env:RUNNING -split ',')
 
-  # Only the last attempt of the day posts, so a day with no passed run posts once.
+  # Only the last failed attempt of the day posts: one that ends after 10:00 UTC with no
+  # other run waiting. A failed day posts once, even when the 10:00 run is cancelled.
   notify:
     name: Notify Slack
     needs: [gate, build, test]
-    if: failure() && github.event.schedule == '0 10 * * *'
+    if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      actions: read
     timeout-minutes: 10
     steps:
+      - name: Check for a later attempt
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          waiting=$(gh run list --workflow test.hitl.yaml --branch main --json \
+            databaseId,status --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and
+              (.status == \"queued\" or .status == \"in_progress\" or
+              .status == \"waiting\" or .status == \"pending\"))] | length")
+          last=false
+          if [ "$(date -u +%H)" -ge 10 ] && [ "$waiting" -eq 0 ]; then last=true; fi
+          echo "last=$last" >> "$GITHUB_OUTPUT"
       - name: Post the failure to Slack
+        if: steps.last.outputs.last == 'true'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
           HOLDERS: ${{ needs.test.outputs.holders }}
