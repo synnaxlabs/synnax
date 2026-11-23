@@ -11,11 +11,11 @@ import { describe } from "vitest";
 
 import { ethercat } from "@/ethercat";
 import { matches, serverComputed } from "@/ethercat/master/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("ethercatMasters", ethercat.master.masterZ, ethercat.master.whereZ),
+  vectors.itMatches(
+    vectors.read("ethercatMasters", ethercat.master.masterZ, ethercat.master.whereZ),
     matches,
     serverComputed,
   );
