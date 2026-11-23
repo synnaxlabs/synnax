@@ -459,22 +459,109 @@ TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
     ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
     const auto got = reports->snapshot();
     EXPECT_EQ(got[0].message, SET_FAILURE_MSG);
-    EXPECT_NE(got[0].description.find("Dropped 1 sets."), std::string::npos);
+    EXPECT_EQ(got[0].description, refused_description(1, ::driver::outbox::FULL));
     EXPECT_FALSE(on_caller.load());
+}
+
+/// @brief it should send the sets it queued while the Core was unreachable once the
+/// Driver restarts and the Core is reachable again, with the last set winning.
+TEST_F(StatusTest, SendsSetsQueuedDuringAnOutageAfterARestart) {
+    const auto key = ASSERT_NIL_P(this->client->statuses.set_by_key_or_name(
+                                      unique_name("set_outage_"),
+                                      "initial",
+                                      "info",
+                                      x::telem::TimeStamp(1)
+                                  ))
+                         .key;
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(
+        std::make_shared<synnax::Synnax>(cfg),
+        ::driver::outbox::DEFAULT_CAP,
+        x::telem::HOUR
+    );
+    {
+        Module module(this->outbox, noopReporter());
+        auto ctx = make_context();
+        for (const auto *msg: {"first", "second", "last"}) {
+            const auto f = set_spec().config({key, msg, "info"});
+            auto created = ASSERT_NIL_P(module.create(f.make_config()));
+            ASSERT_NIL(created->next(ctx));
+        }
+    }
+    EXPECT_EQ(this->outbox->size(), 3);
+    this->outbox.reset();
+    this->outbox = this->open_outbox(this->client);
+    this->wait_sent();
+    const auto retrieved = ASSERT_NIL_P(this->client->statuses.retrieve(key));
+    EXPECT_EQ(retrieved.message, "last");
+}
+
+/// @brief it should report a refused set while the outbox waits to retry a send.
+TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(
+        std::make_shared<synnax::Synnax>(cfg),
+        1,
+        x::telem::HOUR
+    );
+    const auto reports = std::make_shared<Reports>();
+    Module module(this->outbox, recordingReporter(reports));
+    const auto f = set_spec().config({unique_name("set_wait_"), "msg", "info"});
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    ASSERT_NIL(created->next(ctx));
+    ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
 }
 
 /// @brief it should report the refused sets once, with their count and reason.
 TEST(SetsTest, ReportsRefusedSetsOnce) {
     const auto reports = std::make_shared<Reports>();
     Sets sets(recordingReporter(reports));
-    sets.refuse("outbox is full.");
-    sets.refuse("outbox is full.");
+    const auto full = x::errors::Error(::driver::outbox::FULL, "outbox is full");
+    sets.refuse(full);
+    sets.refuse(full);
     sets.report_refused();
     sets.report_refused();
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, SET_FAILURE_MSG);
-    EXPECT_EQ(calls[0].description, "outbox is full. Dropped 2 sets.");
+    EXPECT_EQ(
+        calls[0].description,
+        "Dropped 2 sets, because the Driver holds the most changes it can until the "
+        "Core takes them. Check the connection to the Core, or set statuses less "
+        "often."
+    );
+}
+
+/// @brief it should give the error of a set the outbox failed to write.
+TEST(SetsTest, ReportsTheErrorOfAFailedWrite) {
+    const auto reports = std::make_shared<Reports>();
+    Sets sets(recordingReporter(reports));
+    sets.refuse(x::errors::Error(::driver::outbox::ERROR, "disk failed"));
+    sets.report_refused();
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].description, "Dropped 1 sets: disk failed");
+}
+
+/// @brief it should keep the keys of at most MAX_KEYS names.
+TEST(SetsTest, KeepsAtMostMaxKeys) {
+    Sets sets([](const std::string &, const std::string &) {});
+    for (size_t i = 0; i <= MAX_KEYS; i++)
+        sets.resolve("name_" + std::to_string(i), "key_" + std::to_string(i));
+    size_t kept = 0;
+    for (size_t i = 0; i <= MAX_KEYS; i++)
+        if (!sets.key("name_" + std::to_string(i)).empty()) kept++;
+    EXPECT_EQ(kept, MAX_KEYS);
+    EXPECT_EQ(
+        sets.key("name_" + std::to_string(MAX_KEYS)),
+        "key_" + std::to_string(MAX_KEYS)
+    );
 }
 
 }

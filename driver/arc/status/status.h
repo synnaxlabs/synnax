@@ -35,6 +35,21 @@ namespace driver::arc::status {
 // Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
 const std::string SET_FAILURE_MSG = "Failed to set status";
 const std::string MULTI_MATCH_MSG = "Found duplicate status names";
+/// @brief the most names whose resolved key the module keeps.
+constexpr size_t MAX_KEYS = 1024;
+
+/// @brief returns the description for sets the outbox refused.
+inline std::string
+refused_description(const size_t count, const x::errors::Error &err) {
+    const auto dropped = "Dropped " + std::to_string(count) + " sets";
+    if (err.matches(::driver::outbox::FULL))
+        return dropped +
+               ", because the Driver holds the most changes it can until the Core "
+               "takes them. Check the connection to the Core, or set statuses less "
+               "often.";
+    return dropped + ": " + err.data;
+}
+
 /// @brief returns the description for a set that matched more than one status.
 inline std::string multi_match_description(
     const std::string &key_or_name,
@@ -53,8 +68,9 @@ class Sets {
     Reporter reporter;
     std::mutex keys_mu;
     std::unordered_map<std::string, std::string> keys;
+    std::mutex refused_mu;
     size_t refused_sets = 0;
-    std::string refused_reason;
+    x::errors::Error refused_err;
 
 public:
     explicit Sets(Reporter reporter): reporter(std::move(reporter)) {}
@@ -73,17 +89,20 @@ public:
         return it == this->keys.end() ? "" : it->second;
     }
 
-    /// @brief records key as the last resolved key of key_or_name.
+    /// @brief records key as the last resolved key of key_or_name. Past MAX_KEYS
+    /// names, it forgets the key of another name.
     void resolve(const std::string &key_or_name, const std::string &key) {
         std::lock_guard lock(this->keys_mu);
+        if (this->keys.size() >= MAX_KEYS && !this->keys.contains(key_or_name))
+            this->keys.erase(this->keys.begin());
         this->keys[key_or_name] = key;
     }
 
     /// @brief counts a set the outbox refused, without waiting on the Core.
     /// @returns true when no other refused set waits for a report.
-    bool refuse(const std::string &reason) {
-        std::lock_guard lock(this->keys_mu);
-        this->refused_reason = reason;
+    bool refuse(const x::errors::Error &err) {
+        std::lock_guard lock(this->refused_mu);
+        this->refused_err = err;
         return this->refused_sets++ == 0;
     }
 
@@ -91,17 +110,14 @@ public:
     /// Core, so only the outbox thread calls it.
     void report_refused() {
         size_t count = 0;
-        std::string reason;
+        x::errors::Error err;
         {
-            std::lock_guard lock(this->keys_mu);
+            std::lock_guard lock(this->refused_mu);
             count = std::exchange(this->refused_sets, 0);
-            reason = this->refused_reason;
+            err = this->refused_err;
         }
         if (count == 0) return;
-        this->report(
-            SET_FAILURE_MSG,
-            reason + " Dropped " + std::to_string(count) + " sets."
-        );
+        this->report(SET_FAILURE_MSG, refused_description(count, err));
     }
 
     /// @brief stops reports, and waits for a report in progress, so the reporter can
@@ -150,7 +166,7 @@ inline std::string queue_set(
             sets->resolve(key_or_name, res.key);
         }
     );
-    if (err && sets->refuse(err.data))
+    if (err && sets->refuse(err))
         outbox.post([weak = std::weak_ptr(sets)] {
             if (const auto sets = weak.lock(); sets != nullptr) sets->report_refused();
         });

@@ -112,6 +112,8 @@ class Task final : public task::Task {
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+    /// @brief the task is ending, so a late report must not reach the runtime.
+    bool closed = false;
     // Declared after state, so the status module stops its reports before state ends.
     std::shared_ptr<::arc::runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
@@ -122,7 +124,8 @@ class Task final : public task::Task {
     void
     warn_while_running(const std::string &message, const std::string &description) {
         std::lock_guard lock(this->state_mu);
-        if (this->runtime->running()) this->state.send_warning(message, description);
+        if (!this->closed && this->runtime->running())
+            this->state.send_warning(message, description);
     }
 
     /// @brief answers every pending start with the current status. Requires state_mu.
@@ -217,6 +220,12 @@ class Task final : public task::Task {
     }
 
 public:
+    /// @brief keeps a late status report from reaching the runtime while it ends.
+    ~Task() override {
+        std::lock_guard lock(this->state_mu);
+        this->closed = true;
+    }
+
     static std::pair<std::unique_ptr<Task>, x::errors::Error> create(
         const synnax::task::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
