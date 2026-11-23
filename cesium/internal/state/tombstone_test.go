@@ -254,4 +254,17 @@ var _ = Describe("Tombstone", func() {
 			Should(Equal([]state.Pointer{pointer(1, 2, 30, 30, 8, 4, 1)}))
 		Expect(s.Err()).ToNot(HaveOccurred())
 	})
+
+	It("Should record the kill of a sealed segment that a replayed Tombstone empties",
+		func() {
+			Expect(s.Replay(10, []log.Record{
+				&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4},
+				commit(2, 3, 0, 60, 61, slot(9, 8)),
+				&log.Seal{Segment: 9, Length: 8, TailCRC: 24},
+				&log.Tombstone{Key: 6, Start: 60, End: 62},
+			})).To(Succeed())
+			run(s)
+			Expect(MustSucceed(s.Snapshot()).Kills).
+				To(Equal([]state.Kill{{Key: 6, Segment: 9, Generation: 1}}))
+		})
 })

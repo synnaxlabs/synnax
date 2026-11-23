@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 
-import { type LeafNode, type Node, type Tab, type TabKey } from "@/panel/types.gen";
-import { type resource } from "@/resource";
+import type { LeafNode, Node, Tab, TabKey } from "@/panel/types.gen";
+import type { resource } from "@/resource";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_NODE_KEY, and a split's children are childNodeKey(key, "first" | "last").

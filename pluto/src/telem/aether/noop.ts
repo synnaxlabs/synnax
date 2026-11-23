@@ -9,9 +9,9 @@
 
 import { status } from "@synnaxlabs/client";
 import { bounds, color, type destructor, MultiSeries, observe } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
   type BooleanSinkSpec,

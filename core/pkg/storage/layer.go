@@ -66,7 +66,7 @@ type (
 	TSEngine uint8
 )
 
-//go:generate stringer -type=KVEngine
+//go:generate go tool stringer -type=KVEngine
 const (
 	// KVEnginePebble uses CockroachDB's pebble key-value store.
 	KVEnginePebble KVEngine = iota + 1
@@ -74,7 +74,7 @@ const (
 
 var kvEngines = []KVEngine{KVEnginePebble}
 
-//go:generate stringer -type=TSEngine
+//go:generate go tool stringer -type=TSEngine
 const (
 	// TSEngineCesium uses Synnax's Cesium time-series engine.
 	TSEngineCesium TSEngine = iota + 1
@@ -516,9 +516,28 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	}
 
 	logger := pebblekv.NewLogger(ins)
-	ev := pebble.MakeLoggingEventListener(logger)
+	db, err := pebble.Open(dirname, pebbleOptions(fs, cache, logger))
+	if err != nil {
+		return nil, errors.Wrapf(
+			err,
+			"[storage] - failed to open key-value store in %s",
+			dirname,
+		)
+	}
+	if err = deleteAspenKeys(db); err != nil {
+		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
+		return nil, errors.Combine(err, db.Close())
+	}
+	return pebblekv.Wrap(db, logger), nil
+}
 
-	// Create optimized options for read-heavy workloads
+// pebbleOptions returns options tuned for read-heavy workloads.
+func pebbleOptions(
+	fs vfs.FS,
+	cache *pebble.Cache,
+	logger pebble.Logger,
+) *pebble.Options {
+	ev := pebble.MakeLoggingEventListener(logger)
 	opts := &pebble.Options{
 		FS:                 fs,
 		FormatMajorVersion: pebble.FormatNewest,
@@ -553,20 +572,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	for i := 1; i < len(opts.TargetFileSizes); i++ {
 		opts.TargetFileSizes[i] = opts.TargetFileSizes[i-1] * 10 // 10x growth per level
 	}
-
-	db, err := pebble.Open(dirname, opts)
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"[storage] - failed to open key-value store in %s",
-			dirname,
-		)
-	}
-	if err = deleteAspenKeys(db); err != nil {
-		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
-		return nil, errors.Combine(err, db.Close())
-	}
-	return pebblekv.Wrap(db, logger), nil
+	return opts
 }
 
 // tsIdentityKey is the key in the key-value store of the identity of the Cesium

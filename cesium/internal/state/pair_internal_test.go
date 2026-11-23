@@ -33,10 +33,10 @@ var _ = Describe("Pair between its loads", func() {
 			s := MustSucceed(Open(Config{
 				Versions:   set.New[uint16](1),
 				Version:    1,
+				Generation: 1,
 				Append:     func(*log.Entry) {},
 				Executor:   func(f func()) { go f() },
 				OnHead:     func(uint64, *Snapshot) {},
-				Generation: 1,
 			}, &Snapshot{
 				Sequence: 9,
 				Limits:   Limits{Segments: 20, Alignments: 10},

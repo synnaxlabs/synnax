@@ -9,14 +9,14 @@
 
 import "@/dialog/Trigger.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { useContext } from "@/dialog/Frame";
 import { useCombinedRefs } from "@/hooks";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 
 /** Props for {@link Trigger}. */
 export interface TriggerProps extends Button.ButtonProps {

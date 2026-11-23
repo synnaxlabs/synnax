@@ -17,7 +17,7 @@ import (
 
 // Opcode represents a WASM instruction opcode
 //
-//go:generate go run golang.org/x/tools/cmd/stringer -type=Opcode
+//go:generate go tool stringer -type=Opcode
 type Opcode byte
 
 type OPCodes []Opcode

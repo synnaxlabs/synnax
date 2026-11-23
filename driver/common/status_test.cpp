@@ -497,12 +497,13 @@ TEST(TestBackgroundWarning, SendsRepeatsOnce) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     StatusHandler handler(ctx, task, window);
-    start(handler);
-    for (int i = 0; i < 3; i++) {
+    start(handler).set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    for (int i = 0; i < 2; i++) {
         handler.set_background_warning(BACKGROUND);
         handler.clear_warning();
-        std::this_thread::sleep_for((2 * window).chrono());
     }
+    std::this_thread::sleep_for((3 * window).chrono());
     ASSERT_EQ(ctx->snapshot().size(), 2);
 }
 

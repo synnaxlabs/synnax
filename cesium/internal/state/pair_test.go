@@ -26,4 +26,14 @@ var _ = Describe("Pair", func() {
 		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
 		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())
 	})
+
+	It("Should report a swap of the parts after the loads", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		run(s)
+		// The Parted below publishes no Channel, so only its swap changes the count.
+		MustSucceed(s.Snapshot())
+		_, _, count := s.Pair(6, 5)
+		Expect(s.Parted(2, nil, nil, func() {})).To(Succeed())
+		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())
+	})
 })

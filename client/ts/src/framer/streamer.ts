@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference lib="esnext.disposable" preserve="true" />
+
 import {
   EOF,
   type Stream,
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
+import { disposable, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame, frameZ, seriesFromPayload } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({
@@ -95,11 +97,13 @@ export interface StreamerUpdateOptions {
 /**
  * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
  * client's openStreamer method, never directly. Read frames with `read` or by
- * iterating the streamer. Close it in a `finally` block to free its resources.
+ * iterating the streamer. Declare it with `using` or close it in a `finally` block to
+ * free its resources.
  *
  * @see https://docs.synnaxlabs.com/reference/client/stream-data
  */
-export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
+export interface Streamer
+  extends AsyncIterator<Frame>, AsyncIterable<Frame>, Disposable, AsyncDisposable {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
   /**
@@ -177,6 +181,12 @@ export const openStreamer = async (
 const KEEP_ALIVE_DEADLINE_FACTOR = 3;
 
 class BaseStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
@@ -244,7 +254,8 @@ class BaseStreamer implements Streamer {
         ack.resolve();
         continue;
       }
-      return this.adapter.adapt(new Frame(res.frame));
+      const { keys, series } = res.frame;
+      return this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload)));
     }
   }
 

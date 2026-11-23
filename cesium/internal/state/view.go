@@ -62,15 +62,6 @@ type chanState struct {
 	count   *pubCount
 }
 
-// partsGeneration returns the generation of the head whose parts the range of c names,
-// or 0 when c has no range.
-func (c *chanState) partsGeneration() uint64 {
-	if c.oldest == 0 {
-		return 0
-	}
-	return c.generation
-}
-
 // repart sets the parts of c from its range and kills.
 func (c *chanState) repart() {
 	c.parts = nil

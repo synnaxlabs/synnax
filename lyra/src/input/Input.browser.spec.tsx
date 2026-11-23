@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { assert, describe, expect, it } from "vitest";
+import { act, fireEvent, render } from "@testing-library/react";
+import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
+import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/styletest";
@@ -130,6 +133,77 @@ describe("Input", () => {
     });
   });
 
+  describe("slot button", () => {
+    const renderSlotButton = async (props: Partial<Input.TextProps> = {}) => {
+      let pressed = 0;
+      const { getByRole } = await renderThemed(
+        <Input.Text
+          value=""
+          onChange={() => {}}
+          placeholder="Name"
+          {...props}
+          startContent={
+            <Button.Button aria-label="Pick color" onClick={() => pressed++}>
+              <Icon.Add />
+            </Button.Button>
+          }
+        />,
+      );
+      return {
+        button: getByRole("button", { name: "Pick color" }),
+        input: () => getByRole("textbox").element(),
+        pressed: () => pressed,
+      };
+    };
+
+    it("should take a click on a button in the start content", async () => {
+      const { button, pressed } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(pressed()).toBe(1);
+    });
+
+    it("should leave a slot button of a preview input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ preview: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
+    it("should leave a slot button of a disabled input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ disabled: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
+    it("should not focus the input on a press of a slot button", async () => {
+      const { button, input } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(document.activeElement).not.toBe(input());
+    });
+
+    it("should leave a press in a dialog that a slot button opens to the dialog", async () => {
+      const { getByRole } = await renderThemed(
+        <Triggers.Provider>
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="Name"
+            startContent={
+              <Color.Swatch
+                value="#ff0000"
+                onChange={() => {}}
+                aria-label="Pick color"
+              />
+            }
+          />
+        </Triggers.Provider>,
+      );
+      await userEvent.click(getByRole("button", { name: "Pick color" }));
+      const hex = page.getByRole("textbox", { name: "Hex" });
+      await userEvent.click(hex);
+      expect(document.activeElement).toBe(hex.element());
+    });
+  });
+
   it("should stack above the packed button beside it", async () => {
     const { getByRole } = await renderThemed(
       <Input.Text value="" onChange={() => {}} placeholder="Name">
@@ -205,6 +279,59 @@ describe("Input", () => {
       await userEvent.click(page.getByRole("dialog"), { position: { x: 1, y: 1 } });
       await userEvent.click(field);
       await expect.element(field).toHaveValue("90s");
+    });
+  });
+});
+
+describe("Input", () => {
+  describe("Text", () => {
+    describe("keyboard handlers", () => {
+      it("should close a modal on one Escape from an input in it", () => {
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Open</Dialog.Trigger>
+              <Dialog.Dialog>
+                <Input.Text value="" onChange={vi.fn()} aria-label="Name" />
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        fireEvent.click(c.getByText("Open"));
+        const input = c.getByLabelText("Name");
+        act(() => input.focus());
+        fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
+        expect(c.queryByLabelText("Name")).toBeNull();
+      });
+
+      it("should close only a dropdown in a modal on Escape from its search", () => {
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Open</Dialog.Trigger>
+              <Dialog.Dialog>
+                <p>Modal content</p>
+                <Dialog.Frame variant="connected">
+                  <Dialog.Trigger>Pick</Dialog.Trigger>
+                  <Dialog.Dialog>
+                    <Input.Search value="" onChange={vi.fn()} aria-label="Search" />
+                  </Dialog.Dialog>
+                </Dialog.Frame>
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        fireEvent.click(c.getByText("Open"));
+        fireEvent.click(c.getByText("Pick"));
+        const search = c.getByLabelText("Search");
+        act(() => search.focus());
+        fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
+        fireEvent.keyUp(document.body, { key: "Escape", code: "Escape" });
+        expect(c.queryByLabelText("Search")).toBeNull();
+        expect(c.getByText("Modal content")).toBeTruthy();
+        fireEvent.keyDown(c.container, { key: "Escape", code: "Escape" });
+        expect(c.queryByText("Modal content")).toBeNull();
+      });
     });
   });
 });

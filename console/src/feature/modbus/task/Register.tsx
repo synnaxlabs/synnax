@@ -10,15 +10,15 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { type z } from "zod";
+import type { ReactElement } from "react";
+import type { z } from "zod";
 
 import {
   MENU_PROPS,
   Option,
   SHADOW_TRIGGER_PROPS,
 } from "@/feature/modbus/device/Option";
-import { type Channel, type ReadChannelType } from "@/feature/modbus/task/types";
+import type { Channel, ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
 /** The name and description of each register type. */
