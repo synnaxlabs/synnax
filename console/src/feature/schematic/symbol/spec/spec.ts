@@ -106,6 +106,23 @@ export const effective = <F extends Field>(
   spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
 
 /**
+ * @returns the field that the looks of target give it at value, or at every value when
+ * value is undefined. Looks of the whole drawing do not count for a part.
+ */
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  effective(
+    { looks: spec.looks.filter((l) => l.part === target) },
+    target,
+    field,
+    value,
+  );
+
+/**
  * @returns spec in which target owns v for field at value alone, or at every value when
  * value is undefined. A new look on a value adds the state when spec lacks it. With no
  * v, it takes field off the looks that target owns there, and a look on more values
@@ -285,6 +302,24 @@ const holds = (doc: Document, outer: string, inner: string): boolean => {
   );
 };
 
+const holderOf = (
+  doc: Document,
+  parts: schematic.symbol.Part[],
+  selector: string,
+): schematic.symbol.Part | undefined =>
+  parts.find((p) => p.selectors.some((s) => holds(doc, s, selector)));
+
+/** @returns the part that holds a group around the shape of selector. */
+export const groupOwner = (
+  spec: Pick<Spec, "drawing" | "parts">,
+  selector: string,
+): schematic.symbol.Part | undefined =>
+  holderOf(
+    new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml"),
+    spec.parts,
+    selector,
+  );
+
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
  * already did. The other parts drop selector. Every part drops the shapes inside its
@@ -314,8 +349,7 @@ export const toggleSelector = (
         ? { ...p, selectors: p.selectors.filter((s) => !around.includes(s)) }
         : p,
     );
-  if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
-    return spec.parts;
+  if (holderOf(doc, spec.parts, selector) != null) return spec.parts;
   return spec.parts.map((p) => {
     const rest = p.selectors.filter((s) => !covered(s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };

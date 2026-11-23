@@ -75,6 +75,26 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("own", () => {
+    it("should not count a look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+      expect(Spec.own({ looks: looks.slice(1) }, "body", "fill", 0)).toBeUndefined();
+    });
+
+    it("should return the look of the whole drawing for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.own({ looks }, undefined, "fill", 1)).toBeUndefined();
+    });
+  });
+
   describe("setOwn", () => {
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
@@ -658,6 +678,30 @@ describe("symbol editor spec", () => {
 
     it("should not return the part of a shape inside a group", () => {
       expect(Spec.owner({ ...spec, parts: [spec.parts[1]] }, "#g")).toBeUndefined();
+    });
+  });
+
+  describe("groupOwner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "d", name: "D", selectors: ["#d"] },
+      ],
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.groupOwner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should not return the part that holds the shape itself", () => {
+      expect(Spec.groupOwner(spec, "#d")).toBeUndefined();
+      expect(Spec.groupOwner(spec, "#g")).toBeUndefined();
     });
   });
 

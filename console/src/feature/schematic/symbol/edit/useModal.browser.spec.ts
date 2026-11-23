@@ -14,7 +14,8 @@ import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { page, server, userEvent } from "vitest/browser";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
 
@@ -218,7 +219,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      const toggle = findButton("By state");
+      const toggle = screen.getByLabelText("Fill by state");
       expect(toggle.getAttribute("aria-pressed")).toBe("false");
       fireEvent.click(toggle);
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
@@ -785,12 +786,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    // byState presses By state on the property with the label.
-    const byState = (label: string) => {
-      const header = screen.getByText(label).parentElement;
-      assertDefined(header);
-      fireEvent.click(within(header).getByText("By state"));
-    };
+    const byState = (label: string) =>
+      fireEvent.click(screen.getByLabelText(`${label} by state`));
     const atActive: schematic.symbol.Condition = {
       type: "equals",
       state: "active",
@@ -908,10 +905,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("fits the motion picker and its By state button in the inspector", async () => {
       await openPainted({ variant: "actuator", states: [createState()] });
-      const header = screen.getByText("Motion").parentElement;
-      assertDefined(header);
       const right = getInspector().getBoundingClientRect().right;
-      for (const el of [within(header).getByText("By state"), findButton("Flow")])
+      for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
     });
 
@@ -1247,6 +1242,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the mark of a filled selected shape under the pointer", async () => {
+      const { width, height } = server.config.browser.viewport;
+      onTestFinished(async () => await page.viewport(width, height));
+      // The pointer reaches the shape only when the editor fits the viewport.
+      await page.viewport(1300, 900);
       await openPainted({
         drawing: {
           type: "svg",
@@ -1255,10 +1254,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         parts: [{ ...BODY, selectors: ["#c"] }],
       });
       const shape = findShape("c");
-      fireEvent.mouseEnter(shape);
-      await waitFor(() =>
-        expect(getComputedStyle(shape).filter).toContain("drop-shadow"),
-      );
+      await userEvent.hover(shape);
+      await waitFor(() => {
+        const { filter } = getComputedStyle(shape);
+        expect(filter).toContain("drop-shadow");
+        expect(filter).toContain("brightness(1.3)");
+      });
     });
 
     it("selects the part that holds the group of a shape clicked", async () => {
@@ -1271,6 +1272,22 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findShape("c"));
       expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
       expect(screen.queryByText("Part 1")).toBeNull();
+    });
+
+    it("selects the part that holds the group of a clicked shape from another part", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</svg>", '<rect id="e" y="10" width="10"/></svg>'),
+        },
+        parts: [
+          { ...BODY, selectors: ["#e"] },
+          { key: "pump", name: "Pump", selectors: ["#g"] },
+        ],
+      });
+      fireEvent.click(findShape("c"));
+      expect(await screen.findByRole("heading", { name: "Pump" })).toBeDefined();
+      expect(getPartListItem("Body").textContent).toContain("1 shape");
     });
 
     it("keeps the part that a double click selects", async () => {

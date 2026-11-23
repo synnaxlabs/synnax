@@ -114,7 +114,7 @@
     /* This rule owns the filter on hover and selection, so the filter of the drawing,
        the hover, and the selected mark all show. */
     :is(
-        .console-schematic__svg-region--hover,
+        .console-schematic__svg-region--hoverable:hover,
         .console-schematic__svg-region--selected
     ) {
         filter: var(--console-schematic-own-filter, brightness(1))
@@ -122,16 +122,16 @@
             var(--console-schematic-hover-filter, brightness(1));
     }
 
-    .console-schematic__svg-region--hover {
+    .console-schematic__svg-region--hoverable:hover {
         --console-schematic-hover-filter: brightness(1.3);
     }
 
-    :is(line, polyline).console-schematic__svg-region--hover {
+    :is(line, polyline).console-schematic__svg-region--hoverable:hover {
         --console-schematic-hover-filter: drop-shadow(0 0 3px var(--pluto-primary-z));
     }
 
     /* A shape with no fill of its own takes a tint on hover. */
-    .console-schematic__svg-region--hover:not(line, polyline):is(
+    .console-schematic__svg-region--hoverable:hover:not(line, polyline):is(
             :not([fill]),
             [fill="none"],
             [fill="transparent"]

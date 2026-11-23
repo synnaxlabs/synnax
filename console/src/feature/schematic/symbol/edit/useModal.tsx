@@ -62,8 +62,8 @@ interface ValueBarProps {
 
 // ValueBar picks the value of the state that the canvas draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
-  const { values } = useValues();
-  if (values.length < 2) return null;
+  const { list } = useValues();
+  if (list.length < 2) return null;
   return (
     <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
       <Text.Text level="small" color={9}>
@@ -75,7 +75,7 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
         size="small"
         variant="outlined"
       >
-        {values.map((v) => (
+        {list.map((v) => (
           <Select.Item<number> key={v.value} itemKey={v.value} size="small">
             {v.name}
           </Select.Item>
@@ -161,17 +161,19 @@ const Editor = ({
     }
   };
 
-  const lastClickWholeRef = useRef(false);
+  const lastClickSelectsRef = useRef(false);
   const handleElementClick = (selector: string, count: number) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (count > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
-    // A click on the whole drawing selects or adds a part, so a later click of the same
-    // double click would undo it.
-    if (count > 1 && lastClickWholeRef.current) return;
-    lastClickWholeRef.current = part == null;
     const spec = form.get(path.data).value;
-    if (part != null)
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
-    const owner = Spec.owner(spec, selector);
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };
