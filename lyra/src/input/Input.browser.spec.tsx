@@ -251,9 +251,9 @@ describe("Input", () => {
   });
 
   describe("joined buttons", () => {
-    const renderJoined = async () => {
+    const renderJoined = async (props: Partial<Input.TextProps> = {}) => {
       const { getByRole } = await renderThemed(
-        <Input.Text value="" onChange={() => {}} placeholder="Key" full="x">
+        <Input.Text value="" onChange={() => {}} placeholder="Key" full="x" {...props}>
           <Button.Button variant="outlined" aria-label="Load">
             <Icon.Add />
           </Button.Button>
@@ -285,6 +285,19 @@ describe("Input", () => {
       expect(computed(activate, "border-top-color")).toBe(
         computed(box, "border-top-color"),
       );
+    });
+
+    it("should match a disabled field's own border on its buttons", async () => {
+      const { box, activate } = await renderJoined({ disabled: true });
+      expect(computed(box, "border-top-color")).toBe(resolve("var(--pluto-gray-l4)"));
+      expect(computed(activate, "border-top-color")).toBe(
+        computed(box, "border-top-color"),
+      );
+    });
+
+    it("should keep the left border of a button beside a shadow input", async () => {
+      const { load } = await renderJoined({ variant: "shadow" });
+      expect(computed(load, "border-left-width")).toBe("1px");
     });
   });
 
