@@ -874,7 +874,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("lists each entry of a picked state and each value that a look names", async () => {
+    it("lists the entries of a picked state and the values of its looks", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("fault"),
         entries: [
