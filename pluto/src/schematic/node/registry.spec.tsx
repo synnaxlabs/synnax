@@ -103,9 +103,9 @@ describe("Schematic.Node.STATIC_SPECS", () => {
     for (const variant of Node.CUSTOM_VARIANTS) expect(keys).not.toContain(variant);
   });
 
-  it("should include all non-custom registry entries except groupBox", () => {
+  it("should include all non-custom registry entries except groupBox and symbol", () => {
     const expectedKeys = Object.keys(Node.REGISTRY).filter(
-      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT,
+      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT && k !== "symbol",
     );
     const actualKeys = Node.STATIC_SPECS.map((s) => s.key);
     expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys));
@@ -115,6 +115,10 @@ describe("Schematic.Node.STATIC_SPECS", () => {
   it("should not include groupBox", () => {
     const keys = Node.STATIC_SPECS.map((s) => s.key);
     expect(keys).not.toContain(GroupBox.VARIANT);
+  });
+
+  it("should not include the symbol placeholder", () => {
+    expect(Node.STATIC_SPECS.map((s) => s.key)).not.toContain("symbol");
   });
 
   it("groupBox should exist in the registry", () => {
