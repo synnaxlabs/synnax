@@ -10,8 +10,11 @@
 #include <array>
 #include <system_error>
 
-#include <mstcpip.h>
+// clang-format off
+// mstcpip.h must be included after winsock2.h.
 #include <winsock2.h>
+#include <mstcpip.h>
+// clang-format on
 
 #include "driver/udp/icmp.h"
 
