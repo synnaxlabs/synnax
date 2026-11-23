@@ -127,6 +127,49 @@ describe("Custom theme band", () => {
   });
 });
 
+const ACTIVE_SPEC: schematic.symbol.Spec = {
+  ...createSpec(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path class="body" d="M0 0H10V10H0Z"/></svg>',
+  ),
+  states: [
+    {
+      type: "enumeration",
+      key: "active",
+      name: "Active",
+      match: { type: "exact" },
+      default: 0,
+    },
+  ],
+  looks: [
+    {
+      key: "fill",
+      when: { type: "equals", state: "active", values: [1] },
+      fill: { type: "color", value: { type: "fixed", value: FILL } },
+    },
+  ],
+};
+
+const Active = ({ value }: { value: number }): ReactElement => (
+  <Wrapper>
+    <Primitive.Div>
+      <Custom.Drawing
+        spec={ACTIVE_SPEC}
+        paints={Custom.usePaints(ACTIVE_SPEC, value)}
+      />
+    </Primitive.Div>
+  </Wrapper>
+);
+
+describe("Custom.Drawing state change", () => {
+  it("should clear the fill of an active look from a shape with no fill", async () => {
+    const { container, rerender } = await render(<Active value={1} />);
+    const body = container.querySelector(".body");
+    await expect.poll(() => body?.getAttribute("fill")).toBe(color.hex(FILL));
+    await rerender(<Active value={0} />);
+    await expect.poll(() => body?.hasAttribute("fill")).toBe(false);
+  });
+});
+
 const STALE = color.construct("#e5a50a");
 
 // Shapes whose strokes show: by a region, by their own paint in a region with no
