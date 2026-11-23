@@ -211,6 +211,28 @@ class TestWriterHeldCheck:
                 w.write(df)
 
 
+@pytest.mark.framer
+class TestWriterDataFramePathCheck:
+    def test_skip_a_dataframe_path_of_an_unopened_channel(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should skip a DataFrame column that is the path of a channel the writer did
+        not open.
+        """
+        a, _ = in_group(client)
+        b, b_path = in_group(client)
+        df = pd.DataFrame({a.name: [1.0], b_path: [2.0]})
+        with client.open_streamer([a.key, b.key]) as s:
+            with client.open_writer(
+                start=sy.TimeStamp.now(), channels=[a.key], err_on_extra_chans=False
+            ) as w:
+                w.write(df)
+            fr = s.read(timeout=5)
+            assert fr is not None
+            assert a.key in fr.channels
+            assert b.key not in fr.channels
+
+
 @pytest.mark.control
 class TestControllerLookupCheck:
     def test_access_by_path_sends_no_retrieves(
