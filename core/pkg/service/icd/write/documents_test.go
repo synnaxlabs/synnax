@@ -34,7 +34,7 @@ var _ = Describe("Documents", func() {
 		yKey: {DataType: telem.Float64T},
 	}
 	var skips *driver.Skips
-	BeforeEach(func() { skips = driver.NewSkips("command") })
+	BeforeEach(func() { skips = driver.NewSkips("command", driver.SkipHold) })
 
 	// point returns the Documents of a message that sends x and y, where y has the
 	// variant yField.
