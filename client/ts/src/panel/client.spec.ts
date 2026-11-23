@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { panel } from "@/panel";
@@ -111,6 +111,45 @@ describe("Panel Client", () => {
       expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
         pan.name,
       );
+    });
+  });
+
+  describe("create", () => {
+    it("should send a dispatch made during the create after the create", async () => {
+      const key = uuid.create();
+      const tab = panel.tabZ.parse({ variant: "view", type: "test" });
+      const fetch = globalThis.fetch;
+      const sending = Promise.withResolvers<void>();
+      // Holds the create back so the dispatch would reach the Core first.
+      const spy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async (input, init) => {
+          if (typeof input === "string" && input.endsWith("/panel/create")) {
+            sending.resolve();
+            await sleep.sleep(TimeSpan.milliseconds(200));
+          }
+          return await fetch(input, init);
+        });
+      try {
+        const created = client.panels.create({
+          key,
+          name: `panel-${id.create()}`,
+          project: proj,
+        });
+        await sending.promise;
+        const dispatched = client.panels.dispatch(
+          key,
+          panel.insertTabs({ tabs: [tab] }),
+        );
+        await created;
+        expect(await dispatched).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+      const cached = expectLive(client.panels.watch(key).getCached());
+      expect(panel.findTab(cached.root, tab.key)).toBeDefined();
+      const stored = await createTestClient().panels.retrieve(key);
+      expect(panel.findTab(stored.root, tab.key)).toBeDefined();
     });
   });
 });
