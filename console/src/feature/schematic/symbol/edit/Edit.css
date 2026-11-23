@@ -9,6 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Each filter stays on the shape that sets it, so a group does not pass its filter to
+   the shapes inside it. */
+@property --console-schematic-selected-filter {
+    syntax: "*";
+    inherits: false;
+}
+
+@property --console-schematic-hover-filter {
+    syntax: "*";
+    inherits: false;
+}
+
 /* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
  * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
 .lyra-modal.console-schematic__symbol-create-layout {

@@ -1106,6 +1106,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("marks a selected group and not each shape inside it", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("g")).filter).toContain("drop-shadow"),
+      );
+      expect(getComputedStyle(findShape("c")).filter).not.toContain("drop-shadow");
+    });
+
     it("keeps the mark of a filled selected shape under the pointer", async () => {
       await openPainted({
         drawing: {
