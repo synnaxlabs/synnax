@@ -28,14 +28,11 @@ namespace driver::spool {
 namespace {
 const std::string SEGMENT_EXT = ".seg";
 const std::string OFFSET_EXT = ".offset";
+const std::string BAD_EXT = ".bad";
 /// @brief marks the temp files that a crash in journal file creation can leave.
 const std::string TEMP_INFIX = ".tmp.";
 constexpr std::uint8_t HEADER_TYPE = 1;
 constexpr std::uint8_t FRAME_TYPE = 2;
-/// @brief the written bytes that start a sync, so large frames do not each sync.
-constexpr std::uint64_t SYNC_BYTES = 64ULL * 1000 * 1000;
-/// @brief the reserved bytes between two checks of the free disk space.
-constexpr std::uint64_t SPACE_CHECK_BYTES = 64ULL * 1000 * 1000;
 
 using Types = std::unordered_map<std::uint32_t, x::telem::DataType>;
 
@@ -53,6 +50,14 @@ list(const std::filesystem::path &dir) {
         paths.push_back(it->path());
     if (ec) return {{}, fs_error("failed to list spool directory", ec)};
     return {std::move(paths), x::errors::NIL};
+}
+
+/// @returns the key that name holds, or std::nullopt when it is not a key.
+std::optional<std::uint64_t> parse_key(const std::string &name) {
+    std::uint64_t key = 0;
+    const auto [end, ec] = std::from_chars(name.data(), name.data() + name.size(), key);
+    if (ec != std::errc() || end != name.data() + name.size()) return std::nullopt;
+    return key;
 }
 
 std::string bytes_of(const x::uuid::UUID &id) {
@@ -245,13 +250,17 @@ decode_frame(const std::string &payload, const Types &types) {
     return {std::move(frame), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<journal::Reader>, x::errors::Error>
-open_segment(const std::filesystem::path &path, const std::uint64_t pos = 0) {
+std::pair<std::unique_ptr<journal::Reader>, x::errors::Error> open_segment(
+    const std::filesystem::path &path,
+    const std::uint64_t sync_bytes,
+    const std::uint64_t pos = 0
+) {
     return journal::Reader::open(
         {.path = path,
          .magic = SEGMENT_MAGIC,
          .types = {HEADER_TYPE, FRAME_TYPE},
-         .pos = pos}
+         .pos = pos,
+         .sync_bytes = sync_bytes}
     );
 }
 
@@ -269,6 +278,17 @@ std::pair<std::optional<Header>, x::errors::Error> read_header(journal::Reader &
     if (h_err) return {std::nullopt, h_err};
     return {std::move(header), x::errors::NIL};
 }
+}
+
+bool is_bad(const x::errors::Error &err) {
+    return err.matches(
+        {CORRUPT,
+         journal::CORRUPT,
+         journal::UNKNOWN_MAGIC,
+         journal::UNKNOWN_VERSION,
+         journal::UNKNOWN_FLAG,
+         journal::UNKNOWN_TYPE}
+    );
 }
 
 std::pair<std::uint64_t, x::errors::Error>
@@ -342,7 +362,7 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
             .path = this->spool.segment_path(this->key),
             .magic = SEGMENT_MAGIC,
             .sync_interval = this->spool.cfg.sync_interval,
-            .sync_bytes = SYNC_BYTES,
+            .sync_bytes = this->spool.cfg.sync_bytes,
             .on_sync = this->spool.cfg.on_sync,
         });
         if (o_err) return this->fail(o_err, bytes);
@@ -392,19 +412,28 @@ Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
 Reader::Reader(Spool &spool, const std::uint64_t key): spool(spool), key(key) {}
 
 std::pair<std::optional<x::telem::Frame>, x::errors::Error> Reader::read() {
+    if (this->failed) return {std::nullopt, this->failed};
     if (this->file == nullptr) return {std::nullopt, x::errors::NIL};
     auto [record, err] = this->file->next();
-    if (err) return {std::nullopt, err};
+    if (err) {
+        this->failed = err;
+        return {std::nullopt, err};
+    }
     if (!record) {
         this->spool.count_cut(this->key, this->file->cut());
         // Closed, so the spool can remove the segment on Windows.
         this->file.reset();
         return {std::nullopt, x::errors::NIL};
     }
-    if (record->type != FRAME_TYPE)
-        return {std::nullopt, x::errors::Error(CORRUPT, "segment has a second header")};
+    if (record->type != FRAME_TYPE) {
+        this->failed = x::errors::Error(CORRUPT, "segment has a second header");
+        return {std::nullopt, this->failed};
+    }
     auto [frame, d_err] = decode_frame(record->payload, this->types);
-    if (d_err) return {std::nullopt, d_err};
+    if (d_err) {
+        this->failed = d_err;
+        return {std::nullopt, d_err};
+    }
     this->pos = this->file->pos();
     return {std::move(frame), x::errors::NIL};
 }
@@ -437,24 +466,33 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     if (ls_err) return {nullptr, ls_err};
     std::vector<std::uint64_t> keys;
     for (const auto &path: paths) {
+        // Keys of set-aside segments stay taken, so a new segment never collides.
+        if (path.extension() == BAD_EXT && path.stem().extension() == SEGMENT_EXT) {
+            if (const auto key = parse_key(path.stem().stem().string()))
+                spool->next_key = std::max(spool->next_key, *key + 1);
+            continue;
+        }
         if (path.extension() != SEGMENT_EXT) continue;
         const auto stem = path.stem().string();
-        std::uint64_t key = 0;
-        const auto [end, parse_ec] = std::from_chars(
-            stem.data(),
-            stem.data() + stem.size(),
-            key
-        );
-        if (parse_ec != std::errc() || end != stem.data() + stem.size())
-            return {nullptr, x::errors::Error(CORRUPT, "invalid segment " + stem)};
-        keys.push_back(key);
+        if (const auto key = parse_key(stem)) {
+            keys.push_back(*key);
+            continue;
+        }
+        const auto cause = x::errors::Error(CORRUPT, "invalid segment name " + stem);
+        if (const auto err = spool->set_aside_files(path, cause)) return {nullptr, err};
     }
     for (const auto key: keys) {
         const auto path = spool->segment_path(key);
-        auto [file, err] = open_segment(path);
+        auto [file, err] = open_segment(path, spool->cfg.sync_bytes);
+        std::optional<Header> header;
+        if (!err) std::tie(header, err) = read_header(*file);
+        if (is_bad(err)) {
+            file.reset();
+            if (const auto s_err = spool->set_aside_files(path, err))
+                return {nullptr, s_err};
+            continue;
+        }
         if (err) return {nullptr, err};
-        auto [header, h_err] = read_header(*file);
-        if (h_err) return {nullptr, h_err};
         if (!header) {
             spool->cut_count += file->cut();
             file.reset();
@@ -465,8 +503,9 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
         if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
         spool->used += size;
         spool->closed[key] = size;
-        spool->next_key = std::max(spool->next_key, key + 1);
     }
+    for (const auto key: keys)
+        spool->next_key = std::max(spool->next_key, key + 1);
     if (const auto err = spool->remove_orphan_offsets()) return {nullptr, err};
     return {std::move(spool), x::errors::NIL};
 }
@@ -481,7 +520,7 @@ std::filesystem::path Spool::offset_path(const std::uint64_t key) const {
 
 x::errors::Error Spool::reserve(const std::uint64_t bytes) {
     std::lock_guard lock(this->mu);
-    if (this->unchecked + bytes > SPACE_CHECK_BYTES ||
+    if (this->unchecked + bytes > this->cfg.space_check_bytes ||
         this->used + bytes > this->limit) {
         const auto [available, err] = this->cfg.available(this->cfg.dir);
         if (err) return err;
@@ -510,6 +549,29 @@ void Spool::close(const std::uint64_t key, const std::uint64_t size) {
 x::errors::Error Spool::remove_files(const std::uint64_t key) {
     if (const auto err = journal::remove(this->segment_path(key))) return err;
     return journal::remove(this->offset_path(key));
+}
+
+x::errors::Error Spool::set_aside_files(
+    const std::filesystem::path &segment,
+    const x::errors::Error &cause
+) {
+    auto bad_path = segment;
+    bad_path += BAD_EXT;
+    if (const auto err = journal::rename_new(segment, bad_path)) return err;
+    auto offset = segment;
+    offset.replace_extension(OFFSET_EXT);
+    std::error_code ec;
+    const auto found = std::filesystem::exists(offset, ec);
+    if (ec) return fs_error("failed to stat read offset", ec);
+    if (found) {
+        auto bad_offset = offset;
+        bad_offset += BAD_EXT;
+        if (const auto err = journal::rename_new(offset, bad_offset)) return err;
+    }
+    if (const auto err = journal::sync_dir(this->cfg.dir)) return err;
+    std::lock_guard lock(this->mu);
+    this->bad.push_back({.path = std::move(bad_path), .cause = cause});
+    return x::errors::NIL;
 }
 
 x::errors::Error Spool::remove_temp_files() const {
@@ -564,7 +626,7 @@ Spool::open_reader(const std::uint64_t key) {
             )
         };
     const auto path = this->segment_path(key);
-    auto [file, err] = open_segment(path);
+    auto [file, err] = open_segment(path, this->cfg.sync_bytes);
     if (err) return {nullptr, err};
     auto [header, h_err] = read_header(*file);
     if (h_err) return {nullptr, h_err};
@@ -586,7 +648,7 @@ Spool::open_reader(const std::uint64_t key) {
             };
         if (offset->pos < reader->pos)
             return {nullptr, x::errors::Error(CORRUPT, "read offset is in the header")};
-        std::tie(file, err) = open_segment(path, offset->pos);
+        std::tie(file, err) = open_segment(path, this->cfg.sync_bytes, offset->pos);
         if (err) return {nullptr, err};
         reader->pos = offset->pos;
     }
@@ -606,13 +668,35 @@ x::errors::Error Spool::remove(const std::uint64_t key) {
             "segment " + std::to_string(key) + " is not closed"
         );
     if (const auto err = this->remove_files(key)) return err;
+    this->forget(key);
+    return x::errors::NIL;
+}
+
+void Spool::forget(const std::uint64_t key) {
     std::lock_guard lock(this->mu);
     const auto it = this->closed.find(key);
-    if (it == this->closed.end()) return x::errors::NIL;
+    if (it == this->closed.end()) return;
     this->used -= it->second;
     this->closed.erase(it);
     this->cut_segments.erase(key);
+}
+
+x::errors::Error
+Spool::set_aside(const std::uint64_t key, const x::errors::Error &cause) {
+    if (!this->is_closed(key))
+        return x::errors::Error(
+            BASE_ERROR,
+            "segment " + std::to_string(key) + " is not closed"
+        );
+    if (const auto err = this->set_aside_files(this->segment_path(key), cause))
+        return err;
+    this->forget(key);
     return x::errors::NIL;
+}
+
+std::vector<BadSegment> Spool::bad_segments() const {
+    std::lock_guard lock(this->mu);
+    return this->bad;
 }
 
 void Spool::count_cut(const std::uint64_t key, const std::uint64_t bytes) {

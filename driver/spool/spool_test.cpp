@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -57,6 +58,18 @@ std::vector<journal::Record> read_records(const std::filesystem::path &path) {
         records.push_back(std::move(*record));
     EXPECT_EQ(reader->cut(), 0);
     return records;
+}
+
+/// @brief sets the format version of the segment at path, with a valid checksum.
+void set_version(const std::filesystem::path &path, const std::uint16_t version) {
+    auto data = read_file(path);
+    data[8] = static_cast<char>(version);
+    data[9] = static_cast<char>(version >> 8);
+    auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(data.substr(0, 16)));
+    for (std::size_t i = 16; i < 20; i++, crc >>= 8)
+        data[i] = static_cast<char>(crc);
+    std::ofstream(path, std::ios::binary | std::ios::trunc)
+        .write(data.data(), static_cast<std::streamsize>(data.size()));
 }
 
 x::uuid::UUID uuid_of(const std::uint8_t first) {
@@ -183,6 +196,21 @@ protected:
         const auto writer = spool.open_writer(header);
         for (int i = 0; i < count; i++)
             ASSERT_NIL(writer->write(frame_of(static_cast<float>(i))));
+    }
+
+    /// @brief opens a spool, and expects it to set aside the segment file name with
+    /// an error that matches cause.
+    void
+    expect_set_aside(const std::string &name, const x::errors::Error &cause) const {
+        const auto spool = this->open_spool();
+        ASSERT_TRUE(spool->segments().empty());
+        const auto bad = spool->bad_segments();
+        ASSERT_EQ(bad.size(), 1);
+        EXPECT_EQ(bad[0].path, this->dir / (name + ".bad"));
+        EXPECT_TRUE(bad[0].cause.matches(cause));
+        EXPECT_TRUE(is_bad(bad[0].cause));
+        EXPECT_FALSE(std::filesystem::exists(this->dir / name));
+        EXPECT_TRUE(std::filesystem::exists(bad[0].path));
     }
 
     /// @brief writes a segment with one frame, and returns its path.
@@ -644,6 +672,78 @@ TEST_F(SpoolTest, FailsOnUndecodableFrame) {
     ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
 }
 
+/// @brief it should return a read error again on every later read, and not skip to
+/// the frames after the bad record.
+TEST_F(SpoolTest, RepeatsReadError) {
+    const auto path = this->write_segment();
+    append_record(path, {.type = 2, .payload = "\xff\xff"});
+    pb::Frame frame;
+    frame.add_channels(1);
+    frame.add_series()->set_data(std::string(4, '\0'));
+    append_record(path, {.type = 2, .payload = frame.SerializeAsString()});
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    for (int i = 0; i < 3; i++)
+        ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
+    ASSERT_NIL(reader->commit());
+    const auto again = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_OCCURRED_AS_P(again->read(), CORRUPT);
+}
+
+/// @brief it should rename a segment and its read offset when a drainer sets it
+/// aside, stop listing it, and keep its key taken after a reopen.
+TEST_F(SpoolTest, SetsAsideSegment) {
+    const auto path = this->write_segment();
+    append_record(path, {.type = 2, .payload = "\xff\xff"});
+    {
+        const auto spool = this->open_spool();
+        auto reader = ASSERT_NIL_P(spool->open_reader(0));
+        ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+        ASSERT_NIL(reader->commit());
+        const auto [frame, err] = reader->read();
+        ASSERT_MATCHES(err, CORRUPT);
+        ASSERT_TRUE(is_bad(err));
+        reader.reset();
+        ASSERT_NIL(spool->set_aside(0, err));
+        ASSERT_TRUE(spool->segments().empty());
+        const auto bad = spool->bad_segments();
+        ASSERT_EQ(bad.size(), 1);
+        EXPECT_EQ(bad[0].path, this->dir / "0.seg.bad");
+        EXPECT_EQ(bad[0].cause.data, err.data);
+    }
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+    EXPECT_TRUE(std::filesystem::exists(this->dir / "0.seg.bad"));
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "0.offset"));
+    EXPECT_TRUE(std::filesystem::exists(this->dir / "0.offset.bad"));
+    const auto spool = this->open_spool();
+    EXPECT_TRUE(spool->segments().empty());
+    EXPECT_TRUE(spool->bad_segments().empty());
+    this->write_frames(*spool, header_of(1), 1);
+    ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{1});
+    EXPECT_TRUE(std::filesystem::exists(this->dir / "0.seg.bad"));
+}
+
+/// @brief it should free the bytes of a set-aside segment for new frames.
+TEST_F(SpoolTest, AcceptsFramesAfterSetAside) {
+    const auto spool = this->open_spool(300);
+    {
+        const auto writer = spool->open_writer(header_of(1));
+        while (!writer->write(frame_of(1))) {}
+    }
+    ASSERT_NIL(spool->set_aside(0, CORRUPT));
+    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+}
+
+/// @brief it should fail to set aside a segment that is not closed.
+TEST_F(SpoolTest, RejectsSetAsideOfOpenSegment) {
+    const auto spool = this->open_spool();
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_NIL(writer->write(frame_of(1)));
+    ASSERT_MATCHES(spool->set_aside(0, CORRUPT), BASE_ERROR);
+    ASSERT_TRUE(spool->bad_segments().empty());
+}
+
 /// @brief it should fail on a frame whose series is not whole samples.
 TEST_F(SpoolTest, FailsOnPartialSample) {
     const auto path = this->write_segment();
@@ -705,40 +805,37 @@ TEST_F(SpoolTest, SkipsUnknownSkippableType) {
     ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
 }
 
-/// @brief it should fail to open on a header that passes its checksum but is not
+/// @brief it should set aside a segment whose header passes its checksum but is not
 /// valid.
-TEST_F(SpoolTest, FailsOnUndecodableHeader) {
+TEST_F(SpoolTest, SetsAsideUndecodableHeader) {
     std::filesystem::create_directories(this->dir);
     append_record(this->dir / "0.seg", {.type = 1, .payload = "\xff\xff"});
-    ASSERT_OCCURRED_AS_P(
-        Spool::open(Config{.dir = this->dir, .cap = DEFAULT_CAP}),
-        CORRUPT
-    );
+    this->expect_set_aside("0.seg", CORRUPT);
 }
 
-/// @brief it should fail to open on a header with a cluster that is not a UUID.
-TEST_F(SpoolTest, FailsOnHeaderWithShortCluster) {
+/// @brief it should set aside a segment with a cluster that is not a UUID.
+TEST_F(SpoolTest, SetsAsideHeaderWithShortCluster) {
     std::filesystem::create_directories(this->dir);
     append_record(
         this->dir / "0.seg",
         {.type = 1,
          .payload = header_payload([](pb::Header &h) { h.set_cluster("short"); })}
     );
-    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+    this->expect_set_aside("0.seg", CORRUPT);
 }
 
-/// @brief it should fail to open on a header with a task that is not a UUID.
-TEST_F(SpoolTest, FailsOnHeaderWithShortTask) {
+/// @brief it should set aside a segment with a task that is not a UUID.
+TEST_F(SpoolTest, SetsAsideHeaderWithShortTask) {
     std::filesystem::create_directories(this->dir);
     append_record(
         this->dir / "0.seg",
         {.type = 1, .payload = header_payload([](pb::Header &h) { h.clear_task(); })}
     );
-    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+    this->expect_set_aside("0.seg", CORRUPT);
 }
 
-/// @brief it should fail to open on a header without a data type for each channel.
-TEST_F(SpoolTest, FailsOnHeaderWithMissingDataType) {
+/// @brief it should set aside a segment without a data type for each channel.
+TEST_F(SpoolTest, SetsAsideHeaderWithMissingDataType) {
     std::filesystem::create_directories(this->dir);
     append_record(
         this->dir / "0.seg",
@@ -746,7 +843,7 @@ TEST_F(SpoolTest, FailsOnHeaderWithMissingDataType) {
                         h.mutable_data_types()->RemoveLast();
                     })}
     );
-    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+    this->expect_set_aside("0.seg", CORRUPT);
 }
 
 /// @brief it should fail on a frame with a channel that is not in the header.
@@ -776,11 +873,29 @@ TEST_F(SpoolTest, FailsOnFrameWithMissingSeries) {
     ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
 }
 
-/// @brief it should fail to open on a segment file whose name is not a key.
-TEST_F(SpoolTest, FailsOnInvalidSegmentName) {
+/// @brief it should set aside a segment file whose name is not a key.
+TEST_F(SpoolTest, SetsAsideSegmentWithInvalidName) {
     std::filesystem::create_directories(this->dir);
     append_file(this->dir / "abc.seg", "");
-    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+    this->expect_set_aside("abc.seg", CORRUPT);
+}
+
+/// @brief it should set aside a segment with a data type that this Driver does not
+/// know, and open the other segments.
+TEST_F(SpoolTest, SetsAsideSegmentWithUnknownDataType) {
+    static_cast<void>(this->write_segment());
+    append_record(
+        this->dir / "1.seg",
+        {.type = 1, .payload = header_payload([](pb::Header &h) {
+                        h.set_data_types(0, "complex128");
+                    })}
+    );
+    const auto spool = this->open_spool();
+    ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{0});
+    const auto bad = spool->bad_segments();
+    ASSERT_EQ(bad.size(), 1);
+    EXPECT_EQ(bad[0].path, this->dir / "1.seg.bad");
+    EXPECT_TRUE(bad[0].cause.matches(CORRUPT));
 }
 
 /// @brief it should keep a frame whose sync fails, and fail every later write.
@@ -836,14 +951,11 @@ TEST_F(SpoolTest, RemovesSegmentWhenFirstSyncFails) {
     ASSERT_EQ(spool->refused(), 1);
 }
 
-/// @brief it should fail to open on a segment that starts with a frame.
-TEST_F(SpoolTest, FailsOnSegmentWithoutHeader) {
+/// @brief it should set aside a segment that starts with a frame.
+TEST_F(SpoolTest, SetsAsideSegmentWithoutHeader) {
     std::filesystem::create_directories(this->dir);
     append_record(this->dir / "0.seg", {.type = 2, .payload = ""});
-    ASSERT_OCCURRED_AS_P(
-        Spool::open(Config{.dir = this->dir, .cap = DEFAULT_CAP}),
-        CORRUPT
-    );
+    this->expect_set_aside("0.seg", CORRUPT);
 }
 
 /// @brief it should remove a segment that a crash left with no records.
@@ -909,17 +1021,21 @@ TEST_F(SpoolTest, RemovesTempFiles) {
     ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{0});
 }
 
-/// @brief it should fail to open a segment with an unknown format version.
-TEST_F(SpoolTest, RejectsUnknownVersion) {
+/// @brief it should set aside a segment with an unknown format version.
+TEST_F(SpoolTest, SetsAsideUnknownVersion) {
+    set_version(this->write_segment(), journal::VERSION + 1);
+    this->expect_set_aside("0.seg", journal::UNKNOWN_VERSION);
+}
+
+/// @brief it should set aside a segment with the magic of another kind of file.
+TEST_F(SpoolTest, SetsAsideUnknownMagic) {
     std::filesystem::create_directories(this->dir);
     {
-        std::ofstream file(this->dir / "0.seg", std::ios::binary);
-        file.write(SEGMENT_MAGIC.data(), SEGMENT_MAGIC.size());
-        file.write("\x02\x00\x00\x00", 4);
+        auto writer = ASSERT_NIL_P(
+            journal::Writer::open({.path = this->dir / "0.seg", .magic = OFFSET_MAGIC})
+        );
+        ASSERT_NIL(writer->close());
     }
-    ASSERT_OCCURRED_AS_P(
-        Spool::open(Config{.dir = this->dir, .cap = DEFAULT_CAP}),
-        journal::UNKNOWN_VERSION
-    );
+    this->expect_set_aside("0.seg", journal::UNKNOWN_MAGIC);
 }
 }

@@ -36,6 +36,10 @@ namespace driver::spool {
 constexpr std::uint64_t DEFAULT_CAP = 10ULL * 1000 * 1000 * 1000;
 /// @brief the default number of bytes a spool leaves free on its disk.
 constexpr std::uint64_t DEFAULT_MIN_FREE = 1000ULL * 1000 * 1000;
+/// @brief the default number of written bytes that starts a sync of a segment.
+constexpr std::uint64_t DEFAULT_SYNC_BYTES = 64ULL * 1000 * 1000;
+/// @brief the default number of reserved bytes between two checks of the free space.
+constexpr std::uint64_t DEFAULT_SPACE_CHECK_BYTES = 64ULL * 1000 * 1000;
 /// @brief the magic at the start of each segment file.
 constexpr journal::Magic SEGMENT_MAGIC = {'S', 'Y', 'S', 'P', 'L', 'S', 'E', 'G'};
 /// @brief the magic at the start of each read offset file.
@@ -46,6 +50,10 @@ const x::errors::Error BASE_ERROR = x::errors::Error("spool", "");
 const x::errors::Error FULL = BASE_ERROR.sub("full");
 /// @brief a record passes its checksum but is not a valid header or frame.
 const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
+
+/// @returns true when err shows that a segment fails its checks, not that the disk
+/// failed. Set such a segment aside with Spool::set_aside.
+bool is_bad(const x::errors::Error &err);
 
 /// @returns the number of bytes free to this process on the disk of dir.
 std::pair<std::uint64_t, x::errors::Error>
@@ -64,8 +72,14 @@ struct Config {
     std::function<
         std::pair<std::uint64_t, x::errors::Error>(const std::filesystem::path &dir)>
         available = disk_available;
+    /// @brief the reserved bytes between two checks of the free disk space.
+    std::uint64_t space_check_bytes = DEFAULT_SPACE_CHECK_BYTES;
     /// @brief the maximum time between a write and the sync that follows it.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
+    /// @brief the written bytes that start a sync of a segment. Readers treat damage
+    /// in the last sync_bytes of a segment as crash damage, so a lower value can make
+    /// older segments read as CORRUPT.
+    std::uint64_t sync_bytes = DEFAULT_SYNC_BYTES;
     /// @brief gets the result of each sync of a segment and returns the result the
     /// spool uses. Writers call it from their own threads, so it must be safe for
     /// concurrent use.
@@ -93,6 +107,14 @@ struct Header {
     x::telem::TimeStamp created;
     /// @brief the version of the Driver that writes the frames.
     std::string version;
+};
+
+/// @brief a segment file that the spool set aside because it failed its checks.
+struct BadSegment {
+    /// @brief the path of the file after the spool renamed it.
+    std::filesystem::path path;
+    /// @brief why the file failed its checks.
+    x::errors::Error cause;
 };
 
 class Spool;
@@ -152,6 +174,7 @@ class Reader {
     std::unordered_map<std::uint32_t, x::telem::DataType> types;
     std::unique_ptr<journal::Reader> file;
     std::uint64_t pos = 0;
+    x::errors::Error failed;
 
     Reader(Spool &spool, std::uint64_t key);
 
@@ -163,7 +186,9 @@ public:
     /// damaged ends the segment, and the spool counts its bytes in Spool::cut.
     /// @returns the frame, or std::nullopt at the end of the segment, where the reader
     /// closes its file. CORRUPT when a record is not a valid frame. The errors of
-    /// journal::Reader::next when a record is not valid.
+    /// journal::Reader::next when a record is not valid. After an error, every later
+    /// read returns it, so the reader never skips a record. Open a new reader to try
+    /// again.
     std::pair<std::optional<x::telem::Frame>, x::errors::Error> read();
 
     /// @brief persists the read offset after the last frame read, so a reader opened
@@ -192,6 +217,7 @@ class Spool {
     std::atomic<std::uint64_t> cut_count = 0;
     /// @brief the keys of the segments whose cut bytes are in cut_count.
     std::set<std::uint64_t> cut_segments;
+    std::vector<BadSegment> bad;
 
     Spool(Config cfg, std::unique_ptr<journal::Lock> lock);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
@@ -202,15 +228,21 @@ class Spool {
     void count_cut(std::uint64_t key, std::uint64_t bytes);
     [[nodiscard]] bool is_closed(std::uint64_t key) const;
     x::errors::Error remove_files(std::uint64_t key);
+    void forget(std::uint64_t key);
+    x::errors::Error set_aside_files(
+        const std::filesystem::path &segment,
+        const x::errors::Error &cause
+    );
     [[nodiscard]] x::errors::Error remove_temp_files() const;
     [[nodiscard]] x::errors::Error remove_orphan_offsets() const;
 
 public:
     /// @brief opens the spool in the directory of the config, and creates the
     /// directory when it does not exist. Removes segments that a crash left without a
-    /// header, read offsets without a segment, and temp files.
-    /// @returns journal::LOCKED when another process has the spool open. CORRUPT or
-    /// a journal error when a segment is not valid.
+    /// header, read offsets without a segment, and temp files. Sets aside each segment
+    /// that fails its checks, as set_aside does.
+    /// @returns journal::LOCKED when another process has the spool open. An error
+    /// when the spool cannot read or change its directory.
     static std::pair<std::unique_ptr<Spool>, x::errors::Error> open(Config cfg);
 
     /// @brief starts a new segment for the header. The writer creates the file at
@@ -231,6 +263,20 @@ public:
     /// segment must first read to the end or be destroyed.
     /// @param key a key from segments().
     x::errors::Error remove(std::uint64_t key);
+
+    /// @brief renames a closed segment to `<key>.seg.bad` and its read offset to
+    /// `<key>.offset.bad`, so the spool no longer lists it, and adds it to
+    /// bad_segments(). The spool never deletes these files. Call it when open_reader
+    /// or a reader of the segment returns an error that is_bad accepts. On Windows,
+    /// the readers of the segment must first be destroyed.
+    /// @param key a key from segments().
+    /// @param cause why the segment fails its checks.
+    x::errors::Error set_aside(std::uint64_t key, const x::errors::Error &cause);
+
+    /// @returns the segments set aside since the spool opened, oldest first. Report
+    /// them in a status with the message "Set aside N spool segments", and the
+    /// directory and causes in the description.
+    [[nodiscard]] std::vector<BadSegment> bad_segments() const;
 
     /// @returns the number of frames that writes did not store because the spool was
     /// full, the frame was too large, or the writer failed.

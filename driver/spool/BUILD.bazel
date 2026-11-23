@@ -46,6 +46,7 @@ cc_test(
         ":spool_cc_proto",
         "//driver/journal",
         "//x/cpp/testutil",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )
