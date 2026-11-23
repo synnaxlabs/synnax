@@ -970,64 +970,69 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = "string_display"
-	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	// SwitchNodeConfigType is the configuration for switch symbols.
 	SwitchNodeConfigType NodeConfigType = "switch"
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = "text_box"
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
 	ValueNodeConfigType NodeConfigType = "value"
-	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	// AgitatorNodeConfigType is the configuration for agitator symbols.
 	AgitatorNodeConfigType NodeConfigType = "agitator"
-	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	// CrossBeamAgitatorNodeConfigType is the configuration for cross beam agitator
+	// symbols.
 	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
-	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	// FlatBladeAgitatorNodeConfigType is the configuration for flat blade agitator
+	// symbols.
 	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
-	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
-	// variant.
+	// HeatExchangerGeneralNodeConfigType is the configuration for general heat
+	// exchanger symbols.
 	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
-	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	// HeatExchangerMNodeConfigType is the configuration for M-type heat exchanger
+	// symbols.
 	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
-	// HeatExchangerStraightTubeNodeConfigType selects the
-	// HeatExchangerStraightTubeNodeConfig variant.
+	// HeatExchangerStraightTubeNodeConfigType is the configuration for straight tube
+	// heat exchanger symbols.
 	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
-	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	// HelicalAgitatorNodeConfigType is the configuration for helical agitator symbols.
 	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
-	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	// PaddleAgitatorNodeConfigType is the configuration for paddle agitator symbols.
 	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
-	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	// PropellerAgitatorNodeConfigType is the configuration for propeller agitator
+	// symbols.
 	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
-	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	// RotaryMixerNodeConfigType is the configuration for rotary mixer symbols.
 	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
-	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	// StaticMixerNodeConfigType is the configuration for static mixer symbols.
 	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
-	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	// CavityPumpNodeConfigType is the configuration for cavity pump symbols.
 	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
-	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
-	// variant.
+	// CentrifugalCompressorNodeConfigType is the configuration for centrifugal
+	// compressor symbols.
 	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
-	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	// CompressorNodeConfigType is the configuration for compressor symbols.
 	CompressorNodeConfigType NodeConfigType = "compressor"
-	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	// DiaphragmPumpNodeConfigType is the configuration for diaphragm pump symbols.
 	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
-	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	// EjectionPumpNodeConfigType is the configuration for ejection pump symbols.
 	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
-	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	// EjectorCompressorNodeConfigType is the configuration for ejector compressor
+	// symbols.
 	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
-	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
-	// variant.
+	// LiquidRingCompressorNodeConfigType is the configuration for liquid ring
+	// compressor symbols.
 	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
-	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	// PistonPumpNodeConfigType is the configuration for piston pump symbols.
 	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
-	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	// PumpNodeConfigType is the configuration for pump symbols.
 	PumpNodeConfigType NodeConfigType = "pump"
-	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
-	// variant.
+	// RollerVaneCompressorNodeConfigType is the configuration for roller vane
+	// compressor symbols.
 	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
-	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	// ScrewPumpNodeConfigType is the configuration for screw pump symbols.
 	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
-	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
 	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
-	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
 	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
 	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
@@ -2247,6 +2252,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2371,6 +2377,7 @@ func (va ValueNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2390,6 +2397,7 @@ func (a AgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2409,6 +2417,7 @@ func (c CrossBeamAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2428,6 +2437,8 @@ func (f FlatBladeAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2447,6 +2458,7 @@ func (h HeatExchangerGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2466,6 +2478,8 @@ func (h HeatExchangerMNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2485,6 +2499,7 @@ func (h HeatExchangerStraightTubeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2504,6 +2519,7 @@ func (h HelicalAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2523,6 +2539,7 @@ func (p PaddleAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2542,6 +2559,7 @@ func (p PropellerAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2561,6 +2579,7 @@ func (r RotaryMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2580,6 +2599,7 @@ func (s StaticMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2599,6 +2619,8 @@ func (c CavityPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2618,6 +2640,7 @@ func (c CentrifugalCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2637,6 +2660,7 @@ func (c CompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2656,6 +2680,7 @@ func (d DiaphragmPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2675,6 +2700,7 @@ func (e EjectionPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2694,6 +2720,8 @@ func (e EjectorCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2713,6 +2741,7 @@ func (l LiquidRingCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2732,6 +2761,7 @@ func (p PistonPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2751,6 +2781,8 @@ func (p PumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2770,6 +2802,7 @@ func (r RollerVaneCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2789,6 +2822,7 @@ func (s ScrewPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2808,6 +2842,7 @@ func (t TurboCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
