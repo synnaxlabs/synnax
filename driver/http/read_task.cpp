@@ -228,6 +228,7 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
     std::set<synnax::icd::Key> icd_keys;
     std::set<synnax::channel::Key> channel_keys;
     for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
         if (ep.icd.has_value()) icd_keys.insert(*ep.icd);
         for (const auto &rm: ep.messages)
             for (const auto &b: rm.bindings)
@@ -251,6 +252,7 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
     // Every endpoint writes into one frame, so no two may write one channel.
     std::map<synnax::channel::Key, std::string> writers;
     for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
         const auto name = "endpoint " + ep.method + " " + ep.path;
         if (!ep.icd.has_value() || ep.messages.empty())
             return {

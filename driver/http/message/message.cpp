@@ -52,6 +52,20 @@ claim(Writers &writers, const synnax::channel::Key key, const std::string &name)
     );
 }
 
+/// @brief returns the name of the field of payload with key, or key when payload has no
+/// such field.
+std::string
+field_name(const synnax::icd::JSONPayload &payload, const synnax::icd::FieldKey &key) {
+    for (const auto &f: payload.fields) {
+        const auto &base = std::visit(
+            [](const auto &v) -> const synnax::icd::JSONBaseField & { return v; },
+            f
+        );
+        if (base.key == key) return base.name;
+    }
+    return key.to_string();
+}
+
 /// @brief rejects an index field that takes a default, since each response that leaves
 /// it out would then write the same timestamp.
 x::errors::Error check_index(
@@ -70,6 +84,7 @@ x::errors::Error check_index(
 
 std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
     const synnax::icd::ReadMessage &rm,
+    const synnax::icd::JSONPayload &payload,
     const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
     Message &m
 ) {
@@ -89,8 +104,17 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
         const bool index_field = rm.index == b.field;
         if (index_field && !ch.is_index)
             return {{}, invalid("the index field must write to an index channel")};
-        if (!index_field && ch.is_index)
-            return {{}, invalid("only the index field can write to an index channel")};
+        if (!index_field && ch.is_index) {
+            const auto name = field_name(payload, b.field);
+            return {
+                {},
+                invalid(
+                    "field " + name + " cannot write to index channel " + ch.name +
+                    ", because only the index field can. Move field " + name +
+                    " into its own message"
+                ),
+            };
+        }
         if (index_field) m.index_field = i;
         const auto key = index_field ? ch.key : ch.index;
         if (key == 0) continue;
@@ -133,7 +157,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
         if (rm.bindings.empty())
             return {Reader{}, invalid("message " + name + " binds no fields")};
         Message m;
-        auto [bindings, err] = bind(rm, channels, m);
+        auto [bindings, err] = bind(rm, *payload, channels, m);
         if (!err) err = check_index(rm, *payload);
         if (err)
             return {

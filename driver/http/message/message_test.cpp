@@ -306,11 +306,13 @@ TEST(Reader, RejectsIndexFieldOnDataChannel) {
 TEST(Reader, RejectsDataFieldOnIndexChannel) {
     auto e = indexed();
     e.reads[0].index.reset();
+    e.channels.at(1).name = "time";
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
         err.data,
-        "message reading: only the index field can write to an index channel"
+        "message reading: field t cannot write to index channel time, because only "
+        "the index field can. Move field t into its own message"
     );
 }
 

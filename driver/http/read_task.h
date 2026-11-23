@@ -137,8 +137,8 @@ public:
 /// @brief builds the message reader of each read endpoint from the messages of its ICD.
 /// @param client the client that retrieves the ICDs and the channels of the endpoints.
 /// @param endpoints the endpoints to build readers for.
-/// @returns one reader per endpoint, in order. Returns CONFIGURATION_ERROR that names
-/// the endpoint when it reads no messages, when its ICD does not exist, or when
+/// @returns one reader per enabled endpoint, in order. Returns CONFIGURATION_ERROR that
+/// names the endpoint when it reads no messages, when its ICD does not exist, or when
 /// message::Reader rejects its messages, and that names both endpoints when two of them
 /// write to one channel (an index channel included). Returns the error of a failed
 /// retrieve as is.

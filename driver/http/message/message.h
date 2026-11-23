@@ -50,9 +50,10 @@ class Reader {
     codec::JSON decoder;
 
     /// @brief sets the channels, the index channels, and the index field of m from the
-    /// bindings of rm, and returns the codec binding of each.
+    /// bindings of rm, which reads payload, and returns the codec binding of each.
     static std::pair<std::vector<codec::Binding>, x::errors::Error> bind(
         const synnax::icd::ReadMessage &rm,
+        const synnax::icd::JSONPayload &payload,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
         Message &m
     );

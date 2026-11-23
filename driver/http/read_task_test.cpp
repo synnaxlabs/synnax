@@ -4234,6 +4234,22 @@ TEST(HTTPReadTask, BuildReadersReadsEachEndpoint) {
     EXPECT_FALSE(fr.contains(first.data.key));
 }
 
+/// @brief it should build no reader for a disabled endpoint and skip its checks.
+TEST(HTTPReadTask, BuildReadersSkipsDisabledEndpoint) {
+    const auto ch = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *ch.client;
+    auto disabled = create_icd_endpoint(client, "/b", ch.data);
+    disabled.disabled = true;
+    disabled.icd = x::uuid::create();
+    auto readers = ASSERT_NIL_P(
+        build_readers(client, {create_icd_endpoint(client, "/a", ch.data), disabled})
+    );
+    ASSERT_EQ(readers.size(), 1);
+    x::telem::Frame fr;
+    ASSERT_NIL(readers[0].read(R"({"v": 2.5})", x::telem::TimeStamp(1000), fr));
+    EXPECT_EQ(fr.at<double>(ch.data.key, 0), 2.5);
+}
+
 /// @brief it should reject an endpoint with no ICD or no messages, and name it.
 TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
     const auto ch = create_field_channels(x::telem::FLOAT64_T);
