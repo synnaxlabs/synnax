@@ -20,14 +20,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -39,7 +41,6 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -65,6 +66,8 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	taskSvc    *task.Service
+	icdSvc     *icd.Service
+	kafkaSvc   *kafka.Service
 	cluster    *kfake.Cluster
 )
 
@@ -78,7 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())
-	tsDB := DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS})))
+	tsDB := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faultyFS))))
 	StartRun(tsDB.Run)
 	hookedDB := gorp.Wrap(hookedKV)
 	StartRun(hookedDB.Run)
@@ -110,6 +113,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -125,9 +129,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+		DB:   db,
+		ImEx: imex.NewService(),
+	}))
+	kafkaSvc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
+		ICD:     icdSvc,
 	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
@@ -159,6 +168,7 @@ func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
 		Channel:      channelSvc,
 		Framer:       framerSvc,
 		Status:       statusSvc,
+		ICD:          icdSvc,
 		PingTimeout:  2 * telem.Second,
 		FetchMaxWait: 100 * telem.Millisecond,
 	}}, cfgs...)...))

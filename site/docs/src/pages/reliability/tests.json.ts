@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { unique } from "@synnaxlabs/x";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
 import { blob, ordered, runs } from "@/util/reliability";
 

@@ -15,6 +15,7 @@ import socket
 import ssl
 from pathlib import Path
 from typing import override
+from uuid import UUID
 
 from asyncua import ua
 from asyncua.client.client import Client
@@ -30,7 +31,7 @@ from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
-from synnax import opcua
+from synnax import certificate, opcua, secret
 
 ARRAY_COUNT = 5
 DEFAULT_ARRAY_SIZE = 5
@@ -52,6 +53,38 @@ def read_server_certificate() -> str:
     when it starts with encryption."""
     der = (CERT_DIR / "server-certificate.der").read_bytes()
     return ssl.DER_cert_to_PEM_cert(der)
+
+
+# Fixed keys, so that each device creation replaces the certificates instead of adding
+# them.
+SERVER_CERTIFICATE_KEY = UUID("4cf6f0fe-ef6b-462b-b358-081b64c1094d")
+CLIENT_CERTIFICATE_KEY = UUID("0d39be54-6541-45bc-ac8d-4606a6d467c3")
+
+
+def create_certificates(client: sy.Synnax) -> tuple[UUID, UUID]:
+    """Saves the certificates of the simulator in the Core: the server certificate to
+    trust, and the client certificate with its private key.
+
+    :returns: The keys of the server and client certificates.
+    """
+    client.certificates.set(
+        [
+            certificate.NewStored(
+                key=SERVER_CERTIFICATE_KEY,
+                name="OPC UA simulator server certificate",
+                pem=read_server_certificate(),
+            ),
+            certificate.NewStored(
+                key=CLIENT_CERTIFICATE_KEY,
+                name="OPC UA simulator client certificate",
+                pem=ssl.DER_cert_to_PEM_cert(
+                    (CERT_DIR / "client-certificate.der").read_bytes()
+                ),
+                private_key_pem=(CERT_DIR / "client-private-key.pem").read_text(),
+            ),
+        ]
+    )
+    return SERVER_CERTIFICATE_KEY, CLIENT_CERTIFICATE_KEY
 
 
 async def write_array_dimensions(node: Node, size: int) -> None:
@@ -419,7 +452,7 @@ class OPCUASim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
         return opcua.Device(
             endpoint=OPCUASim.endpoint,
             name=OPCUASim.device_name,
@@ -455,7 +488,8 @@ class OPCUATLSSim(OPCUASim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
+        server_certificate, client_certificate = create_certificates(client)
         return opcua.Device(
             endpoint=OPCUATLSSim.endpoint,
             name=OPCUATLSSim.device_name,
@@ -463,9 +497,8 @@ class OPCUATLSSim(OPCUASim):
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert=read_server_certificate(),
-            client_cert=str(CERT_DIR / "client-certificate.der"),
-            client_private_key=str(CERT_DIR / "client-private-key.pem"),
+            server_certificate=server_certificate,
+            client_certificate=client_certificate,
         )
 
 
@@ -483,7 +516,7 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
         return opcua.Device(
             endpoint=OPCUATLSDriverCertificateSim.endpoint,
             name=OPCUATLSDriverCertificateSim.device_name,
@@ -496,6 +529,8 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
 
 TLS_AUTH_USERNAME = "testuser"
 TLS_AUTH_PASSWORD = "testpass"
+# A fixed key, so that each device creation replaces one secret instead of adding one.
+TLS_AUTH_PASSWORD_KEY = UUID("6f1d0a52-3c1e-4c55-9a43-1b2a7e5d9c20")
 
 
 class OPCUATLSAuthSim(OPCUASim):
@@ -526,7 +561,15 @@ class OPCUATLSAuthSim(OPCUASim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
+        server_certificate, client_certificate = create_certificates(client)
+        client.secrets.set(
+            secret.NewStored(
+                key=TLS_AUTH_PASSWORD_KEY,
+                name=f"{OPCUATLSAuthSim.device_name} password",
+                value=TLS_AUTH_PASSWORD,
+            )
+        )
         return opcua.Device(
             endpoint=OPCUATLSAuthSim.endpoint,
             name=OPCUATLSAuthSim.device_name,
@@ -534,9 +577,8 @@ class OPCUATLSAuthSim(OPCUASim):
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert=read_server_certificate(),
-            client_cert=str(CERT_DIR / "client-certificate.der"),
-            client_private_key=str(CERT_DIR / "client-private-key.pem"),
+            server_certificate=server_certificate,
+            client_certificate=client_certificate,
             username=TLS_AUTH_USERNAME,
-            password=TLS_AUTH_PASSWORD,
+            password=TLS_AUTH_PASSWORD_KEY,
         )

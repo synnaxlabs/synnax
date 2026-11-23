@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
-import { type Form as PlatformForm } from "@/platform/form";
+import type { Form as PlatformForm } from "@/platform/form";
 import { DataTypeField } from "@/platform/task/payload/DataTypeField";
 import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";

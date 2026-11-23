@@ -9,11 +9,11 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Errors, Flux, Panel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";

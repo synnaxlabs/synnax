@@ -9,11 +9,11 @@
 
 from collections.abc import Sequence
 from typing import Literal, override
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, rack as rack_, task
+from synnax import certificate, device, rack as rack_, secret, task
 from synnax.opcua.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -197,16 +197,16 @@ class Device(device.Device):
 
     :param endpoint: The OPC UA server endpoint URL (e.g. "opc.tcp://localhost:4840/").
     :param username: Username for authentication.
-    :param password: Password for authentication.
+    :param password: The key of the secret that holds the password. The Driver reads
+        it when it connects. A password in plain text raises a TypeError.
     :param security_mode: Security mode: "None", "Sign", or "SignAndEncrypt".
     :param security_policy: Security policy name.
-    :param client_cert: Path to the client certificate on the Driver's computer. Leave
-        it and client_private_key empty to use the certificate the Driver generates.
-    :param client_private_key: Path to the client private key on the Driver's
-        computer.
-    :param server_cert: The PEM contents of the server certificate to trust. When
-        empty, the Driver trusts the certificate the server presents on its first
-        connection.
+    :param client_certificate: The key of the certificate that the Driver presents to
+        the server. A file certificate must be on the rack of the device. When empty,
+        the Driver presents the certificate that it generates.
+    :param server_certificate: The key of the server certificate to trust. When
+        empty, the Driver trusts the certificate that the server presents on its first
+        connection, and saves it as a certificate.
     :param certificate_validation_disabled: Whether the Driver accepts any server
         certificate. Use only to troubleshoot a connection.
     :param client_timeout_ms: The timeout of each request and connection attempt, in
@@ -227,12 +227,11 @@ class Device(device.Device):
         *,
         endpoint: str,
         username: str = "",
-        password: str = "",
+        password: secret.Key | None = None,
         security_mode: SecurityMode = "None",
         security_policy: SecurityPolicy = "None",
-        client_cert: str = "",
-        client_private_key: str = "",
-        server_cert: str = "",
+        client_certificate: certificate.Key | None = None,
+        server_certificate: certificate.Key | None = None,
         certificate_validation_disabled: bool = False,
         client_timeout_ms: int = 5_000,
         secure_channel_lifetime_ms: int = 600_000,
@@ -257,14 +256,16 @@ class Device(device.Device):
         }
         if username:
             connection["username"] = username
-        if password:
-            connection["password"] = password
-        if client_cert:
-            connection["client_certificate"] = client_cert
-        if client_private_key:
-            connection["client_private_key"] = client_private_key
-        if server_cert:
-            connection["server_certificate"] = server_cert
+        for field, value, item in (
+            ("password", password, "secret"),
+            ("client_certificate", client_certificate, "certificate"),
+            ("server_certificate", server_certificate, "certificate"),
+        ):
+            if value is None:
+                continue
+            if not isinstance(value, UUID):
+                raise TypeError(f"{field} must be the key of a {item}")
+            connection[field] = str(value)
         props: dict[str, JsonValue] = {
             "version": "2.0.0",
             "connection": connection,

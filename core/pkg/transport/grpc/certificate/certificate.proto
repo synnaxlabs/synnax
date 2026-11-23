@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.certificate;
+
+import "core/pkg/api/certificate/pb/certificate.proto";
+import "core/pkg/service/certificate/pb/certificate.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate";
+
+service CertificateRetrieveService {
+  rpc Exec(api.certificate.pb.RetrieveRequest) returns (api.certificate.pb.RetrieveResponse);
+}
+
+service CertificateSetService {
+  rpc Exec(SetRequest) returns (SetResponse);
+}
+
+service CertificateRefreshService {
+  rpc Exec(RefreshRequest) returns (google.protobuf.Empty);
+}
+
+message Input {
+  string key = 1;
+  string name = 2;
+  string source = 3;
+  string pem = 4;
+  string private_key_pem = 5;
+  string certificate_path = 6;
+  optional string private_key_file = 7;
+  optional service.certificate.pb.Details details = 8;
+  uint32 rack = 9;
+}
+
+message SetRequest {
+  repeated Input certificates = 1;
+}
+
+message SetResponse {
+  repeated service.certificate.pb.Certificate certificates = 1;
+}
+
+message RefreshRequest {
+  string key = 1;
+  service.certificate.pb.Details details = 2;
+}

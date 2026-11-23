@@ -13,7 +13,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -21,13 +21,36 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Delete deletes the specified time range from the database. Note that the start of the
-// time range is inclusive whereas the end is note.
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+// OpenDelete takes control of tr so that del deletes it, and returns an error if a
+// writer controls part of tr. No writer can take tr until the caller calls release.
+func (db *DB) OpenDelete(
+	tr telem.TimeRange,
+) (del func(context.Context) error, release func(), err error) {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return nil, nil, ErrDBClosed
 	}
-	return db.wrapError(db.delete(ctx, tr))
+	if !tr.Valid() {
+		return nil, nil, db.wrapError(errors.Newf(
+			"delete start %d cannot be after delete end %d",
+			tr.Start,
+			tr.End,
+		))
+	}
+	if release, err = db.lockControllerForNonWriteOp(tr, "delete"); err != nil {
+		return nil, nil, db.wrapError(err)
+	}
+	return func(ctx context.Context) error {
+		if err := db.domain.Delete(
+			ctx,
+			tr,
+			db.calculateStartOffset,
+			db.calculateEndOffset,
+		); err != nil {
+			return db.wrapError(err)
+		}
+		db.resolver.invalidate()
+		return nil
+	}, release, nil
 }
 
 // GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
@@ -66,41 +89,21 @@ func (db *DB) lockControllerForNonWriteOp(
 	tr telem.TimeRange,
 	opName string,
 ) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled: new(true),
-		TimeRange:       tr,
-		Authority:       xcontrol.AuthorityAbsolute,
-		Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
-		OpenResource: func() (*controlledWriter, error) {
-			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
+	g, _, err := db.controller.OpenGate(
+		xcontrol.GateConfig[channel.Key, *controlledWriter]{
+			ErrIfControlled: new(true),
+			TimeRange:       tr,
+			Authority:       xcontrol.AuthorityAbsolute,
+			Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
+			OpenResource: func() (*controlledWriter, error) {
+				return &controlledWriter{
+					Writer:     nil,
+					channelKey: db.cfg.Channel.Key,
+				}, nil
+			},
 		},
-	})
+	)
 	return func() { g.Release() }, err
-}
-
-func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
-	if !tr.Valid() {
-		return errors.Newf(
-			"delete start %d cannot be after delete end %d",
-			tr.Start,
-			tr.End,
-		)
-	}
-	release, err := db.lockControllerForNonWriteOp(tr, "delete")
-	if err != nil {
-		return err
-	}
-	defer release()
-	if err := db.domain.Delete(
-		ctx,
-		tr,
-		db.calculateStartOffset,
-		db.calculateEndOffset,
-	); err != nil {
-		return err
-	}
-	db.resolver.invalidate()
-	return nil
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time

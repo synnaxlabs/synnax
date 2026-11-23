@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ActionCreatorWithPayload,
-  type Middleware,
-  type PayloadAction,
+import type {
+  ActionCreatorWithPayload,
+  Middleware,
+  PayloadAction,
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";

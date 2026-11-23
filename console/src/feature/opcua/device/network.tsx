@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { INTEGRATION_KEY, MAKE } from "@/feature/opcua/device/types";
 import { Connect } from "@/feature/opcua/device/useConnectModal";
 import { SCAN_TYPE } from "@/feature/opcua/task/types";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
   key: INTEGRATION_KEY,

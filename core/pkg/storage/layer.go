@@ -16,8 +16,7 @@
 //
 //  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the ts.TS interface) for writing frames of
-//     telemetry.
+//  2. A time-series engine (Cesium) for writing frames of telemetry.
 //
 // It's important to note that the storage package does NOT manage any sort of
 // distributed storage implementation.
@@ -37,7 +36,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
@@ -464,9 +462,28 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	}
 
 	logger := pebblekv.NewLogger(ins)
-	ev := pebble.MakeLoggingEventListener(logger)
+	db, err := pebble.Open(dirname, pebbleOptions(fs, cache, logger))
+	if err != nil {
+		return nil, errors.Wrapf(
+			err,
+			"[storage] - failed to open key-value store in %s",
+			dirname,
+		)
+	}
+	if err = deleteAspenKeys(db); err != nil {
+		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
+		return nil, errors.Combine(err, db.Close())
+	}
+	return pebblekv.Wrap(db, logger), nil
+}
 
-	// Create optimized options for read-heavy workloads
+// pebbleOptions returns options tuned for read-heavy workloads.
+func pebbleOptions(
+	fs vfs.FS,
+	cache *pebble.Cache,
+	logger pebble.Logger,
+) *pebble.Options {
+	ev := pebble.MakeLoggingEventListener(logger)
 	opts := &pebble.Options{
 		FS:                 fs,
 		FormatMajorVersion: pebble.FormatNewest,
@@ -501,32 +518,20 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	for i := 1; i < len(opts.TargetFileSizes); i++ {
 		opts.TargetFileSizes[i] = opts.TargetFileSizes[i-1] * 10 // 10x growth per level
 	}
-
-	db, err := pebble.Open(dirname, opts)
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"[storage] - failed to open key-value store in %s",
-			dirname,
-		)
-	}
-	if err = deleteAspenKeys(db); err != nil {
-		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
-		return nil, errors.Combine(err, db.Close())
-	}
-	return pebblekv.Wrap(db, logger), nil
+	return opts
 }
 
-func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
 			"[storage] - unsupported time-series engine: %s",
 			cfg.TSEngine,
 		)
 	}
-	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
-		FS:              fs,
-	})
+	return cesium.Open(
+		ctx,
+		filepath.Join(cfg.Dirname, cesiumDir),
+		cesium.WithFS(fs),
+		cesium.WithInstrumentation(cfg.Child("ts")),
+	)
 }

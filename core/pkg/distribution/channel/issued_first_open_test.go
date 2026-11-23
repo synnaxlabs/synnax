@@ -30,7 +30,6 @@ var _ = Describe("IssuedAtFirstOpen", func() {
 			return MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 				HostKey: host,
 				KV:      store.KV,
-				TS:      store.TS,
 			}))
 		}
 		out := MustSucceed(open().Allocate(ctx, []channel.Channel{

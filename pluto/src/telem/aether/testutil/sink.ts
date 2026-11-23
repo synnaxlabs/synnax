@@ -9,12 +9,12 @@
 
 import { type destructor, id, observe } from "@synnaxlabs/x";
 
-import {
-  type BooleanSinkSpec,
-  type NumberSinkSpec,
-  type Sink,
-  type StringSinkSpec,
-  type Telem,
+import type {
+  BooleanSinkSpec,
+  NumberSinkSpec,
+  Sink,
+  StringSinkSpec,
+  Telem,
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SINK_TYPE } from "@/telem/aether/testutil/factory";
 

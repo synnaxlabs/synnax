@@ -10,7 +10,7 @@
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 

@@ -9,8 +9,8 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Node } from "@/arc/graph/node";
 import { useNodeConfig, useSingleDispatch } from "@/arc/queries";

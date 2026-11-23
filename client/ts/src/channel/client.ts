@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   control,
@@ -24,7 +24,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type batch } from "@/batch";
+import type { batch } from "@/batch";
 import {
   type Action,
   dispatchReqZ,
@@ -67,13 +67,13 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/channel/where.gen";
-import { type Writer } from "@/channel/writer";
+import type { Writer } from "@/channel/writer";
 import { isConnectionError, ValidationError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type resource } from "@/resource";
-import { type status } from "@/status";
+import type { resource } from "@/resource";
+import type { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
@@ -439,6 +439,9 @@ export class Client extends query.Retriever<
         });
     });
     const lines = createLines(() => builtIns);
+    // A query ranks as a search only for a line that stays the Core's. The internal
+    // line waits for the built-in keys instead, so its list pages by key.
+    const lasting = createLines(() => new Set());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -456,12 +459,14 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        // A channel whose uses the client does not hold fetches the query again.
+        // A channel whose uses the client does not hold fetches the query again, as
+        // does one that an internal line checks before the built-in keys arrive.
         matches: (ch, query) =>
-          query.includeUses === true && usesStore.get(ch.key) == null
+          (query.includeUses === true && usesStore.get(ch.key) == null) ||
+          serverComputed(lines, query.where)
             ? null
             : matches(lines, ch, query.where),
-        serverComputed: (query) => serverComputed(lines, query.where),
+        serverComputed: (query) => serverComputed(lasting, query.where),
         triggers: [
           query.trigger(
             statusStore,
@@ -585,7 +590,7 @@ export class Client extends query.Retriever<
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(
+  override async retrieve(
     params: Key | Name | RetrieveSingleParams | OneParams,
   ): Promise<Channel>;
 
@@ -597,11 +602,11 @@ export class Client extends query.Retriever<
    * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
    */
-  async retrieve(
+  override async retrieve(
     params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
-  async retrieve(
+  override async retrieve(
     params:
       | PrimitiveParams
       | Payload[]
