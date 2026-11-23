@@ -851,6 +851,21 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("should fetch a search again after a watched change during its first fetch", async () => {
+      const { statuses, core, fetch, lists } = setupWatched([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "ab")];
+        core.records.push(rec("2", "ac"));
+        statuses.set("2", { key: "2", variant: "error" });
+        return page;
+      });
+      await list.retrieve();
+      expect(names(await list.retrieve())).toEqual(["ab", "ac"]);
+      release();
+    });
+
     it("should compose a search again without a fetch on a content-only change", async () => {
       const { statuses, fetch, lists } = setupWatched([rec("1", "ab")], true);
       const list = lists.list({ searchTerm: "a" });
@@ -952,6 +967,25 @@ describe("Lists", () => {
       list.onChange(vi.fn());
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+      lists.close();
+    });
+
+    it("should fetch a search again after a change during a fetch in its grace window", async () => {
+      const { lists, fetch, core } = setup([rec("1", "ab")], {
+        teardownGrace: TimeSpan.minutes(1),
+      });
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn())();
+      await list.retrieve();
+      lists.refetchMatching(() => true);
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "ab")];
+        core.records.push(rec("2", "ac"));
+        lists.refetchMatching(() => true);
+        return page;
+      });
+      await list.retrieve();
+      expect(names(await list.retrieve())).toEqual(["ab", "ac"]);
       lists.close();
     });
 
