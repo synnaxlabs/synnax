@@ -20,6 +20,7 @@ import (
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -1636,6 +1637,9 @@ type Symbol struct {
 	Data Spec `json:"data" msgpack:"data"`
 	// Group is the group the symbol sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Uses are the schematics that use the symbol and that the caller can read, filled
+	// only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
