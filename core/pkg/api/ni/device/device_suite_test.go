@@ -43,7 +43,7 @@ var (
 	apiSvc *apidevice.Service
 	// These handlers run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apidevice.CreateRequest, apidevice.CreateResponse]
-	update   freighter.UnaryHandler[apidevice.UpdateRequest, struct{}]
+	update   freighter.UnaryHandler[apidevice.UpdateRequest, apidevice.UpdateResponse]
 	del      freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apidevice.RetrieveRequest,

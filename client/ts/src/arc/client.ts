@@ -22,8 +22,7 @@ import {
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { validateIdentifier } from "@/arc/identifier";
-import { arcKeyOf } from "@/arc/task/task";
-import { type Performance, performanceZ } from "@/arc/task/types.gen";
+import { task as arcTask } from "@/arc/task";
 import {
   type Arc,
   arcZ,
@@ -106,7 +105,7 @@ const singleQueryZ = z.union([
 const updateTaskReqZ = z.object({
   key: keyZ,
   rack: rack.keyZ.optional(),
-  performance: performanceZ.optional(),
+  performance: arcTask.performanceZ.optional(),
 });
 const updateTaskResZ = z.object({ task: task.payloadZ().nullish() });
 
@@ -118,7 +117,7 @@ export interface UpdateTaskParams {
    */
   rack?: rack.Key;
   /** Sets how closely the task's runtime holds timer deadlines. */
-  performance?: Performance;
+  performance?: arcTask.Performance;
 }
 
 export interface ClientConfig {
@@ -222,7 +221,7 @@ export class Client extends query.Retriever<
         return tsk == null ? [] : [tsk.key];
       },
       compose: (records) => records[0] ?? null,
-      matches: (t, q) => arcKeyOf(t) === q,
+      matches: (t, q) => arcTask.arcKeyOf(t) === q,
     });
     this.statusAnswers = cache.queries<
       Key,

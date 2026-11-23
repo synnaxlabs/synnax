@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { rawKey } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import {
   tileKey,
@@ -92,7 +92,7 @@ describe("tile", () => {
       const s = createSpec();
       const series = await reader.read(s);
       expect(calls).toHaveLength(1);
-      expect(calls[0].tr.equals(tileRange(s))).toBe(true);
+      expect(calls[0].tr.equals(grid.tileRange(s))).toBe(true);
       expect(calls[0].keys).toEqual([1]);
       expect(calls[0].reduction).toEqual({
         variant: "limit",
@@ -212,7 +212,7 @@ describe("tile", () => {
 
     it("should fetch tiles with different bounds or options separately", async () => {
       const { reader, calls } = createReader();
-      const mid = tileRange(createSpec()).start.add(TimeSpan.milliseconds(512));
+      const mid = grid.tileRange(createSpec()).start.add(TimeSpan.milliseconds(512));
       await Promise.all([
         reader.read(createSpec({ tile: 3 })),
         reader.read(createSpec({ tile: 4 })),
@@ -238,7 +238,7 @@ describe("tile", () => {
 
     it("should never cache a partial tile", async () => {
       const { reader, calls } = createReader();
-      const end = tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
+      const end = grid.tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
       await reader.read(createSpec({ end }));
       await reader.read(createSpec({ end }));
       expect(calls).toHaveLength(2);
@@ -248,7 +248,7 @@ describe("tile", () => {
 
     it("should never cache a tile cut at its start", async () => {
       const { reader, calls } = createReader();
-      const start = tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
+      const start = grid.tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
       await reader.read(createSpec({ start }));
       await reader.read(createSpec({ start }));
       expect(calls).toHaveLength(2);

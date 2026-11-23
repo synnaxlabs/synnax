@@ -18,6 +18,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/key.h"
+#include "client/cpp/icd/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/types.gen.h"
@@ -183,6 +184,8 @@ WriteField parse_write_field(x::json::Parser parser);
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
     std::string key;
+    /// @brief disabled is true when the endpoint is excluded from the task.
+    bool disabled = false;
     /// @brief method is the HTTP method used to poll the endpoint.
     std::string method = METHOD_GET;
     /// @brief path is the URL path appended to the device's base URL.
@@ -193,6 +196,11 @@ struct ReadEndpoint {
     std::vector<QueryParam> query_params;
     /// @brief body is a static body sent with each request. Empty sends no body.
     std::string body = "";
+    /// @brief icd is the key of the ICD that holds the messages of the endpoint. Absent
+    /// when the endpoint reads no messages.
+    std::optional<::synnax::icd::Key> icd;
+    /// @brief messages are the messages that the response body is read as.
+    std::vector<::synnax::icd::ReadMessage> messages = {};
     /// @brief fields contains the values to extract from the response.
     std::vector<ReadField> fields;
     /// @brief index is the key of the field whose channel indexes the others. Empty

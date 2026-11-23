@@ -23,12 +23,12 @@ import {
 import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import type { Block } from "@/framer/cache/block";
-import { type Bounds, tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import type { Store } from "@/framer/cache/store";
 
 /** Identifies one tile of one channel, reduced under a point limit. */
-export interface TileSpec extends Bounds {
+export interface TileSpec extends grid.Bounds {
   key: channel.Key;
   pointLimit: number;
   aggregation: Aggregation;
@@ -163,7 +163,10 @@ export class TileReader {
     try {
       const series = await fetched;
       if (!this.closed)
-        store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
+        store.set(
+          key,
+          new Tile(spec.key, grid.tileRange(spec), series, this.props.now()),
+        );
       return series;
     } finally {
       reads.delete(spec.key);
@@ -174,7 +177,7 @@ export class TileReader {
   // Fetches the tile again while a history change over its span lands during the fetch,
   // since the fetch can hold samples from before the change.
   private async readFresh(spec: TileSpec): Promise<MultiSeries> {
-    const span = tileRange(spec);
+    const span = grid.tileRange(spec);
     for (;;) {
       let changed = false;
       const stopWatching = this.props.store.onInvalidate((ch, tr) => {
@@ -202,7 +205,7 @@ export class TileReader {
   ): Promise<void> {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;
-    const tr = tileRange(spec);
+    const tr = grid.tileRange(spec);
     const keys = unique.unique(group.map(({ req }) => req.key));
     try {
       const frame = await sync.withTimeout(

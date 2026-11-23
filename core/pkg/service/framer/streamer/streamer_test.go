@@ -672,6 +672,79 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 	})
 
+	DescribeTable(
+		"Missed markers",
+		func(ctx SpecContext, cfg streamer.Config) {
+			ch := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  keys,
+			}))
+			cfg.Keys = keys
+			cfg.SendOpenAck = true
+			s := MustSucceed(streamerSvc.New(ctx, cfg))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			inlet, outlet := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			// Nobody reads the streamer, so its buffers fill and the relay drops
+			// frames. The pause lets a throttle block on its first send.
+			for batch := range 2 {
+				if batch > 0 {
+					time.Sleep(300 * time.Millisecond)
+				}
+				for range 1000 {
+					Expect(w.Write(frame.NewUnary(
+						ch.Key(),
+						telem.NewSeriesV[float32](1),
+					))).To(BeTrue())
+				}
+			}
+			var data, markers, firstMarker int
+			for done := false; !done; {
+				select {
+				case res := <-outlet.Outlet():
+					if !res.Missed {
+						data++
+						continue
+					}
+					if markers == 0 {
+						firstMarker = data
+					}
+					markers++
+				case <-time.After(500 * time.Millisecond):
+					done = true
+				}
+			}
+			Expect(data).To(BeNumerically(">", 0))
+			if cfg.MissedRequested {
+				Expect(markers).To(BeNumerically(">", 0))
+				// The frames buffered before the drop arrive first.
+				Expect(firstMarker).To(BeNumerically(">", 0))
+			} else {
+				Expect(markers).To(BeZero())
+			}
+			Expect(w.Close()).To(Succeed())
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+		},
+		Entry("requested", streamer.Config{MissedRequested: true}),
+		Entry("requested through a throttle", streamer.Config{
+			MissedRequested: true,
+			ThrottleRate:    telem.Rate(5),
+		}),
+		Entry("not requested", streamer.Config{}),
+	)
+
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{

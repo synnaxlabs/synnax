@@ -39,7 +39,7 @@ import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
 import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
-import { isMoreKey, type Results, Store } from "@/platform/tree/store";
+import { Store } from "@/platform/tree/store";
 import type {
   GetResource,
   Resource,
@@ -59,12 +59,12 @@ interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   emptyContent?: ReactNode;
   /** The menu for a right-click on empty space. Defaults to the provider's menu. */
   rootContextMenu?: FC<RootContextMenuProps>;
-  results?: Results;
+  results?: Store.Results;
   className?: string;
 }
 
 interface ContextValue extends DragAndDrop {
-  store: Store;
+  store: Store.Store;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -148,7 +148,11 @@ const ResourceItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 };
 
 const TreeItem = (props: Base.ItemProps<string>) =>
-  isMoreKey(props.itemKey) ? <MoreItem {...props} /> : <ResourceItem {...props} />;
+  Store.isMoreKey(props.itemKey) ? (
+    <MoreItem {...props} />
+  ) : (
+    <ResourceItem {...props} />
+  );
 
 const itemRenderProp = Component.renderProp(TreeItem);
 
@@ -167,8 +171,8 @@ const createStore = ({
   results,
   resolveItem,
   handleError,
-}: CreateStoreParams): Store =>
-  new Store({
+}: CreateStoreParams): Store.Store =>
+  new Store.Store({
     root,
     list: (id) => {
       if (listRoot != null && resource.idsEqual(id, root)) return listRoot(client);

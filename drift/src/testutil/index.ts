@@ -9,3 +9,4 @@
 
 export * from "@/testutil/runtime";
 export * from "@/testutil/store";
+export * from "@/testutil/window";

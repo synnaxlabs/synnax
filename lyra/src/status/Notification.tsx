@@ -10,7 +10,12 @@
 import "@/status/Notification.css";
 
 import { array, primitive } from "@synnaxlabs/x";
-import { type ComponentPropsWithRef, isValidElement, type ReactElement } from "react";
+import {
+  type ComponentPropsWithRef,
+  isValidElement,
+  type ReactElement,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -47,17 +52,30 @@ export const Notification = ({
   icon,
   className,
   children,
+  onAnimationEnd,
   ...rest
 }: NotificationProps): ReactElement => {
   const { key, time, count, message, description, variant, name } = stat;
   const getCopyText = () => toString(stat);
+  // The entrance plays once per arrival. A parent that hides and shows the card, as a
+  // popover does to move up the top layer, would replay a plain CSS animation.
+  const [entered, setEntered] = useState<string | null>(null);
+  const timeKey = time.toString();
 
   return (
     // The key remounts the card when a repeat arrives, replaying the entrance
     // animation.
     <div
-      className={CSS.cls(CSS.B("notification"), className)}
-      key={time.toString()}
+      className={CSS.cls(
+        CSS.B("notification"),
+        entered !== timeKey && CSS.M("entering"),
+        className,
+      )}
+      key={timeKey}
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) setEntered(timeKey);
+        onAnimationEnd?.(e);
+      }}
       role="status"
       {...rest}
     >

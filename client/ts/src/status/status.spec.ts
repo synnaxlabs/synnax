@@ -213,6 +213,7 @@ describe("Status", () => {
         ),
       );
       const local = createTestClient();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         owners.map(async (owner) => await local.statuses.retrieveOwned([owner])),
@@ -400,7 +401,7 @@ describe("Status", () => {
         ),
       );
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         keys.map(async (key) => await local.statuses.retrieve(key)),
