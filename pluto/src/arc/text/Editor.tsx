@@ -12,7 +12,7 @@ import { type arc, query, type Synnax as Client } from "@synnaxlabs/client";
 import { NAME } from "@/arc/language";
 import { useHasText, useSingleDispatch, useType } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
-import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
+import { collab } from "@/arc/text/collab";
 import { Code } from "@/code";
 import { Synnax } from "@/synnax";
 
@@ -24,11 +24,11 @@ export interface EditorProps extends Pick<
   "autoFocus" | "extraMenuItems"
 > {}
 
-const bootstrap = (client: Client | null, key: arc.Key): CollabText | null => {
+const bootstrap = (client: Client | null, key: arc.Key): collab.Text | null => {
   const cached = client?.arcs.watch(key).getCached();
   if (!query.isLive(cached) || cached.source.mode !== "text") return null;
   const doc = cached.source.text.doc;
-  return doc != null ? CollabText.bootstrap(doc) : null;
+  return doc != null ? collab.Text.bootstrap(doc) : null;
 };
 
 export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
@@ -43,9 +43,9 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   // operations.
   const text = hasText ? bootstrap(client, resourceKey) : null;
 
-  const handleEdit = (edits: readonly TextChange[]) => {
+  const handleEdit = (edits: readonly collab.Change[]) => {
     if (text == null) return;
-    const actions = text.applyChanges(changesToDiffs(text.value(), edits));
+    const actions = text.applyChanges(collab.changesToDiffs(text.value(), edits));
     if (actions.length > 0) dispatch(actions);
   };
 
