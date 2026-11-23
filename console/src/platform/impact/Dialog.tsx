@@ -18,6 +18,7 @@ import {
   type Synnax as Client,
   ValidationError,
 } from "@synnaxlabs/client";
+import { Timeout, Unreachable } from "@synnaxlabs/freighter";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -107,6 +108,14 @@ const UNREACHABLE: Record<Step, string> = {
   apply: "Check the connection to the Core, then press Delete again.",
 };
 
+/** The next step when the Core may have the delete but no answer came back. */
+const UNANSWERED =
+  "The Core can still apply the delete. The Channels list shows the outcome.";
+
+/** Reports whether err leaves the Core holding a request that it can still apply. */
+const unanswered = (err: unknown): boolean =>
+  Timeout.matches(err) || (err instanceof Unreachable && err.delivered);
+
 /** Returns why err failed step, as sentences, with the next step when one helps. */
 const reasonOf = (err: unknown, step: Step): string => {
   const text = (err instanceof Error ? err.message : String(err)).trim();
@@ -114,6 +123,7 @@ const reasonOf = (err: unknown, step: Step): string => {
   let sentence = text.charAt(0).toUpperCase() + text.slice(1);
   if (!/[.!?]$/.test(sentence)) sentence += ".";
   if (!isConnectionError(err)) return sentence;
+  if (step === "apply" && unanswered(err)) return `${sentence} ${UNANSWERED}`;
   return `${sentence} ${UNREACHABLE[step]}`;
 };
 
