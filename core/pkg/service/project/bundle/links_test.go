@@ -124,6 +124,20 @@ var _ = Describe("Channel links", func() {
 		Expect(importedLogChannels(ctx, proj.Key)).To(Equal([]channel.Key{key}))
 	})
 
+	It("Should keep the raw key of a channel that the exporter cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		key := createFolderChannel(ctx, "links_"+uuid.New().String()[:8], "pt_03")
+		src := createProject(ctx, "Hidden links")
+		createLinkedLog(ctx, src.Key, key)
+		refused := channel.ResourceID(key)
+		readable := func(id resource.ID) bool { return id != refused }
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readable))
+		Expect(memberOfType(files, "log")["channels"]).To(ConsistOf(
+			HaveKeyWithValue("channel", BeNumerically("==", key)),
+		))
+	})
+
 	It("Should list every missing path and import nothing", func(ctx SpecContext) {
 		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
