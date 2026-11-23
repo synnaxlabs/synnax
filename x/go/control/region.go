@@ -37,9 +37,6 @@ type region[K comparable, R Resource[K]] struct {
 	// independent regions can access a resource at the same time.
 	// [not safe for unprotected concurrent access]
 	timeRange telem.TimeRange
-	// bounded is true when the region holds a single bounded gate. It does not change
-	// after the region is created.
-	bounded bool
 	// counter tracks the total number of gates opened in the region. This counter
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
@@ -113,30 +110,14 @@ func (r *region[K, R]) open(
 }
 
 // state returns the control State of the gate in control, or nil when the region is
-// bounded or still opening.
+// still opening.
 func (r *region[K, R]) state() *State[K] {
 	r.RLock()
 	defer r.RUnlock()
-	if r.bounded || r.curr == nil {
+	if r.curr == nil {
 		return nil
 	}
 	return r.curr.state()
-}
-
-// overlapError returns the error for a write to tr that reaches the region.
-func (r *region[K, R]) overlapError(tr telem.TimeRange) error {
-	r.RLock()
-	defer r.RUnlock()
-	holder := "a writer that is opening"
-	if r.curr != nil {
-		holder = "writer " + r.curr.Subject().String()
-	}
-	return errors.Wrapf(
-		validate.ErrValidation,
-		"cannot write to time range %v because %s holds it",
-		tr.Intersection(r.timeRange),
-		holder,
-	)
 }
 
 func (r *region[K, R]) shouldBeInControl(candidate *Gate[K, R]) bool {
@@ -171,7 +152,7 @@ func (r *region[K, R]) release(g *Gate[K, R]) (res R, transfer Transfer[K]) {
 			transfer.To = candidate.state()
 		}
 	}
-	if transfer.IsRelease() {
+	if transfer.isRelease() {
 		r.controller.unsafeRemove(r)
 	}
 	return r.resource, transfer
