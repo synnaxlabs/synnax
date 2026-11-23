@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -919,6 +920,44 @@ var _ = Describe("Scan task", func() {
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
 				Expect(topics[0]).To(HaveKeyWithValue("shapes", Equal([]any{})))
+			},
+		)
+
+		It(
+			"Should give a sample for each of the 1,024 pointers of a topic's shapes",
+			func(ctx SpecContext) {
+				for kind := range 4 {
+					fields := make([]string, 256)
+					for i := range fields {
+						fields[i] = fmt.Sprintf(`"k%d_%d":%d`, kind, i, i)
+					}
+					publishUntilDone(
+						broker,
+						"plant/a",
+						"{"+strings.Join(fields, ",")+"}",
+					)
+				}
+				publishUntilDone(broker, "plant/a", `{"last":1}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 1000})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				shapes, ok := topics[0].(map[string]any)["shapes"].([]any)
+				Expect(ok).To(BeTrue())
+				pointers := make(set.Set[string])
+				for _, s := range shapes {
+					shape, ok := s.(map[string]any)
+					Expect(ok).To(BeTrue())
+					fields, ok := shape["fields"].([]any)
+					Expect(ok).To(BeTrue())
+					for _, f := range fields {
+						field, ok := f.(map[string]any)
+						Expect(ok).To(BeTrue())
+						pointer, ok := field["pointer"].(string)
+						Expect(ok).To(BeTrue())
+						pointers.Add(pointer)
+					}
+				}
+				Expect(pointers).To(HaveLen(1024))
 			},
 		)
 
