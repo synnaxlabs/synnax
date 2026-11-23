@@ -606,7 +606,7 @@ class TestDelivery:
         blob.failures = [503]
         shot = tmp_path / "shot.png"
         shot.write_bytes(b"png")
-        [url] = upload([shot], prefix="agent", token="t", api=blob.url)
+        [url] = upload([shot], prefix="agent", token="t", api=blob.url, backoff=0)
         assert url.startswith(f"{FakeBlob.PUBLIC}/agent/")
         assert len(blob.puts) == 1
 

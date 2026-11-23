@@ -411,12 +411,15 @@ def encrypt(text: str, *, recipient: Path) -> str:
     return done.stdout
 
 
-def upload(paths: list[Path], *, prefix: str, token: str, api: str) -> list[str]:
+def upload(
+    paths: list[Path], *, prefix: str, token: str, api: str, backoff: float = 1
+) -> list[str]:
     """Stores paths as public Vercel Blob objects under prefix and returns their URLs.
 
     Names each object by the SHA-256 of its content, so a rerun rewrites the same bytes.
-    Retries a 5xx reply or a network error three times. Raises HTTPError when the Blob
-    API rejects an upload, and URLError or TimeoutError when it stays unreachable.
+    Retries a 5xx reply or a network error three times, after backoff seconds and then
+    double that each time. Raises HTTPError when the Blob API rejects an upload, and
+    URLError or TimeoutError when it stays unreachable.
     """
     urls = []
     for path in paths:
@@ -436,11 +439,11 @@ def upload(paths: list[Path], *, prefix: str, token: str, api: str) -> list[str]
                 "x-allow-overwrite": "1",
             },
         )
-        urls.append(_put(req))
+        urls.append(_put(req, backoff=backoff))
     return urls
 
 
-def _put(req: urllib.request.Request, *, attempts: int = 4) -> str:
+def _put(req: urllib.request.Request, *, backoff: float, attempts: int = 4) -> str:
     for attempt in range(attempts - 1):
         try:
             return _send(req)
@@ -449,7 +452,7 @@ def _put(req: urllib.request.Request, *, attempts: int = 4) -> str:
                 raise
         except (urllib.error.URLError, TimeoutError):
             pass
-        time.sleep(2**attempt)
+        time.sleep(backoff * 2**attempt)
     return _send(req)
 
 
