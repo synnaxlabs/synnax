@@ -17,13 +17,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import type { FC, ReactNode } from "react";
 import type { z } from "zod";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
-import {
-  SelectSlave,
-  type SelectSlaveProps,
-} from "@/feature/ethercat/device/SelectSlave";
-import { SetupNote } from "@/feature/ethercat/device/SetupNote";
-import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import { ChannelSettings } from "@/feature/ethercat/task/ChannelSettings";
 import { SelectEntryField } from "@/feature/ethercat/task/SelectEntryField";
 import {
@@ -57,7 +51,7 @@ export interface ChannelDetailsProps {
   /** Sections shown after the entry while the channel has one. */
   children?: ReactNode;
   /** Runs after the device of the channel changes. */
-  onDeviceChange?: SelectSlaveProps["onChange"];
+  onDeviceChange?: Device.SelectSlaveProps["onChange"];
 }
 
 const ChannelDetails: FC<ChannelDetailsProps> = ({
@@ -73,8 +67,10 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   return (
     <PForm.Sections>
       <PForm.Section title="Entry">
-        <SelectSlave path={path.device} onChange={onDeviceChange} />
-        {primitive.isNonZero(ch.device) && <SetupNote deviceKey={ch.device} aligned />}
+        <Device.SelectSlave path={path.device} onChange={onDeviceChange} />
+        {primitive.isNonZero(ch.device) && (
+          <Device.SetupNote deviceKey={ch.device} aligned />
+        )}
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && !calibrated && (
           <PForm.Field
@@ -103,7 +99,10 @@ const useRecalibrate = (
   return (key, { get, set }) => {
     if (client == null || primitive.isZero(key)) return;
     handleError(async () => {
-      const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
+      const slave = await client.devices.retrieve({
+        key,
+        schemas: Device.SLAVE_SCHEMAS,
+      });
       const ch = get<ReadChannel>(path).value;
       if (!hasEntry(ch) || ch.device !== key) return;
       set(
@@ -156,7 +155,7 @@ interface DetailsTitleProps {
 
 const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
   const ch = PForm.useFieldValue(path);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   let title = getPortLabel(ch);

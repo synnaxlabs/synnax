@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { json, payload, record, zod } from "@synnaxlabs/x";
+import { json, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { sparkplugIDZ } from "@/feature/mqtt/device/types";
+import { Device } from "@/feature/mqtt/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "mqtt";
@@ -75,9 +75,9 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
-  group: sparkplugIDZ("Group").min(1, "Group is required"),
-  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
-  device: sparkplugIDZ("Device"),
+  group: Device.sparkplugIDZ("Group").min(1, "Group is required"),
+  edgeNode: Device.sparkplugIDZ("Edge node").min(1, "Edge node is required"),
+  device: Device.sparkplugIDZ("Device"),
   tag: z.string().min(1, "Tag is required"),
 };
 
@@ -277,8 +277,8 @@ const validateTagNames = zod.uniqueBy<EdgeTag, "name">(
 
 export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
   device: Task.deviceKeyZ,
-  group: sparkplugIDZ("Group").min(1, "Group is required"),
-  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
+  group: Device.sparkplugIDZ("Group").min(1, "Group is required"),
+  edgeNode: Device.sparkplugIDZ("Edge node").min(1, "Edge node is required"),
   tags: mqtt.edgeTagZ
     .array()
     .check(validateEnabled(deployEdgeTagZ), validateAnyTagEnabled, validateTagNames),
@@ -292,70 +292,6 @@ export const EDGE_SCHEMAS = {
 
 export type EdgeSchemas = typeof EDGE_SCHEMAS;
 
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const BROWSE_COMMAND_TYPE = "browse";
-
-const browsedFieldZ = z.object({
-  pointer: z.string(),
-  type: payload.jsonTypeZ,
-  /** The start of the JSON text of the value. */
-  sample: z.string(),
-});
-
-export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
-
-const browsedTopicZ = z.object({
-  topic: z.string(),
-  /** The start of the last payload. */
-  payload: z.string(),
-  /** The scalars of the whole last payload. */
-  fields: browsedFieldZ.array(),
-  retained: z.boolean(),
-});
-
-export interface BrowsedTopic extends z.infer<typeof browsedTopicZ> {}
-
-const browseResultZ = z.object({
-  topics: browsedTopicZ.array(),
-  truncated: z.boolean(),
-});
-
-export const BROWSE_SPARKPLUG_COMMAND_TYPE = "browse_sparkplug";
-
-const browsedSparkplugNodeZ = z.object({
-  group: z.string(),
-  edgeNode: z.string(),
-  devices: z.string().array(),
-});
-
-export interface BrowsedSparkplugNode extends z.infer<typeof browsedSparkplugNodeZ> {}
-
-const browsedSparkplugTagZ = z.object({
-  device: z.string(),
-  name: z.string(),
-  dataType: z.string(),
-  value: z.string(),
-  supported: z.boolean(),
-});
-
-export interface BrowsedSparkplugTag extends z.infer<typeof browsedSparkplugTagZ> {}
-
 /** A Sparkplug B tag and the data type the broker reports for it. */
 export interface SparkplugTag
-  extends SparkplugTagID, Pick<BrowsedSparkplugTag, "dataType"> {}
-
-const browseSparkplugResultZ = z.object({
-  nodes: browsedSparkplugNodeZ.array(),
-  tags: browsedSparkplugTagZ.array(),
-});
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z
-    .union([mqtt.sampleResultZ, browseResultZ, browseSparkplugResultZ])
-    .nullish(),
-} as const satisfies task.Schemas;
+  extends SparkplugTagID, Pick<Device.BrowsedSparkplugTag, "dataType"> {}
