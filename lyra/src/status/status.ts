@@ -73,14 +73,21 @@ export const exceptionDetailsZ = z.object({
   error: z.instanceof(Error),
 });
 
-const causeChain = (err: Error): string | undefined => {
+const causeChain = (err: Error): string[] => {
   const parts: string[] = [];
   for (const cause of errors.causes(err, 8)) {
     if (!(cause instanceof Error)) break;
     if (cause.message.length > 0) parts.push(cause.message);
   }
-  return parts.length === 0 ? undefined : parts.join(": ");
+  return parts;
 };
+
+/** Joins the messages of an error chain with a colon, or a space after a sentence. */
+const joinChain = (parts: string[]): string =>
+  parts.reduce((text, part) => {
+    if (text.length === 0) return part;
+    return `${text}${/[.!?]$/.test(text) ? " " : ": "}${part}`;
+  }, "");
 
 /**
  * The text a status built by {@link fromException} leads with: a message, or a message
@@ -104,7 +111,7 @@ export const fromException = (
     variant: "error",
     name,
     message,
-    description: [err.message, causeChain(err)].filter((p) => p != null).join(": "),
+    description: joinChain([err.message, ...causeChain(err)]),
     details: { stack: err.stack ?? "", error: err },
   });
 };

@@ -64,7 +64,7 @@ describe("useResultBuiltIns across a reconnect", () => {
     expect(dropped).toBe(true);
     expect(result.current.data?.keys).toBeNull();
     expect(internal.map((e) => e.message)).toEqual([
-      "failed to fetch built-in channels",
+      "Failed to fetch built-in channels.",
     ]);
     await reconnect(client, proxy);
     await waitFor(() => expect(result.current.data?.keys).not.toBeNull(), {
@@ -123,7 +123,7 @@ describe("useResultBuiltIns across a reconnect", () => {
     });
     // The answer of the first connection is stale, so only the second one reports.
     expect(internal.map((e) => e.message)).toEqual([
-      "failed to fetch built-in channels",
+      "Failed to fetch built-in channels.",
     ]);
   }, 60000);
 });

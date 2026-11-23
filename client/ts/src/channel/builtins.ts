@@ -123,7 +123,7 @@ export class BuiltIns {
   }
 
   private fail(exc: unknown): void {
-    const error = new Error("failed to fetch built-in channels", { cause: exc });
+    const error = new Error("Failed to fetch built-in channels.", { cause: exc });
     // One report per run of failures, which a fetch that passes ends.
     if (!this.reported) {
       this.reported = true;

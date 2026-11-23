@@ -717,12 +717,12 @@ describe("queries", () => {
       });
       await waitFor(() =>
         expect(result.current.data?.error?.message).toBe(
-          "failed to fetch built-in channels",
+          "Failed to fetch built-in channels.",
         ),
       );
       expect(result.current.data?.keys).toBeNull();
       expect(internal.map((e) => e.message)).toEqual([
-        "failed to fetch built-in channels",
+        "Failed to fetch built-in channels.",
       ]);
     });
   });

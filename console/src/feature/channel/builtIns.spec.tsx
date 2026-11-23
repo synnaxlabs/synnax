@@ -43,7 +43,7 @@ const client = createTestClient();
 
 const TARGET = "/channel/retrieve-built-ins";
 
-const MESSAGE = "failed to fetch built-in channels";
+const MESSAGE = "Failed to fetch built-in channels.";
 
 const createIndex = async () =>
   await client.channels.create({
@@ -248,7 +248,7 @@ describe("channel/Toolbar built-in keys", () => {
     expect(errors()).toEqual([
       {
         message: "Failed to sync with Core",
-        description: `${MESSAGE}: refused`,
+        description: "Failed to fetch built-in channels. refused",
         count: 1,
       },
     ]);

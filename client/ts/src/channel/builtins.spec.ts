@@ -32,7 +32,7 @@ const TARGET = "/channel/retrieve-built-ins";
 
 const PENDING = { keys: null, error: null };
 
-const MESSAGE = "failed to fetch built-in channels";
+const MESSAGE = "Failed to fetch built-in channels.";
 
 // Builds the built-in keys over a fetch whose answers the spec gives by hand.
 const createBuiltIns = () => {
