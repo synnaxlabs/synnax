@@ -22,7 +22,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/json.gen.h"
 #include "x/cpp/payload/number.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::icd {
