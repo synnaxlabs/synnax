@@ -16,15 +16,7 @@ export {
 export { Deleted } from "@/query/deleted";
 export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
-export {
-  type List,
-  type ListQuery,
-  type Lists,
-  type ListsConfig,
-  MAX_SEARCH_LIMIT,
-  type Window,
-  type WindowHandler,
-} from "@/query/list";
+export { list } from "@/query/list";
 export {
   type Cached,
   type ChangeHandler,

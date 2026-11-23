@@ -13,21 +13,21 @@ import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Symbol } from "@/schematic/node/general/box/Symbol";
-import type { NodeProps } from "@/schematic/node/spec";
+import type { Node } from "@/schematic/node";
+import { Box } from "@/schematic/node/general/box";
 
 const NODE_KEY = "b1";
 
 const CONFIG = schematic.boxNodeConfigZ.parse({ variant: "box" });
 
 const renderSymbol = (
-  props: Partial<NodeProps<schematic.BoxNodeConfig>> = {},
+  props: Partial<Node.NodeProps<schematic.BoxNodeConfig>> = {},
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider>
       <Haul.Provider>
         <div data-id={NODE_KEY}>
-          <Symbol
+          <Box.spec.Node
             nodeKey={NODE_KEY}
             selected={false}
             onConfigChange={vi.fn()}
@@ -44,7 +44,7 @@ const frame = (container: HTMLElement): SVGRectElement | null =>
 
 // Which element takes the pointer is decided by pointer-events rules in box.css, which
 // jsdom cannot exercise. These cover the structure those rules key on.
-describe("Box.Symbol", () => {
+describe("Box.spec.Node", () => {
   it("should render the frame while unselected so the border can select it", () => {
     const { container } = renderSymbol();
     expect(frame(container)).not.toBeNull();
