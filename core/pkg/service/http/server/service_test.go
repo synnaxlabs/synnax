@@ -80,7 +80,11 @@ var _ = Describe("Service", func() {
 			query = []http.QueryParam{}
 		}
 		return server.Read{
-			Request: server.ReadRequest{Method: http.MethodGet, Path: path, Query: query},
+			Request: server.ReadRequest{
+				Method: http.MethodGet,
+				Path:   path,
+				Query:  query,
+			},
 			Pointer: pointer,
 			Index:   1,
 			Channel: 2,

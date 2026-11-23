@@ -356,12 +356,17 @@ var _ = Describe("Service", func() {
 
 		It("Should write only the identity group", func(ctx SpecContext) {
 			s := createServer(ctx, func(s *server.Server) {
-				s.Reads = []server.Read{{
-					Request: server.ReadRequest{Method: http.MethodGet, Path: "/weather"},
-					Pointer: "/temp",
-					Index:   1,
-					Channel: 2,
-				}}
+				s.Reads = []server.Read{
+					{
+						Request: server.ReadRequest{
+							Method: http.MethodGet,
+							Path:   "/weather",
+						},
+						Pointer: "/temp",
+						Index:   1,
+						Channel: 2,
+					},
+				}
 			})
 			grantWrites(ctx, s.Rack)
 			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
