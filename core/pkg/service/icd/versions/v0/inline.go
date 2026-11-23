@@ -56,6 +56,9 @@ type Channel struct {
 	DataType telem.DataType
 	// Index is true when the channel is an index channel.
 	Index bool
+	// IndexKey is the key of the index channel of the channel: its own key for an index
+	// channel, and 0 for a virtual channel.
+	IndexKey channel.Key
 }
 
 // Channels returns the channels among keys, read through snap. A key with no channel is

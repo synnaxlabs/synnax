@@ -314,6 +314,8 @@ var _ = Describe("ResolveReadConfig", func() {
 			7:  {Name: "pressure", DataType: telem.Float32T},
 			9:  {Name: "time_b", DataType: telem.TimestampT, Index: true},
 			10: {Name: "stamp", DataType: telem.TimestampT},
+			11: {Name: "flow", DataType: telem.Float32T, IndexKey: 6},
+			12: {Name: "level", DataType: telem.Float32T, IndexKey: 9},
 		}
 		timeField := func(key string, ch channel.Key) v4.ReadField {
 			return v4.ReadField{
@@ -399,48 +401,89 @@ var _ = Describe("ResolveReadConfig", func() {
 
 		Describe("Two timestamp fields on index channels", func() {
 			// twoIndexes lifts an endpoint whose fields t and u write the index
-			// channels time and time_b, with u as its index.
+			// channels time and time_b, with u as its index, and whose fields f and l
+			// write flow and level, which time and time_b index.
 			twoIndexes := func(
 				ctx context.Context,
 			) (icdv1.ICD, v5.ReadConfig, []string) {
 				GinkgoHelper()
-				return resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				f, l := pressure("f"), pressure("l")
+				f.Channel, l.Channel = 11, 12
+				return lift(ctx, v4.ReadEndpoint{
 					Key:    "ep",
 					Index:  "u",
-					Fields: []v4.ReadField{timeField("t", 6), timeField("u", 9)},
-				}), found)
+					Fields: []v4.ReadField{timeField("t", 6), timeField("u", 9), f, l},
+				})
+			}
+			// key returns the key of field i of the message of ic.
+			key := func(ic icdv1.ICD, i int) icdv1.FieldKey {
+				GinkgoHelper()
+				return jsonFields(ic)[i].Base().Key
+			}
+			// binding matches a binding of the field with key to channel ch.
+			binding := func(key icdv1.FieldKey, ch channel.Key) OmegaMatcher {
+				return SatisfyAll(HaveField("Field", key), HaveField("Channel", ch))
 			}
 
-			It("Should prefer the index field that the endpoint names",
+			It("Should read the message once for each index field, the named one first",
 				func(ctx SpecContext) {
 					ic, cfg, _ := twoIndexes(ctx)
-					Expect(cfg.Endpoints[0].Messages[0].Index).
-						To(HaveValue(Equal(jsonFields(ic)[1].Base().Key)))
+					reads := cfg.Endpoints[0].Messages
+					Expect(reads).To(HaveLen(2))
+					Expect(reads[0].Message).To(Equal(reads[1].Message))
+					Expect(reads[0].Index).To(HaveValue(Equal(key(ic, 1))))
+					Expect(reads[1].Index).To(HaveValue(Equal(key(ic, 0))))
 				},
 			)
 
-			It("Should keep the binding of the other timestamp field",
+			It("Should put each field in the read of its index channel",
 				func(ctx SpecContext) {
 					ic, cfg, notes := twoIndexes(ctx)
-					Expect(cfg.Endpoints[0].Messages[0].Bindings).To(ContainElement(
-						SatisfyAll(
-							HaveField("Field", jsonFields(ic)[0].Base().Key),
-							HaveField("Channel", channel.Key(6)),
-						),
+					reads := cfg.Endpoints[0].Messages
+					Expect(reads[0].Bindings).To(ConsistOf(
+						binding(key(ic, 1), 9),
+						binding(key(ic, 3), 12),
 					))
-					Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
+					Expect(reads[1].Bindings).To(ConsistOf(
+						binding(key(ic, 0), 6),
+						binding(key(ic, 2), 11),
+					))
+					Expect(notes).To(BeEmpty())
 				},
 			)
 
-			It("Should lift a read that the read check refuses", func(ctx SpecContext) {
-				ic, cfg, _ := twoIndexes(ctx)
-				Expect(check(ctx, ic, cfg, found)).To(MatchError(SatisfyAll(
-					ContainSubstring("endpoints.0.messages.0.bindings.0.channel"),
-					ContainSubstring(
-						"field t cannot write to index channel time, because only the "+
-							"index field can. Bind field t to a data channel",
-					),
-				)))
+			It("Should put a field on no index channel in the first read",
+				func(ctx SpecContext) {
+					ic, cfg, _ := lift(ctx, v4.ReadEndpoint{
+						Key:   "ep",
+						Index: "u",
+						Fields: []v4.ReadField{
+							timeField("t", 6),
+							timeField("u", 9),
+							pressure("p"),
+						},
+					})
+					Expect(cfg.Endpoints[0].Messages[0].Bindings).
+						To(ContainElement(binding(key(ic, 2), 7)))
+				},
+			)
+
+			It("Should drop the fill value of each index field", func(ctx SpecContext) {
+				t, u := timeField("t", 6), timeField("u", 9)
+				t.Optional, t.FillValue = true, new(any(3))
+				u.Optional, u.FillValue = true, new(any(4))
+				ic, _, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Index:  "u",
+					Fields: []v4.ReadField{t, u},
+				})
+				for _, f := range jsonFields(ic) {
+					Expect(as[icdv1.TimestampJSONField](f.Variant).Default).To(BeNil())
+				}
+				Expect(notes).To(ContainElements(
+					"endpoints.0.fields.0",
+					"endpoints.0.fields.1",
+				))
 			})
 		})
 
@@ -456,6 +499,37 @@ var _ = Describe("ResolveReadConfig", func() {
 				To(BeNil())
 			Expect(notes).To(ContainElement("endpoints.0.fields.0"))
 		})
+
+		It(
+			"Should disable an endpoint whose fields bind nothing",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Disabled = true
+				_, cfg, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{p},
+				})
+				Expect(cfg.Endpoints[0].Disabled).To(BeTrue())
+				Expect(cfg.Endpoints[0].Messages).To(HaveLen(1))
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).To(BeEmpty())
+				Expect(notes).To(Equal([]string{"endpoints.0"}))
+			},
+		)
+
+		It("Should not note an endpoint that is already disabled",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Disabled = true
+				cfg := staged(
+					ctx,
+					v4.ReadEndpoint{Key: "ep", Fields: []v4.ReadField{p}},
+				)
+				cfg.Endpoints[0].Disabled = true
+				_, cfg, notes := resolve(ctx, cfg, found)
+				Expect(cfg.Endpoints[0].Disabled).To(BeTrue())
+				Expect(notes).To(BeEmpty())
+			},
+		)
 
 		It("Should bind a channel only from the first field that writes it",
 			func(ctx SpecContext) {

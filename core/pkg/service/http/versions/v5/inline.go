@@ -36,10 +36,12 @@ import (
 // each endpoint from its message. It returns the ICD, which the caller must create, and
 // false when cfg holds no inline fields. A field takes the kind of its channel, read
 // through snap with channels. A field binds no channel when it is disabled, when its
-// channel does not exist, or when an earlier field writes that channel. The index of a
-// read is the field that writes an index channel, and it takes no fill value. Any other
-// fill value becomes the default of its field. note receives the path and each change.
-// ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
+// channel does not exist, or when an earlier field writes that channel. An endpoint
+// reads its message once for each field that writes an index channel, with that field
+// as the index, and an index field takes no fill value. Any other fill value becomes
+// the default of its field. An endpoint whose fields bind nothing becomes disabled.
+// note receives the path and each change. ResolveReadConfig returns an error when a
+// staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -68,7 +70,7 @@ func ResolveReadConfig(
 		Messages: make([]icdv0.Message, len(staged)),
 	}
 	paths := make([]string, len(staged))
-	indexes := make([]string, len(staged))
+	indexes := make([]set.Set[string], len(staged))
 	names := make(set.Set[string])
 	claimed := make(map[channel.Key]string)
 	for i, e := range staged {
@@ -83,8 +85,8 @@ func ResolveReadConfig(
 		}
 		ep := &cfg.Endpoints[at]
 		paths[i] = "endpoints." + strconv.Itoa(at)
-		fields, index := readFields(e, found, claimed, paths[i], note)
-		indexes[i] = index
+		fields, index, indexFields := readFields(e, found, claimed, paths[i], note)
+		indexes[i] = indexFields
 		msg, read := icdv0.LiftMessage(fields, index, found, paths[i], note)
 		msg.Name = icdv0.UniqueName(
 			names,
@@ -92,7 +94,11 @@ func ResolveReadConfig(
 		)
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
-		ep.Messages = []icdv0.ReadMessage{read}
+		ep.Messages = groupReads(read, found)
+		if !ep.Disabled && len(ep.Messages[0].Bindings) == 0 {
+			ep.Disabled = true
+			note(paths[i], "was disabled, because it binds no fields")
+		}
 	}
 	ic, err := icdv1.MigrateICD(ctx, lifted)
 	if err != nil {
@@ -103,21 +109,21 @@ func ResolveReadConfig(
 	return ic, true, nil
 }
 
-// readFields returns the fields of e to lift and the key of its index field: the field
-// that writes an index channel in found, preferring the field that e names. A field
-// binds no channel when claimed holds an earlier field that writes it. readFields adds
-// each field it binds to claimed, and note receives each change at path and each other
-// field that writes an index channel.
+// readFields returns the fields of e to lift, the key of its first index field, and the
+// key of each field that writes an index channel in found. The first index field is the
+// one that e names, or else the first. A field binds no channel when claimed holds an
+// earlier field that writes it. readFields adds each field it binds to claimed, and
+// note receives each change at path.
 func readFields(
 	e InlineEndpoint,
 	found map[channel.Key]icdv0.Channel,
 	claimed map[channel.Key]string,
 	path string,
 	note func(path, change string),
-) ([]icdv0.InlineField, string) {
+) ([]icdv0.InlineField, string, set.Set[string]) {
 	fields := lo.Map(e.Fields, toInline)
 	index := ""
-	var indexFields []int
+	indexFields := make(set.Set[string])
 	for j := range fields {
 		f := &fields[j]
 		ch, exists := found[f.Channel]
@@ -135,16 +141,9 @@ func readFields(
 		if !ch.Index {
 			continue
 		}
-		indexFields = append(indexFields, j)
+		indexFields.Add(f.Key)
 		if index == "" || f.Key == e.Index {
 			index = f.Key
-		}
-	}
-	for _, j := range indexFields {
-		if key := fields[j].Key; key != index {
-			note(path+".fields."+strconv.Itoa(j), "field "+key+" and index field "+
-				index+" both write index channels. Split the endpoint into two, each "+
-				"with one index field")
 		}
 	}
 	switch index {
@@ -156,18 +155,57 @@ func readFields(
 		note(path+".index", "field "+index+
 			" became the index, because it writes an index channel")
 	}
-	return fields, index
+	return fields, index, indexFields
+}
+
+// groupReads splits read, whose bindings write the channels in found, into one read for
+// each bound index field. The first read keeps the index field of read and each binding
+// that no other index field stamps. Each other binding to an index channel starts a
+// read with that field as its index, and the bindings of the channels on that index
+// join it.
+func groupReads(
+	read icdv0.ReadMessage,
+	found map[channel.Key]icdv0.Channel,
+) []icdv0.ReadMessage {
+	reads := []icdv0.ReadMessage{{
+		Message:  read.Message,
+		Index:    read.Index,
+		Bindings: []icdv0.ReadBinding{},
+	}}
+	at := make(map[channel.Key]int)
+	for _, b := range read.Bindings {
+		if ch, ok := found[b.Channel]; !ok || !ch.Index ||
+			read.Index != nil && b.Field == *read.Index {
+			continue
+		}
+		at[b.Channel] = len(reads)
+		reads = append(reads, icdv0.ReadMessage{
+			Message:  read.Message,
+			Index:    new(b.Field),
+			Bindings: []icdv0.ReadBinding{},
+		})
+	}
+	for _, b := range read.Bindings {
+		j := 0
+		if ch, ok := found[b.Channel]; ok && ch.Index {
+			j = at[b.Channel]
+		} else if ok {
+			j = at[ch.IndexKey]
+		}
+		reads[j].Bindings = append(reads[j].Bindings, b)
+	}
+	return reads
 }
 
 // liftFills turns the fill value of each field of staged into the default of its field
 // in ic, whose messages hold the endpoints of staged in order, at paths. It drops the
-// fill value of the field that indexes names for each endpoint. note receives the path
+// fill value of each field that indexes holds for its endpoint. note receives the path
 // of each fill value that it drops.
 func liftFills(
 	ic icdv1.ICD,
 	staged []InlineEndpoint,
 	paths []string,
-	indexes []string,
+	indexes []set.Set[string],
 	note func(path, change string),
 ) {
 	for i, e := range staged {
@@ -180,7 +218,7 @@ func liftFills(
 				continue
 			}
 			at := paths[i] + ".fields." + strconv.Itoa(j)
-			if indexes[i] != "" && f.Key == indexes[i] {
+			if indexes[i].Contains(f.Key) {
 				note(at, "fill value was dropped, because the index takes no default")
 				continue
 			}
