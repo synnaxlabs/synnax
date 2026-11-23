@@ -14,7 +14,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type MouseEvent, type ReactElement, useState } from "react";
 
-import type { Port } from "@/feature/labjack/device/types";
+import type { Device } from "@/feature/labjack/device";
 import {
   type Bank,
   banks,
@@ -55,7 +55,7 @@ const Grid = ({
 );
 
 export interface PortBanksProps extends Omit<GridProps, "bank"> {
-  ports: Port[];
+  ports: Device.Port[];
   /** Each bank's title beside its grid, for a map above a list. */
   compact?: boolean;
 }

@@ -13,7 +13,7 @@ import type { AddressInfo } from "node:net";
 import { sleep } from "@synnaxlabs/x";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { shortenKeepAlive } from "@/testutil/keepAlive";
+import { shortenKeepAlive } from "@/testutil";
 
 describe("shortenKeepAlive", () => {
   let server: Server;

@@ -18,14 +18,11 @@ import (
 )
 
 // groupsPlan returns the plan of c, a delete of groups, with no token. It has no
-// entries, so a pick fails as it fails Plan.
+// entries, so a pick has no effect. A pick that is not a choice or a record fails as it
+// fails Plan.
 func groupsPlan(c Change, picks map[string]Choice, hidden *Choice) (Plan, error) {
 	if len(picks) > 0 || hidden != nil {
-		chosen, err := newPicks(PlanOptions{Picks: picks, Hidden: hidden})
-		if err != nil {
-			return Plan{}, err
-		}
-		if err = pickWithoutEntry(chosen.named, nil); err != nil {
+		if _, err := newPicks(PlanOptions{Picks: picks, Hidden: hidden}); err != nil {
 			return Plan{}, err
 		}
 	}

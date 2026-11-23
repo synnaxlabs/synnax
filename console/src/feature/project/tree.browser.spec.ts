@@ -12,6 +12,7 @@ import {
   log,
   NotFoundError,
   project,
+  query,
   resource,
   schematic,
 } from "@synnaxlabs/client";
@@ -23,10 +24,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
+import { Tree } from "@/platform/tree";
 import {
+  createHostItems,
   createResource,
   findModalButton,
   findTreeRow,
+  HOST_ID,
   renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
@@ -167,11 +171,19 @@ describe("project tree item", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
+    // The shared Core holds every project the suite made, so the tree lists only this
+    // one instead of paging through all of them.
+    const host = createHostItems((c) => [
+      Tree.createSource(
+        c.projects,
+        query.keysRequest([p.key]),
+        Tree.toResource("project"),
+      ),
+    ]);
     const { store } = await renderLiveTree({
       client,
-      root: project.TYPE_RESOURCE_ID,
-      listRoot: Project.listTreeRoot,
-      items: Project.TREE_ITEMS,
+      root: HOST_ID,
+      items: { ...Project.TREE_ITEMS, ...host },
     });
     fireEvent.doubleClick(await findTreeRow(p.name));
     await waitFor(() =>

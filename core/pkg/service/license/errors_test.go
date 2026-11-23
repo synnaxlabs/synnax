@@ -35,6 +35,12 @@ var _ = Describe("Errors", func() {
 		Entry("too many", license.ErrTooMany, "sy.license.too_many"),
 		Entry("base", license.ErrLicense, "sy.license"),
 	)
+	It("should not repeat the sentinel message on each hop", func() {
+		err := errors.Wrap(license.ErrTooMany, "limit is 5 channels")
+		Expect(codec.Decode(
+			codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+		)).To(MatchError(err.Error()))
+	})
 	It(
 		"should decode an unknown license subtype as a license error",
 		func() {

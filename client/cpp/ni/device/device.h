@@ -36,7 +36,7 @@ using RetrieveClient = freighter::UnaryClient<
 
 /// @brief the transport that writes one field group to an NI device.
 using UpdateClient = freighter::
-    UnaryClient<grpc::ni_device::UpdateRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::ni_device::UpdateRequest, grpc::ni_device::UpdateResponse>;
 
 /// @brief the transport that deletes NI devices.
 using DeleteClient = freighter::
@@ -93,8 +93,10 @@ public:
     /// other group as stored.
     /// @param key the key of the device.
     /// @param update the field group to write.
-    /// @returns an error that matches NOT_FOUND when no device has the key.
-    [[nodiscard]] x::errors::Error update(const Key &key, const Update &update) const;
+    /// @returns the device as stored after the update, and an error that matches
+    /// NOT_FOUND when no device has the key.
+    [[nodiscard]] std::pair<Device, x::errors::Error>
+    update(const Key &key, const Update &update) const;
 
     /// @brief deletes the devices with the given keys.
     /// @param keys the keys of the devices.
