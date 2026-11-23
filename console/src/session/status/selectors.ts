@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 
 import { Select } from "@/session/select";
 import { SLICE_NAME, type SliceState } from "@/session/status/slice";
-import { type State } from "@/session/store";
+import type { State } from "@/session/store";
 
 const selectSliceState = (state: State): SliceState => state[SLICE_NAME];
 

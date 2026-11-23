@@ -26,7 +26,7 @@ import { PagerDuty } from "@/feature/pagerduty";
 import { Sift } from "@/feature/sift";
 import { devicesOf, getIcon, ownedChannelsOf } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,

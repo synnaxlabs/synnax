@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import color as color_
 from synnax.exceptions import ValidationError
 from synnax.label.types_gen import (
     Cursor,
@@ -25,7 +26,7 @@ from synnax.label.types_gen import (
 )
 from synnax.resource import ID, CrudeID
 from synnax.util import request_where, returns_one, sole
-from x import color as color_, filter
+from x import filter
 from x.lists import normalize
 
 
@@ -61,7 +62,7 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, *, name: str, color: color_.Crude) -> Label: ...
+    def create(self, *, name: str, color: color_.Crude | color_.Ref) -> Label: ...
 
     @overload
     def create(self, labels: Label) -> Label: ...
@@ -74,14 +75,16 @@ class Client:
         labels: Label | list[Label] | None = None,
         *,
         name: str | None = None,
-        color: color_.Crude | None = None,
+        color: color_.Crude | color_.Ref | None = None,
     ) -> Label | list[Label]:
         """Creates one or more labels.
 
         :param labels: A single label or a list of them. When omitted, a label is
             created from the ``name`` and ``color`` keyword arguments.
         :param name: The name of the label to create when ``labels`` is omitted.
-        :param color: The color of the label to create when ``labels`` is omitted.
+        :param color: The color of the label to create when ``labels`` is omitted: a
+            reference, or a color such as ``"#FF0000"`` that the label keeps as a fixed
+            color.
         :returns: The created label, or a list of labels when ``labels`` is a list.
         :raises ValidationError: If ``labels`` is omitted and ``name`` or ``color`` is
             too, or if a label with a given key already exists.
@@ -90,7 +93,7 @@ class Client:
         if labels is None:
             if name is None or color is None:
                 raise ValidationError("A label needs a name and a color.")
-            labels = Label(name=name, color=color_.Color(color))
+            labels = Label(name=name, color=color_.to_ref(color))
         req = _CreateRequest(labels=normalize(labels))
         res = self._client.send("/label/create", req, _CreateResponse)
         return res.labels[0] if is_single else res.labels

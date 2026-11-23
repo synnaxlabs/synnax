@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { useEverySlave, useReplace } from "@/feature/ethercat/device/queries";
 import { canReplace, findReplacements } from "@/feature/ethercat/device/replace";
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 
 const detailsZ = z.object({
   replace: z.object({ slave: z.string(), old: z.array(z.string()) }),

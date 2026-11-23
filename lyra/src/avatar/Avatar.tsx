@@ -9,9 +9,9 @@
 
 import "@/avatar/Avatar.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 
 /* Even coverage of the OKLCH wheel. */

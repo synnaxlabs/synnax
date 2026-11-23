@@ -10,15 +10,14 @@
 import { array } from "@/array";
 import { equal } from "@/deep/equal";
 import { narrow } from "@/narrow";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 const reuseList = (prev: unknown[], next: unknown[]): unknown[] => {
-  let matched: (i: number) => unknown;
+  let out: unknown[];
   if (array.isKeyed(prev) && array.isKeyed(next)) {
     const byKey = new Map(prev.map((entry) => [entry.key, entry]));
-    matched = (i) => byKey.get(next[i].key);
-  } else matched = (i) => prev[i];
-  const out = next.map((v, i) => reuse(matched(i), v));
+    out = next.map((v) => reuse(byKey.get(v.key), v));
+  } else out = next.map((v, i) => reuse(prev[i], v));
   return out.length === prev.length && out.every((v, i) => v === prev[i]) ? prev : out;
 };
 

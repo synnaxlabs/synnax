@@ -12,7 +12,7 @@ import "@/platform/task/port/Grid.css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { type CSSProperties, type MouseEvent, type ReactElement } from "react";
+import type { CSSProperties, MouseEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { useHovered, useSetHovered } from "@/platform/task/port/Hovered";

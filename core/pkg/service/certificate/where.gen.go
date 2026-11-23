@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -85,6 +86,37 @@ func MatchWhere(w Where) (Filter, error) {
 				return match(e.Base().Name), nil
 			}))
 		}
+	}
+	if l := w.Source; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "source")
+		}
+		if l.Eq != nil {
+			if !l.Eq.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid source %q", *l.Eq),
+					"source",
+					"eq",
+				)
+			}
+			fs = append(fs, MatchSources(*l.Eq))
+		}
+		if l.In != nil {
+			for i, v := range l.In {
+				if !v.IsValid() {
+					return nil, validate.PathedError(
+						errors.Wrapf(validate.ErrValidation, "invalid source %q", v),
+						"source",
+						"in",
+						strconv.Itoa(i),
+					)
+				}
+			}
+			fs = append(fs, MatchSources(l.In...))
+		}
+	}
+	if l := w.Racks; l != nil {
+		fs = append(fs, MatchRacks(l...))
 	}
 	return And(fs...), nil
 }

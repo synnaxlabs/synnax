@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 

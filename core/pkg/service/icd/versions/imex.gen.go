@@ -15,12 +15,13 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
 // Latest is the portable schema version stamped on exported ICD envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v0.Version
+const Latest = v1.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's ICD
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -28,6 +29,16 @@ const Latest = v0.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
 	switch env.Version {
 	case v0.Version:
+		t0, err := env.Decode[v0.ICD]()
+		if err != nil {
+			return ICD{}, err
+		}
+		t1, err := v1.MigrateICD(ctx, t0)
+		if err != nil {
+			return ICD{}, err
+		}
+		return t1, nil
+	case v1.Version:
 		return env.Decode[ICD]()
 	}
 	return ICD{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -36,5 +47,9 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
 // liftFirst lifts the first exported ICD shape to the current shape. A decoder
 // of an older shape builds the first exported shape and enters the ladder here.
 func liftFirst(ctx context.Context, t0 v0.ICD) (ICD, error) {
-	return t0, nil
+	t1, err := v1.MigrateICD(ctx, t0)
+	if err != nil {
+		return ICD{}, err
+	}
+	return t1, nil
 }

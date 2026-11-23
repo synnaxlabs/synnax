@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { type ComponentType, type ReactElement } from "react";
+import type { device } from "@synnaxlabs/client";
+import type { ComponentType, ReactElement } from "react";
 
 import { HARDWARE, type Hardware } from "@/feature/device/integrations";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 export interface ConfigureModalParams {
   deviceKey: device.Key;

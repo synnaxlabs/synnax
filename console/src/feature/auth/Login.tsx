@@ -10,6 +10,7 @@
 import "@/feature/auth/Login.css";
 
 import {
+  auth,
   type connection,
   ExpiredTokenError,
   InvalidCredentialsError,
@@ -20,11 +21,13 @@ import {
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Note } from "@synnaxlabs/lyra/note";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
@@ -74,6 +77,27 @@ const errorMessage = (status: connection.Status): string | undefined => {
   return error.message;
 };
 
+// An unreachable Core, or one older than the methods endpoint, keeps the password
+// form: the connection status reports the first, and the second accepts passwords.
+const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
+  const host = core?.host;
+  const port = core?.port;
+  const secure = core?.secure;
+  const key = host == null || port == null ? null : `${host}:${port}:${secure}`;
+  const [refused, setRefused] = useState<string | null>(null);
+  useAsyncEffect(
+    async (signal) => {
+      if (host == null || port == null) return;
+      const tokenless = auth.createTokenlessClient({ host, port, secure });
+      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
+      if (signal.aborted) return;
+      setRefused(methods != null && !methods.includes("password") ? key : null);
+    },
+    [host, port, secure],
+  );
+  return key == null || refused !== key;
+};
+
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry after
  * the active Core rejects auth, where submitting resumes its connection.
@@ -91,6 +115,7 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
+  const passwordAccepted = usePasswordAccepted(target);
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
@@ -143,41 +168,56 @@ export const Login = (): ReactElement => {
           <Form.Form<typeof credentialsZ> {...methods}>
             <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
               <PlatformShell.Mark />
-              <Flex.Box y full="x" empty>
-                <Form.TextField
-                  path={path.username}
-                  required={false}
-                  inputProps={USERNAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  path={path.password}
-                  required={false}
-                  inputProps={PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
-              <Flex.Box gap="small" align="center" full="x">
-                <Button.Button
-                  onClick={handleSubmit}
-                  trigger={LOG_IN_TRIGGER}
-                  variant="filled"
-                  size="large"
-                  full="x"
-                  justify="center"
-                >
-                  Log in
-                  <Icon.Arrow.Right />
-                </Button.Button>
-                <Note.Note
-                  variant="error"
-                  full="x"
-                  className={CSS.cls(
-                    CSS.BE("login", "error"),
-                    message == null && CSS.M("ghost"),
-                  )}
-                >
-                  <Text.Text level="small">{message ?? "\u00a0"}</Text.Text>
-                </Note.Note>
-              </Flex.Box>
+              {passwordAccepted ? (
+                <>
+                  <Flex.Box y full="x" empty>
+                    <Form.TextField
+                      path={path.username}
+                      required={false}
+                      inputProps={USERNAME_INPUT_PROPS}
+                    />
+                    <Form.TextField
+                      path={path.password}
+                      required={false}
+                      inputProps={PASSWORD_INPUT_PROPS}
+                    />
+                  </Flex.Box>
+                  <Flex.Box gap="small" align="center" full="x">
+                    <Button.Button
+                      onClick={handleSubmit}
+                      trigger={LOG_IN_TRIGGER}
+                      variant="filled"
+                      size="large"
+                      full="x"
+                      justify="center"
+                    >
+                      Log in
+                      <Icon.Arrow.Right />
+                    </Button.Button>
+                    <Note.Note
+                      variant="error"
+                      full="x"
+                      className={CSS.cls(
+                        CSS.BE("login", "error"),
+                        message == null && CSS.M("ghost"),
+                      )}
+                    >
+                      <Text.Text level="small">{message ?? "\u00a0"}</Text.Text>
+                    </Note.Note>
+                  </Flex.Box>
+                </>
+              ) : (
+                <Flex.Box y align="center" gap="small">
+                  <Text.Text level="h4" status="warning">
+                    <Status.Indicator variant="warning" />
+                    Password login is off
+                  </Text.Text>
+                  <Text.Text level="p" color={9} style={{ textAlign: "center" }}>
+                    This Core does not accept passwords. Ask an administrator to add
+                    password to its accepted login methods.
+                  </Text.Text>
+                </Flex.Box>
+              )}
             </Flex.Box>
           </Form.Form>
         </Flex.Box>

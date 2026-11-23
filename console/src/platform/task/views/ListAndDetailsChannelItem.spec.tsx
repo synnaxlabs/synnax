@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel as clientChannel } from "@synnaxlabs/client";
+import type { channel as clientChannel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { deep } from "@synnaxlabs/x";
@@ -21,10 +21,9 @@ import {
   renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 import { queryIcon, queryIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const client = createTestClient();
 
@@ -47,7 +46,7 @@ const renderTareable = async (
   { tareable = true }: RenderTareableOptions = {},
 ) => {
   const result = await renderInTaskFormWithClient(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
@@ -91,7 +90,7 @@ const renderItem = (
     />
   );
   return renderInTaskForm(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
