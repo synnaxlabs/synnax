@@ -312,7 +312,10 @@ TEST(Writer, RefuseValueOutsideLimits) {
     scaled.max = 10;
     c.add(scaled);
     c.fix(scaled.key, synnax::icd::FloatWriteValue{.value = 3});
-    assert_refuses(c, "message cmd: field s: 15 is above the max 10");
+    assert_refuses(
+        c,
+        "message cmd: field s: 3 decodes to 15, which is above the max 10"
+    );
     auto fixed = message();
     fixed.bind(at("a", 0), 2);
     auto low = at("l", 1);
@@ -320,6 +323,23 @@ TEST(Writer, RefuseValueOutsideLimits) {
     fixed.add(low);
     fixed.fix(low.key, synnax::icd::FloatWriteValue{.value = -2});
     assert_refuses(fixed, "message cmd: field l: -2 is below the min 0");
+}
+
+/// @brief it should accept a value that decodes to a limit of its field after float64
+/// rounding.
+TEST(Writer, AcceptValueThatRoundsToLimit) {
+    auto c = message();
+    c.bind(at("a", 0), 2);
+    auto tenths = at("t", 1);
+    tenths.scale = 0.1;
+    tenths.max = 0.3;
+    c.add(tenths);
+    c.fix(tenths.key, synnax::icd::FloatWriteValue{.value = 3});
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(1.0))),
+        (std::vector<std::string>{"1,3"})
+    );
 }
 
 /// @brief it should refuse a write of a message that does not exist or is not text, and

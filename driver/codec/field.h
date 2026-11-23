@@ -39,4 +39,9 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 /// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
 /// A sample that equals a limit at float32 precision is at that limit.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
+
+/// @brief returns VALIDATION when raw, a value before the scale and offset of b,
+/// decodes outside the min and max of b. It allows the float64 rounding of the decode,
+/// so a value that decodes to a limit passes.
+x::errors::Error check_raw_limits(const synnax::icd::BaseField &b, double raw);
 }

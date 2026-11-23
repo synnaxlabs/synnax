@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,8 +26,42 @@ namespace payload = x::payload;
 namespace icd = synnax::icd;
 
 namespace {
+/// @brief DECODE_ROUNDING bounds the float64 rounding of raw × scale + offset, relative
+/// to |raw × scale| + |offset|.
+constexpr double DECODE_ROUNDING = 4 * 0x1p-52;
+
 std::string format(const double v) {
     return x::json::Number(v).to_string();
+}
+
+/// @returns VALIDATION when decoded, the decoded value of raw, is more than slack
+/// outside the min and max of b.
+x::errors::Error out_of_range(
+    const icd::BaseField &b,
+    const double raw,
+    const double decoded,
+    const double slack
+) {
+    std::string side;
+    double limit = 0;
+    if (b.min.has_value() && decoded < *b.min - slack) {
+        side = "below the min";
+        limit = *b.min;
+    } else if (b.max.has_value() && decoded > *b.max + slack) {
+        side = "above the max";
+        limit = *b.max;
+    } else
+        return x::errors::NIL;
+    if (raw == decoded)
+        return {
+            x::errors::VALIDATION,
+            format(decoded) + " is " + side + " " + format(limit)
+        };
+    return {
+        x::errors::VALIDATION,
+        format(raw) + " decodes to " + format(decoded) + ", which is " + side + " " +
+            format(limit)
+    };
 }
 }
 
@@ -70,22 +105,22 @@ x::errors::Error as_config(const x::errors::Error &err, const std::string &conte
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const double v) {
-    if (b.min.has_value() && v < *b.min)
-        return {
-            x::errors::VALIDATION,
-            format(v) + " is below the min " + format(*b.min)
-        };
-    if (b.max.has_value() && v > *b.max)
-        return {
-            x::errors::VALIDATION,
-            format(v) + " is above the max " + format(*b.max)
-        };
-    return x::errors::NIL;
+    return out_of_range(b, v, v, 0);
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const float v) {
     for (const auto &limit: {b.min, b.max})
         if (limit.has_value() && static_cast<float>(*limit) == v) return x::errors::NIL;
     return check_limits(b, static_cast<double>(v));
+}
+
+x::errors::Error check_raw_limits(const icd::BaseField &b, const double raw) {
+    const double scaled = raw * b.scale;
+    return out_of_range(
+        b,
+        raw,
+        scaled + b.offset,
+        DECODE_ROUNDING * (std::abs(scaled) + std::abs(b.offset))
+    );
 }
 }

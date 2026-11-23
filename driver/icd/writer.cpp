@@ -102,9 +102,7 @@ std::pair<Writer, x::errors::Error> Writer::create(
                 "field " + field + " of kind float needs a value of its kind"
             );
         std::visit([&](auto &v) { v.default_ = value->value; }, f);
-        const auto &base = icd::base(f);
-        const double decoded = value->value.value * base.scale + base.offset;
-        if (const auto err = codec::check_limits(base, decoded))
+        if (const auto err = codec::check_raw_limits(icd::base(f), value->value.value))
             return refuse("field " + field + ": " + err.data);
     }
     encoded.payload = std::move(payload);
