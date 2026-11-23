@@ -293,8 +293,8 @@ struct Offset {
 /// @brief reads the offset file at path, and removes the temp files that a crash
 /// during commit_offset left. Call it only while no commit_offset to path runs.
 /// @returns std::nullopt when the file does not exist. UNKNOWN_MAGIC,
-/// UNKNOWN_VERSION, UNKNOWN_TYPE, or CORRUPT when the file is not a valid offset file
-/// for this Driver.
+/// UNKNOWN_VERSION, UNKNOWN_FLAG, UNKNOWN_TYPE, or CORRUPT when the file is not a
+/// valid offset file for this Driver.
 std::pair<std::optional<Offset>, x::errors::Error>
 read_offset(const std::filesystem::path &path, const Magic &magic);
 
