@@ -499,6 +499,31 @@ describe("Read", () => {
     );
   });
 
+  it("should reuse the channel that an older Console stored under the path", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const { draft } = await renderWithDevice([ep], {
+      read: { "/data": { index: 0, channels: { "/temperature": ch.key } } },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+      ]),
+    );
+  });
+
   it("should not reuse a stored channel that another endpoint reads", async () => {
     const ch = await client.channels.create({
       name: uniqueName("temperature"),
@@ -657,6 +682,38 @@ describe("Read", () => {
     });
     expect(stored.properties.read[`/data#${status.key}`].channels).toEqual({
       "/w": ch.key,
+    });
+  });
+
+  it("should deploy with the channels stored under the path and move them to the message", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const stored = { index: time.key, channels: { "/temperature": ch.key } };
+    const { container, draft, dev } = await renderWithDevice([ep], {
+      read: { "/data": stored },
+    });
+    await screen.findByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[0].messages[0].bindings[0].channel).toBe(ch.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${ep.messages[0].message}`]: stored,
     });
   });
 

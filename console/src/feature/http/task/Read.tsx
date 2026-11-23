@@ -527,12 +527,16 @@ const messagePrefix = (
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
 
-/** @returns where the device stores the channels of the messages of an endpoint. */
+/**
+ * @returns where the device stores the channels of the messages of an endpoint. An
+ * older Console stored them under the bare path.
+ */
 const storedSource = ({
   path,
   messages,
 }: Pick<ICDEndpoint, "path" | "messages">): ICD.Stored.Source => ({
   key: path,
+  legacy: path,
   messages,
 });
 
@@ -991,7 +995,7 @@ const planMessages = async (
       namer,
       b,
       prefixOf(dev.name, b),
-      dev.properties.read[storedKeyOf(b)],
+      ICD.Stored.of(dev.properties.read, storedSource(b.source), b.read),
       written,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
@@ -1028,7 +1032,7 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
     read: b.source.messages[b.read],
     message: b.message,
     prefix: prefixOf(device.name, b),
-    props: device.properties.read[storedKeyOf(b)],
+    props: ICD.Stored.of(device.properties.read, storedSource(b.source), b.read),
   }));
   const plans = Task.useChannelPlans(
     sources,
@@ -1115,11 +1119,13 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
       bound,
       writtenChannels(config.endpoints),
     );
-    for (const [i, b] of bound.entries())
+    for (const [i, b] of bound.entries()) {
+      ICD.Stored.moveLegacy(dev.properties.read, storedSource(b.source), b.read);
       await ICD.applyMessage(client, b, plans[i], {
         read: dev.properties.read,
         key: storedKeyOf(b),
       });
+    }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
