@@ -361,18 +361,52 @@ var _ = Describe("ResolveReadConfig", func() {
 			},
 		)
 
-		It(
-			"Should prefer the index field that the endpoint names",
-			func(ctx SpecContext) {
-				ic, cfg, _ := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+		Describe("Two timestamp fields on index channels", func() {
+			// twoIndexes lifts an endpoint whose fields t and u write the index
+			// channels time and time_b, with u as its index.
+			twoIndexes := func(
+				ctx context.Context,
+			) (icdv1.ICD, v5.ReadConfig, []string) {
+				GinkgoHelper()
+				return resolve(ctx, staged(ctx, v4.ReadEndpoint{
 					Key:    "ep",
 					Index:  "u",
 					Fields: []v4.ReadField{timeField("t", 6), timeField("u", 9)},
 				}), found)
-				Expect(cfg.Endpoints[0].Messages[0].Index).
-					To(HaveValue(Equal(jsonFields(ic)[1].Base().Key)))
-			},
-		)
+			}
+
+			It("Should prefer the index field that the endpoint names",
+				func(ctx SpecContext) {
+					ic, cfg, _ := twoIndexes(ctx)
+					Expect(cfg.Endpoints[0].Messages[0].Index).
+						To(HaveValue(Equal(jsonFields(ic)[1].Base().Key)))
+				},
+			)
+
+			It("Should keep the binding of the other timestamp field",
+				func(ctx SpecContext) {
+					ic, cfg, notes := twoIndexes(ctx)
+					Expect(cfg.Endpoints[0].Messages[0].Bindings).To(ContainElement(
+						SatisfyAll(
+							HaveField("Field", jsonFields(ic)[0].Base().Key),
+							HaveField("Channel", channel.Key(6)),
+						),
+					))
+					Expect(notes).ToNot(ContainElement("endpoints.0.fields.0"))
+				},
+			)
+
+			It("Should lift a read that the read check refuses", func(ctx SpecContext) {
+				ic, cfg, _ := twoIndexes(ctx)
+				Expect(check(ic, cfg, found)).To(MatchError(SatisfyAll(
+					ContainSubstring("endpoints.0.messages.0.bindings.0.channel"),
+					ContainSubstring(
+						"field t cannot write to index channel time, because only the "+
+							"index field can. Move field t into its own message",
+					),
+				)))
+			})
+		})
 
 		It("Should drop the fill value of the index field", func(ctx SpecContext) {
 			t := timeField("t", 6)
