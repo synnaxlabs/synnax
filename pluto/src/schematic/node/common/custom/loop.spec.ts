@@ -30,6 +30,18 @@ describe("Custom.Loop", () => {
     expect(callbacks).toHaveLength(1);
   });
 
+  it("should ask for one frame when a part joins during a frame", () => {
+    const { loop, callbacks, frame } = createLoop();
+    loop.add({
+      step: () => {
+        loop.add({ step: () => true });
+        return true;
+      },
+    });
+    frame(16);
+    expect(callbacks).toHaveLength(1);
+  });
+
   it("should step every part on each frame at the frame time", () => {
     const { loop, frame } = createLoop();
     const step = vi.fn(() => true);

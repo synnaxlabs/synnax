@@ -59,35 +59,36 @@ export const Provider = ({
   color,
   staleness,
 }: ProviderProps): ReactElement => (
-  <Triggers.Provider {...triggers}>
-    <Tooltip.Config {...tooltip}>
-      <Tooltip.Overflow />
-      <Haul.Provider {...haul}>
-        <CanDisableAether
-          workerURL={workerURL ?? DefaultWorkerURL}
-          workerEnabled={workerEnabled}
-        >
-          <Alamos.Provider {...alamos}>
-            <Status.Aggregator>
-              <Synnax.Provider connParams={connParams}>
-                <Theming.Provider {...theming}>
-                  <Color.Provider {...color}>
-                    <Code.Provider languages={ARC_LANGUAGES}>
-                      <CanDisableTelem {...telem}>
-                        <Staleness.Provider {...staleness}>
-                          <Custom.MotionProvider>
+  // The drag preview renders beside the children of Haul.Provider, so motion wraps it.
+  <Custom.MotionProvider>
+    <Triggers.Provider {...triggers}>
+      <Tooltip.Config {...tooltip}>
+        <Tooltip.Overflow />
+        <Haul.Provider {...haul}>
+          <CanDisableAether
+            workerURL={workerURL ?? DefaultWorkerURL}
+            workerEnabled={workerEnabled}
+          >
+            <Alamos.Provider {...alamos}>
+              <Status.Aggregator>
+                <Synnax.Provider connParams={connParams}>
+                  <Theming.Provider {...theming}>
+                    <Color.Provider {...color}>
+                      <Code.Provider languages={ARC_LANGUAGES}>
+                        <CanDisableTelem {...telem}>
+                          <Staleness.Provider {...staleness}>
                             <Control.Colors>{children}</Control.Colors>
-                          </Custom.MotionProvider>
-                        </Staleness.Provider>
-                      </CanDisableTelem>
-                    </Code.Provider>
-                  </Color.Provider>
-                </Theming.Provider>
-              </Synnax.Provider>
-            </Status.Aggregator>
-          </Alamos.Provider>
-        </CanDisableAether>
-      </Haul.Provider>
-    </Tooltip.Config>
-  </Triggers.Provider>
+                          </Staleness.Provider>
+                        </CanDisableTelem>
+                      </Code.Provider>
+                    </Color.Provider>
+                  </Theming.Provider>
+                </Synnax.Provider>
+              </Status.Aggregator>
+            </Alamos.Provider>
+          </CanDisableAether>
+        </Haul.Provider>
+      </Tooltip.Config>
+    </Triggers.Provider>
+  </Custom.MotionProvider>
 );
