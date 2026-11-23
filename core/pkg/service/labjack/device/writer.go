@@ -70,14 +70,16 @@ func validateDevice(d Device) error {
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d is invalid, its ports are for another model, or its rack does
-// not exist.
+// validation error when d is invalid, its ports are for another model, it replaces a
+// device of another model, or its rack does not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err
 	}
 	if d.Key == uuid.Nil() {
 		d.Key = uuid.New()
+	} else if err := w.refuseReplacedModel(ctx, *d); err != nil {
+		return err
 	}
 	if err := w.table.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
@@ -118,6 +120,21 @@ func (w Writer) update(
 		return w.setStatus(ctx, next)
 	}
 	return nil
+}
+
+func (w Writer) refuseReplacedModel(ctx context.Context, d Device) error {
+	var stored Device
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Device](d.Key)).
+		Entry(&stored).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return refuseModelChange(stored.Model, d.Model)
 }
 
 func refuseModelChange(stored, next Model) error {
