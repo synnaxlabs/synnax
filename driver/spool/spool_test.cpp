@@ -440,7 +440,7 @@ TEST_F(SpoolTest, ChecksFreeSpaceAfterRemove) {
             }
         )
     );
-    const x::telem::Frame frame(1, x::telem::Series(std::vector<float>(250 * 1000)));
+    const x::telem::Frame frame(1, x::telem::Series(std::vector<float>(250000)));
     {
         const auto writer = spool->open_writer(header_of(1));
         for (int i = 0; i < 70; i++)
