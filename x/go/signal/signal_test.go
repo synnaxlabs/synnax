@@ -534,6 +534,46 @@ var _ = Describe("Signal", func() {
 		})
 	})
 
+	Describe("Stopped", func() {
+		It("Should not close while a routine runs its deferrals", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			inDefer := make(chan struct{})
+			release := make(chan struct{})
+			ctx.Go(immediatelyReturnNil, signal.Defer(func() {
+				close(inDefer)
+				<-release
+			}))
+			Eventually(inDefer).Should(BeClosed())
+			ctx.Go(immediatelyReturnNil)
+			Consistently(ctx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
+			close(release)
+			Expect(ctx.Wait()).To(Succeed())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should not close while a routine waits to retry after a panic", func() {
+			ctx, cancel := signal.Isolated()
+			var attempts atomic.Int32
+			ctx.Go(func(ctx context.Context) error {
+				if attempts.Add(1) == 1 {
+					panic("first attempt")
+				}
+				<-ctx.Done()
+				return ctx.Err()
+			},
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(200*time.Millisecond),
+			)
+			Eventually(attempts.Load).Should(Equal(int32(1)))
+			ctx.Go(immediatelyReturnNil)
+			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+	})
+
 	Describe("Shutdown Closers", func() {
 		It(
 			"NewHardShutdown should cancel context and wait for routines, skipping context.Canceled error",

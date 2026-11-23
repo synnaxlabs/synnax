@@ -18,7 +18,7 @@ import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { PushStreamer, testCoreAddress } from "@/testutil";
 
 const RENAMED: channel.Payload = {
   key: 1,
@@ -123,7 +123,7 @@ const createStreamedClient = async ({
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
-  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const coreURL = new url.URL(testCoreAddress());
   const frames = new framer.Client({
     stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     unary,

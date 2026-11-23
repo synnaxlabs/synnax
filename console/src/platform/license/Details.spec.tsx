@@ -10,10 +10,11 @@
 import { license, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, screen } from "@testing-library/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { License } from "@/platform/license";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, createTestClientWithGrants } from "@/testutil";
 
@@ -66,7 +67,7 @@ describe("License", () => {
       render(<License.Details />, { wrapper });
       expect(await screen.findByText("Logged in as someone@example.com")).toBeTruthy();
       expect(screen.getByText("Manage in your account").closest("a")?.href).toBe(
-        License.ACCOUNT_URL,
+        `${TEST_URL}/`,
       );
       await act(async () => {});
       expect(retrieve).not.toHaveBeenCalled();

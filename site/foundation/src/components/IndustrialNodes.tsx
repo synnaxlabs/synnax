@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/lyra/logo";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   Box,

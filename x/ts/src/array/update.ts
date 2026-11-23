@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { narrow } from "@/narrow";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 /** Whether the value is a list of plain objects that each have a string key. */
 export const isKeyed = (value: unknown): value is record.Keyed<string>[] =>

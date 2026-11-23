@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	namedcolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/x/color"
@@ -26,18 +27,25 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		GinkgoHelper()
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
+	svg := func(markup string) versions.Drawing {
+		return versions.Drawing{Variant: versions.SvgDrawing{Markup: markup}}
+	}
+	colorPaint := func(hex string) *versions.Paint {
+		GinkgoHelper()
+		return &versions.Paint{Variant: versions.ColorPaint{Value: namedcolor.Ref{
+			Variant: namedcolor.FixedRef{Value: MustSucceed(color.Parse(hex))},
+		}}}
+	}
 
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		sym := decode(ctx, "testdata/import_v2.json")
-		Expect(sym.Data.SVG).To(Equal("<svg><rect/></svg>"))
+		Expect(sym.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
 		Expect(sym.Data.Variant).To(Equal("valve"))
 		Expect(sym.Data.Scale).To(Equal(1.0))
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
-		Expect(sym.Data.States).To(HaveLen(1))
-		Expect(sym.Data.States[0].Regions[0].StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
-		Expect(sym.Data.States[0].Regions[0].FillColor).
-			To(HaveValue(Equal(MustSucceed(color.Parse("#00ff00")))))
+		Expect(sym.Data.Looks).To(HaveLen(1))
+		Expect(sym.Data.Looks[0].Stroke).To(Equal(colorPaint("#ff0000")))
+		Expect(sym.Data.Looks[0].Fill).To(Equal(colorPaint("#00ff00")))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
 			Key:         "h1",
 			Position:    spatial.XY{X: 0, Y: 0.5},
@@ -50,21 +58,33 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sym := decode(ctx, "testdata/import_console.json")
-		Expect(sym.Data.SVG).To(Equal("<svg><circle/></svg>"))
+		Expect(sym.Data.Drawing).To(Equal(svg("<svg><circle/></svg>")))
 		Expect(sym.Data.Variant).To(Equal("sensor"))
 		Expect(sym.Data.Scale).To(Equal(2.0))
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
-		Expect(sym.Data.States).To(Equal([]versions.State{{
-			Key:  "base",
-			Name: "Base",
-			Regions: []versions.Region{{
-				Key:         "r1",
-				Name:        "Body",
-				Selectors:   []string{"#body"},
-				StrokeColor: new(MustSucceed(color.Parse("#123456"))),
-				FillColor:   new(MustSucceed(color.Parse("#654321"))),
-			}},
+		Expect(sym.Data.Parts).To(Equal([]versions.Part{{
+			Key:       "r1",
+			Name:      "Body",
+			Selectors: []string{"#body"},
 		}}))
+		Expect(sym.Data.States).To(Equal([]versions.State{{
+			Variant: versions.EnumerationState{
+				BaseState: versions.BaseState{Key: "active", Name: "Active"},
+				Match:     versions.Matcher{Variant: versions.ExactMatcher{}},
+			},
+		}}))
+		Expect(sym.Data.Looks).To(Equal([]versions.Look{{
+			Key:  "look-1",
+			Part: new("r1"),
+			When: &versions.Condition{Variant: versions.EqualsCondition{
+				State:  "active",
+				Values: []float64{0},
+			}},
+			Stroke: colorPaint("#123456"),
+			Fill:   colorPaint("#654321"),
+		}}))
+		Expect(sym.Data.Commands).To(BeEmpty())
+		Expect(sym.Data.Interactions).To(BeEmpty())
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
 			Key:         "h1",
 			Position:    spatial.XY{X: 1, Y: 0.5},

@@ -11,12 +11,9 @@ import functools
 import inspect
 import warnings
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar, overload
+from typing import Any, overload
 
 from x.exceptions import Error
-
-P = ParamSpec("P")
-R = TypeVar("R")
 
 
 class _RequiresNamedParams(Error, TypeError):
@@ -27,16 +24,16 @@ class _RequiresNamedParams(Error, TypeError):
 
 
 @overload
-def require_named_params(func: Callable[P, R]) -> Callable[P, R]: ...
+def require_named_params[**P, R](func: Callable[P, R]) -> Callable[P, R]: ...
 
 
 @overload
-def require_named_params(
+def require_named_params[**P, R](
     func: None = None, *, example_params: tuple[str, str] | None = None
 ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
-def require_named_params(
+def require_named_params[**P, R](
     func: Callable[P, R] | None = None,
     *,
     example_params: tuple[str, str] | None = None,
@@ -89,7 +86,7 @@ _POSITIONAL = (
 )
 
 
-def deprecate_positional(
+def deprecate_positional[**P, R](
     *names: str,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Lets callers pass the given parameters by position, in the given order, after

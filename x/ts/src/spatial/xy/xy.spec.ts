@@ -168,6 +168,16 @@ describe("XY", () => {
         { x: -0, y: 1 },
       ]);
     });
+
+    it("should return no miters for an empty path", () => {
+      expect(xy.calculateMiters([], 1)).toEqual([]);
+    });
+
+    it("should throw for a path with one point", () => {
+      expect(() => xy.calculateMiters([{ x: 0, y: 0 }], 1)).toThrow(
+        "at least two points",
+      );
+    });
   });
 
   describe("swap", () => {

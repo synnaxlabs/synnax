@@ -163,6 +163,8 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     searchDebounce,
     [],
   );
+  // The debounced call outlives an unmount, so a late search would set state after it.
+  useEffect(() => () => debouncedSearch.cancel(), [debouncedSearch]);
   // Q is left open so it can match each client's overloaded request input.
   const base = q as { order?: unknown } | null;
   let next: Q | null = null;
@@ -285,12 +287,20 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     readers.current.set(callback, (readers.current.get(callback) ?? 0) + 1);
     const live = retriever.watch(itemQuery(key));
     const release = live.onChange(() => callback());
+    let released = false;
     if (live.getCached() === undefined)
-      live.retrieve().then(callback, (error: unknown) => {
-        // The subscriber reads a missing record from getItem.
-        if (!NotFoundError.matches(error)) console.error(error);
-      });
+      live.retrieve().then(
+        () => {
+          if (!released) callback();
+        },
+        (error: unknown) => {
+          // The subscriber reads a missing record from getItem, and a released one
+          // reads nothing.
+          if (!released && !NotFoundError.matches(error)) console.error(error);
+        },
+      );
     return () => {
+      released = true;
       const count = readers.current.get(callback) ?? 0;
       if (count <= 1) readers.current.delete(callback);
       else readers.current.set(callback, count - 1);

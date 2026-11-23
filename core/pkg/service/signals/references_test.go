@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -214,7 +215,7 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 	}
 	createLabel := func(ctx SpecContext) uuid.UUID {
 		GinkgoHelper()
-		l := label.Label{Key: uuid.New(), Name: nextName()}
+		l := label.Label{Key: uuid.New(), Name: nextName(), Color: labelColor}
 		Expect(gorp.NewCreate[uuid.UUID, label.Label]().Entry(&l).Exec(ctx, db)).
 			To(Succeed())
 		return l.Key
@@ -419,3 +420,6 @@ var _ = Describe("PublishReferenceChanges beside a table", func() {
 		Expect(res.Frame.KeysSlice()).To(ConsistOf(set.Key(), ref.Key()))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = color.Ref{Variant: color.FixedRef{}}

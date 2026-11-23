@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
@@ -19,7 +19,7 @@ import { Version } from "@/feature/version";
 
 const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
   <Auth.Guard>
-    <Version.Guard>
+    <Version.Guard location={window.location}>
       <License.Guard>
         <Auth.ConnectionGuard>
           <Project.Guard Settings={Settings.Splash}>{children}</Project.Guard>
