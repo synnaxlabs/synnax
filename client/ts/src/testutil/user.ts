@@ -13,12 +13,15 @@ import type { role } from "@/access/role";
 import type Synnax from "@/client";
 import { user } from "@/user";
 
+/** The password of every test user that sets none of its own. */
+export const TEST_USER_PASSWORD = "test";
+
 export interface CreateTestUserParams {
   /** The role the user holds. */
   role: role.Key;
   /** Defaults to a random ID. */
   username?: string;
-  /** Defaults to "test". */
+  /** Defaults to {@link TEST_USER_PASSWORD}. */
   password?: string;
   /** Defaults to the username. */
   name?: string;
@@ -36,7 +39,7 @@ export const createTestUser = async (
   {
     role,
     username = id.create(),
-    password = "test",
+    password = TEST_USER_PASSWORD,
     name = username,
   }: CreateTestUserParams,
 ): Promise<TestUser> => {

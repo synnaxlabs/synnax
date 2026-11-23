@@ -18,9 +18,6 @@ import { createFileTestClient, createTestClient } from "@/testutil/client";
 import { createTestUser, type TestUser } from "@/testutil/user";
 import { user } from "@/user";
 
-/** The password of every user that the access helpers create. */
-export const TEST_USER_PASSWORD = "test";
-
 /** Reports whether the error, or any error in its cause chain, is an access denial. */
 const isDenial = (err: unknown): boolean =>
   AccessDeniedError.matches(err) ||
