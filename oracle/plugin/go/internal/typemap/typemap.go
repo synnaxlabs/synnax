@@ -202,6 +202,24 @@ func GoTypeRefName(
 	default:
 		return name, nil
 	}
+	args, err := goTypeArgs(ref, resolved, table, goTypeNameFn)
+	if err != nil {
+		return "", err
+	}
+	if len(args) == 0 {
+		return name, nil
+	}
+	return name + "[" + strings.Join(args, ", ") + "]", nil
+}
+
+// goTypeArgs renders the type arguments that ref passes to resolved as Go types,
+// dropping those bound to a defaulted type parameter.
+func goTypeArgs(
+	ref resolution.TypeRef,
+	resolved resolution.Type,
+	table *resolution.Table,
+	goTypeNameFn func(resolution.Type) (string, error),
+) ([]string, error) {
 	params := resolution.TypeParams(resolved.Form)
 	var args []string
 	for i, arg := range ref.TypeArgs {
@@ -210,14 +228,11 @@ func GoTypeRefName(
 		}
 		rendered, err := GoTypeRefName(arg, table, goTypeNameFn)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		args = append(args, rendered)
 	}
-	if len(args) == 0 {
-		return name, nil
-	}
-	return name + "[" + strings.Join(args, ", ") + "]", nil
+	return args, nil
 }
 
 // ResolveLeafPrimitive walks through distinct and alias types to find the

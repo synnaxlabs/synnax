@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { dimensions } from "@/spatial/dimensions";
 
 describe("Dimensions", () => {
+  describe("constants", () => {
+    it("should freeze ZERO and DECIMAL", () => {
+      expect(Object.isFrozen(dimensions.ZERO)).toBe(true);
+      expect(Object.isFrozen(dimensions.DECIMAL)).toBe(true);
+    });
+  });
   describe("construction", () => {
     [
       ["from object", { width: 1, height: 2 }],

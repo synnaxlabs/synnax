@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license } from "@synnaxlabs/client";
+import type { license } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 
 const EDITIONS: Record<license.Edition, string> = { d: "Desktop", e: "Enterprise" };
@@ -35,10 +35,6 @@ export const channelsUnlimited = ({ channels }: license.License): boolean =>
 
 export const describeChannels = (lic: license.License): string =>
   channelsUnlimited(lic) ? "Unlimited" : `Up to ${lic.channels}`;
-
-/** Joins the hashes of a fingerprint the way the portal reads them. */
-export const joinFingerprint = (fingerprint: string[]): string =>
-  fingerprint.join(", ");
 
 /** Where a license runs: on any machine, on the host, or on another machine only. */
 export type Binding = "floating" | "host" | "other";

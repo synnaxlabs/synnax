@@ -10,12 +10,14 @@
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { type Device } from "@/platform/device";
-import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
+import { createNIDevice } from "@/feature/ni/task/testutil";
+import type { Device } from "@/platform/device";
+import { createDeviceResource } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import {
   createBaseProps,
@@ -23,12 +25,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  renderSuspended,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, renderSuspended, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -46,7 +43,7 @@ const renderContextMenu = async () => {
     name: uniqueName("proj"),
   });
   store.dispatch(Session.Project.select(proj.key));
-  const dev = await createTestDevice(client, { name: uniqueName("ni_dev") });
+  const dev = await createNIDevice(client);
   const resource = createDeviceResource(dev);
   const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),

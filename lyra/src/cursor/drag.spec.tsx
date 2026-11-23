@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x";
+import { box, scheduler } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Cursor } from "@/cursor";
@@ -64,10 +64,6 @@ const pointerInit = ({ x, y, ...rest }: PointerInit) => ({
   clientX: x,
   clientY: y,
 });
-
-// Moves are coalesced and delivered on the next animation frame.
-const frame = async (): Promise<void> =>
-  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
 describe("Cursor.useDrag", () => {
   let pointerCapture: ReturnType<typeof installPointerCapture>;
@@ -161,7 +157,7 @@ describe("Cursor.useDrag", () => {
       const el = renderTarget({ onMove });
       down(el, { x: 100, y: 100 });
       move({ x: 150, y: 130 });
-      await frame();
+      await scheduler.nextFrame();
       const b = onMove.mock.lastCall?.[0] as box.Box;
       expect(box.left(b)).toEqual(100);
       expect(box.top(b)).toEqual(100);
@@ -176,7 +172,7 @@ describe("Cursor.useDrag", () => {
       move({ x: 10, y: 0 });
       move({ x: 20, y: 0 });
       move({ x: 30, y: 0 });
-      await frame();
+      await scheduler.nextFrame();
       expect(onMove).toHaveBeenCalledTimes(1);
       const b = onMove.mock.lastCall?.[0] as box.Box;
       expect(box.width(b)).toEqual(30);
@@ -187,9 +183,9 @@ describe("Cursor.useDrag", () => {
       const el = renderTarget({ onMove });
       down(el, { x: 0, y: 0 });
       move({ x: 10, y: 0 });
-      await frame();
+      await scheduler.nextFrame();
       move({ x: 20, y: 0 });
-      await frame();
+      await scheduler.nextFrame();
       expect(onMove).toHaveBeenCalledTimes(2);
     });
 
@@ -210,7 +206,7 @@ describe("Cursor.useDrag", () => {
       if (b == null) throw new Error("expected a flushed move");
       expect(box.width(b)).toEqual(50);
       expect(calls).toEqual(["move", "end"]);
-      await frame();
+      await scheduler.nextFrame();
       expect(onMove).toHaveBeenCalledTimes(1);
     });
   });

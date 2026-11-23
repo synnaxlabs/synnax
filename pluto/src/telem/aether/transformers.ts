@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, notation, type numeric } from "@synnaxlabs/x";
+import { bounds, color, math, notation, type numeric } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
   type BooleanSinkSpec,
@@ -98,7 +98,7 @@ export class WithinBounds
   schema = WithinBounds.propsZ;
 
   protected transform(value: number): boolean {
-    return bounds.contains(this.props.trueBound, value);
+    return bounds.contains(bounds.construct(this.props.trueBound), value);
   }
 }
 
@@ -201,14 +201,14 @@ export class RollingAverage extends UnarySourceTransformer<
   protected transform(value: numeric.Value): number {
     const num = Number(value);
     if (this.props.windowSize < 2 || isNaN(num) || this.window.length === 0) return num;
-    return this.window.reduce((a, b) => a + b, 0) / this.window.length;
+    return math.mean(this.window);
   }
 
   // The window advances here, once per change that grows the appended count or comes
   // from a source with no count. Every change notifies, so a rewritten sample redraws
   // and staleness can count arrivals. A NaN sample enters the window like any other, so
   // the average reports it until it slides out.
-  protected shouldNotify({ data, appended }: Result<numeric.Value>): boolean {
+  protected override shouldNotify({ data, appended }: Result<numeric.Value>): boolean {
     if (this.props.windowSize < 2) return true;
     if (appended != null) {
       if (this.appended != null && appended <= this.appended) return true;
@@ -280,7 +280,7 @@ export class BandColor extends MultiSourceTransformer<
     );
   }
 
-  protected shouldNotify(): boolean {
+  protected override shouldNotify(): boolean {
     const next = this.value().data;
     if (this.notified != null && color.equals(this.notified, next)) return false;
     this.notified = next;

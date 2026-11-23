@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Context,
-  type Middleware,
-  type Next,
-  type UnaryClient,
-} from "@synnaxlabs/freighter";
-import { errors, TimeStamp, uuid } from "@synnaxlabs/x";
+import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freighter";
+import { binary, errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Credentials,
+  type Method,
+  methodZ,
+  type OIDCCredentials,
+  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
@@ -27,12 +26,14 @@ import {
 } from "@/auth/types.gen";
 import {
   AuthError,
+  errorsMiddleware,
   ExpiredTokenError,
   InvalidTokenError,
   MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
 import { resource } from "@/resource";
+import { Transport } from "@/transport";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -73,18 +74,16 @@ const API_KEY_LENGTH = 48;
  */
 export const apiKeyID = (token: string): APIKeyKey => {
   if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
-  const body = token
-    .slice(API_KEY_PREFIX.length)
-    .replaceAll("-", "+")
-    .replaceAll("_", "/");
   let raw: Uint8Array;
   try {
-    raw = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+    raw = binary.decodeBase64(token.slice(API_KEY_PREFIX.length), {
+      alphabet: "base64url",
+    });
   } catch {
     throw new InvalidTokenError("malformed API key");
   }
   if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
-  return uuid.parse(raw);
+  return uuid.fromBytes(raw);
 };
 
 export interface NewAPIKey {
@@ -100,6 +99,41 @@ const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
+const oidcLinkKeyZ = z.uuid();
+export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
+
+const oidcLinkZ = z.object({
+  /** key is the unique identifier for this link. */
+  key: oidcLinkKeyZ,
+  /** user is the key of the user the provider account logs in as. */
+  user: user.keyZ,
+  /**
+   * issuer is the issuer URL of the provider that proved the account, its `iss` claim.
+   * With account, it identifies the provider account.
+   */
+  issuer: z.string(),
+  /** account is the provider's permanent ID for the account, its `sub` claim. */
+  account: z.string(),
+});
+/** OIDCLink links an OpenID Connect provider account to a user. */
+export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
+
+const oidcLoginZ = z.object({
+  /** provider is the name of the provider. */
+  provider: z.string(),
+  /** authorizationEndpoint is the provider's login address. */
+  authorizationEndpoint: z.string(),
+  /** clientId is the Core's client ID at the provider. */
+  clientId: z.string(),
+});
+/** OIDCLogin is where to send a person to log in through a provider. */
+export interface OIDCLogin extends z.infer<typeof oidcLoginZ> {}
+
+const oidcLinkReqZ = z.object({ credentials: oidcCredentialsZ });
+const oidcLinkResZ = z.object({ link: oidcLinkZ });
+const oidcRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
+const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
+const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: resource.ID;
@@ -118,6 +152,7 @@ const passwordSetReqZ = z.object({
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 // the login route a Core without sessions serves; kept for one release
+const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
@@ -135,10 +170,76 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
+const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
+const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
-const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
+const TOKENLESS_ENDPOINTS = [
+  METHODS_ENDPOINT,
+  SESSION_CREATE_ENDPOINT,
+  LEGACY_LOGIN_ENDPOINT,
+];
+
+// a newer Core may accept methods this client does not know, so they are dropped, and
+// a Core older than OpenID Connect sends no providers
+const methodsResZ = z.object({
+  methods: z
+    .unknown()
+    .array()
+    .transform((ms) =>
+      ms.flatMap((m) => {
+        const r = methodZ.safeParse(m);
+        return r.success ? [r.data] : [];
+      }),
+    ),
+  providers: oidcLoginZ.array().default([]),
+});
+
+/** The address of a Core, for a request that needs no session. */
+export interface TokenlessParams {
+  host: string;
+  port: number | string;
+  secure?: boolean;
+}
+
+/**
+ * Creates a client for the routes a Core serves without a session. Create one per Core
+ * address and reuse it across requests.
+ */
+export const createTokenlessClient = ({
+  host,
+  port,
+  secure = false,
+}: TokenlessParams): UnaryClient => {
+  const transport = new Transport({
+    url: new url.URL({ host, port: Number(port) }),
+    secure,
+  });
+  transport.use(errorsMiddleware);
+  return transport.unaryNoRetry;
+};
+
+const sendMethods = async (client: UnaryClient): Promise<z.infer<typeof methodsResZ>> =>
+  await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
+
+/**
+ * Retrieves the login methods a Core accepts, without logging in.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> =>
+  (await sendMethods(client)).methods;
+
+/**
+ * Retrieves where to log in through each OpenID Connect provider of a Core, without
+ * logging in. It is empty when the Core does not accept the oidc method.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveProviders = async (client: UnaryClient): Promise<OIDCLogin[]> =>
+  (await sendMethods(client)).providers;
 
 const MAX_RETRIES = 3;
 
@@ -360,6 +461,47 @@ export class Client {
   }
 
   /**
+   * Links the OpenID Connect provider account that the credentials prove to the
+   * caller, so the account can log in as the caller.
+   * @throws {InvalidCredentialsError} when the provider rejects the credentials.
+   * @throws {ValidationError} when the account or the caller already has a link for
+   * the provider.
+   */
+  async linkOIDC(credentials: OIDCCredentials): Promise<OIDCLink> {
+    const res = await this.client.send(
+      OIDC_LINK_ENDPOINT,
+      { credentials },
+      oidcLinkReqZ,
+      oidcLinkResZ,
+    );
+    return res.link;
+  }
+
+  /**
+   * Lists OpenID Connect provider links: the caller's own by default, or those of the
+   * given users when the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another user's links.
+   */
+  async retrieveOIDCLinks(subjects?: resource.ID[]): Promise<OIDCLink[]> {
+    const res = await this.client.send(
+      OIDC_RETRIEVE_ENDPOINT,
+      { subjects },
+      oidcRetrieveReqZ,
+      oidcRetrieveResZ,
+    );
+    return res.links;
+  }
+
+  /**
+   * Removes OpenID Connect provider links and ends their sessions. Unknown keys are
+   * ignored.
+   * @throws {AccessDeniedError} when the caller may not remove another user's links.
+   */
+  async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
+    await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
+  }
+
+  /**
    * Sets the caller's password, or another user's when the caller may update that
    * user, and ends every session the old password opened. When that ends the client's
    * own session, the client switches to the session the Core opens in its place.
@@ -536,7 +678,8 @@ export class Client {
         return await next(reqCtx);
       }
       const tokenless = TOKENLESS_ENDPOINTS.some((t) => reqCtx.target.endsWith(t));
-      if (!this.authenticated && !tokenless) {
+      // a login that a setCredentials made stale resolves without authenticating
+      while (!this.authenticated && !tokenless) {
         this.authenticating ??= this.login();
         const err = await this.authenticating;
         if (err != null) {

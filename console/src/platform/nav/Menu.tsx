@@ -90,7 +90,7 @@ export const useItem = ({
       window.addEventListener(
         "mousemove",
         (e: MouseEvent) => {
-          const delta = xy.translation(xy.construct(e), positionRef.current);
+          const delta = xy.sub(positionRef.current, xy.construct(e));
           if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
             onStopHover();
             controller.abort();

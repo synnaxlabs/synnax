@@ -8,18 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
-
-/** Generates a Core-safe unique channel name: letters, digits, and underscores. */
-export const uniqueChannelName = (prefix = "ch"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 /** Creates a real timestamp index channel on the connected Core. */
 export const createTestIndexChannel = async (
   client: Synnax,
 ): Promise<channel.Channel> =>
   await client.channels.create({
-    name: uniqueChannelName("idx"),
+    name: uniqueName("idx"),
     dataType: DataType.TIMESTAMP,
     isIndex: true,
     leaseholder: 1,
@@ -36,7 +32,7 @@ export const createTestIndexedPair = async (
 ): Promise<TestIndexedPair> => {
   const index = await createTestIndexChannel(client);
   const data = await client.channels.create({
-    name: uniqueChannelName("data"),
+    name: uniqueName("data"),
     dataType: DataType.FLOAT64,
     index: index.key,
     leaseholder: 1,

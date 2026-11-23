@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-const BASE = "https://synnax.nyc3.cdn.digitaloceanspaces.com/landing";
+import { CDN } from "@synnaxlabs/site-common/cdn";
+
+const BASE = `${CDN}/landing`;
 
 /** Returns the CDN URL of the asset at the given path under the landing folder. */
 export const cdn = (path: string): string => `${BASE}/${path}`;

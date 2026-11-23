@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type actions, type query, type Synnax as Client } from "@synnaxlabs/client";
+import type { actions, query, Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { useSyncExternalStore } from "react";
 
 import { errorResult } from "@/flux/result";
@@ -49,7 +49,10 @@ export interface UseDispatchReturn<Key extends record.Key, Action> {
   dispatch: (input: DispatchInput<Key, Action>) => void;
   /** Applies actions and resolves to whether they committed. */
   dispatchAsync: (input: DispatchInput<Key, Action>) => Promise<boolean>;
-  /** Groups actions so undo takes them back as one step. */
+  /**
+   * Groups actions so undo takes them back as one step.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction: (input: { key: Key; kind?: string }) => actions.Transaction<Action>;
 }
 

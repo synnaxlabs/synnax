@@ -663,8 +663,9 @@ var _ = Describe("Scope", func() {
 					symbol.Symbol{Name: "inner", Kind: symbol.KindBlock},
 				))
 				_, err := innerScope.Resolve(bCtx, "missing")
-				var undefinedErr *symbol.UndefinedSymbolError
-				Expect(errors.As(err, &undefinedErr)).To(BeTrue())
+				undefinedErr := MustBeOk(
+					errors.AsType[*symbol.UndefinedSymbolError](err),
+				)
 				Expect(undefinedErr.Name).To(Equal("missing"))
 			},
 		)
@@ -812,6 +813,22 @@ var _ = Describe("Scope", func() {
 						Expect(alias.Parent.ResolveMember(
 							bCtx, "m", "h", symbol.IncludeInternal,
 						)).Error().To(MatchError(`not exported: 'h' in module "m"`))
+					},
+				)
+
+				It(
+					"Should not resolve the tail lexically when the head is not a module",
+					func(bCtx SpecContext) {
+						root := symbol.NewRoot(nil, nil)
+						for _, name := range []string{"a", "b"} {
+							MustSucceed(root.Add(bCtx, symbol.Symbol{
+								Name: name,
+								Kind: symbol.KindVariable,
+								Type: types.F64(),
+							}))
+						}
+						Expect(root.ResolveMember(bCtx, "a", "b")).Error().
+							To(MatchError(ContainSubstring("undefined symbol: a.b")))
 					},
 				)
 

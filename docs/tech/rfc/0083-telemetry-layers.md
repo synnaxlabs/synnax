@@ -355,7 +355,9 @@ virtual channel. No phase changes a stored format.
     samples written while the stream was down.
 13. **A live window ends at the newest sample**: Only new samples move a live plot, and
     staleness marks show a stopped signal. The `Feed` reads each channel's newest stored
-    sample when a `dynamic` window subscribes and after a history change, and the stream
+    sample when a window that streams subscribes or moves, and after a history change.
+    It reads any time for a `dynamic` window, and only inside the window for a static
+    one whose end has not passed the commit point, such as a running range. The stream
     moves it after that. One x axis ends every live line at the newest sample across
     them, so a stopped line does not stretch the axis. LabVIEW charts, PlotJuggler,
     oscilloscopes, and Dewesoft advance on data. Grafana and Ignition follow the clock

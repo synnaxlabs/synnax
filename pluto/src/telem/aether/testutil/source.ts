@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import {
   type Aggregation,
+  type bounds,
   type color,
   type destructor,
   id,
+  MultiSeries,
   observe,
+  Series,
+  TimeRange,
   type TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -21,8 +25,10 @@ import { z } from "zod";
 import {
   type BooleanSourceSpec,
   type ColorSourceSpec,
+  type Edge,
   type NumberSourceSpec,
   type Result,
+  type SeriesSourceSpec,
   type Source,
   type StringSourceSpec,
   SUCCESS_STATUS,
@@ -33,33 +39,37 @@ import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/fact
 
 const propsZ = z.object({ testId: z.string() });
 
-export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
+export class TestSource<V> implements Source<V>, Telem {
+  private readonly observer = new observe.Observer<void>();
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
   sorted?: boolean;
-  rolling?: boolean;
+  edge?: Edge;
   time?: TimeStamp;
   appended?: number;
   private _value: V;
   private _destructor: destructor.Destructor;
 
   constructor(initialValue: V) {
-    super();
     this.id = id.create();
     this._value = initialValue;
     this._destructor = registerInstance(this.id, this);
   }
 
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
+  }
+
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, sorted, rolling, time, appended } = this;
-    return { data: this._value, status, aggregation, sorted, rolling, time, appended };
+    const { status, aggregation, sorted, edge, time, appended } = this;
+    return { data: this._value, status, aggregation, sorted, edge, time, appended };
   }
 
   setValue(v: V): void {
     this._value = v;
-    this.notify();
+    this.observer.notify();
   }
 
   cleanup(): void {
@@ -102,3 +112,18 @@ export const colorSourceSpec = (source: TestSource<color.Color>): ColorSourceSpe
   variant: "source",
   valueType: "color",
 });
+
+/** @returns the spec of a test source that holds one float64 series of data. */
+export const seriesSpec = (data: number[]): SeriesSourceSpec => {
+  const s = new Series({
+    data: new Float64Array(data),
+    timeRange: new TimeRange(0, 1),
+  });
+  const src = source<[bounds.Bounds, MultiSeries]>([s.bounds, new MultiSeries([s])]);
+  return {
+    type: TestSource.TYPE,
+    props: { testId: src.id },
+    variant: "source",
+    valueType: "series",
+  };
+};

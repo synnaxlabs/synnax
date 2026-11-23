@@ -90,9 +90,10 @@ line.
 - Import components by path. There is no `@/components` barrel. Do not use `client:load`
   or `client:only`.
 - Files that start with `_` are partials, not routes.
-- Front matter: `title`, `description`, `layout: "@/layouts/Reference.astro"`, and
-  optional `heading` (the displayed title when it differs from `title`). Never `prev`,
-  `next`, or `edition`: order and edition come from the nav.
+- Pages live in `site/docs/src/docs`. Front matter: `title`, `description`, and optional
+  `heading` (the displayed title when it differs from `title`). The `reference`
+  collection in `src/content.config.ts` lists the other fields. Never `prev`, `next`, or
+  `edition`: order and edition come from the nav.
 - Docs for an unreleased feature merge to `main` and show only on the `next` site.
 - Every page is in the nav. `check-site` fails an orphan page.
 - Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `arc`; `exclude` to drop

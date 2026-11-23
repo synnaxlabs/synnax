@@ -10,7 +10,7 @@
 import { isConnectionError as clientIsConnectionError } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Connection } from "@/platform/connection";
 

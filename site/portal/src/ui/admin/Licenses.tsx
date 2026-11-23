@@ -13,11 +13,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type LicenseList } from "@/page";
-import { type Listed } from "@/server/directory";
-import { type Query } from "@/server/license/list";
+import type { LicenseList } from "@/page";
+import type { Listed } from "@/server/directory";
+import type { Query } from "@/server/license/list";
 import { type Status, STATUSES } from "@/server/license/status";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { LicenseTable } from "@/ui/admin/LicenseTable";
@@ -79,7 +80,7 @@ export const Licenses = ({
             />
             <Flex.Box x align="center" gap="medium">
               <Text.Text level="small" color={9}>
-                {page.total === 1 ? "1 license" : `${page.total} licenses`}
+                {strings.count(page.total, "license")}
               </Text.Text>
               <Select.Buttons<Status>
                 value={query.status}
