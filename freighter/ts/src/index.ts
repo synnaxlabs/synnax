@@ -14,6 +14,7 @@ export {
   type FetchInit,
   type FetchResponse,
   type Socket,
+  subprotocols,
   trustCA,
 } from "@/connector";
 export {

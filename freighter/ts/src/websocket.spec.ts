@@ -22,6 +22,7 @@ import {
   type FlowControl,
   ReceiveOverflow,
   type Socket,
+  subprotocols,
   Unreachable,
   WebSocketClient,
 } from "@/index";
@@ -390,13 +391,25 @@ describe("local server", () => {
       expect(req.url).toContain("freighterctxContent-Type=application%2Fjson");
     });
 
-    test("should send the token in the URL when dial does not send headers", async () => {
-      const req = await authorize({
-        fetch: async () => await Promise.reject(new Error("not used")),
-        dial: async (u) => new globalThis.WebSocket(u),
+    describe("connector that cannot send headers", () => {
+      test("should not put the token in the URL", async () => {
+        const req = await authorize({
+          fetch: async () => await Promise.reject(new Error("not used")),
+          dial: async (u) => new globalThis.WebSocket(u),
+        });
+        expect(req.url).not.toContain("test-token");
       });
-      expect(req.headers.authorization).toBeUndefined();
-      expect(req.url).toContain("freighterctxAuthorization=Bearer+test-token");
+
+      test("should send the token in a subprotocol", async () => {
+        const req = await authorize({
+          fetch: async () => await Promise.reject(new Error("not used")),
+          dial: async (u, headers) =>
+            new globalThis.WebSocket(u, subprotocols(headers.Authorization)),
+        });
+        expect(req.headers["sec-websocket-protocol"]).toEqual(
+          "synnax.v1, synnax.token.test-token",
+        );
+      });
     });
 
     describe("DOM WebSocket", () => {

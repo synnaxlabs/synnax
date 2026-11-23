@@ -149,10 +149,11 @@ class JSON {
         /// field.
         std::size_t first_value = 0;
         std::vector<x::telem::Series> samples;
+        std::vector<Failure> failures;
 
-        /// @brief decodes the value of each field in values into samples.
-        x::errors::Error
-        decode(const std::vector<std::optional<std::string_view>> &values);
+        /// @brief decodes the value of each field in values into samples, and each
+        /// field that it cannot decode into failures.
+        void decode(const std::vector<std::optional<std::string_view>> &values);
     };
 
     Router router;
@@ -175,21 +176,27 @@ public:
     create(const std::vector<JSONMessage> &messages);
 
     /// @brief finds the message that doc belongs to and decodes one sample for each of
-    /// its bindings into its samples.
+    /// its bindings into its samples. A field with no value and no default, or with a
+    /// value that does not convert, gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when doc belongs
     /// to no message.
-    /// @returns VALIDATION when doc is not JSON, it meets two match rules, or a value
-    /// does not convert. A conversion error names the field, and also the message when
-    /// the decoder holds more than one.
+    /// @returns VALIDATION when doc is not JSON, or it meets two match rules.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message.
+    /// binding, in binding order, each holding one sample, or none for a field in its
+    /// failures. They are unspecified after a decode that does not return message.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields that the last decode of message could not decode, in
+    /// binding order. They are unspecified after a decode that does not return message.
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 
