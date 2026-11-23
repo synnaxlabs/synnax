@@ -89,6 +89,17 @@ interface Context {
 
 const ZERO: Size = { width: 0, height: 0, inner: "0x0", frame: "" };
 
+// Layout sizes are multiples of 1/64 of a pixel.
+const SIZE_TOLERANCE = 1 / 128;
+
+const matches = (entry: ResizeObserverEntry, size: Size): boolean => {
+  const [{ inlineSize, blockSize }] = entry.borderBoxSize;
+  return (
+    Math.abs(inlineSize - size.width) < SIZE_TOLERANCE &&
+    Math.abs(blockSize - size.height) < SIZE_TOLERANCE
+  );
+};
+
 const formatSize = ({ width, height }: Size): string => `${width}x${height}`;
 
 // The browser counts the element and its ancestors in the flat tree, so an element off
@@ -283,9 +294,14 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       };
     pass.called.add(observer);
     pass.shallowest = Math.min(pass.shallowest, ...entries.map((e) => depth(e.target)));
-    for (const { target } of entries) {
-      const observation = targets.get(target);
-      if (observation != null) observation.reported = before.get(target) ?? ZERO;
+    for (const entry of entries) {
+      const observation = targets.get(entry.target);
+      if (observation == null) continue;
+      const gathered = pass.sizes.get(entry.target) ?? ZERO;
+      const current = before.get(entry.target) ?? ZERO;
+      // WebKit reports the size from the gathering of the pass, and Chromium the size
+      // at the call.
+      observation.reported = matches(entry, gathered) ? gathered : current;
     }
     const context: Context = {
       origin,

@@ -448,6 +448,51 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("div.cause changed");
   });
 
+  it("should place an observer by the size the browser reported to it", async () => {
+    const shallow = box(root, "shallow", 10);
+    observe(shallow, () => {});
+    const first = box(nest(root, 1), "first", 10);
+    const target = box(nest(root, 6), "target", 10);
+    const middle = box(nest(root, 3), "middle", 10);
+    let armed = false;
+    let firstCalls = 0;
+    observe(first, () => {
+      if (!armed) return;
+      firstCalls += 1;
+      target.style.height = `${20 + 10 * firstCalls}px`;
+      if (firstCalls === 1) first.style.height = "25px";
+    });
+    let targetCalls = 0;
+    let skippedAt: CSSNumberish | null = null;
+    observe(target, () => {
+      if (!armed) return;
+      targetCalls += 1;
+      if (targetCalls !== 2) return;
+      skippedAt = document.timeline.currentTime;
+      shallow.style.height = "20px";
+      middle.style.height = "20px";
+    });
+    let middleAt: CSSNumberish | null = null;
+    observe(middle, () => {
+      if (armed) middleAt = document.timeline.currentTime;
+    });
+    await frames(2);
+    armed = true;
+    shallow.style.height = "15px";
+    first.style.height = "15px";
+    target.style.height = "20px";
+    await frames(3);
+    armed = false;
+    // WebKit reports the size from the gathering of a pass, so the second call of the
+    // target observer joins the pass of the first and the browser delivers the middle
+    // box. Chromium reports the size at the call, so the second call starts a pass that
+    // skips it.
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    const skipped = middleAt !== skippedAt;
+    expect(reports[0].includes("div.middle changed")).toBe(skipped);
+  });
+
   it("should count depth through shadow roots and slots", async () => {
     const shallow = box(root, "shallow", 10);
     observe(shallow, () => {});
