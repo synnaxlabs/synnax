@@ -10,7 +10,9 @@
 package framer_test
 
 import (
+	"encoding/json/v2"
 	"fmt"
+	"slices"
 	"time"
 	"uuid"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -574,6 +577,115 @@ var _ = Describe("Change channels", func() {
 			Entry("a calculation set", "sy_calculation_set"),
 			Entry("a calculation action", "sy_calculation_action_set"),
 		)
+
+		Describe("Channel actions", func() {
+			type batch = actions.Scoped[channel.Key, channel.Action]
+			// batches returns the channel action batches in the next frame.
+			batches := func() []batch {
+				GinkgoHelper()
+				res := MustSucceed(client.Receive())
+				var out []batch
+				for _, series := range res.Frame.Get(ch.Key()).Series {
+					for sample := range series.Samples() {
+						var b batch
+						Expect(json.Unmarshal(sample, &b)).To(Succeed())
+						out = append(out, b)
+					}
+				}
+				return out
+			}
+			setsExpression := func(b batch) bool {
+				return slices.ContainsFunc(b.Actions, func(a channel.Action) bool {
+					return a.Set != nil &&
+						slices.Equal(a.Set.Path, []string{"expression"})
+				})
+			}
+			createOn := func(ctx SpecContext, output, in channel.Channel) calculation.Key {
+				GinkgoHelper()
+				c := calculation.Calculation{
+					Output:     output.Key(),
+					Expression: times(in, 2),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Calculation.NewWriter(tx).Create(ctx, &c)
+				})).To(Succeed())
+				return c.Key
+			}
+			rename := func(ctx SpecContext, witness channel.Channel) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Channel.NewWriter(tx).
+						Rename(ctx, witness.Key(), UniqueChannelName(), false)
+				})).To(Succeed())
+			}
+
+			It(
+				"Should send no action of an existing output to a subject that cannot "+
+					"read its calculation",
+				func(ctx SpecContext) {
+					in, output, witness := virtual(ctx), virtual(ctx), virtual(ctx)
+					stream(
+						ctx,
+						"sy_channel_action_set",
+						channel.ResourceID(in.Key()),
+						channel.ResourceID(output.Key()),
+						channel.ResourceID(witness.Key()),
+					)
+					key := createOn(ctx, output, in)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Calculation.NewWriter(tx).Delete(ctx, key)
+					})).To(Succeed())
+					rename(ctx, witness)
+					Expect(batches()).To(ConsistOf(HaveField("Key", witness.Key())))
+				},
+				SpecTimeout(30*time.Second),
+			)
+
+			It(
+				"Should send the calculation of an existing output to a subject that "+
+					"reads its calculation",
+				func(ctx SpecContext) {
+					in, output := virtual(ctx), virtual(ctx)
+					stream(
+						ctx,
+						"sy_channel_action_set",
+						resource.ID{Type: resource.TypeCalculation},
+						channel.ResourceID(in.Key()),
+						channel.ResourceID(output.Key()),
+					)
+					createOn(ctx, output, in)
+					Expect(batches()).To(ContainElement(SatisfyAll(
+						HaveField("Key", output.Key()),
+						Satisfy(setsExpression),
+					)))
+				},
+				SpecTimeout(30*time.Second),
+			)
+
+			It(
+				"Should send the create of a new output with no expression to a subject "+
+					"that cannot read its calculation",
+				func(ctx SpecContext) {
+					in := virtual(ctx)
+					stream(
+						ctx,
+						"sy_channel_action_set",
+						resource.ID{Type: resource.TypeChannel},
+					)
+					c := calculate(ctx, times(in, 2))
+					received := batches()
+					Expect(received).To(ContainElement(SatisfyAll(
+						HaveField("Key", c.Output),
+						HaveField("Actions", ContainElement(HaveField(
+							"Create.Channel.Expression",
+							BeEmpty(),
+						))),
+					)))
+					Expect(received).ToNot(ContainElement(Satisfy(setsExpression)))
+				},
+				SpecTimeout(30*time.Second),
+			)
+		})
 	})
 })
 
