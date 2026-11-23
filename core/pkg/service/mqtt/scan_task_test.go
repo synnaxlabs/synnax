@@ -870,6 +870,58 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should give each shape heard with the last sample of each of its fields",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", `{"rpm":1.5,"on":true}`, true)
+				publishUntilDone(
+					broker,
+					"plant/a",
+					fmt.Sprintf(`{"time":%d,"code":3}`, ms),
+				)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics).To(HaveLen(1))
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
+					SatisfyAll(
+						HaveKeyWithValue("fields", []any{
+							field("/rpm", "number", "1.5", payload.KindFloat),
+							field("/on", "boolean", "true", payload.KindBoolean),
+						}),
+						Not(HaveKey("index")),
+						HaveKeyWithValue("present", "/rpm"),
+						HaveKeyWithValue("count", BeNumerically("==", 1)),
+					),
+					SatisfyAll(
+						HaveKeyWithValue("fields", []any{
+							map[string]any{
+								"pointer":     "/time",
+								"type":        "number",
+								"sample":      strconv.FormatInt(ms, 10),
+								"kind":        "timestamp",
+								"time_format": "unix_ms",
+							},
+							field("/code", "number", "3", payload.KindInteger),
+						}),
+						HaveKeyWithValue("index", "/time"),
+						HaveKeyWithValue("present", "/time"),
+						HaveKeyWithValue("count", BeNumerically(">", 1)),
+					),
+				)))
+			},
+		)
+
+		It("Should give no shapes for a topic whose messages are not JSON",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", "ON", true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", Equal([]any{})))
+			},
+		)
+
 		It("Should give no index when no field holds a timestamp",
 			func(ctx SpecContext) {
 				broker.publish("plant/a", `{"time":"soon","v":1}`, true)

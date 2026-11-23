@@ -52,6 +52,8 @@ const (
 	browsePayloadLimit = 256
 	// browseFieldLimit is the largest count of fields of a browsed topic.
 	browseFieldLimit = 256
+	// browsePointerLimit is the most pointers of a browsed topic that keep a sample.
+	browsePointerLimit = 1024
 	// browseSampleLimit is the longest field sample, in bytes, of a browsed topic.
 	browseSampleLimit = 64
 )
@@ -91,6 +93,24 @@ type browsedTopic struct {
 	// Absent when no field can.
 	Index    string `json:"index,omitempty"`
 	Retained bool   `json:"retained"`
+	// Shapes are the shapes of the JSON messages heard, in the order first heard.
+	Shapes []browsedShape `json:"shapes"`
+}
+
+// browsedShape is one shape of the JSON messages that a browse heard on a topic.
+type browsedShape struct {
+	// Fields are the scalars of the shape, each with the last value heard at its
+	// pointer. A field with no sample, past the field limit of each payload or of the
+	// topic, is left out.
+	Fields []browsedField `json:"fields"`
+	// Index is the pointer of the field that indexes the messages of the shape. Absent
+	// when no field can.
+	Index string `json:"index,omitempty"`
+	// Present is the pointer of the field that every message of the shape holds and no
+	// other shape holds. Absent when no field does.
+	Present string `json:"present,omitempty"`
+	// Count is the number of messages of the shape heard.
+	Count int `json:"count"`
 }
 
 type browseResult struct {

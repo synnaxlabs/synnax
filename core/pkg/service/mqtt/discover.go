@@ -197,12 +197,30 @@ type heardTopic struct {
 	retained int
 	// inferrer holds the shapes of every message heard.
 	inferrer *xjson.Inferrer
+	// samples holds the last field heard at each pointer.
+	samples map[string]browsedField
 }
 
-// infer sets the kind and the time format of each field, and the index, from the shape
-// that a read task matches the last message to.
+// hold keeps each of fields as the last field heard at its pointer, for at most
+// browsePointerLimit pointers.
+func (t *heardTopic) hold(fields []browsedField) {
+	for _, f := range fields {
+		if _, ok := t.samples[f.Pointer]; ok || len(t.samples) < browsePointerLimit {
+			t.samples[f.Pointer] = f
+		}
+	}
+}
+
+// infer sets the shapes of the messages heard. It also sets the kind and the time
+// format of each field, and the index, from the shape that a read task matches the last
+// message to.
 func (t *heardTopic) infer() {
-	shape, ok := lastShape(t.inferrer.Shapes(), t.Fields)
+	shapes := t.inferrer.Shapes()
+	t.Shapes = make([]browsedShape, len(shapes))
+	for i, s := range shapes {
+		t.Shapes[i] = t.shape(s)
+	}
+	shape, ok := lastShape(shapes, t.Fields)
 	if !ok {
 		return
 	}
@@ -223,6 +241,27 @@ func (t *heardTopic) infer() {
 	}) {
 		t.Index = index
 	}
+}
+
+// shape returns s with the last sample heard at the pointer of each field.
+func (t *heardTopic) shape(s xjson.Shape) browsedShape {
+	b := browsedShape{Fields: make([]browsedField, 0, len(s.Fields)), Count: s.Count}
+	for i, f := range s.Fields {
+		pointer := f.Pointer.String()
+		field, ok := t.samples[pointer]
+		if !ok {
+			continue
+		}
+		field.Kind, field.TimeFormat = f.Kind, f.TimeFormat
+		b.Fields = append(b.Fields, field)
+		if i == s.Index {
+			b.Index = pointer
+		}
+		if i == s.Present {
+			b.Present = pointer
+		}
+	}
+	return b
 }
 
 // lastShape returns the shape that a read task matches a message with fields to: the
@@ -283,7 +322,11 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 					res.truncated = true
 					return false
 				}
-				t = &heardTopic{Topic: m.Topic(), inferrer: xjson.NewInferrer()}
+				t = &heardTopic{
+					Topic:    m.Topic(),
+					inferrer: xjson.NewInferrer(),
+					samples:  make(map[string]browsedField),
+				}
 				by[m.Topic()] = t
 			}
 			t.Count++
@@ -294,6 +337,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
 			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
 				payloadFields(p)
+			t.hold(t.Fields)
 			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},
