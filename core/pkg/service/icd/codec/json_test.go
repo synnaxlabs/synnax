@@ -291,7 +291,9 @@ var _ = Describe("JSON", func() {
 				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.JSONT}},
 			}})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("default is not valid JSON")),
+				MatchError(
+					"message reading: field doc: default: not valid JSON: validation error",
+				),
 			))
 		})
 

@@ -63,6 +63,8 @@ type ReadField = v4.ReadField
 type ReadEndpoint struct {
 	// Key uniquely identifies the endpoint within the task.
 	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the endpoint is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Method is the HTTP method used to poll the endpoint.
 	Method Method `json:"method" msgpack:"method"`
 	// Path is the URL path appended to the device's base URL.

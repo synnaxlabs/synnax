@@ -86,12 +86,14 @@ message StreamerRequest {
   double throttle_rate_hz = 4;
   repeated uint32 exclude_groups = 5;
   bool ack_requested = 6;
+  bool missed_requested = 7;
 }
 
 message StreamerResponse {
   x.telem.pb.Frame frame = 1;
   bytes buffer = 2;
   bool ack = 3;
+  bool missed = 4;
 }
 
 service FrameDeleteService {

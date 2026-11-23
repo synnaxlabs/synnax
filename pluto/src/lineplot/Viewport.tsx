@@ -24,7 +24,11 @@ import { CSS } from "@/css";
 import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 
-export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
+export interface ViewportProps
+  extends
+    PropsWithChildren,
+    Base.UseProps,
+    Pick<Base.MaskProps, "onDragOver" | "onDrop"> {}
 
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
   el == null ? null : (el.closest(".pluto-line-plot__viewport") ?? null);
@@ -34,6 +38,8 @@ export const Viewport = ({
   children,
   initial = box.DECIMAL,
   onChange,
+  onDragOver,
+  onDrop,
   ...rest
 }: ViewportProps): ReactElement => {
   const { setViewport, setViewportElement, closeBreaks, selectBound } =
@@ -69,7 +75,12 @@ export const Viewport = ({
   }, [maskRef, setViewportElement]);
 
   return (
-    <Base.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
+    <Base.Mask
+      className={CSS.BE("line-plot", "viewport")}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      {...maskProps}
+    >
       {loading && (
         <Status.Loading className={CSS.BE("line-plot", "loading")}>
           <Status.Orbital />

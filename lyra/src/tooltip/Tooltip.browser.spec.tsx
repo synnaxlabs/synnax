@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { location, TimeSpan } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -55,12 +55,17 @@ describe("Tooltip", () => {
 
   it("should stack over an open dropdown without covering its target", async () => {
     const { target, tooltip } = await openTooltip();
-    const dialog = page.getByRole("dialog").element();
-    expect(Number(computed(tooltip, "z-index"))).toBeGreaterThan(
-      Number(computed(dialog, "z-index")),
-    );
-    const t = target.getBoundingClientRect();
+    expect(tooltip.matches(":popover-open")).toBe(true);
+    // The tooltip lets the pointer through, so a hit test needs it to take the pointer.
+    assert(tooltip instanceof HTMLElement);
+    tooltip.style.pointerEvents = "auto";
     const tip = tooltip.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      tip.left + tip.width / 2,
+      tip.top + tip.height / 2,
+    );
+    expect(tooltip.contains(hit)).toBe(true);
+    const t = target.getBoundingClientRect();
     const overlaps =
       tip.left < t.right &&
       tip.right > t.left &&

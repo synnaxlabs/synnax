@@ -50,7 +50,10 @@ describe("Access.PermissionsBoundary", () => {
       retry: FAST_RETRY,
       onRetry: () => {},
     });
-    const { wrapper } = await createConsoleWrapper({ client });
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      skipPermissionLoad: true,
+    });
     await proxy.sever();
     await renderBoundary(wrapper, () => {});
     const retry = await screen.findByRole("button", { name: "Retry" });
