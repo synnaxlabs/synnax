@@ -382,7 +382,22 @@ var _ = Describe("Delete", Ordered, func() {
 			plot := createPlot(ctx, ch.Key())
 			seen := plan(ctx, hide(lineplot.ResourceID(plot.Key)), ch.Key())
 			Expect(seen.Entries).To(BeEmpty())
-			Expect(seen.Hidden).To(Equal(uint32(1)))
+			Expect(seen.Hidden).To(Equal(impact.Hidden{Detach: 1}))
+		})
+
+		It("Should count each entry the caller cannot see by its effect", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			plot := createPlot(ctx, ch.Key())
+			seen := plan(
+				ctx,
+				hide(task.ResourceID(tsk.Key), lineplot.ResourceID(plot.Key)),
+				ch.Key(),
+			)
+			Expect(seen.Entries).To(BeEmpty())
+			Expect(seen.Hidden).To(Equal(impact.Hidden{Restrict: 1, Detach: 1}))
 		})
 
 		It("Should keep the token and apply the hidden pick when a hidden entry is "+
@@ -401,7 +416,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Visible: visible,
 			}, ch.Key()))
 			Expect(applied.Token).To(Equal(p.Token))
-			Expect(applied.Hidden).To(Equal(uint32(1)))
+			Expect(applied.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 			Expect(MustSucceed(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(second.Key)).
 				Exists(ctx, db))).To(BeFalse())
@@ -419,7 +434,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Visible: visible,
 			}, ch.Key()))
 			Expect(applied.Entries).To(BeEmpty())
-			Expect(applied.Hidden).To(Equal(uint32(2)))
+			Expect(applied.Hidden).To(Equal(impact.Hidden{Restrict: 2}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			for _, k := range []task.Key{a.Key, b.Key} {
 				Expect(layer.Task.NewRetrieve().

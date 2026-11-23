@@ -22,7 +22,7 @@ type PlanRequest struct {
 	Change serviceimpact.Change `json:"change" msgpack:"change"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.
 	Picks map[string]serviceimpact.Choice `json:"picks" msgpack:"picks"`
-	// Hidden is the pick for every entry that the caller cannot see.
+	// Hidden is the pick for every hidden entry that stops the change.
 	Hidden *serviceimpact.Choice `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
 }
 
@@ -45,7 +45,7 @@ type ApplyRequest struct {
 	Token string `json:"token" msgpack:"token"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.
 	Picks map[string]serviceimpact.Choice `json:"picks" msgpack:"picks"`
-	// Hidden is the pick for every entry that the caller cannot see.
+	// Hidden is the pick for every hidden entry that stops the change.
 	Hidden *serviceimpact.Choice `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
 }
 
