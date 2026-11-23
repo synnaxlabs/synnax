@@ -135,8 +135,8 @@ export const authorizeDesktop = async (
  * @param invite - The invite code.
  * @param cookie - Whether the Core keeps the session's token in a cookie.
  * @returns The session's token, which is empty when the cookie holds it.
- * @throws {Error} with a message for the person when the Core refuses the invite code
- * or the proof, which it reports as one error.
+ * @throws {Error} with a message for the person, caused by the Core's error, when the
+ * Core refuses the invite code or the proof, which it reports as one error.
  */
 export const redeemInvite = async (
   core: auth.TokenlessParams,
@@ -152,10 +152,8 @@ export const redeemInvite = async (
     });
     return token;
   } catch (e) {
-    const err = errors.fromUnknown(e);
-    // a status appends a cause, so a wrapping error could not show this text alone
-    if (AuthError.matches(err)) err.message = INVITE_REFUSED;
-    throw err;
+    if (!AuthError.matches(e)) throw errors.fromUnknown(e);
+    throw new Error(INVITE_REFUSED, { cause: e });
   }
 };
 

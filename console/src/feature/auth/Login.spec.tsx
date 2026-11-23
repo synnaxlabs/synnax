@@ -528,6 +528,23 @@ describe("Auth login", () => {
     );
   });
 
+  it("should drop a redeemed token when a password logs in", async () => {
+    const alpha = { ...ALPHA, token: "sys_invited" };
+    const { store } = await renderLogin(alpha);
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    fireEvent.change(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER), {
+      target: { value: "ada" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("seldon"), {
+      target: { value: "secret" },
+    });
+    fireEvent.click(screen.getByText("Log in"));
+    await vi.waitFor(() =>
+      expect(store.getState().core.cores[ALPHA.key].password).toBe("secret"),
+    );
+    expect(store.getState().core.cores[ALPHA.key].token).toBeUndefined();
+  });
+
   it("should return to the Core list from the credentials", async () => {
     const { container } = await renderLogin();
     fireEvent.click(await screen.findByText(ALPHA.name));
@@ -780,8 +797,9 @@ describe("Auth login", () => {
         expect(statuses()).toContainEqual(
           expect.objectContaining({
             message: "Failed to redeem invite code",
-            description:
-              "This invite code is not valid. Ask your administrator for a new one.",
+            description: expect.stringMatching(
+              /^This invite code is not valid\. Ask your administrator for a new one\.: /,
+            ),
           }),
         ),
       );

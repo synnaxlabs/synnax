@@ -558,8 +558,9 @@ describe("auth guard", () => {
         expect(statuses()).toContainEqual(
           expect.objectContaining({
             message: "Failed to redeem invite code",
-            description:
-              "This invite code is not valid. Ask your administrator for a new one.",
+            description: expect.stringMatching(
+              /^This invite code is not valid\. Ask your administrator for a new one\.: /,
+            ),
           }),
         ),
       );

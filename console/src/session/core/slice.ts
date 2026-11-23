@@ -251,8 +251,8 @@ const purgeSecrets = <S extends StoreState>(state: S): S => ({
 });
 
 /**
- * Keeps every password and OpenID Connect code out of the stored state; a session
- * resumes from its token.
+ * Keeps every password, OpenID Connect code, and redeemed session token out of the
+ * stored state; a session resumes from its keychain token or cookie.
  */
 export const PERSIST_EXCLUDE = [purgeSecrets];
 
