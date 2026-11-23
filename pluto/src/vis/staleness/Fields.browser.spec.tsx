@@ -27,7 +27,7 @@ const Host = ({ values, unit }: { values: Values; unit?: TimeSpan }): ReactEleme
   methods = Form.use({ values, schema });
   return (
     <Form.Form<typeof schema> {...methods}>
-      <Staleness.Fields unit={unit} />
+      <Staleness.TimeoutField unit={unit} />
     </Form.Form>
   );
 };
@@ -42,7 +42,7 @@ const typeTimeout = async (value: string): Promise<void> => {
   field().element().blur();
 };
 
-describe("Staleness.Fields", () => {
+describe("Staleness.TimeoutField", () => {
   it("should show and store a timeout in nanoseconds by default", async () => {
     await renderThemed(
       <Host values={{ stalenessTimeout: Number(TimeSpan.seconds(3).valueOf()) }} />,

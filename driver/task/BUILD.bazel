@@ -42,6 +42,7 @@ cc_test(
     srcs = ["manager_test.cpp"],
     tags = ["requires-core"],
     deps = [
+        "//client/cpp/errors",
         "//client/cpp/status",
         "//client/cpp/testutil",
         "//driver/task",

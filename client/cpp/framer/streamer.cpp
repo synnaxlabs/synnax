@@ -19,6 +19,7 @@ void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
         this->exclude_groups.begin(),
         this->exclude_groups.end()
     );
+    f.set_missed_requested(static_cast<bool>(this->on_missed));
 }
 
 std::pair<Streamer, x::errors::Error>
@@ -42,6 +43,10 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config
 std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
+    if (!exc && fr.missed()) {
+        if (this->cfg.on_missed) this->cfg.on_missed();
+        return {x::telem::Frame(), x::errors::NIL};
+    }
     if (!fr.buffer().empty())
         return this->codec.decode(
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),

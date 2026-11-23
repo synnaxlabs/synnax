@@ -1,0 +1,67 @@
+{
+  "description": "A match rule writes its value, and each field writes its sample or its default.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "match": {
+        "type": "string",
+        "pointer": "/type",
+        "value": "set"
+      },
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/target/temp",
+          "type": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "mode",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/target/mode",
+          "type": "string",
+          "default": "auto"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "count",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/count",
+          "type": "integer"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "int64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [3, 21.5],
+      "document": {
+        "type": "set",
+        "target": {
+          "temp": 21.5,
+          "mode": "auto"
+        },
+        "count": 3
+      }
+    }
+  ]
+}

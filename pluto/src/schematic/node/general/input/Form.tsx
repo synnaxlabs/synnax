@@ -40,7 +40,7 @@ const InputTelemForm = (): ReactElement => {
 
   return (
     <Base.Sections x>
-      <Form.StateSection filter={(ch) => ch.dataType.isVariable} />
+      <Form.StateSection query={Form.VARIABLE_CHANNELS} />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
@@ -53,7 +53,7 @@ const InputTelemForm = (): ReactElement => {
         <Form.ControlChipField />
       </Base.Section>
       <Base.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Base.Section>
     </Base.Sections>
   );
