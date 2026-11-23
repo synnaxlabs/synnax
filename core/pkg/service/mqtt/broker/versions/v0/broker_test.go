@@ -127,7 +127,8 @@ var _ = Describe("Broker", func() {
 		Expect(decoded).To(Equal(b))
 	})
 
-	DescribeTable("Should reject an invalid broker",
+	DescribeTable(
+		"Should reject an invalid broker",
 		func(change func(*v0.Broker), path string) {
 			b := broker()
 			change(&b)
@@ -154,7 +155,11 @@ var _ = Describe("Broker", func() {
 		Entry("a keep alive over 65535 s", func(b *v0.Broker) {
 			b.KeepAlive = 65536 * telem.Second
 		}, "keep_alive"),
-		Entry("no transport", func(b *v0.Broker) { b.Transport = v0.Transport{} }, "type"),
+		Entry(
+			"no transport",
+			func(b *v0.Broker) { b.Transport = v0.Transport{} },
+			"type",
+		),
 		Entry("no auth", func(b *v0.Broker) { b.Auth = v0.Auth{} }, "type"),
 		Entry("a user name auth with no user name", func(b *v0.Broker) {
 			b.Auth = v0.Auth{Variant: v0.UsernameAuth{}}
