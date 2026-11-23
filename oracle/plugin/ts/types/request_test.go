@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -124,5 +125,69 @@ var _ = Describe("Request", func() {
 			"filter thing.Where: line code reads a field whose @ts type nothing is " +
 				"not a type",
 		))
+	})
+})
+
+var _ = Describe("CachedRecord", func() {
+	var loader *MockFileLoader
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		AddFilterSchema(loader)
+	})
+
+	// cachedRecord returns the name of the record that the cache holds for the filter
+	// of source, and the names of its fields.
+	cachedRecord := func(source string) (string, []string) {
+		GinkgoHelper()
+		table := MustGenerateRequest(source, "thing", loader).Resolutions
+		record, fields := types.CachedRecord(table.MustGet("thing.Where"), table)
+		return record.QualifiedName, lo.Map(
+			fields,
+			func(f resolution.Field, _ int) string { return f.Name },
+		)
+	}
+
+	It("Should return the target of the filter", func() {
+		record, fields := cachedRecord(`
+			import "schemas/x/filter"
+
+			@ts output "client/ts/src/thing"
+
+			Thing struct {
+				key  uuid { @key }
+				name string
+			}
+			Where filter Thing {
+				name
+			}
+		`)
+		Expect(record).To(Equal("thing.Thing"))
+		Expect(fields).To(Equal([]string{"key", "name"}))
+	})
+
+	It("Should return the record of a @response type", func() {
+		record, fields := cachedRecord(`
+			import "schemas/x/filter"
+
+			@ts output "client/ts/src/thing"
+
+			Thing struct {
+				key  uuid { @key }
+				name string
+			}
+			Wire struct {
+				key   uuid
+				name  string
+				extra int32
+			}
+			Where filter Thing {
+				name
+
+				@response type Wire
+			}
+		`)
+		Expect(record).To(Equal("thing.Wire"))
+		Expect(fields).To(Equal([]string{"key", "name", "extra"}))
 	})
 })
