@@ -64,6 +64,37 @@ def create_plain_entry(
     )
 
 
+def create_plain_target(
+    client: sy.Synnax,
+    *,
+    topic: str,
+    bindings: list[tuple[sy.icd.JSONField, int]],
+    fields: list[sy.icd.JSONField] | None = None,
+) -> mqtt.PlainWriteTarget:
+    """Create an ICD with one JSON message, named after topic, that holds the fields of
+    bindings and fields. Return a plain target that sends that message to topic.
+
+    :param bindings: Each field that a command channel fills, with the channel.
+    :param fields: The other fields of the message. Each sends its default.
+    """
+    message = sy.icd.Message(
+        name=topic,
+        payload=sy.icd.JSONPayload(fields=[f for f, _ in bindings] + (fields or [])),
+    )
+    ic = client.icds.create(name=topic, messages=[message])
+    return mqtt.PlainWriteTarget(
+        topic=topic,
+        icd=ic.key,
+        message=sy.icd.WriteMessage(
+            message=message.key,
+            bindings=[
+                sy.icd.ChannelWriteBinding(field=f.key, channel=ch)
+                for f, ch in bindings
+            ],
+        ),
+    )
+
+
 @contextmanager
 def run_reader(
     client: sy.Synnax,
@@ -203,7 +234,14 @@ class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase[mqtt.WriteTask]):
         )
 
     def _channel_keys(self, task: mqtt.WriteTask) -> list[int]:
-        return [
-            t.channel if isinstance(t, mqtt.SparkplugWriteTarget) else t.channel.channel
-            for t in task.config.targets
-        ]
+        keys: list[int] = []
+        for t in task.config.targets:
+            if isinstance(t, mqtt.SparkplugWriteTarget):
+                keys.append(t.channel)
+            else:
+                keys.extend(
+                    b.channel
+                    for b in t.message.bindings
+                    if isinstance(b, sy.icd.ChannelWriteBinding) and b.channel != 0
+                )
+        return keys

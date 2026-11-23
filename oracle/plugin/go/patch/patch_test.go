@@ -231,11 +231,19 @@ var _ = Describe("Go Patch Plugin", func() {
 					high = 1
 				}
 
+				Size enum {
+					one  = 1
+					four = 4
+				}
+
 				Doc struct {
 					key string = create {
 						@patch
 					}
 					level Level = low {
+						@patch
+					}
+					size Size = one {
 						@patch
 					}
 					mode Mode = slow {
@@ -250,6 +258,7 @@ var _ = Describe("Go Patch Plugin", func() {
 					ToContain(
 						"return patch.Value(&d.Key, c.Next())",
 						"return patch.Value(&d.Level, c.Next())",
+						"return patch.Defaulted(&d.Size, c.Next(), func(def *Doc) {",
 						"return patch.Defaulted(&d.Mode, c.Next(), func(def *Doc) {",
 					)
 			},

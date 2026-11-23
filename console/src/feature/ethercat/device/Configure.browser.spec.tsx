@@ -1151,7 +1151,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       const rack = await client.racks.retrieve({ key: slave.rack });
       const scan = await rack.createTask({
         name: uniqueName("ecat_scan"),
-        type: EtherCAT.Task.SCAN_TYPE,
+        type: EtherCAT.Device.HARDWARE.scanType,
         config: {},
       });
       const driver = await answerNextCommand(client, scan, {
