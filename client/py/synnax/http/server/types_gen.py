@@ -16,16 +16,10 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel, rack as rack_, secret, status as status_
+from synnax import channel as channel_, rack as rack_, secret, status as status_
 from synnax.http import types_gen
 from synnax.resource import ID
-
-SCHEME_HTTPS: Literal["https"] = "https"
-
-SCHEME_HTTP: Literal["http"] = "http"
-
-
-Scheme = Literal["https", "http"]
+from x import telem
 
 SEND_AS_HEADER: Literal["header"] = "header"
 
@@ -47,18 +41,50 @@ class BaseResponse(BaseModel):
     pointer: str
 
 
-class ReadChannels(BaseModel):
-    """Holds the channels that read tasks write the responses of one path to.
+class Request(BaseModel):
+    """Identifies the request that a write task sends.
 
     Attributes:
-        index: Is the index channel of the channels that read the path.
-        channels: Maps a JSON Pointer to the channel that holds its samples.
+        method: Is the method of the request.
+        path: Is the path appended to the base URL. Empty requests the base URL.
     """
 
-    index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
-        default_factory=dict
-    )
+    method: types_gen.Method = "POST"
+    path: str = ""
+
+
+class ReadRequest(BaseModel):
+    """Identifies the request that a read task polls.
+
+    Attributes:
+        method: Is the method of the request.
+        path: Is the path appended to the base URL. Empty requests the base URL.
+        query: Are the query parameters of the request, in sorted order.
+    """
+
+    method: types_gen.Method = "GET"
+    path: str = ""
+    query: list[types_gen.QueryParam] = Field(default_factory=list)
+
+
+class HttpsScheme(BaseModel):
+    """Sends requests over TLS."""
+
+    type: Literal["https"] = "https"
+    certificate_validation_disabled: bool = False
+
+
+class HttpScheme(BaseModel):
+    """Sends requests in plain text."""
+
+    type: Literal["http"] = "http"
+
+
+# Is the URL scheme that the Driver reaches a server with.
+Scheme = Annotated[
+    HttpsScheme | HttpScheme,
+    Field(discriminator="type"),
+]
 
 
 class NoneAuth(BaseModel):
@@ -145,6 +171,35 @@ Response = Annotated[
     Field(discriminator="expected_value_type"),
 ]
 
+
+class Write(BaseModel):
+    """Binds a request to the channel whose commands send it.
+
+    Attributes:
+        request: Is the request that commands send.
+        channel: Is the channel whose commands send the request.
+    """
+
+    request: Request
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class Read(BaseModel):
+    """Binds a value in the responses of a request to a channel.
+
+    Attributes:
+        request: Is the request whose responses hold the value.
+        pointer: Is the JSON Pointer to the value in the response body.
+        index: Is the index channel of the channel.
+        channel: Is the channel that holds the samples of the value.
+    """
+
+    request: ReadRequest
+    pointer: str = ""
+    index: channel_.Key = Field(gt=0, le=4294967295)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -177,36 +232,34 @@ class Server(BaseModel):
         rack: Is the key of the rack whose Driver connects to the server.
         name: Is a human-readable name for the server.
         scheme: Is the URL scheme that the Driver reaches the server with.
-        host: Is the host of the server, with an optional port and base path, such as
-            192.168.1.10:8080/api.
-        certificate_validation_disabled: Is true when the Driver accepts any server
-            certificate.
-        timeout_ms: Is the timeout of each request, in milliseconds.
+        host: Is the hostname or IP address of the server.
+        port: Is the TCP port. Absent takes the default port of the scheme.
+        base_path: Is the path that prefixes the path of every request.
+        timeout: Is the timeout of each request.
         max_concurrent_requests: Is the largest number of requests in flight to the
             server.
         auth: Holds the credentials that the Driver sends with each request.
         health_check: Is the request that the Driver checks the server with.
-        read_channels: Maps a path to the channels that read tasks write its responses
-            to.
-        write_channels: Maps a path to the channel whose commands write tasks send to
-            it.
+        reads: Bind the values that read tasks poll to channels.
+        writes: Bind the requests that write tasks send to channels.
         status: Is the current connection status of the server.
     """
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
-    scheme: Scheme = "https"
+    scheme: Scheme = Field(default_factory=lambda: HttpsScheme(type="https"))
     host: str = Field(min_length=1)
-    certificate_validation_disabled: bool = False
-    timeout_ms: int = Field(default=100, ge=1, le=4294967295)
-    max_concurrent_requests: int = Field(default=6, ge=1, le=4294967295)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    base_path: str = ""
+    timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000000), ge=10000000, le=9007199254740991
+    )
+    max_concurrent_requests: int = Field(default=6, ge=1, le=64)
     auth: Auth = Field(default_factory=lambda: NoneAuth(type="none"))
     health_check: HealthCheck = Field(default_factory=lambda: HealthCheck())
-    read_channels: dict[str, ReadChannels] = Field(default_factory=dict)
-    write_channels: dict[str, Annotated[channel.Key, Field(ge=0, le=4294967295)]] = (
-        Field(default_factory=dict)
-    )
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
     status: Status | None = None
 
     @_override

@@ -15,40 +15,150 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
+	"strconv"
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
+var validatePattern0 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+
+var validatePattern1 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
+
+var validatePattern2 = regexp.MustCompile("^$|^/")
+
 // Key uniquely identifies an HTTP server.
 type Key = uuid.UUID
 
-// Scheme is the URL scheme that the Driver reaches a server with.
-type Scheme string
+// SchemeType is the "type" value that selects a variant of Scheme.
+type SchemeType string
 
 const (
-	// SchemeHTTPS sends requests over TLS.
-	SchemeHTTPS Scheme = "https"
-	// SchemeHTTP sends requests in plain text.
-	SchemeHTTP Scheme = "http"
+	// HttpsSchemeType sends requests over TLS.
+	HttpsSchemeType SchemeType = "https"
+	// HttpSchemeType sends requests in plain text.
+	HttpSchemeType SchemeType = "http"
 )
 
-// IsValid reports whether s is one of the defined Scheme
-// values.
-func (s Scheme) IsValid() bool {
-	switch s {
-	case SchemeHTTPS, SchemeHTTP:
-		return true
+// SchemeVariant is implemented by every Scheme variant.
+type SchemeVariant interface {
+	isSchemeVariant()
+}
+
+// HttpsScheme sends requests over TLS.
+type HttpsScheme struct {
+	// CertificateValidationDisabled is true when the Driver accepts any server
+	// certificate.
+	CertificateValidationDisabled bool `json:"certificate_validation_disabled" msgpack:"certificate_validation_disabled"`
+}
+
+func (HttpsScheme) isSchemeVariant() {}
+
+// HttpScheme sends requests in plain text.
+type HttpScheme struct {
+}
+
+func (HttpScheme) isSchemeVariant() {}
+
+// Scheme is the URL scheme that the Driver reaches a server with.
+type Scheme struct {
+	Variant SchemeVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Scheme) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case HttpsScheme:
+		return json.MarshalEncode(enc, struct {
+			Type SchemeType `json:"type"`
+			HttpsScheme
+		}{Type: HttpsSchemeType, HttpsScheme: v})
+	case HttpScheme:
+		return json.MarshalEncode(enc, struct {
+			Type SchemeType `json:"type"`
+			HttpScheme
+		}{Type: HttpSchemeType, HttpScheme: v})
 	default:
-		return false
+		return errors.Newf("Scheme: unknown variant %T", v)
 	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Scheme) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type SchemeType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case HttpsSchemeType:
+		var v struct {
+			Type SchemeType `json:"type"`
+			HttpsScheme
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HttpsScheme
+	case HttpSchemeType:
+		var v struct {
+			Type SchemeType `json:"type"`
+			HttpScheme
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HttpScheme
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scheme: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scheme) Type() SchemeType {
+	switch u.Variant.(type) {
+	case HttpsScheme:
+		return HttpsSchemeType
+	case HttpScheme:
+		return HttpSchemeType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scheme) Validate() error {
+	v := validate.New("Scheme")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // SendAs selects where a request carries an API key.
@@ -298,6 +408,14 @@ type BaseResponse struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BaseResponse) Validate() error {
+	v := validate.New("BaseResponse")
+	v.Ternary("pointer", !validatePattern0.MatchString(string(b.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	return v.Error()
+}
+
 // ResponseType is the "expected_value_type" value that selects a variant of Response.
 type ResponseType string
 
@@ -326,6 +444,14 @@ type StringResponse struct {
 
 func (StringResponse) isResponseVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StringResponse) Validate() error {
+	v := validate.New("StringResponse")
+	v.Exec(s.BaseResponse.Validate)
+	return v.Error()
+}
+
 // NumberResponse expects a number.
 type NumberResponse struct {
 	BaseResponse
@@ -334,6 +460,14 @@ type NumberResponse struct {
 }
 
 func (NumberResponse) isResponseVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumberResponse) Validate() error {
+	v := validate.New("NumberResponse")
+	v.Exec(n.BaseResponse.Validate)
+	return v.Error()
+}
 
 // BooleanResponse expects a boolean.
 type BooleanResponse struct {
@@ -344,12 +478,28 @@ type BooleanResponse struct {
 
 func (BooleanResponse) isResponseVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BooleanResponse) Validate() error {
+	v := validate.New("BooleanResponse")
+	v.Exec(b.BaseResponse.Validate)
+	return v.Error()
+}
+
 // NullResponse expects null.
 type NullResponse struct {
 	BaseResponse
 }
 
 func (NullResponse) isResponseVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NullResponse) Validate() error {
+	v := validate.New("NullResponse")
+	v.Exec(n.BaseResponse.Validate)
+	return v.Error()
+}
 
 // Response is the value that a health check expects at a point in the response.
 type Response struct {
@@ -473,6 +623,16 @@ func (u Response) ExpectedValueType() ResponseType {
 func (u Response) Validate() error {
 	v := validate.New("Response")
 	v.Ternary("expected_value_type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case StringResponse:
+		v.Exec(variant.Validate)
+	case NumberResponse:
+		v.Exec(variant.Validate)
+	case BooleanResponse:
+		v.Exec(variant.Validate)
+	case NullResponse:
+		v.Exec(variant.Validate)
+	}
 	return v.Error()
 }
 
@@ -563,12 +723,174 @@ func (h HealthCheck) Validate() error {
 	return v.Error()
 }
 
-// ReadChannels holds the channels that read tasks write the responses of one path to.
-type ReadChannels struct {
-	// Index is the index channel of the channels that read the path.
+// Request identifies the request that a write task sends.
+type Request struct {
+	// Method is the method of the request.
+	Method http.Method `json:"method" msgpack:"method"`
+	// Path is the path appended to the base URL. Empty requests the base URL.
+	Path string `json:"path" msgpack:"path"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Request) SetDefaults() {
+	r.Method = http.MethodPost
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Request) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Request
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Request) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Request
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Request) Validate() error {
+	v := validate.New("Request")
+	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	return v.Error()
+}
+
+// ReadRequest identifies the request that a read task polls.
+type ReadRequest struct {
+	// Method is the method of the request.
+	Method http.Method `json:"method" msgpack:"method"`
+	// Path is the path appended to the base URL. Empty requests the base URL.
+	Path string `json:"path" msgpack:"path"`
+	// Query are the query parameters of the request, in sorted order.
+	Query []http.QueryParam `json:"query" msgpack:"query"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadRequest) SetDefaults() {
+	r.Method = http.MethodGet
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadRequest
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadRequest) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadRequest
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadRequest) Validate() error {
+	v := validate.New("ReadRequest")
+	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	return v.Error()
+}
+
+// Read binds a value in the responses of a request to a channel.
+type Read struct {
+	// Request is the request whose responses hold the value.
+	Request ReadRequest `json:"request" msgpack:"request"`
+	// Pointer is the JSON Pointer to the value in the response body.
+	Pointer string `json:"pointer" msgpack:"pointer"`
+	// Index is the index channel of the channel.
 	Index channel.Key `json:"index" msgpack:"index"`
-	// Channels maps a JSON Pointer to the channel that holds its samples.
-	Channels map[string]channel.Key `json:"channels" msgpack:"channels"`
+	// Channel is the channel that holds the samples of the value.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Read) SetDefaults() {
+	r.Request.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Read) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Read
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Read) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Read
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Read) Validate() error {
+	v := validate.New("Read")
+	v.Ternary("pointer", !validatePattern0.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.NonZero("index", r.Index)
+	v.NonZero("channel", r.Channel)
+	v.Exec(func() error { return validate.PathedError(r.Request.Validate(), "request") })
+	return v.Error()
+}
+
+// Write binds a request to the channel whose commands send it.
+type Write struct {
+	// Request is the request that commands send.
+	Request Request `json:"request" msgpack:"request"`
+	// Channel is the channel whose commands send the request.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *Write) SetDefaults() {
+	w.Request.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *Write) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Write
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *Write) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Write
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Write) Validate() error {
+	v := validate.New("Write")
+	v.NonZero("channel", w.Channel)
+	v.Exec(func() error { return validate.PathedError(w.Request.Validate(), "request") })
+	return v.Error()
 }
 
 // StatusDetails identifies the server and rack that a status pertains to.
@@ -594,24 +916,24 @@ type Server struct {
 	Name string `json:"name" msgpack:"name"`
 	// Scheme is the URL scheme that the Driver reaches the server with.
 	Scheme Scheme `json:"scheme" msgpack:"scheme"`
-	// Host is the host of the server, with an optional port and base path, such as
-	// 192.168.1.10:8080/api.
+	// Host is the hostname or IP address of the server.
 	Host string `json:"host" msgpack:"host"`
-	// CertificateValidationDisabled is true when the Driver accepts any server
-	// certificate.
-	CertificateValidationDisabled bool `json:"certificate_validation_disabled" msgpack:"certificate_validation_disabled"`
-	// TimeoutMs is the timeout of each request, in milliseconds.
-	TimeoutMs uint32 `json:"timeout_ms" msgpack:"timeout_ms"`
+	// Port is the TCP port. Absent takes the default port of the scheme.
+	Port *uint16 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// BasePath is the path that prefixes the path of every request.
+	BasePath string `json:"base_path" msgpack:"base_path"`
+	// Timeout is the timeout of each request.
+	Timeout telem.TimeSpan `json:"timeout" msgpack:"timeout"`
 	// MaxConcurrentRequests is the largest number of requests in flight to the server.
 	MaxConcurrentRequests uint32 `json:"max_concurrent_requests" msgpack:"max_concurrent_requests"`
 	// Auth holds the credentials that the Driver sends with each request.
 	Auth Auth `json:"auth" msgpack:"auth"`
 	// HealthCheck is the request that the Driver checks the server with.
 	HealthCheck HealthCheck `json:"health_check" msgpack:"health_check"`
-	// ReadChannels maps a path to the channels that read tasks write its responses to.
-	ReadChannels map[string]ReadChannels `json:"read_channels" msgpack:"read_channels"`
-	// WriteChannels maps a path to the channel whose commands write tasks send to it.
-	WriteChannels map[string]channel.Key `json:"write_channels" msgpack:"write_channels"`
+	// Reads bind the values that read tasks poll to channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+	// Writes bind the requests that write tasks send to channels.
+	Writes []Write `json:"writes" msgpack:"writes"`
 	// Status is the current connection status of the server.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
@@ -619,8 +941,8 @@ type Server struct {
 // SetDefaults sets every field that has a schema default to that default.
 func (s *Server) SetDefaults() {
 	s.HealthCheck.SetDefaults()
-	s.Scheme = SchemeHTTPS
-	s.TimeoutMs = 100
+	s.Scheme.Variant = HttpsScheme{}
+	s.Timeout = 1000000000
 	s.MaxConcurrentRequests = 6
 	s.Auth.Variant = NoneAuth{}
 }
@@ -648,12 +970,25 @@ func (s *Server) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (s Server) Validate() error {
 	v := validate.New("Server")
-	v.Ternaryf("scheme", !s.Scheme.IsValid(), "invalid scheme: %v", s.Scheme)
 	v.NotEmptyString("name", s.Name)
 	v.NotEmptyString("host", s.Host)
-	v.GreaterThanEq("timeout_ms", s.TimeoutMs, 1)
+	v.Ternary("host", !validatePattern1.MatchString(string(s.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
+	if s.Port != nil {
+		v.GreaterThanEq("port", *s.Port, 1)
+	}
+	v.Ternary("base_path", !validatePattern2.MatchString(string(s.BasePath)), "Base path must be empty or start with /")
+	v.GreaterThanEq("timeout", s.Timeout, 10000000)
+	v.LessThanEq("timeout", s.Timeout, 9007199254740991)
 	v.GreaterThanEq("max_concurrent_requests", s.MaxConcurrentRequests, 1)
+	v.LessThanEq("max_concurrent_requests", s.MaxConcurrentRequests, 64)
+	v.Exec(func() error { return validate.PathedError(s.Scheme.Validate(), "scheme") })
 	v.Exec(func() error { return validate.PathedError(s.Auth.Validate(), "auth") })
 	v.Exec(func() error { return validate.PathedError(s.HealthCheck.Validate(), "health_check") })
+	for i := range s.Reads {
+		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	for i := range s.Writes {
+		v.Exec(func() error { return validate.PathedError(s.Writes[i].Validate(), "writes", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }

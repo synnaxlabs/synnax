@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -25,18 +24,19 @@
 #include "client/cpp/secret/types.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::http::server {
 
 struct BaseResponse;
-struct ReadChannels;
+struct Request;
+struct ReadRequest;
 struct StatusDetails;
+struct Write;
+struct Read;
 struct HealthCheck;
 struct Server;
-
-constexpr const char *SCHEME_HTTPS = "https";
-constexpr const char *SCHEME_HTTP = "http";
 
 constexpr const char *SEND_AS_HEADER = "header";
 constexpr const char *SEND_AS_QUERY_PARAM = "query_param";
@@ -52,17 +52,54 @@ struct BaseResponse {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadChannels holds the channels that read tasks write the responses of one
-/// path to.
-struct ReadChannels {
-    /// @brief index is the index channel of the channels that read the path.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
-    /// @brief channels maps a JSON Pointer to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> channels = {};
+/// @brief Request identifies the request that a write task sends.
+struct Request {
+    /// @brief method is the method of the request.
+    std::string method = ::synnax::http::METHOD_POST;
+    /// @brief path is the path appended to the base URL. Empty requests the base URL.
+    std::string path = "";
 
-    static ReadChannels parse(x::json::Parser parser);
+    static Request parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief ReadRequest identifies the request that a read task polls.
+struct ReadRequest {
+    /// @brief method is the method of the request.
+    std::string method = ::synnax::http::METHOD_GET;
+    /// @brief path is the path appended to the base URL. Empty requests the base URL.
+    std::string path = "";
+    /// @brief query are the query parameters of the request, in sorted order.
+    std::vector<::synnax::http::QueryParam> query = {};
+
+    static ReadRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HttpsScheme sends requests over TLS.
+struct HttpsScheme {
+    std::string type = "https";
+    /// @brief certificate_validation_disabled is true when the Driver accepts any
+    /// server certificate.
+    bool certificate_validation_disabled = false;
+
+    static HttpsScheme parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HttpScheme sends requests in plain text.
+struct HttpScheme {
+    std::string type = "http";
+
+    static HttpScheme parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scheme is the URL scheme that the Driver reaches a server with.
+using Scheme = std::variant<HttpsScheme, HttpScheme>;
+
+Scheme parse_scheme(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scheme &value);
 
 /// @brief StatusDetails identifies the server and rack that a status pertains to.
 struct StatusDetails {
@@ -126,6 +163,32 @@ Response parse_response(x::json::Parser parser);
 [[nodiscard]] inline const BaseResponse &base(const Response &value) {
     return std::visit([](const auto &v) -> const BaseResponse & { return v; }, value);
 }
+
+/// @brief Write binds a request to the channel whose commands send it.
+struct Write {
+    /// @brief request is the request that commands send.
+    Request request;
+    /// @brief channel is the channel whose commands send the request.
+    ::synnax::channel::Key channel = 0;
+
+    static Write parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Read binds a value in the responses of a request to a channel.
+struct Read {
+    /// @brief request is the request whose responses hold the value.
+    ReadRequest request;
+    /// @brief pointer is the JSON Pointer to the value in the response body.
+    std::string pointer = "";
+    /// @brief index is the index channel of the channel.
+    ::synnax::channel::Key index = 0;
+    /// @brief channel is the channel that holds the samples of the value.
+    ::synnax::channel::Key channel = 0;
+
+    static Read parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief NoneAuth sends no credentials.
 struct NoneAuth {
@@ -209,15 +272,15 @@ struct Server {
     /// @brief name is a human-readable name for the server.
     std::string name;
     /// @brief scheme is the URL scheme that the Driver reaches the server with.
-    std::string scheme = SCHEME_HTTPS;
-    /// @brief host is the host of the server, with an optional port and base path, such
-    /// as 192.168.1.10:8080/api.
+    Scheme scheme = HttpsScheme{};
+    /// @brief host is the hostname or IP address of the server.
     std::string host;
-    /// @brief certificate_validation_disabled is true when the Driver accepts any
-    /// server certificate.
-    bool certificate_validation_disabled = false;
-    /// @brief timeout_ms is the timeout of each request, in milliseconds.
-    std::uint32_t timeout_ms = 100;
+    /// @brief port is the TCP port. Absent takes the default port of the scheme.
+    std::optional<std::uint16_t> port;
+    /// @brief base_path is the path that prefixes the path of every request.
+    std::string base_path = "";
+    /// @brief timeout is the timeout of each request.
+    ::x::telem::TimeSpan timeout = ::x::telem::TimeSpan(1000000000);
     /// @brief max_concurrent_requests is the largest number of requests in flight to
     /// the server.
     std::uint32_t max_concurrent_requests = 6;
@@ -225,12 +288,10 @@ struct Server {
     Auth auth = NoneAuth{};
     /// @brief health_check is the request that the Driver checks the server with.
     HealthCheck health_check = {};
-    /// @brief read_channels maps a path to the channels that read tasks write its
-    /// responses to.
-    std::unordered_map<std::string, ReadChannels> read_channels = {};
-    /// @brief write_channels maps a path to the channel whose commands write tasks send
-    /// to it.
-    std::unordered_map<std::string, ::synnax::channel::Key> write_channels = {};
+    /// @brief reads bind the values that read tasks poll to channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the requests that write tasks send to channels.
+    std::vector<Write> writes = {};
     /// @brief status is the current connection status of the server.
     std::optional<Status> status;
 

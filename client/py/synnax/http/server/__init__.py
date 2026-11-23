@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.http.server.types_gen import (
-    SCHEME_HTTP,
-    SCHEME_HTTPS,
     SEND_AS_HEADER,
     SEND_AS_QUERY_PARAM,
     TYPE_RESOURCE_ID,
@@ -20,11 +18,15 @@ from synnax.http.server.types_gen import (
     BearerAuth,
     BooleanResponse,
     HealthCheck,
+    HttpScheme,
+    HttpsScheme,
     Key,
     NoneAuth,
     NullResponse,
     NumberResponse,
-    ReadChannels,
+    Read,
+    ReadRequest,
+    Request,
     Response,
     Scheme,
     SendAs,
@@ -32,12 +34,11 @@ from synnax.http.server.types_gen import (
     Status,
     StatusDetails,
     StringResponse,
+    Write,
     resource_id,
 )
 
 __all__ = [
-    "SCHEME_HTTP",
-    "SCHEME_HTTPS",
     "SEND_AS_HEADER",
     "SEND_AS_QUERY_PARAM",
     "TYPE_RESOURCE_ID",
@@ -48,11 +49,15 @@ __all__ = [
     "BearerAuth",
     "BooleanResponse",
     "HealthCheck",
+    "HttpScheme",
+    "HttpsScheme",
     "Key",
     "NoneAuth",
     "NullResponse",
     "NumberResponse",
-    "ReadChannels",
+    "Read",
+    "ReadRequest",
+    "Request",
     "Response",
     "Scheme",
     "SendAs",
@@ -60,5 +65,6 @@ __all__ = [
     "Status",
     "StatusDetails",
     "StringResponse",
+    "Write",
     "resource_id",
 ]

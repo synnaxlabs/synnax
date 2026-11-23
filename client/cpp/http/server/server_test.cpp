@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/http/server/json.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::http::server {
@@ -29,9 +30,11 @@ TEST(Server, AppliesDefaults) {
     x::json::Parser parser(valid_server());
     const auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(server.scheme, SCHEME_HTTPS);
-    ASSERT_FALSE(server.certificate_validation_disabled);
-    ASSERT_EQ(server.timeout_ms, 100);
+    const auto &scheme = std::get<HttpsScheme>(server.scheme);
+    ASSERT_FALSE(scheme.certificate_validation_disabled);
+    ASSERT_FALSE(server.port.has_value());
+    ASSERT_EQ(server.base_path, "");
+    ASSERT_EQ(server.timeout, x::telem::SECOND);
     ASSERT_EQ(server.max_concurrent_requests, 6);
     ASSERT_TRUE(std::holds_alternative<NoneAuth>(server.auth));
     ASSERT_EQ(server.health_check.method, ::synnax::http::METHOD_GET);
@@ -46,19 +49,40 @@ TEST(Server, RoundTrips) {
     ASSERT_NIL(parser.error());
     const auto key = x::uuid::create();
     server.auth = APIKeyAuth{.key = key, .send_as = SEND_AS_QUERY_PARAM, .name = "k"};
-    server.read_channels["/weather"] = ReadChannels{
-        .index = 1,
-        .channels = {{"/t", 2}}
-    };
-    server.write_channels["/valve"] = 3;
+    server.scheme = HttpScheme{};
+    server.port = 8080;
+    server.reads.push_back(
+        Read{
+            .request =
+                ReadRequest{
+                    .method = ::synnax::http::METHOD_GET,
+                    .path = "/weather",
+                    .query = {{.parameter = "units", .value = "si"}},
+                },
+            .pointer = "/t",
+            .index = 1,
+            .channel = 2,
+        }
+    );
+    server.writes.push_back(
+        Write{
+            .request = Request{.method = ::synnax::http::METHOD_PUT, .path = "/valve"},
+            .channel = 3,
+        }
+    );
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
     const auto &auth = std::get<APIKeyAuth>(parsed.auth);
     ASSERT_EQ(auth.key, key);
     ASSERT_EQ(auth.send_as, SEND_AS_QUERY_PARAM);
-    ASSERT_EQ(parsed.read_channels.at("/weather").channels.at("/t"), 2);
-    ASSERT_EQ(parsed.write_channels.at("/valve"), 3);
+    ASSERT_TRUE(std::holds_alternative<HttpScheme>(parsed.scheme));
+    ASSERT_EQ(parsed.port, 8080);
+    ASSERT_EQ(parsed.reads.at(0).request.query.at(0).value, "si");
+    ASSERT_EQ(parsed.reads.at(0).pointer, "/t");
+    ASSERT_EQ(parsed.reads.at(0).channel, 2);
+    ASSERT_EQ(parsed.writes.at(0).request.method, ::synnax::http::METHOD_PUT);
+    ASSERT_EQ(parsed.writes.at(0).channel, 3);
 }
 
 /// @brief it should reject an auth that names no secret.

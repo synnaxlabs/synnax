@@ -19,12 +19,24 @@ type Key = v0.Key
 // Scheme is the URL scheme that the Driver reaches a server with.
 type Scheme = v0.Scheme
 
+// SchemeVariant is implemented by every Scheme variant.
+type SchemeVariant = v0.SchemeVariant
+
+// SchemeType is the "type" value that selects a variant of Scheme.
+type SchemeType = v0.SchemeType
+
 const (
-	// SchemeHTTPS sends requests over TLS.
-	SchemeHTTPS Scheme = v0.SchemeHTTPS
-	// SchemeHTTP sends requests in plain text.
-	SchemeHTTP Scheme = v0.SchemeHTTP
+	// HttpsSchemeType sends requests over TLS.
+	HttpsSchemeType SchemeType = v0.HttpsSchemeType
+	// HttpSchemeType sends requests in plain text.
+	HttpSchemeType SchemeType = v0.HttpSchemeType
 )
+
+// HttpsScheme sends requests over TLS.
+type HttpsScheme = v0.HttpsScheme
+
+// HttpScheme sends requests in plain text.
+type HttpScheme = v0.HttpScheme
 
 // SendAs selects where a request carries an API key.
 type SendAs = v0.SendAs
@@ -106,8 +118,17 @@ type NullResponse = v0.NullResponse
 // HealthCheck is the request that the Driver sends to check that a server answers.
 type HealthCheck = v0.HealthCheck
 
-// ReadChannels holds the channels that read tasks write the responses of one path to.
-type ReadChannels = v0.ReadChannels
+// Request identifies the request that a write task sends.
+type Request = v0.Request
+
+// ReadRequest identifies the request that a read task polls.
+type ReadRequest = v0.ReadRequest
+
+// Read binds a value in the responses of a request to a channel.
+type Read = v0.Read
+
+// Write binds a request to the channel whose commands send it.
+type Write = v0.Write
 
 // StatusDetails identifies the server and rack that a status pertains to.
 type StatusDetails = v0.StatusDetails

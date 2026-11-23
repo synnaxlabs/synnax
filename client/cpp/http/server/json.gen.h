@@ -13,7 +13,6 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -24,6 +23,7 @@
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::http::server {
 
@@ -71,22 +71,68 @@ inline x::json::json HealthCheck::to_json() const {
     return j;
 }
 
-inline ReadChannels ReadChannels::parse(x::json::Parser parser) {
-    return ReadChannels{
-        .index = parser
-                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
-        .channels = parser
-                        .field<std::unordered_map<std::string, ::synnax::channel::Key>>(
-                            "channels",
-                            std::unordered_map<std::string, ::synnax::channel::Key>{}
-                        ),
+inline Request Request::parse(x::json::Parser parser) {
+    return Request{
+        .method = parser.field<std::string>("method", "POST"),
+        .path = parser.field<std::string>("path", ""),
     };
 }
 
-inline x::json::json ReadChannels::to_json() const {
+inline x::json::json Request::to_json() const {
     x::json::json j = x::json::json::object();
+    j["method"] = this->method;
+    j["path"] = this->path;
+    return j;
+}
+
+inline ReadRequest ReadRequest::parse(x::json::Parser parser) {
+    return ReadRequest{
+        .method = parser.field<std::string>("method", "GET"),
+        .path = parser.field<std::string>("path", ""),
+        .query = parser.field<std::vector<::synnax::http::QueryParam>>(
+            "query",
+            std::vector<::synnax::http::QueryParam>{}
+        ),
+    };
+}
+
+inline x::json::json ReadRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["method"] = this->method;
+    j["path"] = this->path;
+    j["query"] = x::json::to_array(this->query);
+    return j;
+}
+
+inline Read Read::parse(x::json::Parser parser) {
+    return Read{
+        .request = parser.field<ReadRequest>("request"),
+        .pointer = parser.field<std::string>("pointer", ""),
+        .index = parser.required_field<::synnax::channel::Key>("index"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
+    };
+}
+
+inline x::json::json Read::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["request"] = this->request.to_json();
+    j["pointer"] = this->pointer;
     j["index"] = this->index;
-    j["channels"] = this->channels;
+    j["channel"] = this->channel;
+    return j;
+}
+
+inline Write Write::parse(x::json::Parser parser) {
+    return Write{
+        .request = parser.field<Request>("request"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
+    };
+}
+
+inline x::json::json Write::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["request"] = this->request.to_json();
+    j["channel"] = this->channel;
     return j;
 }
 
@@ -111,13 +157,15 @@ inline Server Server::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
-        .scheme = parser.field<std::string>("scheme", "https"),
+        .scheme = parser.has("scheme") ? parse_scheme(parser.child("scheme"))
+                                       : Scheme{HttpsScheme{}},
         .host = parser.required_field<std::string>("host"),
-        .certificate_validation_disabled = parser.field<bool>(
-            "certificate_validation_disabled",
-            false
+        .port = parser.field<std::optional<std::uint16_t>>("port"),
+        .base_path = parser.field<std::string>("base_path", ""),
+        .timeout = parser.field<::x::telem::TimeSpan>(
+            "timeout",
+            ::x::telem::TimeSpan(1000000000)
         ),
-        .timeout_ms = parser.field<std::uint32_t>("timeout_ms", 100),
         .max_concurrent_requests = parser.field<std::uint32_t>(
             "max_concurrent_requests",
             6
@@ -125,15 +173,8 @@ inline Server Server::parse(x::json::Parser parser) {
         .auth = parser.has("auth") ? parse_auth(parser.child("auth"))
                                    : Auth{NoneAuth{}},
         .health_check = parser.field<HealthCheck>("health_check", HealthCheck{}),
-        .read_channels = parser.field<std::unordered_map<std::string, ReadChannels>>(
-            "read_channels",
-            std::unordered_map<std::string, ReadChannels>{}
-        ),
-        .write_channels = parser.field<
-            std::unordered_map<std::string, ::synnax::channel::Key>>(
-            "write_channels",
-            std::unordered_map<std::string, ::synnax::channel::Key>{}
-        ),
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -143,21 +184,46 @@ inline x::json::json Server::to_json() const {
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
     j["name"] = this->name;
-    j["scheme"] = this->scheme;
+    j["scheme"] = ::synnax::http::server::to_json(this->scheme);
     j["host"] = this->host;
-    j["certificate_validation_disabled"] = this->certificate_validation_disabled;
-    j["timeout_ms"] = this->timeout_ms;
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["base_path"] = this->base_path;
+    j["timeout"] = this->timeout.nanoseconds();
     j["max_concurrent_requests"] = this->max_concurrent_requests;
     j["auth"] = ::synnax::http::server::to_json(this->auth);
     j["health_check"] = this->health_check.to_json();
-    {
-        auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->read_channels)
-            obj[key] = item.to_json();
-        j["read_channels"] = obj;
-    }
-    j["write_channels"] = this->write_channels;
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline HttpsScheme HttpsScheme::parse(x::json::Parser parser) {
+    HttpsScheme result;
+    result.certificate_validation_disabled = parser.field<bool>(
+        "certificate_validation_disabled",
+        false
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HttpsScheme::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["certificate_validation_disabled"] = this->certificate_validation_disabled;
+    j["type"] = this->type;
+    return j;
+}
+
+inline HttpScheme HttpScheme::parse(x::json::Parser parser) {
+    HttpScheme result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HttpScheme::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
     return j;
 }
 
@@ -285,6 +351,18 @@ inline x::json::json NullResponse::to_json() const {
         j.update(parent);
     j["expected_value_type"] = this->expected_value_type;
     return j;
+}
+
+inline Scheme parse_scheme(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "https") return HttpsScheme::parse(parser);
+    if (discriminator == "http") return HttpScheme::parse(parser);
+    parser.field_err("type", "unknown Scheme type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Scheme &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline Auth parse_auth(x::json::Parser parser) {

@@ -13,10 +13,11 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -207,27 +208,70 @@ func (hc *HealthCheck) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (rc ReadChannels) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(rc.Index))
-	w.Bool(rc.Channels != nil)
-	if rc.Channels != nil {
-		w.Uint32(uint32(len(rc.Channels)))
-		for key, val := range rc.Channels {
-			w.String(key)
-			w.Uint32(uint32(val))
+func (rv Read) EncodeOrc(w *orc.Writer) error {
+	if err := rv.Request.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(rv.Pointer)
+	w.Uint32(uint32(rv.Index))
+	w.Uint32(uint32(rv.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Read) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = rv.Request.DecodeOrc(r); err != nil {
+		return err
+	}
+	if rv.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.Index = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rr ReadRequest) EncodeOrc(w *orc.Writer) error {
+	w.String(string(rr.Method))
+	w.String(rr.Path)
+	w.Bool(rr.Query != nil)
+	if rr.Query != nil {
+		w.Uint32(uint32(len(rr.Query)))
+		for i := range rr.Query {
+			if err := rr.Query[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (rc *ReadChannels) DecodeOrc(r *orc.Reader) error {
+func (rr *ReadRequest) DecodeOrc(r *orc.Reader) error {
+	var err error
 	{
-		rawV, err := r.Uint32()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		rc.Index = channel.Key(rawV)
+		rr.Method = http.Method(rawV)
+	}
+	if rr.Path, err = r.String(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()
@@ -239,23 +283,36 @@ func (rc *ReadChannels) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Channels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
+			rr.Query = make([]http.QueryParam, n)
+			for i := range rr.Query {
+				if err = rr.Query[i].DecodeOrc(r); err != nil {
 					return err
 				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				rc.Channels[key] = val
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Request) EncodeOrc(w *orc.Writer) error {
+	w.String(string(rv.Method))
+	w.String(rv.Path)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Request) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.Method = http.Method(rawV)
+	}
+	if rv.Path, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -339,14 +396,58 @@ func (rv *Response) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (s Scheme) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case HttpsScheme:
+		w.String("https")
+		w.Bool(v.CertificateValidationDisabled)
+	case HttpScheme:
+		w.String("http")
+	default:
+		return errors.Newf("Scheme: nil or unknown variant %T", s.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Scheme) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "https":
+		var v HttpsScheme
+		if v.CertificateValidationDisabled, err = r.Bool(); err != nil {
+			return err
+		}
+		s.Variant = v
+	case "http":
+		var v HttpScheme
+		s.Variant = v
+	default:
+		return errors.Newf("Scheme: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Server) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.Uint32(uint32(s.Rack))
 	w.String(s.Name)
-	w.String(string(s.Scheme))
+	if err := s.Scheme.EncodeOrc(w); err != nil {
+		return err
+	}
 	w.String(s.Host)
-	w.Bool(s.CertificateValidationDisabled)
-	w.Uint32(uint32(s.TimeoutMs))
+	if s.Port != nil {
+		w.Bool(true)
+		w.Uint16(uint16(*s.Port))
+	} else {
+		w.Bool(false)
+	}
+	w.String(s.BasePath)
+	w.Int64(int64(s.Timeout))
 	w.Uint32(uint32(s.MaxConcurrentRequests))
 	if err := s.Auth.EncodeOrc(w); err != nil {
 		return err
@@ -354,22 +455,22 @@ func (s Server) EncodeOrc(w *orc.Writer) error {
 	if err := s.HealthCheck.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(s.ReadChannels != nil)
-	if s.ReadChannels != nil {
-		w.Uint32(uint32(len(s.ReadChannels)))
-		for key, val := range s.ReadChannels {
-			w.String(key)
-			if err := val.EncodeOrc(w); err != nil {
+	w.Bool(s.Reads != nil)
+	if s.Reads != nil {
+		w.Uint32(uint32(len(s.Reads)))
+		for i := range s.Reads {
+			if err := s.Reads[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.Bool(s.WriteChannels != nil)
-	if s.WriteChannels != nil {
-		w.Uint32(uint32(len(s.WriteChannels)))
-		for key, val := range s.WriteChannels {
-			w.String(key)
-			w.Uint32(uint32(val))
+	w.Bool(s.Writes != nil)
+	if s.Writes != nil {
+		w.Uint32(uint32(len(s.Writes)))
+		for i := range s.Writes {
+			if err := s.Writes[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -391,21 +492,34 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Scheme = Scheme(rawV)
+	if err = s.Scheme.DecodeOrc(r); err != nil {
+		return err
 	}
 	if s.Host, err = r.String(); err != nil {
 		return err
 	}
-	if s.CertificateValidationDisabled, err = r.Bool(); err != nil {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint16
+			if hv, err = r.Uint16(); err != nil {
+				return err
+			}
+			s.Port = &hv
+		}
+	}
+	if s.BasePath, err = r.String(); err != nil {
 		return err
 	}
-	if s.TimeoutMs, err = r.Uint32(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Timeout = telem.TimeSpan(rawV)
 	}
 	if s.MaxConcurrentRequests, err = r.Uint32(); err != nil {
 		return err
@@ -426,17 +540,11 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.ReadChannels = make(map[string]ReadChannels, n)
-			for range n {
-				var key string
-				var val ReadChannels
-				if key, err = r.String(); err != nil {
+			s.Reads = make([]Read, n)
+			for i := range s.Reads {
+				if err = s.Reads[i].DecodeOrc(r); err != nil {
 					return err
 				}
-				if err = val.DecodeOrc(r); err != nil {
-					return err
-				}
-				s.ReadChannels[key] = val
 			}
 		}
 	}
@@ -450,23 +558,38 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.WriteChannels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
+			s.Writes = make([]Write, n)
+			for i := range s.Writes {
+				if err = s.Writes[i].DecodeOrc(r); err != nil {
 					return err
 				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				s.WriteChannels[key] = val
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Write) EncodeOrc(w *orc.Writer) error {
+	if err := wv.Request.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Uint32(uint32(wv.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Write) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = wv.Request.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		wv.Channel = channel.Key(rawV)
 	}
 	return nil
 }

@@ -757,14 +757,37 @@ class TestHTTPServerResource:
     def test_applies_the_defaults(self) -> None:
         """Should parse a server and fill in its defaults."""
         server = sy.http.server.Server.model_validate(self.SERVER)
-        assert server.scheme == sy.http.server.SCHEME_HTTPS
-        assert server.certificate_validation_disabled is False
-        assert server.timeout_ms == 100
+        assert isinstance(server.scheme, sy.http.server.HttpsScheme)
+        assert server.scheme.certificate_validation_disabled is False
+        assert server.port is None
+        assert server.base_path == ""
+        assert server.timeout == sy.TimeSpan.SECOND
         assert server.max_concurrent_requests == 6
         assert isinstance(server.auth, sy.http.server.NoneAuth)
         assert server.health_check.method == "GET"
         assert server.health_check.response is None
-        assert server.read_channels == {}
+        assert server.reads == []
+        assert server.writes == []
+
+    def test_parses_bindings(self) -> None:
+        """Should parse reads and writes with the defaults of their requests."""
+        server = sy.http.server.Server.model_validate(
+            {
+                **self.SERVER,
+                "reads": [
+                    {
+                        "request": {"path": "/now"},
+                        "pointer": "/t",
+                        "index": 1,
+                        "channel": 2,
+                    }
+                ],
+                "writes": [{"request": {"path": "/valve"}, "channel": 3}],
+            }
+        )
+        assert server.reads[0].request.method == "GET"
+        assert server.reads[0].request.query == []
+        assert server.writes[0].request.method == "POST"
 
     def test_parses_secret_credentials(self) -> None:
         """Should parse an API key auth that names its key by secret."""
@@ -779,16 +802,21 @@ class TestHTTPServerResource:
     @pytest.mark.parametrize(
         "change",
         [
-            {"scheme": "ftp"},
-            {"timeout_ms": 0},
+            {"scheme": {"type": "ftp"}},
+            {"port": 0},
+            {"timeout": 9 * sy.TimeSpan.MILLISECOND},
             {"max_concurrent_requests": 0},
+            {"max_concurrent_requests": 65},
+            {"reads": [{"request": {}, "index": 0, "channel": 2}]},
+            {"writes": [{"request": {}, "channel": 0}]},
             {"auth": {"type": "bearer", "token": "plaintext"}},
             {"auth": {"type": "oauth"}},
         ],
     )
     def test_rejects_an_invalid_server(self, change: dict[str, Any]) -> None:
-        """Should reject an unknown scheme, a zero timeout or request cap, a plaintext
-        token, and an unknown auth type."""
+        """Should reject an unknown scheme, a zero port, a timeout under 10 ms, a
+        request cap out of range, a binding with no channel, a plaintext token, and an
+        unknown auth type."""
         with pytest.raises(ValidationError):
             sy.http.server.Server.model_validate({**self.SERVER, **change})
 

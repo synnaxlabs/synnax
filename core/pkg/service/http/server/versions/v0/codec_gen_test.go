@@ -19,9 +19,10 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/http/server/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -112,23 +113,80 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("ReadChannels", func() {
+	Describe("Read", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.ReadChannels) {
+			func(original v0.Read) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.ReadChannels
+				var decoded v0.Read
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.ReadChannels{
-				Index:    channel.Key(2),
-				Channels: map[string]channel.Key{"test_2": channel.Key(3)},
+			Entry("fully populated", v0.Read{
+				Request: v0.ReadRequest{
+					Method: http.Method("GET"),
+					Path:   "test_3",
+					Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+				},
+				Pointer: "test_7",
+				Index:   channel.Key(9),
+				Channel: channel.Key(10),
 			}),
-			Entry("zero values", v0.ReadChannels{Index: channel.Key(0), Channels: map[string]channel.Key{}}),
-			Entry("empty collections", v0.ReadChannels{Index: channel.Key(2), Channels: map[string]channel.Key{}}),
+			Entry("zero values", v0.Read{
+				Request: v0.ReadRequest{
+					Method: http.Method(""),
+					Path:   "",
+					Query:  []http.QueryParam{},
+				},
+				Pointer: "",
+				Index:   channel.Key(0),
+				Channel: channel.Key(0),
+			}),
+		)
+	})
+	Describe("ReadRequest", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.ReadRequest) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.ReadRequest
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.ReadRequest{
+				Method: http.Method("GET"),
+				Path:   "test_2",
+				Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+			}),
+			Entry("zero values", v0.ReadRequest{
+				Method: http.Method(""),
+				Path:   "",
+				Query:  []http.QueryParam{},
+			}),
+			Entry("empty collections", v0.ReadRequest{
+				Method: http.Method("GET"),
+				Path:   "test_2",
+				Query:  []http.QueryParam{},
+			}),
+		)
+	})
+	Describe("Request", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Request) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Request
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Request{Method: http.Method("GET"), Path: "test_2"}),
+			Entry("zero values", v0.Request{Method: http.Method(""), Path: ""}),
 		)
 	})
 	Describe("Response", func() {
@@ -154,6 +212,21 @@ var _ = Describe("Codec", func() {
 			Entry("null variant", v0.Response{Variant: v0.NullResponse{BaseResponse: fullyPopulatedBaseResponse}}),
 		)
 	})
+	Describe("Scheme", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Scheme) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Scheme
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("https variant", v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}}),
+			Entry("http variant", v0.Scheme{Variant: v0.HttpScheme{}}),
+		)
+	})
 	Describe("Server", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Server) {
@@ -166,44 +239,57 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Server{
-				Key:                           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:                          rack.Key(3),
-				Name:                          "test_3",
-				Scheme:                        v0.Scheme("https"),
-				Host:                          "test_5",
-				CertificateValidationDisabled: false,
-				TimeoutMs:                     8,
-				MaxConcurrentRequests:         9,
-				Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+				Key:                   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:                  rack.Key(3),
+				Name:                  "test_3",
+				Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}},
+				Host:                  "test_6",
+				Port:                  new(uint16(8)),
+				BasePath:              "test_8",
+				Timeout:               telem.TimeSpan(10),
+				MaxConcurrentRequests: 11,
+				Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 				HealthCheck: v0.HealthCheck{
 					Method:      http.Method("GET"),
-					Path:        "test_12",
-					Headers:     []http.Header{{Name: "test_14", Value: "test_15"}},
-					QueryParams: []http.QueryParam{{Parameter: "test_17", Value: "test_18"}},
-					Body:        "test_19",
+					Path:        "test_14",
+					Headers:     []http.Header{{Name: "test_16", Value: "test_17"}},
+					QueryParams: []http.QueryParam{{Parameter: "test_19", Value: "test_20"}},
+					Body:        "test_21",
 					Response: new(v0.Response{Variant: v0.StringResponse{
 						BaseResponse:  fullyPopulatedBaseResponse,
-						ExpectedValue: "test_21",
+						ExpectedValue: "test_23",
 					}}),
 				},
-				ReadChannels: map[string]v0.ReadChannels{
-					"test_22": {
-						Index:    channel.Key(24),
-						Channels: map[string]channel.Key{"test_24": channel.Key(25)},
+				Reads: []v0.Read{
+					{
+						Request: v0.ReadRequest{
+							Method: http.Method("GET"),
+							Path:   "test_27",
+							Query:  []http.QueryParam{{Parameter: "test_29", Value: "test_30"}},
+						},
+						Pointer: "test_31",
+						Index:   channel.Key(33),
+						Channel: channel.Key(34),
 					},
 				},
-				WriteChannels: map[string]channel.Key{"test_25": channel.Key(26)},
+				Writes: []v0.Write{
+					{
+						Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
+						Channel: channel.Key(39),
+					},
+				},
 			}),
 			Entry("zero values", v0.Server{
-				Key:                           uuid.Nil(),
-				Rack:                          rack.Key(0),
-				Name:                          "",
-				Scheme:                        v0.Scheme(""),
-				Host:                          "",
-				CertificateValidationDisabled: false,
-				TimeoutMs:                     0,
-				MaxConcurrentRequests:         0,
-				Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+				Key:                   uuid.Nil(),
+				Rack:                  rack.Key(0),
+				Name:                  "",
+				Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: false}},
+				Host:                  "",
+				Port:                  nil,
+				BasePath:              "",
+				Timeout:               telem.TimeSpan(0),
+				MaxConcurrentRequests: 0,
+				Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 				HealthCheck: v0.HealthCheck{
 					Method:      http.Method(""),
 					Path:        "",
@@ -212,32 +298,54 @@ var _ = Describe("Codec", func() {
 					Body:        "",
 					Response:    nil,
 				},
-				ReadChannels:  map[string]v0.ReadChannels{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
 			}),
 			Entry("empty collections", v0.Server{
-				Key:                           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:                          rack.Key(3),
-				Name:                          "test_3",
-				Scheme:                        v0.Scheme("https"),
-				Host:                          "test_5",
-				CertificateValidationDisabled: false,
-				TimeoutMs:                     8,
-				MaxConcurrentRequests:         9,
-				Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+				Key:                   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:                  rack.Key(3),
+				Name:                  "test_3",
+				Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}},
+				Host:                  "test_6",
+				Port:                  new(uint16(8)),
+				BasePath:              "test_8",
+				Timeout:               telem.TimeSpan(10),
+				MaxConcurrentRequests: 11,
+				Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 				HealthCheck: v0.HealthCheck{
 					Method:      http.Method("GET"),
-					Path:        "test_12",
+					Path:        "test_14",
 					Headers:     []http.Header{},
 					QueryParams: []http.QueryParam{},
-					Body:        "test_15",
+					Body:        "test_17",
 					Response: new(v0.Response{Variant: v0.StringResponse{
-						BaseResponse:  v0.BaseResponse{Pointer: "test_17"},
-						ExpectedValue: "test_18",
+						BaseResponse:  v0.BaseResponse{Pointer: "test_19"},
+						ExpectedValue: "test_20",
 					}}),
 				},
-				ReadChannels:  map[string]v0.ReadChannels{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
+			}),
+		)
+	})
+	Describe("Write", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Write) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Write
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Write{
+				Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
+				Channel: channel.Key(5),
+			}),
+			Entry("zero values", v0.Write{
+				Request: v0.Request{Method: http.Method(""), Path: ""},
+				Channel: channel.Key(0),
 			}),
 		)
 	})
@@ -304,10 +412,16 @@ func BenchmarkEncodeDecodeHealthCheck(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeReadChannels(b *testing.B) {
-	seed := v0.ReadChannels{
-		Index:    channel.Key(2),
-		Channels: map[string]channel.Key{"test_2": channel.Key(3)},
+func BenchmarkEncodeDecodeRead(b *testing.B) {
+	seed := v0.Read{
+		Request: v0.ReadRequest{
+			Method: http.Method("GET"),
+			Path:   "test_3",
+			Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+		},
+		Pointer: "test_7",
+		Index:   channel.Key(9),
+		Channel: channel.Key(10),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -316,7 +430,45 @@ func BenchmarkEncodeDecodeReadChannels(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.ReadChannels
+		var decoded v0.Read
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadRequest(b *testing.B) {
+	seed := v0.ReadRequest{
+		Method: http.Method("GET"),
+		Path:   "test_2",
+		Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.ReadRequest
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRequest(b *testing.B) {
+	seed := v0.Request{Method: http.Method("GET"), Path: "test_2"}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Request
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -344,35 +496,64 @@ func BenchmarkEncodeDecodeResponse(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeScheme(b *testing.B) {
+	seed := v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Scheme
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeServer(b *testing.B) {
 	seed := v0.Server{
-		Key:                           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Rack:                          rack.Key(3),
-		Name:                          "test_3",
-		Scheme:                        v0.Scheme("https"),
-		Host:                          "test_5",
-		CertificateValidationDisabled: false,
-		TimeoutMs:                     8,
-		MaxConcurrentRequests:         9,
-		Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+		Key:                   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rack:                  rack.Key(3),
+		Name:                  "test_3",
+		Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}},
+		Host:                  "test_6",
+		Port:                  new(uint16(8)),
+		BasePath:              "test_8",
+		Timeout:               telem.TimeSpan(10),
+		MaxConcurrentRequests: 11,
+		Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 		HealthCheck: v0.HealthCheck{
 			Method:      http.Method("GET"),
-			Path:        "test_12",
-			Headers:     []http.Header{{Name: "test_14", Value: "test_15"}},
-			QueryParams: []http.QueryParam{{Parameter: "test_17", Value: "test_18"}},
-			Body:        "test_19",
+			Path:        "test_14",
+			Headers:     []http.Header{{Name: "test_16", Value: "test_17"}},
+			QueryParams: []http.QueryParam{{Parameter: "test_19", Value: "test_20"}},
+			Body:        "test_21",
 			Response: new(v0.Response{Variant: v0.StringResponse{
 				BaseResponse:  fullyPopulatedBaseResponse,
-				ExpectedValue: "test_21",
+				ExpectedValue: "test_23",
 			}}),
 		},
-		ReadChannels: map[string]v0.ReadChannels{
-			"test_22": {
-				Index:    channel.Key(24),
-				Channels: map[string]channel.Key{"test_24": channel.Key(25)},
+		Reads: []v0.Read{
+			{
+				Request: v0.ReadRequest{
+					Method: http.Method("GET"),
+					Path:   "test_27",
+					Query:  []http.QueryParam{{Parameter: "test_29", Value: "test_30"}},
+				},
+				Pointer: "test_31",
+				Index:   channel.Key(33),
+				Channel: channel.Key(34),
 			},
 		},
-		WriteChannels: map[string]channel.Key{"test_25": channel.Key(26)},
+		Writes: []v0.Write{
+			{
+				Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
+				Channel: channel.Key(39),
+			},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -382,6 +563,26 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Server
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWrite(b *testing.B) {
+	seed := v0.Write{
+		Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
+		Channel: channel.Key(5),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Write
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -564,11 +765,17 @@ func FuzzDecodeHealthCheck(f *testing.F) {
 	})
 }
 
-func FuzzDecodeReadChannels(f *testing.F) {
+func FuzzDecodeRead(f *testing.F) {
 	{
-		seed := v0.ReadChannels{
-			Index:    channel.Key(2),
-			Channels: map[string]channel.Key{"test_2": channel.Key(3)},
+		seed := v0.Read{
+			Request: v0.ReadRequest{
+				Method: http.Method("GET"),
+				Path:   "test_3",
+				Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+			},
+			Pointer: "test_7",
+			Index:   channel.Key(9),
+			Channel: channel.Key(10),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -577,15 +784,16 @@ func FuzzDecodeReadChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.ReadChannels{Index: channel.Key(0), Channels: map[string]channel.Key{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+		seed := v0.Read{
+			Request: v0.ReadRequest{
+				Method: http.Method(""),
+				Path:   "",
+				Query:  []http.QueryParam{},
+			},
+			Pointer: "",
+			Index:   channel.Key(0),
+			Channel: channel.Key(0),
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.ReadChannels{Index: channel.Key(2), Channels: map[string]channel.Key{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -593,7 +801,7 @@ func FuzzDecodeReadChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.ReadChannels
+		var decoded v0.Read
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -603,7 +811,105 @@ func FuzzDecodeReadChannels(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.ReadChannels
+		var redecoded v0.Read
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadRequest(f *testing.F) {
+	{
+		seed := v0.ReadRequest{
+			Method: http.Method("GET"),
+			Path:   "test_2",
+			Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadRequest{
+			Method: http.Method(""),
+			Path:   "",
+			Query:  []http.QueryParam{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadRequest{
+			Method: http.Method("GET"),
+			Path:   "test_2",
+			Query:  []http.QueryParam{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.ReadRequest
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.ReadRequest
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRequest(f *testing.F) {
+	{
+		seed := v0.Request{Method: http.Method("GET"), Path: "test_2"}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Request{Method: http.Method(""), Path: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Request
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Request
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -675,36 +981,87 @@ func FuzzDecodeResponse(f *testing.F) {
 	})
 }
 
+func FuzzDecodeScheme(f *testing.F) {
+	{
+		seed := v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Scheme{Variant: v0.HttpScheme{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Scheme
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Scheme
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeServer(f *testing.F) {
 	{
 		seed := v0.Server{
-			Key:                           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:                          rack.Key(3),
-			Name:                          "test_3",
-			Scheme:                        v0.Scheme("https"),
-			Host:                          "test_5",
-			CertificateValidationDisabled: false,
-			TimeoutMs:                     8,
-			MaxConcurrentRequests:         9,
-			Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+			Key:                   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:                  rack.Key(3),
+			Name:                  "test_3",
+			Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}},
+			Host:                  "test_6",
+			Port:                  new(uint16(8)),
+			BasePath:              "test_8",
+			Timeout:               telem.TimeSpan(10),
+			MaxConcurrentRequests: 11,
+			Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 			HealthCheck: v0.HealthCheck{
 				Method:      http.Method("GET"),
-				Path:        "test_12",
-				Headers:     []http.Header{{Name: "test_14", Value: "test_15"}},
-				QueryParams: []http.QueryParam{{Parameter: "test_17", Value: "test_18"}},
-				Body:        "test_19",
+				Path:        "test_14",
+				Headers:     []http.Header{{Name: "test_16", Value: "test_17"}},
+				QueryParams: []http.QueryParam{{Parameter: "test_19", Value: "test_20"}},
+				Body:        "test_21",
 				Response: new(v0.Response{Variant: v0.StringResponse{
 					BaseResponse:  fullyPopulatedBaseResponse,
-					ExpectedValue: "test_21",
+					ExpectedValue: "test_23",
 				}}),
 			},
-			ReadChannels: map[string]v0.ReadChannels{
-				"test_22": {
-					Index:    channel.Key(24),
-					Channels: map[string]channel.Key{"test_24": channel.Key(25)},
+			Reads: []v0.Read{
+				{
+					Request: v0.ReadRequest{
+						Method: http.Method("GET"),
+						Path:   "test_27",
+						Query:  []http.QueryParam{{Parameter: "test_29", Value: "test_30"}},
+					},
+					Pointer: "test_31",
+					Index:   channel.Key(33),
+					Channel: channel.Key(34),
 				},
 			},
-			WriteChannels: map[string]channel.Key{"test_25": channel.Key(26)},
+			Writes: []v0.Write{
+				{
+					Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
+					Channel: channel.Key(39),
+				},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -714,15 +1071,16 @@ func FuzzDecodeServer(f *testing.F) {
 	}
 	{
 		seed := v0.Server{
-			Key:                           uuid.Nil(),
-			Rack:                          rack.Key(0),
-			Name:                          "",
-			Scheme:                        v0.Scheme(""),
-			Host:                          "",
-			CertificateValidationDisabled: false,
-			TimeoutMs:                     0,
-			MaxConcurrentRequests:         0,
-			Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+			Key:                   uuid.Nil(),
+			Rack:                  rack.Key(0),
+			Name:                  "",
+			Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: false}},
+			Host:                  "",
+			Port:                  nil,
+			BasePath:              "",
+			Timeout:               telem.TimeSpan(0),
+			MaxConcurrentRequests: 0,
+			Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 			HealthCheck: v0.HealthCheck{
 				Method:      http.Method(""),
 				Path:        "",
@@ -731,8 +1089,8 @@ func FuzzDecodeServer(f *testing.F) {
 				Body:        "",
 				Response:    nil,
 			},
-			ReadChannels:  map[string]v0.ReadChannels{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -742,28 +1100,29 @@ func FuzzDecodeServer(f *testing.F) {
 	}
 	{
 		seed := v0.Server{
-			Key:                           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:                          rack.Key(3),
-			Name:                          "test_3",
-			Scheme:                        v0.Scheme("https"),
-			Host:                          "test_5",
-			CertificateValidationDisabled: false,
-			TimeoutMs:                     8,
-			MaxConcurrentRequests:         9,
-			Auth:                          v0.Auth{Variant: v0.NoneAuth{}},
+			Key:                   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:                  rack.Key(3),
+			Name:                  "test_3",
+			Scheme:                v0.Scheme{Variant: v0.HttpsScheme{CertificateValidationDisabled: true}},
+			Host:                  "test_6",
+			Port:                  new(uint16(8)),
+			BasePath:              "test_8",
+			Timeout:               telem.TimeSpan(10),
+			MaxConcurrentRequests: 11,
+			Auth:                  v0.Auth{Variant: v0.NoneAuth{}},
 			HealthCheck: v0.HealthCheck{
 				Method:      http.Method("GET"),
-				Path:        "test_12",
+				Path:        "test_14",
 				Headers:     []http.Header{},
 				QueryParams: []http.QueryParam{},
-				Body:        "test_15",
+				Body:        "test_17",
 				Response: new(v0.Response{Variant: v0.StringResponse{
-					BaseResponse:  v0.BaseResponse{Pointer: "test_17"},
-					ExpectedValue: "test_18",
+					BaseResponse:  v0.BaseResponse{Pointer: "test_19"},
+					ExpectedValue: "test_20",
 				}}),
 			},
-			ReadChannels:  map[string]v0.ReadChannels{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -783,6 +1142,51 @@ func FuzzDecodeServer(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Server
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWrite(f *testing.F) {
+	{
+		seed := v0.Write{
+			Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
+			Channel: channel.Key(5),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Write{
+			Request: v0.Request{Method: http.Method(""), Path: ""},
+			Channel: channel.Key(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Write
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Write
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
