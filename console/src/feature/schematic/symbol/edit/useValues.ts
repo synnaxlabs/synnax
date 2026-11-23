@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Color, Enumeration, Schematic } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/x";
 
 import { Spec } from "@/feature/schematic/symbol/spec";
 
