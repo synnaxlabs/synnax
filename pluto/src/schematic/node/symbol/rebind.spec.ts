@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
@@ -24,7 +23,6 @@ const createSpec = (
     commands,
   });
 
-const CUSTOM = uuid.create();
 const FIXED = { type: "fixed", value: 1 };
 const ENUMERATION = createSpec([{ type: "enumeration", key: "mode", name: "Mode" }]);
 const NUMBER = createSpec([{ type: "number", key: "mode", name: "Mode" }]);
@@ -94,42 +92,5 @@ describe("Schematic.Node.rebind", () => {
     expect(Node.rebind({ states: [], commands }, from, to).commands).toEqual([
       { key: "open", channel: 7 },
     ]);
-  });
-});
-
-describe("Schematic.Node.symbolKey", () => {
-  it.each<[string, schematic.symbol.Ref, string]>([
-    ["built-in", { type: "builtin", name: "valve" }, "valve"],
-    ["custom", { type: "custom", key: CUSTOM }, CUSTOM],
-    ["missing", { type: "missing", key: CUSTOM }, CUSTOM],
-  ])("should key a %s symbol node by its symbol", (_, spec, key) => {
-    const config = Node.createConfig({ variant: "symbol", spec });
-    expect(Node.symbolKey(config)).toBe(key);
-  });
-});
-
-describe("Schematic.Node.customKey", () => {
-  it.each<[string, schematic.NodeConfig, string | undefined]>([
-    ["a built-in node", Node.createConfig({ variant: "valve" }), undefined],
-    [
-      "a built-in symbol node",
-      Node.createConfig({
-        variant: "symbol",
-        spec: { type: "builtin", name: "valve" },
-      }),
-      undefined,
-    ],
-    [
-      "a custom symbol node",
-      Node.createConfig({ variant: "symbol", spec: { type: "custom", key: CUSTOM } }),
-      CUSTOM,
-    ],
-    [
-      "a custom node",
-      Node.createConfig({ variant: "custom_static", specKey: CUSTOM }),
-      CUSTOM,
-    ],
-  ])("should give %s its custom key", (_, config, key) => {
-    expect(Node.customKey(config)).toBe(key);
   });
 });

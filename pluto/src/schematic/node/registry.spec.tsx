@@ -9,7 +9,7 @@
 
 import { type enumeration, NotFoundError, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, deep, TimeSpan } from "@synnaxlabs/x";
+import { color, deep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { fireEvent, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -274,6 +274,8 @@ describe("Schematic.Node.customVariant", () => {
   });
 });
 
+const CUSTOM = uuid.create();
+
 describe("Schematic.Node.symbolKey", () => {
   it("should return the variant of a built-in symbol", () => {
     expect(Node.symbolKey(Node.createConfig({ variant: "tank" }))).toBe("tank");
@@ -282,6 +284,41 @@ describe("Schematic.Node.symbolKey", () => {
   it("should return the spec key of a custom symbol", () => {
     const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
     expect(Node.symbolKey(config)).toBe("spec-1");
+  });
+
+  it.each<[string, schematic.symbol.Ref, string]>([
+    ["built-in", { type: "builtin", name: "valve" }, "valve"],
+    ["custom", { type: "custom", key: CUSTOM }, CUSTOM],
+    ["missing", { type: "missing", key: CUSTOM }, CUSTOM],
+  ])("should key a %s symbol node by its symbol", (_, spec, key) => {
+    const config = Node.createConfig({ variant: "symbol", spec });
+    expect(Node.symbolKey(config)).toBe(key);
+  });
+});
+
+describe("Schematic.Node.customKey", () => {
+  it.each<[string, schematic.NodeConfig, string | undefined]>([
+    ["a built-in node", Node.createConfig({ variant: "valve" }), undefined],
+    [
+      "a built-in symbol node",
+      Node.createConfig({
+        variant: "symbol",
+        spec: { type: "builtin", name: "valve" },
+      }),
+      undefined,
+    ],
+    [
+      "a custom symbol node",
+      Node.createConfig({ variant: "symbol", spec: { type: "custom", key: CUSTOM } }),
+      CUSTOM,
+    ],
+    [
+      "a custom node",
+      Node.createConfig({ variant: "custom_static", specKey: CUSTOM }),
+      CUSTOM,
+    ],
+  ])("should give %s its custom key", (_, config, key) => {
+    expect(Node.customKey(config)).toBe(key);
   });
 });
 
