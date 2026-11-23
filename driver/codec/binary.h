@@ -26,6 +26,7 @@
 
 #include "driver/codec/binding.h"
 #include "driver/codec/bits.h"
+#include "driver/codec/mux.h"
 
 namespace driver::codec {
 /// @brief BinaryMessage is a binary message and the fields to decode from its frames.
@@ -44,22 +45,6 @@ class Binary {
     /// @brief Type is how a field reads its raw bits.
     enum class Type : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
 
-    /// @brief Condition selects a field when its multiplexor holds one of values.
-    struct Condition {
-        /// @brief mux indexes the multiplexors of the message, or is -1 for a field
-        /// that every frame holds.
-        int mux = -1;
-        std::vector<std::int64_t> values;
-    };
-
-    /// @brief Mux is a field that selects which other fields a frame holds.
-    struct Mux {
-        std::string name;
-        BitRange bits;
-        bool is_signed = false;
-        Condition condition;
-    };
-
     struct Field {
         std::string name;
         BitRange bits;
@@ -76,7 +61,7 @@ class Binary {
         /// @brief fallback holds the one sample used when a frame does not hold the
         /// field, or nothing when the field requires one.
         std::optional<x::telem::Series> fallback;
-        Condition condition;
+        Multiplexors::Condition condition;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::BinaryField &f, const x::telem::DataType &dt);
@@ -90,34 +75,16 @@ class Binary {
         decode(std::span<const std::uint8_t> payload, x::telem::Series &dst) const;
     };
 
-    /// @brief Layout maps the key of each ICD field of a message to the field.
-    using Layout = std::map<synnax::icd::FieldKey, const synnax::icd::BinaryField *>;
+    using Layout = Multiplexors::Layout;
 
     struct Message {
         std::string name;
         std::vector<Field> fields;
-        /// @brief muxes holds the multiplexors of the fields, each after the
-        /// multiplexor that selects it.
-        std::vector<Mux> muxes;
-        /// @brief mux_end is the number of payload bytes that the multiplexors need.
-        std::size_t mux_end = 0;
+        Multiplexors muxes;
         /// @brief raw holds the raw value of each multiplexor in the last decode.
         std::vector<std::int64_t> raw;
         std::vector<x::telem::Series> samples;
 
-        /// @brief returns the condition that selects field f, and adds the multiplexors
-        /// that it reads to muxes. index maps the key of each multiplexor to its index
-        /// in muxes, and depth is the number of multiplexors below f in its chain.
-        /// @returns CONFIG_ERROR when a multiplexor does not exist, is a float field,
-        /// selects on no values, or is in a cycle of multiplexors.
-        std::pair<Condition, x::errors::Error> resolve(
-            const synnax::icd::BinaryBaseField &f,
-            const Layout &fields,
-            std::map<synnax::icd::FieldKey, int> &index,
-            std::size_t depth
-        );
-        /// @brief reports whether the multiplexors in the last decode select a field.
-        [[nodiscard]] bool selected(const Condition &c) const;
         /// @brief decodes the value of each field in payload into samples.
         x::errors::Error decode(std::span<const std::uint8_t> payload);
     };
