@@ -183,6 +183,8 @@ export class WriteAdapter {
   private byKey: Map<channel.Key, channel.Payload>;
   /** The channel of each key of a record frame, resolved once until an update. */
   private byRecordKey: Map<string, channel.Payload>;
+  /** The keys of the last record and their checked channels, until an update. */
+  private lastRecord: { keys: string[]; channels: channel.Payload[] } | null;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
@@ -192,6 +194,7 @@ export class WriteAdapter {
     this.byText = new Map();
     this.byKey = new Map();
     this.byRecordKey = new Map();
+    this.lastRecord = null;
     this.keys = [];
     this.codec = new Codec();
   }
@@ -231,6 +234,7 @@ export class WriteAdapter {
     }
     this.byKey = new Map(results.map((c) => [c.key, c]));
     this.byRecordKey = new Map();
+    this.lastRecord = null;
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
@@ -290,6 +294,7 @@ export class WriteAdapter {
     }
     const resolved = channels as channel.Payload[];
     refuseShared(keys, resolved);
+    this.lastRecord = { keys, channels: resolved };
     return resolved;
   }
 
@@ -401,13 +406,22 @@ export class WriteAdapter {
     }
 
     const kvs = Object.entries(columnsOrData);
-    const plds = await this.resolveRecord(kvs.map(([k]) => k));
-    const data = kvs.map(
-      ([, v], i) => new Series({ data: v, dataType: plds[i].dataType }),
-    );
-    return new Frame(
-      plds.map((pld) => pld.key),
-      data,
-    );
+    // A writer often writes records of one shape, which then needs no lookup or check.
+    const last = this.lastRecord;
+    let plds: channel.Payload[];
+    if (
+      last != null &&
+      last.keys.length === kvs.length &&
+      kvs.every(([k], i) => k === last.keys[i])
+    )
+      plds = last.channels;
+    else plds = await this.resolveRecord(kvs.map(([k]) => k));
+    const cols = new Array<channel.Key>(kvs.length);
+    const data = new Array<Series>(kvs.length);
+    for (let i = 0; i < kvs.length; i++) {
+      cols[i] = plds[i].key;
+      data[i] = new Series({ data: kvs[i][1], dataType: plds[i].dataType });
+    }
+    return new Frame(cols, data);
   }
 }
