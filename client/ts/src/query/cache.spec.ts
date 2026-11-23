@@ -21,7 +21,12 @@ import z from "zod";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  MissingCredentialsError,
+  NotFoundError,
+} from "@/index";
 import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {
@@ -1174,6 +1179,33 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
       expect(unreachable.get("u1")).toEqual({ key: "u1", name: "stale" });
       expect(disconnected.get("d1")).toEqual({ key: "d1", name: "stale" });
+      await cache.close();
+    });
+
+    it("stays silent when a fetch fails because the client logged out", async () => {
+      const onError = vi.fn();
+      const cache = new query.Cache({
+        openStreamer: async () => new MockStreamer(),
+        onError,
+      });
+      const loggedOut = cache.createTable<string, Doc>({
+        name: "loggedOut",
+        fetch: async () => {
+          throw new MissingCredentialsError();
+        },
+      });
+      const reachable = cache.createTable<string, Doc>({
+        name: "reachable",
+        fetch: async (keys) => keys.map((k) => ({ key: k, name: "fresh" })),
+      });
+      loggedOut.set("l1", { key: "l1", name: "stale" });
+      reachable.set("r1", { key: "r1", name: "stale" });
+      await cache.ensureStreaming();
+      await expect
+        .poll(() => reachable.get("r1"))
+        .toEqual({ key: "r1", name: "fresh" });
+      expect(onError).not.toHaveBeenCalled();
+      expect(loggedOut.get("l1")).toEqual({ key: "l1", name: "stale" });
       await cache.close();
     });
 
