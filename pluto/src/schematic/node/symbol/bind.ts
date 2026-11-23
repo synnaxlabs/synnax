@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
+import { unique } from "@synnaxlabs/x";
 
 import { Telem } from "@/schematic/node/common/telem";
 import type { telem } from "@/telem/aether";
@@ -39,47 +40,67 @@ export const bindSpec = (
   };
 };
 
-/** @returns a number source for each binding that reads a channel, by its state key. */
-export const sources = (
-  bindings: Pick<schematic.StateBinding, "key" | "source">[],
-): Record<string, telem.NumberSourceSpec> =>
-  Object.fromEntries(
-    bindings.flatMap(({ key, source }) =>
-      source?.type === "channel" && source.key != null
-        ? [[key, Telem.numberSource(source.key)]]
-        : [],
+type Sourced = Pick<schematic.StateBinding, "key" | "source">;
+
+/** @returns the channels that the bound states read. */
+export const stateChannels = (bindings: Sourced[]): channel.Key[] =>
+  unique.unique(
+    bindings.flatMap(({ source }) =>
+      source?.type === "channel" && source.key != null ? [source.key] : [],
     ),
   );
+
+/** @returns a number source for each channel in channels, by its key. */
+export const sources = (
+  channels: channel.Key[],
+): Record<string, telem.NumberSourceSpec> =>
+  Object.fromEntries(channels.map((ch) => [ch, Telem.numberSource(ch)]));
+
+// Readings are keyed by channel.
+const reading = (
+  readings: Record<string, symbolNode.Reading>,
+  source: schematic.StateBinding["source"],
+): symbolNode.Reading | undefined =>
+  source?.type === "channel" &&
+  source.key != null &&
+  Object.hasOwn(readings, source.key)
+    ? readings[source.key]
+    : undefined;
 
 /**
  * @returns the value of each bound state that has one: the reading of its channel, or
  * its local value. A state with no value draws its default.
  */
 export const values = (
-  bindings: Pick<schematic.StateBinding, "key" | "source">[],
+  bindings: Sourced[],
   readings: Record<string, symbolNode.Reading>,
 ): Map<string, number> => {
   const out = new Map<string, number>();
-  for (const { key, source } of bindings)
-    if (source?.type === "local") out.set(key, source.value);
-    else if (source?.type === "channel" && Object.hasOwn(readings, key)) {
-      const { value } = readings[key];
-      if (value != null) out.set(key, value);
-    }
+  for (const { key, source } of bindings) {
+    const v =
+      source?.type === "local" ? source.value : reading(readings, source)?.value;
+    if (v != null) out.set(key, v);
+  }
   return out;
 };
+
+/** @returns whether a bound state reads a stale channel. */
+export const stale = (
+  bindings: Sourced[],
+  readings: Record<string, symbolNode.Reading>,
+): boolean => bindings.some(({ source }) => reading(readings, source)?.stale === true);
 
 /**
  * @returns whether a state reads a channel that has no data yet, or whose newest value
  * is NaN.
  */
 export const dataMissing = (
-  bindings: Pick<schematic.StateBinding, "key" | "source">[],
+  bindings: Sourced[],
   readings: Record<string, symbolNode.Reading>,
 ): boolean =>
   bindings.some(
-    ({ key, source }) =>
+    ({ source }) =>
       source?.type === "channel" &&
       source.key != null &&
-      (!Object.hasOwn(readings, key) || readings[key].value == null),
+      reading(readings, source)?.value == null,
   );
