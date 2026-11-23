@@ -245,4 +245,47 @@ var _ = Describe("Calculation change stream breaker", func() {
 			Expect(keys).To(Equal([]uuid.UUID{readable.Key}))
 		},
 	)
+
+	It("Should send each label set to a stream that lags 280 frames", func(
+		ctx SpecContext,
+	) {
+		const creates = 280
+		ch := find(ctx, "sy_label_set")
+		open(ctx, ch, resource.ID{Type: resource.TypeLabel})
+		for range creates {
+			l := label.Label{Key: uuid.New(), Name: "lag"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
+		}
+		n := count(ch)
+		Eventually(n.Load).
+			WithTimeout(10 * time.Second).
+			Should(BeEquivalentTo(creates))
+	}, SpecTimeout(60*time.Second))
+
+	DescribeTable(
+		"Should send each change to a subject that reads the calculation when its "+
+			"stream lags 280 frames",
+		func(ctx SpecContext, name string) {
+			const edits = 280
+			in := virtual(ctx)
+			c := calculate(ctx, times(in, 2))
+			ch := find(ctx, name)
+			open(ctx, ch, links(c)...)
+			for i := range edits {
+				edit(ctx, c, times(in, i+3))
+			}
+			n := count(ch)
+			Eventually(n.Load).
+				WithTimeout(10 * time.Second).
+				Should(BeEquivalentTo(edits))
+		},
+		Entry("a calculation set", "sy_calculation_set", SpecTimeout(60*time.Second)),
+		Entry(
+			"a calculation action",
+			"sy_calculation_action_set",
+			SpecTimeout(60*time.Second),
+		),
+	)
 })
