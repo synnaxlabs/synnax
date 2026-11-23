@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
 
-describe("ICD", () => {
+describe("ICD.Stored", () => {
   describe("bindingsOf", () => {
     const [a, a2, b, c, g, i] = Array.from({ length: 6 }, () => uuid.create());
     const dataTypes = new Map<channel.Key, string>([
@@ -30,7 +30,7 @@ describe("ICD", () => {
       }[],
       written = new Set<channel.Key>(),
     ) =>
-      ICD.bindingsOf(
+      ICD.Stored.bindingsOf(
         { "/a": 1, "/b": 2, "/gone": 3, "/i": 4 },
         fields.map((f) => icd.jsonFieldZ.parse({ name: "field", ...f })),
         written,
@@ -99,7 +99,7 @@ describe("ICD", () => {
     });
   });
 
-  describe("stored channels", () => {
+  describe("sources", () => {
     const [m1, m2] = [uuid.create(), uuid.create()];
     const props = (index: channel.Key, channels: Record<string, channel.Key>) => ({
       index,
@@ -113,14 +113,14 @@ describe("ICD", () => {
     const source = (
       messages: icd.ReadMessage[],
       legacy?: string,
-    ): ICD.StoredSource => ({ key: "t", legacy, messages });
+    ): ICD.Stored.Source => ({ key: "t", legacy, messages });
 
-    describe("storedOf", () => {
+    describe("of", () => {
       it("should return the channels stored under the key of the message", () => {
         const own = props(1, { "/a": 2 });
         expect(
-          ICD.storedOf(
-            { [ICD.storedKey("t", m1)]: own },
+          ICD.Stored.of(
+            { [ICD.Stored.key("t", m1)]: own },
             source([read(m1, [2])], "t"),
             0,
           ),
@@ -130,33 +130,33 @@ describe("ICD", () => {
       it("should give the legacy channels to the message that binds one", () => {
         const held = props(1, { "/a": 2 });
         const messages = [read(m1), read(m2, [2])];
-        expect(ICD.storedOf({ t: held }, source(messages, "t"), 0)).toBeUndefined();
-        expect(ICD.storedOf({ t: held }, source(messages, "t"), 1)).toBe(held);
+        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 0)).toBeUndefined();
+        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 1)).toBe(held);
       });
 
       it("should give the legacy channels to the first message by default", () => {
         const held = props(1, { "/a": 2 });
         const messages = [read(m1), read(m2)];
-        expect(ICD.storedOf({ t: held }, source(messages, "t"), 0)).toBe(held);
-        expect(ICD.storedOf({ t: held }, source(messages, "t"), 1)).toBeUndefined();
+        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 0)).toBe(held);
+        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 1)).toBeUndefined();
       });
 
       it("should read no legacy channels for a source with no legacy key", () => {
         expect(
-          ICD.storedOf({ t: props(1, { "/a": 2 }) }, source([read(m1)]), 0),
+          ICD.Stored.of({ t: props(1, { "/a": 2 }) }, source([read(m1)]), 0),
         ).toBeUndefined();
       });
     });
 
-    describe("sourceChannels", () => {
+    describe("channels", () => {
       it("should merge the channels of the source, with the message first", () => {
         expect(
-          ICD.sourceChannels(
+          ICD.Stored.channels(
             {
               t: props(1, { "/a": 2, "/b": 3 }),
-              [ICD.storedKey("t", m2)]: props(1, { "/b": 4, "/c": 5 }),
-              [ICD.storedKey("t", m1)]: props(1, { "/c": 6 }),
-              [ICD.storedKey("u", m1)]: props(1, { "/d": 7 }),
+              [ICD.Stored.key("t", m2)]: props(1, { "/b": 4, "/c": 5 }),
+              [ICD.Stored.key("t", m1)]: props(1, { "/c": 6 }),
+              [ICD.Stored.key("u", m1)]: props(1, { "/d": 7 }),
             },
             source([read(m1)], "t"),
             m1,
@@ -166,10 +166,10 @@ describe("ICD", () => {
 
       it("should leave the channels of a later read with that read", () => {
         expect(
-          ICD.sourceChannels(
+          ICD.Stored.channels(
             {
-              [ICD.storedKey("t", m1)]: props(1, { "/a": 2 }),
-              [ICD.storedKey("t", m2)]: props(1, { "/b": 3 }),
+              [ICD.Stored.key("t", m1)]: props(1, { "/a": 2 }),
+              [ICD.Stored.key("t", m2)]: props(1, { "/b": 3 }),
             },
             source([read(m1), read(m2)]),
             m1,
@@ -179,7 +179,7 @@ describe("ICD", () => {
 
       it("should merge no bare key for a source with no legacy key", () => {
         expect(
-          ICD.sourceChannels({ t: props(1, { "/a": 2 }) }, source([read(m1)]), m1),
+          ICD.Stored.channels({ t: props(1, { "/a": 2 }) }, source([read(m1)]), m1),
         ).toEqual({});
       });
     });
@@ -188,18 +188,18 @@ describe("ICD", () => {
       it("should move the legacy channels to the key of their read", () => {
         const held = props(1, { "/a": 2 });
         const stored: Record<string, ReturnType<typeof props>> = { t: held };
-        ICD.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 0);
+        ICD.Stored.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 0);
         expect(stored).toEqual({ t: held });
-        ICD.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 1);
-        expect(stored).toEqual({ [ICD.storedKey("t", m2)]: held });
+        ICD.Stored.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 1);
+        expect(stored).toEqual({ [ICD.Stored.key("t", m2)]: held });
       });
 
       it("should keep the legacy channels when the read has its own", () => {
         const held = props(1, { "/a": 2 });
         const own = props(1, { "/b": 3 });
-        const stored = { t: held, [ICD.storedKey("t", m1)]: own };
-        ICD.moveLegacy(stored, source([read(m1)], "t"), 0);
-        expect(stored).toEqual({ t: held, [ICD.storedKey("t", m1)]: own });
+        const stored = { t: held, [ICD.Stored.key("t", m1)]: own };
+        ICD.Stored.moveLegacy(stored, source([read(m1)], "t"), 0);
+        expect(stored).toEqual({ t: held, [ICD.Stored.key("t", m1)]: own });
       });
     });
   });
