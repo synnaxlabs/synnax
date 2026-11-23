@@ -540,6 +540,29 @@ const storedSource = ({
   messages,
 });
 
+/**
+ * @returns stored without the channels of messages that other endpoints with the path
+ * of ep read, which the device stores beside the channels of ep.
+ */
+const storedFor = (
+  stored: Record<string, Task.ReadChannelProps>,
+  endpoints: ReadEndpoint[],
+  ep: ICDEndpoint,
+): Record<string, Task.ReadChannelProps> => {
+  const own = new Set(
+    ep.messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
+  );
+  const others = new Set(
+    endpoints
+      .filter(({ key, path }) => key !== ep.key && path === ep.path)
+      .flatMap(({ messages }) =>
+        messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
+      )
+      .filter((at) => !own.has(at)),
+  );
+  return Object.fromEntries(Object.entries(stored).filter(([at]) => !others.has(at)));
+};
+
 /** @returns the channels that enabled endpoints bind. The Core skips disabled ones. */
 const writtenChannels = (endpoints: ReadEndpoint[]): Set<channel.Key> => {
   const written = new Set(
@@ -790,18 +813,25 @@ const Endpoints: FC<EndpointsProps> = ({
     pathOf: icdPath,
     SourceItem: EndpointItem,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled endpoint reads it, or it no longer exists or fits the field. An
-    // endpoint that reads one message also reuses the channels of its earlier messages,
-    // so a new message format keeps its channels.
+    // unless an enabled endpoint reads it, it belongs to a message that another
+    // endpoint reads, or it no longer exists or fits the field. An endpoint that reads
+    // one message also reuses the channels of its earlier messages, so a new message
+    // format keeps its channels.
     bindDisabled,
     bindingOf: (key, read, field) => {
       const ep = ctx.get(icdPath(key)).value;
+      const all = ctx.get(root.config.endpoints).value;
+      const held = storedFor(stored, all, ep);
       const channels =
         ep.messages.length === 1
-          ? ICD.Stored.channels(stored, storedSource(ep), ep.messages[0].message)
-          : (ICD.Stored.of(stored, storedSource(ep), read)?.channels ?? {});
-      const written = writtenChannels(ctx.get(root.config.endpoints).value);
-      return ICD.Stored.bindingsOf(channels, [field], written, dataTypes)[0];
+          ? ICD.Stored.channels(held, storedSource(ep), ep.messages[0].message)
+          : (ICD.Stored.of(held, storedSource(ep), read)?.channels ?? {});
+      return ICD.Stored.bindingsOf(
+        channels,
+        [field],
+        writtenChannels(all),
+        dataTypes,
+      )[0];
     },
     messageName: (key, held) =>
       messageName(ctx.get(root.config.endpoints[key]).value, held),
