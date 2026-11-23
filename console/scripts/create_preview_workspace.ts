@@ -328,7 +328,12 @@ interface Test {
   labels: label.Key[];
 }
 
-const PHASES = ["Pressurize", "Hold", "Vent"];
+// A line plot draws only the ranges that have a color.
+const PHASES = [
+  { name: "Pressurize", color: "#F59F00" },
+  { name: "Hold", color: "#7048E8" },
+  { name: "Vent", color: "#0CA678" },
+];
 
 const createRanges = async (client: Synnax): Promise<void> => {
   const l = KEYS.labels;
@@ -369,11 +374,12 @@ const createRanges = async (client: Synnax): Promise<void> => {
     });
     await client.labels.label(ranger.resourceID(test.key), test.labels);
     await client.ranges.create(
-      PHASES.map((name, i) => {
+      PHASES.map(({ name, color }, i): ranger.New => {
         const phaseStart = start.add(TimeSpan.minutes(10 * i));
         return {
           name,
           parent: test.key,
+          color: { type: "fixed", value: color },
           timeRange: { start: phaseStart, end: phaseStart.add(TimeSpan.minutes(10)) },
         };
       }),
