@@ -28,7 +28,8 @@ type ParsedValue struct {
 	Value any
 	// Type is the Arc type of the value
 	Type types.Type
-	// Truncated is set when the unit conversion dropped a part of an integer.
+	// Truncated is set when the unit conversion dropped a part of an integer, or
+	// rounded the period of a rate to 0.
 	Truncated bool
 }
 
@@ -298,13 +299,16 @@ func Convert(
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if types.UnitsReciprocal(from, targetType.Unit) {
-		if value != 0 {
+		nonZero := value != 0
+		if nonZero {
 			value = types.PeriodFactor(from, targetType.Unit) / value
 		}
 		if targetType.IsInteger() {
 			value = math.RoundToEven(value)
 		}
-		return convertToTargetKind(value, targetType, targetType.Unit)
+		parsed, err := convertToTargetKind(value, targetType, targetType.Unit)
+		parsed.Truncated = nonZero && value == 0
+		return parsed, err
 	}
 	factor, err := units.ScaleFactor(from, targetType.Unit)
 	if err != nil {

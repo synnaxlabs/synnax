@@ -135,6 +135,10 @@ func truncationOf[T antlr.ParserRuleContext](
 				"(" + sourceText(value) + ")",
 		})
 	}
+	// A time span has no unit that holds a rate as written.
+	if types.UnitsReciprocal(from, to) {
+		return d
+	}
 	init, ok := converted(decl.Expression(), t, to, from)
 	if !ok {
 		return d
@@ -279,12 +283,21 @@ func truncates[T antlr.ParserRuleContext](
 	w Write,
 	isLiteral bool,
 ) bool {
+	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
+	// The period of a rate rounds, so only a literal that rounds to 0 loses its value.
+	if types.UnitsReciprocal(from, to) {
+		return isLiteral && literalTruncates(ctx, w)
+	}
 	if !integersTruncate(ctx, w.Source, w.Target) {
 		return false
 	}
-	if !isLiteral || seriesToSeries(w) {
-		return true
-	}
+	return !isLiteral || seriesToSeries(w) || literalTruncates(ctx, w)
+}
+
+func literalTruncates[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	w Write,
+) bool {
 	parsed, err := literal.ParseConst(
 		w.Expr,
 		ctx.Constraints.ApplySubstitutions(w.Target),
@@ -317,6 +330,11 @@ func truncation(
 	ast antlr.ParserRuleContext,
 	from, to *types.Unit,
 ) diagnostics.Diagnostic {
+	if types.UnitsReciprocal(from, to) {
+		return codes.UnitPrecisionLoss.Atf(
+			ast, "the period of a rate in %s rounds to 0 %s", from.Name, to.Name,
+		)
+	}
 	return codes.UnitPrecisionLoss.Atf(
 		ast,
 		"unit conversion from %s to %s truncates an integer toward zero",

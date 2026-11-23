@@ -95,6 +95,32 @@ var _ = Describe("CheckUnits", func() {
 		Entry("a variable with a period that is not whole", "x", i64(unitMin), true),
 		Entry("a float", "x", types.WithUnit(types.F64(), unitS), true),
 		Entry("a literal", "10hz", i64(unitNS), false),
+		Entry("a literal with a period that rounds", "60hz", i64(unitMS), false),
+		Entry("a literal of zero", "0hz", i64(unitS), false),
+		Entry("a literal for a float",
+			"10hz", types.WithUnit(types.F64(), unitS), false),
+	)
+
+	DescribeTable("rates with a period that rounds to 0",
+		func(bCtx SpecContext, source string, to types.Type, message string) {
+			diag, converts, ok := check(bCtx, source, expression.Write{
+				Source: i64(unitHz),
+				Target: to,
+			})
+			Expect(ok).To(BeTrue())
+			Expect(converts).To(BeFalse())
+			Expect(diag.Errors()).To(BeEmpty())
+			found := testutil.Warnings(diag)
+			Expect(found).To(HaveLen(1), diag.String())
+			Expect(found[0].Code).To(Equal(codes.UnitPrecisionLoss.Code))
+			Expect(found[0].Message).To(Equal(message))
+		},
+		Entry("a literal for a larger time span", "10hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
+		Entry("a literal with a period of half of the unit", "2hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
+		Entry("a negative literal", "-10hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
 	)
 
 	DescribeTable("values that the target rejects",
@@ -196,6 +222,8 @@ var _ = Describe("Unit fixes", func() {
 			"func f(x i64 Pa) {\nd i64 psi := 5psi\nd = x\n}",
 			fix("d f64 psi := 5psi", "f64 Pa(x)")),
 		Entry("a declaration from a variable", "func f(x i64 s) {\nd i64 min := x\n}"),
+		Entry("a rate with a period that rounds to 0",
+			"func f() {\nd i64 s := 10hz\n}", fix("d f64 s := 10hz")),
 	)
 
 	DescribeTable("a cast that removes a unit",
