@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, deep, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it, type Mock, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
 import { Node } from "@/schematic/node";
@@ -37,6 +37,9 @@ describe("Symbol form", () => {
         </Enumeration.CreatePromptProvider>
       </Base>
     );
+  });
+  beforeEach(() => {
+    prompt.mockReset();
   });
 
   const render = async (tab: "telemetry" | "style" = "telemetry") =>
