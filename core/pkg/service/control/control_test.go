@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
@@ -109,7 +110,8 @@ var _ = Describe("Control", func() {
 			).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Free()).To(BeTrue())
-			Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(channeltestutil.RetrieveBuiltIns(ctx, dist.DB, channelSvc)).
+				To(ContainElement(ch.Key()))
 			Expect(ch.DataType).To(Equal(telem.JSONT))
 		})
 	})

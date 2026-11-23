@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"slices"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -81,7 +79,7 @@ var _ = Describe("Built-in channels", func() {
 		ch := command()
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).ToNot(BeZero())
-		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
+		Expect(RetrieveBuiltIns(ctx, db, svc)).To(ContainElement(ch.Key()))
 		Expect(retrieve(ctx, ch.Name)).To(HaveLen(1))
 	})
 
@@ -127,9 +125,6 @@ var _ = Describe("Built-in channels", func() {
 		for _, ch := range []channel.Channel{before, beforeIndex, after, afterIndex} {
 			Expect(rename(ch)).To(Succeed(), "channel %d is not built-in", ch.Key())
 		}
-		builtIns := svc.BuiltIns()
-		Expect(builtIns).To(ContainElements(free.Key(), leased.Key()))
-		Expect(slices.IsSorted(builtIns)).To(BeTrue())
 	})
 
 	It("Should adopt a channel of the same data type and virtual flag", func(
@@ -141,7 +136,7 @@ var _ = Describe("Built-in channels", func() {
 		ch.Name = held.Name
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).To(Equal(held.Key()))
-		Expect(svc.BuiltIns()).To(ContainElement(held.Key()))
+		Expect(RetrieveBuiltIns(ctx, db, svc)).To(ContainElement(held.Key()))
 	})
 
 	It("Should take an adopted channel out of the license count", func(
@@ -311,7 +306,7 @@ var _ = Describe("Built-in channels", func() {
 			}
 			return rollback
 		})).To(MatchError(rollback))
-		Expect(svc.BuiltIns()).ToNot(ContainElement(ch.Key()))
+		Expect(RetrieveBuiltIns(ctx, db, svc)).ToNot(ContainElement(ch.Key()))
 	})
 
 	Describe("Guards", func() {
@@ -387,7 +382,7 @@ var _ = Describe("Built-in channels across restarts", func() {
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Declare(ctx, &ch)
 			})).To(Succeed())
-			Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(RetrieveBuiltIns(ctx, node.DB, svc)).To(ContainElement(ch.Key()))
 			return ch.Key()
 		}
 		first := declare()

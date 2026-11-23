@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
@@ -121,10 +122,13 @@ var _ = Describe("Actions", func() {
 			responses = openStreamer(ctx, ch.Key())
 		})
 
-		It("Should create the channel as a free, built-in JSON channel", func() {
+		It("Should create the channel as a free, built-in JSON channel", func(
+			ctx SpecContext,
+		) {
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Free()).To(BeTrue())
-			Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(channeltestutil.RetrieveBuiltIns(ctx, db, channelSvc)).
+				To(ContainElement(ch.Key()))
 			Expect(ch.DataType).To(Equal(telem.JSONT))
 		})
 

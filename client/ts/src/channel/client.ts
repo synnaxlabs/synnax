@@ -52,7 +52,6 @@ import {
   type Payload,
   payloadZ,
   resourceID,
-  retrieveBuiltInsResponseZ,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
@@ -424,15 +423,10 @@ export class Client extends query.Retriever<
     );
     // The Core checks the internal line until the built-in keys arrive.
     const builtIns = new BuiltIns({
-      fetch: async () => {
-        const { keys } = await cfg.unary.send(
-          "/channel/retrieve-built-ins",
-          {},
-          z.object({}),
-          retrieveBuiltInsResponseZ,
-        );
-        return keys;
-      },
+      fetch: async () =>
+        (await this.execRetrieve({ where: { internal: { eq: true } } })).map(
+          ({ key }) => key,
+        ),
       onEpoch: (callback) => cache.onEpoch(callback),
       onError: (error) => cache.onError(error),
     });

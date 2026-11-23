@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/confluence"
@@ -60,7 +61,8 @@ var _ = Describe("Signals", func() {
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, db)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
-			Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(channeltestutil.RetrieveBuiltIns(ctx, db, channelSvc)).
+				To(ContainElement(ch.Key()))
 		}
 	})
 

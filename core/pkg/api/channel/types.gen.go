@@ -102,13 +102,6 @@ func (u Use) Validate() error {
 	return v.Error()
 }
 
-// RetrieveBuiltInsResponse holds the keys of the channels that Core services declare
-// for their work.
-type RetrieveBuiltInsResponse struct {
-	// Keys are the keys of the built-in channels.
-	Keys []servicechannel.Key `json:"keys" msgpack:"keys"`
-}
-
 // CountLimitedResponse holds the count of the channels that count against the license
 // channel limit (not internal, not virtual).
 type CountLimitedResponse struct {

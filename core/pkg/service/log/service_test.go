@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -125,7 +126,8 @@ var _ = Describe("OpenService", func() {
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
-			Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(channeltestutil.RetrieveBuiltIns(ctx, db, channelSvc)).
+				To(ContainElement(ch.Key()))
 		}
 	})
 })

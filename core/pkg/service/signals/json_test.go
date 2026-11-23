@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
@@ -130,10 +131,11 @@ var _ = Describe("JSON", func() {
 		})
 		It(
 			"Should create the set channel as a free, built-in, virtual JSON channel",
-			func() {
+			func(ctx SpecContext) {
 				Expect(ch.Virtual).To(BeTrue())
 				Expect(ch.Free()).To(BeTrue())
-				Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
+				Expect(channeltestutil.RetrieveBuiltIns(ctx, db, channelSvc)).
+					To(ContainElement(ch.Key()))
 				Expect(ch.DataType).To(Equal(telem.JSONT))
 			},
 		)

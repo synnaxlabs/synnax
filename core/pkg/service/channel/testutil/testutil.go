@@ -49,3 +49,20 @@ func CreateVirtual(
 	}
 	return channel.KeysFromChannels(channels), nil
 }
+
+// RetrieveBuiltIns returns the keys of the channels in db that the internal filter
+// matches.
+func RetrieveBuiltIns(
+	ctx context.Context,
+	db *gorp.DB,
+	svc *channel.Service,
+) (channel.Keys, error) {
+	var channels []channel.Channel
+	if err := svc.NewRetrieve().
+		Where(channel.MatchInternal(true)).
+		Entries(&channels).
+		Exec(ctx, db); err != nil {
+		return nil, err
+	}
+	return channel.KeysFromChannels(channels), nil
+}

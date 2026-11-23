@@ -43,6 +43,6 @@ var _ = Describe("Built-in channel named like a calculated channel", func() {
 		})
 		GinkgoWriter.Printf("Declare: %v\n", err)
 		Expect(builtIn.IsCalculated()).To(BeFalse())
-		Expect(svc.BuiltIns()).ToNot(ContainElement(calc.Key()))
+		Expect(RetrieveBuiltIns(ctx, node.DB, svc)).ToNot(ContainElement(calc.Key()))
 	})
 })

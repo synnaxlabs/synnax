@@ -1428,10 +1428,16 @@ StateBinding struct extends FormatConfig {
 Source union on type {
     channel {
         key     channel.Key? {
-            @doc value "is the channel that the state reads."
+            @doc value     "is the channel that the state reads."
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         command channel.Key? {
-            @doc value "is the channel that the commands of the state write to."
+            @doc value     "is the channel that the commands of the state write to."
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
 
         @doc value "reads a channel."
@@ -1453,7 +1459,10 @@ CommandBinding struct {
         @doc value "is the key of the command of the symbol."
     }
     channel channel.Key {
-        @doc value "is the channel that the command writes to."
+        @doc value     "is the channel that the command writes to."
+        @ref direction write
+        @ref kind      use
+        @ref on_delete weak
     }
 
     @doc value  "is the channel of a command that has no state."
