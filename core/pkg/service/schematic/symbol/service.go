@@ -61,6 +61,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
+	// RemoveOrphans removes, in tx, the node bindings and overrides that the states and
+	// commands of sym orphan.
+	//
+	// [REQUIRED]
+	RemoveOrphans func(ctx context.Context, tx gorp.Tx, sym Symbol) error
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -74,6 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Enumeration = override.Nil(c.Enumeration, other.Enumeration)
 	c.Actuators = override.Nil(c.Actuators, other.Actuators)
+	c.RemoveOrphans = override.Nil(c.RemoveOrphans, other.RemoveOrphans)
 	return c
 }
 
@@ -85,6 +91,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("imex", c.ImEx)
 	v.NotNil("enumeration", c.Enumeration)
 	v.NotNil("actuators", c.Actuators)
+	v.NotNil("remove_orphans", c.RemoveOrphans)
 	return v.Error()
 }
 
@@ -160,9 +167,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // NewWriter opens a new writer for creating, updating, and deleting symbols in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         tx,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
+		tx:            tx,
+		table:         s.table,
+		dispatcher:    s.state.Dispatcher(),
+		removeOrphans: s.cfg.RemoveOrphans,
 	}
 }
 
