@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -431,5 +432,51 @@ var _ = Describe("Channels", func() {
 			Expect(failing.Of(ctx, nil, []v0.InlineField{withChannel(7)})).
 				Error().To(MatchError(failed))
 		})
+	})
+})
+
+var _ = Describe("LiftKind", func() {
+	var changes []string
+	BeforeEach(func() { changes = nil })
+	note := func(format string, args ...any) {
+		changes = append(changes, fmt.Sprintf(format, args...))
+	}
+	base := v0.JSONBaseField{Name: "level", Scale: 1, Pointer: "/level"}
+
+	It("Should keep the entries that the kind can hold and note the others", func() {
+		f := v0.LiftKind(v0.InlineField{EnumValues: []payload.EnumEntry{
+			{Label: "OFF", Value: 0},
+			{Label: "HALF", Value: 0.5},
+		}}, payload.KindInteger, base, note)
+		integer := as[v0.IntegerJSONField](f.Variant)
+		Expect(integer.JSONBaseField).To(Equal(base))
+		Expect(integer.EnumValues).To(Equal([]payload.IntegerEntry{
+			{Label: "OFF", Value: 0},
+		}))
+		Expect(
+			changes,
+		).To(ConsistOf(`enum label "HALF" was dropped: 0.5 is not integer`))
+	})
+
+	It("Should keep the time format of a timestamp kind", func() {
+		format := payload.TimeFormatUnixMs
+		f := v0.LiftKind(
+			v0.InlineField{TimeFormat: &format},
+			payload.KindTimestamp,
+			base,
+			note,
+		)
+		Expect(as[v0.TimestampJSONField](f.Variant).TimeFormat).To(Equal(format))
+		Expect(changes).To(BeEmpty())
+	})
+
+	It("Should drop the entries of a kind that takes none", func() {
+		f := v0.LiftKind(v0.InlineField{EnumValues: []payload.EnumEntry{
+			{Label: "ON", Value: 1},
+		}}, payload.KindString, base, note)
+		Expect(f.Variant).To(Equal(v0.StringJSONField{JSONBaseField: base}))
+		Expect(changes).To(ConsistOf(
+			`enum label "ON" was dropped: a string field takes no numeric entries`,
+		))
 	})
 })
