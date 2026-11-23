@@ -158,7 +158,7 @@ Analog read is the worked design. Each item below runs in the prototype on branc
 - **Choices**: The type select lists the port's `types`. The terminal configuration
   select lists the port's `terminal_configs`. A new channel takes the lowest free port
   on its device, not the lowest port unused in the task
-  (`console/src/feature/ni/task/createChannel.ts:61-72`).
+  (`console/src/feature/ni/task/channel/next.ts:63-91`).
 - **Checks**: A port in conflict is a field error with or without `hardware`. The other
   checks run only when the device has `hardware`. A port the device lacks and a type or
   configuration the port rejects are field errors that show while the user edits. A

@@ -19,7 +19,7 @@ import {
   rawIndex,
   search,
 } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import type { Store } from "@/framer/cache/store";
 
 // A run of a streamed index series' samples that falls in one raw block. The offset is
@@ -535,7 +535,7 @@ export class Joins {
     const runs: Run[] = [];
     for (let lo = 0; lo < s.length;) {
       const b = rawIndex(new TimeStamp(s.data[lo]));
-      const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
+      const end = grid.tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
       const hi = search(s, end, lo);
       const block = this.store.raw(index, b);
       const newest = newestOf(block);

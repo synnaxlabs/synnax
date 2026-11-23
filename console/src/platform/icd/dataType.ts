@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { icd } from "@synnaxlabs/client";
 import { DataType, payload } from "@synnaxlabs/x";
 
-/** The data type of the channel that a field of each kind reads into by default. */
-export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
+const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   float: DataType.FLOAT64.toString(),
   integer: DataType.INT64.toString(),
   unsigned: DataType.UINT64.toString(),
@@ -22,13 +22,23 @@ export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   bytes: DataType.BYTES.toString(),
 };
 
+const isScaled = ({
+  scale,
+  offset,
+}: Pick<icd.JSONField, "scale" | "offset">): boolean => scale !== 1 || offset !== 0;
+
 /**
- * @returns whether the Core writes the values of a field kind to a channel of the data
- * type. A number or a boolean also writes to a float, and an unsigned number or a
- * boolean to any integer.
+ * @returns whether the Core writes the values of field to a channel of the data type. A
+ * scaled field writes only to a float. Else a number or a boolean also writes to a
+ * float, and an unsigned number or a boolean to any integer.
  */
-export const converts = (kind: payload.Kind, dataType: string): boolean => {
+export const converts = (
+  field: Pick<icd.JSONField, "type" | "scale" | "offset">,
+  dataType: string,
+): boolean => {
   const to = payload.kindOf(dataType);
+  if (isScaled(field)) return to === "float";
+  const kind = field.type;
   if (to === kind) return true;
   switch (to) {
     case "float":
@@ -42,8 +52,17 @@ export const converts = (kind: payload.Kind, dataType: string): boolean => {
   }
 };
 
-/** @returns the data type of the channel that deploying creates for a binding. */
+/**
+ * @returns the data type of the channel that a field takes by default. A scaled field
+ * takes float64, because the Core scales only float channels.
+ */
+export const defaultDataType = (field: icd.JSONField): string =>
+  isScaled(field) ? DataType.FLOAT64.toString() : DEFAULT_DATA_TYPES[field.type];
+
+/**
+ * @returns the data type of the channel that deploying creates for a binding of field.
+ */
 export const bindingDataType = (
   { dataType }: { dataType: string },
-  kind: payload.Kind,
-): string => (dataType === "" ? DEFAULT_DATA_TYPES[kind] : dataType);
+  field: icd.JSONField,
+): string => (dataType === "" ? defaultDataType(field) : dataType);

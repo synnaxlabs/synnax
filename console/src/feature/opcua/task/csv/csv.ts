@@ -9,11 +9,8 @@
 
 import { csv, DataType } from "@synnaxlabs/x";
 
-import {
-  type Channel,
-  nodeIdentity,
-  type ScannedNode,
-} from "@/feature/opcua/task/types";
+import { Device } from "@/feature/opcua/device";
+import type { Channel } from "@/feature/opcua/task/types";
 
 const COLUMNS = ["name", "node_name", "node_id", "field", "data_type", "enabled"];
 
@@ -57,7 +54,7 @@ export interface DecodeParams<C extends Channel> extends EncodeParams {
   /** The channels the task already holds. */
   existing: C[];
   /** @returns the task's channel for a node, or null if the task cannot hold it. */
-  convert: (node: ScannedNode) => C | null;
+  convert: (node: Device.ScannedNode) => C | null;
 }
 
 const parseBoolean = (value: string, column: string, row: number): boolean | null => {
@@ -100,7 +97,7 @@ export const decode = <C extends Channel>(
   const columns = header.map((name) => name.toLowerCase());
   if (!columns.includes("node_id"))
     throw new Error("The CSV file has no node_id column.");
-  const identities = new Set(existing.map(nodeIdentity));
+  const identities = new Set(existing.map(Device.nodeIdentity));
   const channels: C[] = [];
   rows.forEach((cells, i) => {
     const row = i + 2;
@@ -115,8 +112,8 @@ export const decode = <C extends Channel>(
     const enabled = parseBoolean(cell("enabled"), "enabled", row) ?? true;
     const isIndex =
       indexed && (parseBoolean(cell(INDEX_COLUMN), INDEX_COLUMN, row) ?? false);
-    const node: ScannedNode = {
-      key: nodeIdentity({ nodeId, field }),
+    const node: Device.ScannedNode = {
+      key: Device.nodeIdentity({ nodeId, field }),
       name: cell("node_name") || nodeName(nodeId, field),
       nodeId,
       field,
