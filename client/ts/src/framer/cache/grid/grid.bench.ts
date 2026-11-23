@@ -15,26 +15,22 @@ import { grid } from "@/framer/cache/grid";
 // Reading the namespace once keeps its export getters out of the measured calls.
 const { choose, indexes, level, pointLimit } = grid;
 
-// The module runner serves each export through a getter. This object holds the
-// functions themselves, so that cost stays out of the measurement.
-const grid = { choose, indexes, level, pointLimit };
-
 // A line source runs each of these several times per frame.
 
 const START = TimeStamp.seconds(1_750_000_000);
 const HOUR = new TimeRange(START, START.add(TimeSpan.hours(1)));
 const WEEK = new TimeRange(START, START.add(TimeSpan.days(7)));
-const HOUR_LEVEL = grid.level(HOUR);
+const HOUR_LEVEL = level(HOUR);
 
 test("grid", async ({ bench }) => {
   await bench.compare(
-    bench("level of an hour", () => void grid.level(HOUR)),
-    bench("level of a week", () => void grid.level(WEEK)),
-    bench("indexes of an hour", () => void grid.indexes(HOUR, HOUR_LEVEL)),
+    bench("level of an hour", () => void level(HOUR)),
+    bench("level of a week", () => void level(WEEK)),
+    bench("indexes of an hour", () => void indexes(HOUR, HOUR_LEVEL)),
     bench(
       "point limit",
       () =>
-        void grid.pointLimit({
+        void pointLimit({
           tile: { level: HOUR_LEVEL, index: 0 },
           view: HOUR,
           points: 1000,
@@ -64,8 +60,8 @@ const FINER = below(4);
 
 test("choose", async ({ bench }) => {
   await bench.compare(
-    bench("own tiles held", () => void grid.choose(SLOTS, OWN)),
-    bench("a coarser tile held", () => void grid.choose(SLOTS, COARSER)),
-    bench("tiles 4 levels finer held", () => void grid.choose(SLOTS, FINER)),
+    bench("own tiles held", () => void choose(SLOTS, OWN)),
+    bench("a coarser tile held", () => void choose(SLOTS, COARSER)),
+    bench("tiles 4 levels finer held", () => void choose(SLOTS, FINER)),
   );
 });
