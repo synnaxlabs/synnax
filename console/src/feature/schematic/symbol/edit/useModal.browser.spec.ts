@@ -445,7 +445,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       fireEvent.click(await screen.findByText("Body"));
       await screen.findByRole("heading", { name: "Body" });
-      return { symbol, fill: screen.getByLabelText("Fill") };
+      return symbol;
     };
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
@@ -460,11 +460,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      const { symbol, fill } = await openPainted({
+      const symbol = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
       });
       fireEvent.click(await screen.findByText("Active"));
+      const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("State color"));
       await waitFor(() =>
@@ -477,7 +478,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           {
             key: expect.any(String),
             part: "body",
-            when: { type: "equals", state: "active", values: [1] },
             fill: { type: "entry", state: "active" },
           },
         ]);
@@ -485,7 +485,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("clears the paint of a part at the value when Drawing is picked", async () => {
-      const { symbol, fill } = await openPainted({
+      const symbol = await openPainted({
         states: [createState()],
         looks: [
           {
@@ -499,7 +499,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(fill);
+      fireEvent.click(screen.getByLabelText("Fill while Base"));
       fireEvent.click(await screen.findByText("Drawing"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
@@ -509,7 +509,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("starts a picked color from the color of the drawing", async () => {
-      const { symbol, fill } = await openPainted({
+      const symbol = await openPainted({
         drawing: {
           type: "svg",
           markup:
@@ -517,7 +517,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
             '<rect id="a" width="10" height="10" fill="#2fb36b"/></svg>',
         },
       });
-      fireEvent.click(fill);
+      fireEvent.click(screen.getByLabelText("Fill"));
       fireEvent.click(await screen.findByText("Color"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {

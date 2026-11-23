@@ -379,6 +379,21 @@ describe("symbol editor spec", () => {
       expect(Spec.variesByValue(next, "body", "fill")).toBe(false);
     });
 
+    it("should not give the part a field of the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([looks[0]]);
+    });
+
     it("should keep a spec with no field on every value", () => {
       const spec = createSpec();
       expect(Spec.setVariesByValue(spec, "body", "fill", [0, 1], true)).toBe(spec);

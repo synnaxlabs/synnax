@@ -185,7 +185,9 @@ export const setVariesByValue = (
     const cleared = setOwn(spec, target, field, undefined);
     return values.reduce((s, v) => setOwn(s, target, field, base, v), cleared);
   }
-  const first = effective(spec, target, field, values[0]);
+  // Looks of the whole drawing stay out, so target takes no field that it did not set.
+  const mine = spec.looks.filter((l) => l.part === target);
+  const first = effective({ looks: mine }, target, field, values[0]);
   const cleared = values.reduce((s, v) => setOwn(s, target, field, undefined, v), spec);
   return setOwn(cleared, target, field, first);
 };

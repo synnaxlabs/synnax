@@ -85,14 +85,14 @@ interface PropertyProps extends PropsWithChildren {
 }
 
 // Property shows its control once for every value, or once for each value when the
-// field varies by state.
+// field varies by state. A symbol with one value shows its looks on that value too.
 const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
   const [split, setSplit] = useState(false);
   const several = values.values.length > 1;
-  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const varies = split || Spec.variesByValue({ looks }, part, field);
   const handleVariesChange = () => {
     const keys = values.values.map((v) => v.value);
     set(
@@ -111,7 +111,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
         </Text.Text>
         <Flex.Box x align="center" gap="small">
           {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
-          {several && (
+          {(several || varies) && (
             <Button.Button
               size="small"
               variant={varies ? "filled" : "outlined"}
