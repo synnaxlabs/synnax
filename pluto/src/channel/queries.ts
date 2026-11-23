@@ -272,16 +272,3 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     return data;
   },
 });
-
-export type DeleteParams = channel.Key | channel.Key[];
-
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.DELETE,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    await client.channels.delete(data, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
-    return data;
-  },
-});
