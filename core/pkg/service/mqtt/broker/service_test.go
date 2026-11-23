@@ -155,7 +155,7 @@ var _ = Describe("Service", func() {
 	) certificate.Key {
 		GinkgoHelper()
 		f := certificate.FileCertificate{
-			Base:            certificate.Base{Name: "Broker CA"},
+			Name:            "Broker CA",
 			CertificatePath: "/certs/ca.pem",
 			Rack:            r,
 		}
