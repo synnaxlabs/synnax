@@ -485,11 +485,11 @@ file depend on the state alone. A count is the index of the next record minus it
 | 8 Clocks          | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                           |
 | 9 Intents (head)  | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                            |
 
-- **Head**: Every open segment, every segment sealed since the last part, every
-  segment that waits for a rewrite, and the dead marks that parts still need. Pointers
-  in the head are cut in memory, so they are exact. A segment that waits for a rewrite
-  stays through switches until the compactor rewrites it, so a head grows with pending
-  work, not with history.
+- **Head**: Every open segment, every segment sealed since the last part, every segment
+  that waits for a rewrite, and the dead marks that parts still need. Pointers in the
+  head are cut in memory, so they are exact. A segment that waits for a rewrite stays
+  through switches until the compactor rewrites it, so a head grows with pending work,
+  not with history.
 - **Part**: Sections 4, 5, 6, and 8: sealed segments and their pointers as they were at
   the switch, written once. A kill in the head hides records in parts of its generation
   or older. The checkpointer writes a part again, under a new identity, only when half
@@ -907,8 +907,8 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
 8. The Core writes the database identity of head 1 to the metadata store before it
    serves (§9.0). The first open after that removes the `-DELETE-<n>` directories and
    each `<start>-<end>.truncated.tmp` of an old truncate, whose bytes the data file
-   still holds (`cesium/internal/unary/truncate.go:162`). It keeps `<N>.domain_temp`
-   and `<N>.domain_gc` and logs each: the old compaction renames with no sync
+   still holds (`cesium/internal/unary/truncate.go:162`). It keeps `<N>.domain_temp` and
+   `<N>.domain_gc` and logs each: the old compaction renames with no sync
    (`cesium/internal/domain/delete.go:336-500`), so after a power loss either can hold
    the only copy of file N. Where `N.domain` is missing, the conversion reads
    `N.domain_temp` as file N, an open or unlink of a version 0 file tries `N.domain`,
