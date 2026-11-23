@@ -235,6 +235,25 @@ var _ = Describe("Service", func() {
 			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})
 
+		It("Should refuse a client certificate that has no private key", func(
+			ctx SpecContext,
+		) {
+			key := createCertificate(ctx, false)
+			var channel server.SecuredChannel
+			channel.SetDefaults()
+			channel.Policy = server.SecurityPolicyBasic256Sha256
+			channel.ClientCertificate = &key
+			s := newServer()
+			s.Connection.Security = server.Security{
+				Variant: server.SignAndEncryptSecurity{SecuredChannel: channel},
+			}
+			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("client_certificate")),
+				MatchError(ContainSubstring("has no private key")),
+			))
+		})
+
 		It(
 			"Should refuse a certificate login whose certificate has no private key",
 			func(
@@ -387,7 +406,7 @@ var _ = Describe("Service", func() {
 		}),
 		Entry(
 			"as the client certificate",
-			false,
+			true,
 			func(c *server.Connection, k certificate.Key) {
 				var channel server.SecuredChannel
 				channel.SetDefaults()

@@ -77,35 +77,44 @@ func prepare(s *Server) error {
 	return v.Error()
 }
 
-// checkUserCertificate refuses a certificate login whose certificate has no private
-// key, because the Driver signs the login with it.
-func (w Writer) checkUserCertificate(ctx context.Context, s Server) error {
-	auth, ok := s.Connection.Auth.Variant.(CertificateAuth)
-	if !ok {
-		return nil
+// checkPrivateKeys refuses a login certificate or a client certificate that has no
+// private key, because the Driver signs with both.
+func (w Writer) checkPrivateKeys(ctx context.Context, s Server) error {
+	keys := make(map[string]certificate.Key, 2)
+	if auth, ok := s.Connection.Auth.Variant.(CertificateAuth); ok {
+		keys["connection.auth.certificate"] = auth.Certificate
 	}
-	var c certificate.Certificate
-	if err := w.certs.NewRetrieve().
-		Where(certificate.MatchKeys(auth.Certificate)).
-		Entry(&c).
-		Exec(ctx, w.tx); err != nil {
-		return err
+	if c, ok := securedChannel(s.Connection); ok && c.ClientCertificate != nil {
+		keys["connection.security.client_certificate"] = *c.ClientCertificate
 	}
+	v := validate.New("Server")
+	for path, key := range keys {
+		var c certificate.Certificate
+		if err := w.certs.NewRetrieve().
+			Where(certificate.MatchKeys(key)).
+			Entry(&c).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		v.Ternaryf(
+			path,
+			!hasPrivateKey(c),
+			"certificate %q has no private key",
+			c.Base().Name,
+		)
+	}
+	return v.Error()
+}
+
+func hasPrivateKey(c certificate.Certificate) bool {
 	switch v := c.Variant.(type) {
 	case certificate.StoredCertificate:
-		if v.PrivateKey != nil {
-			return nil
-		}
+		return v.PrivateKey != nil
 	case certificate.FileCertificate:
-		if v.PrivateKeyFile != nil {
-			return nil
-		}
+		return v.PrivateKeyFile != nil
+	default:
+		return false
 	}
-	return errors.Wrapf(
-		validate.ErrValidation,
-		"connection.auth.certificate: certificate %q has no private key",
-		c.Base().Name,
-	)
 }
 
 func (w Writer) setStatus(ctx context.Context, s Server) error {
@@ -144,7 +153,7 @@ func (w Writer) Create(ctx context.Context, s *Server) error {
 	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.checkUserCertificate(ctx, *s); err != nil {
+	if err := w.checkPrivateKeys(ctx, *s); err != nil {
 		return err
 	}
 	return w.setStatus(ctx, *s)
@@ -176,7 +185,7 @@ func (w Writer) update(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.checkUserCertificate(ctx, next); err != nil {
+	if err := w.checkPrivateKeys(ctx, next); err != nil {
 		return err
 	}
 	if next.Name != prev.Name || next.Rack != prev.Rack {
