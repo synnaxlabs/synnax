@@ -12,7 +12,6 @@
 package write
 
 import (
-	"encoding/json/v2"
 	"slices"
 	"strconv"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
-	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -194,23 +192,4 @@ func withDefault[F icd.JSONFieldVariant](
 		f.Variant = fv
 	}
 	return f, ok
-}
-
-// Hash writes to h the payload of the message of ic that wm sends, so an edit to the
-// format of the message changes the hash. When ic lacks the message, Hash writes only
-// that it is absent.
-func Hash(h *content.Hash, ic icd.ICD, wm icd.WriteMessage) error {
-	m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
-		return m.Key == wm.Message
-	})
-	h.Bool(ok)
-	if !ok {
-		return nil
-	}
-	b, err := json.Marshal(m.Payload, json.Deterministic(true))
-	if err != nil {
-		return err
-	}
-	h.Bytes(b)
-	return nil
 }

@@ -14,7 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestWrite(t *testing.T) {
@@ -23,3 +27,17 @@ func TestWrite(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var (
+	db     *gorp.DB
+	icdSvc *icd.Service
+)
+
+var _ = BeforeEach(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
+	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+		DB:   db,
+		ImEx: imex.NewService(),
+	}))
+})

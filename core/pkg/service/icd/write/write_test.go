@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
-	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -327,38 +326,5 @@ var _ = Describe("Write", func() {
 				"bindings.2.field: field temp has more than one binding",
 			),
 		)
-	})
-
-	Describe("Hash", func() {
-		sum := func(ic icd.ICD, wm icd.WriteMessage) string {
-			GinkgoHelper()
-			h := content.NewHash()
-			Expect(write.Hash(&h, ic, wm)).To(Succeed())
-			return h.Sum()
-		}
-
-		It("Should give the same sum for the same payload", func() {
-			wm := writeOf(setpoint, bind(temp))
-			Expect(sum(plant, wm)).To(Equal(sum(plant, wm)))
-		})
-
-		It("Should change when the payload of the message changes", func() {
-			wm := writeOf(setpoint, bind(temp))
-			edited := plant
-			edited.Messages = []icd.Message{{
-				Key:  setpoint.Key,
-				Name: setpoint.Name,
-				Payload: icd.Payload{Variant: icd.JSONPayload{
-					Fields: []icd.JSONField{temp},
-				}},
-			}}
-			Expect(sum(edited, wm)).ToNot(Equal(sum(plant, wm)))
-		})
-
-		It("Should change when the ICD loses the message", func() {
-			wm := writeOf(setpoint, bind(temp))
-			lost := icd.ICD{Name: plant.Name, Messages: []icd.Message{tagged}}
-			Expect(sum(lost, wm)).ToNot(Equal(sum(plant, wm)))
-		})
 	})
 })
