@@ -2880,7 +2880,7 @@ describe("MQTT read form", () => {
       ).toEqual([]);
     });
 
-    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+    it("should store the channels under a topic for their message when an earlier message fails", async () => {
       const time = await createTimeChannel();
       const createFloat = async (name: string) =>
         await client.channels.create({
@@ -2901,7 +2901,7 @@ describe("MQTT read form", () => {
         match("failing"),
       );
       const valueField = createField("value", "float");
-      await addMessage(entry, "owner", [valueField], match("owner"));
+      const owner = await addMessage(entry, "owner", [valueField], match("owner"));
       entry.messages[2].bindings = [
         { field: valueField.key, channel: value.key, dataType: "" },
       ];
@@ -2921,7 +2921,9 @@ describe("MQTT read form", () => {
           expect.objectContaining({ message: "Failed to start task" }),
         ),
       );
-      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+      const read = await retrieveRead(dev.key);
+      expect(read[`${TOPIC}#${owner.key}`]).toEqual(legacy);
+      expect(read).not.toHaveProperty(TOPIC);
     });
 
     it("should give a new entry the stored channel that only a disabled entry binds", async () => {
