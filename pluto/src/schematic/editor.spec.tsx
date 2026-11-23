@@ -102,6 +102,22 @@ describe("useChangeSymbol", () => {
     );
   });
 
+  it("should rename a built-in symbol node that keeps the name it shows", async () => {
+    const { change, configOf } = await renderChange(
+      Schematic.Node.createConfig({
+        ...builtIn("normally_open_solenoid_valve"),
+        label: { label: "Normally open solenoid" },
+      }),
+    );
+    act(() => change(["n1"], builtIn("valve")));
+    await waitFor(async () =>
+      expect(await configOf()).toMatchObject({
+        ...builtIn("valve"),
+        label: { label: "Valve" },
+      }),
+    );
+  });
+
   it("should keep the bindings that the new symbol shares", async () => {
     const binding = { key: "active", source: { type: "local" as const, value: 1 } };
     const { change, configOf } = await renderChange(

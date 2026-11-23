@@ -115,3 +115,18 @@ describe("Schematic.Node.BUILT_INS", () => {
     );
   });
 });
+
+describe("Schematic.Node.BUILT_IN_NAMES", () => {
+  it("should name each symbol as the toolbar names its old variant", () => {
+    const old = Node.STATIC_SPECS.filter((s) => Node.BUILT_INS.has(s.key));
+    expect(old.map((s) => [s.key, Node.BUILT_IN_NAMES.get(s.key)])).toEqual(
+      old.map((s) => [s.key, s.label ?? s.name]),
+    );
+  });
+
+  it("should name the normally open solenoid valve apart from the solenoid valve", () => {
+    expect(Node.BUILT_IN_NAMES.get("normally_open_solenoid_valve")).toBe(
+      "Normally open solenoid",
+    );
+  });
+});

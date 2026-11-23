@@ -90,6 +90,8 @@ const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName 
   if (shared == null) return { name: "Mixed" };
   if (customKey != null) return { symbol: customKey, name: custom?.name ?? "" };
   const symbol = Schematic.Node.symbolKey(shared);
+  if (shared.variant === "symbol")
+    return { symbol, name: Schematic.Node.BUILT_IN_NAMES.get(symbol) ?? "" };
   const spec = Schematic.Node.resolveSpec(symbol);
   return { symbol, name: spec.label ?? spec.name };
 };

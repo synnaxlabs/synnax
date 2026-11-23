@@ -49,15 +49,17 @@ export const useAddNode = () => {
   };
 };
 
-// The label a symbol takes on creation: a custom symbol's name, or its spec's label.
+// The label a symbol takes on creation: the name of its custom or built-in symbol.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
   const key = Node.customKey(config);
-  if (key == null) {
-    const spec = Node.resolveSpec(Node.symbolKey(config));
-    return spec.label ?? spec.name;
+  if (key != null) {
+    const sym = client.schematics.symbols.watch(key).getCached();
+    return query.isLive(sym) ? sym.name : undefined;
   }
-  const sym = client.schematics.symbols.watch(key).getCached();
-  return query.isLive(sym) ? sym.name : undefined;
+  if (config.variant === "symbol")
+    return Node.BUILT_IN_NAMES.get(Node.symbolKey(config));
+  const spec = Node.resolveSpec(config.variant);
+  return spec.label ?? spec.name;
 };
 
 // The spec that a symbol node draws, or undefined when its symbol is missing, as the

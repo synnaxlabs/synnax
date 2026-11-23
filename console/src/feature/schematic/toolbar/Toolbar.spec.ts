@@ -346,6 +346,13 @@ describe("Toolbar", () => {
       expect(current?.classList.contains("lyra--selected")).toBe(true);
     });
 
+    it("names a built-in symbol node that no old symbol draws", async () => {
+      await renderSelected({
+        n1: createSymbolNode("normally_open_solenoid_valve", "NO-1"),
+      });
+      expect(await screen.findByText("Normally open solenoid")).toBeDefined();
+    });
+
     it("reads symbol nodes of two symbols as mixed", async () => {
       await renderSelected({
         n1: createSymbolNode("valve", "Valve"),
