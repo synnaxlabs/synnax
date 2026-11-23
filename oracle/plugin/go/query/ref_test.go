@@ -1232,6 +1232,64 @@ var _ = Describe("@ref", func() {
 				ToNotContain("slices.ContainsFunc")
 		})
 
+		It("Should hold, detach, and retarget each value of a map of keys", func() {
+			generate(`
+				Ports struct {
+					channels map<uint16, channel.Key> = {} {
+						@ref on_delete restrict
+						@ref kind      use
+					}
+				}
+			`, `
+				ports Ports
+			`).
+				ToContain(
+					`Name:     "ports.channels",`,
+					"OnDelete: gorp.Restrict,",
+					"for _, k1 := range e.Ports.Channels {",
+					"targets = append(targets, k1)",
+					"for k2, v3 := range e.Ports.Channels {",
+					"if v3 == t {",
+					"delete(e.Ports.Channels, k2)",
+					"for k4, v5 := range e.Ports.Channels {",
+					"if v5 == from {",
+					"v5 = to",
+					"e.Ports.Channels[k4] = v5",
+				)
+		})
+
+		It("Should range over the values of a map of structs", func() {
+			generate(`
+				Pair struct {
+					command channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+			`, `
+				lines map<uint8, Pair> = {}
+			`).
+				ToContain(
+					`Name:     "lines.command",`,
+					"for _, v1 := range e.Lines {",
+					"if v1.Command != 0 {",
+					"for k3, v2 := range e.Lines {",
+					"if v2.Command == t {",
+					"v2.Command = 0",
+					"e.Lines[k3] = v2",
+				)
+		})
+
+		It("Should refuse to detach a required key in a map of structs", func() {
+			req := MustGenerateRequest(config(`
+				Pair struct {
+					command channel.Key @ref on_delete detach @ref kind use
+				}
+			`, `
+				lines map<uint8, Pair> = {}
+			`), "modbus", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				ContainSubstring("needs to be optional, an array, or zero by default"),
+			))
+		})
+
 		It("Should retarget a key in every variant of a union", func() {
 			generate(`
 				Base struct {
