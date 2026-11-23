@@ -367,6 +367,7 @@ var _ = Describe("Semantic Tokens", func() {
 			server, uri = SetupTestServer()
 			OpenArcDocument(server, ctx, uri, `x := 'pt-01'`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(BeEmpty())
 			Expect(filterByType(all, tokenTypeChannel)).To(Equal([]decodedToken{
 				{Line: 0, StartChar: 5, Length: 7, TokenType: tokenTypeChannel},
 			}))

@@ -54,19 +54,24 @@ type document struct {
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name (the
-// quoted names and the string literals, whose placeholders can hold them) and its
-// dotted names. It lexes the content on first use and keeps them until the content
-// changes, so a lookup by position costs the same at any document length.
+// nameTokens holds the tokens of one content that can hold a quoted channel name, its
+// dotted names, and the quote facts of each of its lines. It lexes the tokens and the
+// dotted names in one pass on first use and keeps them until the content changes. It
+// scans the facts again only from the lines that changed, so a lookup by position costs
+// the same at any document length.
 type nameTokens struct {
 	mu      sync.Mutex
 	content string
 	lexed   bool
 	tokens  []antlr.Token
+	scanned string
+	scan    *quoteScan
 	paths   []pathToken
+	scanner *lineScanner
 }
 
-// of returns the name tokens of content in order. Callers must not change them.
+// of returns the name tokens of content in order: the quoted names and the string
+// literals, whose placeholders can hold them. Callers must not change them.
 func (n *nameTokens) of(content string) []antlr.Token {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -89,6 +94,23 @@ func (n *nameTokens) lex(content string) {
 	tokens := tokenizeContent(content)
 	n.content, n.lexed = content, true
 	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
+}
+
+// scanOf returns the quote facts of content. Callers must not change them.
+func (n *nameTokens) scanOf(content string) *quoteScan {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.scanner == nil {
+		n.scanner = newLineScanner()
+	}
+	switch {
+	case n.scan == nil:
+		n.scan = scanQuotes(content, n.scanner)
+	case n.scanned != content:
+		n.scan = n.scan.update(n.scanned, content, n.scanner)
+	}
+	n.scanned = content
+	return n.scan
 }
 
 func keepNameTokens(tokens []antlr.Token) []antlr.Token {
