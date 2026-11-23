@@ -343,9 +343,22 @@ jobs:
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
           echo "GO_BUILD_TAGS=$TAGS" >> "$GITHUB_OUTPUT"
 
+  # The Linux Drivers build in this image. It runs on every build, since a skipped need
+  # would skip every job after it.
+  driver-image:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: driver
+      dockerfile: driver/linux.Dockerfile
+      repository: ghcr.io/synnaxlabs/driver-builder
+      unused_by_forks: true
+
   build:
     name: Build (${{ matrix.os }})
-    needs: setup
+    needs: [setup, driver-image]
     if: needs.setup.outputs.build_matrix != '[]'
     timeout-minutes: 75
     permissions: &build_permissions
@@ -380,6 +393,7 @@ jobs:
       VERSION: ${{ needs.setup.outputs.VERSION }}
       OS_NAME: ${{ matrix.os-name }}
       EXE: ${{ matrix.executable }}
+      DRIVER_BUILDER_IMAGE: ${{ needs.driver-image.outputs.image }}
     strategy:
       fail-fast: false
       matrix:
@@ -895,7 +909,7 @@ jobs:
   # the other systems.
   build-macos:
     name: Build (${{ matrix.os }})
-    needs: setup
+    needs: [setup, driver-image]
     if: inputs.macos
     timeout-minutes: 75
     permissions: *build_permissions
