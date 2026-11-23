@@ -41,11 +41,12 @@ Named struct {
         @patch
     }
     group    group.Key?   {
-        @doc value     "is the palette that holds the color, if any."
-        @group scope   color
+        @doc value                 "is the palette that holds the color, if any."
+        @group scope               color
         @patch
-        @ref kind      place
-        @ref on_delete detach
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             detach
     }
     position string?      {
         @doc value """

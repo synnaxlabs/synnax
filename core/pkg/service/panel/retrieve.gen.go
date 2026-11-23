@@ -68,11 +68,10 @@ func newIndexes() indexes {
 			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, project.Key]{
-			Name:                "project",
-			Table:               "project",
-			OnDelete:            gorp.Cascade,
-			Kind:                gorp.Place,
-			EmptyHoldersTracked: true,
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Panel) []project.Key {
 				if e.Project == nil {
 					return nil
@@ -250,14 +249,6 @@ func setGroup(
 func MatchProjects(vals ...project.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
 		return r.indexes.project.Filter(vals...)
-	}
-}
-
-// MatchHasProject returns a filter for panels whose
-// Project holds a target when has is true, and holds none when has is false.
-func MatchHasProject(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.project.FilterHolding(has)
 	}
 }
 

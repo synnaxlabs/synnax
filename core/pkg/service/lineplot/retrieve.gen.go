@@ -69,11 +69,10 @@ func newIndexes() indexes {
 			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, project.Key]{
-			Name:                "project",
-			Table:               "project",
-			OnDelete:            gorp.Cascade,
-			Kind:                gorp.Place,
-			EmptyHoldersTracked: true,
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *LinePlot) []project.Key {
 				if e.Project == nil {
 					return nil
@@ -343,14 +342,6 @@ func setGroup(
 func MatchProjects(vals ...project.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
 		return r.indexes.project.Filter(vals...)
-	}
-}
-
-// MatchHasProject returns a filter for lineplots whose
-// Project holds a target when has is true, and holds none when has is false.
-func MatchHasProject(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
-		return r.indexes.project.FilterHolding(has)
 	}
 }
 

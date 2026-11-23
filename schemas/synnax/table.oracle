@@ -200,11 +200,12 @@ Table struct {
         @doc value "are the table columns in display order, left to right."
     }
     group   group.Key?   {
-        @doc value     "is the group the table sits in, if any."
-        @group scope   project
+        @doc value                 "is the group the table sits in, if any."
+        @group scope               project
         @patch
-        @ref kind      place
-        @ref on_delete detach
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             detach
     }
     project project.Key? {
         @doc value     "is the project that holds the table."

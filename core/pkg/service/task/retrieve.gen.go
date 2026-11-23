@@ -41,10 +41,11 @@ func newIndexes() indexes {
 			func(e *Task) string { return compare.TextKey(string(e.Name)) },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, rack.Key]{
-			Name:     "rack",
-			Table:    "rack",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Name:                "rack",
+			Table:               "rack",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Task) []rack.Key {
 				if e.Rack == 0 {
 					return nil

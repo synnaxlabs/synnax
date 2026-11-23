@@ -66,11 +66,10 @@ func newIndexes() indexes {
 			},
 		}),
 		chassis: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, chassis.Key]{
-			Name:                "chassis",
-			Table:               "ni_chassis",
-			OnDelete:            gorp.Cascade,
-			Kind:                gorp.Place,
-			EmptyHoldersTracked: true,
+			Name:     "chassis",
+			Table:    "ni_chassis",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Device) []chassis.Key {
 				if e.Chassis == nil {
 					return nil
@@ -223,14 +222,6 @@ func MatchModels(vals ...string) Filter {
 func MatchChassisList(vals ...chassis.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.chassis.Filter(vals...)
-	}
-}
-
-// MatchHasChassis returns a filter for devices whose
-// Chassis holds a target when has is true, and holds none when has is false.
-func MatchHasChassis(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Device] {
-		return r.indexes.chassis.FilterHolding(has)
 	}
 }
 

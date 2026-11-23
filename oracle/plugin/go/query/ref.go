@@ -67,8 +67,8 @@ type refInfo struct {
 	// Zero is the Go zero value of a scalar field that holds no target while it is
 	// zero, because its default is zero. It is empty for any other field.
 	Zero string
-	// EmptyHoldersTracked is true when a generated MatchHas filter asks the reference
-	// for the entries that hold no target.
+	// EmptyHoldersTracked is true for `@ref empty_holders_tracked`: the reference keeps
+	// the entries that hold no target, and the field gets a MatchHas filter.
 	EmptyHoldersTracked bool
 }
 
@@ -211,13 +211,14 @@ var refExpressions = set.New(
 	"unique",
 	"acyclic",
 	"direction",
+	"empty_holders_tracked",
 )
 
 // singleRefExpressions are the @ref expressions that hold one value.
 var singleRefExpressions = set.New("on_delete", "kind", "direction")
 
 // flagRefExpressions are the @ref expressions that hold no value.
-var flagRefExpressions = set.New("unique", "acyclic")
+var flagRefExpressions = set.New("unique", "acyclic", "empty_holders_tracked")
 
 // extractRef returns the reference that field of typ holds. inArray is true when a
 // detach can drop the array element that holds field.
@@ -281,20 +282,31 @@ func extractRef(
 	if onDelete == "Detach" && !isOptional && !isSlice && zero == "" && !inArray {
 		return fail("needs to be optional, an array, or zero by default to detach")
 	}
+	emptyHoldersTracked := plugindomain.HasExprFromField(
+		field,
+		"ref",
+		"empty_holders_tracked",
+	)
+	if emptyHoldersTracked && !isOptional && !isSlice && zero == "" {
+		return fail(
+			"needs to be optional, an array, or zero by default to track empty holders",
+		)
+	}
 	types := refTypes(field)
 	info := refInfo{
-		FieldName:   field.Name,
-		GoName:      naming.GetFieldName(field),
-		StructField: naming.LowerFirst(naming.GetFieldName(field)),
-		OnDelete:    onDelete,
-		Kind:        kind,
-		Direction:   direction,
-		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
-		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
-		IsOptional:  isOptional,
-		IsSlice:     isSlice,
-		IsID:        elem.Name == resourceIDType,
-		Zero:        zero,
+		FieldName:           field.Name,
+		GoName:              naming.GetFieldName(field),
+		StructField:         naming.LowerFirst(naming.GetFieldName(field)),
+		OnDelete:            onDelete,
+		Kind:                kind,
+		Direction:           direction,
+		Unique:              plugindomain.HasExprFromField(field, "ref", "unique"),
+		Acyclic:             plugindomain.HasExprFromField(field, "ref", "acyclic"),
+		EmptyHoldersTracked: emptyHoldersTracked,
+		IsOptional:          isOptional,
+		IsSlice:             isSlice,
+		IsID:                elem.Name == resourceIDType,
+		Zero:                zero,
 	}
 	info.ElemGoType = r.ResolveTypeRef(elem, ctx)
 	if info.IsID {

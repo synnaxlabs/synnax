@@ -423,21 +423,39 @@ var _ = Describe("@ref", func() {
 				"return v == t",
 				"func MatchLabels(vals ...label.Key) Filter",
 				"return r.indexes.labels.Filter(vals...)",
-				"func MatchHasLabels(has bool) Filter",
-				"return r.indexes.labels.FilterHolding(has)",
 			).
-			ToNotContain("func MatchLabel(", "func setLabels")
+			ToNotContain(
+				"func MatchLabel(",
+				"func setLabels",
+				"func MatchHasLabels",
+				"EmptyHoldersTracked",
+			)
 	})
 
-	It("Should track the empty holders of a ref that a MatchHas filter asks", func() {
+	It("Should track the empty holders of a flagged ref and filter on them", func() {
 		resp := MustGenerate(device(`
-			labels label.Key[] @ref on_delete detach @ref kind use
+			labels label.Key[] @ref on_delete detach @ref kind use @ref empty_holders_tracked
 		`), "device", loader, p)
-		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
-			"labels: gorp.NewKeyReference(",
-			"EmptyHoldersTracked: true,",
-			"Targets: func(e *Device) []label.Key {",
-		)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToPreserveOrder(
+				"labels: gorp.NewKeyReference(",
+				"EmptyHoldersTracked: true,",
+				"Targets: func(e *Device) []label.Key {",
+			).
+			ToContain(
+				"func MatchHasLabels(has bool) Filter",
+				"return r.indexes.labels.FilterHolding(has)",
+			)
+	})
+
+	It("Should refuse to track the empty holders of a required ref", func() {
+		req := MustGenerateRequest(device(`
+			rack rack.Key @ref on_delete restrict @ref kind use @ref empty_holders_tracked
+		`), "device", loader)
+		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"@ref field rack needs to be optional, an array, or zero by default to " +
+				"track empty holders",
+		)))
 	})
 
 	It("Should not track the entries that hold none for a required ref", func() {
@@ -456,7 +474,6 @@ var _ = Describe("@ref", func() {
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
 				"Detach: func(e *Device, _ rack.Key) { e.Shelf = nil },",
-				"func MatchHasShelf(has bool) Filter",
 				"func setShelf(",
 				"table *gorp.Table[Key, Device],",
 				"v *rack.Key,",
@@ -477,7 +494,6 @@ var _ = Describe("@ref", func() {
 					"return nil",
 					"Detach: func(e *Device, _ ",
 					"e.Spare = "+strings.Trim(zero, "()")+" },",
-					"func MatchHasSpare(has bool) Filter",
 					"func setSpare(",
 				)
 		},
