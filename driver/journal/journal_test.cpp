@@ -282,7 +282,7 @@ TEST_F(JournalTest, PositionAtCutOffRecordIsEnd) {
 
 /// @brief it should return an error when the file is shorter than at open.
 TEST_F(JournalTest, ShortReadIsError) {
-    this->write({{.type = 1, .payload = std::string(100 * 1024, 'a')}});
+    this->write({{.type = 1, .payload = std::string(std::size_t{100} * 1024, 'a')}});
     const auto reader = this->open_reader();
     std::filesystem::resize_file(this->path, HEADER_SIZE + 20);
     ASSERT_OCCURRED_AS_P(reader->next(), BASE_ERROR);
@@ -339,7 +339,7 @@ TEST_F(JournalTest, SyncsWhileWriting) {
 
 /// @brief it should read records larger than its read buffer.
 TEST_F(JournalTest, ReadsLargeRecords) {
-    const auto large = std::string(200 * 1024, 'l');
+    const auto large = std::string(std::size_t{200} * 1024, 'l');
     this->write(
         {{.type = 1, .payload = "a"},
          {.type = 1, .payload = large},

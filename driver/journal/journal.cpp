@@ -58,7 +58,7 @@ void encode_record(std::string &buf, const Record &record) {
 }
 
 /// @brief the byte size of the buffer a reader reads small records through.
-constexpr std::size_t READ_BUFFER_SIZE = 64 * 1024;
+constexpr std::size_t READ_BUFFER_SIZE = std::size_t{64} * 1024;
 
 x::errors::Error validate(const Magic &magic) {
     if (std::ranges::all_of(magic, [](const char c) { return c == 0; }))
