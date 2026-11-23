@@ -77,8 +77,8 @@ func write(fs xfs.FS, f xfs.File, b []byte) error {
 // table, or chunk that fails its check is read a second time, and only a second failure
 // of the same range decides. It reads no byte between the header sector and the body,
 // which no checksum covers. It returns ErrIncomplete for a zero header sector, an error
-// that wraps ErrUnknown for a format this binary does not know, and an error that wraps
-// place.ErrCorrupt for any other check that fails.
+// for a format this binary does not know, and an error that wraps place.ErrCorrupt for
+// any other check that fails.
 func Read(fs xfs.FS, generation uint64) (Header, *state.Snapshot, error) {
 	h, bd, err := headFormat.read(fs, Name(generation), true)
 	if err != nil {
@@ -213,11 +213,11 @@ func again(err error, retry func() error) error {
 	return err
 }
 
-// Prepare makes the file of the log of generation next in the root fs when it is
+// prepareLog makes the file of the log of generation next in the root fs when it is
 // missing or not size bytes long, and removes a leftover head of generation next. It
 // syncs a file of size bytes that it finds, and then the root, as it does a file that
 // it makes.
-func Prepare(fs xfs.FS, next uint64, size int64) error {
+func prepareLog(fs xfs.FS, next uint64, size int64) error {
 	if err := fs.Remove(Name(next)); err != nil {
 		return err
 	}

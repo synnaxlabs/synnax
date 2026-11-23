@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color } from "@synnaxlabs/lyra/color";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, deep, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { staleness } from "@/vis/staleness/aether";
+const path = deep.path<{ stalenessTimeout?: number }>();
 
-const path = deep.path<{ stalenessColor?: color.Color; stalenessTimeout?: number }>();
-
-export interface FieldsProps {
+export interface TimeoutFieldProps {
   /** The unit of the stored timeout. Defaults to nanoseconds. */
   unit?: TimeSpan;
 }
@@ -36,28 +32,12 @@ export const checkTimeout = (span: TimeSpan): string | null => {
 };
 
 /**
- * Fields edits the color a component takes on, and the delay before it does, once its
- * source stops sending. It renders as a pair of siblings, so the caller places it in a
- * row of its own choosing. An unchosen color is absent, so the swatch shows the theme
- * color it resolves to until a pick writes one. A number typed alone is seconds.
+ * Edits the delay after which a component reads stale once its source stops sending. A
+ * number typed alone is seconds.
  */
-export const Fields = ({ unit = TimeSpan.NANOSECOND }: FieldsProps): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <>
-      <Color.Field
-        path={path.stalenessColor}
-        fallback={staleness.resolveColor(undefined, theme)}
-      />
-      <TimeoutField unit={unit} />
-    </>
-  );
-};
-
-/** Edits the staleness timeout without the staleness color. */
 export const TimeoutField = ({
   unit = TimeSpan.NANOSECOND,
-}: FieldsProps): ReactElement => (
+}: TimeoutFieldProps): ReactElement => (
   <Form.Field<number | undefined>
     path={path.stalenessTimeout}
     label="Timeout"

@@ -25,6 +25,7 @@ import (
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -62,9 +63,10 @@ var _ = Describe("Migration", func() {
 				)}},
 				{Key: "value", Config: v13.NodeConfig{Variant: defaults.Fill(
 					v13.ValueNodeConfig{
-						StrokeColor:    shade(2),
-						TextColor:      shade(3),
-						StalenessColor: shade(4),
+						StrokeColor:      shade(2),
+						TextColor:        shade(3),
+						StalenessColor:   shade(4),
+						StalenessTimeout: 3 * telem.Second,
 					},
 				)}},
 			},
@@ -101,7 +103,7 @@ var _ = Describe("Migration", func() {
 		Expect(value.StrokeColor).To(Equal(fixed(2)))
 		Expect(value.TextColor).To(Equal(fixed(3)))
 		Expect(value.FillColor).To(BeNil())
-		Expect(value.StalenessColor).To(Equal(shade(4)))
+		Expect(value.StalenessTimeout).To(Equal(3 * telem.Second))
 		Expect(got.Edges).To(HaveLen(1))
 		pipe, ok := got.Edges[0].Config.Variant.(v14.PipeEdgeConfig)
 		Expect(ok).To(BeTrue())
@@ -260,6 +262,30 @@ var _ = Describe("MigrateScaleIndicatorConfig", func() {
 			Expect(out.TextColor).To(Equal(fixed(3)))
 		},
 	)
+})
+
+var _ = Describe("MigrateStalenessConfig", func() {
+	It("Should keep the timeout and drop the color", func(ctx SpecContext) {
+		out := MustSucceed(v14.MigrateStalenessConfig(ctx, v13.StalenessConfig{
+			StalenessTimeout: 3 * telem.Second,
+			StalenessColor:   shade(1),
+		}))
+		Expect(out).To(Equal(v14.StalenessConfig{StalenessTimeout: 3 * telem.Second}))
+	})
+})
+
+var _ = Describe("MigrateToggleConfig", func() {
+	It("Should keep the staleness timeout and drop the color", func(ctx SpecContext) {
+		out := MustSucceed(v14.MigrateToggleConfig(ctx, v13.ToggleConfig{
+			StalenessTimeout: 3 * telem.Second,
+			StalenessColor:   shade(1),
+			StateChannel:     7,
+		}))
+		Expect(out.StalenessConfig).To(Equal(
+			v14.StalenessConfig{StalenessTimeout: 3 * telem.Second},
+		))
+		Expect(out.StateChannel).To(BeEquivalentTo(7))
+	})
 })
 
 var _ = Describe("MigrateNode", func() {

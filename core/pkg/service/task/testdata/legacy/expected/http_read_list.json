@@ -5,6 +5,7 @@
   "endpoints": [
     {
       "body": "",
+      "disabled": false,
       "fields": [
         {
           "channel": 10110,
@@ -51,8 +52,26 @@
           "value": "fixture-api-key-456"
         }
       ],
+      "icd": "http_read_list",
       "index": "fixture_http_list_index",
       "key": "ep-list-get",
+      "messages": [
+        {
+          "bindings": [
+            {
+              "channel": 10110,
+              "data_type": "",
+              "field": "fixture_http_list_timestamp"
+            },
+            {
+              "channel": 10120,
+              "data_type": "",
+              "field": "fixture_http_list_mode"
+            }
+          ],
+          "message": "GET /api/v1/fixtureListTelemetry"
+        }
+      ],
       "method": "GET",
       "path": "/api/v1/fixtureListTelemetry",
       "query_params": [
@@ -68,6 +87,7 @@
     },
     {
       "body": "{\"deviceId\": \"fixture-43\"}",
+      "disabled": false,
       "fields": [
         {
           "channel": 10140,
@@ -86,8 +106,15 @@
           "value": "fixture"
         }
       ],
+      "icd": "http_read_list",
       "index": "",
       "key": "ep-list-post",
+      "messages": [
+        {
+          "bindings": [],
+          "message": "POST /api/v1/fixtureListQuery"
+        }
+      ],
       "method": "POST",
       "path": "/api/v1/fixtureListQuery",
       "query_params": [

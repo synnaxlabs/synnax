@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
@@ -30,7 +30,6 @@ describe("Ranger.Select", () => {
         <Synnax>{children}</Synnax>
       </Haul.Provider>
     );
-    await waitForStreamLive(client.connection);
   });
 
   it("should fill the drag preview with the named color of the range", async () => {
