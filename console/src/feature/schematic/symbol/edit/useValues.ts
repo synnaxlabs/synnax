@@ -17,8 +17,8 @@ const path = Schematic.Symbol.formPath;
 
 /** Values holds the values of the state that the editor edits. */
 export interface Values {
-  /** values are the values that the symbol draws, named by its enumeration. */
-  values: Schematic.Node.Custom.Value[];
+  /** list holds the values that the symbol draws, named by its enumeration. */
+  list: Schematic.Node.Custom.Value[];
   /** entryState is the key of the state when it has an enumeration to color it. */
   entryState?: string;
   /**
@@ -39,7 +39,7 @@ export const useValues = (): Values => {
   const resolve = Color.useResolve();
   const entries = res.variant === "success" ? res.data.entries : undefined;
   return {
-    values: Schematic.Node.Custom.listValues({ variant }, entries),
+    list: Schematic.Node.Custom.listValues({ variant }, entries),
     entryState: key == null ? undefined : Spec.STATE,
     entryColor: (value) => {
       const entry =

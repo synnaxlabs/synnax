@@ -59,7 +59,7 @@ interface StatesProps {
 
 // States lists the values of the state, named by the entries of its enumeration.
 const States = ({ value, onChange }: StatesProps): ReactElement | null => (
-  <StateList value={value} onChange={onChange} tabs={useValues().values} />
+  <StateList value={value} onChange={onChange} tabs={useValues().list} />
 );
 
 const Editor = ({
