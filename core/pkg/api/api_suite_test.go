@@ -96,12 +96,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // res unless res is nil. It returns the error that the response holds.
 func post(token, path string, req, res any) error {
 	GinkgoHelper()
-	return postAs(rootToken, path, req, res)
-}
-
-// postAs sends req to path as post does, as the user whose session token is token.
-func postAs(token, path string, req, res any) error {
-	GinkgoHelper()
 	httpReq := httptest.NewRequest(
 		http.MethodPost,
 		path,

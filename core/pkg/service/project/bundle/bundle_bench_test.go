@@ -19,6 +19,7 @@ import (
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -27,7 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/notation"
@@ -198,8 +199,10 @@ func benchLog(proj project.Key, n int, take func() channel.Key) log.Log {
 	l := defaults.Fill(log.Log{Name: fmt.Sprintf("log_%d", n), Project: &proj})
 	for range 20 {
 		l.Channels = append(l.Channels, defaults.Fill(log.ChannelEntry{
-			Channel:  take(),
-			Color:    new(MustSucceed(color.Parse("#ff0000"))),
+			Channel: take(),
+			Color: &color.Ref{
+				Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse("#ff0000"))},
+			},
 			Notation: notation.NotationStandard,
 		}))
 	}

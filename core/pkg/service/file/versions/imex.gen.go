@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/file/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -36,10 +37,11 @@ func decodeBrowserConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (BrowserConfig, error) {
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[BrowserConfig](data, "file.BrowserConfig", version)
+		return imex.DecodeBlob[BrowserConfig](data, "file.BrowserConfig", version, opts...)
 	}
 	return BrowserConfig{}, imex.NewErrUnsupportedVersion("file.BrowserConfig", version, Latest)
 }
