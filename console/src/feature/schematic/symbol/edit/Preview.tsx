@@ -12,6 +12,7 @@ import "@/feature/schematic/symbol/edit/Edit.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
@@ -58,6 +59,24 @@ const VIEWPORT_PATH = deep.present(path.data.previewViewport);
 const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
 const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
+
+// outermost returns the outermost of selectors whose shape is el or a group around it.
+const outermost = (
+  drawing: Element,
+  el: Element,
+  selectors: string[],
+): string | undefined => {
+  let found: string | undefined;
+  for (
+    let up: Element | null = el;
+    up != null && up !== drawing;
+    up = up.parentElement
+  ) {
+    const shape = up;
+    found = selectors.find((s) => shape.matches(s)) ?? found;
+  }
+  return found;
+};
 
 interface PreviewProps {
   /** selectedValue is the value of the state that the preview draws. */
@@ -167,6 +186,7 @@ export const Preview = ({
     },
   });
 
+  const selectedPartRef = useSyncedRef(selectedPart);
   const onMount = (drawing: SVGGElement) => {
     setDrawingEl(drawing);
     const addInteractivity = (el: Element) => {
@@ -200,9 +220,19 @@ export const Preview = ({
         if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
         const shape = Schematic.Node.Region.name(markup, drawing, el);
-        // Alt-click is the shortcut for Select parent group.
-        const named =
-          (e.altKey ? parentGroup(shape.markup, [shape.selector]) : null) ?? shape;
+        let named: Schematic.Node.Region.Named | null = shape;
+        if (e.altKey) {
+          // Alt-click is the shortcut for Select parent group, so it climbs from the
+          // outermost shape of the selected part around the shape.
+          const part = form
+            .get(path.data.parts)
+            .value.find((p) => p.key === selectedPartRef.current);
+          const from = outermost(drawing, el, part?.selectors ?? []);
+          named =
+            parentGroup(shape.markup, [from ?? shape.selector]) ??
+            (from == null ? shape : null);
+        }
+        if (named == null) return;
         if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
         onElementClick(named.selector);
       });

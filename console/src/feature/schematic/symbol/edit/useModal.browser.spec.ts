@@ -1330,6 +1330,40 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    const NESTED =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +
+      '<g id="o"><g id="g"><rect id="c" width="10" height="10"/>' +
+      '<rect id="d" x="10" width="10" height="10"/></g>' +
+      '<rect id="e" x="20" width="10" height="10"/></g></svg>';
+
+    it("climbs from the group of the selected part on an alt-click", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: NESTED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(findShape("c"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#o"] },
+        ]),
+      );
+    });
+
+    it("keeps the part on an alt-click when no group is above it", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: NESTED },
+        parts: [{ ...BODY, selectors: ["#o"] }],
+      });
+      fireEvent.click(findShape("c"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#o"] },
+        ]),
+      );
+    });
+
     it("makes a part of the group of a shape alt-clicked", async () => {
       const symbol = await openPainted({
         drawing: { type: "svg", markup: GROUPED },
