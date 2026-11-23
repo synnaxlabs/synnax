@@ -21,7 +21,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { answerMethods } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
-import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
+import {
+  findButton,
+  openModal,
+  pressEscape,
+  renderModalOpener,
+} from "@/platform/modals/testutil";
+import { Session } from "@/session";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   clickAndSettle,
   createTestClientWithGrants,
@@ -289,5 +296,26 @@ describe("useModal", () => {
     });
     await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
     expect(await screen.findByPlaceholderText("Username")).toBeTruthy();
+  });
+
+  it("should update the stored Core username when users rename their own", async () => {
+    const self = await createTestClientWithGrants(createTestClient(), {
+      update: [user.TYPE_RESOURCE_ID],
+    });
+    await self.auth.sessions.retrieve();
+    const { subject } = self.auth;
+    const { username } = self.params;
+    if (subject == null || username == null) throw new Error("not logged in");
+    const core = createCore("Local", { username });
+    const { store } = await renderModalOpener(Credential.useModal, [{ subject }], {
+      client: self,
+      preloadedState: createCoreState([core], core.key),
+    });
+    const renamed = uniqueName("renamed");
+    await type("Username", renamed);
+    fireEvent.click(findButton("Set username"));
+    await screen.findByText("Successfully changed username");
+    const stored = store.getState()[Session.Core.SLICE_NAME].cores[core.key];
+    expect(stored.username).toEqual(renamed);
   });
 });

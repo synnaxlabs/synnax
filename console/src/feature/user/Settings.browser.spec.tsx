@@ -9,7 +9,6 @@
 
 import { type Synnax, user } from "@synnaxlabs/client";
 import {
-  createEmptyRole,
   createTestClient,
   createTestClientAs,
   createTestUser,
@@ -130,8 +129,14 @@ describe("User.ProfileSettings", () => {
   });
 
   it("should offer a user with no password to create one", async () => {
-    const { key: role } = await createEmptyRole(client);
-    const created = await client.users.create({ name: uniqueName("user"), role });
+    // the page streams live updates, which needs the reads of a built-in role
+    const roles = await client.access.roles.retrieve({});
+    const role = roles.find((r) => r.name === "Engineer");
+    if (role == null) throw new Error("no role named Engineer");
+    const created = await client.users.create({
+      name: uniqueName("user"),
+      role: role.key,
+    });
     const { token } = await client.auth.apiKeys.create({
       subject: user.resourceID(created.key),
       name: uniqueName("key"),

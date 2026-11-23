@@ -10,12 +10,13 @@
 import { user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { answerMethods } from "@/platform/core/testutil";
 import { findButton, openModal } from "@/platform/modals/testutil";
 import { User } from "@/platform/user";
+import { createConsoleWrapper, createTestClientWithGrants } from "@/testutil";
 
 describe("User.useRegisterModal", () => {
   it("should disable the Register button when no Core is connected", async () => {
@@ -122,5 +123,26 @@ describe("User.useRegisterModal", () => {
     const created = await client.users.retrieve(p.subject.key);
     expect(created.name).toEqual("Ada Lovelace");
     expect(created.role).toEqual(role.key);
+  });
+});
+
+describe("User.useRegisterGranted", () => {
+  const renderGranted = async () => {
+    const client = await createTestClientWithGrants(createTestClient(), {
+      create: [user.TYPE_RESOURCE_ID],
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    return renderHook(() => User.useRegisterGranted(), { wrapper });
+  };
+
+  it("should let a create-only role register when the Core refuses passwords", async () => {
+    answerMethods(["api_key"]);
+    const { result } = await renderGranted();
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should need update and delete to register when the Core accepts passwords", async () => {
+    const { result } = await renderGranted();
+    await waitFor(() => expect(result.current).toBe(false));
   });
 });
