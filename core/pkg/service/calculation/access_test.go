@@ -110,6 +110,10 @@ var _ = Describe("Access", func() {
 		)
 		return err
 	}
+	sends := func(check calculation.StreamCheck, allowed func(resource.ID) bool) bool {
+		_, send := check(allowed)
+		return send
+	}
 	// except returns a check that admits every resource but refused.
 	except := func(refused ...resource.ID) func(resource.ID) bool {
 		return func(id resource.ID) bool { return !slices.Contains(refused, id) }
@@ -152,8 +156,8 @@ var _ = Describe("Access", func() {
 		) {
 			input := virtual(ctx, "readable_input")
 			check := svc.Readable(calculate(ctx, input))
-			Expect(check(except())).To(BeTrue())
-			Expect(check(except(channel.ResourceID(input.Key())))).To(BeFalse())
+			Expect(sends(check, except())).To(BeTrue())
+			Expect(sends(check, except(channel.ResourceID(input.Key())))).To(BeFalse())
 		})
 	})
 
@@ -175,8 +179,8 @@ var _ = Describe("Access", func() {
 			reader := except(channel.ResourceID(secret.Key()))
 			first := MustBeOk(lookup(c.Key, batches[0].Seq))
 			last := MustBeOk(lookup(c.Key, batches[1].Seq))
-			Expect(first(reader)).To(BeFalse())
-			Expect(last(reader)).To(BeTrue())
+			Expect(sends(first, reader)).To(BeFalse())
+			Expect(sends(last, reader)).To(BeTrue())
 		})
 
 		It("Should hold no check of a batch that the commit did not attach", func(
@@ -202,9 +206,9 @@ var _ = Describe("Access", func() {
 				return svc.NewWriter(tx).Delete(ctx, c.Key)
 			})
 			check := MustBeOk(svc.DeleteChecks(commit)(c.Key))
-			Expect(check(except())).To(BeTrue())
-			Expect(check(except(channel.ResourceID(input.Key())))).To(BeFalse())
-			Expect(check(except(calculation.ResourceID(c.Key)))).To(BeFalse())
+			Expect(sends(check, except())).To(BeTrue())
+			Expect(sends(check, except(channel.ResourceID(input.Key())))).To(BeFalse())
+			Expect(sends(check, except(calculation.ResourceID(c.Key)))).To(BeFalse())
 		})
 
 		It("Should hold no check of a calculation that the commit did not delete", func(
