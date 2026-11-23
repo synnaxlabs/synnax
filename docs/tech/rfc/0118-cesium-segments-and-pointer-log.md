@@ -883,8 +883,7 @@ of them. A drive on which `F_files(32)` itself passes 10% needs struct storage (
 ## 9 Conversion and compatibility
 
 The conversion runs at the first open by the new binary, with the Core down, after the
-update backup of RFC 0102. That backup now also holds the `index.domain` and
-`counter.domain` of every channel (`cesium/backup.go:24`).
+update backup of RFC 0102.
 
 1. Detect: a `<key>/meta.json` exists, and the root holds no head name or an undone
    layout (§9.0). Remove the root files that an earlier attempt left. Read only numbered
