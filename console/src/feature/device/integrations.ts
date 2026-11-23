@@ -58,8 +58,8 @@ export const NETWORK: Network[] = [
 export const HARDWARE: Hardware[] = [
   {
     ...NI.Device.HARDWARE,
-    ContextMenuItems: NI.Device.ContextMenuItems,
-    RackMenuItems: NI.Device.RackMenuItems,
+    ContextMenuItems: NI.ContextMenuItems,
+    RackMenuItems: NI.RackMenuItems,
     useCreateRead: NI.Task.useCreateAnalogRead,
   },
   {

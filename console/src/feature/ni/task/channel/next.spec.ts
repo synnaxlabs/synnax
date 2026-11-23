@@ -11,13 +11,7 @@ import { ni } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import {
-  createNextAIChannel,
-  createNextAOChannel,
-  createNextCIChannel,
-  createNextDIChannel,
-  createNextDOChannel,
-} from "@/feature/ni/task/createChannel";
+import { Channel } from "@/feature/ni/task/channel";
 
 // AI channels are a discriminated union and the built-in temperature sensor variant
 // carries no port, so the specs reach for one through these.
@@ -36,11 +30,11 @@ const aiChannel = (
   return { ...channel, key, ...extra };
 };
 
-describe("createChannel", () => {
-  describe("createNextDIChannel", () => {
+describe("Channel", () => {
+  describe("Channel.createNextDI", () => {
     it("should create a new DI channel with line 0 when no channels exist", () => {
       const channels: NI.Task.DIChannel[] = [];
-      const result = createNextDIChannel(channels);
+      const result = Channel.createNextDI(channels);
       expect(result).toEqual({
         channel: 0,
         key: expect.any(String),
@@ -55,7 +49,7 @@ describe("createChannel", () => {
         { ...NI.Task.createDIChannel(), key: "1", line: 0, channel: 3 },
         { ...NI.Task.createDIChannel(), key: "2", line: 1, channel: 4 },
       ];
-      const result = createNextDIChannel(channels);
+      const result = Channel.createNextDI(channels);
       expect(result.line).toBe(2);
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -67,15 +61,15 @@ describe("createChannel", () => {
         { ...NI.Task.createDIChannel(), key: "1", port: 1, line: 0 },
         { ...NI.Task.createDIChannel(), key: "2", port: 2, line: 0 },
       ];
-      const result = createNextDIChannel(channels, { copy: "1" });
+      const result = Channel.createNextDI(channels, { copy: "1" });
       expect(result).toMatchObject({ port: 1, line: 1 });
     });
   });
 
-  describe("createNextDOChannel", () => {
+  describe("Channel.createNextDO", () => {
     it("should create a new DO channel with line 0 when no channels exist", () => {
       const channels: NI.Task.DOChannel[] = [];
-      const result = createNextDOChannel(channels);
+      const result = Channel.createNextDO(channels);
       expect(result).toEqual({
         cmdChannel: 0,
         stateChannel: 0,
@@ -93,7 +87,7 @@ describe("createChannel", () => {
         { ...NI.Task.createDOChannel(), key: "1", line: 0 },
         { ...NI.Task.createDOChannel(), key: "2", line: 1 },
       ];
-      const result = createNextDOChannel(channels);
+      const result = Channel.createNextDO(channels);
       expect(result.line).toBe(2);
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -101,10 +95,10 @@ describe("createChannel", () => {
     });
   });
 
-  describe("createNextAIChannel", () => {
+  describe("Channel.createNextAI", () => {
     it("should create a new AI channel with port 0 when no channels exist", () => {
       const channels: NI.Task.AIChannel[] = [];
-      const result = createNextAIChannel(channels);
+      const result = Channel.createNextAI(channels);
       expect(portOf(result)).toBe(0);
       expect(result.key).toBeDefined();
       expect(result.channel).toBe(0);
@@ -112,7 +106,7 @@ describe("createChannel", () => {
 
     it("should create a new AI channel with the next available port number", () => {
       const channels = [aiChannel("1", 0), aiChannel("2", 1)];
-      const result = createNextAIChannel(channels);
+      const result = Channel.createNextAI(channels);
       expect(portOf(result)).toBe(2);
       expect(result.key).toBeDefined();
     });
@@ -122,7 +116,7 @@ describe("createChannel", () => {
         aiChannel("1", 0, "ai_accel", { channel: 3 }),
         aiChannel("2", 1, "ai_bridge"),
       ];
-      const result = createNextAIChannel(channels, { copy: "1" });
+      const result = Channel.createNextAI(channels, { copy: "1" });
       expect(result.type).toBe("ai_accel");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -132,12 +126,12 @@ describe("createChannel", () => {
     });
 
     it("should give a new voltage channel a range of ±10 V", () => {
-      expect(createNextAIChannel([])).toMatchObject({ minVal: -10, maxVal: 10 });
+      expect(Channel.createNextAI([])).toMatchObject({ minVal: -10, maxVal: 10 });
     });
 
     it("should give a copy on another device that device's range", () => {
       const source = { ...aiChannel("1", 0), device: "a", minVal: -60, maxVal: 60 };
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+      expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         minVal: -10,
         maxVal: 10,
       });
@@ -158,7 +152,7 @@ describe("createChannel", () => {
         maxVal: 30,
         customScale,
       };
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+      expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         minVal: 0,
         maxVal: 30,
       });
@@ -171,7 +165,7 @@ describe("createChannel", () => {
         minVal: -0.02,
         maxVal: 0.02,
       };
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+      expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         minVal: -0.02,
         maxVal: 0.02,
       });
@@ -179,12 +173,12 @@ describe("createChannel", () => {
 
     it("should keep the range of the copied channel", () => {
       const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
-      expect(createNextAIChannel([source])).toMatchObject({ minVal: -1, maxVal: 1 });
+      expect(Channel.createNextAI([source])).toMatchObject({ minVal: -1, maxVal: 1 });
     });
 
     it("should copy the last channel when no channel to copy is given", () => {
       const channels = [aiChannel("1", 0, "ai_accel"), aiChannel("2", 1, "ai_bridge")];
-      const result = createNextAIChannel(channels);
+      const result = Channel.createNextAI(channels);
       expect(result.type).toBe("ai_bridge");
       expect(portOf(result)).toBe(2);
     });
@@ -196,16 +190,16 @@ describe("createChannel", () => {
         aiChannel("3", 2),
         aiChannel("4", 3),
       ];
-      const firstDuplicate = createNextAIChannel(channels, { copy: "1" });
+      const firstDuplicate = Channel.createNextAI(channels, { copy: "1" });
       expect(portOf(firstDuplicate)).toBe(4);
 
       const channelsWithFirstDuplicate = [...channels, firstDuplicate];
-      const secondDuplicate = createNextAIChannel(channelsWithFirstDuplicate, {
+      const secondDuplicate = Channel.createNextAI(channelsWithFirstDuplicate, {
         copy: "1",
       });
       expect(portOf(secondDuplicate)).toBe(5);
 
-      const thirdDuplicate = createNextAIChannel(channelsWithFirstDuplicate, {
+      const thirdDuplicate = Channel.createNextAI(channelsWithFirstDuplicate, {
         copy: "3",
       });
       expect(portOf(thirdDuplicate)).toBe(5);
@@ -213,20 +207,20 @@ describe("createChannel", () => {
 
     it("should handle non-sequential ports correctly", () => {
       const channels = [aiChannel("1", 0), aiChannel("2", 2), aiChannel("3", 5)];
-      const result = createNextAIChannel(channels, { copy: "1" });
+      const result = Channel.createNextAI(channels, { copy: "1" });
       expect(portOf(result)).toBe(1);
     });
 
     it("should give the built-in temperature sensor no port", () => {
-      const result = createNextAIChannel([NI.Task.createAIChannel("ai_temp_builtin")]);
+      const result = Channel.createNextAI([NI.Task.createAIChannel("ai_temp_builtin")]);
       expect(portOf(result)).toBeUndefined();
     });
   });
 
-  describe("createNextAOChannel", () => {
+  describe("Channel.createNextAO", () => {
     it("should create a new AO channel with port 0 when no channels exist", () => {
       const channels: NI.Task.AOChannel[] = [];
-      const result = createNextAOChannel(channels);
+      const result = Channel.createNextAO(channels);
       expect(result.port).toBe(0);
       expect(result.key.length).toBeGreaterThan(0);
       expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
@@ -249,7 +243,7 @@ describe("createChannel", () => {
           stateChannel: 11,
         }),
       ];
-      const result = createNextAOChannel(channels);
+      const result = Channel.createNextAO(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
       expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
@@ -266,7 +260,7 @@ describe("createChannel", () => {
           cmdChannelName: "named_cmd",
         }),
       ];
-      const result = createNextAOChannel(channels, { copy: "1" });
+      const result = Channel.createNextAO(channels, { copy: "1" });
       expect(result).toMatchObject({
         type: "ao_current",
         port: 1,
@@ -281,7 +275,7 @@ describe("createChannel", () => {
         { ...NI.Task.createAOChannel("ao_func_gen"), key: "1", port: 0 },
         { ...NI.Task.createAOChannel("ao_current"), key: "2", port: 1 },
       ];
-      const result = createNextAOChannel(channels, { copy: "1" });
+      const result = Channel.createNextAO(channels, { copy: "1" });
       expect(result.type).toBe("ao_func_gen");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -291,10 +285,10 @@ describe("createChannel", () => {
     });
   });
 
-  describe("createNextCIChannel", () => {
+  describe("Channel.createNextCI", () => {
     it("should create a new CI channel with port 0 when no channels exist", () => {
       const channels: NI.Task.CIChannel[] = [];
-      const result = createNextCIChannel(channels);
+      const result = Channel.createNextCI(channels);
       expect(result.port).toBe(0);
       expect(result.key).toBeDefined();
       expect(result.channel).toBe(0);
@@ -306,7 +300,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel(), key: "1", port: 0 },
         { ...NI.Task.createCIChannel(), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels);
+      const result = Channel.createNextCI(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
     });
@@ -316,7 +310,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_frequency"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_frequency");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -330,7 +324,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_edge_count"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_edge_count");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -344,7 +338,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_period"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_period");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -358,7 +352,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_pulse_width"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_pulse_width");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -372,7 +366,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_semi_period"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_semi_period");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -391,7 +385,7 @@ describe("createChannel", () => {
         },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, { copy: "1" });
+      const result = Channel.createNextCI(channels, { copy: "1" });
       expect(result.type).toBe("ci_two_edge_sep");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
