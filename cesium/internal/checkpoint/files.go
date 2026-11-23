@@ -134,11 +134,11 @@ func again(err error, retry func() error) error {
 	return err
 }
 
-// Prepare makes the file of the log of generation next in the root fs when it is
+// prepareLog makes the file of the log of generation next in the root fs when it is
 // missing or not size bytes long, and removes a leftover head of generation next. It
 // syncs a file of size bytes that it finds, and then the root, as it does a file that
 // it makes.
-func Prepare(fs xfs.FS, next uint64, size int64) error {
+func prepareLog(fs xfs.FS, next uint64, size int64) error {
 	if err := fs.Remove(Name(next)); err != nil {
 		return err
 	}

@@ -19,12 +19,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrDiskFull is the error of the file of a next log when the root holds MaxLogs logs,
+// errDiskFull is the error of the file of a next log when the root holds maxLogs logs,
 // because heads keep failing.
-var ErrDiskFull = errors.New("disk full")
+var errDiskFull = errors.New("disk full")
 
-// MaxLogs is the most logs that the root keeps while heads fail.
-const MaxLogs = 16
+// maxLogs is the most logs that the root keeps while heads fail.
+const maxLogs = 16
 
 // Config is the configuration of a checkpointer.
 type Config struct {
@@ -94,7 +94,7 @@ func (c *Checkpointer) signal() {
 
 // Prepare queues switch step 1 for the log of generation next: the file of the log, and
 // the removal of a leftover head of that generation. It reports the result to the
-// Prepared hook: an error that wraps ErrDiskFull when the root holds MaxLogs logs below
+// Prepared hook: an error that ends in "disk full" when the root holds 16 logs below
 // next.
 func (c *Checkpointer) Prepare(next uint64) {
 	c.mu.Lock()
@@ -169,17 +169,17 @@ func (c *Checkpointer) write(h head) error {
 	return Clean(c.cfg.FS, h.generation)
 }
 
-// prepare makes the file of the log of generation next, unless the root holds MaxLogs
+// prepare makes the file of the log of generation next, unless the root holds maxLogs
 // logs below next. Only a head removes logs.
 func (c *Checkpointer) prepare(next uint64) error {
 	n, err := countLogs(c.cfg.FS, next)
 	if err != nil {
 		return err
 	}
-	if n >= MaxLogs {
-		return errors.Wrapf(ErrDiskFull, "%d logs since the oldest head", n)
+	if n >= maxLogs {
+		return errors.Wrapf(errDiskFull, "%d logs since the oldest head", n)
 	}
-	return Prepare(c.cfg.FS, next, c.cfg.LogSize)
+	return prepareLog(c.cfg.FS, next, c.cfg.LogSize)
 }
 
 // countLogs returns the number of logs in fs below generation below.

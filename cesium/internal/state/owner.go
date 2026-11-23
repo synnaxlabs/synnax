@@ -91,8 +91,8 @@ type State struct {
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
-// that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown for a
-// segment format version that this binary does not read.
+// when a value of head breaks a rule, or log.ErrUnknown for a segment format version
+// that this binary does not read.
 func Open(cfg Config, head *Snapshot) (*State, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -113,8 +113,8 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 }
 
 // Replay applies the records of the durable entry of sequence, in replay mode, before
-// Run. It returns an error that wraps ErrRefused for a record that breaks a rule, or
-// log.ErrUnknown for one this binary does not apply.
+// Run. It returns an error for a record that breaks a rule, or log.ErrUnknown for one
+// this binary does not apply.
 func (s *State) Replay(sequence uint64, records []log.Record) error {
 	return s.core.apply(sequence, records)
 }

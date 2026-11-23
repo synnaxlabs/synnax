@@ -155,6 +155,24 @@ var _ = Describe("Files", func() {
 			})
 
 			Describe("Prepare", func() {
+				// prepare makes the file of log 4 through a checkpointer of logs of
+				// size bytes, and returns the error that its Prepared hook reports.
+				prepare := func(size int64) error {
+					GinkgoHelper()
+					p := &prepared{}
+					c := MustSucceed(checkpoint.New(checkpoint.Config{
+						FS:       fs,
+						DB:       db,
+						LogSize:  size,
+						Prepared: p.on,
+						Executor: goExec,
+					}))
+					start(c)
+					c.Prepare(4)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
+					return p.errs[0]
+				}
+
 				It(
 					"Should make a missing log of its size and remove a leftover head",
 					func() {
@@ -162,7 +180,7 @@ var _ = Describe("Files", func() {
 							fs.Open(checkpoint.Name(4), os.O_CREATE|os.O_RDWR),
 						)
 						Expect(f.Close()).To(Succeed())
-						Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+						Expect(prepare(3 * log.BlockSize)).To(Succeed())
 						Expect(exists(checkpoint.Name(4))).To(BeFalse())
 						info := MustSucceed(fs.Stat(log.Name(4)))
 						Expect(info.Size()).To(Equal(int64(3 * log.BlockSize)))
@@ -170,15 +188,15 @@ var _ = Describe("Files", func() {
 				)
 
 				It("Should keep a log of its size and remake a short one", func() {
-					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+					Expect(prepare(3 * log.BlockSize)).To(Succeed())
 					writes := len(fs.Ops())
-					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
+					Expect(prepare(3 * log.BlockSize)).To(Succeed())
 					Expect(fs.Ops()[writes:]).To(HaveExactElements(
 						"remove "+checkpoint.Name(4),
 						"sync "+log.Name(4),
 						`syncdir ""`,
 					), "no write")
-					Expect(checkpoint.Prepare(fs, 4, 4*log.BlockSize)).To(Succeed())
+					Expect(prepare(4 * log.BlockSize)).To(Succeed())
 					info := MustSucceed(fs.Stat(log.Name(4)))
 					Expect(info.Size()).To(Equal(int64(4 * log.BlockSize)))
 				})

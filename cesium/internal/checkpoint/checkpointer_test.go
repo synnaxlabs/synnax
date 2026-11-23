@@ -185,21 +185,24 @@ var _ = Describe("Checkpointer", func() {
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
 
-			It("Should refuse the file of a next log when the root holds MaxLogs "+
-				"logs", func() {
-				for g := range uint64(checkpoint.MaxLogs) {
-					f := MustSucceed(fs.Open(log.Name(g+1), os.O_CREATE|os.O_RDWR))
-					Expect(f.Close()).To(Succeed())
-				}
-				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
-				Expect(p.errs[0]).To(MatchError(checkpoint.ErrDiskFull))
-				Expect(exists(log.Name(checkpoint.MaxLogs + 1))).To(BeFalse())
-				Expect(fs.Remove(log.Name(1))).To(Succeed())
-				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(2))
-				Expect(p.errs[1]).ToNot(HaveOccurred())
-			})
+			It(
+				"Should refuse the file of a next log when the root holds 16 logs",
+				func() {
+					for g := range uint64(16) {
+						f := MustSucceed(fs.Open(log.Name(g+1), os.O_CREATE|os.O_RDWR))
+						Expect(f.Close()).To(Succeed())
+					}
+					c.Prepare(17)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
+					Expect(p.errs[0]).
+						To(MatchError("16 logs since the oldest head: disk full"))
+					Expect(exists(log.Name(17))).To(BeFalse())
+					Expect(fs.Remove(log.Name(1))).To(Succeed())
+					c.Prepare(17)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(2))
+					Expect(p.errs[1]).ToNot(HaveOccurred())
+				},
+			)
 		})
 	}
 
