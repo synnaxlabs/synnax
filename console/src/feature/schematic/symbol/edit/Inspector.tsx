@@ -260,15 +260,15 @@ const MOTIONS: MotionGroup[] = [
 
 const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
 
-const FOLLOWS = "The motion follows a value, which the editor cannot change.";
+// The picker sets only loops. It shows a motion that follows a value, so a pick
+// replaces it in sight.
+const FOLLOWS = "Only a client can set a motion that follows a value.";
 
 const MotionControl = (): ReactElement => {
   const { value, inherited, own, onChange, label } =
     useScope<"motion">("MotionControl");
   const locked = inherited != null && own == null;
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
-  // The picker sets only loops, so it shows a motion that follows a value and keeps it.
-  const follows = value != null && moving == null;
   const handleKindChange = (kind: MotionKind | "none") => {
     if (kind === "none") return onChange(undefined);
     if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
@@ -289,13 +289,9 @@ const MotionControl = (): ReactElement => {
         <Select.Item
           itemKey="none"
           size="small"
-          disabled={locked || follows}
+          disabled={locked}
           tooltip={
-            follows
-              ? FOLLOWS
-              : locked
-                ? "The whole drawing moves, and this part with it."
-                : undefined
+            locked ? "The whole drawing moves, and this part with it." : undefined
           }
         >
           None
@@ -314,8 +310,8 @@ const MotionControl = (): ReactElement => {
                   key={k.kind}
                   itemKey={k.kind}
                   size="small"
-                  disabled={follows}
-                  tooltip={follows ? FOLLOWS : undefined}
+                  disabled={!isLoop(k.kind)}
+                  tooltip={isLoop(k.kind) ? undefined : FOLLOWS}
                 >
                   {k.name}
                 </Select.Item>
