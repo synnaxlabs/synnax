@@ -144,6 +144,11 @@ to the `arc.Program` the Driver runs
 each module on its base inputs and streams those inputs instead. Inputs from another
 Driver go stale during an outage. The Core keeps computing the channel for the Console.
 
+The modules run on the control (streamer) thread, before the frame reaches the runtime.
+Each costs about 450 ns per input sample, the same as a runtime cycle, so a slow
+calculation delays commands to the Arc. A module whose inputs are not in a frame does
+not run.
+
 ### 3.6 Reconnect and new minors
 
 The rack breaker waits for an unreachable Core with no limit. On reconnect the task

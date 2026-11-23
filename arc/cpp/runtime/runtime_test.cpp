@@ -729,16 +729,22 @@ struct WriteNode final : public node::Node {
     state::Node state;
     /// @brief how many runs write a sample.
     int writes;
-    /// @brief when set, each run calls its `spin` function.
+    /// @brief how many runs call the `spin` function of mod.
+    int spins;
     std::shared_ptr<wasm::Module> mod;
     int runs = 0;
 
-    WriteNode(state::Node &&state, const int writes, std::shared_ptr<wasm::Module> mod):
-        state(std::move(state)), writes(writes), mod(std::move(mod)) {}
+    WriteNode(
+        state::Node &&state,
+        const int writes,
+        const int spins,
+        std::shared_ptr<wasm::Module> mod
+    ):
+        state(std::move(state)), writes(writes), spins(spins), mod(std::move(mod)) {}
 
     x::errors::Error next(node::Context &ctx) override {
         ctx.mark_self_changed();
-        if (this->mod != nullptr) {
+        if (this->runs < this->spins) {
             auto [spin, err] = this->mod->func("spin");
             if (err) return err;
             std::vector<wasm::Module::Function::Result> results;
@@ -763,8 +769,8 @@ struct ComputeFixture {
     std::shared_ptr<Runtime> runtime;
     WriteNode *node;
 
-    /// @param spin true when each run of the node uses the whole loop budget.
-    static ComputeFixture create(const int writes, const bool spin = false) {
+    /// @param spins how many runs of the node use the whole loop budget.
+    static ComputeFixture create(const int writes, const int spins = 0) {
         auto prog = arc::ir::testutil::Builder()
                         .node("write")
                         .strata({{"write"}})
@@ -775,11 +781,12 @@ struct ComputeFixture {
         });
         auto [node_state, err] = state->node("write");
         if (err) throw std::runtime_error(err.message());
-        auto mod = spin ? testutil::spin_module() : testutil::empty_module();
+        auto mod = spins > 0 ? testutil::spin_module() : testutil::empty_module();
         auto write_node = std::make_unique<WriteNode>(
             std::move(node_state),
             writes,
-            spin ? mod : nullptr
+            spins,
+            mod
         );
         auto *node_ptr = write_node.get();
         std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
@@ -809,9 +816,17 @@ TEST(RuntimeComputeTest, RunsUntilACycleWritesNothing) {
 /// @brief it should end a computation whose cycle uses its whole loop budget, and run
 /// again on the next call.
 TEST(RuntimeComputeTest, LoopBudgetEndsTheComputation) {
-    auto [runtime, node] = ComputeFixture::create(3, true);
+    auto [runtime, node] = ComputeFixture::create(3, 2);
     EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
     EXPECT_EQ(node->runs, 1);
+    EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
+    EXPECT_EQ(node->runs, 2);
+}
+
+/// @brief it should discard the writes of a cycle that uses its whole loop budget.
+TEST(RuntimeComputeTest, LoopBudgetDiscardsWrites) {
+    auto [runtime, node] = ComputeFixture::create(1, 1);
+    EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
     EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
     EXPECT_EQ(node->runs, 2);
 }

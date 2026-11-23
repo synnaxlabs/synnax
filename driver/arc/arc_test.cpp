@@ -4022,4 +4022,22 @@ TEST_F(OutageTest, WarnsOnFailedCalculation) {
     EXPECT_EQ(find_status_by_variant(statuses, synnax::status::VARIANT_ERROR), nullptr);
     task->stop("test_stop", true);
 }
+
+/// @brief it should compute calculations after two stops that run at once.
+TEST_F(OutageTest, ComputesAfterConcurrentStops) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
+    const auto task = this->create_task(doubled.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 2.0f));
+    std::thread other([&] { task->stop("", true); });
+    task->stop("test_stop", true);
+    other.join();
+    this->start(*task);
+    this->publish(a.key, 3.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 6.0f));
+    task->stop("test_stop", true);
+}
 }

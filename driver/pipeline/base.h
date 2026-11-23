@@ -27,8 +27,15 @@ class Base {
     /// @brief guards thread while start() assigns it, as the new thread can read it in
     /// stop() before the assignment completes.
     std::mutex thread_mu;
+    /// @brief serializes joins of thread, as two stops can run at once.
+    std::mutex join_mu;
     /// @brief the name to assign to the pipeline thread.
     std::string thread_name;
+
+    void join() {
+        std::lock_guard lock(this->join_mu);
+        if (this->thread.joinable()) this->thread.join();
+    }
 
     void run_internal() {
         if (!this->thread_name.empty()) x::thread::set_name(this->thread_name.c_str());
@@ -88,7 +95,7 @@ public:
     /// start() since the pipeline was last stopped.
     /// @returns false otherwise.
     virtual bool start() {
-        if (!this->breaker.running() && this->thread.joinable()) this->thread.join();
+        if (!this->breaker.running()) this->join();
         if (!this->breaker.start()) return false;
         std::lock_guard lock(this->thread_mu);
         this->thread = std::thread(&Base::run_internal, this);
@@ -114,7 +121,7 @@ public:
                 return stopped;
         }
         if (stopped) this->interrupt();
-        this->thread.join();
+        this->join();
         return stopped;
     }
 
