@@ -177,9 +177,6 @@ func Converts(k payload.Kind, dt telem.DataType) bool {
 }
 
 func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
-	if err := icd.CheckDefault(f); err != nil {
-		return jsonField{}, errors.Wrap(err, "default")
-	}
 	b := f.Base()
 	pointer, err := xjson.ParsePointer(b.Pointer)
 	if err != nil {
@@ -305,8 +302,11 @@ func (f *jsonField) readTextVariant(jf icd.JSONField, out *jsonVariant) error {
 		return f.readTimestampDefault(v.Default)
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
-		if v.Default != nil {
-			out.fallback = jsontext.Value(*v.Default)
+		if v.Default == nil {
+			return nil
+		}
+		if out.fallback, err = jsonText(*v.Default); err != nil {
+			return errors.Wrap(err, "default")
 		}
 		return nil
 	case icd.UuidJSONField:
@@ -497,4 +497,13 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 		}
 	}
 	return nil
+}
+
+// jsonText returns the exact bytes of text. It returns a validation error when text is
+// not valid JSON.
+func jsonText(text string) ([]byte, error) {
+	if !jsontext.Value(text).IsValid() {
+		return nil, errors.Wrap(validate.ErrValidation, "not valid JSON")
+	}
+	return []byte(text), nil
 }
