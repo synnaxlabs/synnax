@@ -148,6 +148,11 @@ Where filter Certificate {
     racks  rack.Key[] {
         @doc value "matches the file certificates on any of the given racks."
     }
+    keyed  bool       {
+        @doc value """
+            matches the certificates with a private key, or without one when false.
+        """
+    }
 
     @doc value         "is a filter that selects certificates."
     @go request_output "core/pkg/api/certificate"

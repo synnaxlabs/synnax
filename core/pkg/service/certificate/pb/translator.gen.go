@@ -340,6 +340,9 @@ func WhereToPB(r certificate.Where) (*Where, error) {
 	if r.Racks != nil {
 		pb.Racks = &RackKeyList{Values: lo.Map(r.Racks, func(v rack.Key, _ int) uint32 { return uint32(v) })}
 	}
+	if r.Keyed != nil {
+		pb.Keyed = r.Keyed
+	}
 	return pb, nil
 }
 
@@ -393,6 +396,9 @@ func WhereFromPB(pb *Where) (certificate.Where, error) {
 	}
 	if pb.Racks != nil {
 		r.Racks = xpb.ListValues(lo.Map(pb.Racks.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
+	}
+	if pb.Keyed != nil {
+		r.Keyed = pb.Keyed
 	}
 	return r, nil
 }

@@ -282,6 +282,50 @@ describe("Certificate", () => {
       }
     });
 
+    it("should retrieve the certificates with or without a private key", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Keyed" });
+      const [keyed, bare] = await client.certificates.set([
+        {
+          name: "Keyed",
+          source: "file",
+          certificatePath: "/a.crt",
+          privateKeyFile: "client.pem",
+          rack: r.key,
+        },
+        { name: "Bare", source: "file", certificatePath: "/b.crt", rack: r.key },
+      ]);
+      const retrieve = async (k: boolean) =>
+        await createTestClient().certificates.retrieve({ racks: [r.key], keyed: k });
+      expect(await retrieve(true)).toEqual([keyed]);
+      expect(await retrieve(false)).toEqual([bare]);
+    });
+
+    it("should add a certificate with a private key to a watch of keyed ones", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Watched keyed" });
+      const list = client.certificates.watch({ racks: [r.key], keyed: true });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        const [added] = await client.certificates.set([
+          {
+            name: "Keyed",
+            source: "file",
+            certificatePath: "/a.crt",
+            privateKeyFile: "client.pem",
+            rack: r.key,
+          },
+          { name: "Bare", source: "file", certificatePath: "/b.crt", rack: r.key },
+        ]);
+        await vi.waitFor(() =>
+          expect(expectLive(list.getCached()).records).toEqual([added]),
+        );
+      } finally {
+        off();
+      }
+    });
+
     it("should search for certificates by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} CA`;

@@ -107,6 +107,9 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<std::string>> source;
     /// @brief racks matches the file certificates on any of the given racks.
     ::x::filter::List<::synnax::rack::Key> racks;
+    /// @brief keyed matches the certificates with a private key, or without one when
+    /// false.
+    std::optional<bool> keyed;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {

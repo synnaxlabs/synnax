@@ -75,6 +75,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .name = parser.field<std::optional<::x::filter::String>>("name"),
         .source = parser.field<std::optional<::x::filter::Set<std::string>>>("source"),
         .racks = parser.field<std::optional<std::vector<::synnax::rack::Key>>>("racks"),
+        .keyed = parser.field<std::optional<bool>>("keyed"),
     };
 }
 
@@ -87,6 +88,7 @@ inline x::json::json Where::to_json() const {
     if (this->name.has_value()) j["name"] = this->name->to_json();
     if (this->source.has_value()) j["source"] = this->source->to_json();
     if (this->racks.has_value()) j["racks"] = *this->racks;
+    if (this->keyed.has_value()) j["keyed"] = *this->keyed;
     return j;
 }
 
