@@ -186,28 +186,12 @@ export const Preview = ({
         }
       }
 
-      el.addEventListener("mouseenter", () => {
-        if (el.tagName === "line" || el.tagName === "polyline")
-          el.style.filter = "drop-shadow(0 0 3px rgba(99, 102, 241, 0.8))";
-        else {
-          const fillAttr = el.getAttribute("fill");
-          const hasVisibleFill =
-            fillAttr && fillAttr !== "none" && fillAttr !== "transparent";
-          if (hasVisibleFill) el.style.filter = "brightness(1.3)";
-          else {
-            el.style.fill = "rgba(99, 102, 241, 0.2)";
-            el.style.fillOpacity = "1";
-          }
-        }
-        el.classList.add(CSS.BEM("schematic", "svg-region", "hover"));
-      });
-
-      el.addEventListener("mouseleave", () => {
-        el.style.filter = "";
-        el.style.fill = "";
-        el.style.fillOpacity = "";
-        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover"));
-      });
+      el.addEventListener("mouseenter", () =>
+        el.classList.add(CSS.BEM("schematic", "svg-region", "hover")),
+      );
+      el.addEventListener("mouseleave", () =>
+        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover")),
+      );
 
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
