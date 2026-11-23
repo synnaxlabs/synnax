@@ -10,7 +10,7 @@
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useResult } from "@/channel/queries";
 import { Flux } from "@/flux";
