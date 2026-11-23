@@ -16,7 +16,7 @@ import { batch } from "@/batch";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { query } from "@/query";
-import { NO_OUTPUTS, PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { NO_OUTPUTS, PushStreamer, testCoreAddress } from "@/testutil";
 
 const FAILED: channel.Payload = {
   key: 1,
@@ -72,7 +72,7 @@ const createFake = async () => {
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
-  const coreURL = new url.URL(TEST_CORE_ADDRESS);
+  const coreURL = new url.URL(testCoreAddress());
   const channels = new channel.Client({
     framer: new framer.Client({
       stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),

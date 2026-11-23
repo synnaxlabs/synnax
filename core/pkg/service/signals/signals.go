@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -37,6 +38,10 @@ type Provider struct {
 	// references is the reference change channel and its changes, zero until
 	// PublishReferenceChanges runs.
 	references ReferenceChanges
+	// checkCommits is how many commits of checks each change channel holds: the most
+	// frames that a stream buffers after the relay, plus the frames of a feed's request
+	// pipe as a margin. A stream that lags within its buffers finds each check.
+	checkCommits int
 	// started is true once Start runs.
 	started bool
 }
@@ -90,5 +95,11 @@ func New(cfgs ...Config) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{cfg: cfg, records: make(map[channel.Key]Record)}, nil
+	return &Provider{
+		cfg:     cfg,
+		records: make(map[channel.Key]Record),
+		checkCommits: cfg.Framer.StreamerBufferSize() +
+			streamer.BufferSize +
+			requestBufferSize,
+	}, nil
 }

@@ -81,10 +81,7 @@ const channelToFormValues = (ch: channel.Channel) => ({
   operations: ch.operations.length > 0 ? ch.operations : [ZERO_OPERATION],
 });
 
-export {
-  type RetrieveMultipleQuery,
-  type RetrieveQuery,
-} from "@/channel/aether/queries";
+export type { RetrieveMultipleQuery, RetrieveQuery } from "@/channel/aether/queries";
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema

@@ -13,7 +13,7 @@ import vm from "node:vm";
 import { DataType, Rate, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { test } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";

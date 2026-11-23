@@ -9,13 +9,13 @@
 
 import "@/channel/Select.css";
 
-import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import type { channel, Synnax as Client } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { state } from "@synnaxlabs/lyra/state";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { getCachedPreviewProps, HaulPreview } from "@/channel/HaulPreview";
 import { KindIcon } from "@/channel/KindIcon";
@@ -23,7 +23,7 @@ import { type ListQuery, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { useCalculatedHidden } from "@/channel/useCalculatedHidden";
 import { CSS } from "@/css";
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
 const ListItem = ({

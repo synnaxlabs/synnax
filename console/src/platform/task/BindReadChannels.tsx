@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { BindChannels } from "@/platform/task/BindChannels";
-import { type ReadChannelField, type ReadChannelProps } from "@/platform/task/channels";
+import type { ReadChannelField, ReadChannelProps } from "@/platform/task/channels";
 
 type BoundField = Pick<ReadChannelField, "key" | "pointer" | "channel">;
 

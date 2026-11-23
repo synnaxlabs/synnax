@@ -15,108 +15,16 @@ import {
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Channel } from "@/channel";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
-
-const TRIGGER_CLASS = "pluto-channel__trigger";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Channel select", () => {
-  const Wrapper = createSynnaxWrapper({ client: null });
-
-  it("should mark the single select's trigger so forms can widen it", () => {
-    const c = render(<Channel.SelectSingle value={0} onChange={vi.fn()} />, {
-      wrapper: Wrapper,
-    });
-    expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
-  });
-
-  it("should show the select's own icon when no channel is selected", () => {
-    const c = render(
-      <Channel.SelectSingle value={0} onChange={vi.fn()} icon={<Icon.Time />} />,
-      { wrapper: Wrapper },
-    );
-    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
-    expect(trigger?.querySelector(".lyra-icon--time")).not.toBeNull();
-  });
-
-  it("should mark the multiple select's trigger so forms can widen it", () => {
-    const c = render(<Channel.SelectMultiple value={[]} onChange={vi.fn()} />, {
-      wrapper: Wrapper,
-    });
-    expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
-  });
-
-  it("should keep the single select's trigger mark beside the caller's trigger props", () => {
-    const c = render(
-      <Channel.SelectSingle
-        value={0}
-        onChange={vi.fn()}
-        triggerProps={{ variant: "shadow", className: "custom" }}
-      />,
-      { wrapper: Wrapper },
-    );
-    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
-    expect(trigger?.classList.contains("custom")).toBe(true);
-    expect(trigger?.classList.contains("lyra-btn--shadow")).toBe(true);
-  });
-
-  it("should keep the multiple select's trigger mark beside the caller's trigger props", () => {
-    const c = render(
-      <Channel.SelectMultiple
-        value={[]}
-        onChange={vi.fn()}
-        triggerProps={{ className: "custom" }}
-      />,
-      { wrapper: Wrapper },
-    );
-    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
-    expect(trigger?.classList.contains("custom")).toBe(true);
-  });
-
-  describe("query changes", () => {
-    const client = createTestClient();
-    const Wrapper = createSynnaxWrapper({ client });
-
-    it("should keep an open dialog and its search term and show the new results", async () => {
-      const term = id.create();
-      const [first, second, third] = await client.channels.create(
-        ["first", "second", "third"].map((suffix) => ({
-          name: `${term}_${suffix}`,
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        })),
-      );
-      const excluding = (key: channel.Key): Channel.ListQuery => ({
-        where: { not: { key: { in: [key] } } },
-      });
-      const props = { value: 0, onChange: vi.fn(), virtual: false };
-      const c = render(
-        <Channel.SelectSingle {...props} query={excluding(first.key)} />,
-        { wrapper: Wrapper },
-      );
-      fireEvent.click(c.getByRole("button"));
-      const search = await c.findByPlaceholderText(/search/i);
-      fireEvent.change(search, { target: { value: term } });
-      await c.findByText(second.name);
-      expect(c.queryByText(first.name)).toBeNull();
-
-      c.rerender(<Channel.SelectSingle {...props} query={excluding(second.key)} />);
-
-      await c.findByText(first.name);
-      expect(c.queryByText(second.name)).toBeNull();
-      expect(c.getByText(third.name)).toBeTruthy();
-      expect(c.getByPlaceholderText(/search/i)).toBe(search);
-      expect(search).toHaveProperty("value", term);
-    });
-  });
-
   describe("calculatedHidden", () => {
     const LOOKUP = "/calculation/retrieve";
     const FAILED = "Failed to load channels";

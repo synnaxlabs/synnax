@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
-import { type Point, type Rect, type Timeline } from "@/timeline";
+import type { Point, Rect, Timeline } from "@/timeline";
 
 /** A focus the camera frames: a point, optionally with its element's rect. */
 export interface Focus {

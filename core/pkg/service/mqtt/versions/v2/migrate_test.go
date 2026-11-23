@@ -69,18 +69,8 @@ func plainEntry(e v2.ReadEntry) v2.PlainReadEntry {
 	return plain
 }
 
-func inlineEntry(
-	at uint32,
-	topic, index string,
-	fields ...v2.ReadField,
-) v2.InlineEntry {
-	return v2.InlineEntry{
-		Key:    topic,
-		At:     at,
-		Topic:  topic,
-		Fields: fields,
-		Index:  index,
-	}
+func inlineEntry(at uint32, topic string, fields ...v2.ReadField) v2.InlineEntry {
+	return v2.InlineEntry{Key: topic, At: at, Topic: topic, Fields: fields}
 }
 
 // inlineConfig returns a config that holds entries inline.
@@ -90,8 +80,8 @@ func inlineConfig(entries ...v2.InlineEntry) v2.ReadConfig {
 
 var _ = Describe("ResolveReadConfig", func() {
 	var (
-		found    map[channel.Key]v2.Channel
-		channels v2.Channels
+		found    map[channel.Key]icd.Channel
+		channels icd.Channels
 		changes  []string
 	)
 	BeforeEach(func() {
@@ -100,7 +90,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v2.Channel, error) {
+		) (map[channel.Key]icd.Channel, error) {
 			return found, nil
 		}
 	})
@@ -120,347 +110,27 @@ var _ = Describe("ResolveReadConfig", func() {
 		return ic
 	}
 
-	// lift resolves one entry that holds old, and returns the field of old in the new
-	// message and the read of that message.
-	lift := func(
-		ctx SpecContext,
-		old v2.ReadField,
-		index bool,
-	) (icd.JSONField, icd.ReadMessage) {
-		GinkgoHelper()
-		var indexKey string
-		if index {
-			indexKey = old.Key
-		}
-		cfg := inlineConfig(inlineEntry(0, "plant/level", indexKey, old))
+	It("Should note each change at the path of its entry", func(ctx SpecContext) {
+		var paths []string
+		cfg := inlineConfig(inlineEntry(2, "plant/a", storedField("complex128")))
+		MustSucceed2(v2.ResolveReadConfig(
+			ctx,
+			nil,
+			channels,
+			"Plant",
+			&cfg,
+			func(path, _ string) { paths = append(paths, path) },
+		))
+		Expect(paths).To(Equal([]string{"entries.2.fields.0"}))
+	})
+
+	It("Should take the channels of the fields from channels", func(ctx SpecContext) {
+		found = map[channel.Key]icd.Channel{7: {Name: "level", DataType: telem.Int32T}}
+		cfg := inlineConfig(inlineEntry(0, "plant/a", storedField(telem.Float64T)))
 		ic := resolve(ctx, &cfg)
-		return fields(ic.Messages[0])[0], plainEntry(cfg.Entries[0]).Messages[0]
-	}
-
-	DescribeTable(
-		"Should pick the kind of the stored data type",
-		func(ctx SpecContext, dt telem.DataType, kind payload.Kind) {
-			f, _ := lift(ctx, storedField(dt), false)
-			Expect(f.Type()).To(Equal(kind))
-			Expect(changes).To(BeEmpty())
-		},
-		Entry("float32", telem.Float32T, payload.KindFloat),
-		Entry("int16", telem.Int16T, payload.KindInteger),
-		Entry("uint8", telem.Uint8T, payload.KindUnsigned),
-		Entry("boolean", telem.BooleanT, payload.KindBoolean),
-		Entry("string", telem.StringT, payload.KindString),
-		Entry("timestamp", telem.TimestampT, payload.KindTimestamp),
-		Entry("json", telem.JSONT, payload.KindJSON),
-		Entry("uuid", telem.UUIDT, payload.KindUUID),
-		Entry("bytes", telem.BytesT, payload.KindBytes),
-	)
-
-	It("Should keep the name and the pointer of the field", func(ctx SpecContext) {
-		f, read := lift(ctx, storedField(telem.Float64T), false)
-		base := f.Base()
-		Expect(base.Name).To(Equal("level"))
-		Expect(base.Pointer).To(Equal("/level"))
-		Expect(base.Scale).To(Equal(1.0))
-		Expect(
-			read.Bindings,
-		).To(Equal([]icd.ReadBinding{{Field: base.Key, DataType: telem.Float64T}}))
-	})
-
-	It("Should keep the stored data type as the data type of a new channel",
-		func(ctx SpecContext) {
-			f, read := lift(ctx, storedField(telem.Int16T), false)
-			Expect(read.Bindings).To(Equal([]icd.ReadBinding{
-				{Field: f.Base().Key, DataType: telem.Int16T},
-			}))
-		},
-	)
-
-	It("Should bind the channel of a field and take the kind of the channel",
-		func(ctx SpecContext) {
-			found = map[channel.Key]v2.Channel{
-				7: {Name: "level", DataType: telem.Int32T},
-			}
-			f, read := lift(ctx, storedField(
-				telem.Float64T,
-				payload.EnumEntry{Label: "ON", Value: 1},
-				payload.EnumEntry{Label: "HALF", Value: 0.5},
-			), false)
-			integer, ok := f.Variant.(icd.IntegerJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(integer.EnumValues).To(Equal(
-				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
-			))
-			Expect(read.Bindings).To(Equal([]icd.ReadBinding{
-				{Field: f.Base().Key, Channel: 7},
-			}))
-			Expect(changes).To(Equal([]string{
-				"data type float64 became int32, the data type of its channel",
-				`enum label "HALF" was dropped: 0.5 is not integer`,
-			}))
-		},
-	)
-
-	It("Should lift a field with a time format on a timestamp channel",
-		func(ctx SpecContext) {
-			found = map[channel.Key]v2.Channel{
-				7: {Name: "time", DataType: telem.TimestampT, Index: true},
-			}
-			old := storedField("")
-			old.TimeFormat = new(payload.TimeFormatUnixMs)
-			f, _ := lift(ctx, old, false)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
-		},
-	)
-
-	It("Should convert whole entries and drop the others on an integer kind",
-		func(ctx SpecContext) {
-			f, _ := lift(ctx, storedField(
-				telem.Int32T,
-				payload.EnumEntry{Label: "OFF", Value: 0},
-				payload.EnumEntry{Label: "ON", Value: 1},
-				payload.EnumEntry{Label: "HALF", Value: 0.5},
-				payload.EnumEntry{Label: "", Value: 2},
-			), false)
-			integer, ok := f.Variant.(icd.IntegerJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(integer.EnumValues).To(Equal([]payload.IntegerEntry{
-				{Label: "OFF", Value: 0},
-				{Label: "ON", Value: 1},
-			}))
-			Expect(changes).To(ConsistOf(
-				`enum label "HALF" was dropped: 0.5 is not integer`,
-				`enum label "" was dropped: it is empty`,
-			))
-		},
-	)
-
-	It("Should keep the first entry of a repeated label", func(ctx SpecContext) {
-		f, _ := lift(ctx, storedField(
-			telem.BooleanT,
-			payload.EnumEntry{Label: "ON", Value: 1},
-			payload.EnumEntry{Label: "ON", Value: 0},
-		), false)
-		boolean, ok := f.Variant.(icd.BooleanJSONField)
-		Expect(ok).To(BeTrue())
-		Expect(boolean.EnumValues).To(Equal(
-			[]payload.BooleanEntry{{Label: "ON", Value: true}},
-		))
-		Expect(changes).To(ConsistOf(
-			`enum label "ON" was dropped: it repeats an earlier label`,
-		))
-	})
-
-	It("Should drop a negative entry on an unsigned kind", func(ctx SpecContext) {
-		f, _ := lift(ctx, storedField(
-			telem.Uint16T,
-			payload.EnumEntry{Label: "LOW", Value: -1},
-			payload.EnumEntry{Label: "HIGH", Value: 3},
-		), false)
-		unsigned, ok := f.Variant.(icd.UnsignedJSONField)
-		Expect(ok).To(BeTrue())
-		Expect(unsigned.EnumValues).To(Equal(
-			[]payload.UnsignedEntry{{Label: "HIGH", Value: 3}},
-		))
-		Expect(
-			changes,
-		).To(ConsistOf(`enum label "LOW" was dropped: -1 is not unsigned`))
-	})
-
-	It("Should keep every finite entry on a float kind", func(ctx SpecContext) {
-		f, _ := lift(ctx, storedField(
-			telem.Float64T,
-			payload.EnumEntry{Label: "HALF", Value: 0.5},
-		), false)
-		float, ok := f.Variant.(icd.FloatJSONField)
-		Expect(ok).To(BeTrue())
-		Expect(float.EnumValues).To(Equal(
-			[]payload.FloatEntry{{Label: "HALF", Value: 0.5}},
-		))
-		Expect(changes).To(BeEmpty())
-	})
-
-	It(
-		"Should map a boolean entry to whether its value is not 0",
-		func(ctx SpecContext) {
-			f, _ := lift(ctx, storedField(
-				telem.BooleanT,
-				payload.EnumEntry{Label: "OFF", Value: 0},
-				payload.EnumEntry{Label: "ON", Value: 2},
-			), false)
-			boolean, ok := f.Variant.(icd.BooleanJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(boolean.EnumValues).To(Equal([]payload.BooleanEntry{
-				{Label: "OFF", Value: false},
-				{Label: "ON", Value: true},
-			}))
-		},
-	)
-
-	It("Should drop the entries of a string field", func(ctx SpecContext) {
-		f, _ := lift(ctx, storedField(
-			telem.StringT,
-			payload.EnumEntry{Label: "ON", Value: 1},
-		), false)
-		str, ok := f.Variant.(icd.StringJSONField)
-		Expect(ok).To(BeTrue())
-		Expect(str.EnumValues).To(BeEmpty())
-		Expect(changes).To(ConsistOf(
-			`enum label "ON" was dropped: a string field takes no numeric entries`,
-		))
-	})
-
-	It("Should give a timestamp field with no time format ISO 8601",
-		func(ctx SpecContext) {
-			f, _ := lift(ctx, storedField(telem.TimestampT), false)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
-		},
-	)
-
-	It("Should keep the time format of a field stored with another data type",
-		func(ctx SpecContext) {
-			old := storedField(telem.Float64T)
-			old.TimeFormat = new(payload.TimeFormatUnixMs)
-			f, read := lift(ctx, old, false)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
-			Expect(read.Bindings[0].DataType).To(BeEmpty())
-			Expect(changes).To(ConsistOf(
-				"data type float64 became the timestamp kind of an index or time format",
-			))
-		},
-	)
-
-	It("Should give ISO 8601 to a field whose time format is not valid",
-		func(ctx SpecContext) {
-			old := storedField(telem.Float64T)
-			old.TimeFormat = new(payload.TimeFormat("unix"))
-			f, _ := lift(ctx, old, false)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
-			Expect(stamp.Validate()).To(Succeed())
-			Expect(changes).To(ConsistOf(
-				"data type float64 became the timestamp kind of an index or time format",
-				`time format "unix" is not valid and became iso8601`,
-			))
-		},
-	)
-
-	It("Should keep the kind and entries of a typed field with a time format",
-		func(ctx SpecContext) {
-			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
-			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			f, _ := lift(ctx, old, false)
-			unsigned, ok := f.Variant.(icd.UnsignedJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(unsigned.EnumValues).To(Equal(
-				[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
-			))
-			Expect(changes).To(ConsistOf(
-				"time format unix_sec was dropped, because the field is unsigned",
-			))
-		},
-	)
-
-	It("Should lift an index field to the timestamp kind and point the index at it",
-		func(ctx SpecContext) {
-			f, read := lift(ctx, storedField(""), true)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
-			Expect(read.Index).To(HaveValue(Equal(f.Base().Key)))
-			Expect(read.Bindings).To(Equal([]icd.ReadBinding{{Field: f.Base().Key}}))
-			Expect(changes).To(ConsistOf(
-				"data type float64 became the timestamp kind of an index or time format",
-			))
-		},
-	)
-
-	It("Should lift an unknown data type to the float kind with no data type",
-		func(ctx SpecContext) {
-			f, read := lift(ctx, storedField("complex128"), false)
-			Expect(f.Type()).To(Equal(payload.KindFloat))
-			Expect(read.Bindings[0].DataType).To(BeEmpty())
-			Expect(changes).To(ConsistOf(
-				`unknown data type "complex128" became the float kind`,
-			))
-		},
-	)
-
-	It("Should lift an unknown data type with a time format to the timestamp kind",
-		func(ctx SpecContext) {
-			old := storedField("complex128")
-			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			f, _ := lift(ctx, old, false)
-			stamp, ok := f.Variant.(icd.TimestampJSONField)
-			Expect(ok).To(BeTrue())
-			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixSec))
-			Expect(changes).To(ConsistOf(
-				`unknown data type "complex128" became the float kind`,
-				"data type complex128 became the timestamp kind of an index or time format",
-			))
-		},
-	)
-
-	It("Should take float64 for an empty data type", func(ctx SpecContext) {
-		f, read := lift(ctx, storedField(""), false)
-		Expect(f.Type()).To(Equal(payload.KindFloat))
-		Expect(read.Bindings[0].DataType).To(Equal(telem.Float64T))
-		Expect(changes).To(BeEmpty())
-	})
-
-	It("Should keep a disabled field in the message without a binding",
-		func(ctx SpecContext) {
-			disabled := storedField(telem.Float64T)
-			disabled.Key, disabled.Name, disabled.Disabled = "f2", "spare", true
-			cfg := inlineConfig(inlineEntry(
-				0, "plant/level", "", storedField(telem.Float64T), disabled,
-			))
-			msg := resolve(ctx, &cfg).Messages[0]
-			Expect(fields(msg)).To(HaveLen(2))
-			bindings := plainEntry(cfg.Entries[0]).Messages[0].Bindings
-			Expect(bindings).To(HaveLen(1))
-			Expect(bindings[0].Field).To(Equal(fields(msg)[0].Base().Key))
-		},
-	)
-
-	It("Should name a field after its pointer and keep names unique",
-		func(ctx SpecContext) {
-			named := func(key, name, pointer string) v2.ReadField {
-				f := storedField(telem.Float64T)
-				f.Key, f.Name, f.Pointer = key, name, pointer
-				return f
-			}
-			cfg := inlineConfig(inlineEntry(
-				0,
-				"plant/level",
-				"",
-				named("f1", "", "/out/flow"),
-				named("f2", "level", "/a"),
-				named("f3", "level", "/b"),
-				named("f4", "", ""),
-			))
-			messageFields := fields(resolve(ctx, &cfg).Messages[0])
-			names := make([]string, 0, len(messageFields))
-			for _, f := range messageFields {
-				names = append(names, f.Base().Name)
-			}
-			Expect(names).To(Equal([]string{"out/flow", "level", "level (2)", "value"}))
-		},
-	)
-
-	It("Should drop an index that names no field", func(ctx SpecContext) {
-		cfg := inlineConfig(
-			inlineEntry(0, "plant/level", "gone", storedField(telem.Float64T)),
-		)
-		resolve(ctx, &cfg)
-		Expect(plainEntry(cfg.Entries[0]).Messages[0].Index).To(BeNil())
-		Expect(changes).To(ConsistOf("index field gone does not exist and was dropped"))
+		Expect(fields(ic.Messages[0])[0].Type()).To(Equal(payload.KindInteger))
+		Expect(plainEntry(cfg.Entries[0]).Messages[0].Bindings[0].Channel).
+			To(Equal(channel.Key(7)))
 	})
 
 	It("Should make one ICD with a message named after the topic of each entry",
@@ -470,9 +140,9 @@ var _ = Describe("ResolveReadConfig", func() {
 				Tag:           "speed",
 			}}
 			cfg := inlineConfig(
-				inlineEntry(0, "plant/a", "", storedField(telem.Float64T)),
-				inlineEntry(2, "plant/a", "", storedField(telem.Float64T)),
-				inlineEntry(3, "", "", storedField(telem.Float64T)),
+				inlineEntry(0, "plant/a", storedField(telem.Float64T)),
+				inlineEntry(2, "plant/a", storedField(telem.Float64T)),
+				inlineEntry(3, "", storedField(telem.Float64T)),
 			)
 			cfg.Entries = []v2.ReadEntry{sparkplug}
 			ic := resolve(ctx, &cfg)
@@ -495,9 +165,38 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should index the read with the field that the inline entry names",
+		func(ctx SpecContext) {
+			e := inlineEntry(0, "plant/a", storedField(telem.TimestampT))
+			e.Index = "f1"
+			cfg := inlineConfig(e)
+			ic := resolve(ctx, &cfg)
+			index := plainEntry(cfg.Entries[0]).Messages[0].Index
+			Expect(index).ToNot(BeNil())
+			Expect(*index).To(Equal(fields(ic.Messages[0])[0].Base().Key))
+			Expect(changes).To(BeEmpty())
+		},
+	)
+
+	It("Should lift the name, pointer, and time format of a disabled field",
+		func(ctx SpecContext) {
+			f := storedField(telem.TimestampT)
+			f.Name, f.Pointer, f.Disabled = "stamp", "/meta/stamp", true
+			f.TimeFormat = new(payload.TimeFormatUnixMs)
+			cfg := inlineConfig(inlineEntry(0, "plant/a", f))
+			ic := resolve(ctx, &cfg)
+			lifted := fields(ic.Messages[0])[0]
+			Expect(lifted.Base().Name).To(Equal("stamp"))
+			Expect(lifted.Base().Pointer).To(Equal("/meta/stamp"))
+			ts, ok := lifted.Variant.(icd.TimestampJSONField)
+			Expect(MustBeOk(ts, ok).TimeFormat).To(Equal(payload.TimeFormatUnixMs))
+			Expect(plainEntry(cfg.Entries[0]).Messages[0].Bindings).To(BeEmpty())
+		},
+	)
+
 	It("Should keep the base and the subscription of an inline entry",
 		func(ctx SpecContext) {
-			e := inlineEntry(0, "plant/a", "", storedField(telem.Float64T))
+			e := inlineEntry(0, "plant/a", storedField(telem.Float64T))
 			e.Key, e.Disabled = "e1", true
 			e.Qos, e.RetainedIgnored = v2.QoSExactlyOnce, true
 			cfg := inlineConfig(e)
@@ -585,7 +284,7 @@ var _ = Describe("NewReadMigration", func() {
 		db       *gorp.DB
 		made     []icd.ICD
 		create   v2.CreateICD
-		channels v2.Channels
+		channels icd.Channels
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
@@ -600,8 +299,8 @@ var _ = Describe("NewReadMigration", func() {
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v2.Channel, error) {
-			return map[channel.Key]v2.Channel{
+		) (map[channel.Key]icd.Channel, error) {
+			return map[channel.Key]icd.Channel{
 				7: {Name: "level", DataType: telem.Int32T},
 			}, nil
 		}

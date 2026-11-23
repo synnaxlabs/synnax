@@ -11,7 +11,7 @@ import "@/platform/shell/Shell.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Logo } from "@synnaxlabs/lyra/logo";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

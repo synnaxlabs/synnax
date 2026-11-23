@@ -11,14 +11,14 @@ import { describe, expect, it, test } from "vitest";
 
 import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
-import { Scale, XY } from "@/spatial/scale/scale";
+import { scale } from "@/spatial/scale";
 
-type ScaleSpec = [name: string, scale: Scale<number>, i: number, o: number];
+type ScaleSpec = [name: string, scale: scale.Scale<number>, i: number, o: number];
 
 describe("Scale", () => {
-  const simpleScale = Scale.scale<number>(0, 10).scale(0, 1);
-  const translateScale = Scale.scale<number>(0, 10).translate(5).scale(0, 1);
-  const translateMagnifyScale = Scale.scale<number>(0, 10)
+  const simpleScale = scale.Scale.scale<number>(0, 10).scale(0, 1);
+  const translateScale = scale.Scale.scale<number>(0, 10).translate(5).scale(0, 1);
+  const translateMagnifyScale = scale.Scale.scale<number>(0, 10)
     .translate(5)
     .magnify(2)
     .scale(0, 1);
@@ -44,10 +44,12 @@ describe("Scale", () => {
     });
   });
   it("should sort a reversed pair of bounds it scales from", () => {
-    const reversed = Scale.scale<number>(10, 0).scale(0, 1);
+    const reversed = scale.Scale.scale<number>(10, 0).scale(0, 1);
     expect(reversed.pos(0)).toBe(0);
     expect(reversed.pos(10)).toBe(1);
-    expect(Scale.scale<number>({ lower: 10, upper: 0 }).scale(0, 1).pos(10)).toBe(1);
+    expect(scale.Scale.scale<number>({ lower: 10, upper: 0 }).scale(0, 1).pos(10)).toBe(
+      1,
+    );
   });
   describe("dimension", () => {
     const dimensionSpecs: ScaleSpec[] = [
@@ -67,7 +69,7 @@ describe("Scale", () => {
   });
   describe("XYScale", () => {
     test("converting a DOM rect to decimal coordinates", () => {
-      const s = XY.scale(box.construct(100, 100, 1000, 1000)).scale(box.DECIMAL);
+      const s = scale.XY.scale(box.construct(100, 100, 1000, 1000)).scale(box.DECIMAL);
       const b1 = s.box(box.construct(100, 100, 1000, 1000));
       expect(box.bottomLeft(b1)).toEqual({ x: 0, y: 0 });
       const b2 = s.box(box.construct(200, 200, 200, 200));
@@ -75,32 +77,34 @@ describe("Scale", () => {
       expect(box.bottomLeft(b2).y).toBeCloseTo(0.7);
     });
     it("should keep the root of a box through a dimensions scale", () => {
-      const s = XY.scale(box.construct(0, 0, 10, 10, location.BOTTOM_LEFT)).scale({
-        width: 1,
-        height: 1,
-      });
+      const s = scale.XY.scale(box.construct(0, 0, 10, 10, location.BOTTOM_LEFT)).scale(
+        {
+          width: 1,
+          height: 1,
+        },
+      );
       expect(s.box(box.construct(0, 0, 10, 10)).root).toEqual(location.BOTTOM_LEFT);
     });
   });
   describe("IDENTITY", () => {
     it("should stay the identity after a scale derives from it", () => {
-      Scale.IDENTITY.translate(5).magnify(2).reverse();
-      expect(Scale.IDENTITY.pos(3)).toBe(3);
+      scale.Scale.IDENTITY.translate(5).magnify(2).reverse();
+      expect(scale.Scale.IDENTITY.pos(3)).toBe(3);
     });
     it("should stay the identity after an XY scale derives from it", () => {
-      XY.IDENTITY.translate({ x: 5, y: 5 }).scale(box.construct(0, 0, 10, 10));
-      expect(XY.IDENTITY.pos({ x: 3, y: 4 })).toEqual({ x: 3, y: 4 });
+      scale.XY.IDENTITY.translate({ x: 5, y: 5 }).scale(box.construct(0, 0, 10, 10));
+      expect(scale.XY.IDENTITY.pos({ x: 3, y: 4 })).toEqual({ x: 3, y: 4 });
     });
   });
   describe("transform", () => {
     it("should return the correct transform", () => {
-      const s = Scale.scale<number>(0, 10).translate(5).magnify(2).scale(0, 1);
+      const s = scale.Scale.scale<number>(0, 10).translate(5).magnify(2).scale(0, 1);
       const t = s.transform;
       expect(t.scale).toBe(0.2);
       expect(t.offset).toBe(1);
     });
     it("should return the correct transform for an XY scale", () => {
-      const s = XY.translate({ x: 5, y: 5 }).magnify({ x: 2, y: 2 });
+      const s = scale.XY.translate({ x: 5, y: 5 }).magnify({ x: 2, y: 2 });
       const t = s.transform;
       expect(t.scale).toEqual({ x: 2, y: 2 });
       expect(t.offset).toEqual({ x: 10, y: 10 });

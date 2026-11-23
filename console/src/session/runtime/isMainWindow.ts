@@ -10,10 +10,10 @@
 import { Drift } from "@synnaxlabs/drift";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { ENGINE } from "@/session/runtime/runtime";
+import { ENGINE, type Engine } from "@/session/runtime/runtime";
 
-export const isMainWindow = (): boolean => {
-  switch (ENGINE) {
+export const isMainWindow = (engine: Engine = ENGINE): boolean => {
+  switch (engine) {
     case "tauri":
       return getCurrentWindow().label === Drift.MAIN_WINDOW;
     case "web":

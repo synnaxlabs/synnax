@@ -35,7 +35,8 @@ type Writer[K Key, E Entry[K]] struct {
 	tableName string
 	// references are the references whose links the change list of tx records.
 	references []Reference[K, E]
-	// derived is true when the writes of the Writer are cascades or detaches.
+	// derived is true when the writes of the Writer are cascades, detaches, or
+	// retargets.
 	derived bool
 	// exclusive is true when Set refuses an entry whose key exists.
 	exclusive bool

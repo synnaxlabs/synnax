@@ -50,6 +50,7 @@ export {
   MissingCredentialsError,
   MissingLicenseError,
   MultipleFoundError,
+  NotCachedError,
   NotFoundError,
   PathError,
   QueryError,

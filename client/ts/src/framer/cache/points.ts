@@ -24,9 +24,9 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawTile } from "@/framer/cache/block";
 import {
   choose,
@@ -40,8 +40,8 @@ import {
   tiles,
   tileSpan,
 } from "@/framer/cache/grid";
-import { type Joins } from "@/framer/cache/join";
-import { type Joiner } from "@/framer/cache/joiner";
+import type { Joins } from "@/framer/cache/join";
+import type { Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import {
@@ -50,7 +50,7 @@ import {
   type Floor,
   type Store,
 } from "@/framer/cache/store";
-import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
   tileKey,
@@ -58,9 +58,9 @@ import {
   tileRequestKey,
   type TileSpec,
 } from "@/framer/cache/tile";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
-import { type PointsLimit, type Snapshot } from "@/framer/subscription";
+import type { PointsLimit, Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 export interface PointsProps {
@@ -107,6 +107,10 @@ interface Live {
 // Returns the start of the tile of the level after the one that holds ts.
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
   tileRange({ level, tile: tileAt(ts, level) + 1 }).start.valueOf();
+
+// slideKey returns the parts of a limit that a slide keeps. Two limits with equal keys
+// differ only in their view and bound, which move a subscription inside its tiles.
+const slideKey = ({ view, bound, ...rest }: PointsLimit): Partial<PointsLimit> => rest;
 
 /**
  * Serves one channel under a points limit: reduced tiles across the window, and raw
@@ -223,7 +227,7 @@ export class Points {
     const wasDynamic = this.dynamic;
     if (!moved && deep.equal(limit, this.limit)) return;
     const prev = this.limit;
-    const slid = !moved && deep.equal({ ...prev, view: limit.view }, limit);
+    const slid = !moved && deep.equal(slideKey(prev), slideKey(limit));
     const prevKeys = slid ? (this.tileKeys ?? this.tilesOf(prev)) : null;
     this.window = window;
     this.limit = limit;
@@ -580,9 +584,10 @@ export class Points {
     const raw = this.rawRange(home, boundary);
     const end =
       viewed && !raw.start.before(raw.end) ? undefined : this.tilesEnd(boundary);
+    const { bound } = this.limit;
     const tiled = new TimeRange(
-      start == null ? view.start : TimeStamp.max(view.start, start),
-      end == null ? view.end : TimeStamp.min(view.end, end),
+      TimeStamp.max(view.start, start ?? view.start, bound?.start ?? view.start),
+      TimeStamp.min(view.end, end ?? view.end, bound?.end ?? view.end),
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);

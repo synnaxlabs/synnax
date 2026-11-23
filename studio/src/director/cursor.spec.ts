@@ -9,9 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { CLICK_SHRINK_SCALE } from "@/director/constants";
-import { minimumJerk, synthesize } from "@/director/cursor";
-import { type Event, type Timeline } from "@/timeline";
+import { CLICK_SHRINK_SCALE, minimumJerk, synthesize } from "@/director";
+import type { Event, Timeline } from "@/timeline";
 
 const FPS = 60;
 

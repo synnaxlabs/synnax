@@ -9,14 +9,14 @@
 
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Header } from "@synnaxlabs/lyra/header";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const GAP = 1.5;
 
 export interface TitleProps extends Pick<Header.TitleProps, "children"> {}
 
 export const Title = ({ children }: TitleProps): ReactElement => (
-  <Header.Title color={10} weight={500} gap={GAP}>
+  <Header.Title color={10} weight={500} gap={GAP} overflow="fade">
     {children}
   </Header.Title>
 );
