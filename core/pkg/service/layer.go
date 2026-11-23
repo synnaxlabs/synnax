@@ -475,7 +475,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		// The calculation service opens after this one, so an announce reads it as it
 		// runs.
-		AnnounceOutputs: func(
+		AnnounceLinked: func(
 			ctx context.Context,
 			tx gorp.Tx,
 			w channel.Writer,

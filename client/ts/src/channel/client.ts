@@ -301,6 +301,10 @@ export interface ClientConfig {
   outputs: Pick<query.Table<Key>, "subscribeBatch" | "version">;
 }
 
+// The Core checks the virtual line by whether a calculation writes the channel, which a
+// set of the expression announces.
+const CORE_LINE_FIELDS = ["expression"] as const;
+
 /**
  * Creates, reads, and deletes channels on a Core. Reach it through `client.channels`.
  * Retrievals are served from a cache that a change stream keeps current, so a repeated
@@ -341,7 +345,9 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, Channel, Action>({
       store,
       listed: (action) =>
-        action.type === "rename" || actions.changesField(action, LIST_FIELDS),
+        action.type === "rename" ||
+        actions.changesField(action, LIST_FIELDS) ||
+        actions.changesField(action, CORE_LINE_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       onStreamDown: (callback) => cache.onStreamDown(callback),

@@ -12,6 +12,7 @@ package signals
 import (
 	"context"
 	"encoding/json/v2"
+	"unsafe"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -127,7 +128,8 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 				)
 				continue
 			}
-			checks[string(b)] = check
+			// Nothing writes b again, so the key shares its bytes.
+			checks[unsafe.String(unsafe.SliceData(b), len(b))] = check
 		}
 		samples.Data = append(samples.Data, telem.MarshalVariableSample(b)...)
 	}

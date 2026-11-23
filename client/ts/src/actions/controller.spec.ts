@@ -148,6 +148,33 @@ const prime = (
 ) => docs.set(key, { values });
 
 describe("actions.Controller", () => {
+  describe("listed remote actions", () => {
+    it("should show a doc that it fetches for a listed action as a change", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, values: { a: 1 } })),
+      );
+      const { docs, controller } = setupStore({ fetch, listed: () => true });
+      const changes: string[] = [];
+      docs.subscribe((event) => {
+        if (event.variant === "set" && event.discovered !== true)
+          changes.push(event.key);
+      });
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      await expect.poll(() => changes).toEqual(["k"]);
+      expect(fetch).toHaveBeenCalledWith(["k"]);
+    });
+
+    it("should fetch no doc for an action that is not listed", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, values: { a: 1 } })),
+      );
+      const { controller } = setupStore({ fetch, listed: () => false });
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("dispatch", () => {
     it("throws and sends nothing when the doc is not cached", async () => {
       const { controller, send } = setupStore();
