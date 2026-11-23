@@ -117,6 +117,95 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("resizeLoop.browser.spec");
   });
 
+  it("should name an observed element that a callback took off the page", async () => {
+    const leaver = box(root, "leaver", 10);
+    observe(leaver, () => {});
+    const deep = box(box(root, "parent", 20), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      leaver.remove();
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.leaver left the page inside the callback for");
+  });
+
+  it("should leave out an element that leaves the page with its observer", async () => {
+    const subtree = box(root, "subtree", 10);
+    const child = box(subtree, "child", 10);
+    const watcher = new ResizeObserver(() => {});
+    watcher.observe(child);
+    onTestFinished(() => watcher.disconnect());
+    const deep = box(box(root, "parent", 20), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      subtree.remove();
+      watcher.disconnect();
+    });
+    grow(box(root, "grower", 10));
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    for (const report of reports) expect(report).not.toContain("left the page");
+  });
+
+  it("should blame only the callback that resized an element", async () => {
+    const shallow = box(root, "shallow", 10);
+    observe(shallow, () => {});
+    const first = box(box(root, "parent", 20), "first", 10);
+    const second = box(box(root, "parent", 20), "second", 10);
+    let armed = false;
+    observe(first, () => {});
+    observe(second, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    first.style.height = "15px";
+    second.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("callback for div.first");
+  });
+
+  it("should name an element resized long after a callback", async () => {
+    const late = box(root, "late", 10);
+    observe(late, () => {});
+    const deep = box(box(root, "parent", 20), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      let hops = 10;
+      const hop = (): void => {
+        hops -= 1;
+        if (hops > 0) queueMicrotask(hop);
+        else late.style.height = "20px";
+      };
+      queueMicrotask(hop);
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toMatch(
+      /div\.late changed from \d+x10 to \d+x20 later in the frame of the callback/,
+    );
+  });
+
   it("should report nothing for a resize outside a callback", async () => {
     const element = box(root, "still", 10);
     observe(element, () => {});

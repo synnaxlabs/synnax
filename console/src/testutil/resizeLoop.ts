@@ -93,9 +93,10 @@ const label = (element: Element): string => {
 /**
  * Wraps the global ResizeObserver to name the cause of each ResizeObserver loop error.
  * Each report lists the observed elements that a callback resized in the frame of the
- * error, at or above the shallowest target of that callback, with the stack that
- * created the observer. It also lists the targets observed after a callback in that
- * frame, with the stack that observed them.
+ * error, at or above the shallowest target of that callback, and the observed elements
+ * that a callback took off the page, with the stack that created the observer. It also
+ * lists the targets observed after a callback in that frame, with the stack that
+ * observed them.
  *
  * @param report - Receives each report.
  * @returns a function that puts back the previous ResizeObserver and stops reporting.
@@ -105,6 +106,9 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   const Native = window.ResizeObserver;
   const observed = new Map<Element, number>();
   const changes: string[] = [];
+  // Checks the last callback once more, at the next callback or the loop error. The
+  // microtasks of a callback end before the next callback starts.
+  let late: (() => void) | null = null;
   let frame: CSSNumberish | null = null;
   let delivered = false;
 
@@ -115,27 +119,45 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     frame = now;
     delivered = false;
     changes.length = 0;
+    late = null;
   };
 
+  const closeLate = (): void => {
+    late?.();
+    late = null;
+  };
+
+  const record = (change: string): void => {
+    changes.push(change);
+    if (changes.length > MAX_CHANGES) changes.shift();
+  };
+
+  // An element deeper than the targets counts only when it leaves the page. The browser
+  // then reports a zero size from its depth off the page, if still observed.
   const check = (
     before: Map<Element, Size>,
+    shallowest: number,
     origin: string,
     targets: string,
     phase: string,
   ): void => {
+    const callback = `${phase} the callback for ${targets}, of the observer`;
     for (const [element, size] of before) {
-      if (!element.isConnected) continue;
+      if (!element.isConnected) {
+        before.delete(element);
+        const sized = size.width > 0 || size.height > 0;
+        if (observed.has(element) && sized && depth(element) <= shallowest)
+          record(`${label(element)} left the page ${callback} created at:\n${origin}`);
+        continue;
+      }
+      if (depth(element) > shallowest) continue;
       const after = measure(element);
       const same = after.width === size.width && after.height === size.height;
       if (same && after.inner === size.inner) continue;
       const resize = same
         ? `its client size from ${size.inner} to ${after.inner}`
         : `from ${formatSize(size)} to ${formatSize(after)}`;
-      const callback = `${phase} the callback for ${targets}, of the observer`;
-      changes.push(
-        `${label(element)} changed ${resize} ${callback} created at:\n${origin}`,
-      );
-      if (changes.length > MAX_CHANGES) changes.shift();
+      record(`${label(element)} changed ${resize} ${callback} created at:\n${origin}`);
       before.set(element, after);
     }
   };
@@ -147,24 +169,25 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     observer: ResizeObserver,
   ): void => {
     enterFrame();
+    closeLate();
     delivered = true;
     const shallowest = Math.min(...entries.map((e) => depth(e.target)));
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
-      if (element.isConnected && depth(element) <= shallowest)
-        before.set(element, measure(element));
+      if (element.isConnected) before.set(element, measure(element));
     const targets = entries.map((e) => label(e.target)).join(", ");
     try {
       callback(entries, observer);
     } finally {
-      check(before, origin, targets, "inside");
+      check(before, shallowest, origin, targets, "inside");
       let remaining = MICROTASKS;
       const next = (): void => {
-        check(before, origin, targets, "in a microtask after");
+        check(before, shallowest, origin, targets, "in a microtask after");
         remaining -= 1;
         if (remaining > 0) queueMicrotask(next);
       };
       queueMicrotask(next);
+      late = () => check(before, shallowest, origin, targets, "later in the frame of");
     }
   };
 
@@ -183,8 +206,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       if (!this.targets.has(target)) {
         if (delivered && document.timeline.currentTime === frame) {
           const cause = "began to be observed after a callback, at:";
-          changes.push(`${label(target)} ${cause}\n${callerStack()}`);
-          if (changes.length > MAX_CHANGES) changes.shift();
+          record(`${label(target)} ${cause}\n${callerStack()}`);
         }
         this.targets.add(target);
         observed.set(target, (observed.get(target) ?? 0) + 1);
@@ -213,6 +235,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   const onError = (event: Event): void => {
     if (!(event instanceof ErrorEvent) || !LOOP_MESSAGE.test(event.message)) return;
     enterFrame();
+    closeLate();
     const causes =
       changes.length === 0
         ? "No observed element at or above the targets of a callback changed size."
