@@ -96,9 +96,10 @@ a transient or interrupted Core error never ends `read`.
 spool refuses new frames and counts them, so each segment stays contiguous. A segment
 holds one forwarder's outage: a header with the cluster key, the subject, and the
 channels with their data types, then the frames as `driver.spool.pb.Frame` records
-without data types. The forwarder spools `states->filter(fr, subject)`, the frame the
-bus publishes, and drops virtual calculated channels
-(`core/pkg/service/channel/writer.go:407-408`).
+without data types. The spool syncs each second or each 64 MB. The cap, a 1 GB
+free-space floor, and both sync limits are Driver config settings. The forwarder spools
+`states->filter(fr, subject)`, the frame the bus publishes, and drops virtual calculated
+channels (`core/pkg/service/channel/writer.go:407-408`).
 
 The spool and the outbox (§3.4) share one file format, `journal` (NEW). A file starts
 with a magic for its kind, a format version, flags, a random salt, the sync size and
