@@ -132,8 +132,9 @@ type PlanOptions struct {
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
 // does. A delete of groups lists each tombstone in the groups as a cascade entry with
-// its path. It writes nothing. A pick that is not a choice, that names no visible
-// entry, or that its entry does not allow fails with a validation error.
+// its path. A pick for a record that the plan does not reach has no effect, and the
+// token does not hold it. Plan writes nothing. A pick that is not a choice, or that its
+// entry does not allow, fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -221,7 +222,7 @@ func newPicks(opts PlanOptions) (picks, error) {
 	if len(unparsed) > 0 {
 		return picks{}, errors.Wrapf(
 			validate.ErrValidation,
-			"no entry is %s",
+			"%s is not a record",
 			slices.Min(unparsed),
 		)
 	}
@@ -391,24 +392,6 @@ func checkToken(t string, sum uint64, now Plan) error {
 	return PlanChangedError{Plan: now}
 }
 
-// pickWithoutEntry returns a validation error that names the smallest pick of named, in
-// text form, whose record entries does not hold, or nil when each has one.
-func pickWithoutEntry(
-	named map[resource.ID]Choice,
-	entries set.Set[resource.ID],
-) error {
-	var missing []string
-	for id := range named {
-		if !entries.Contains(id) {
-			missing = append(missing, id.String())
-		}
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-	return errors.Wrapf(validate.ErrValidation, "no entry is %s", slices.Min(missing))
-}
-
 // deleteChannels deletes the channels with keys, as Apply describes.
 func (s *Service) deleteChannels(
 	ctx context.Context,
@@ -515,7 +498,6 @@ func (s *Service) resolve(
 		r       resolution
 		all     = keys
 		earlier []Entry
-		visible = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
 	)
 	for {
@@ -530,11 +512,6 @@ func (s *Service) resolve(
 		if r.cancel == nil {
 			r.cancel = cancel
 		}
-		for _, e := range p.Entries {
-			if chosen.sees(e.Record) {
-				visible.Add(e.Record)
-			}
-		}
 		for _, rec := range picked {
 			if !deleted.Contains(rec) {
 				deleted.Add(rec)
@@ -547,9 +524,6 @@ func (s *Service) resolve(
 		}
 		earlier = append(earlier, p.Entries...)
 		all = append(slices.Clip(all), more...)
-	}
-	if err := pickWithoutEntry(chosen.named, visible); err != nil {
-		return resolution{}, err
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {

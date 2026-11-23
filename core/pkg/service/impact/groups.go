@@ -18,13 +18,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/set"
 )
 
 // planGroups returns the plan of c, the delete of the groups with keys, as snap sees
 // it, with no token: each tombstone in the groups, as a cascade entry with its path,
-// with those that opts.Visible hides counted in Hidden. A pick fails as it fails Plan.
+// with those that opts.Visible hides counted in Hidden. Picks act as they act in Plan.
 func (s *Service) planGroups(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -71,19 +69,14 @@ func (s *Service) planGroups(
 }
 
 // refusePicks returns the validation error of the first pick of chosen that its entry
-// among entries does not allow, or then of the smallest pick that names no visible
-// entry.
+// among entries does not allow.
 func refusePicks(chosen picks, entries []Entry) error {
-	visible := make(set.Set[resource.ID], len(entries))
 	for _, e := range entries {
 		if _, err := chosen.pickOf(e); err != nil {
 			return err
 		}
-		if chosen.sees(e.Record) {
-			visible.Add(e.Record)
-		}
 	}
-	return pickWithoutEntry(chosen.named, visible)
+	return nil
 }
 
 // groupsSum returns the plan sum of p, the plan of the delete of the groups with keys,
