@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ValidationError } from "@/index";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
-import { DEFAULT_DEBOUNCE, type SpaceHooks } from "@/query/query";
+import { space } from "@/query/space";
 
 interface Rec {
   key: string;
@@ -69,7 +69,7 @@ const createCore = (records: Rec[]) => {
 
 const byName: Order = { field: "name" };
 
-const setup = (records: Rec[], hooks: SpaceHooks = {}) => {
+const setup = (records: Rec[], hooks: space.Hooks = {}) => {
   const table = new query.Table<string, Rec>({ onError: () => {} });
   const { core, fetch } = createCore(records);
   const lists = new Lists<Q, Rec, string, Rec, Cursor, Order>(
@@ -428,7 +428,7 @@ describe("Lists", () => {
       core.records.push(rec("4", "b"));
       table.set("4", rec("4", "b"));
       expect(names(list.getCached())).toEqual(["a", "b", "c"]);
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -593,7 +593,7 @@ describe("Lists", () => {
     it("should not fetch again when another list finds new records", async () => {
       const { lists, list, fetch } = await searching([rec("1", "ab"), rec("2", "c")]);
       await lists.list({ order: byName }).retrieve();
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(names(list.getCached())).toEqual(["ab"]);
     });
@@ -612,7 +612,7 @@ describe("Lists", () => {
       await lists.list({ order: byName }).retrieve();
       table.mirrorSet("2", rec("2", "ac"));
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
@@ -648,7 +648,7 @@ describe("Lists", () => {
       table.set("2", rec("2", "ac"));
       table.set("2", rec("2", "ac"));
       table.stampWrite("2");
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 3));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
@@ -657,7 +657,7 @@ describe("Lists", () => {
       table.set("2", rec("2", "ac"));
       await lists.list({ searchTerm: "a", limit: 2 }).retrieve();
       table.set("2", rec("2", "ac"));
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 3));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -965,7 +965,7 @@ describe("Lists", () => {
       await list.retrieve();
       table.set("2", rec("2", "ac"));
       release();
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(1);
       lists.close();
     });
