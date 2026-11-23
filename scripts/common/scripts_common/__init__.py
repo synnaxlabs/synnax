@@ -7,6 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from scripts_common.testutil import FakeGH
+from scripts_common.testutil import BlobPut, FakeBlob, FakeGH
 
-__all__ = ["FakeGH"]
+__all__ = ["BlobPut", "FakeBlob", "FakeGH"]

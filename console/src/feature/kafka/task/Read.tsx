@@ -409,6 +409,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
               message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
+              preview={isPreview}
             />
           )}
         </PForm.Section>

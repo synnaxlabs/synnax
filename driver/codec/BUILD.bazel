@@ -58,6 +58,7 @@ cc_test(
     deps = [
         ":codec",
         "//client/cpp/icd",
+        "//driver/codec/testutil",
         "//x/cpp/base64",
         "//x/cpp/bench:alloc",
         "//x/cpp/errors",

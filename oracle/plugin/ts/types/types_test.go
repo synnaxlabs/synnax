@@ -565,6 +565,30 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
 
+		It(
+			"Should keep wide integer enum values and a non-first default as numbers",
+			func() {
+				source := `
+				@ts output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+				resp := MustGenerate(source, "serial", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("baud_230400 = 230400,").
+					ToContain("export const baudRateZ = z.enum(BaudRate)").
+					ToContain("baudRate: baudRateZ.default(BaudRate.baud_19200)")
+			},
+		)
+
 		It("Should generate string enums", func() {
 			source := `
 				@ts output "out"
