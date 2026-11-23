@@ -791,6 +791,9 @@ type PaintType string
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = "entry"
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = "contrast"
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = "node"
 	// ColorPaintType is one color.
@@ -809,6 +812,14 @@ type EntryPaint struct {
 }
 
 func (EntryPaint) isPaintVariant() {}
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint struct {
+	// State is the key of the state whose current entry color the paint reads on.
+	State string `json:"state" msgpack:"state"`
+}
+
+func (ContrastPaint) isPaintVariant() {}
 
 // NodePaint is the color that the node sets.
 type NodePaint struct {
@@ -847,6 +858,11 @@ func (u Paint) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type PaintType `json:"type"`
 			EntryPaint
 		}{Type: EntryPaintType, EntryPaint: v})
+	case ContrastPaint:
+		return json.MarshalEncode(enc, struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}{Type: ContrastPaintType, ContrastPaint: v})
 	case NodePaint:
 		return json.MarshalEncode(enc, struct {
 			Type PaintType `json:"type"`
@@ -891,6 +907,15 @@ func (u *Paint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.EntryPaint
+	case ContrastPaintType:
+		var v struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ContrastPaint
 	case NodePaintType:
 		var v struct {
 			Type PaintType `json:"type"`
@@ -924,6 +949,8 @@ func (u Paint) Type() PaintType {
 	switch u.Variant.(type) {
 	case EntryPaint:
 		return EntryPaintType
+	case ContrastPaint:
+		return ContrastPaintType
 	case NodePaint:
 		return NodePaintType
 	case ColorPaint:

@@ -36,6 +36,10 @@ func entry(state string) *symbol.Paint {
 	return &symbol.Paint{Variant: symbol.EntryPaint{State: state}}
 }
 
+func contrast(state string) *symbol.Paint {
+	return &symbol.Paint{Variant: symbol.ContrastPaint{State: state}}
+}
+
 func motion(m symbol.MotionVariant) *symbol.Motion { return &symbol.Motion{Variant: m} }
 
 func next(keys ...string) symbol.Interaction {
@@ -89,10 +93,11 @@ func valveSpec() symbol.Spec {
 		},
 		Looks: []symbol.Look{
 			{
-				Key:  "fill",
-				Part: new("body"),
-				When: equals("active", 1),
-				Fill: entry("active"),
+				Key:    "fill",
+				Part:   new("body"),
+				When:   equals("active", 1),
+				Fill:   entry("active"),
+				Stroke: contrast("active"),
 			},
 			{
 				Key:  "level",
@@ -216,6 +221,9 @@ var _ = Describe("Checks", func() {
 		Entry("an entry paint on a number state", func(s *symbol.Spec) {
 			s.Looks[0].Fill = entry("level")
 		}, `data.looks.0.fill.state: "level" names a number state`),
+		Entry("a contrast paint on a number state", func(s *symbol.Spec) {
+			s.Looks[0].Stroke = contrast("level")
+		}, `data.looks.0.stroke.state: "level" names a number state`),
 		Entry("a motion on an enumeration state", func(s *symbol.Spec) {
 			s.Looks[1].Motion = motion(symbol.LevelMotion{
 				State: "active",
