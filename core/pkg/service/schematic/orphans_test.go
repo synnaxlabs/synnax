@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	. "github.com/synnaxlabs/x/testutil"
@@ -42,22 +43,24 @@ type orphans struct {
 	Commands  []string         `json:"commands"`
 }
 
+type orphanCase struct {
+	Name string `json:"name"`
+	// After holds the states and commands that the save sets, in their stored form. A
+	// case that leaves one out keeps that of Before.
+	After struct {
+		States   []any `json:"states"`
+		Commands []any `json:"commands"`
+	} `json:"after"`
+	Orphans orphans `json:"orphans"`
+}
+
 type orphanVectors struct {
 	Before struct {
 		States   []symbol.State   `json:"states"`
 		Commands []symbol.Command `json:"commands"`
 	} `json:"before"`
 	Bindings orphanBindings `json:"bindings"`
-	Cases    []struct {
-		Name string `json:"name"`
-		// After holds the states and commands that the save sets, in their stored form.
-		// A case that leaves one out keeps that of Before.
-		After struct {
-			States   []any `json:"states"`
-			Commands []any `json:"commands"`
-		} `json:"after"`
-		Orphans orphans `json:"orphans"`
-	} `json:"cases"`
+	Cases    []orphanCase   `json:"cases"`
 }
 
 // removed returns the bindings and overrides that a save took from before to leave cfg.
@@ -107,8 +110,33 @@ var _ = Describe("Orphan vectors", func() {
 	var v orphanVectors
 	Expect(json.Unmarshal(MustSucceed(os.ReadFile(orphanVectorsPath)), &v)).
 		To(Succeed())
-	for _, c := range v.Cases {
-		It("Should remove "+c.Name, func(ctx SpecContext) {
+	BeforeEach(func(ctx SpecContext) {
+		enums := lo.FilterMap(
+			v.Bindings.States,
+			func(b schematic.StateBinding, _ int) (enumeration.Enumeration, bool) {
+				if b.Enumeration == nil {
+					return enumeration.Enumeration{}, false
+				}
+				return enumeration.Enumeration{Key: *b.Enumeration, Name: b.Key}, true
+			},
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return enumSvc.NewWriter(tx).CreateMany(ctx, enums)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).Delete(
+					ctx,
+					lo.Map(enums, func(e enumeration.Enumeration, _ int) enumeration.Key {
+						return e.Key
+					})...,
+				)
+			})).To(Succeed())
+		})
+	})
+	DescribeTable(
+		"Should remove the orphans of a save",
+		func(ctx SpecContext, c orphanCase) {
 			sym := heater()
 			sym.Data.States, sym.Data.Commands = v.Before.States, v.Before.Commands
 			createSymbol(ctx, &sym)
@@ -144,6 +172,9 @@ var _ = Describe("Orphan vectors", func() {
 				Exec(ctx, db)).To(Succeed())
 			cfg := as[schematic.SymbolNodeConfig](stored.Nodes[0].Config.Variant)
 			Expect(removed(v.Bindings, cfg)).To(Equal(c.Orphans))
-		})
-	}
+		},
+		lo.Map(v.Cases, func(c orphanCase, _ int) TableEntry {
+			return Entry(c.Name, c)
+		}),
+	)
 })

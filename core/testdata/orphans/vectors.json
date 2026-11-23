@@ -23,7 +23,12 @@
   "bindings": {
     "states": [
       { "key": "level", "bounds": { "lower": 10, "upper": 90 } },
-      { "key": "mode", "match": { "type": "exact" }, "default": 1 }
+      {
+        "key": "mode",
+        "enumeration": "8c1e4b6a-3f2d-4e7a-9b5c-1d2e3f4a5b6c",
+        "match": { "type": "exact" },
+        "default": 1
+      }
     ],
     "commands": [
       { "key": "vent", "channel": 14 },
@@ -73,7 +78,7 @@
       }
     },
     {
-      "name": "the match and default of a state that becomes a number",
+      "name": "the enumeration, match, and default of a state that becomes a number",
       "after": {
         "states": [
           {
@@ -92,7 +97,7 @@
       },
       "orphans": {
         "states": [],
-        "overrides": [{ "key": "mode", "fields": ["match", "default"] }],
+        "overrides": [{ "key": "mode", "fields": ["enumeration", "match", "default"] }],
         "commands": []
       }
     },
