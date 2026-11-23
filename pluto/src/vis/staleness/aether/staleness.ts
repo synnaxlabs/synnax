@@ -193,7 +193,7 @@ const use = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
  * values rather than props captured on this call.
  * @throws {NotFoundError} if no {@link Provider} is mounted above the caller.
  */
-const useRegistration = (
+export const useRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   props: EntryProps,

@@ -68,6 +68,42 @@ describe("Input.Numeric", () => {
       ]);
     });
 
+    it("should keep the fraction of a drag when the input is not an integer", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          dragScale={{ x: 0.01, y: 0.01 }}
+        />,
+      );
+      dragTo(dragButtonOf(c), 25);
+      expect(onChange).toHaveBeenLastCalledWith(0.1);
+    });
+
+    it("should trim float noise from a fractional drag", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={0} onChange={onChange} dragScale={{ x: 0.1, y: 0.1 }} />,
+      );
+      dragTo(dragButtonOf(c), THRESHOLD + 3);
+      expect(onChange).toHaveBeenLastCalledWith(0.3);
+    });
+
+    it("should round a drag when the input is an integer", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          dragScale={{ x: 0.25, y: 0.25 }}
+          integer
+        />,
+      );
+      dragTo(dragButtonOf(c), 25);
+      expect(onChange).toHaveBeenLastCalledWith(3);
+    });
+
     it("should reset the value on a double click", () => {
       const onChange = vi.fn();
       const c = render(<Input.Numeric value={2} onChange={onChange} resetValue={0} />);

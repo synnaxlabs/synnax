@@ -150,14 +150,15 @@ Paint union on type {
     node {}
     color { value color.Ref }
 }
-// rate: cycles per second, times the fraction of its bounds that `state` reads
+// rate: cycles per second, times the fraction of its bounds that `state` reads. A
+// negative rate runs the other way.
 Motion union on type {
     spin {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     flow {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     level {
@@ -257,16 +258,19 @@ fraction 0 for a number state, with no indicator. The binding holds the number f
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
-Looks apply in order, and a later look wins on each field it sets. Look fields are
-optional, so an absent field, such as `hidden`, means that the look does not set it, as
-`switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last state's
-looks and adds the stale indicator. Pluto then draws pending, hover, pressed, and the
-hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and other
-indicators on top of the looks. Only a number state drives motion, and the Core refuses
-a motion whose `state` names an enumeration state. A number state drives motion as a
-fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data and
-NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while a
-state that their look reads, in `when` or `state`, is stale or unknown, under the
+Looks apply in order, and a later look wins on each field it sets. On `motion`, a later
+look wins on each motion kind, so motions of different kinds on one part all apply, such
+as a `move` and a `spin`, or a `level` and a `flow`. Pluto moves an element by its
+`move`, then turns it about the pivot by the sum of its `rotate` and `spin` angles. Look
+fields are optional, so an absent field, such as `hidden`, means that the look does not
+set it, as `switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last
+state's looks and adds the stale indicator. Pluto then draws pending, hover, pressed,
+and the hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and
+other indicators on top of the looks. Only a number state drives motion, and the Core
+refuses a motion whose `state` names an enumeration state. A number state drives motion
+as a fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data
+and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while
+a state that their look reads, in `when` or `state`, is stale or unknown, under the
 operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
 these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
 transition. While its state is stale, it keeps its last fraction. While it is unknown,

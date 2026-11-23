@@ -18,6 +18,7 @@ from synnax import mqtt
 from tests.driver.mqtt_task import (
     MQTTWriteTaskCase,
     create_plain_entry,
+    create_plain_target,
     run_reader,
     write_until,
 )
@@ -40,19 +41,19 @@ class MQTTWriteValve(MQTTWriteTaskCase):
             index=idx.key,
         )
         return [
-            mqtt.PlainWriteTarget(
+            create_plain_target(
+                client,
                 topic="plant/valve/set",
-                channel=mqtt.ChannelField(
-                    pointer="/position",
-                    json_type="number",
-                    channel=cmd,
-                    data_type=sy.DataType.FLOAT64,
-                ),
+                bindings=[
+                    (sy.icd.FloatJSONField(name="position", pointer="/position"), cmd)
+                ],
                 fields=[
-                    mqtt.StaticWriteField(
-                        pointer="/source", json_type="string", value="synnax"
+                    sy.icd.StringJSONField(
+                        name="source", pointer="/source", default="synnax"
                     ),
-                    mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
+                    sy.icd.UuidJSONField(
+                        name="id", pointer="/id", default=sy.icd.RandomUUIDDefault()
+                    ),
                 ],
             ),
         ]
