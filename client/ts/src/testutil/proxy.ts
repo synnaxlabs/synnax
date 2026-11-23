@@ -178,7 +178,8 @@ export interface CuttingProxy {
  * request. Call it inside a test: the proxy closes when that test finishes.
  */
 export const createCuttingProxy = async (): Promise<CuttingProxy> => {
-  const { host, port } = TEST_CORE_ADDRESS;
+  const { connect, createServer } = await import("node:net");
+  const { host, port } = testCoreAddress();
   const sockets = new Set<Socket>();
   let route: string | null = null;
   let cuts = 0;

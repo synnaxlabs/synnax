@@ -17,12 +17,12 @@ import {
   FAST_RETRY,
   rejectRequests,
   spyOnSend,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { HTTPClient } from "@synnaxlabs/freighter";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
@@ -115,7 +115,7 @@ describe("channel/tree built-in keys", () => {
     const ch = await createIndex();
     const proxy = await createCuttingProxy();
     const proxied = new Synnax({
-      ...TEST_CLIENT_PARAMS,
+      ...testClientParams(),
       host: "localhost",
       port: proxy.port,
       retry: FAST_RETRY,

@@ -22,7 +22,7 @@ import {
   recordResponses,
   rejectRequests,
   spyOnSend,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -221,7 +221,7 @@ describe("Built-in channels on a live client", () => {
     const proxy = await createCuttingProxy();
     const internal: Error[] = [];
     const client = new Synnax({
-      ...TEST_CLIENT_PARAMS,
+      ...testClientParams(),
       host: "localhost",
       port: proxy.port,
       retry: FAST_RETRY,
