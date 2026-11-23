@@ -13,6 +13,11 @@ import { color } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { CSS } from "@/css";
+import {
+  Motion,
+  type MotionParams,
+  moves,
+} from "@/schematic/node/common/custom/motion";
 import type { Paint } from "@/schematic/node/common/custom/paint";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Region } from "@/schematic/node/common/region";
@@ -132,6 +137,8 @@ export interface UseRenderParams {
   strokeColor?: color.Crude;
   /** Marks markup that ships with Pluto, which mounts without the sanitizer. */
   builtIn?: boolean;
+  /** motion moves the parts of the drawing by its looks. With none, nothing moves. */
+  motion?: MotionParams;
 }
 
 interface RenderState {
@@ -140,6 +147,7 @@ interface RenderState {
   prevSvg: string | undefined;
   // The paints on the drawing, so the next paints can undo them.
   prevPaints: Paint[];
+  motion: Motion | null;
 }
 
 const NO_PAINTS: Paint[] = [];
@@ -148,7 +156,31 @@ const createRenderState = (): RenderState => ({
   drawing: null,
   prevSvg: undefined,
   prevPaints: NO_PAINTS,
+  motion: null,
 });
+
+const stopMotion = (state: RenderState) => {
+  state.motion?.stop();
+  state.motion = null;
+};
+
+const applyMotion = (
+  spec: schematic.symbol.Spec,
+  params: MotionParams | undefined,
+  state: RenderState,
+) => {
+  const { drawing } = state;
+  if (drawing == null) return;
+  if (params == null || state.motion?.loop !== params.loop) stopMotion(state);
+  if (params == null) return;
+  if (state.motion == null) {
+    if (!spec.looks.some(moves)) return;
+    const box = Region.measure(spec.drawing.markup);
+    if (box == null) return;
+    state.motion = new Motion(params.loop, drawing, box);
+  }
+  state.motion.update(spec, params);
+};
 
 /**
  * @returns whether svg is markup the renderer can mount. See {@link Region.measure}.
@@ -177,6 +209,7 @@ const buildDrawing = (
   root: SVGSVGElement,
   onMount?: (drawing: SVGGElement) => void,
 ) => {
+  stopMotion(state);
   state.drawing?.remove();
   const drawing = root.ownerDocument.createElementNS(SVG_NAMESPACE, "g");
   for (const { namespaceURI, name, value } of Array.from(root.attributes))
@@ -209,6 +242,7 @@ const runRender = (host: Element, params: UseRenderParams, state: RenderState) =
     state.prevPaints = NO_PAINTS;
     const root = builtIn ? Region.parseTrusted(markup) : Region.parseSVG(markup);
     if (root == null) {
+      stopMotion(state);
       state.drawing?.remove();
       state.drawing = null;
       return;
@@ -222,6 +256,7 @@ const runRender = (host: Element, params: UseRenderParams, state: RenderState) =
   state.prevPaints = paints;
   applySymbolStrokes(drawing, paints, strokeColor);
   applyStrokeScaled(drawing, spec.strokeScaled);
+  applyMotion(spec, params.motion, state);
 };
 
 /// useRender returns a ref callback that mounts the drawing of a custom symbol into the
@@ -233,7 +268,7 @@ const runRender = (host: Element, params: UseRenderParams, state: RenderState) =
 /// StrictMode's simulated remount). The drawing updates when a param it draws changes
 /// identity, so copy the spec on change and never change it in place.
 export const useRender = (params: UseRenderParams): RefCallback<Element> => {
-  const { spec, paints, strokeColor } = params;
+  const { spec, paints, strokeColor, motion } = params;
   const hostRef = useRef<Element | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
@@ -251,8 +286,14 @@ export const useRender = (params: UseRenderParams): RefCallback<Element> => {
     strokeRGBA,
   ]);
 
+  useLayoutEffect(() => {
+    const { spec, motion } = paramsRef.current;
+    if (spec != null) applyMotion(spec, motion, stateRef.current);
+  }, [paramsRef, stateRef, spec?.looks, spec?.parts, spec?.states, motion]);
+
   return (el) => {
     if (el == null) {
+      stopMotion(stateRef.current);
       stateRef.current.drawing?.remove();
       stateRef.current = createRenderState();
       hostRef.current = null;
