@@ -43,3 +43,15 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "client_test",
+    srcs = ["client_test.cpp"],
+    deps = [
+        ":apikey",
+        "//freighter/cpp/testutil",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -370,4 +370,71 @@ TEST(TestAuth, DeleteOwnSession) {
     ASSERT_NIL(mw->delete_sessions({mw->current_session().key}));
     ASSERT_TRUE(mw->current_session().key.is_nil());
 }
+
+/// @brief it should reject a session whose key is not a UUID and log in again on the
+/// next request.
+TEST(TestAuth, AuthenticateRejectsNonUUIDSessionKey) {
+    auto bad = session_response("abc");
+    bad.mutable_session()->set_key("not-a-uuid");
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{bad, session_response("def")},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
+    );
+    auto *create = mock_create_client.get();
+    const auto mw = middleware_with(std::move(mock_create_client));
+    ASSERT_OCCURRED_AS(mw->authenticate(), x::uuid::INVALID);
+    ASSERT_TRUE(mw->current_session().key.is_nil());
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
+    mock_client.use(mw);
+    auto v = 1;
+    ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(create->requests.size(), 2);
+}
+
+/// @brief it should reject a session whose credential is not a UUID and stay logged
+/// out.
+TEST(TestAuth, AuthenticateRejectsNonUUIDCredential) {
+    auto bad = session_response("abc");
+    bad.mutable_session()->set_credential("not-a-uuid");
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{bad, session_response("def")},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
+    );
+    auto *create = mock_create_client.get();
+    const auto mw = std::make_shared<Middleware>(
+        std::move(mock_create_client),
+        nullptr,
+        nullptr,
+        nullptr,
+        api_key_proof("syk_key")
+    );
+    ASSERT_OCCURRED_AS(mw->authenticate(), x::uuid::INVALID);
+    ASSERT_TRUE(mw->current_session().key.is_nil());
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_EQ(create->requests.size(), 2);
+}
+
+/// @brief it should fail to list sessions when one has a key that is not a UUID.
+TEST(TestAuth, RetrieveSessionsRejectsNonUUIDKey) {
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    grpc::auth::SessionRetrieveResponse res;
+    *res.add_sessions() = session_response("abc").session();
+    res.add_sessions()->set_key("not-a-uuid");
+    auto mock_retrieve_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionRetrieveRequest,
+        grpc::auth::SessionRetrieveResponse>>(res, x::errors::NIL);
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        nullptr,
+        nullptr,
+        std::move(mock_retrieve_client)
+    );
+    ASSERT_OCCURRED_AS_P(mw->retrieve_sessions(), x::uuid::INVALID);
+}
 }
