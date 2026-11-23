@@ -26,7 +26,7 @@ service NIDeviceRetrieveService {
 }
 
 service NIDeviceUpdateService {
-  rpc Exec(UpdateRequest) returns (google.protobuf.Empty);
+  rpc Exec(UpdateRequest) returns (UpdateResponse);
 }
 
 service NIDeviceDeleteService {
@@ -45,6 +45,11 @@ message CreateResponse {
 message UpdateRequest {
   string key = 1;
   service.ni_device.pb.Update update = 2;
+}
+
+// UpdateResponse carries the device as stored after an update.
+message UpdateResponse {
+  service.ni_device.pb.Device device = 1;
 }
 
 message DeleteRequest {

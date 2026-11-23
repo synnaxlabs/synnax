@@ -30,6 +30,8 @@ class BitRange {
         /// @brief dest is the position of the lowest bit of the segment in the raw
         /// value.
         std::uint8_t dest = 0;
+
+        bool operator==(const Segment &) const = default;
     };
 
     /// @brief segments holds one entry for each byte, as a 64-bit field can span 9.
@@ -78,5 +80,8 @@ public:
 
     /// @brief returns the number of payload bytes that the field needs.
     [[nodiscard]] std::size_t end() const { return this->end_byte; }
+
+    /// @brief reports whether both ranges read the same bits in the same order.
+    bool operator==(const BitRange &) const = default;
 };
 }

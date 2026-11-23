@@ -24,13 +24,14 @@ import { describe, expect, it } from "vitest";
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { RAW_LEVEL, rawTile } from "@/framer/cache/block";
-import { tileRange, tiles } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
 import { NotFoundError, UnexpectedError } from "@/index";
 import { createTestClient, NO_OUTPUTS, SyntheticCore } from "@/testutil";
 
-const blockRange = (tile: number): TimeRange => tileRange({ level: RAW_LEVEL, tile });
+const blockRange = (tile: number): TimeRange =>
+  grid.tileRange({ level: RAW_LEVEL, tile });
 
 const blockAlignment = (index: number, offset: number): bigint =>
   (BigInt(index) << 32n) | BigInt(offset);
@@ -62,7 +63,7 @@ const readBlocks = async (
 ): Promise<MultiSeries> => {
   await reader.fill(tr, ch);
   return new MultiSeries(
-    tiles(tr, RAW_LEVEL).flatMap((i) => store.findRaw(ch, i)?.seriesIn(tr) ?? []),
+    grid.tiles(tr, RAW_LEVEL).flatMap((i) => store.findRaw(ch, i)?.seriesIn(tr) ?? []),
   );
 };
 
@@ -271,9 +272,9 @@ describe("Reader", () => {
       const { reader, store, fetches, read } = createReader({ now: () => now });
       await reader.catchUp(2, 100);
       const held = (ch: channel.Key) =>
-        tiles(new TimeRange(START, now), RAW_LEVEL).filter(
-          (i) => store.findRaw(ch, i) != null,
-        );
+        grid
+          .tiles(new TimeRange(START, now), RAW_LEVEL)
+          .filter((i) => store.findRaw(ch, i) != null);
       expect(held(2)).toEqual([100, 101, 102, 103, 104]);
       expect(held(1)).toEqual([100, 101, 102, 103, 104]);
       expect(await read(new TimeRange(START, at(299)), 2)).toHaveLength(300);
@@ -332,7 +333,7 @@ describe("Reader", () => {
       });
       const tr = new TimeRange(at(60), at(70));
       // Points pins the blocks of its raw range before it fills them.
-      tiles(tr, RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
+      grid.tiles(tr, RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
       const res = await read(tr, 1);
       expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
     });

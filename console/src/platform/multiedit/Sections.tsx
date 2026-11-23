@@ -9,7 +9,6 @@
 
 import "@/platform/multiedit/Sections.css";
 
-import type { color } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
@@ -17,8 +16,6 @@ import { notation, TimeSpan } from "@synnaxlabs/x";
 import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { ColorField, type ColorFieldProps } from "@/platform/multiedit/Colors";
-import type { ColorValue } from "@/platform/multiedit/selection";
 
 /**
  * Holds the color controls of several elements. The label column keeps its width as
@@ -30,28 +27,23 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
   </Form.Section>
 );
 
-export interface StalenessSectionProps extends Pick<ColorFieldProps, "palettesHidden"> {
-  /** The staleness color of each element that has the field. */
-  colors: ColorValue[];
+export interface StalenessSectionProps extends PropsWithChildren {
   /** The timeout, in `unit`. */
   timeout?: number;
   /** The unit of the stored timeout. Defaults to nanoseconds. */
   unit?: TimeSpan;
-  onColorChange: (value?: color.Ref) => void;
   onTimeoutChange: (value: number) => void;
 }
 
-/** Edits the staleness color and timeout of several elements. */
+/** Edits the staleness timeout of several elements, below the fields in children. */
 export const StalenessSection = ({
-  colors,
+  children,
   timeout,
   unit = TimeSpan.NANOSECOND,
-  onColorChange,
   onTimeoutChange,
-  ...rest
 }: StalenessSectionProps): ReactElement => (
   <Form.Section title="Staleness">
-    <ColorField label="Color" values={colors} onChange={onColorChange} {...rest} />
+    {children}
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline

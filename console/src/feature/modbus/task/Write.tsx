@@ -16,9 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { getOpenWriteChannel } from "@/feature/modbus/task/create";
@@ -38,12 +36,12 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
@@ -120,7 +118,7 @@ const commandDataType = (channel: WriteChannel): string =>
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
@@ -174,7 +172,7 @@ const map = ({ selected, onSelect }: Task.Views.PortsProps<WriteChannel>) => (
 );
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (c: WriteChannel) =>
     dev == null
       ? null
@@ -201,7 +199,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   const { channels } = dev.properties.write;
@@ -248,7 +246,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     changed = true;
   }
-  if (changed) await Device.setProperties(client, dev, before, SCHEMAS);
+  if (changed) await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,

@@ -16,7 +16,7 @@ import pytest
 
 import synnax as sy
 from synnax import schematic
-from x import filter, spatial
+from x import control, filter, spatial
 from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually, untyped
@@ -1186,3 +1186,17 @@ class TestChannelUses:
         """Should retrieve the keys of the built-in channels."""
         cmd = client.channels.retrieve("sy_task_cmd")
         assert cmd.key in client.channels.retrieve_built_ins()
+
+
+class TestChannelPayload:
+    """Tests the conversion of a channel to its payload."""
+
+    def test_keeps_concurrency(self) -> None:
+        """Should keep the concurrency policy of the channel in its payload."""
+        ch = sy.Channel(
+            name=channel_name(),
+            data_type=sy.DataType.FLOAT32,
+            virtual=True,
+            concurrency=control.Concurrency.shared,
+        )
+        assert ch.to_payload().concurrency == control.Concurrency.shared

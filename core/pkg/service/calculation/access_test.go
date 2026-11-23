@@ -111,7 +111,7 @@ var _ = Describe("Access", func() {
 		)
 		return err
 	}
-	sends := func(check calculation.StreamCheck, allowed func(resource.ID) bool) bool {
+	sends := func(check func(func(resource.ID) bool) ([]byte, bool), allowed func(resource.ID) bool) bool {
 		_, send := check(allowed)
 		return send
 	}
@@ -151,14 +151,24 @@ var _ = Describe("Access", func() {
 		})
 	})
 
-	Describe("Readable", func() {
-		It("Should admit only a subject that reads every channel", func(
-			ctx SpecContext,
-		) {
-			input := virtual(ctx, "readable_input")
-			check := svc.Readable(calculate(ctx, input))
-			Expect(sends(check, except())).To(BeTrue())
-			Expect(sends(check, except(channel.ResourceID(input.Key())))).To(BeFalse())
+	Describe("SetCheck", func() {
+		It("Should send the set to a reader of the calculation and the hidden output "+
+			"to a subject that reads only its output", func(ctx SpecContext) {
+			input := virtual(ctx, "set_check_input")
+			c := calculate(ctx, input)
+			check := MustSucceed(svc.SetCheck(c))
+			replacement, send := check(except())
+			Expect(send).To(BeTrue())
+			Expect(replacement).To(BeNil())
+			replacement, send = check(except(channel.ResourceID(input.Key())))
+			Expect(send).To(BeTrue())
+			Expect(replacement).
+				To(MatchJSON(fmt.Sprintf(`{"output":%d,"hidden":true}`, c.Output)))
+			_, send = check(except(
+				channel.ResourceID(input.Key()),
+				channel.ResourceID(c.Output),
+			))
+			Expect(send).To(BeFalse())
 		})
 	})
 
@@ -215,7 +225,7 @@ var _ = Describe("Access", func() {
 					Rename(ctx, renamed.Key(), "announce_renamed_2", false)
 			})
 			lookup := svc.ChannelBatchChecks(commit)
-			var announce, rename calculation.StreamCheck
+			var announce, rename func(func(resource.ID) bool) ([]byte, bool)
 			for _, b := range channels.Actions().Of(commit) {
 				check := MustBeOk(lookup(b.Key, b.Seq))
 				switch b.Key {
@@ -227,7 +237,8 @@ var _ = Describe("Access", func() {
 			}
 			Expect(announce).ToNot(BeNil())
 			Expect(sends(announce, except())).To(BeTrue())
-			Expect(sends(announce, except(channel.ResourceID(input.Key())))).To(BeFalse())
+			Expect(sends(announce, except(channel.ResourceID(input.Key())))).
+				To(BeFalse())
 			Expect(rename).To(BeNil())
 		})
 

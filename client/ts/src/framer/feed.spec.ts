@@ -528,6 +528,36 @@ describe("Feed", () => {
       }
     });
 
+    it("should read a stored channel's latest samples again on a miss", async () => {
+      const core = createCore();
+      let onMissed: (() => void) | undefined;
+      let reads = 0;
+      const direct = core.openFeed({
+        ...OPTIONS,
+        openStreamer: async (config) => {
+          if (typeof config === "object" && "onMissed" in config)
+            onMissed = config.onMissed;
+          return core.openStreamer(config);
+        },
+        readLatest: async (keys, count, tr) => {
+          reads++;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const [a] = core.data.map((ch) => ch.key);
+      const sub = direct.subscribe(latest([a]));
+      try {
+        await loaded(sub, a);
+        const before = reads;
+        onMissed?.();
+        await expect.poll(() => reads, POLL).toBeGreaterThan(before);
+        await loaded(sub, a);
+      } finally {
+        sub.close();
+        await direct.close();
+      }
+    });
+
     it("should load a subscription without times when the index read fails", async () => {
       const core = createCore();
       const direct = core.openFeed({
