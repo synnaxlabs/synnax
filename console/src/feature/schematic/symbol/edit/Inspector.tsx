@@ -92,13 +92,13 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const [split, setSplit] = useState(false);
   const several = values.values.length > 1;
   const varies = split || Spec.variesByValue({ looks }, part, field);
-  const handleVariesChange = () => {
+  const handleVariesChange = (next: boolean) => {
     const keys = values.values.map((v) => v.value);
     set(
       path.data,
-      Spec.setVariesByValue(get(path.data).value, part, field, keys, !varies),
+      Spec.setVariesByValue(get(path.data).value, part, field, keys, next),
     );
-    setSplit(!varies);
+    setSplit(next);
   };
   const name = label.toLowerCase();
   return (
@@ -111,10 +111,10 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
         <Flex.Box x align="center" gap="small">
           {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
           {(several || varies) && (
-            <Button.Button
+            <Button.Toggle
               size="small"
-              variant={varies ? "filled" : "outlined"}
-              onClick={handleVariesChange}
+              value={varies}
+              onChange={handleVariesChange}
               tooltip={
                 varies
                   ? `Use one ${name} in every state`
@@ -122,7 +122,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
               }
             >
               By state
-            </Button.Button>
+            </Button.Toggle>
           )}
         </Flex.Box>
       </Flex.Box>
