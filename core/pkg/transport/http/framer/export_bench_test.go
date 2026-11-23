@@ -78,9 +78,9 @@ func openExport(b *testing.B, samples int) (apiframer.ReadResponse, func()) {
 		b.Fatal(err)
 	}
 	res := apiframer.ReadResponse{
-		Channels: []svcchannel.Channel{data},
-		Indexes:  []svcchannel.Channel{index},
-		Bounds:   telem.TimeRangeMax,
+		Channels:   []svcchannel.Channel{data},
+		Indexes:    []svcchannel.Channel{index},
+		TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 		OpenIterator: func(
 			ctx context.Context,
 			keys svcchannel.Keys,
