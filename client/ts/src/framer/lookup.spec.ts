@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { ValidationError } from "@/errors";
+import { Frame } from "@/framer/frame";
 import {
   createTestClient,
   newIndexedPair,
@@ -19,6 +21,9 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const float = (data: number[]): Series =>
+  new Series({ data, dataType: DataType.FLOAT64 });
 
 /** @returns, as JSON, each channel retrieve that send saw for any of keys. */
 const retrievesOf = (
@@ -210,6 +215,119 @@ describe("Framer lookups", () => {
         });
         await writer.close();
         expect(retrievesOf(send, [a.key, b.key])).toEqual([]);
+      } finally {
+        send.mockRestore();
+      }
+    });
+  });
+
+  describe("a frame keyed by the path of a held channel", () => {
+    it("should write a Frame keyed by the path of a channel the writer holds by key", async () => {
+      const [ch, path] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.key],
+      });
+      try {
+        await writer.write(path, [1, 2, 3]);
+        await writer.write({ [path]: [1, 2, 3] });
+        await writer.write(new Frame({ [path]: float([1, 2, 3]) }));
+      } finally {
+        await writer.close();
+      }
+    });
+
+    it("should write a Map keyed by the path of a channel the writer holds by name", async () => {
+      const [ch, path] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.name],
+      });
+      try {
+        await writer.write(new Map([[path, float([1, 2, 3])]]));
+      } finally {
+        await writer.close();
+      }
+    });
+  });
+
+  describe("one channel looked up twice", () => {
+    it("should refuse a read that names one channel by its name and its path", async () => {
+      const [index, path] = await createInGroup({
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      await expect(client.read(TimeRange.MAX, [index.name, path])).rejects.toThrow(
+        new ValidationError(`"${index.name}" and "${path}" name one channel`),
+      );
+    });
+
+    it("should refuse a streamer that names one channel by its name and its path", async () => {
+      const [ch, path] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      await expect(client.openStreamer([ch.name, path])).rejects.toThrow(
+        new ValidationError(`"${ch.name}" and "${path}" name one channel`),
+      );
+    });
+
+    it("should refuse a writer that names one channel by its key and its name", async () => {
+      const [index, data] = await newIndexedPair(client);
+      await expect(
+        client.openWriter({
+          start: TimeStamp.seconds(1),
+          channels: [index.key, data.key, data.name],
+          authorities: [100, 100, 100],
+        }),
+      ).rejects.toThrow(
+        new ValidationError(`${data.key} and "${data.name}" name one channel`),
+      );
+    });
+
+    it("should read a channel that a list names twice by one name", async () => {
+      const [index] = await newIndexedPair(client);
+      await client.write(TimeStamp.seconds(1), index.key, secondsLinspace(1, 3));
+      const fr = await client.read(TimeRange.MAX, [index.name, index.name]);
+      expect(fr.get(index.name).length).toEqual(3);
+    });
+  });
+
+  describe("one retrieve per open", () => {
+    it("should resolve the names and the paths of a writer in one retrieve", async () => {
+      const [, aPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const [, bPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const named = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const send = spyOnSend(client);
+      try {
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: [aPath, bPath, named.name],
+        });
+        await writer.close();
+        const lookups = [aPath, bPath, named.name];
+        const mine = send.mock.calls
+          .filter(([target]) => target === "/channel/retrieve")
+          .map(([, req]) => JSON.stringify(req))
+          .filter((req) => lookups.some((l) => req.includes(`"${l}"`)));
+        expect(mine).toHaveLength(1);
+        for (const l of lookups) expect(mine[0]).toContain(`"${l}"`);
       } finally {
         send.mockRestore();
       }

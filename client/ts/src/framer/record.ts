@@ -13,11 +13,12 @@ import { type channel } from "@/channel";
 
 /**
  * @returns the channel that a key of a record frame names. A record keys its columns
- * by string, so a key of all digits that fits a channel key is a key, and any other
- * key is a name.
+ * by string, so a key that is a channel key in canonical decimal, as String writes it,
+ * is a key, and any other key is a name.
  */
 export const recordColumn = (key: string): channel.Key | channel.Name => {
-  if (!/^\d+$/.test(key)) return key;
   const n = Number(key);
-  return n <= math.MAX_UINT32 ? n : key;
+  return Number.isInteger(n) && n >= 0 && n <= math.MAX_UINT32 && String(n) === key
+    ? n
+    : key;
 };

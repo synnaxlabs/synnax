@@ -124,29 +124,23 @@ export const lookupRequest = (
 };
 
 /**
- * Resolves each lookup to its channel. A path cannot be ambiguous, so each path is a
- * request of its own, and its one channel is its match.
- * @param retrieve - returns the channels that a list of lookups finds.
+ * Resolves each lookup to its channel through one call of retrieve. A channel matches a
+ * lookup by its key, its name in NFC, or its path in NFC.
+ * @param retrieve - returns the channels that a list of lookups finds, each with its
+ * path when a lookup is a path. It must refuse an ambiguous name.
  * @returns the channel of each lookup, in the order of lookups.
  * @throws {NotFoundError} naming every lookup that finds no channel.
  */
-export const resolveLookups = async <C extends { key: Key; name: Name }>(
+export const resolveLookups = async <C extends { key: Key; name: Name; path?: string }>(
   lookups: Lookup[],
   retrieve: (lookups: Lookup[]) => Promise<C[]>,
 ): Promise<C[]> => {
-  const { keys, names, paths } = splitLookups(lookups);
+  if (lookups.length === 0) return [];
   const found = new Map<Key | string, C>();
-  const direct: Lookup[] = [...keys, ...names];
-  await Promise.all([
-    direct.length > 0 &&
-      retrieve(direct).then((res) =>
-        res.forEach((ch) => found.set(ch.key, ch).set(ch.name, ch)),
-      ),
-    ...paths.map(async (path) => {
-      const [ch] = await retrieve([path]);
-      if (ch != null) found.set(path.normalize("NFC"), ch);
-    }),
-  ]);
+  for (const ch of await retrieve(lookups)) {
+    found.set(ch.key, ch).set(ch.name, ch);
+    if (ch.path != null) found.set(ch.path, ch);
+  }
   const missing: Lookup[] = [];
   const resolved: C[] = [];
   for (const lookup of lookups) {

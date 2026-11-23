@@ -295,16 +295,14 @@ export class Client {
    * Deletes every sample in the time range from the given channels. Deletion is
    * permanent. A number is a key, and a string is a path or a name. A list may mix
    * them.
-   * @throws {NotFoundError} naming every name or path that finds no channel.
+   * @throws {NotFoundError} naming every path that finds no channel.
    */
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
     const { keys, names, paths } = channel.splitLookups(channel.toLookups(channels));
-    const named = [...names, ...paths];
-    // The Core intersects the keys and names of one request, so names go as keys.
-    if (named.length > 0) {
-      const resolved = await channel.resolveLookups(named, this.cfg.retrieveChannels);
+    if (paths.length > 0) {
+      const resolved = await channel.resolveLookups(paths, this.cfg.retrieveChannels);
       keys.push(...resolved.map((ch) => ch.key));
     }
-    await this.deleter.delete({ keys, bounds: new TimeRange(timeRange) });
+    await this.deleter.delete({ keys, names, bounds: new TimeRange(timeRange) });
   }
 }

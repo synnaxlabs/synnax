@@ -34,6 +34,7 @@ import {
 } from "@/channel/actions";
 import {
   isCalculated,
+  type Lookup,
   lookupRequest,
   lookupWhere,
   type Params,
@@ -654,6 +655,29 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Retrieves the channels that lookups name, for an open or a delete that needs each
+   * lookup to name one channel. Keys alone read through the record store. Any name or
+   * path makes one strict request to the Core, which refuses an ambiguous name, and
+   * each payload then holds its path.
+   * @returns the payload of each channel that lookups find. A lookup that finds no
+   * channel adds none.
+   */
+  async retrieveLookups(lookups: Lookup[]): Promise<Payload[]> {
+    if (lookups.length === 0) return [];
+    const where = lookupWhere(lookups);
+    const { names, paths } = splitLookups(lookups);
+    if (names.length === 0 && paths.length === 0)
+      return (await super.retrieve({ where })).map((ch) => ch.payload);
+    // A strict request skips the record store, which holds no paths.
+    const payloads = await this.execRetrieve({
+      where,
+      strict: true,
+      includePath: paths.length > 0,
+    });
+    return payloads.map(stripComposed);
+  }
+
+  /**
    * Deletes the channels that params name. A number is a key, and a string is a path or
    * a name. A list may mix them.
    * @throws {NotFoundError} naming every path that finds no channel.
@@ -663,7 +687,7 @@ export class Client extends query.Retriever<
     if (paths.length > 0) {
       const resolved = await resolveLookups(
         paths,
-        async (lookups) => await this.retrieve(lookupRequest(lookups, true)),
+        async (lookups) => await this.retrieveLookups(lookups),
       );
       keys.push(...resolved.map((ch) => ch.key));
     }

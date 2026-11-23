@@ -41,7 +41,7 @@ describe("Deleter", () => {
       await client.delete([index.key, data.name], TimeRange.MAX);
       const deletes = send.mock.calls.filter(([target]) => target === "/frame/delete");
       expect(deletes).toHaveLength(1);
-      expect(deletes[0][1]).toMatchObject({ keys: [index.key, data.key] });
+      expect(deletes[0][1]).toMatchObject({ keys: [index.key], names: [data.name] });
     } finally {
       send.mockRestore();
     }

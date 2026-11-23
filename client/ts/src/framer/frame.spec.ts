@@ -962,6 +962,15 @@ describe("framer.Frame", () => {
       expect(named.columns).toEqual(["3-tank", "1e3", "0x10"]);
     });
 
+    it("should read a record key as a channel key only in canonical decimal", () => {
+      const columnOf = (key: string) =>
+        new framer.Frame({ [key]: new Series([1]) }).columns;
+      expect(columnOf("4294967295")).toEqual([4294967295]);
+      expect(columnOf("0")).toEqual([0]);
+      for (const name of ["01048590", "4294967296", "-1", " 12", "12.0"])
+        expect(columnOf(name)).toEqual([name]);
+    });
+
     it("should read a column list of digit text as names", () => {
       expect(new framer.Frame(["12"], [new Series([1])]).columns).toEqual(["12"]);
     });

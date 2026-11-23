@@ -19,9 +19,29 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
-const uniqueByKey = (channels: channel.Payload[]): channel.Payload[] => [
-  ...new Map(channels.map((c) => [c.key, c])).values(),
-];
+/**
+ * @returns the channel of each lookup, one per channel, for an open.
+ * @throws {ValidationError} if two different lookups name one channel.
+ */
+const distinct = (
+  lookups: channel.Lookup[],
+  resolved: channel.Payload[],
+): channel.Payload[] => {
+  const byKey = new Map<channel.Key, channel.Lookup>();
+  const channels: channel.Payload[] = [];
+  lookups.forEach((lookup, i) => {
+    const ch = resolved[i];
+    const held = byKey.get(ch.key);
+    if (held == null) {
+      byKey.set(ch.key, lookup);
+      channels.push(ch);
+    } else if (held !== lookup)
+      throw new ValidationError(
+        `${JSON.stringify(held)} and ${JSON.stringify(lookup)} name one channel`,
+      );
+  });
+  return channels;
+};
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, string> | null;
@@ -54,7 +74,7 @@ export class ReadAdapter {
   async update(channels: channel.Params): Promise<boolean> {
     const lookups = channel.toLookups(channels);
     const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
-    const fetched = uniqueByKey(resolved);
+    const fetched = distinct(lookups, resolved);
     const newKeys = new Set(fetched.map((c) => c.key));
     // A frame holds keys or names, never both, so a list that holds any key labels by
     // key. Otherwise each channel takes the name or path that looked it up.
@@ -141,7 +161,7 @@ export class WriteAdapter {
   async update(channels: channel.Params): Promise<boolean> {
     const lookups = channel.toLookups(channels);
     const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
-    const results = uniqueByKey(resolved);
+    const results = distinct(lookups, resolved);
     this.byText = new Map();
     for (const c of results) this.hold(c.name, c);
     lookups.forEach((l, i) => {
@@ -230,6 +250,7 @@ export class WriteAdapter {
       res,
       true,
     );
+    if (typeof ch === "string" && this.byKey.has(res[0].key)) this.hold(ch, res[0]);
     return res[0];
   }
 
@@ -294,14 +315,10 @@ export class WriteAdapter {
 
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
-      const cols = fr.columns.map((col_) => {
-        const col = typeof col_ === "string" ? this.held(col_)?.key : col_;
-        if (col == null)
-          throw new ValidationError(`
-          Channel ${col_} was not provided in the list of channels when opening the writer
-        `);
-        return col;
-      });
+      if (fr.colType !== "name") return fr;
+      const cols = [];
+      for (const col of fr.columns as channel.Name[])
+        cols.push((await this.fetchChannel(col)).key);
       return new Frame(cols, fr.series);
     }
 
