@@ -157,7 +157,7 @@ describe("Custom.usePaints", () => {
   const renderPaints = async (
     spec: schematic.symbol.Spec,
     value: number,
-    options?: Custom.UsePaintsOptions,
+    options?: Custom.UsePaintsParams,
   ): Promise<Custom.Paint[]> => {
     const { result } = renderHook(() => Custom.usePaints(spec, value, options), {
       wrapper,
@@ -428,6 +428,23 @@ describe("Custom.usePaints", () => {
     it("should keep the stored fill for an entry with no color on a custom drawing", async () => {
       expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
         { selectors: [".body"] },
+      ]);
+    });
+
+    it("should draw contrast on the entry color as a built-in drawing shows it", async () => {
+      const spec = createSpec({
+        states: [{ type: "enumeration", key: "active", name: "Active" }],
+        looks: [
+          {
+            key: "detail",
+            part: "body",
+            stroke: { type: "contrast", state: "active" },
+          },
+        ],
+      });
+      const options = { builtIn: true, nodeColor: "#ffffff" };
+      expect(await renderPaints(spec, 0, options)).toEqual([
+        { selectors: [".body"], stroke: color.construct("#ffffffe6") },
       ]);
     });
   });

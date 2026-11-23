@@ -15,7 +15,7 @@ export {
   type Paint,
   type StateValue,
   usePaints,
-  type UsePaintsOptions,
+  type UsePaintsParams,
   useRegions,
   type Value,
 } from "@/schematic/node/common/custom/paint";

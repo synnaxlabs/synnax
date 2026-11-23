@@ -286,7 +286,7 @@ export const useRegions = (
 
 const NO_PAINTS: Paint[] = [];
 
-export interface UsePaintsOptions {
+export interface UsePaintsParams {
   /** overrides replace the looks at the value of their index. */
   overrides?: schematic.symbol.StateOverride[];
   /** nodeColor is the color that `node` paint draws. */
@@ -306,7 +306,7 @@ export interface UsePaintsOptions {
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
   value: StateValue,
-  { overrides, nodeColor, builtIn = false }: UsePaintsOptions = {},
+  { overrides, nodeColor, builtIn = false }: UsePaintsParams = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
