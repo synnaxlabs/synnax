@@ -67,6 +67,9 @@ type registeredReference interface {
 	index() int
 	onDeletePolicy() OnDelete
 	canRetarget() bool
+	// retargetsKeys reports whether the reference's targets are keys of the table whose
+	// keys m moves, in that table's key type.
+	retargetsKeys(m moves) bool
 	linkKind() LinkKind
 	referenceTag() uint8
 	targetTables() []string
@@ -252,6 +255,19 @@ func (r *registry) table(name string) (registeredTable, error) {
 		return nil, errors.Newf("[gorp] - no open table is named %q", name)
 	}
 	return t, nil
+}
+
+// referenceTo returns the reference named name of the table named owner, when it may
+// point at the table named table.
+func (r *registry) referenceTo(table, owner, name string) (registeredReference, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, ref := range r.referencing[table] {
+		if ref.ownerTable() == owner && ref.referenceName() == name {
+			return ref, true
+		}
+	}
+	return nil, false
 }
 
 // referencesTo returns the references that may point at the table named table.

@@ -101,6 +101,9 @@ func (t *Table[K, E]) RetargetHolders(
 			)
 		}
 	}
+	if len(holders) == 0 {
+		return nil
+	}
 	m := newMoves(t.name, to)
 	return inTx(ctx, tx, func(tx Tx) error {
 		return t.db.registry.retargetHolders(
@@ -156,7 +159,7 @@ func (t *Table[K, E]) retarget(
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"cannot retarget %s because the key of %s %s holds it",
-			formatSources(m.targets),
+			formatSources(m.withTargets().targets),
 			t.name,
 			k,
 		)
@@ -192,7 +195,7 @@ func (p *retargetPlan) add(dep Target, ref registeredReference) error {
 			validate.ErrValidation,
 			"cannot retarget %s because %s %s references it through %s, "+
 				"which cannot retarget",
-			formatSources(p.m.targets),
+			formatSources(p.m.withTargets().targets),
 			dep.Table,
 			dep.Key,
 			ref.referenceName(),
@@ -207,13 +210,16 @@ func (p *retargetPlan) add(dep Target, ref registeredReference) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"retargeting %s would change more than %d entries",
-				formatSources(p.m.targets),
+				formatSources(p.m.withTargets().targets),
 				p.limit,
 			)
 		}
 	}
 	if !slices.Contains(p.holders[i].refs, ref.index()) {
 		p.holders[i].refs = append(p.holders[i].refs, ref.index())
+	}
+	if p.m.targets == nil && !ref.retargetsKeys(p.m) {
+		p.m = p.m.withTargets()
 	}
 	return nil
 }
@@ -267,14 +273,9 @@ func (r *registry) retargetHolders(
 	deps []Dependent,
 	limit int,
 ) error {
-	type named struct{ table, reference string }
-	refs := make(map[named]registeredReference)
-	for _, ref := range r.referencesTo(m.table) {
-		refs[named{ref.ownerTable(), ref.referenceName()}] = ref
-	}
 	p := retargetPlan{m: m, limit: limit, indexOf: make(map[Target]int, len(deps))}
 	for _, d := range deps {
-		ref, ok := refs[named{d.Holder.Table, d.Reference}]
+		ref, ok := r.referenceTo(m.table, d.Holder.Table, d.Reference)
 		if !ok {
 			return errors.Newf(
 				"[gorp] - table %s has no reference %s to table %s",
@@ -305,16 +306,35 @@ type moves struct {
 	table string
 	// keys is a map[K]K of the table's key type K.
 	keys any
-	// targets holds the same moves as keys.
+	// targets holds the same moves as keys. It is nil until withTargets fills it, which
+	// a plan does once for a reference whose targets are not keys of the table.
 	targets map[Target]Target
+	// toTargets returns the targets of keys.
+	toTargets func(table string, keys any) map[Target]Target
 }
 
 func newMoves[K Key](table string, to map[K]K) moves {
+	return moves{table: table, keys: to, toTargets: movesTargets[K]}
+}
+
+func movesTargets[K Key](table string, keys any) map[Target]Target {
+	to, ok := keys.(map[K]K)
+	if !ok {
+		panic("[gorp] - moves hold keys of another type than their table")
+	}
 	targets := make(map[Target]Target, len(to))
 	for from, onto := range to {
 		targets[NewTarget(table, from)] = NewTarget(table, onto)
 	}
-	return moves{table: table, keys: to, targets: targets}
+	return targets
+}
+
+// withTargets returns m with its targets filled.
+func (m moves) withTargets() moves {
+	if m.targets == nil {
+		m.targets = m.toTargets(m.table, m.keys)
+	}
+	return m
 }
 
 // formatSources returns the keys of to as text, sorted, for an error.

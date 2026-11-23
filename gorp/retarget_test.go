@@ -12,6 +12,7 @@ package gorp_test
 import (
 	"context"
 	"slices"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -292,6 +293,17 @@ var _ = Describe("RetargetHolders", func() {
 		createPlot(ctx, rtPlot{Key: "a", Ys: []uint32{1}})
 		Expect(retarget(ctx, nil, dependents(ctx, 1))).To(Succeed())
 		Expect(rewritten).To(BeEmpty())
+	})
+
+	It("Should allocate nothing when no holder moves", func(ctx SpecContext) {
+		tx := db.OpenTx()
+		defer func() { Expect(tx.Close()).To(Succeed()) }()
+		to := map[uint32]uint32{1: 3}
+		var err error
+		Expect(testing.AllocsPerRun(100, func() {
+			err = channels.RetargetHolders(ctx, tx, to, nil)
+		})).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("Should move the holder from the dependents of the old key to the new", func(
