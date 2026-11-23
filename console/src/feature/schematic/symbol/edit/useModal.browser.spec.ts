@@ -36,6 +36,7 @@ import {
   createSymbolPayload,
   getEditSectionHeaderButton,
   getOverlayHandles,
+  getPartListItem,
   getPreviewTransformWrapper,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
@@ -161,10 +162,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByText("Part 1");
-      const item = screen
-        .getByText("Part 1")
-        .closest<HTMLElement>(".console-schematic-part-list-item");
-      assertDefined(item);
+      const item = getPartListItem("Part 1");
       expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
       fireEvent.click(within(item).getByLabelText("Stroke"));
       fireEvent.click(await screen.findByText("Color"));
@@ -189,10 +187,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const createKey = uuid.create();
       const { picker } = await openCreateModal(createKey);
       await loadSVG(picker);
-      const item = screen
-        .getByText("Whole drawing")
-        .closest<HTMLElement>(".console-schematic-part-list-item");
-      assertDefined(item);
+      const item = getPartListItem("Whole drawing");
       fireEvent.click(within(item).getByLabelText("Fill"));
       expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
       expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
@@ -340,10 +335,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a new part and its color on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
-      const item = screen
-        .getByText("Part 1")
-        .closest<HTMLElement>(".console-schematic-part-list-item");
-      assertDefined(item);
+      const item = getPartListItem("Part 1");
       fireEvent.click(within(item).getByLabelText("Stroke"));
       fireEvent.click(await screen.findByText("Color"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
@@ -460,10 +452,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      const item = (await screen.findByText("Body")).closest<HTMLElement>(
-        ".console-schematic-part-list-item",
-      );
-      assertDefined(item);
+      await screen.findByText("Body");
+      const item = getPartListItem("Body");
       return { symbol, fill: within(item).getByLabelText("Fill") };
     };
 
@@ -471,7 +461,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { fill } = await openPainted({
         looks: [{ key: "node", fill: { type: "node" } }],
       });
-      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+      expect(queryIcon(fill, "node")).not.toBeNull();
     });
 
     it("keeps Drawing from a part that the whole drawing paints", async () => {
@@ -651,16 +641,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect id="a" width="10" height="10"/></svg>',
       );
-      const row = (name: string): HTMLElement => {
-        const item = screen
-          .getByText(name)
-          .closest<HTMLElement>(".console-schematic-part-list-item");
-        assertDefined(item);
-        return item;
-      };
-      fireEvent.click(getIconButton(row("Part 1"), "close"));
+      fireEvent.click(getIconButton(getPartListItem("Part 1"), "close"));
       await waitFor(() => expect(screen.queryByText("Part 1")).toBeNull());
-      expect(row("Whole drawing").classList.contains("lyra--selected")).toBe(true);
+      expect(
+        getPartListItem("Whole drawing").classList.contains("lyra--selected"),
+      ).toBe(true);
       const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
       assertDefined(shape);
       fireEvent.click(shape);
@@ -671,22 +656,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      const grp = await createParentGroup();
-      const payload = createSymbolPayload(uniqueName("looked"));
-      const symbol = await client.schematics.symbols.create({
-        ...payload,
-        group: grp.key,
-        data: {
-          ...payload.data,
-          parts: [{ key: "one", name: "One", selectors: ["#a"] }],
-          looks: [{ key: "l", part: "one", hidden: true }],
-        },
-      });
-      await renderModalOpener(
-        Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, group: grp.key }],
-        { client, additionalRegistry: theming.REGISTRY },
-      );
+      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 

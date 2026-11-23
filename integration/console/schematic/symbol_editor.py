@@ -172,7 +172,7 @@ class SymbolEditor:
             self._pick_paint_kind(self._paint("Fill", part_index), "Drawing")
         )
 
-    def get_part_fill_swatch_color(self, *, part_index: int = 0) -> str:
+    def get_part_fill_button_color(self, *, part_index: int = 0) -> str:
         """Return the color a part's fill button shows, e.g. "#ff0000".
 
         :param part_index: Index of the part (0-based).
