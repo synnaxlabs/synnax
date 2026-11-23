@@ -1121,9 +1121,10 @@ class TestModbusServerResource:
                 "writes": [{"register": {"type": "coil", "address": 1}, "channel": 6}],
             }
         )
-        assert server.reads[0].register.data_type == "float32"
-        assert server.reads[0].register.bit is None
-        assert server.writes[0].register.type == "coil"
+        assert server.reads[0].register_.data_type == "float32"
+        assert server.reads[0].register_.bit is None
+        assert server.writes[0].register_.type == "coil"
+        assert server.writes[0].model_dump(by_alias=True)["register"]["type"] == "coil"
 
     def test_applies_the_rtu_defaults(self) -> None:
         """Should parse an RTU server and fill in its line defaults."""

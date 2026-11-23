@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.resource import ID
@@ -197,12 +197,14 @@ class Read(BaseModel):
     """Binds a value that read tasks read to its channel.
 
     Attributes:
-        register: Is the value that the channel holds.
+        register_: Is the value that the channel holds.
         index: Is the index channel of the channel.
         channel: Is the channel that holds the samples of the value.
     """
 
-    register: Register
+    model_config = ConfigDict(populate_by_name=True)
+
+    register_: Register = Field(alias="register")
     index: channel_.Key = Field(gt=0, le=4294967295)
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
@@ -211,11 +213,13 @@ class Write(BaseModel):
     """Binds a value that write tasks write to its command channel.
 
     Attributes:
-        register: Is the value that the channel commands.
+        register_: Is the value that the channel commands.
         channel: Is the channel whose commands write tasks send to the value.
     """
 
-    register: Register
+    model_config = ConfigDict(populate_by_name=True)
+
+    register_: Register = Field(alias="register")
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 
