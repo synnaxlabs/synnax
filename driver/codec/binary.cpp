@@ -568,6 +568,14 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
         .fallback = fallback,
     };
     if (!dt.has_value()) return {std::move(field), x::errors::NIL};
+    if (b.scale == 0 || !std::isfinite(b.scale))
+        return {
+            Field{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                "cannot write with a scale of " + x::json::Number(b.scale).to_string()
+            ),
+        };
     const auto kind = kind_of(*dt);
     if (kind == payload::KIND_FLOAT)
         field.number = Number::FLOAT;
@@ -610,12 +618,11 @@ BinaryEncoder::Field::raw(const x::telem::SampleValue &v) const {
         return integer_raw(this->encoding, n, x::telem::cast<std::int64_t>(v));
     if (this->number == Number::UNSIGNED)
         return integer_raw(this->encoding, n, x::telem::cast<std::uint64_t>(v));
-    const auto d = x::telem::cast<double>(v);
-    return this->raw_float(d, x::json::Number(d).to_string());
+    return this->raw_float(x::telem::cast<double>(v));
 }
 
 std::pair<std::uint64_t, x::errors::Error>
-BinaryEncoder::Field::raw_float(const double v, const std::string &text) const {
+BinaryEncoder::Field::raw_float(const double v) const {
     const double unscaled = this->scaled ? (v - this->offset) / this->scale : v;
     if (this->encoding == Encoding::FLOAT64)
         return {std::bit_cast<std::uint64_t>(unscaled), x::errors::NIL};
@@ -624,7 +631,10 @@ BinaryEncoder::Field::raw_float(const double v, const std::string &text) const {
             std::abs(unscaled) > std::numeric_limits<float>::max())
             return {
                 0,
-                x::errors::Error(x::errors::VALIDATION, text + " overflows float32"),
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    x::json::Number(v).to_string() + " overflows float32"
+                ),
             };
         return {
             std::bit_cast<std::uint32_t>(static_cast<float>(unscaled)),
@@ -641,7 +651,8 @@ BinaryEncoder::Field::raw_float(const double v, const std::string &text) const {
             0,
             x::errors::Error(
                 x::errors::VALIDATION,
-                text + " is out of range for " + std::to_string(n) + " bits"
+                x::json::Number(v).to_string() + " is out of range for " +
+                    std::to_string(n) + " bits"
             ),
         };
     if (is_signed)

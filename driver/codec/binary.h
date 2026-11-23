@@ -29,13 +29,14 @@
 #include "driver/codec/mux.h"
 
 namespace driver::codec {
-/// @brief BinaryMessage is a binary message and the fields to decode from its frames.
+/// @brief BinaryMessage is a binary message and the fields of its frames to decode or
+/// encode.
 struct BinaryMessage {
     /// @brief name identifies the message in errors.
     std::string name;
     /// @brief payload is the layout of the message's frames.
     synnax::icd::BinaryPayload payload;
-    /// @brief bindings name the fields to decode, in sample order.
+    /// @brief bindings name the fields to decode or encode, in sample order.
     std::vector<Binding> bindings;
 };
 
@@ -194,7 +195,7 @@ class BinaryEncoder {
         [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
         raw(const x::telem::SampleValue &v) const;
         [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
-        raw_float(double v, const std::string &text) const;
+        raw_float(double v) const;
     };
 
     std::vector<Field> fields;

@@ -978,8 +978,8 @@ TEST(BinaryEncoder, RefuseInvalidBindings) {
     assert_encoder_refuses(twice, "message frame: field v has more than one binding");
 }
 
-/// @brief it should refuse a channel that does not hold numbers, and a scaled field
-/// whose channel does not hold floats.
+/// @brief it should refuse a channel that does not hold numbers, a scaled field whose
+/// channel does not hold floats, and a scale that cannot be undone.
 TEST(BinaryEncoder, RefuseChannelDataType) {
     assert_encoder_refuses(
         frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::STRING_T),
@@ -990,6 +990,12 @@ TEST(BinaryEncoder, RefuseChannelDataType) {
     assert_encoder_refuses(
         frame(scaled, x::telem::INT32_T),
         "message frame: field v: a scaled field requires a float channel, not int32"
+    );
+    auto zero = field<icd::IntegerBinaryField>("v", 0, 16);
+    zero.scale = 0;
+    assert_encoder_refuses(
+        frame(zero, x::telem::FLOAT64_T),
+        "message frame: field v: cannot write with a scale of 0"
     );
 }
 
@@ -1090,14 +1096,14 @@ TEST(BinaryEncoder, EncodeWithoutAllocating) {
     auto f = field<icd::IntegerBinaryField>("temp", 0, 16);
     f.scale = 0.1;
     auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(f, x::telem::FLOAT64_T)));
-    const auto samples = series_of(x::telem::Series(100.0));
+    const auto samples = series_of(x::telem::Series(0.1 + 0.2));
     Bytes payload;
     ASSERT_NIL(enc.encode(samples, payload));
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
         ASSERT_NIL(enc.encode(samples, payload));
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
-    EXPECT_EQ(payload, (Bytes{0xE8, 0x03}));
+    EXPECT_EQ(payload, (Bytes{0x03, 0x00}));
 }
 
 /// @brief it should check a sample of a binding as encode does, and report which fields
