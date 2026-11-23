@@ -144,8 +144,8 @@ func (p *Provider) PublishTable[K gorp.Key, E gorp.Entry[K]](
 		cfg:          cfg,
 		L:            p.cfg.L,
 		del:          channel.Channel{Name: cfg.DeleteName, DataType: keyDataType[K]()},
-		setChecks:    &commitChecks{},
-		deleteChecks: &commitChecks{},
+		setChecks:    newCommitChecks(p.checkCommits),
+		deleteChecks: newCommitChecks(p.checkCommits),
 	}
 	channels := []*channel.Channel{&f.del}
 	if !*cfg.SetDisabled {

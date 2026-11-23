@@ -79,7 +79,7 @@ func (p *Provider) PublishActions[K gorp.Key, A any](
 		cfg:    cfg,
 		L:      p.cfg.L,
 		ch:     channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
-		checks: &commitChecks{},
+		checks: newCommitChecks(p.checkCommits),
 	}
 	return p.add(ctx, f, &f.ch)
 }
