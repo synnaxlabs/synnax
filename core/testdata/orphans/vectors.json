@@ -1,0 +1,145 @@
+{
+  "before": {
+    "states": [
+      {
+        "type": "number",
+        "key": "level",
+        "name": "Level",
+        "bounds": { "lower": 0, "upper": 100 }
+      },
+      {
+        "type": "enumeration",
+        "key": "mode",
+        "name": "Mode",
+        "match": { "type": "exact" },
+        "default": 0
+      }
+    ],
+    "commands": [
+      { "key": "vent", "name": "Vent", "value": { "type": "fixed", "value": 1 } },
+      { "key": "reset", "name": "Reset", "value": { "type": "fixed", "value": 0 } }
+    ]
+  },
+  "bindings": {
+    "states": [
+      { "key": "level", "bounds": { "lower": 10, "upper": 90 } },
+      { "key": "mode", "match": { "type": "exact" }, "default": 1 }
+    ],
+    "commands": [
+      { "key": "vent", "channel": 14 },
+      { "key": "reset", "channel": 15 }
+    ]
+  },
+  "cases": [
+    {
+      "name": "a binding of a removed state",
+      "after": {
+        "states": [
+          {
+            "type": "enumeration",
+            "key": "mode",
+            "name": "Mode",
+            "match": { "type": "exact" },
+            "default": 0
+          }
+        ]
+      },
+      "orphans": { "states": ["level"], "overrides": [], "commands": [] }
+    },
+    {
+      "name": "the bounds of a state that becomes an enumeration",
+      "after": {
+        "states": [
+          {
+            "type": "enumeration",
+            "key": "level",
+            "name": "Level",
+            "match": { "type": "exact" },
+            "default": 0
+          },
+          {
+            "type": "enumeration",
+            "key": "mode",
+            "name": "Mode",
+            "match": { "type": "exact" },
+            "default": 0
+          }
+        ]
+      },
+      "orphans": {
+        "states": [],
+        "overrides": [{ "key": "level", "fields": ["bounds"] }],
+        "commands": []
+      }
+    },
+    {
+      "name": "the match and default of a state that becomes a number",
+      "after": {
+        "states": [
+          {
+            "type": "number",
+            "key": "level",
+            "name": "Level",
+            "bounds": { "lower": 0, "upper": 100 }
+          },
+          {
+            "type": "number",
+            "key": "mode",
+            "name": "Mode",
+            "bounds": { "lower": 0, "upper": 1 }
+          }
+        ]
+      },
+      "orphans": {
+        "states": [],
+        "overrides": [{ "key": "mode", "fields": ["match", "default"] }],
+        "commands": []
+      }
+    },
+    {
+      "name": "a binding of a removed command",
+      "after": {
+        "commands": [
+          { "key": "reset", "name": "Reset", "value": { "type": "fixed", "value": 0 } }
+        ]
+      },
+      "orphans": { "states": [], "overrides": [], "commands": ["vent"] }
+    },
+    {
+      "name": "a binding of a command that gains a state",
+      "after": {
+        "commands": [
+          {
+            "key": "vent",
+            "name": "Vent",
+            "state": "mode",
+            "value": { "type": "fixed", "value": 1 }
+          },
+          { "key": "reset", "name": "Reset", "value": { "type": "fixed", "value": 0 } }
+        ]
+      },
+      "orphans": { "states": [], "overrides": [], "commands": ["vent"] }
+    },
+    {
+      "name": "nothing when a save keeps each key and type",
+      "after": {
+        "states": [
+          {
+            "type": "number",
+            "key": "level",
+            "name": "Tank level",
+            "bounds": { "lower": 0, "upper": 100 }
+          },
+          {
+            "type": "enumeration",
+            "key": "mode",
+            "name": "Mode",
+            "match": { "type": "exact" },
+            "default": 0
+          }
+        ]
+      },
+      "orphans": { "states": [], "overrides": [], "commands": [] }
+    }
+  ]
+}
