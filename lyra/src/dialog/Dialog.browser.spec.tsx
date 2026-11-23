@@ -9,7 +9,14 @@
 
 // The pure entry leaves the act environment of the browser specs alone.
 import { act, cleanup, fireEvent, render } from "@testing-library/react/pure";
-import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   afterEach,
   assert,
@@ -383,6 +390,38 @@ describe("Dialog", () => {
         resolve("var(--pluto-shadow-overlay)", "box-shadow"),
       );
       expect(onTop(dialog)).toBe(true);
+    });
+
+    it("should focus an autoFocus field as it mounts, before the popover shows", async () => {
+      // A closed popover gets display: none from the browser, which the surface's own
+      // display overrides. Without it, React's autoFocus would focus nothing.
+      const mounted: { display: string; focused: boolean; open: boolean }[] = [];
+      const Field = (): ReactElement => {
+        const ref = useRef<HTMLInputElement>(null);
+        useLayoutEffect(() => {
+          const surface = ref.current?.closest("[popover]");
+          assert(surface != null);
+          mounted.push({
+            display: getComputedStyle(surface).display,
+            focused: document.activeElement === ref.current,
+            open: surface.matches(":popover-open"),
+          });
+        }, []);
+        return <input ref={ref} aria-label="Search" autoFocus />;
+      };
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Menu</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Field />
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByLabelText("Search")).toHaveFocus();
+      expect(mounted).toEqual([{ display: "flex", focused: true, open: false }]);
     });
 
     it("should show in the top layer", async () => {
