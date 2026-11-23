@@ -106,8 +106,13 @@
         transition: all 0.2s ease;
     }
 
-    /* This rule owns the filter, so the filter of the drawing, the hover, and the
-       selected mark all show. A shape at rest keeps the filter of the drawing. */
+    /* A shape at rest draws the filter of the drawing. */
+    :where(.console-schematic__svg-region--hoverable) {
+        filter: var(--console-schematic-own-filter, none);
+    }
+
+    /* This rule owns the filter on hover and selection, so the filter of the drawing,
+       the hover, and the selected mark all show. */
     :is(
         .console-schematic__svg-region--hover,
         .console-schematic__svg-region--selected
