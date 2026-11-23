@@ -29,6 +29,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  TYPE_RESOURCE_ID,
 } from "@/enumeration/types.gen";
 import {
   compareCursors,
@@ -77,11 +78,6 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  /**
-   * The channels that announce changes to records that can use an enumeration. A
-   * change on one refetches the uses that a maintained query watches.
-   */
-  usesChannels: string[];
 }
 
 /**
@@ -103,7 +99,7 @@ export class Client extends query.Retriever<
   private readonly dispatcher: actions.Controller<Key, Enumeration, Action>;
   private readonly uses: query.Uses<Key, Enumeration, RetrieveRequest>;
 
-  constructor({ unary, cache, usesChannels }: ClientConfig) {
+  constructor({ unary, cache }: ClientConfig) {
     const store = cache.createTable<Key, Enumeration>({
       name: "enumerations",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
@@ -116,7 +112,7 @@ export class Client extends query.Retriever<
       key: keyZ,
       retrieve: async (req) => await this.execRetrieve(req),
       request: (key) => ({ where: { key }, includeUses: true }),
-      channels: usesChannels,
+      type: TYPE_RESOURCE_ID.type,
     });
     // Every write to an enumeration reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Enumeration, Action>({
