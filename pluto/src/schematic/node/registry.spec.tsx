@@ -44,11 +44,15 @@ describe("Schematic.Node.REGISTRY", () => {
 });
 
 describe("Schematic.Node.BUILT_INS", () => {
-  it("should give each symbol the states and commands that the Core lists", async () => {
+  it("should hold a spec for each symbol that the Core lists", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
     expect(Object.keys(Node.BUILT_INS).sort()).toEqual(
       builtins.map((b) => b.name).sort(),
     );
+  });
+
+  it("should give each symbol the states and commands that the Core lists", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
     for (const { name, states, commands } of builtins) {
       const spec = Node.BUILT_INS[name];
       expect({ name, states: spec?.states, commands: spec?.commands }).toEqual({
