@@ -643,6 +643,10 @@ func (s *Server) quotedChannels(
 	replace protocol.Range,
 	escape func(string) (string, bool),
 ) []protocol.CompletionItem {
+	// An unpaired backslash before the cursor starts an escape that is not typed yet.
+	if tail := len(text) - len(strings.TrimRight(text, `\`)); tail%2 == 1 {
+		text = text[:len(text)-1]
+	}
 	prefix := parser.DecodeChannelName("'" + text + "'")
 	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
