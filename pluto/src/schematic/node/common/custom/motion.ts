@@ -96,7 +96,9 @@ class Shape {
   private written?: string | null;
   private cycle?: number;
   private turn?: { of: xy.XY; at: xy.XY };
-  private readonly offers = new Map<Track, Offer>();
+  // offers holds the offer of each track that claims the element, or undefined while
+  // the track draws nothing.
+  private readonly offers = new Map<Track, Offer | undefined>();
 
   constructor(
     readonly el: SVGElement,
@@ -110,6 +112,12 @@ class Shape {
   /** dash is the length of one cycle of the dash pattern of the element. */
   get dash(): number {
     return (this.cycle ??= dashCycle(this.el));
+  }
+
+  /** Claims the element for track, which draws nothing until it offers. */
+  claim(track: Track): void {
+    if (!this.offers.has(track)) this.offers.set(track, undefined);
+    this.write();
   }
 
   /** Draws the element with the offer of track. */
@@ -147,12 +155,13 @@ class Shape {
     let offset: xy.XY | undefined;
     const turns: { angle: number; at: xy.XY }[] = [];
     for (const kind of ORDER) {
-      let won: [Track, Offer] | undefined;
+      let won: [Track, Offer | undefined] | undefined;
       for (const entry of this.offers)
         if (entry[0].kind === kind && (won == null || entry[0].order > won[0].order))
           won = entry;
       if (won == null) continue;
       const [track, offer] = won;
+      if (offer == null) continue;
       if (typeof offer === "string") return offer;
       if (offer.offset != null) offset = xy.translate(offset ?? xy.ZERO, offer.offset);
       if (offer.angle == null) continue;
@@ -276,24 +285,51 @@ const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
 
 const MIDDLE: xy.XY = { x: 0.5, y: 0.5 };
 
-const SHAPES = "path, rect, circle, ellipse, line, polyline, polygon, text, use, image";
-const DEFINITIONS = "defs, clipPath, mask, marker, pattern, symbol";
+const SHAPES =
+  "svg, path, rect, circle, ellipse, line, polyline, polygon, text, use, image";
+// leaves never goes into a definition, or into a nested svg, which is one shape.
+const STOPS = "svg, defs, clipPath, mask, marker, pattern, symbol";
 
 // leaves returns the shapes that el draws. Motion never changes the box of a shape.
 const leaves = (el: SVGElement): SVGGraphicsElement[] =>
   (el.matches(SHAPES) ? [el] : Array.from(el.querySelectorAll(SHAPES))).filter(
-    (leaf) => leaf instanceof SVGGraphicsElement && leaf.closest(DEFINITIONS) == null,
+    (leaf): leaf is SVGGraphicsElement =>
+      leaf instanceof SVGGraphicsElement &&
+      !el.contains(leaf.parentElement?.closest(STOPS) ?? null),
   );
 
+// boxOf returns the box of a shape before its own transform. getBBox measures the
+// content of a nested svg in its viewBox, so its viewport is its box.
+const boxOf = (leaf: SVGGraphicsElement): xy.XY & dimensions.Dimensions =>
+  leaf instanceof SVGSVGElement
+    ? {
+        x: leaf.x.baseVal.value,
+        y: leaf.y.baseVal.value,
+        width: leaf.width.baseVal.value,
+        height: leaf.height.baseVal.value,
+      }
+    : leaf.getBBox();
+
 // center returns the center of the box around the shapes of elements at rest, as
-// fractions of the box, or undefined while no shape has a layout, as in a hidden tab.
+// fractions of the box, or undefined while the drawing has no layout, as in a hidden
+// tab.
 const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
+  const { drawing } = space;
+  if ((drawing.ownerSVGElement ?? drawing).getClientRects().length === 0)
+    return undefined;
   const graphics = elements.flatMap(leaves);
-  if (graphics.length === 0) return MIDDLE;
-  const xs: number[] = [];
-  const ys: number[] = [];
+  // A look hides an element with an inline display, and getBBox measures it as empty.
+  const hidden = new Set<SVGElement>();
+  for (const leaf of graphics)
+    for (let a: Element | null = leaf; a != null && a !== drawing.parentElement;) {
+      if (a instanceof SVGElement && a.style.display === "none") hidden.add(a);
+      a = a.parentElement;
+    }
+  for (const el of hidden) el.style.removeProperty("display");
+  const min = { x: Infinity, y: Infinity };
+  const max = { x: -Infinity, y: -Infinity };
   for (const el of graphics) {
-    const { x, y, width, height } = el.getBBox();
+    const { x, y, width, height } = boxOf(el);
     if (width === 0 && height === 0) continue;
     const m = toDrawing(el, space);
     const own = space.rest.get(el);
@@ -305,14 +341,17 @@ const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
       { x: x + width, y: y + height },
     ]) {
       const p = m.transformPoint(corner);
-      xs.push(p.x);
-      ys.push(p.y);
+      min.x = Math.min(min.x, p.x);
+      min.y = Math.min(min.y, p.y);
+      max.x = Math.max(max.x, p.x);
+      max.y = Math.max(max.y, p.y);
     }
   }
-  if (xs.length === 0) return undefined;
+  for (const el of hidden) el.style.setProperty("display", "none");
+  if (min.x === Infinity) return MIDDLE;
   return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2 / space.box.width,
-    y: (Math.min(...ys) + Math.max(...ys)) / 2 / space.box.height,
+    x: (min.x + max.x) / 2 / space.box.width,
+    y: (min.y + max.y) / 2 / space.box.height,
   };
 };
 
@@ -429,9 +468,9 @@ class Track {
 
   set({ value, reads, order }: Effect, ctx: Context, fresh: boolean): void {
     this.motion = value;
-    const reordered = !fresh && order !== this.order;
+    const reordered = order !== this.order;
     this.order = order;
-    if (reordered) this.draw();
+    if (fresh || reordered) for (const shape of this.shapes) shape.claim(this);
     const state = "state" in value ? value.state : undefined;
     const { speed, held } = this.entry;
     if (speed == null) {
@@ -533,8 +572,8 @@ class Part implements Mover {
     return false;
   }
 
-  // A part with no pivot turns about the center of its own box. A part with no layout
-  // yet measures again on the next frame.
+  // A part with no pivot turns about the center of its own box. A drawing with no
+  // layout yet measures again on the next frame.
   private readonly pivotOf = (): xy.XY =>
     this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 

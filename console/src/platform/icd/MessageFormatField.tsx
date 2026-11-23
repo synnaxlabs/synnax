@@ -9,6 +9,7 @@
 
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -21,6 +22,7 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import type { deep, destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
+import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import type { ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
@@ -57,8 +59,9 @@ export interface MessageFormatFieldProps {
 }
 
 /**
- * Picks the message that a source reads from the JSON messages of every ICD. A search
- * matches ICD names on the Core and lists every JSON message of each match.
+ * Picks the message that a source reads from the JSON messages of every ICD, beside a
+ * button that opens the editor at it. A search matches ICD names on the Core and lists
+ * every JSON message of each match.
  */
 export const MessageFormatField = ({
   path,
@@ -127,22 +130,25 @@ export const MessageFormatField = ({
   };
   return (
     <Input.Item label="Message format" padHelpText={false}>
-      <Select.Single<string, Choice>
-        resourceName="message format"
-        value={choiceKey(icdKey, message)}
-        onChange={handleChange}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={handleFetchMore}
-        onSearch={handleSearch}
-        status={icds.status}
-        allowNone={false}
-        preview={isPreview}
-        disabled={disabled}
-      >
-        {choiceRenderProp}
-      </Select.Single>
+      <Flex.Box x align="center" gap="small">
+        <Select.Single<string, Choice>
+          resourceName="message format"
+          value={choiceKey(icdKey, message)}
+          onChange={handleChange}
+          data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          onFetchMore={handleFetchMore}
+          onSearch={handleSearch}
+          status={icds.status}
+          allowNone={false}
+          preview={isPreview}
+          disabled={disabled}
+        >
+          {choiceRenderProp}
+        </Select.Single>
+        <OpenInEditor icdKey={icdKey} message={message} />
+      </Flex.Box>
     </Input.Item>
   );
 };

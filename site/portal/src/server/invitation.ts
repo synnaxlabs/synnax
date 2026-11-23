@@ -10,8 +10,7 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { schema } from "@/server/db";
-import type { Reader, Store } from "@/server/db/db";
+import { type Reader, schema, type Store } from "@/server/db";
 import { type Directory, roleName } from "@/server/directory";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import type { Mailer, Notice } from "@/server/mail";

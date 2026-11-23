@@ -583,12 +583,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "spin":
 		var v SpinMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -606,12 +602,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 		mv.Variant = v
 	case "flow":
 		var v FlowMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -676,6 +668,9 @@ func (p Paint) EncodeOrc(w *orc.Writer) error {
 	case EntryPaint:
 		w.String("entry")
 		w.String(v.State)
+	case ContrastPaint:
+		w.String("contrast")
+		w.String(v.State)
 	case NodePaint:
 		w.String("node")
 	case ColorPaint:
@@ -698,6 +693,12 @@ func (p *Paint) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "entry":
 		var v EntryPaint
+		if v.State, err = r.String(); err != nil {
+			return err
+		}
+		p.Variant = v
+	case "contrast":
+		var v ContrastPaint
 		if v.State, err = r.String(); err != nil {
 			return err
 		}

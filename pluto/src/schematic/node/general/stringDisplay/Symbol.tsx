@@ -18,7 +18,6 @@ import { Stale } from "@/schematic/node/common/stale";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
 import { StringValue as BaseStringValue } from "@/vis/stringValue";
 
 export const Symbol = ({
@@ -30,7 +29,6 @@ export const Symbol = ({
     label,
     channel,
     stalenessTimeout,
-    stalenessColor,
     strokeColor,
     textColor,
     level,
@@ -38,7 +36,6 @@ export const Symbol = ({
     orientation,
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
-  const badged = Staleness.useBadged();
   const resolve = Color.useResolve();
   const content = Primitive.useCanvasBox<HTMLDivElement>(position);
   const { stale } = BaseStringValue.use({
@@ -47,9 +44,7 @@ export const Symbol = ({
     telem: telem.streamChannelStringValue({ channel }),
     level,
     color: resolve(textColor),
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
   });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -57,7 +52,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
+      {stale && <Stale.Indicator />}
       <StringDisplay
         strokeColor={resolve(strokeColor)}
         level={level}
