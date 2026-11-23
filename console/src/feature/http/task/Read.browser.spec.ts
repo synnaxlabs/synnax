@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -131,15 +131,37 @@ const addMessage = async (
   return message;
 };
 
-// The form body renders against a device only.
+// The form body renders against a device only. as is the client that renders the
+// form, when not the one that saves the task.
 const renderWithDevice = async (
   endpoints: HTTP.Task.ReadEndpoint[] = [],
   properties?: Partial<HTTP.Device.Properties>,
+  as: Synnax = client,
 ) => {
   const dev = await createHTTPDevice(client, { properties });
   const draft = await createDraft(client, createReadConfig(dev.key, endpoints));
-  const rendered = await renderRead({ client, taskKey: draft.key });
+  const rendered = await renderRead({ client: as, taskKey: draft.key });
   return { ...rendered, dev, draft };
+};
+
+/**
+ * Stops and then starts reading the field named name, once its checkbox enables.
+ * Waits for bindings to hold none in between.
+ */
+const readAgain = async (
+  name: string,
+  bindings: () => Promise<unknown>,
+): Promise<void> => {
+  fireEvent.click(
+    await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
+  );
+  const box = await screen.findByRole<HTMLInputElement>("checkbox", {
+    name: `Read ${name}`,
+  });
+  await waitFor(() => expect(box.disabled).toBe(false));
+  fireEvent.click(box);
+  await waitFor(async () => expect(await bindings()).toEqual([]));
+  fireEvent.click(box);
 };
 
 const retrieveEndpoints = async (key: string) =>
@@ -431,11 +453,7 @@ describe("Read", () => {
     });
     const bindings = async () =>
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
-    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
-    const box = await screen.findByRole("checkbox", { name: "Read temperature" });
-    fireEvent.click(box);
-    await waitFor(async () => expect(await bindings()).toEqual([]));
-    fireEvent.click(box);
+    await readAgain("temperature", bindings);
     await waitFor(async () =>
       expect(await bindings()).toEqual([
         { field: temperature.key, channel: ch.key, dataType: "" },
@@ -467,11 +485,7 @@ describe("Read", () => {
     });
     const bindings = async () =>
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
-    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
-    const box = await screen.findByRole("checkbox", { name: "Read temperature" });
-    fireEvent.click(box);
-    await waitFor(async () => expect(await bindings()).toEqual([]));
-    fireEvent.click(box);
+    await readAgain("temperature", bindings);
     await waitFor(async () =>
       expect(await bindings()).toEqual([
         { field: temperature.key, channel: 0, dataType: "" },
@@ -479,6 +493,90 @@ describe("Read", () => {
     );
   });
 
+  it("should not reuse a stored channel that the field does not convert to", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mode"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const mode = createField("mode", "string");
+    const ep = await createEndpoint({ key: "ep1", path: "/data", fields: [mode] });
+    const stored = { index: 0, channels: { "/mode": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("mode", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([{ field: mode.key, channel: 0, dataType: "" }]),
+    );
+  });
+
+  it("should not reuse a stored channel that no longer exists", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should wait for the data types of the stored channels before it binds", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    // A new client has no channels cached, so the form fetches the stored one.
+    const viewer = createTestClient();
+    await viewer.connect();
+    const { release } = holdRequests(viewer, "/channel/retrieve");
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    await renderWithDevice(
+      [ep],
+      { read: { [`/data#${ep.messages[0].message}`]: stored } },
+      viewer,
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    const addField = await screen.findByRole("button", { name: "Add field" });
+    const format = await findDialogTriggerByText("GET /data");
+    const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+      name: "Read temperature",
+    });
+    expect(addField.getAttribute("aria-disabled")).toBe("true");
+    expect(format.getAttribute("aria-disabled")).toBe("true");
+    expect(read.disabled).toBe(true);
+    release();
+    await waitFor(() => {
+      expect(addField.getAttribute("aria-disabled")).toBeNull();
+      expect(format.getAttribute("aria-disabled")).toBeNull();
+      expect(read.disabled).toBe(false);
+    });
+  });
   it("should create and bind the channel of each field on deploy", async () => {
     const ep = await createEndpoint({
       key: "ep1",

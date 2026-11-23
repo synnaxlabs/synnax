@@ -630,6 +630,7 @@ const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
 
 interface MessageDetailsProps extends MessagePanelProps {
   onAddField: () => void;
+  bindDisabled: boolean;
 }
 
 const MessageDetails = ({
@@ -638,6 +639,7 @@ const MessageDetails = ({
   read,
   format,
   onAddField,
+  bindDisabled,
 }: MessageDetailsProps) => {
   const props = useMessageProps(device, path, read);
   return (
@@ -647,6 +649,7 @@ const MessageDetails = ({
       matchTitle="Responses"
       anyLabel="Any response"
       onAddField={onAddField}
+      addFieldDisabled={bindDisabled}
     />
   );
 };
@@ -672,6 +675,7 @@ interface ICDEndpointDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the endpoint reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  bindDisabled: boolean;
 }
 
 /**
@@ -685,6 +689,7 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
   const path = root.config.endpoints[endpoint];
@@ -701,7 +706,9 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && (
+                  <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
+                )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -714,6 +721,7 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
             <ICD.MessageFormatField
               path={icdPath(endpoint)}
               onChange={onFormatChange}
+              disabled={bindDisabled}
             />
           )}
         </RequestSection>
@@ -757,6 +765,7 @@ const Endpoints: FC<EndpointsProps> = ({
   const { push } = PForm.useFieldList(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const stored = device.properties.read;
+  const { dataTypes, bindDisabled } = ICD.useStoredDataTypes(stored);
   const {
     tree,
     handleSelect,
@@ -772,13 +781,13 @@ const Endpoints: FC<EndpointsProps> = ({
     pathOf: icdPath,
     SourceItem: EndpointItem,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled endpoint reads it.
-    bindingOf: (key, read, { key: field, pointer }) => {
+    // unless an enabled endpoint reads it, or it no longer exists or fits the field.
+    bindDisabled,
+    bindingOf: (key, read, field) => {
       const { path, messages } = ctx.get(icdPath(key)).value;
-      const ch =
-        stored[storedKey(path, messages[read].message)]?.channels[pointer] ?? 0;
+      const channels = stored[storedKey(path, messages[read].message)]?.channels ?? {};
       const written = writtenChannels(ctx.get(root.config.endpoints).value);
-      return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+      return ICD.bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (key, held) =>
       messageName(ctx.get(root.config.endpoints[key]).value, held),
@@ -891,6 +900,7 @@ const Endpoints: FC<EndpointsProps> = ({
         format={format}
         device={device}
         onAddField={() => addField(ep.key, current.read)}
+        bindDisabled={bindDisabled}
       />
     );
   } else if (ep != null) {
@@ -905,6 +915,7 @@ const Endpoints: FC<EndpointsProps> = ({
         onAddField={() => addField(ep.key, 0)}
         onAddMessage={() => handleAddMessage(ep.key)}
         onFormatChange={(icdKey, message) => setMessage(ep.key, icdKey, message)}
+        bindDisabled={bindDisabled}
       />
     );
   }
