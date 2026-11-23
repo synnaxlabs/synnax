@@ -346,14 +346,12 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(
 				inc1,
-				signal.WithRetryOnPanic(100),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(1.01),
+				signal.WithRetryOnPanic(2),
 				signal.RecoverWithErrOnPanic(),
 			)
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
-			Expect(counter).To(Equal(101))
+			Expect(counter).To(Equal(3))
 		})
 
 		It(
@@ -370,14 +368,12 @@ var _ = Describe("Signal", func() {
 				ctx, _ := signal.Isolated()
 				ctx.Go(
 					inc1,
-					signal.WithRetryOnPanic(100),
-					signal.WithBaseRetryInterval(1*time.Millisecond),
-					signal.WithRetryScale(1.01),
+					signal.WithRetryOnPanic(2),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
-				Expect(counter).To(Equal(101))
+				Expect(counter).To(Equal(3))
 			},
 		)
 
@@ -399,8 +395,6 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				f,
 				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(1.01),
 			)
 
 			wg.Go(func() {
@@ -413,40 +407,6 @@ var _ = Describe("Signal", func() {
 			wg.Wait()
 			Eventually(done).Should(BeClosed())
 		})
-
-		It("Should wait exponentially more time", func() {
-			var (
-				done         = make(chan struct{})
-				counter      atomic.Int64
-				succeedInTen = func(context.Context) error {
-					if counter.Add(1) < 10 {
-						panic("panicking")
-					}
-					return nil
-				}
-			)
-
-			ctx, _ := signal.Isolated()
-			start := time.Now()
-			ctx.Go(
-				succeedInTen,
-				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(2),
-				signal.RecoverWithErrOnPanic(),
-			)
-
-			go func() {
-				defer GinkgoRecover()
-				Expect(ctx.Wait()).ToNot(HaveOccurred())
-				close(done)
-			}()
-
-			Eventually(done).Should(BeClosed())
-			Expect(
-				time.Since(start),
-			).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
-		})
 	})
 
 	Describe("Breaker configuration", func() {
@@ -457,7 +417,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(func(context.Context) error {
 				called.Store(true)
 				return nil
-			}, signal.WithRetryScale(0.5))
+			}, signal.WithRetryOnPanic(-2))
 			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
 			Expect(called.Load()).To(BeFalse())
 			Eventually(ctx.Stopped()).Should(BeClosed())
@@ -473,7 +433,7 @@ var _ = Describe("Signal", func() {
 			var deferred atomic.Bool
 			ctx.Go(
 				func(context.Context) error { return nil },
-				signal.WithRetryScale(0.5),
+				signal.WithRetryOnPanic(-2),
 				signal.CancelOnFail(),
 				signal.Defer(func() { deferred.Store(true) }),
 			)
@@ -492,7 +452,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				func(context.Context) error { return nil },
 				signal.WithKey("invalid"),
-				signal.WithRetryScale(0.5),
+				signal.WithRetryOnPanic(-2),
 			)
 			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
 			Expect(ctx.Routines()).To(ContainElement(And(
@@ -549,27 +509,6 @@ var _ = Describe("Signal", func() {
 			Consistently(ctx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
 			close(release)
 			Expect(ctx.Wait()).To(Succeed())
-			Eventually(ctx.Stopped()).Should(BeClosed())
-		})
-
-		It("Should not close while a routine waits to retry after a panic", func() {
-			ctx, cancel := signal.Isolated()
-			var attempts atomic.Int32
-			ctx.Go(func(ctx context.Context) error {
-				if attempts.Add(1) == 1 {
-					panic("first attempt")
-				}
-				<-ctx.Done()
-				return ctx.Err()
-			},
-				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(200*time.Millisecond),
-			)
-			Eventually(attempts.Load).Should(Equal(int32(1)))
-			ctx.Go(immediatelyReturnNil)
-			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
-			cancel()
-			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})

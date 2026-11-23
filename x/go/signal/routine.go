@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"runtime/pprof"
 	"strconv"
-	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/breaker"
@@ -138,16 +137,6 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 	}
 }
 
-// WithBaseRetryInterval sets the base interval for the breaker used to restart the
-// goroutine. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second).
-func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
-	return func(r *routineOptions) {
-		r.breakerCfg.BaseInterval = retryInterval
-		r.useBreaker = true
-	}
-}
-
 // WithRetryOnPanic attempts to recover from a panicking goroutine and restarts it.
 // If an argument is passed into it, it retries for the specified amount of time and
 // exits with an error if it panics on its last attempt.
@@ -162,15 +151,6 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 		}
 		r.useBreaker = true
 		r.panicPolicy = recoverErr
-	}
-}
-
-// WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1).
-func WithRetryScale(scale float64) RoutineOption {
-	return func(r *routineOptions) {
-		r.breakerCfg.Scale = scale
-		r.useBreaker = true
 	}
 }
 
