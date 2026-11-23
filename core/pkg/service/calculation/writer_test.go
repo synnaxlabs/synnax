@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
-			AnnounceOutputs: func(
+			AnnounceLinked: func(
 				ctx context.Context,
 				tx gorp.Tx,
 				w channel.Writer,
@@ -115,6 +115,7 @@ var _ = Describe("Writer", func() {
 	announcedOf := func(
 		rec *acttestutil.Recorder[channel.Key, channel.Action],
 	) map[channel.Key][]string {
+		GinkgoHelper()
 		announced := make(map[channel.Key][]string)
 		for _, batch := range rec.Snapshot() {
 			for _, a := range batch.Actions {
@@ -410,7 +411,7 @@ var _ = Describe("Writer", func() {
 			Expect(announcedOf(rec)).To(BeEmpty())
 		})
 
-		It("Should fill nothing for a channel that no calculation writes", func(
+		It("Should announce nothing for a channel that no calculation writes", func(
 			ctx SpecContext,
 		) {
 			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
@@ -419,6 +420,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				createdOf(rec)[plain.Key()],
 			).To(Equal(channel.Created{Channel: plain}))
+			Expect(announcedOf(rec)).To(BeEmpty())
 		})
 	})
 

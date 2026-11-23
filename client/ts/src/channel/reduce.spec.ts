@@ -38,7 +38,7 @@ describe("channel reduce", () => {
       expect(created?.calculated).toBe(true);
     });
 
-    it("should not mark a created virtual channel with no expression calculated", () => {
+    it("should not mark a virtual channel with no expression calculated", () => {
       const created = createOf(create({}));
       expect(created?.calculated).toBe(false);
     });
@@ -64,7 +64,18 @@ describe("channel reduce", () => {
       expect(next.calculated).toBe(true);
     });
 
-    it("should keep calculated with no expression through path sets and a create", () => {
+    it("should keep calculated with no expression through operations set", () => {
+      const hidden = { ...created, calculated: true };
+      // Only a set of the expression recomputes calculated.
+      const operations = set({
+        path: ["operations"],
+        value: [{ type: "max", reset_channel: 0, duration: "1000000000" }],
+      });
+      const { next } = reduceAll(hidden, [operations]);
+      expect(next.calculated).toBe(true);
+    });
+
+    it("should keep calculated with no expression through sets and a create", () => {
       const hidden = { ...created, calculated: true };
       const group = "3f9a3a5e-0a4b-4c64-9d8e-1f2a3b4c5d6e";
       const { next: edited } = reduceAll(hidden, [
