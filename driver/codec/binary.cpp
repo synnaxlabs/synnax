@@ -293,7 +293,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
     if (payload.size() < this->muxes.end()) {
         const auto &m = *std::ranges::find_if(
             this->muxes.all(),
-            [&](const Multiplexors::Mux &mux) {
+            [&](const Multiplexors::Entry &mux) {
                 return mux.bits.end() > payload.size();
             }
         );

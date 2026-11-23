@@ -43,7 +43,7 @@ std::pair<Multiplexors::Condition, x::errors::Error> Multiplexors::resolve(
         };
     Condition c{.values = {f.multiplex_values.begin(), f.multiplex_values.end()}};
     const auto &key = *f.multiplexor;
-    if (const auto it = std::ranges::find(this->muxes, key, &Mux::key);
+    if (const auto it = std::ranges::find(this->muxes, key, &Entry::key);
         it != this->muxes.end()) {
         c.mux = static_cast<int>(it - this->muxes.begin());
         return {std::move(c), x::errors::NIL};
