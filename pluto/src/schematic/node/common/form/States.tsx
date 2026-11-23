@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { Access } from "@/access";
 import { Color } from "@/color";
@@ -112,59 +112,59 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
-export interface StatesProps extends Pick<Enumeration.TableProps, "colorHidden"> {
-  /** Path to the enumeration that the node names. */
-  enumeration: deep.Path<enumeration.Key | undefined>;
-  /** Path to the options that the node draws when it names no enumeration. */
-  options: deep.Path<schematic.StateMapping[]>;
-  /** Path to the node's label, which names an enumeration that the node creates. */
-  label: deep.Path<string>;
-  /** Names an enumeration that the node creates when it has no search text or label. */
-  symbolName: string;
+/** The name and entries that a new enumeration starts with. */
+interface Draft {
+  name: string;
+  entries: enumeration.Entry[];
+}
+
+interface EnumerationFieldProps {
+  /** The enumeration that the field names. */
+  value?: enumeration.Key;
+  onChange: (next?: enumeration.Key) => void;
+  /** Returns the start of an enumeration that the user creates with no value. */
+  draft: () => Draft;
+  /** Renders in place of the entries with no value, given whether a create runs. */
+  fallback: (creating: boolean) => ReactNode;
 }
 
 /**
- * Picks the enumeration that a node draws and edits its entries, or edits the node's
- * own options when it names none. Creating an enumeration with no search text asks for
- * its name, which starts as the node's label when the options move into it. A node that
- * names an enumeration gets a new empty one, with focus in its entries.
+ * Picks an enumeration and edits its entries. Creating an enumeration with no search
+ * text asks for its name. A field that names an enumeration gets a new empty one, with
+ * focus in its entries.
  */
-export const States = ({
-  enumeration: enumerationPath,
-  options,
-  label,
-  symbolName,
-  colorHidden = false,
-}: StatesProps): ReactElement => {
-  const { set, remove, get } = Form.useContext();
-  const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
+const EnumerationField = ({
+  value,
+  onChange,
+  draft,
+  fallback,
+}: EnumerationFieldProps): ReactElement => {
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const { updateAsync, variant } = Enumeration.useCreate();
   const prompt = Enumeration.useCreatePrompt();
-  // The enumeration just created for a node that named one, whose entries take focus.
+  // The enumeration just created for a field that named one, whose entries take focus.
   const [focused, setFocused] = useState<enumeration.Key>();
   const handleChange = (next: enumeration.Key | undefined): void => {
     setFocused(undefined);
-    if (next == null || next === NONE) remove(enumerationPath);
-    else set(enumerationPath, next);
+    onChange(next === NONE ? undefined : next);
   };
   const link = (created: enumeration.Key): void => {
-    set(enumerationPath, created);
-    if (key != null) setFocused(created);
+    onChange(created);
+    if (value != null) setFocused(created);
   };
   const handleCreate = (term: string): void => {
-    // A node that names an enumeration hides its own options, so none move.
-    const entries =
-      key == null ? get<schematic.StateMapping[]>(options).value.map(toEntry) : [];
+    const start: Draft = value == null ? draft() : { name: "", entries: [] };
     void (async () => {
       if (term === "") {
-        const name = key == null ? get<string>(label).value.trim() || symbolName : "";
-        const created = await prompt({ name, entries });
+        const created = await prompt(start);
         if (created != null) link(created);
         return;
       }
       const created = uuid.create();
-      if ((await updateAsync({ key: created, name: term, entries })) !== false)
+      if (
+        (await updateAsync({ key: created, name: term, entries: start.entries })) !==
+        false
+      )
         link(created);
     })();
   };
@@ -184,38 +184,78 @@ export const States = ({
     </>
   );
   return (
+    <>
+      <Input.Item label="Enumeration" padHelpText={false}>
+        <Enumeration.SelectSingle
+          value={value}
+          onChange={handleChange}
+          allowNone
+          className={CSS.cls(
+            CSS.BE("states", "enumeration"),
+            CSS.BE("states", "value"),
+          )}
+          footer={footer}
+        />
+      </Input.Item>
+      {value != null && <UsedBy enumeration={value} />}
+      <Input.Item label="Entries" padHelpText={false}>
+        {value == null ? (
+          fallback(variant === "loading")
+        ) : (
+          <Enumeration.Entries
+            key={value}
+            enumeration={value}
+            autoFocus={focused === value}
+          />
+        )}
+      </Input.Item>
+    </>
+  );
+};
+
+export interface StatesProps extends Pick<Enumeration.TableProps, "colorHidden"> {
+  /** Path to the enumeration that the node names. */
+  enumeration: deep.Path<enumeration.Key | undefined>;
+  /** Path to the options that the node draws when it names no enumeration. */
+  options: deep.Path<schematic.StateMapping[]>;
+  /** Path to the node's label, which names an enumeration that the node creates. */
+  label: deep.Path<string>;
+  /** Names an enumeration that the node creates when it has no search text or label. */
+  symbolName: string;
+}
+
+/**
+ * Picks the enumeration that a node draws and edits its entries, or edits the node's
+ * own options when it names none. An enumeration that a node with no enumeration
+ * creates takes the node's options, and its name starts as the node's label.
+ */
+export const States = ({
+  enumeration: enumerationPath,
+  options,
+  label,
+  symbolName,
+  colorHidden = false,
+}: StatesProps): ReactElement => {
+  const { set, remove, get } = Form.useContext();
+  const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
+  return (
     <Form.Sections x>
       <Form.Section className={CSS.B("states")}>
-        <Input.Item label="Enumeration" padHelpText={false}>
-          <Enumeration.SelectSingle
-            value={key}
-            onChange={handleChange}
-            allowNone
-            className={CSS.cls(
-              CSS.BE("states", "enumeration"),
-              CSS.BE("states", "value"),
-            )}
-            footer={footer}
-          />
-        </Input.Item>
-        {key != null && <UsedBy enumeration={key} />}
-        <Input.Item label="Entries" padHelpText={false}>
-          {key == null ? (
-            // The new enumeration takes the options as they are when the create
-            // starts, so they lock until it ends.
-            <OwnOptions
-              path={options}
-              colorHidden={colorHidden}
-              preview={variant === "loading"}
-            />
-          ) : (
-            <Enumeration.Entries
-              key={key}
-              enumeration={key}
-              autoFocus={focused === key}
-            />
+        <EnumerationField
+          value={key}
+          onChange={(next) =>
+            next == null ? remove(enumerationPath) : set(enumerationPath, next)
+          }
+          draft={() => ({
+            name: get<string>(label).value.trim() || symbolName,
+            entries: get<schematic.StateMapping[]>(options).value.map(toEntry),
+          })}
+          // The new enumeration takes the options as they are when the create starts,
+          // so they lock until it ends.
+          fallback={(creating) => (
+            <OwnOptions path={options} colorHidden={colorHidden} preview={creating} />
           )}
-        </Input.Item>
+        />
       </Form.Section>
     </Form.Sections>
   );
