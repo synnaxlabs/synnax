@@ -46,7 +46,7 @@ type Writer struct {
 
 // Announce attaches acts to the transaction of w for the channel with key without
 // applying them, as one batch, and returns the number of the batch. They carry fields
-// the channel no longer stores to the clients that read them from it.
+// that the channel does not store to the clients that read them from it.
 func (w Writer) Announce(key Key, acts ...Action) uint64 {
 	return w.dispatcher.Attach(w.tx, key, acts...)
 }
@@ -427,10 +427,10 @@ func (w Writer) create(
 	if err = w.attachCreates(ctx, lo.Uniq(written)); err != nil {
 		return err
 	}
-	if len(linked) == 0 || w.svc.cfg.AnnounceOutputs == nil {
+	if len(linked) == 0 || w.svc.cfg.AnnounceLinked == nil {
 		return nil
 	}
-	return w.svc.cfg.AnnounceOutputs(ctx, w.tx, w, linked...)
+	return w.svc.cfg.AnnounceLinked(ctx, w.tx, w, linked...)
 }
 
 // validateCreate validates each channel, its group, and the names of channels.
@@ -1014,5 +1014,3 @@ func positions[T comparable](vals []T) map[T][]int {
 	}
 	return pos
 }
-
-// isGiven reports whether a channel in given has key.
