@@ -439,7 +439,7 @@ var _ = Describe("Symbol node bindings", func() {
 						Path: []string{"data", "states", "active"},
 						Value: fields(symbol.State{Variant: symbol.NumberState{
 							BaseState: symbol.BaseState{Key: "active", Name: "Active"},
-							Bounds:    spatial.Bounds{Lower: 0, Upper: 1},
+							Bounds:    spatial.ClosedBounds{Lower: 0, Upper: 1},
 						}}),
 					})
 				},
@@ -579,7 +579,7 @@ var _ = Describe("Symbol node bindings", func() {
 					Spec: customRef(sym),
 					States: []schematic.StateBinding{{
 						Key:    "active",
-						Bounds: &spatial.Bounds{Lower: 0, Upper: 1},
+						Bounds: &spatial.ClosedBounds{Lower: 0, Upper: 1},
 					}},
 				}
 			},
