@@ -26,5 +26,5 @@
       ]
     }
   ],
-  "error": "message reading: field v: default: NaN is not finite: validation error"
+  "error": "message reading: field v: default: must be finite: validation error"
 }

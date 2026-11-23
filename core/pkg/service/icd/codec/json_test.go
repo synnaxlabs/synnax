@@ -292,7 +292,7 @@ var _ = Describe("JSON", func() {
 			}})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
-					"message reading: field doc: default: not valid JSON: validation error",
+					"message reading: field doc: default: must be valid JSON: validation error",
 				),
 			))
 		})
