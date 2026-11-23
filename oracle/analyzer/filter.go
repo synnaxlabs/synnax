@@ -638,8 +638,8 @@ func includeFields(records []resolution.Field) []resolution.Field {
 	return fields
 }
 
-// addRequestOptions appends to request a bool option, false by default, for each
-// @request <name> "<doc>" of where. It reports false when an option is malformed or
+// addRequestOptions appends to request a bool option, false by default, for the name
+// and doc of each @request of where. It reports false when an option is malformed or
 // takes the name of another retrieve option.
 func addRequestOptions(
 	c *analysisCtx, where resolution.Type, request []resolution.Field,
@@ -654,8 +654,9 @@ func addRequestOptions(
 			))
 			return nil, false
 		}
-		if lo.ContainsBy(request, func(f resolution.Field) bool {
-			return f.Name == casing.FieldSnake(expr.Name)
+		name := casing.FieldSnake(expr.Name)
+		if name == oneOption || lo.ContainsBy(request, func(f resolution.Field) bool {
+			return f.Name == name
 		}) {
 			c.report(diagnostics.Errorf(
 				filterDef(where),

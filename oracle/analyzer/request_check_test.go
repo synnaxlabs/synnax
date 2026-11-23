@@ -37,7 +37,9 @@ var _ = Describe("Request option check", func() {
 			}
 		`, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("where"))
+			Expect(diag.String()).To(ContainSubstring(
+				"@request where takes the name of another retrieve option",
+			))
 		},
 	)
 
