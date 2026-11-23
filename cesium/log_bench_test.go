@@ -97,6 +97,7 @@ func BenchmarkCutPointerLog(b *testing.B) {
 	createBenchChannels(b, db, keys)
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    telem.SecondTS,
 	})
 	if err != nil {
@@ -153,6 +154,7 @@ func BenchmarkCutVariablePointerLog(b *testing.B) {
 	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    telem.SecondTS,
 	})
 	if err != nil {

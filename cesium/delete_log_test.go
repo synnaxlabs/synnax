@@ -139,6 +139,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, frame(seconds...), nil))
@@ -225,6 +226,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    10 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -291,6 +293,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -381,6 +384,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12, 13)
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    keys[0],
 				Start:    30 * telem.SecondTS,
 			}))
 			tr := span(12, 15)

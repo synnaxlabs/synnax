@@ -105,7 +105,11 @@ var _ = Describe("Check: a rewrite whose Replace the log refuses", func() {
 				keys := []cesium.ChannelKey{idx, data}
 				w := MustSucceed(db.OpenWriter(
 					ctx,
-					cesium.WriterConfig{Channels: keys, Start: stamp(first)},
+					cesium.WriterConfig{
+						Channels: keys,
+						Clock:    keys[0],
+						Start:    stamp(first),
+					},
 				))
 				MustSucceed2(w.Write(ctx, telem.MultiFrame(
 					keys,
