@@ -120,7 +120,8 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     if (err = remove_temps(cfg.path); err) return {nullptr, err};
     auto [start, size_err] = file->size();
     if (size_err) return {nullptr, size_err};
-    // create_new never leaves a short file, so a short file comes from elsewhere.
+    // A crash during create_new on a volume with no exclusive rename leaves an empty
+    // file.
     if (start < HEADER_SIZE) {
         if (err = file->truncate(0); err) return {nullptr, err};
         if (err = file->write(encode_header(cfg.magic, cfg.flags)); err)

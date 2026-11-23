@@ -83,14 +83,16 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to);
 /// `<path>.tmp.<n>`. Returns after the new file is on the disk.
 x::errors::Error create(const std::filesystem::path &path, std::string_view data);
 
-/// @brief renames from to to when no file is at to.
+/// @brief renames from to to when no file is at to. On a volume with no exclusive
+/// rename, such as FAT, it first creates an empty file at to and holds its lock, and
+/// a crash can leave that empty file.
 /// @returns EXISTS when a file is at to, and then both files are unchanged.
 x::errors::Error
 rename_new(const std::filesystem::path &from, const std::filesystem::path &to);
 
 /// @brief writes a file at path with data when no file is at path. A crash leaves no
-/// file or the whole file, and can leave a temp file named `<path>.tmp.<n>`. Returns
-/// after the new file is on the disk.
+/// file or the whole file, or the empty file of rename_new, and can leave a temp file
+/// named `<path>.tmp.<n>`. Returns after the new file is on the disk.
 /// @returns EXISTS when a file is at path, and then that file is unchanged.
 x::errors::Error create_new(const std::filesystem::path &path, std::string_view data);
 
