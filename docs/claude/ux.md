@@ -427,7 +427,7 @@ bound, a log precision, or the line plot X channel.
 ### Symbol motion
 
 - The symbol editor groups the motion kinds. "Follow a value" holds Fill, Rotation, and
-  Position. "Loop" holds Spin, Flow, and Blink.
+  Position. "Loop" holds Spin and Flow. Blink has its own control.
 - The editor shows the `level` motion as Fill. The stored name stays `level`.
 - Until number states arrive, the picker offers only None, Spin, and Flow. Keep the
   groups ready for the other kinds.
