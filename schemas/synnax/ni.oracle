@@ -521,6 +521,8 @@ MinMaxVal struct {
 
     @doc value  "bounds the expected signal range in scaled units."
     @go marshal
+    @py hand
+    @py include "client/py/synnax/ni/range"
 }
 
 Terminal struct {

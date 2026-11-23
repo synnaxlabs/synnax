@@ -960,3 +960,28 @@ class TestNIResources:
             rack=1, name="PXIe-1071", model="1071", resource_name="Mod1"
         )
         assert chassis.serial == ""
+
+
+@pytest.mark.ni
+class TestMinMaxVal:
+    def test_lifts_min_val_and_max_val_into_range(self) -> None:
+        """Should read the min_val and max_val keywords with a deprecation warning."""
+        with pytest.warns(DeprecationWarning, match="min_val"):
+            ch = sy.ni.AIVoltageChannel(port=0, channel=1, min_val=-10, max_val=10)
+        assert ch.range == spatial.ClosedBounds(lower=-10, upper=10)
+
+    def test_keeps_the_default_for_a_missing_end(self) -> None:
+        """Should take the default of the channel type for an end not given."""
+        with pytest.warns(DeprecationWarning, match="min_val"):
+            ch = sy.ni.CIFrequencyChannel(port=0, channel=1, max_val=500)
+        assert ch.range == spatial.ClosedBounds(lower=2, upper=500)
+
+    def test_rejects_range_with_min_val(self) -> None:
+        """Should refuse both spellings of the range at once."""
+        with pytest.raises(TypeError):
+            sy.ni.AIVoltageChannel(
+                port=0,
+                channel=1,
+                range=spatial.ClosedBounds(lower=0, upper=1),
+                min_val=-10,
+            )

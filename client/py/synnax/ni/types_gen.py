@@ -17,6 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
+from synnax.ni.range import MinMaxVal
 from x import spatial, telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
@@ -450,18 +451,6 @@ AccelChargeSensitivityUnits = Literal[
     "PicoCoulombsPerMetersPerSecondSquared",
     "PicoCoulombsPerInchesPerSecondSquared",
 ]
-
-
-class MinMaxVal(BaseModel):
-    """Bounds the expected signal range in scaled units.
-
-    Attributes:
-        range: Is the expected signal range, in scaled units.
-    """
-
-    range: spatial.ClosedBounds = Field(
-        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=1)
-    )
 
 
 class Terminal(BaseModel):
