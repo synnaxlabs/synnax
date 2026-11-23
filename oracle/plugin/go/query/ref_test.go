@@ -1754,10 +1754,10 @@ var _ = Describe("@ref", func() {
 				generateSymbol().
 					ToPreserveOrder(
 						"if t, ok := to[*v6.Key]; ok {",
-						"v6.Key = &t",
+						"*v6.Key = t",
 						"e.States[i5].Source.Variant = v6",
 						"if t, ok := to[*v6.Command]; ok {",
-						"v6.Command = &t",
+						"*v6.Command = t",
 						"e.States[i5].Source.Variant = v6",
 						"if t, ok := to[e.Commands[i3].Channel]; ok {",
 						"e.Commands[i3].Channel = t",

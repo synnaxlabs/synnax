@@ -43,7 +43,7 @@ switch v6 := e.States[i5].Source.Variant.(type) {
 case ChannelSource:
 if v6.Key != nil {
 if t, ok := to[*v6.Key]; ok {
-v6.Key = &t
+*v6.Key = t
 }
 }
 e.States[i5].Source.Variant = v6
@@ -95,7 +95,7 @@ switch v6 := e.States[i5].Source.Variant.(type) {
 case ChannelSource:
 if v6.Command != nil {
 if t, ok := to[*v6.Command]; ok {
-v6.Command = &t
+*v6.Command = t
 }
 }
 e.States[i5].Source.Variant = v6
