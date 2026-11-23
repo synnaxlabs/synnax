@@ -60,7 +60,7 @@ var _ = Describe("Default Invariant", func() {
 					priority Priority = PriorityHigh
 				}
 			`,
-			"an integer-enum default other than 0 leaves the member with value 0"),
+			`integer-enum default other than "low"`),
 		Entry("accepts an integer-enum default other than 0 when no member is 0",
 			`
 				Size enum {
@@ -85,6 +85,80 @@ var _ = Describe("Default Invariant", func() {
 				}
 			`,
 			""),
+		Entry("rejects a default other than the member of value 0, wherever it sits",
+			`
+				Priority enum {
+					high = 1
+					low = 0
+				}
+
+				Cfg struct {
+					priority Priority = high
+				}
+			`,
+			`integer-enum default other than "low"`),
+		Entry("accepts a default on the member of value 0 when it is not first",
+			`
+				Priority enum {
+					high = 1
+					low = 0
+				}
+
+				Cfg struct {
+					priority Priority = low
+				}
+			`,
+			""),
+		Entry("accepts any member of an integer enum with no member of 0",
+			`
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Cfg struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`,
+			""),
+		Entry("rejects an integer-enum default that names no member",
+			`
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+				}
+
+				Cfg struct {
+					baud_rate BaudRate = baud_9600
+				}
+			`,
+			`default "baud_9600" on field "baud_rate" in "Cfg" names neither a member`),
+		Entry("accepts any member of a string enum",
+			`
+				Level enum {
+					h1 = "h1"
+					h2 = "h2"
+					h3 = "h3"
+				}
+
+				Cfg struct {
+					level Level = h3
+				}
+			`,
+			""),
+		Entry("rejects a string-enum default that names no member",
+			`
+				Level enum {
+					h1 = "h1"
+					h2 = "h2"
+				}
+
+				Cfg struct {
+					level Level = h4
+				}
+			`,
+			`default "h4" on field "level" in "Cfg" names neither a member`),
 		Entry(
 			"accepts a string-enum default (a string enum's zero value is the empty string)",
 			`

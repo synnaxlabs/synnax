@@ -373,6 +373,50 @@ var _ = Describe("Plugin", func() {
 				)))
 			})
 
+			It("Should fail on an integer enum member outside int32", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/serial"
+					@pb
+
+					Rate enum {
+						none = 0
+						huge = 2147483648
+					}
+
+					Port struct {
+						rate Rate
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"its member huge has value 2147483648, and proto3 needs every " +
+						"member to fit in int32",
+				)))
+			})
+
+			It(
+				"Should keep a uint32 integer enum's values as proto enum numbers",
+				func() {
+					req := MustGenerateRequest(`
+					@go output "core/pkg/service/serial"
+					@pb
+
+					Rate enum {
+						none = 0
+						baud_230400 = 230400
+					}
+
+					Port struct {
+						rate Rate
+					}
+				`, "test", loader)
+					resp := MustSucceed(p.Generate(req))
+					ExpectContent(
+						resp,
+						".proto",
+					).ToContain("RATE_BAUD_230400 = 230400;")
+				},
+			)
+
 			It("Should fail when a field takes a reserved number", func() {
 				req := MustGenerateRequest(`
 					@go output "core/pkg/service/auth"
