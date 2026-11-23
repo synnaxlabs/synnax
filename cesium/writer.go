@@ -77,17 +77,18 @@ func (w *Writer) Sync() error {
 	return w.fail(w.persist())
 }
 
-// persist persists the clock before the data channels it times, as Commit commits
-// them, so a reopen never sees data that its clock cannot resolve.
-func (w *Writer) persist() error {
-	idx := w.idx
-	if idx.writingToIdx {
-		if err := idx.internal[idx.idx.ch.Key].Persist(); err != nil {
+func (w *Writer) persist() error { return w.idx.persist() }
+
+// persist persists the clock before the data channels it times, as Commit commits them,
+// so a reopen never sees data that its clock cannot resolve.
+func (w *idxWriter) persist() error {
+	if u, ok := w.internal[w.idx.ch.Key]; ok {
+		if err := u.Persist(); err != nil {
 			return err
 		}
 	}
-	for key, u := range idx.internal {
-		if key == idx.idx.ch.Key {
+	for key, u := range w.internal {
+		if key == w.idx.ch.Key {
 			continue
 		}
 		if err := u.Persist(); err != nil {
