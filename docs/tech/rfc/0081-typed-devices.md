@@ -309,7 +309,9 @@ Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
 that dispatches on a union over the identity and configuration groups, so one request
 writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
-`include_status`, and `include_parent`. The generic `/device/*` routes are deleted.
+`include_status`, and `include_parent`. The generic `/device/*` routes are deleted. Two
+narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin (§4.1), and
+`/opcua/server/resolve`, which appends resolved `ns=` bindings and skips duplicates.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -382,7 +384,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
-   map.
+   map. OPC UA parks `ns=` task node IDs with the bindings; one resolution fixes both.
 5. Delete the legacy table and the map.
 
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
@@ -435,7 +437,7 @@ green at every step. The migration brings 0.59 data forward near the end.
   writers, and routes. Each lands dark.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
   client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
-  scanner resolves parked `ns=` bindings through an append-only Core route.
+  scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
