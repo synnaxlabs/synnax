@@ -75,6 +75,20 @@ describe("symbol editor spec", () => {
   });
 
   describe("setOwn", () => {
+    it("should clear a field at every value and keep it on single values", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", fill: fixed(RED), stroke: fixed(BLUE) },
+          { key: "b", part: "body", fill: fixed(RED) },
+          { key: "c", part: "body", when: equals(1), fill: fixed(BLUE) },
+        ],
+      });
+      expect(Spec.setOwn(spec, "body", "fill", undefined).looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(BLUE) },
+        spec.looks[2],
+      ]);
+    });
+
     it("should set the field on the look of the part for the value alone", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
