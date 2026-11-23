@@ -71,16 +71,14 @@ var _ = Describe("Check: a rewrite whose Replace the log refuses", func() {
 			mem := xfs.NewMem()
 			fs := logSyncFS{FS: mem, armed: &atomic.Bool{}, failed: &atomic.Bool{}}
 			fake := timetestutil.NewClock(time.Unix(0, 0))
-			open := func(fs xfs.FS) *cesium.DB {
+			open := func(fs xfs.FS, opts ...cesium.Option) *cesium.DB {
 				GinkgoHelper()
-				return MustSucceed(cesium.Open(
-					ctx,
-					"",
+				return MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{
 					cesium.WithFS(fs),
 					cesium.WithPointerLog(),
 					cesium.WithClock(fake),
 					cesium.WithGCConfig(cesium.GCConfig{Rate: 1 << 20}),
-				))
+				}, opts...)...))
 			}
 			stamp := func(i int) telem.TimeStamp {
 				return telem.TimeStamp(i+1) * telem.SecondTS
@@ -143,7 +141,7 @@ var _ = Describe("Check: a rewrite whose Replace the log refuses", func() {
 			Expect(stop()).To(MatchError(ContainSubstring(failure)))
 			Expect(db.Close()).To(MatchError(ContainSubstring(failure)))
 			// A restart reads the log as the failed sync left it.
-			re := open(mem)
+			re := open(mem, cesium.WithIdentity(db.Identity()))
 			stop = GoRun(ctx, re.Run)
 			read := func(ctx context.Context) []int64 {
 				GinkgoHelper()
