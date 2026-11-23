@@ -122,32 +122,50 @@ describe("Custom.usePaints state values", () => {
     ]);
   });
 
-  it("should read a within state with no value at its default, with no match", async () => {
-    const spec = createSpec({
-      states: [
-        {
-          type: "enumeration",
-          key: "a",
-          name: "A",
-          match: { type: "within", bounds: { lower: 50, upper: 100 } },
-          default: 1,
-        },
-      ],
-      looks: [
-        {
-          key: "a",
-          part: "body",
-          when: { type: "equals", state: "a", values: [1] },
-          fill: { type: "color", value: fixed("#ff0000") },
-        },
-      ],
-    });
-    const { result } = renderHook(() => Custom.usePaints(spec, new Map()), {
-      wrapper: createSynnaxWrapper({ client: null }),
-    });
-    await waitFor(() => expect(result.current).not.toHaveLength(0));
-    expect(result.current).toEqual([{ selectors: [".body"], fill: RED }]);
+  it("should read a NaN value as no value", async () => {
+    const values = new Map([
+      ["a", NaN],
+      ["b", NaN],
+      ["level", NaN],
+    ]);
+    expect(await renderValues(values)).toEqual([
+      { selectors: [".body"], fill: RED },
+      { selectors: [".body"], hidden: true },
+    ]);
   });
+
+  it.each([
+    ["no value", new Map<string, number>()],
+    ["a NaN value", new Map([["a", NaN]])],
+  ])(
+    "should read a within state with %s at its default, with no match",
+    async (_, values) => {
+      const spec = createSpec({
+        states: [
+          {
+            type: "enumeration",
+            key: "a",
+            name: "A",
+            match: { type: "within", bounds: { lower: 50, upper: 100 } },
+            default: 1,
+          },
+        ],
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: { type: "equals", state: "a", values: [1] },
+            fill: { type: "color", value: fixed("#ff0000") },
+          },
+        ],
+      });
+      const { result } = renderHook(() => Custom.usePaints(spec, values), {
+        wrapper: createSynnaxWrapper({ client: null }),
+      });
+      await waitFor(() => expect(result.current).not.toHaveLength(0));
+      expect(result.current).toEqual([{ selectors: [".body"], fill: RED }]);
+    },
+  );
 
   it("should read a number state with no value at its lower bound", async () => {
     expect(await renderValues(new Map([["a", 0]]))).toEqual([
