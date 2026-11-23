@@ -31,7 +31,7 @@ import {
   withControlHeld,
 } from "@/testutil";
 
-const NODE: OPCUA.Task.ScannedNode = {
+const NODE: OPCUA.Device.ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",
   nodeId: "ns=2;s=Demo.Static.Scalar.Float",
   name: "Demo Float",
@@ -91,7 +91,7 @@ describe("Browser", () => {
   });
 });
 
-const MOTOR: OPCUA.Task.ScannedNode = {
+const MOTOR: OPCUA.Device.ScannedNode = {
   key: "ns=1;s=TestMotor",
   nodeId: "ns=1;s=TestMotor",
   name: "TestMotor",
@@ -113,9 +113,9 @@ describe("Browser structures", () => {
   it("should browse members by field and name them after their structure", async () => {
     const client = createTestClient();
     const { scan, device: dev } = await createScannedDevice(client);
-    const browse = async (channels: OPCUA.Task.ScannedNode[]) =>
+    const browse = async (channels: OPCUA.Device.ScannedNode[]) =>
       await answerNextCommand(client, scan, {
-        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        type: OPCUA.Device.BROWSE_COMMAND_TYPE,
         data: { channels },
       });
     const { wrapper } = await createConsoleWrapper({ client });
@@ -145,7 +145,7 @@ describe("Browser structures", () => {
   });
 });
 
-const variable = (name: string): OPCUA.Task.ScannedNode => ({
+const variable = (name: string): OPCUA.Device.ScannedNode => ({
   key: `ns=2;s=${name}`,
   nodeId: `ns=2;s=${name}`,
   name,
@@ -176,7 +176,7 @@ const renderBrowser = async () => {
   const client = createTestClient();
   const { scan, device: dev } = await createScannedDevice(client);
   const root = await answerNextCommand(client, scan, {
-    type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+    type: OPCUA.Device.BROWSE_COMMAND_TYPE,
     data: { channels: [TANK, PUMP] },
   });
   const { wrapper } = await createConsoleWrapper({ client });
@@ -205,7 +205,7 @@ describe("Browser search", () => {
     const { client, scan } = await renderBrowser();
     const valve = variable("Valve");
     const opened = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [valve] },
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -217,7 +217,7 @@ describe("Browser search", () => {
       target: { value: "valve" },
     });
     const children = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [variable("Position")] },
     });
     fireEvent.click(await screen.findByText("Valve"));
@@ -237,7 +237,7 @@ describe("Browser search", () => {
   it("should read the node of a node ID that the user enters", async () => {
     const { client, scan, dev } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     const input = screen.getByPlaceholderText("Filter, or enter a node ID");
@@ -256,7 +256,7 @@ describe("Browser search", () => {
   it("should keep the spaces at the end of an entered node ID", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     const input = screen.getByPlaceholderText("Filter, or enter a node ID");
@@ -272,7 +272,7 @@ describe("Browser search", () => {
       const cmd = await awaitCommand(
         streamer,
         scan.key,
-        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        OPCUA.Device.READ_NODE_COMMAND_TYPE,
       );
       await answerCommand(client, scan, cmd, { data: DETAILS });
       return cmd;
@@ -320,7 +320,7 @@ describe("Browser drag preview", () => {
   it("should picture the node dragged from its details", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -337,7 +337,7 @@ describe("Browser details", () => {
   it("should show the attributes and value of a selected node", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -350,7 +350,7 @@ describe("Browser details", () => {
   it("should list the fields of a structure value by path", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: '{"Speed":2.5,"Position":{"X":-1.5,"Y":4}}' },
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -364,7 +364,7 @@ describe("Browser details", () => {
   it("should show only the start of a long array value", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]" },
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -376,7 +376,7 @@ describe("Browser details", () => {
   it("should hide the value when the server sent none", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: "null", status: "BadSensorFailure" },
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -388,14 +388,14 @@ describe("Browser details", () => {
   it("should read the node again when Read again is clicked", async () => {
     const { client, scan, container } = await renderBrowser();
     const first = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     fireEvent.click(screen.getByText("TankPressure"));
     await first.answered;
     await screen.findByText("2.5");
     const second = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: "3.5" },
     });
     const [, readAgain] = getIconButtons(container, "refresh");
@@ -408,14 +408,14 @@ describe("Browser details", () => {
   it("should keep the last reading in view while it reads again", async () => {
     const { client, scan, container } = await renderBrowser();
     const first = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     fireEvent.click(screen.getByText("TankPressure"));
     await first.answered;
     await screen.findByText("2.5");
     const second = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: "3.5" },
     });
     const [, readAgain] = getIconButtons(container, "refresh");
@@ -428,7 +428,7 @@ describe("Browser details", () => {
   it("should read nothing while collapsed and the selection when expanded", async () => {
     const { client, scan } = await renderBrowser();
     const first = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -436,7 +436,7 @@ describe("Browser details", () => {
     await screen.findByText("2.5");
     // A read sent while collapsed would take this answer first.
     const next = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, node: PUMP, browseName: PUMP.name, value: "3.5" },
     });
     fireEvent.click(screen.getByRole("button", { name: /TankPressure/ }));
@@ -451,7 +451,7 @@ describe("Browser details", () => {
   it("should round a fractional value for display", async () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { ...DETAILS, value: "-0.9925542249712099" },
     });
     fireEvent.click(screen.getByText("TankPressure"));
@@ -467,7 +467,7 @@ describe("Browser details", () => {
       const open = await awaitCommand(
         streamer,
         scan.key,
-        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        OPCUA.Device.READ_NODE_COMMAND_TYPE,
       );
       fireEvent.click(screen.getByText("PumpSpeed"));
       // Lets the effect for PumpSpeed start before the next selection aborts it.
@@ -477,7 +477,7 @@ describe("Browser details", () => {
       const next = await awaitCommand(
         streamer,
         scan.key,
-        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        OPCUA.Device.READ_NODE_COMMAND_TYPE,
       );
       expect(next.args).toMatchObject({ nodeId: TANK.nodeId });
       await answerCommand(client, scan, next, { data: { ...DETAILS, value: "3.5" } });
@@ -490,7 +490,7 @@ describe("Browser details", () => {
   it("should mark a node whose browse fails and keep the rest of the tree", async () => {
     const { client, scan } = await renderBrowser();
     const browse = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       variant: "error",
       message: "Failed to browse nodes",
       description: "The server returned BadUserAccessDenied.",
@@ -504,7 +504,7 @@ describe("Browser details", () => {
   it("should show the children of a node whose members do not list, and mark it", async () => {
     const { client, scan } = await renderBrowser();
     const browse = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       variant: "warning",
       message: "Failed to list structure members",
       description:
@@ -523,7 +523,7 @@ describe("Browser limits", () => {
     const client = createTestClient();
     const { scan, device: dev } = await createScannedDevice(client);
     const root = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [TANK, PUMP], truncated: true },
     });
     const { wrapper } = await createConsoleWrapper({ client });
@@ -548,7 +548,7 @@ describe("Browser limits", () => {
       ]),
     );
     const child = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [variable("TankLevel")], truncated: false },
     });
     fireEvent.click(screen.getByText("TankPressure"));
