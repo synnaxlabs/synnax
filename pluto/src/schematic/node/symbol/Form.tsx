@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel, type enumeration, query, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +19,8 @@ import { bounds, deep, notation } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
+import { Enumeration } from "@/enumeration";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -26,6 +28,7 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { Telem } from "@/schematic/node/common/telem";
 import type { FormProps } from "@/schematic/node/spec";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
+import { Synnax } from "@/synnax";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -153,6 +156,29 @@ const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => (
   </>
 );
 
+interface DefaultEntryProps {
+  enumeration: enumeration.Key;
+  value: number;
+  onChange: (next: number) => void;
+}
+
+const DefaultEntry = ({
+  enumeration: key,
+  value,
+  onChange,
+}: DefaultEntryProps): ReactElement => {
+  const entries = Enumeration.useResult({ key }).data?.entries ?? [];
+  return (
+    <Select.Simple<number> value={value} onChange={onChange} resourceName="entry">
+      {entries.map((e) => (
+        <Select.Item<number> key={e.value} itemKey={e.value}>
+          {e.name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
+  );
+};
+
 interface EnumerationOverridesProps extends BindingProps {
   state: schematic.symbol.EnumerationState;
 }
@@ -167,6 +193,18 @@ const EnumerationOverrides = ({
     state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
   const setMatch = (next: schematic.symbol.Matcher): void =>
     onChange({ ...binding, match: next });
+  const enumerationKey = binding.enumeration ?? state.enumeration;
+  const value = binding.default ?? state.default;
+  const setDefault = (next: number): void => onChange({ ...binding, default: next });
+  const client = Synnax.use();
+  // A new enumeration starts with the entries that the state draws.
+  const draft = (): NodeForm.Draft => {
+    const drawn =
+      state.enumeration == null
+        ? undefined
+        : client?.enumerations.watch({ key: state.enumeration }).getCached();
+    return { name: state.name, entries: query.isLive(drawn) ? drawn.entries : [] };
+  };
   return (
     <>
       <Input.Item label="Match" padHelpText={false}>
@@ -186,11 +224,28 @@ const EnumerationOverrides = ({
           onChange={(b) => setMatch({ ...match, bounds: b })}
         />
       )}
+      <NodeForm.EnumerationField
+        value={binding.enumeration}
+        onChange={(next) => onChange({ ...binding, enumeration: next })}
+        draft={draft}
+        fallback={() =>
+          state.enumeration == null ? (
+            <Text.Text level="p">The symbol names no enumeration.</Text.Text>
+          ) : (
+            <Enumeration.Entries enumeration={state.enumeration} />
+          )
+        }
+      />
       <Input.Item label="Default" padHelpText={false}>
-        <Input.Numeric
-          value={binding.default ?? state.default}
-          onChange={(d) => onChange({ ...binding, default: d })}
-        />
+        {enumerationKey == null ? (
+          <Input.Numeric value={value} onChange={setDefault} />
+        ) : (
+          <DefaultEntry
+            enumeration={enumerationKey}
+            value={value}
+            onChange={setDefault}
+          />
+        )}
       </Input.Item>
     </>
   );
@@ -211,7 +266,10 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
     schematic.stateBindingZ.parse({ key: state.key });
   const handleChange = (next: Binding): void => onChange(upsert(value, next));
   return (
-    <Base.Section title={state.name}>
+    <Base.Section
+      title={state.name}
+      className={state.type === "enumeration" ? CSS.B("states") : undefined}
+    >
       <SourceFields binding={binding} onChange={handleChange} />
       {state.type === "number" ? (
         <>

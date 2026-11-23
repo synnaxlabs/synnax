@@ -113,12 +113,12 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
 };
 
 /** The name and entries that a new enumeration starts with. */
-interface Draft {
+export interface Draft {
   name: string;
   entries: enumeration.Entry[];
 }
 
-interface EnumerationFieldProps {
+export interface EnumerationFieldProps {
   /** The enumeration that the field names. */
   value?: enumeration.Key;
   onChange: (next?: enumeration.Key) => void;
@@ -133,7 +133,7 @@ interface EnumerationFieldProps {
  * text asks for its name. A field that names an enumeration gets a new empty one, with
  * focus in its entries.
  */
-const EnumerationField = ({
+export const EnumerationField = ({
   value,
   onChange,
   draft,
