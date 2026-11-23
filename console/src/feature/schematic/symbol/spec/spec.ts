@@ -180,10 +180,14 @@ export const setVariesByValue = (
   return setOwn(cleared, target, field, first);
 };
 
-const CLIP_STYLE = /(^|;)\s*clip-path\s*:/;
+const CLIP_STYLE = /(^|;)\s*clip-path\s*:\s*(?!none\s*(;|$))[^;\s]/;
 
-const clipped = (el: Element): boolean =>
-  el.hasAttribute("clip-path") || CLIP_STYLE.test(el.getAttribute("style") ?? "");
+const clipped = (el: Element): boolean => {
+  const clip = el.getAttribute("clip-path")?.trim() ?? "none";
+  return (
+    !["", "none"].includes(clip) || CLIP_STYLE.test(el.getAttribute("style") ?? "")
+  );
+};
 
 /**
  * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
