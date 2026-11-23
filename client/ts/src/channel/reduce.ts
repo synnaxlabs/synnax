@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type patch, zod } from "@synnaxlabs/x";
-import type { Draft } from "immer";
+import { current, type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -19,6 +19,11 @@ import { group } from "@/group";
 const keyOf = (leaseholder: number, localKey: number): Key =>
   ((leaseholder << 20) | localKey) >>> 0;
 
+const calculatedOf = ({
+  virtual,
+  expression,
+}: Pick<Payload, "virtual" | "expression">) => virtual && expression !== "";
+
 const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
   zod.parse(
     payloadZ,
@@ -26,11 +31,14 @@ const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
       ...rest,
       key: keyOf(rest.leaseholder, localKey),
       index: localIndex === 0 ? 0 : keyOf(rest.leaseholder, localIndex),
-      // A create carries the expression of the calculation that writes the channel.
-      calculated: rest.virtual && rest.expression !== "",
+      calculated: calculatedOf(rest),
     },
     { label: "created channel" },
   );
+
+// The fields that a set after a create carries, which only a subject who reads the
+// calculation receives. Another subject holds calculated with no expression.
+const CALCULATION_FIELDS = ["expression", "operations"] as const;
 
 /** @returns the channel that a create action carries, or undefined otherwise. */
 export const createOf = (action: Action): Payload | undefined =>
@@ -54,15 +62,24 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
  */
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
   switch (action.type) {
-    case "create":
-      return actions.replace(state, fromStored(action.create.channel));
+    case "create": {
+      const { expression, operations, calculated } = current(state) as Payload;
+      const created = fromStored(action.create.channel);
+      return actions.replace(state, { ...created, expression, operations, calculated });
+    }
     case "rename": {
       const prev = state.name;
       if (prev === action.rename.name) return actions.NO_OP_RESULT;
       state.name = action.rename.name;
       return { inverse: [rename({ name: prev })], targets: ["name"] };
     }
-    default:
-      return applyPath(state, action);
+    default: {
+      const result = applyPath(state, action);
+      if (!actions.changesField(action, CALCULATION_FIELDS)) return result;
+      const calculated = calculatedOf(state);
+      if (calculated === state.calculated) return result;
+      state.calculated = calculated;
+      return { ...result, targets: [...result.targets, "calculated"] };
+    }
   }
 });

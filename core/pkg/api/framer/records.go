@@ -169,11 +169,14 @@ func admits(
 		if err != nil {
 			return nil, false, err
 		}
-		replacement, send := check(allowed)
-		if replacement != nil {
-			sample = replacement
+		// A batch with no check of its own goes by its resource.
+		if check != nil {
+			replacement, send := check(allowed)
+			if replacement != nil {
+				sample = replacement
+			}
+			return sample, send, nil
 		}
-		return sample, send, nil
 	}
 	id, err := record.Of(sample)
 	if err != nil {
