@@ -64,7 +64,7 @@ export const HARDWARE: Hardware[] = [
   },
   {
     ...LabJack.Device.HARDWARE,
-    ContextMenuItems: LabJack.Device.ContextMenuItems,
+    ContextMenuItems: LabJack.ContextMenuItems,
     useCreateRead: LabJack.Task.useCreateRead,
   },
   {

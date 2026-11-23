@@ -10,15 +10,15 @@
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
-import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
+import { Port } from "@/feature/labjack/task/port";
 
-describe("getOpenPort", () => {
+describe("Port.getOpen", () => {
   const model: LabJack.Device.Model = LabJack.Device.T4_MODEL;
 
   it("returns the first available port for a given type when none are in use", () => {
     const channels: LabJack.Task.Channel[] = [];
     const type = LabJack.Device.AI_PORT_TYPE;
-    const port = getOpenPort(channels, model, [type]);
+    const port = Port.getOpen(channels, model, [type]);
 
     // The expected port is the first port in the list for the given type.
     const expectedPort = LabJack.Device.PORTS[model][type][0];
@@ -32,7 +32,7 @@ describe("getOpenPort", () => {
     const channels: LabJack.Task.Channel[] = [
       { ...LabJack.Task.createReadChannel("analog"), port: aiPorts[0].key },
     ];
-    const port = getOpenPort(channels, model, [type]);
+    const port = Port.getOpen(channels, model, [type]);
 
     const expectedPort = aiPorts[1];
     expect(port).toEqual(expectedPort);
@@ -46,7 +46,7 @@ describe("getOpenPort", () => {
       ...LabJack.Task.createReadChannel("analog"),
       port: key,
     }));
-    const port = getOpenPort(channels, model, [type]);
+    const port = Port.getOpen(channels, model, [type]);
     expect(port).toBeNull();
   });
 
@@ -61,7 +61,7 @@ describe("getOpenPort", () => {
       port: key,
     }));
 
-    const port = getOpenPort(channels, model, [type1, type2]);
+    const port = Port.getOpen(channels, model, [type1, type2]);
     // Since all DI ports are taken, we expect the first AO port.
     const expectedPort = LabJack.Device.PORTS[model][type2][0];
     expect(port).toEqual(expectedPort);
@@ -85,7 +85,7 @@ describe("getOpenPort", () => {
       })),
     ];
 
-    const port = getOpenPort(channels, model, [type1, type2]);
+    const port = Port.getOpen(channels, model, [type1, type2]);
     expect(port).toBeNull();
   });
 });

@@ -10,12 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import type { ReactElement } from "react";
 
-import {
-  type Model,
-  T4_MODEL,
-  T7_MODEL,
-  T8_MODEL,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import type { ReadChannelType } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
@@ -28,10 +23,10 @@ export const READ_CHANNEL_TYPE_NAMES = {
 const { thermocouple: _, ...T4_READ_CHANNEL_TYPE_NAMES } = READ_CHANNEL_TYPE_NAMES;
 
 /** The channel types each model reads. The T4 has no thermocouple inputs. */
-export const READ_CHANNEL_TYPE_ITEMS: Record<Model, ReactElement[]> = {
-  [T4_MODEL]: Task.selectItems(T4_READ_CHANNEL_TYPE_NAMES),
-  [T7_MODEL]: Task.selectItems(READ_CHANNEL_TYPE_NAMES),
-  [T8_MODEL]: Task.selectItems(READ_CHANNEL_TYPE_NAMES),
+export const READ_CHANNEL_TYPE_ITEMS: Record<Device.Model, ReactElement[]> = {
+  [Device.T4_MODEL]: Task.selectItems(T4_READ_CHANNEL_TYPE_NAMES),
+  [Device.T7_MODEL]: Task.selectItems(READ_CHANNEL_TYPE_NAMES),
+  [Device.T8_MODEL]: Task.selectItems(READ_CHANNEL_TYPE_NAMES),
 };
 
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
