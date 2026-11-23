@@ -303,7 +303,7 @@ Motion union on type {
                 rate turns the part the other way.
             """
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 
@@ -316,7 +316,7 @@ Motion union on type {
                 rate moves the dashes the other way.
             """
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 

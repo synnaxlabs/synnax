@@ -967,8 +967,9 @@ type MotionVariant interface {
 
 // SpinMotion turns a part around its pivot.
 type SpinMotion struct {
-	// Rate is the turns each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the turns each second at the upper bound of the state. A negative rate
+	// turns the part the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -980,18 +981,11 @@ func (s *SpinMotion) SetDefaults() {
 	s.Rate = 0.5
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s SpinMotion) Validate() error {
-	v := validate.New("SpinMotion")
-	v.GreaterThanEq("rate", s.Rate, 0)
-	return v.Error()
-}
-
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
-	// Rate is the cycles each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the cycles each second at the upper bound of the state. A negative rate
+	// moves the dashes the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1001,14 +995,6 @@ func (FlowMotion) isMotionVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (f *FlowMotion) SetDefaults() {
 	f.Rate = 0.5
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (f FlowMotion) Validate() error {
-	v := validate.New("FlowMotion")
-	v.GreaterThanEq("rate", f.Rate, 0)
-	return v.Error()
 }
 
 // LevelMotion fills a part to a level.
@@ -1199,10 +1185,6 @@ func (u Motion) Validate() error {
 	v := validate.New("Motion")
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
-	case SpinMotion:
-		v.Exec(variant.Validate)
-	case FlowMotion:
-		v.Exec(variant.Validate)
 	case LevelMotion:
 		v.Exec(variant.Validate)
 	}

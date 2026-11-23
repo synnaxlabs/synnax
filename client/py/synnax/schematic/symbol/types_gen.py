@@ -230,7 +230,7 @@ class SpinMotion(BaseModel):
     """Turns a part around its pivot."""
 
     type: Literal["spin"] = "spin"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = 0.500000
     state: str | None = None
 
 
@@ -238,7 +238,7 @@ class FlowMotion(BaseModel):
     """Moves the dashes of a stroke along it."""
 
     type: Literal["flow"] = "flow"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = 0.500000
     state: str | None = None
 
 
