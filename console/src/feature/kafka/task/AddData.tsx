@@ -18,7 +18,7 @@ import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxl
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
-import type { Device } from "@/feature/kafka/device/types";
+import type { Device } from "@/feature/kafka/device";
 import {
   carriedFields,
   defaultPicks,
@@ -34,7 +34,7 @@ import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
 interface Params {
-  device: Device;
+  device: Device.Device;
   /** The topic that the dialog shows first, or "" for the first that holds records. */
   topic: string;
   /** The names of the topics that the task holds now. */

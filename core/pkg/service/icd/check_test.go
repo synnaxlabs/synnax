@@ -135,6 +135,50 @@ var _ = Describe("Check", func() {
 		))
 	})
 
+	DescribeTable(
+		"Should refuse a tag that the Driver cannot match",
+		func(tag, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{
+				textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       tag,
+				}}),
+			}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    "messages.0.payload.fields.0.tag",
+				Message: message,
+			}))
+		},
+		Entry(
+			"a tag that holds the delimiter",
+			"T,1",
+			`the tag contains the delimiter ","`,
+		),
+		Entry("a tag that starts with a space", " T", "the tag starts with whitespace"),
+		Entry("a tag that starts with a tab", "\tT", "the tag starts with whitespace"),
+		Entry(
+			"a tag that starts with a carriage return",
+			"\rT",
+			"the tag starts with whitespace",
+		),
+	)
+
+	It("Should refuse an empty delimiter but not each tag in its message", func() {
+		ic := icd.ICD{Name: "L", Messages: []icd.Message{{
+			Name: "M",
+			Payload: icd.Payload{Variant: icd.TextPayload{
+				Fields: []icd.TextField{{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       "T",
+				}}},
+			}},
+		}}}
+		Expect(problemsOf(ic)).To(ConsistOf(problem{
+			Path:    "messages.0.payload.delimiter",
+			Message: "delimiter is required",
+		}))
+	})
+
 	DescribeTable("Should require a format, encoding, or type",
 		func(ic icd.ICD, path, message string) {
 			Expect(problemsOf(ic)).To(ConsistOf(
@@ -220,6 +264,91 @@ var _ = Describe("Check", func() {
 		Entry("NaN minimum",
 			func(f *icd.BinaryBaseField) { f.Min = new(math.NaN()) },
 			"min", "min must be finite",
+		),
+	)
+
+	DescribeTable("Should refuse a value outside the min and max of its field",
+		func(m icd.Message, path, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    "messages.0.payload.fields.0." + path,
+				Message: message,
+			}))
+		},
+		Entry("a JSON default above the max",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 1, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Float(120)),
+			}}),
+			"default", "default 120 is above the max 100",
+		),
+		Entry("a scaled JSON default that decodes above the max",
+			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
+				Name: "v", Scale: 10, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Integer(12)),
+			}}),
+			"default", "default 12 decodes to 120, which is above the max 100",
+		),
+		Entry("a JSON enum value above the max",
+			jsonMessage(icd.JSONField{Variant: icd.UnsignedJSONField{
+				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+				EnumValues: []payload.UnsignedEntry{{Label: "BOOST", Value: 20}},
+			}}),
+			"enum_values.0.value", "enum value 20 is above the max 10",
+		),
+		Entry("a JSON enum value below the min, which takes no scale",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 10, Pointer: "/v", Min: new(0.0),
+				EnumValues: []payload.FloatEntry{{Label: "OFF", Value: -1}},
+			}}),
+			"enum_values.0.value", "enum value -1 is below the min 0",
+		),
+		Entry("a binary default above the max",
+			canMessage("M", 1, icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				Name: "a", Scale: 1, BitLength: 8, ByteOrder: icd.ByteOrderLittleEndian,
+				Max: new(100.0), Default: new(payload.Unsigned(200)),
+			}}),
+			"default", "default 200 is above the max 100",
+		),
+		Entry("a text default below the min",
+			textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+				BaseField: icd.BaseField{Name: "temp", Scale: 1, Min: new(0.0)},
+				Tag:       "T",
+				Default:   new(payload.Float(-1)),
+			}}),
+			"default", "default -1 is below the min 0",
+		),
+		Entry("a default that is not finite, which reports only that",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 1, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Float(math.Inf(1))),
+			}}),
+			"default", "default must be finite",
+		),
+	)
+
+	DescribeTable("Should accept a value at a limit of its field",
+		func(m icd.Message) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
+			Expect(problemsOf(ic)).To(BeEmpty())
+		},
+		Entry("a scaled JSON default that float error puts above the max",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 0.1, Pointer: "/v",
+				Max: new(0.3), Default: new(payload.Float(3)),
+			}}),
+		),
+		Entry("a JSON enum value at the max",
+			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
+				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+				EnumValues: []payload.IntegerEntry{{Label: "HIGH", Value: 10}},
+			}}),
+		),
+		Entry("a binary default at the min",
+			canMessage("M", 1, icd.BinaryField{Variant: icd.IntegerBinaryField{
+				Name: "a", Scale: 1, BitLength: 8, ByteOrder: icd.ByteOrderLittleEndian,
+				Min: new(-5.0), Default: new(payload.Integer(-5)),
+			}}),
 		),
 	)
 

@@ -19,6 +19,7 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { caseconv, deep } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/device/scan";
 import {
   type Device,
   INTEGRATION_KEY,
@@ -26,7 +27,6 @@ import {
   SCHEMAS,
   ZERO_PROPERTIES,
 } from "@/feature/mqtt/device/types";
-import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
 import { Analytics } from "@/platform/analytics";
 import { Device as PlatformDevice } from "@/platform/device";
 

@@ -15,14 +15,18 @@ import {
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { color, location, uuid } from "@synnaxlabs/x";
+import { color, location, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { client, renderSchematic } from "@/feature/schematic/testutil";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
+import {
+  client,
+  preloadTab,
+  renderSchematic,
+  TabToolbar,
+} from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
@@ -54,7 +58,7 @@ const renderProperties = async ({
 }: RenderPropertiesParams) => {
   const Harness = (): ReactElement => (
     <>
-      <Toolbar />
+      <TabToolbar />
       <CaptureStatuses onStatuses={onStatuses} />
     </>
   );
@@ -137,6 +141,8 @@ const pollBothOrientations = async (key: string, rotated: string): Promise<void>
     .toEqual({ n1: rotated, n2: rotated });
 };
 
+preloadTab();
+
 describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {
     it("writes label edits back to the schematic config and the breadcrumb", async () => {
@@ -154,7 +160,6 @@ describe("Schematic toolbar Properties", () => {
     it("shows an edit that another client makes to the selected element", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
-      await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
       await act(async () => {
@@ -536,7 +541,7 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2", "n3"],
         createConfig: (key) => {
           if (key === "n1") return { ...createBoxConfig(), strokeColor: fixed(RED) };
-          if (key === "n2") return { ...createValveConfig(), stalenessColor: RED };
+          if (key === "n2") return { ...createValveConfig(), strokeColor: RED };
           return { ...createBoxConfig(), fillColor: fixed(GREEN) };
         },
       });
@@ -555,7 +560,7 @@ describe("Schematic toolbar Properties", () => {
           );
           return [
             fixedHexOf(n1.strokeColor),
-            hexOf(n2.stalenessColor),
+            hexOf(n2.strokeColor),
             fixedHexOf(n3.fillColor),
           ];
         })
@@ -631,17 +636,20 @@ describe("Schematic toolbar Properties", () => {
       expect(getSwatches("Selection")).toHaveLength(1);
     });
 
-    it("sets a staleness color only on the symbols that have staleness", async () => {
-      const { key } = await renderProperties({
+    it("sets a staleness timeout only on the symbols that have staleness", async () => {
+      const { key, result } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: (key) => (key === "n1" ? createValveConfig() : createBoxConfig()),
       });
       await screen.findByText("Staleness");
-      setRoleColor("Color", RED);
+      const input = getInputByItemLabel(result.container, "Timeout");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "7s" } });
+      fireEvent.blur(input);
       await expect
-        .poll(async () => hexOf((await retrieveConfig(key, "n1")).stalenessColor))
-        .toBe(RED);
-      expect((await retrieveConfig(key, "n2")).stalenessColor).toBeUndefined();
+        .poll(async () => (await retrieveConfig(key, "n1")).stalenessTimeout)
+        .toBe(TimeSpan.seconds(7).nanoseconds);
+      expect((await retrieveConfig(key, "n2")).stalenessTimeout).toBeUndefined();
     });
 
     it("hides the staleness group when no selected symbol has staleness", async () => {
@@ -674,7 +682,7 @@ describe("Schematic toolbar Properties", () => {
 
   describe("edges", () => {
     const renderWithEdge = async () => {
-      const Harness = (): ReactElement => <Toolbar />;
+      const Harness = (): ReactElement => <TabToolbar />;
       return await renderSchematic(Harness, {
         schematic: {
           nodes: ["n1", "n2"].map((key) => ({

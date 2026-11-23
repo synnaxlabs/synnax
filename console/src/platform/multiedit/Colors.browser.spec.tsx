@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { color } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -41,7 +41,6 @@ describe("ColorField", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     ({ wrapper } = await createConsoleWrapper({ client }));
-    await waitForStreamLive(client.connection);
   });
 
   it("should send a named reference for a palette pick", async () => {
@@ -115,7 +114,6 @@ describe("SelectionColors", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     ({ wrapper } = await createConsoleWrapper({ client }));
-    await waitForStreamLive(client.connection);
   });
 
   it("should group holders by named color, apart from fixed colors", async () => {
