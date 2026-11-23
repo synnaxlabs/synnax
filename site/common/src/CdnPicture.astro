@@ -1,0 +1,91 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { getImage, inferRemoteSize } from "astro:assets";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends Omit<
+    HTMLAttributes<"img">,
+    "src" | "srcset" | "sizes" | "width" | "height"
+> {
+    /** The URL of the image on the CDN. */
+    src: string;
+    /** The URL of a version of the image, at the same size, for a dark color scheme. */
+    dark?: string;
+    alt: string;
+    /** The rendered width of the image at each viewport, as in the `sizes` attribute. */
+    sizes: string;
+    /** Loads the image eagerly at high priority. Set only for the LCP image. */
+    priority?: boolean;
+    /** The class of the picture element. */
+    pictureClass?: string;
+    /** Encoding quality from 1 to 100. Defaults to the image service's default. */
+    quality?: number;
+}
+
+// Two pixels per CSS pixel at the widest content column.
+const WIDTHS = [640, 960, 1280, 1920, 2560];
+const DARK = "(prefers-color-scheme: dark)";
+
+const {
+    src,
+    dark,
+    sizes,
+    priority = false,
+    pictureClass,
+    quality,
+    loading = priority ? "eager" : "lazy",
+    decoding = priority ? "sync" : "async",
+    ...rest
+} = Astro.props;
+const size = await inferRemoteSize(src);
+// Sharp enlarges past the source width, which only adds bytes.
+const width = Math.min(size.width, WIDTHS[WIDTHS.length - 1]);
+const height = Math.round((size.height * width) / size.width);
+const widths = [...WIDTHS.filter((w) => w < width), width];
+const srcset = async (url: string, format: "avif" | "webp") =>
+    await getImage({ src: url, width, height, widths, format, quality });
+const [avif, webp, darkAvif, darkWebp] = await Promise.all([
+    srcset(src, "avif"),
+    srcset(src, "webp"),
+    ...(dark == null ? [] : [srcset(dark, "avif"), srcset(dark, "webp")]),
+]);
+---
+
+<picture class={pictureClass}>
+    {darkAvif != null && (
+        <source
+            media={DARK}
+            type="image/avif"
+            srcset={darkAvif.srcSet.attribute}
+            sizes={sizes}
+        />
+    )}
+    {darkWebp != null && (
+        <source
+            media={DARK}
+            type="image/webp"
+            srcset={darkWebp.srcSet.attribute}
+            sizes={sizes}
+        />
+    )}
+    <source type="image/avif" srcset={avif.srcSet.attribute} sizes={sizes} />
+    <img
+        {...rest}
+        loading={loading}
+        decoding={decoding}
+        fetchpriority={priority ? "high" : undefined}
+        src={webp.src}
+        srcset={webp.srcSet.attribute}
+        sizes={sizes}
+        width={width}
+        height={height}
+    />
+</picture>

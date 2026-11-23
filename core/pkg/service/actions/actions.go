@@ -131,13 +131,15 @@ func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
 }
 
 // Attach attaches actions on the entry with key to tx as one batch with the next
-// number, after the batches attached to tx before. The commit of tx delivers them. It
-// panics when tx is a DB.
-func (d Dispatcher[K, A]) Attach(tx gorp.Tx, key K, actions ...A) {
+// number, after the batches attached to tx before, and returns the number. The commit
+// of tx delivers them. It panics when tx is a DB.
+func (d Dispatcher[K, A]) Attach(tx gorp.Tx, key K, actions ...A) uint64 {
+	seq := d.state.seq.Add(1)
 	d.state.attached.Add(tx, Scoped[K, A]{
 		Key:         key,
 		DispatchKey: d.dispatchKey,
-		Seq:         d.state.seq.Add(1),
+		Seq:         seq,
 		Actions:     actions,
 	})
+	return seq
 }

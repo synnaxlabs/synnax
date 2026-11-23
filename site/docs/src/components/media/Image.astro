@@ -1,0 +1,68 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { inferRemoteSize } from "astro:assets";
+import type { ComponentProps } from "astro/types";
+
+import { CDN } from "@/components/media/cdn";
+
+interface Props extends Omit<
+    ComponentProps<typeof CdnPicture>,
+    "src" | "dark" | "sizes" | "pictureClass"
+> {
+    id: string;
+    /** Serves the dark version for a dark color scheme. Defaults to true. */
+    themed?: boolean;
+    extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
+    /** The rendered width of the image at each viewport. Defaults to the text column. */
+    sizes?: string;
+}
+
+const {
+    id,
+    themed = true,
+    extension = "png",
+    sizes = "min(100vw, 732px)",
+    class: className,
+    loading = "lazy",
+    ...rest
+} = Astro.props;
+const src = CDN.url(id, extension, themed ? "light" : undefined);
+const dark = themed ? CDN.url(id, extension, "dark") : undefined;
+const classes = ["docs-image", className].filter(Boolean).join(" ");
+if (themed && extension === "svg")
+    throw new Error(`docs image ${id}: a vector image cannot be themed`);
+// An image service does not rasterize a vector image, so it ships as is, at its size.
+const svg = extension === "svg" ? await inferRemoteSize(src) : null;
+---
+
+{svg != null ? (
+    <img
+        {...rest}
+        loading={loading}
+        decoding="async"
+        src={src}
+        width={svg.width}
+        height={svg.height}
+        class={classes}
+    />
+) : (
+    <CdnPicture
+        {...rest}
+        src={src}
+        dark={dark}
+        sizes={sizes}
+        class={classes}
+        pictureClass="docs-picture"
+        loading={loading}
+        quality={80}
+    />
+)}

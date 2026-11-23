@@ -118,7 +118,7 @@ class ModbusSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> modbus.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> modbus.Device:
         return modbus.Device(
             host=ModbusSim.host,
             port=ModbusSim.port,
@@ -177,7 +177,9 @@ class ModbusGatewaySim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int, unit_id: int = 1) -> modbus.Device:
+    def create_device(
+        client: sy.Synnax, rack_key: int, unit_id: int = 1
+    ) -> modbus.Device:
         return modbus.Device(
             host=ModbusGatewaySim.host,
             port=ModbusGatewaySim.port,
@@ -319,7 +321,9 @@ class ModbusSerialSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int, unit_id: int = 1) -> modbus.Device:
+    def create_device(
+        client: sy.Synnax, rack_key: int, unit_id: int = 1
+    ) -> modbus.Device:
         return modbus.Device(
             transport="rtu",
             serial_port=ModbusSerialSim.serial_port,

@@ -12,11 +12,11 @@ import {
   getViewportForBounds,
   useNodesInitialized,
   useReactFlow,
-  useStoreApi,
+  useReactFlowStoreApi,
 } from "@xyflow/react";
 import { useEffect, useRef } from "react";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { selectNodesScreenBounds } from "@/vis/diagram/util";
 
 /**
@@ -25,10 +25,11 @@ import { selectNodesScreenBounds } from "@/vis/diagram/util";
  * outside a node (a label) stays in view. Options follow React Flow's fitView.
  */
 export const useFitView = (): ((options?: diagram.FitViewOptions) => void) => {
-  const store = useStoreApi();
+  const { optionsStore, viewportStore } = useReactFlowStoreApi();
   const { screenToFlowPosition, setViewport } = useReactFlow();
   return (options?: diagram.FitViewOptions) => {
-    const { domNode, width, height, minZoom, maxZoom } = store.getState();
+    const { domNode, minZoom, maxZoom } = optionsStore.getState();
+    const { width, height } = viewportStore.getState();
     if (domNode == null) return;
     const screen = selectNodesScreenBounds(domNode);
     if (screen == null) return;
@@ -47,7 +48,7 @@ export const useFitView = (): ((options?: diagram.FitViewOptions) => void) => {
       height,
       options?.minZoom ?? minZoom,
       options?.maxZoom ?? maxZoom,
-      options?.padding ?? 0.1,
+      options?.padding ?? "4.5%",
     );
     void setViewport(viewport, options);
   };

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { channel } from "@/channel";
 import { DataType, NotFoundError } from "@/index";
-import { type query } from "@/query";
+import type { query } from "@/query";
 import { status } from "@/status";
 import {
   createTestClient,
@@ -114,8 +114,8 @@ describe("Status", () => {
 
     it("should keep the stored labels on an update and ignore the carried ones", async () => {
       const [held, carried] = await client.labels.create([
-        { name: "Held", color: color.construct("#0000FF") },
-        { name: "Carried", color: color.construct("#FF0000") },
+        { name: "Held", color: { type: "fixed", value: "#0000FF" } },
+        { name: "Carried", color: { type: "fixed", value: "#FF0000" } },
       ]);
       const key = uuid.create();
       await client.statuses.set({
@@ -674,11 +674,11 @@ describe("Status", () => {
     it("should correctly retrieve a status with labels attached", async () => {
       const label1 = await client.labels.create({
         name: "Label 1",
-        color: color.construct("#0000FF"),
+        color: { type: "fixed", value: "#0000FF" },
       });
       const label2 = await client.labels.create({
         name: "Label 2",
-        color: color.construct("#FF0000"),
+        color: { type: "fixed", value: "#FF0000" },
       });
       const stat = await client.statuses.set({
         name: "Idempotent",
@@ -702,7 +702,7 @@ describe("Status", () => {
     it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
-        color: color.construct("#00FF00"),
+        color: { type: "fixed", value: "#00FF00" },
       });
       const member = uuid.create();
       const joiner = uuid.create();
@@ -941,10 +941,11 @@ describe("Status", () => {
       onTestFinished(async () => await local.close());
       await local.connect();
       await waitForStreamLive(local.connection);
-      const handler = vi.fn<(written: status.Status) => void>();
+      const handler =
+        vi.fn<(written: status.Status, origin: status.WriteOrigin) => void>();
       onTestFinished(local.statuses.onWrite(handler));
       const keys = () => handler.mock.calls.map(([written]) => written.key);
-      return { local, keys };
+      return { local, handler, keys };
     };
 
     const createStatus = async (): Promise<status.Status> =>
@@ -957,9 +958,25 @@ describe("Status", () => {
       });
 
     it("should call the handler with a status another client writes", async () => {
-      const { keys } = await createListener();
+      const { handler, keys } = await createListener();
       const written = await createStatus();
       await expect.poll(keys).toContain(written.key);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ key: written.key }),
+        { local: false },
+      );
+    });
+
+    it("should call the handler with a local status and mark it local", async () => {
+      const { local, handler } = await createListener();
+      const stat = status.create({
+        key: id.create(),
+        name: "onWrite",
+        variant: "info",
+        message: "Set here",
+      });
+      local.statuses.setLocal(stat);
+      expect(handler).toHaveBeenCalledWith(stat, { local: true });
     });
 
     it("should skip a status that a retrieve brings into the cache", async () => {

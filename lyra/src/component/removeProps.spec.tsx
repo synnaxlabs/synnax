@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { removeProps } from "@/component/removeProps";
+import { Component } from "@/component";
 
 describe("removeProps", () => {
   // Test component that we'll use
@@ -27,7 +27,7 @@ describe("removeProps", () => {
   TestComponent.displayName = "TestComponent";
 
   it("should remove specified props from the component", () => {
-    const WrappedComponent = removeProps(TestComponent, ["unwantedProp"]);
+    const WrappedComponent = Component.removeProps(TestComponent, ["unwantedProp"]);
     const c = render(
       <WrappedComponent unwantedProp="should not pass" anotherProp="should pass" />,
     );
@@ -39,7 +39,7 @@ describe("removeProps", () => {
   it("should not pass the removed key to the component at all", () => {
     const Keys = (props: object) => <div>{Object.keys(props).join(",")}</div>;
     Keys.displayName = "Keys";
-    const WrappedComponent = removeProps(Keys, ["unwantedProp"]);
+    const WrappedComponent = Component.removeProps(Keys, ["unwantedProp"]);
     const c = render(<WrappedComponent {...{ unwantedProp: "a", anotherProp: "b" }} />);
     expect(c.container.textContent).toBe("anotherProp");
   });

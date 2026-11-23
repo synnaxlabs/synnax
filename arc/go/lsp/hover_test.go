@@ -803,6 +803,7 @@ func add() {a i32, b i32} i32 {
 		Entry("*=", "x *= 5", uint32(2), "*=", ""),
 		Entry("/=", "x /= 5", uint32(2), "/=", ""),
 		Entry("%=", "x %= 5", uint32(2), "%=", ""),
+		Entry("!= after a non-ASCII character", `"°" != y`, uint32(4), "!=", ""),
 	)
 
 	Describe("Edge Cases", func() {
@@ -927,6 +928,15 @@ func add() {a i32, b i32} i32 {
 				Expect(hover).ToNot(BeNil())
 				Expect(HoverContents(hover)).To(ContainSubstring("returns one"))
 				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
+			},
+		)
+
+		It(
+			"Should not provide hover for a member of a non-module head",
+			func(ctx SpecContext) {
+				content := "func b() {}\n\nfunc test() {\n    a := 1\n    a.b()\n}"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Hover(server, ctx, uri, 4, 6)).To(BeNil())
 			},
 		)
 

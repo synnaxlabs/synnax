@@ -11,6 +11,7 @@ package start_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -186,6 +188,125 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		viper.Set(start.FlagTaskWorkerCount, 255)
 		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
 			ToNot(HaveOccurred())
+	})
+
+	Describe("Auth methods", func() {
+		validateConfig := func() error {
+			GinkgoHelper()
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			return cfg.Validate()
+		}
+
+		It("Should accept every method when the flag is unset", func() {
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an explicitly empty list", func() {
+			viper.Set(start.FlagAuthMethods, []string{})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an unknown method", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password", "carrier_pigeon"})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("carrier_pigeon")))
+		})
+
+		It("Should refuse api_key off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			Expect(validateConfig()).To(
+				MatchError(ContainSubstring("must include api_key")),
+			)
+		})
+
+		It("Should allow password off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"api_key"})
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should allow api_key off when the embedded Driver is off", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			viper.Set(start.FlagNoDriver, true)
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+	})
+
+	Describe("OIDC providers", func() {
+		It("Should map each setting to its provider field", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{
+				"name":                   "idp",
+				"issuer":                 "https://idp.example.com",
+				"client-id":              "synnax",
+				"client-secret":          "secret",
+				"user-creation-disabled": true,
+			}})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			// the provider list is unexported, so the spec reads it from the config's
+			// printed form
+			Expect(fmt.Sprintf("%+v", cfg)).To(ContainSubstring(fmt.Sprintf(
+				"oidcProviders:[%+v]",
+				oidc.Provider{
+					Name:                 "idp",
+					Issuer:               "https://idp.example.com",
+					ClientID:             "synnax",
+					ClientSecret:         "secret",
+					UserCreationDisabled: true,
+				},
+			)))
+		})
+
+		It("Should hold no providers when the key is unset", func() {
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(fmt.Sprintf("%+v", cfg)).To(ContainSubstring("oidcProviders:[]"))
+		})
+
+		DescribeTable(
+			"Should reject a string setting of the wrong type",
+			func(key string) {
+				viper.Set(start.FlagOIDCProviders, []any{map[string]any{key: 1}})
+				Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+					To(MatchError(ContainSubstring(fmt.Sprintf(
+						"oidc-providers[0].%s must be a string, not int",
+						key,
+					))))
+			},
+			Entry("name", "name"),
+			Entry("issuer", "issuer"),
+			Entry("client ID", "client-id"),
+			Entry("client secret", "client-secret"),
+		)
+
+		It("Should reject a value that is not a list", func() {
+			viper.Set(start.FlagOIDCProviders, "idp")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("oidc-providers must be a list")),
+				))
+		})
+
+		It("Should reject an entry that is not an object", func() {
+			viper.Set(start.FlagOIDCProviders, []any{"idp"})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring("oidc-providers[0] must be an object")))
+		})
+
+		It("Should reject a setting of the wrong type", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{
+				"name":                   "idp",
+				"user-creation-disabled": "true",
+			}})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring(
+					"oidc-providers[0].user-creation-disabled must be a bool, not string",
+				)))
+		})
+
+		It("Should reject an unknown setting", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{"secret": "x"}})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring("oidc-providers[0].secret is not a setting")))
+		})
 	})
 
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {

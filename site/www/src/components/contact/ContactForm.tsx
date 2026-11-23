@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { capture } from "@synnaxlabs/site-common/analytics";
+import { send } from "@synnaxlabs/site-common/contact";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
@@ -49,19 +50,10 @@ export const ContactForm = (): ReactElement => {
       data.append("phone", value.phone);
       data.append("message", value.message);
       setLoading(true);
-      try {
-        const res = await fetch("https://formspree.io/f/mgegebvq", {
-          method: "POST",
-          body: data,
-          headers: { Accept: "application/json" },
-        });
-        if (res.ok) {
-          setSuccess(true);
-          capture("contact_form_submitted");
-        } else window.alert("Something went wrong. Please try again later.");
-      } catch {
-        window.alert("Something went wrong. Please try again later.");
-      }
+      if (await send(data)) {
+        setSuccess(true);
+        capture("contact_form_submitted");
+      } else window.alert("Something went wrong. Please try again later.");
       setLoading(false);
     })();
   };

@@ -13,7 +13,7 @@ import { requireStaff } from "@/access";
 import { failure, type LicenseList, loadScoped, readLicenses } from "@/page";
 import { Page } from "@/ui/Page";
 import { Admin as Console } from "@/ui/admin";
-import { type Listed } from "@/server/directory";
+import type { Listed } from "@/server/directory";
 
 const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type deep } from "@/deep";
+import type { deep } from "@/deep";
 
 describe("Partial", () => {
   it("should make all properties optional at first level", () => {

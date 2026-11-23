@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -59,10 +60,13 @@ type CoreConfig struct {
 	alamos.Instrumentation
 	dataPath             string
 	secretsKeyFile       string
+	secretsDir           string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	disabledIntegrations []string
+	authMethods          []auth.Method
+	oidcProviders        []oidc.Provider
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
 	taskShutdownTimeout  time.Duration
@@ -81,6 +85,11 @@ func defaultCoreConfig() CoreConfig {
 		certFactoryConfig: cert.DefaultFactoryConfig(),
 		// a Core installed before the flag existed starts without it
 		sessionIdleTimeout: auth.DefaultIdleTimeout,
+		authMethods: []auth.Method{
+			auth.MethodPassword,
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+		},
 	}
 }
 
@@ -116,6 +125,15 @@ func (c CoreConfig) Validate() error {
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
 	v.NotNil("update_backup_disabled", c.updateBackupDisabled)
+	v.NotEmptySlice("auth_methods", c.authMethods)
+	for _, m := range c.authMethods {
+		v.Ternaryf("auth_methods", !m.IsValid(), "unknown method %q", m)
+	}
+	v.Ternary(
+		"auth_methods",
+		c.driverEnabled() && !lo.Contains(c.authMethods, auth.MethodAPIKey),
+		"must include api_key while the embedded Driver is on",
+	)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
@@ -147,6 +165,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.secretsKey != secret.EncryptionKey{},
 		),
 		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
+		secretsDir:     override.String(c.secretsDir, other.secretsDir),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -161,6 +180,13 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.updateBackupDisabled,
 			other.updateBackupDisabled,
 		),
+		// An explicit empty list is kept so that Validate rejects it.
+		authMethods: override.If(
+			c.authMethods,
+			other.authMethods,
+			other.authMethods != nil,
+		),
+		oidcProviders: override.Slice(c.oidcProviders, other.oidcProviders),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -290,6 +316,12 @@ func BootupCore(
 		return errors.Mark(err, validate.ErrValidation)
 	}
 
+	if cfg.secretsDir != "" {
+		if cfg.secretsDir, err = filepath.Abs(cfg.secretsDir); !ok(err, nil) {
+			return errors.Wrap(err, "failed to resolve secrets folder")
+		}
+	}
+
 	listeners, err := cfg.listeners.Resolve(
 		securityProvider,
 		cfg.certFactoryConfig,
@@ -366,12 +398,15 @@ func BootupCore(
 		RootCredentials:    cfg.rootCredentials,
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
+		AuthMethods:        cfg.authMethods,
+		OIDCProviders:      cfg.oidcProviders,
 		License: license.ServiceConfig{
 			Key:      cfg.licenseKey,
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
 		SecretsKey:             secretsKey,
+		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
@@ -476,6 +511,7 @@ func BootupCore(
 			Keys:                serviceLayer.APIKey,
 			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
+			SecretsDir:          cfg.secretsDir,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
 			ParentDirname:       workDir,

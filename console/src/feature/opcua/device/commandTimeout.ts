@@ -9,7 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/client";
 
-import { type ConnectionConfig } from "@/feature/opcua/device/types";
+import type { ConnectionConfig } from "@/feature/opcua/device/types";
 
 const MARGIN = TimeSpan.seconds(2);
 
