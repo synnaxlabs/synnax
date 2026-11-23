@@ -79,6 +79,57 @@ var _ = Describe("Sorts", func() {
 		Expect(sorts[1].Leaf().Name).To(Equal("label"))
 	})
 
+	It("Should sort a sub-field of a generic struct by its type argument", func() {
+		param := resolution.TypeParam{Name: "T"}
+		Expect(table.Add(resolution.Type{
+			Name:          "Bounds",
+			QualifiedName: "test.Bounds",
+			Namespace:     "test",
+			Form: resolution.StructForm{
+				TypeParams: []resolution.TypeParam{param},
+				Fields: []resolution.Field{
+					{Name: "lower", Type: resolution.TypeRef{TypeParam: &param}},
+				},
+			},
+		})).To(Succeed())
+		sorts := MustSucceed(resolution.Sorts([]resolution.Field{
+			sorted("bounds", resolution.TypeRef{
+				Name:     "test.Bounds",
+				TypeArgs: []resolution.TypeRef{{Name: "int64"}},
+			}, "lower"),
+		}, table))
+		Expect(sorts).To(HaveLen(1))
+		Expect(sorts[0].Type).To(Equal(resolution.TypeRef{Name: "int64"}))
+	})
+
+	It("Should prefer a type argument over the type parameter's default", func() {
+		param := resolution.TypeParam{
+			Name:    "T",
+			Default: &resolution.TypeRef{Name: "float64"},
+		}
+		Expect(table.Add(resolution.Type{
+			Name:          "Bounds",
+			QualifiedName: "test.Bounds",
+			Namespace:     "test",
+			Form: resolution.StructForm{
+				TypeParams: []resolution.TypeParam{param},
+				Fields: []resolution.Field{
+					{Name: "lower", Type: resolution.TypeRef{TypeParam: &param}},
+				},
+			},
+		})).To(Succeed())
+		sorts := MustSucceed(resolution.Sorts([]resolution.Field{
+			sorted("bounds", resolution.TypeRef{
+				Name:     "test.Bounds",
+				TypeArgs: []resolution.TypeRef{{Name: "int64"}},
+			}, "lower"),
+			sorted("default_bounds", resolution.TypeRef{Name: "test.Bounds"}, "lower"),
+		}, table))
+		Expect(sorts).To(HaveLen(2))
+		Expect(sorts[0].Type).To(Equal(resolution.TypeRef{Name: "int64"}))
+		Expect(sorts[1].Type).To(Equal(resolution.TypeRef{Name: "float64"}))
+	})
+
 	It("Should return no sorts for unmarked fields", func() {
 		Expect(resolution.Sorts([]resolution.Field{
 			{Name: "count", Type: resolution.TypeRef{Name: "int32"}},

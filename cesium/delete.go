@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"path"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -84,7 +85,7 @@ func dirNameToKey(name string) (ChannelKey, error) {
 // removal that runs in Drop and logs a later one. The next Open removes a directory
 // that a failed removal renamed. A directory that keeps its name loads again at Open.
 func (db *DB) Drop(keys []ChannelKey) error {
-	db.mu.Lock()
+	db.lockRoot()
 	defer db.mu.Unlock()
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -327,7 +328,7 @@ func (db *DB) DeleteTimeRange(
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	db.mu.Lock()
+	db.lockRoot()
 	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
@@ -355,18 +356,12 @@ func (db *DB) DeleteTimeRange(
 		return channel.NewNotFoundError(ch)
 	}
 
-	for _, ch := range dataChannels {
-		if udb, ok := db.mu.dbs.unary[ch]; ok {
-			if err := udb.Delete(ctx, tr); err != nil {
-				return err
-			}
-		}
-	}
-
+	deleted := set.New(dataChannels...)
 	for _, ch := range indexChannels {
-		idxDB := db.mu.dbs.unary[ch]
 		for otherDBKey, otherDB := range db.mu.dbs.unary {
-			if otherDBKey == ch || otherDB.Channel().Index != ch {
+			if otherDBKey == ch ||
+				otherDB.Channel().Index != ch ||
+				deleted.Contains(otherDBKey) {
 				continue
 			}
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
@@ -379,11 +374,38 @@ func (db *DB) DeleteTimeRange(
 				))
 			}
 		}
-		if err := idxDB.Delete(ctx, tr); err != nil {
+	}
+
+	// Take every channel before the first delete, so that a channel a writer controls
+	// refuses the call before it deletes anything.
+	var (
+		dels     = make([]func(context.Context) error, 0, len(chs))
+		releases = make([]func(), 0, len(chs))
+		opened   = make(set.Set[ChannelKey], len(chs))
+	)
+	defer func() {
+		for _, release := range releases {
+			release()
+		}
+	}()
+	for _, ch := range slices.Concat(dataChannels, indexChannels) {
+		if opened.Contains(ch) {
+			continue
+		}
+		uDB := db.mu.dbs.unary[ch]
+		del, release, err := uDB.OpenDelete(tr)
+		if err != nil {
+			return err
+		}
+		opened.Add(ch)
+		dels = append(dels, del)
+		releases = append(releases, release)
+	}
+	for _, del := range dels {
+		if err := del(ctx); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

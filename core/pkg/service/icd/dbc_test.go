@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,12 +33,13 @@ type expectedFile struct {
 }
 
 type expectedMessage struct {
-	Name     string          `json:"name"`
-	ID       uint32          `json:"id"`
-	Extended bool            `json:"extended"`
-	FD       bool            `json:"fd"`
-	Length   uint16          `json:"length"`
-	Fields   []expectedField `json:"fields"`
+	Name      string          `json:"name"`
+	ID        uint32          `json:"id"`
+	Extended  bool            `json:"extended"`
+	FD        bool            `json:"fd"`
+	Length    uint16          `json:"length"`
+	CycleTime *float64        `json:"cycle_time"`
+	Fields    []expectedField `json:"fields"`
 }
 
 type expectedField struct {
@@ -77,15 +79,16 @@ func binaryFields(m icd.Message) []icd.BinaryField {
 	return binaryPayloadOf(m).Fields
 }
 
-func fieldNamed(m icd.Message, name string) icd.BinaryField {
+// fieldNamed returns the shared parts of the binary field of m with the given name.
+func fieldNamed(m icd.Message, name string) icd.BinaryBaseField {
 	GinkgoHelper()
 	for _, f := range binaryFields(m) {
-		if f.Name == name {
-			return f
+		if b := f.Base(); b.Name == name {
+			return b
 		}
 	}
 	Fail("no field named " + name)
-	return icd.BinaryField{}
+	return icd.BinaryBaseField{}
 }
 
 // toExpected converts parsed messages to the shape of the cantools decoding.
@@ -102,18 +105,22 @@ func toExpected(messages []icd.Message) []expectedMessage {
 			FD:       id.Fd,
 			Length:   *p.Length,
 		}
+		if m.CycleTime != nil {
+			em.CycleTime = new(float64(*m.CycleTime) / float64(telem.Millisecond))
+		}
 		fields := binaryFields(m)
 		names := make(map[icd.FieldKey]string, len(fields))
 		for _, f := range fields {
-			names[f.Key] = f.Name
+			names[f.Base().Key] = f.Base().Name
 		}
-		for _, f := range fields {
+		for _, field := range fields {
+			f := field.Base()
 			ef := expectedField{
 				Name:            f.Name,
 				StartBit:        f.StartBit,
 				BitLength:       f.BitLength,
 				ByteOrder:       f.ByteOrder,
-				Kind:            f.Kind,
+				Kind:            payload.Kind(field.Kind()),
 				Scale:           f.Scale,
 				Offset:          f.Offset,
 				Units:           f.Units,
@@ -207,7 +214,7 @@ var _ = Describe("Import DBC", func() {
 		for _, m := range messages {
 			keys.Add(m.Key)
 			for _, f := range binaryFields(m) {
-				keys.Add(f.Key)
+				keys.Add(f.Base().Key)
 			}
 		}
 		Expect(messages).To(HaveLen(5))
@@ -441,7 +448,7 @@ SIG_VALTYPE_ 256 A : 1;
 				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"Engine",
 			)
-			Expect(binaryFields(m)[0].Kind).To(Equal(payload.KindFloat))
+			Expect(binaryFields(m)[0].Kind()).To(Equal(icd.FloatBinaryFieldType))
 		},
 	)
 
@@ -639,5 +646,25 @@ SIG_VALTYPE_ 256 A : 1;
 		Entry("a signal of more than 64 bits", `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|65@1+ (1,0) [0|0] "" Ecu
 `, "line 10: signal A has 65 bits, not 1 to 64"),
+		Entry("a negative cycle time", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
+BA_ "GenMsgCycleTime" BO_ 256 -5;
+`, "line 12: message Engine has a cycle time out of range: -5 ms"),
+		Entry("a negative default cycle time", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
+BA_DEF_DEF_ "GenMsgCycleTime" -5;
+`, "line 12: message Engine has a cycle time out of range: -5 ms"),
+		Entry("a cycle time past the longest time span", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1e300;
+BA_ "GenMsgCycleTime" BO_ 256 1e300;
+`, "line 12: message Engine has a cycle time out of range: 1e+300 ms"),
+		Entry("a cycle time shorter than a nanosecond", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1;
+BA_ "GenMsgCycleTime" BO_ 256 1e-9;
+`, "line 12: message Engine has a cycle time out of range: 1e-09 ms"),
 	)
 })

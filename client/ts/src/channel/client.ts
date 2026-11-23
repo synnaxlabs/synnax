@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   control,
@@ -23,7 +23,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type batch } from "@/batch";
+import type { batch } from "@/batch";
 import {
   type Action,
   dispatchReqZ,
@@ -64,13 +64,13 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/channel/where.gen";
-import { type Writer } from "@/channel/writer";
+import type { Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type resource } from "@/resource";
-import { type status } from "@/status";
+import type { resource } from "@/resource";
+import type { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
@@ -483,7 +483,7 @@ export class Client extends query.Retriever<
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(
+  override async retrieve(
     params: Key | Name | RetrieveSingleParams | OneParams,
   ): Promise<Channel>;
 
@@ -495,11 +495,11 @@ export class Client extends query.Retriever<
    * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
    */
-  async retrieve(
+  override async retrieve(
     params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
-  async retrieve(
+  override async retrieve(
     params:
       | PrimitiveParams
       | Payload[]

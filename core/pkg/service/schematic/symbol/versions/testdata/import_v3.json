@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "type": "schematic_symbol",
+  "key": "22222222-3333-4444-5555-666666666666",
+  "name": "Two State Symbol",
+  "data": {
+    "svg": "<svg><rect id=\"body\"/></svg>",
+    "states": [
+      {
+        "key": "base",
+        "name": "Base",
+        "regions": [
+          {
+            "key": "r1",
+            "name": "Body",
+            "selectors": ["#body"],
+            "stroke_color": "#111111",
+            "fill_color": "#222222"
+          }
+        ]
+      },
+      {
+        "key": "active",
+        "name": "Active",
+        "regions": [
+          {
+            "key": "r1",
+            "name": "Body",
+            "selectors": ["#body"],
+            "stroke_color": "#333333",
+            "fill_color": "#444444"
+          }
+        ]
+      }
+    ],
+    "variant": "actuator",
+    "handles": [],
+    "scale": 1,
+    "stroke_scaled": false
+  }
+}

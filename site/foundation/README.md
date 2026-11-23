@@ -71,8 +71,8 @@ visibility. CI uses the repository's shared TypeScript workflow.
 
 The Vercel project is `synnax/foundation`. Its root is `site/foundation`, with workspace
 files outside the root included. The package's `vercel.json` installs the frozen pnpm
-workspace and runs `pnpm build:foundation` from the repository root. The Node version
-follows the repository's Node 24 runtime.
+workspace and runs `pnpm build:foundation` from the repository root. The Node.js version
+follows `devEngines.runtime` in the root `package.json`.
 
 From the repository root, an authenticated Vercel CLI can create a preview:
 

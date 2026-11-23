@@ -15,7 +15,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, type RenderOptions, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/platform/access";

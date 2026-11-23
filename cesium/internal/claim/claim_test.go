@@ -65,6 +65,14 @@ var _ = Describe("Claim", func() {
 			Expect(s.Open(cfg)).Error().To(MatchError(claim.ErrClaimed))
 		})
 
+		It("Should refuse a claim that reaches an exclusive claim", func() {
+			cfg := live(10 * telem.SecondTS)
+			cfg.Exclusive = true
+			MustSucceed(s.Open(cfg))
+			Expect(s.Open(live(5 * telem.SecondTS))).Error().
+				To(MatchError(claim.ErrClaimed))
+		})
+
 		It("Should refuse a bounded claim that starts inside a claim", func() {
 			MustSucceed(s.Open(live(10 * telem.SecondTS)))
 			Expect(s.Open(claim.Config[*int]{

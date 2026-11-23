@@ -254,6 +254,121 @@ Log struct {
 	})
 })
 
+var _ = Describe("Stored reference to a struct that holds a struct", func() {
+	// log v0 pins color v0, and color v0's Color holds color v0's Shade. The codec and
+	// specs of the current log package take the Shade at v0 too, not at color's
+	// current version.
+	generate := func(color string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		shade := `
+Shade struct {
+	r uint8
+
+	@go marshal
+}
+`
+		band := `
+Band struct {
+	color Color
+
+	@go marshal
+}
+`
+		write("schemas/x/versions/color/v0.oracle", shade+color)
+		write("schemas/x/versions/color/v1.oracle", `
+Shade = v0.Shade
+
+Color = v0.Color
+`+band)
+		write("schemas/x/color.oracle", `
+@go output "x/go/color"
+`+shade+color+band)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			[]string{"schemas/x/color", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+		resp := MustSucceed(marshal.New(marshal.Options{
+			FileNamePattern:     "codec.gen.go",
+			TestFileNamePattern: "codec_gen_test.go",
+			GenerateTests:       true,
+			RequireVersioned:    true,
+		}).Generate(req))
+		files := make(map[string]string)
+		for _, f := range resp.Files {
+			files[f.Path] = string(f.Content)
+		}
+		return files
+	}
+
+	It("Should import the pinned version for the fields of a pinned struct", func() {
+		files := generate(`
+Color struct {
+	shade Shade
+
+	@go marshal
+}
+`)
+		specs := files["core/pkg/service/log/versions/v0/codec_gen_test.go"]
+		Expect(specs).To(ContainSubstring("Color: color.Color{Shade: color.Shade{"))
+		Expect(specs).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+		Expect(files["core/pkg/service/log/versions/v0/codec.gen.go"]).
+			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+
+	It("Should import the pinned version for the fields of an inlined generic", func() {
+		files := generate(`
+Color struct<T = uint8> {
+	shades Shade[]
+	alpha  T
+
+	@go marshal
+}
+`)
+		codec := files["core/pkg/service/log/versions/v0/codec.gen.go"]
+		Expect(codec).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(codec).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+		Expect(files["core/pkg/service/log/versions/v0/codec_gen_test.go"]).
+			ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+})
+
 var _ = Describe("Stored reference in a generic declaration", func() {
 	// log v0's generic Wrapper pins color v0, which color v1 only aliases, so the
 	// generic fixture in the current package's specs imports v0 too.

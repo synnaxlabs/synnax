@@ -26,12 +26,12 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 
 type State = z.infer<typeof canvas.canvasStateZ>;
 
@@ -239,6 +239,15 @@ export const Canvas = ({
       </Context>
     </div>
   );
+};
+
+/**
+ * @returns the top left of the mounted canvas in client pixels, or null when no canvas
+ * is mounted.
+ */
+export const topLeft = (): xy.XY | null => {
+  const container = document.querySelector(`.${CSS.B("canvas-container")}`);
+  return container == null ? null : box.topLeft(container);
 };
 
 export const useRegion = (

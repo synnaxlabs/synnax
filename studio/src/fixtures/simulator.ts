@@ -17,12 +17,13 @@ import { portInUse } from "@/fixtures/core";
 
 const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
 const CORE = path.resolve(import.meta.dirname, "../../../core");
-const KAFKA_MAIN = path.join(import.meta.dirname, "kafka/main.go");
+/** The fake servers that run as Go programs in the core module. */
+const GO_MAINS = { kafka: "./cmd/studio/kafka", sift: "./cmd/studio/sift" };
 
 const READY_TIMEOUT_MS = 30_000;
 
-/** Long enough for the first `go run` of the Kafka broker to compile. */
-const KAFKA_READY_TIMEOUT_MS = 180_000;
+/** Long enough for the first `go run` of a Go server to compile. */
+const GO_READY_TIMEOUT_MS = 180_000;
 
 const STOP_TIMEOUT_MS = 10_000;
 
@@ -58,7 +59,7 @@ const PROGRAMS = {
 
 export interface SimulatorOptions {
   /** The protocol of the server. */
-  protocol: keyof typeof PROGRAMS | "kafka";
+  protocol: keyof typeof PROGRAMS | keyof typeof GO_MAINS;
   /** Port the server listens on. */
   port: number;
   /** Address the server listens on. Defaults to 127.0.0.1. */
@@ -73,8 +74,8 @@ export interface SimulatorFixture {
 /**
  * simulator runs a device server from the Python client examples, the same servers the
  * driver integration tests use, so the real Driver connects to it and reads its values.
- * A Kafka server is the fake broker in `kafka/main.go`. Refuses to start if the port is
- * in use.
+ * A Kafka or Sift server is the Go fake in `core/cmd/studio`. Refuses to start if the
+ * port is in use.
  */
 export const simulator = async ({
   protocol,
@@ -84,17 +85,17 @@ export const simulator = async ({
   if (await portInUse(port)) throw new Error(`port ${port} is already in use`);
   const env = { ...process.env };
   delete env.VIRTUAL_ENV;
-  const [command, args, cwd]: [string, string[], string] =
-    protocol === "kafka"
-      ? ["go", ["run", KAFKA_MAIN, `--port=${port}`], CORE]
-      : ["uv", ["run", "python", "-c", PROGRAMS[protocol](host, port)], CLIENT_PY];
+  const goMain = protocol === "kafka" || protocol === "sift";
+  const [command, args, cwd]: [string, string[], string] = goMain
+    ? ["go", ["run", GO_MAINS[protocol], `--port=${port}`], CORE]
+    : ["uv", ["run", "python", "-c", PROGRAMS[protocol](host, port)], CLIENT_PY];
   const proc = spawn(command, args, { cwd, env, stdio: "ignore", detached: true });
   const stop = async (): Promise<void> => {
     if (proc.exitCode != null || proc.pid == null) return;
     // uv and go run their programs as children, so signal the whole group.
     process.kill(-proc.pid, "SIGTERM");
     await once(proc, "exit");
-    // `go run` exits before the broker it started closes its port.
+    // `go run` exits before the server it started closes its port.
     const closing = new breaker.Breaker({
       baseInterval: TimeSpan.milliseconds(POLL_MS),
       maxRetries: STOP_TIMEOUT_MS / POLL_MS,
@@ -103,7 +104,7 @@ export const simulator = async ({
       if (!(await closing.wait()))
         throw new Error(`${protocol} server did not close port ${port} in time`);
   };
-  const timeout = protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS;
+  const timeout = goMain ? GO_READY_TIMEOUT_MS : READY_TIMEOUT_MS;
   const ready = new breaker.Breaker({
     baseInterval: TimeSpan.milliseconds(POLL_MS),
     maxRetries: timeout / POLL_MS,

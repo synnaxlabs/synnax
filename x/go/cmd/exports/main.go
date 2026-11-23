@@ -17,7 +17,12 @@
 //	  <module dir>...
 //
 // The gates file holds {"gated": [{"module": "core", "usage": "unused"}, ...]}, where
-// usage is "unused" or "tests-only".
+// usage is "unused" or "tests-only". Its "pending" list holds identifiers whose first
+// caller is in an open pull request: {"module", "package", "receiver" (for a method),
+// "name", "caller" (the pull request URL)}. With -base, the command drops their
+// findings and fails on an entry of a checked module that matches no finding, so delete
+// the entry when its caller lands. The nightly "Check - Go exports" workflow passes
+// neither -base nor -gates, so it still reports each pending identifier.
 package main
 
 import (
@@ -58,12 +63,15 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
-		var file struct{ Gated []exports.Gate }
+		var file struct {
+			Gated   []exports.Gate
+			Pending []exports.Pending
+		}
 		if err := json.Unmarshal(data, &file); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
-		cfg.Gated = file.Gated
+		cfg.Gated, cfg.Pending = file.Gated, file.Pending
 	}
 	findings, err := exports.Check(context.Background(), cfg)
 	if err != nil {
