@@ -29,6 +29,25 @@
       "receiver": "JSONEncoder",
       "name": "HasDefault",
       "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffect",
+      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffects",
+      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Table",
+      "name": "PlanDelete",
+      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
     }
   ]
 }
