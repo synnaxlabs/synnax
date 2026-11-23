@@ -58,6 +58,7 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
   /** shown is the value whose looks the control shows. */
   shown: number;
+  looks: Look[];
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -81,6 +82,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...inspector,
     ...field,
     shown,
+    looks,
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
@@ -217,9 +219,8 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, onChange, label } =
+  const { value, inherited, part, at, values, looks, onChange, label } =
     useScope<"hidden">("VisibleControl");
-  const looks = Form.useFieldValue(path.data.looks);
   // A part shown at every value stores false when the drawing hides at any value.
   const drawingHides =
     part != null &&
@@ -254,16 +255,15 @@ const BlinkControl = (): ReactElement => {
   );
 };
 
-type MotionKind = schematic.symbol.Motion["type"];
-type Loop = Extract<MotionKind, "spin" | "flow">;
+type Loop = Extract<schematic.symbol.MotionType, "spin" | "flow">;
 
 interface MotionGroup {
   name: string;
-  kinds: { kind: MotionKind; name: string }[];
+  kinds: { kind: schematic.symbol.MotionType; name: string }[];
 }
 
-// MOTIONS groups the kinds by how they move. The picker offers only the loops, since
-// a motion that follows a value needs a number state.
+// MOTIONS groups the kinds by how they move. The picker offers only the loops, since a
+// motion that follows a value needs a number state.
 const MOTIONS: MotionGroup[] = [
   {
     name: "Follow a value",
@@ -282,7 +282,8 @@ const MOTIONS: MotionGroup[] = [
   },
 ];
 
-const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
+const isLoop = (kind: schematic.symbol.MotionType): kind is Loop =>
+  kind === "spin" || kind === "flow";
 
 // The picker sets only loops. It shows a motion that follows a value, so a pick
 // replaces it in sight.
@@ -293,7 +294,7 @@ const MotionControl = (): ReactElement => {
     useScope<"motion">("MotionControl");
   const locked = inherited != null && own == null;
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
-  const handleKindChange = (kind: MotionKind | "none") => {
+  const handleKindChange = (kind: schematic.symbol.MotionType | "none") => {
     if (kind === "none") return onChange(undefined);
     if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
     onChange(
@@ -304,7 +305,8 @@ const MotionControl = (): ReactElement => {
   };
   return (
     <Flex.Box y align="end" gap="small">
-      <Select.Buttons<MotionKind | "none">
+      <Select.Buttons<schematic.symbol.MotionType | "none">
+        aria-label={label}
         value={value?.type ?? "none"}
         onChange={handleKindChange}
         size="small"

@@ -35,6 +35,7 @@ import {
   client,
   createSymbolPayload,
   getEditSectionHeaderButton,
+  getInspector,
   getOverlayHandles,
   getPartListItem,
   getPreviewTransformWrapper,
@@ -288,6 +289,21 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect(await savedLooks(createKey)).toEqual([
           expect.objectContaining({ motion: { type: "spin", rate: 2 } }),
+        ]),
+      );
+    });
+
+    it("keeps the rate when a spin turns into a flow", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      fireEvent.change(rate, { target: { value: "2" } });
+      fireEvent.blur(rate);
+      fireEvent.click(screen.getByText("Flow"));
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "flow", rate: 2 } }),
         ]),
       );
     });
@@ -850,15 +866,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(blink("Base"));
       await waitFor(() => expect(blink("Base").checked).toBe(true));
       byState("Motion");
-      const base = Array.from(
-        document.querySelectorAll<HTMLElement>(".console-schematic-inspector__value"),
-      ).find(
-        (row) =>
-          within(row).queryByText("Base") != null &&
-          within(row).queryByText("Spin") != null,
+      fireEvent.click(
+        within(screen.getByLabelText("Motion while Base")).getByText("Spin"),
       );
-      assertDefined(base);
-      fireEvent.click(within(base).getByText("Spin"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([
@@ -876,11 +886,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("fits the motion picker and its By state button in the inspector", async () => {
       await openPainted({ variant: "actuator", states: [createState()] });
-      const inspector = document.querySelector(".console-schematic-inspector");
-      assertDefined(inspector);
       const header = screen.getByText("Motion").parentElement;
       assertDefined(header);
-      const right = inspector.getBoundingClientRect().right;
+      const right = getInspector().getBoundingClientRect().right;
       for (const el of [within(header).getByText("By state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
     });
