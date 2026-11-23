@@ -64,12 +64,7 @@ func start(c *checkpoint.Checkpointer) {
 	ran := make(chan error, 1)
 	go func() { ran <- c.Run(ctx) }()
 	DeferCleanup(func() {
-		err := c.Err()
-		if err != nil {
-			Expect(c.Close()).To(MatchError(err))
-		} else {
-			Expect(c.Close()).To(Succeed())
-		}
+		Expect(c.Close()).To(Succeed())
 		Eventually(ran).Should(Receive(BeNil()))
 		cancel()
 	})
@@ -155,7 +150,6 @@ var _ = Describe("Checkpointer", func() {
 						return exists(checkpoint.Name(1)) || exists(log.Name(1))
 					}).WithTimeout(fileTimeout).Should(BeFalse())
 					Expect(exists(checkpoint.Name(2))).To(BeTrue())
-					Expect(c.Err()).ToNot(HaveOccurred())
 				},
 			)
 
@@ -171,16 +165,11 @@ var _ = Describe("Checkpointer", func() {
 				)
 				Expect(leftover.Close()).To(Succeed())
 				c.Head(2, sample(2))
-				Eventually(c.Err).
-					WithTimeout(fileTimeout).
-					Should(MatchError(ContainSubstring("exists")))
-				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
-				Expect(exists(log.Name(1))).To(BeTrue())
 				c.Head(3, sample(2))
 				Eventually(func() error { return readErr(fs, 3) }).
 					WithTimeout(fileTimeout).
 					Should(Succeed())
-				Eventually(c.Err).WithTimeout(fileTimeout).Should(Succeed())
+				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
 				Expect(exists(checkpoint.Name(1))).To(BeTrue(), "the newest older head")
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
@@ -299,7 +288,6 @@ var _ = Describe("Checkpointer", func() {
 				Eventually(func() error { return readErr(fs, 2) }).
 					WithTimeout(fileTimeout).
 					Should(Succeed())
-				Eventually(cp.Err).WithTimeout(fileTimeout).Should(Succeed())
 				_, head := MustSucceed2(checkpoint.Read(fs, 2))
 				next := MustSucceed(
 					log.DecodeHeader(fileBytes(fs, log.Name(2)), db, 2, 0),

@@ -118,8 +118,8 @@ func (c *Checkpointer) Head(generation uint64, s *state.Snapshot) {
 	c.signal()
 }
 
-// Err returns the error of the last head, or nil once a later head succeeds.
-func (c *Checkpointer) Err() error {
+// err returns the error of the last head, or nil once a later head succeeds.
+func (c *Checkpointer) err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.mu.err
@@ -198,12 +198,12 @@ func countLogs(fs xfs.FS, below uint64) (int, error) {
 }
 
 // Close stops the checkpointer after its queued work, waits for Run to return, and
-// returns Err.
+// returns the error of the last head, or nil once a later head succeeds.
 func (c *Checkpointer) Close() error {
 	c.mu.Lock()
 	c.mu.closed = true
 	c.mu.Unlock()
 	c.signal()
 	<-c.exit
-	return c.Err()
+	return c.err()
 }
