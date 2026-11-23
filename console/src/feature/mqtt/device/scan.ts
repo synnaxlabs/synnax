@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { mqtt, type task } from "@synnaxlabs/client";
-import { payload, record } from "@synnaxlabs/x";
+import { json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const SCAN_TYPE = "mqtt_scan";
@@ -17,12 +17,14 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
 
-const browsedFieldZ = z.object({
-  pointer: z.string(),
-  type: payload.jsonTypeZ,
-  /** The start of the JSON text of the value. */
-  sample: z.string(),
-});
+// The kind is absent when the topic holds more fields than the Core infers.
+const browsedFieldZ = json.inferredFieldZ
+  .pick({ pointer: true, type: true, kind: true, timeFormat: true })
+  .partial({ kind: true })
+  .extend({
+    /** The start of the JSON text of the value. */
+    sample: z.string(),
+  });
 
 export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
 
@@ -32,6 +34,8 @@ const browsedTopicZ = z.object({
   payload: z.string(),
   /** The scalars of the whole last payload. */
   fields: browsedFieldZ.array(),
+  /** The pointer of the timestamp in fields that indexes the messages heard. */
+  index: z.string().optional(),
   retained: z.boolean(),
 });
 

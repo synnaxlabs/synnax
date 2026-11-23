@@ -47,6 +47,8 @@ export interface Kind<E extends HeldEntry> {
   tagNoun?: string;
   /** Each topic takes one value, and a topic that the task holds takes none. */
   single?: boolean;
+  /** A pick of a topic that the task does not read takes its index too. */
+  indexed?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: E[]) => E[];
   /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
@@ -105,6 +107,7 @@ export const Discover = <E extends HeldEntry>({
             device={device}
             entries={entries}
             single={kind.single}
+            indexed={kind.indexed}
             value={topicPicks}
             onChange={setTopicPicks}
             onAddByName={(topic) => close([...picked(), createTopic(topic)])}
