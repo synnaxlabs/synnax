@@ -151,7 +151,8 @@ describe("BuiltIns", () => {
   });
 
   it("should fail a fetch with no answer in 10 seconds", async () => {
-    vi.useFakeTimers();
+    // Only the timers are fake: a fake clock would skew the shared client's heartbeat.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     onTestFinished(() => {
       vi.useRealTimers();
     });
