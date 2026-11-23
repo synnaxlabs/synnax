@@ -72,3 +72,23 @@ func Dependents[K gorp.Key, E gorp.Entry[K]](
 		return ID{Type: Type(d.Holder.Table), Key: d.Holder.Key}
 	}), nil
 }
+
+// Uses returns the ID of every record that holds a use reference to the entry of table
+// with key, as seen by snap. It blocks and fails as gorp.Table.Uses does.
+func Uses[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	snap gorp.Snapshot,
+	table *gorp.Table[K, E],
+	key K,
+) ([]ID, error) {
+	return targetIDs(table.Uses(ctx, snap, key))
+}
+
+func targetIDs(targets []gorp.Target, err error) ([]ID, error) {
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(targets, func(t gorp.Target, _ int) ID {
+		return ID{Type: Type(t.Table), Key: t.Key}
+	}), nil
+}

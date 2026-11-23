@@ -63,13 +63,12 @@ export class MiddlewareCollector {
    * finalizer throws.
    */
   async executeMiddleware(ctx: Context, finalizer: Finalizer): Promise<Context> {
-    let i = 0;
-    const next = async (md: Context): Promise<Context> => {
-      if (i === this.middleware.length) return await finalizer(md);
-      const _mw = this.middleware[i];
-      i++;
-      return await _mw(md, next);
-    };
-    return await next(ctx);
+    const next =
+      (i: number): Next =>
+      async (md: Context): Promise<Context> => {
+        if (i === this.middleware.length) return await finalizer(md);
+        return await this.middleware[i](md, next(i + 1));
+      };
+    return await next(0)(ctx);
   }
 }

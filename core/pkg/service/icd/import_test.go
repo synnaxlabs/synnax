@@ -82,13 +82,15 @@ func checkImport(t *testing.T, messages []icd.Message, err error) {
 			t.Fatalf("message %s has payload %T", m.Name, m.Payload.Variant)
 		}
 		fields := make(set.Set[icd.FieldKey], len(p.Fields))
-		for _, f := range p.Fields {
+		for _, field := range p.Fields {
+			f := field.Base()
 			if fields.Contains(f.Key) {
 				t.Fatalf("message %s has duplicate field key %s", m.Name, f.Key)
 			}
 			fields.Add(f.Key)
 		}
-		for _, f := range p.Fields {
+		for _, field := range p.Fields {
+			f := field.Base()
 			for _, v := range []*float64{&f.Scale, &f.Offset, f.Min, f.Max} {
 				if v != nil && (math.IsNaN(*v) || math.IsInf(*v, 0)) {
 					t.Fatalf(
@@ -214,7 +216,7 @@ var _ = Describe("Import", func() {
 		Expect(res.Messages).To(HaveLen(1))
 		m := res.Messages[0]
 		Expect(m.Name).To(Equal("Engine"))
-		Expect(binaryFieldOf(m, 1).Name).To(Equal("Gear"))
+		Expect(binaryFieldOf(m, 1).Base().Name).To(Equal("Gear"))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
 	})
 
@@ -294,7 +296,7 @@ var _ = Describe("Import", func() {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
 		res := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV, csv))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
-		Expect(icd.Check(res)).To(ConsistOf(validate.Problem{
+		Expect(problemsOf(res)).To(ConsistOf(problem{
 			Path:    "messages.0.payload.fields.1.name",
 			Message: `duplicate field name "a"`,
 		}))

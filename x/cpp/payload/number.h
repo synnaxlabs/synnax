@@ -31,6 +31,12 @@ struct Float {
     /// @brief serializes the float as a JSON number, or as its text when it is not
     /// finite.
     [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief converts the float to its protobuf form.
+    [[nodiscard]] double to_proto() const { return this->value; }
+
+    /// @brief creates a Float from its protobuf form.
+    static Float from_proto(const double pb) { return Float{pb}; }
 };
 
 /// @brief Integer is a signed 64-bit integer. It is a JSON string of decimal digits,
@@ -48,6 +54,12 @@ struct Integer {
 
     /// @brief serializes the integer as a JSON string of decimal digits.
     [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief converts the integer to its protobuf form.
+    [[nodiscard]] std::int64_t to_proto() const { return this->value; }
+
+    /// @brief creates an Integer from its protobuf form.
+    static Integer from_proto(const std::int64_t pb) { return Integer{pb}; }
 };
 
 /// @brief Unsigned is an unsigned 64-bit integer. It is a JSON string of decimal
@@ -66,6 +78,12 @@ struct Unsigned {
 
     /// @brief serializes the unsigned integer as a JSON string of decimal digits.
     [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief converts the unsigned integer to its protobuf form.
+    [[nodiscard]] std::uint64_t to_proto() const { return this->value; }
+
+    /// @brief creates an Unsigned from its protobuf form.
+    static Unsigned from_proto(const std::uint64_t pb) { return Unsigned{pb}; }
 };
 
 /// @brief lets nlohmann::json assign a Float as its JSON form.

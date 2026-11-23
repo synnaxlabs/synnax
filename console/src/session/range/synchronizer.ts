@@ -17,7 +17,7 @@ import {
   remove,
   type StoreState,
 } from "@/session/range/slice";
-import { type Synchronizer } from "@/session/synchronizer";
+import type { Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {

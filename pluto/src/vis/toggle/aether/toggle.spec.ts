@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { noopBooleanSinkSpec, noopBooleanSourceSpec } from "@/telem/aether/noop";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
@@ -211,8 +211,8 @@ describe("toggle/aether/Toggle", () => {
         () =>
           Toggle.use({
             aetherKey: "tgl",
-            source: noopBooleanSourceSpec,
-            sink: noopBooleanSinkSpec,
+            source: telem.noopBooleanSourceSpec,
+            sink: telem.noopBooleanSinkSpec,
           }),
         { wrapper: TestWrapper },
       );

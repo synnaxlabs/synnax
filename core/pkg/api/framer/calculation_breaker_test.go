@@ -68,8 +68,8 @@ var _ = Describe("Calculation breaker", func() {
 			Expect(apiSvc.Read(
 				subjectCtx(ctx, u.ResourceID()),
 				apiframer.ReadRequest{
-					Keys:   channel.Keys{output.Key()},
-					Bounds: telem.TimeRangeMax,
+					Keys:       channel.Keys{output.Key()},
+					TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 				},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
@@ -95,8 +95,8 @@ var _ = Describe("Calculation breaker", func() {
 			_, err := apiSvc.Read(
 				subjectCtx(ctx, u.ResourceID()),
 				apiframer.ReadRequest{
-					Keys:   channel.Keys{output.Key()},
-					Bounds: telem.TimeRangeMax,
+					Keys:       channel.Keys{output.Key()},
+					TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 				},
 			)
 			Expect(err).ToNot(

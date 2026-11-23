@@ -1,21 +1,16 @@
 ---
-title: "Version 0.61 release notes"
+title: "Arc modules, EtherCAT clock sync, MQTT, Kafka, and updates you can undo"
+version: "0.61.0"
+desktopVersion: "1.1.0"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
 import { Video } from "@/components/media/Media";
-import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Releases.Release
-    version="0.61.0"
-    desktopVersion="1.1.0"
-    breakingChanges
-    title="Arc modules, EtherCAT clock sync, MQTT, Kafka, and updates you can undo"
->
 
 <Hero.Hero
   still="releases/0-61-0/hero"
@@ -504,5 +499,3 @@ Driver.
   Click **Trust and connect** in the connect dialog. `uint8` maps to Byte, not Boolean.
 - LabVIEW: `synnax_client_open` takes `api_key` after `password`. Update the call node
   of `synnax client open.vi`.
-
-</Releases.Release>
