@@ -364,7 +364,7 @@ describe("table/Toolbar", () => {
   });
 
   it("stores a multi-cell staleness color", async () => {
-    const { key } = await renderTable(Toolbar, {
+    const { key } = await renderTable(TabToolbar, {
       table: {
         name: uniqueName("table"),
         ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
