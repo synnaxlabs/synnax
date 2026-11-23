@@ -73,10 +73,10 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const { part, preview } = inspector;
+  const { part, preview, values } = inspector;
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
-  const shown = at ?? preview;
+  const shown: Spec.At = { state: values.state, value: at ?? preview };
   return {
     ...inspector,
     ...field,
@@ -100,7 +100,8 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static"
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, field.field, v, at));
+      const edited = at == null ? undefined : { state: values.state, value: at };
+      set(path.data, Spec.setOwn(from, part, field.field, v, edited));
     },
   };
 };
@@ -125,16 +126,20 @@ const Property = ({
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
+  const { state } = values;
+  const [split, setSplit] = useState(() =>
+    Spec.variesByValue({ looks }, part, field, state),
+  );
   const several = values.values.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
-  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const varies =
+    several && (split || Spec.variesByValue({ looks }, part, field, state));
   const handleVariesChange = (next: boolean) => {
     const keys = values.values.map((v) => v.value);
     set(
       path.data,
-      Spec.setVariesByValue(get(path.data).value, part, field, keys, next),
+      Spec.setVariesByValue(get(path.data).value, part, field, state, keys, next),
     );
     setSplit(next);
   };
@@ -222,7 +227,11 @@ const VisibleControl = (): ReactElement => {
     part != null &&
     (at == null
       ? values.values.some(
-          (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
+          (v) =>
+            Spec.effective({ looks }, undefined, "hidden", {
+              state: values.state,
+              value: v.value,
+            }) === true,
         )
       : inherited === true);
   return (
@@ -359,8 +368,8 @@ const MotionControl = (): ReactElement => {
 
 export interface InspectorProps {
   part: Spec.Target;
-  /** preview is the value that the canvas draws. */
-  preview: number;
+  /** preview is the value of a state that the canvas draws. */
+  preview: Spec.At;
 }
 
 const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
@@ -418,7 +427,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
   const parts = Form.useFieldValue(path.data.parts);
   const drawing = Form.useFieldValue(path.data.drawing);
   const looks = Form.useFieldValue(path.data.looks);
-  const values = useValues();
+  const values = useValues(preview.state);
   const part = parts.find((p) => p.key === key);
   const drawn =
     part == null
@@ -429,7 +438,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
       : undefined;
   return (
-    <InspectorContext value={{ part: part?.key, preview, values }}>
+    <InspectorContext value={{ part: part?.key, preview: preview.value, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
         <Flex.Box y gap={0}>
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>

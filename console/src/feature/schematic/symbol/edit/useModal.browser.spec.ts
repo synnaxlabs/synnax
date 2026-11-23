@@ -825,6 +825,45 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("hides a part at a value of the state picked in the preview bar", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]),
+      );
+    });
+
+    it("lists every entry of the enumeration of a picked state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "warn", value: 1, name: "Warn" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      fireEvent.click(screen.getByText("Fault"));
+      byState("Visible");
+      expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
+      expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
+    });
+
     it("clears the hide of a part at a value and keeps the values shown", async () => {
       const symbol = await openPainted({
         variant: "actuator",
