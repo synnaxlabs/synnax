@@ -45,6 +45,23 @@ cmd = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+# The ICD message holds the format of the payload. The position field takes the value
+# of the command channel, and the other fields send their defaults.
+position_field = sy.icd.FloatJSONField(name="position", pointer="/position")
+message = sy.icd.Message(
+    name="Valve command",
+    payload=sy.icd.JSONPayload(
+        fields=[
+            position_field,
+            sy.icd.StringJSONField(name="source", pointer="/source", default="synnax"),
+            sy.icd.UuidJSONField(
+                name="id", pointer="/id", default=sy.icd.RandomUUIDDefault()
+            ),
+        ]
+    ),
+)
+icd = client.icds.create(name="Mock MQTT plant commands", messages=[message])
+
 tsk = mqtt.WriteTask(
     name="MQTT Py - Write Task",
     device=dev.key,
@@ -52,18 +69,15 @@ tsk = mqtt.WriteTask(
         mqtt.PlainWriteTarget(
             topic="plant/valve/set",
             qos="at_least_once",
-            channel=mqtt.ChannelField(
-                pointer="/position",
-                json_type="number",
-                channel=cmd.key,
-                data_type=sy.DataType.FLOAT64,
+            icd=icd.key,
+            message=sy.icd.WriteMessage(
+                message=message.key,
+                bindings=[
+                    sy.icd.ChannelWriteBinding(
+                        field=position_field.key, channel=cmd.key
+                    )
+                ],
             ),
-            fields=[
-                mqtt.StaticWriteField(
-                    pointer="/source", json_type="string", value="synnax"
-                ),
-                mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
-            ],
         ),
     ],
 )
