@@ -560,6 +560,14 @@ describe("symbol editor spec", () => {
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
     });
 
+    it("should skip a level motion on a look of no value", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", when: equals(), motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
     it("should count a level motion on a value of another state", () => {
       const spec = createSpec({
         drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),

@@ -874,7 +874,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("lists every entry of the enumeration of a picked state", async () => {
+    it("lists each entry of a picked state and each value that a look names", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("fault"),
         entries: [
@@ -884,11 +884,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
-      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+        looks: [
+          {
+            key: "odd",
+            part: "body",
+            when: { type: "equals", state: "fault", values: [5] },
+            hidden: true,
+          },
+        ],
+      });
       fireEvent.click(screen.getByText("Fault"));
-      byState("Visible");
       expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
       expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
+      expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
+        false,
+      );
     });
 
     it("clears the hide of a part at a value and keeps the values shown", async () => {

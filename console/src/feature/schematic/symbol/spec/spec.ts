@@ -221,7 +221,10 @@ export const levelIssues = (
   const issues = new Map<string, LevelIssue>();
   const levels = new Set(
     spec.looks.flatMap((l) =>
-      l.motion?.type === "level" && l.part != null ? [l.part] : [],
+      // A look on no value never applies, and the editor cannot reach it.
+      l.motion?.type === "level" && l.part != null && l.when?.values.length !== 0
+        ? [l.part]
+        : [],
     ),
   );
   if (levels.size === 0) return issues;

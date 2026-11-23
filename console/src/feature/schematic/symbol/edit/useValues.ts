@@ -37,11 +37,13 @@ export interface Values {
  * @returns the values of the enumeration state key of the symbol in the form. With no
  * such state, it edits STATE, or else the first enumeration state. STATE keeps the
  * values of the variant. Another state takes the entries of its enumeration, or 0 and 1
- * as an actuator draws them when it has none.
+ * as an actuator draws them when it has none, and each value that a look names. It
+ * lists no values while the enumeration loads.
  */
 export const useValues = (key?: string): Values => {
   const all = Form.useFieldValue(path.data.states);
   const variant = Form.useFieldValue(path.data.variant);
+  const looks = Form.useFieldValue(path.data.looks);
   const states = all.filter(
     (s): s is schematic.symbol.EnumerationState => s.type === "enumeration",
   );
@@ -55,13 +57,24 @@ export const useValues = (key?: string): Values => {
   );
   const resolve = Color.useResolve();
   const entries = res.variant === "success" ? res.data.entries : undefined;
+  const listOther = (): Schematic.Node.Custom.Value[] => {
+    if (state?.enumeration != null && res.variant === "loading") return [];
+    const listed =
+      state?.enumeration == null
+        ? Schematic.Node.Custom.listValues({ variant: "actuator" })
+        : (entries ?? []).map(({ key, value, name }) => ({ key, value, name }));
+    const named = looks.flatMap((l) =>
+      l.when?.state === stateKey ? l.when.values : [],
+    );
+    const extra = [...new Set(named)]
+      .filter((v) => !listed.some((l) => l.value === v))
+      .map((v) => ({ key: String(v), value: v, name: String(v) }));
+    return [...listed, ...extra].sort((a, b) => a.value - b.value);
+  };
   const values =
-    stateKey === Spec.STATE || entries == null || entries.length === 0
-      ? Schematic.Node.Custom.listValues(
-          { variant: stateKey === Spec.STATE ? variant : "actuator" },
-          entries,
-        )
-      : entries.map(({ key, value, name }) => ({ key, value, name }));
+    stateKey === Spec.STATE
+      ? Schematic.Node.Custom.listValues({ variant }, entries)
+      : listOther();
   return {
     state: stateKey,
     states,
