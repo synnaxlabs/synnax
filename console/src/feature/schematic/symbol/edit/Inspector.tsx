@@ -289,7 +289,6 @@ export interface InspectorProps {
   preview: number;
 }
 
-/** Inspector edits the looks of one part, or of the whole drawing. */
 const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
   {
     shapes: {
@@ -304,6 +303,7 @@ const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: stri
     },
   };
 
+/** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
   const drawing = Form.useFieldValue(path.data.drawing);
