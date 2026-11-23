@@ -444,30 +444,44 @@ class RetrieveRequest(BaseModel):
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pipe edges."""
+
     variant: Literal["pipe"] = "pipe"
 
 
 class ElectricEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for electrical edges."""
+
     variant: Literal["electric"] = "electric"
 
 
 class SecondaryEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for secondary edges."""
+
     variant: Literal["secondary"] = "secondary"
 
 
 class JacketedEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for jacketed edges."""
+
     variant: Literal["jacketed"] = "jacketed"
 
 
 class HydraulicEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for hydraulic edges."""
+
     variant: Literal["hydraulic"] = "hydraulic"
 
 
 class PneumaticEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pneumatic edges."""
+
     variant: Literal["pneumatic"] = "pneumatic"
 
 
 class DataEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for data edges."""
+
     variant: Literal["data"] = "data"
 
 
@@ -559,104 +573,154 @@ class ToggleSymbolConfig(ToggleConfig):
 
 
 class CapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for cap symbols."""
+
     variant: Literal["cap"] = "cap"
 
 
 class FilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for filter symbols."""
+
     variant: Literal["filter"] = "filter"
 
 
 class FlowStraightenerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for flow straightener symbols."""
+
     variant: Literal["flow_straightener"] = "flow_straightener"
 
 
 class HeaterElementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for heater element symbols."""
+
     variant: Literal["heater_element"] = "heater_element"
 
 
 class IsoCapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO cap symbols."""
+
     variant: Literal["iso_cap"] = "iso_cap"
 
 
 class IsoFilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO filter symbols."""
+
     variant: Literal["iso_filter"] = "iso_filter"
 
 
 class NozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle symbols."""
+
     variant: Literal["nozzle"] = "nozzle"
 
 
 class OrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice symbols."""
+
     variant: Literal["orifice"] = "orifice"
 
 
 class OrificePlateNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice plate symbols."""
+
     variant: Literal["orifice_plate"] = "orifice_plate"
 
 
 class StrainerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer symbols."""
+
     variant: Literal["strainer"] = "strainer"
 
 
 class StrainerConeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer cone symbols."""
+
     variant: Literal["strainer_cone"] = "strainer_cone"
 
 
 class ThrusterNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for thruster symbols."""
+
     variant: Literal["thruster"] = "thruster"
 
 
 class VentNodeConfig(StaticSymbolConfig):
+    """Is the configuration for vent symbols."""
+
     variant: Literal["vent"] = "vent"
 
 
 class FlowmeterGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general flowmeter symbols."""
+
     variant: Literal["flowmeter_general"] = "flowmeter_general"
 
 
 class FlowmeterElectromagneticNodeConfig(StaticSymbolConfig):
+    """Is the configuration for electromagnetic flowmeter symbols."""
+
     variant: Literal["flowmeter_electromagnetic"] = "flowmeter_electromagnetic"
 
 
 class FlowmeterVariableAreaNodeConfig(StaticSymbolConfig):
+    """Is the configuration for variable area flowmeter symbols."""
+
     variant: Literal["flowmeter_variable_area"] = "flowmeter_variable_area"
 
 
 class FlowmeterCoriolisNodeConfig(StaticSymbolConfig):
+    """Is the configuration for Coriolis flowmeter symbols."""
+
     variant: Literal["flowmeter_coriolis"] = "flowmeter_coriolis"
 
 
 class FlowmeterNozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle flowmeter symbols."""
+
     variant: Literal["flowmeter_nozzle"] = "flowmeter_nozzle"
 
 
 class FlowmeterVenturiNodeConfig(StaticSymbolConfig):
+    """Is the configuration for venturi flowmeter symbols."""
+
     variant: Literal["flowmeter_venturi"] = "flowmeter_venturi"
 
 
 class FlowmeterRingPistonNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ring piston flowmeter symbols."""
+
     variant: Literal["flowmeter_ring_piston"] = "flowmeter_ring_piston"
 
 
 class FlowmeterPositiveDisplacementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for positive displacement flowmeter symbols."""
+
     variant: Literal["flowmeter_positive_displacement"] = (
         "flowmeter_positive_displacement"
     )
 
 
 class FlowmeterTurbineNodeConfig(StaticSymbolConfig):
+    """Is the configuration for turbine flowmeter symbols."""
+
     variant: Literal["flowmeter_turbine"] = "flowmeter_turbine"
 
 
 class FlowmeterPulseNodeConfig(StaticSymbolConfig):
+    """Is the configuration for pulse flowmeter symbols."""
+
     variant: Literal["flowmeter_pulse"] = "flowmeter_pulse"
 
 
 class FlowmeterFloatSensorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for float sensor flowmeter symbols."""
+
     variant: Literal["flowmeter_float_sensor"] = "flowmeter_float_sensor"
 
 
 class FlowmeterOrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice flowmeter symbols."""
+
     variant: Literal["flowmeter_orifice"] = "flowmeter_orifice"
 
 
