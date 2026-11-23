@@ -31,7 +31,7 @@ const renderItems = async () => {
   const resource = createDeviceResource(dev);
   const onConfigure = vi.fn();
   const handle = await renderMenuItem(
-    <Sift.Device.ContextMenuItems
+    <Sift.ContextMenuItems
       {...createBaseProps({ client, store: await createTestStore() })}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
@@ -42,7 +42,7 @@ const renderItems = async () => {
   return { ...handle, dev, onConfigure };
 };
 
-describe("Sift.Device.ContextMenuItems", () => {
+describe("Sift.ContextMenuItems", () => {
   it("should open the connection of the selected device for editing", async () => {
     const { dev, onConfigure } = await renderItems();
     fireEvent.click(await screen.findByText("Edit connection"));

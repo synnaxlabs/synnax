@@ -31,7 +31,7 @@ const renderItems = async () => {
   const propsStore = await createTestStore();
   const resource = createDeviceResource(dev);
   const handle = await renderMenuItem(
-    <MQTT.Device.ContextMenuItems
+    <MQTT.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
@@ -44,7 +44,7 @@ const renderItems = async () => {
   return { ...handle, dev };
 };
 
-describe("MQTT.Device.ContextMenuItems", () => {
+describe("MQTT.ContextMenuItems", () => {
   it("should create read and write task drafts bound to the device", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
