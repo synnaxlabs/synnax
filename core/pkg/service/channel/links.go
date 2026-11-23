@@ -26,72 +26,91 @@ import (
 )
 
 // LinkWriter returns the JSON options that write each channel key as the exact path of
-// its channel, as snap sees it, and a key of no channel as 0. The options cache each
-// path they write, so pass one value to every file of one export. They are not safe for
+// its channel, as snap sees it, and a key of no channel as 0. A channel that readable
+// refuses, or that sits in a folder readable refuses, writes its raw key, so the file
+// names no record that the exporting subject cannot retrieve. The options cache each
+// link they write, so pass one value to every file of one export. They are not safe for
 // concurrent use.
-func (s *Service) LinkWriter(ctx context.Context, snap gorp.Snapshot) json.Options {
+func (s *Service) LinkWriter(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	readable func(resource.ID) bool,
+) json.Options {
 	w := &linkWriter{
 		ctx:      ctx,
 		snap:     snap,
 		svc:      s,
-		paths:    make(map[Key]string),
-		prefixes: make(map[group.Key]string),
+		readable: readable,
+		links:    make(map[Key]link),
+		prefixes: make(map[group.Key]link),
 	}
 	return json.WithMarshalers(json.MarshalToFunc(w.write))
 }
 
+// link is how a channel or a folder appears in an exported file: its path text, or
+// hidden when the exporting subject cannot retrieve it or a folder above it.
+type link struct {
+	text   string
+	hidden bool
+}
+
 type linkWriter struct {
-	ctx  context.Context
-	snap gorp.Snapshot
-	svc  *Service
-	// paths holds the path of each key written so far, or "" for a key of no channel.
-	paths map[Key]string
+	ctx      context.Context
+	snap     gorp.Snapshot
+	svc      *Service
+	readable func(resource.ID) bool
+	// links holds the link of each key written so far. A key of no channel has an
+	// empty text.
+	links map[Key]link
 	// prefixes holds the path text of each folder read so far, with a trailing
 	// separator.
-	prefixes map[group.Key]string
+	prefixes map[group.Key]link
 }
 
 func (w *linkWriter) write(enc *jsontext.Encoder, k Key) error {
-	p, err := w.path(k)
+	l, err := w.link(k)
 	if err != nil {
 		return err
 	}
-	if p == "" {
+	switch {
+	case l.hidden:
+		return enc.WriteToken(jsontext.Uint(uint64(k)))
+	case l.text == "":
 		return enc.WriteToken(jsontext.Uint(0))
+	default:
+		return enc.WriteToken(jsontext.String(l.text))
 	}
-	return enc.WriteToken(jsontext.String(p))
 }
 
-func (w *linkWriter) path(k Key) (string, error) {
+func (w *linkWriter) link(k Key) (link, error) {
 	if k == 0 {
-		return "", nil
+		return link{}, nil
 	}
-	if p, ok := w.paths[k]; ok {
-		return p, nil
+	if l, ok := w.links[k]; ok {
+		return l, nil
 	}
 	sibling, ok, err := w.svc.indexes.sibling.Value(w.ctx, w.snap, k)
 	if err != nil {
-		return "", err
+		return link{}, err
 	}
-	if !ok {
-		w.paths[k] = ""
-		return "", nil
-	}
-	p := sibling.Name
-	if sibling.Parent != (group.Key{}) {
+	l := link{text: sibling.Name, hidden: !w.readable(ResourceID(k))}
+	switch {
+	case !ok:
+		l = link{}
+	case !l.hidden && sibling.Parent != (group.Key{}):
 		prefix, err := w.prefix(sibling.Parent)
 		if err != nil {
-			return "", err
+			return link{}, err
 		}
-		p = prefix + p
+		l = link{text: prefix.text + l.text, hidden: prefix.hidden}
 	}
-	w.paths[k] = p
-	return p, nil
+	w.links[k] = l
+	return l, nil
 }
 
 // prefix returns the path text of folder with a trailing separator. It builds on the
 // prefix of the folder's parent, so sibling folders share their ancestors' lookups.
-func (w *linkWriter) prefix(folder group.Key) (string, error) {
+func (w *linkWriter) prefix(folder group.Key) (link, error) {
 	if prefix, ok := w.prefixes[folder]; ok {
 		return prefix, nil
 	}
@@ -101,18 +120,22 @@ func (w *linkWriter) prefix(folder group.Key) (string, error) {
 		gorp.NewTarget(string(resource.TypeGroup), folder),
 	)
 	if err != nil {
-		return "", err
+		return link{}, err
 	}
 	if !ok {
-		return "", errors.Wrapf(query.ErrNotFound, "folder %s", folder)
+		return link{}, errors.Wrapf(query.ErrNotFound, "folder %s", folder)
 	}
-	var parent string
-	if sibling.Parent != (group.Key{}) {
-		if parent, err = w.prefix(sibling.Parent); err != nil {
-			return "", err
+	prefix := link{
+		text:   sibling.Name + string(validate.PathSeparator),
+		hidden: !w.readable(group.ResourceID(folder)),
+	}
+	if !prefix.hidden && sibling.Parent != (group.Key{}) {
+		parent, err := w.prefix(sibling.Parent)
+		if err != nil {
+			return link{}, err
 		}
+		prefix = link{text: parent.text + prefix.text, hidden: parent.hidden}
 	}
-	prefix := parent + sibling.Name + string(validate.PathSeparator)
 	w.prefixes[folder] = prefix
 	return prefix, nil
 }

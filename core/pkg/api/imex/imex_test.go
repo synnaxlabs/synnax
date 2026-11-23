@@ -373,7 +373,13 @@ func logChannels(ctx SpecContext, id resource.ID) []channel.Key {
 }
 
 var _ = Describe("Channel links", func() {
-	It("Should export each channel of a log as its path", func(ctx SpecContext) {
+	// exportedChannels creates a log in proj whose entry holds ch, exports it as the
+	// subject that subject returns for it, and returns the channel of each entry.
+	exportedChannels := func(
+		ctx SpecContext,
+		subject func(log.Log) freighter.Context,
+	) []any {
+		GinkgoHelper()
 		l := defaults.Fill(log.Log{
 			Name:    "Links",
 			Project: new(proj.Key),
@@ -385,17 +391,45 @@ var _ = Describe("Channel links", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return logSvc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
-		env := MustSucceed(
-			export(rootCtx(ctx), apiimex.ExportRequest(log.ResourceID(l.Key))),
-		)
+		req := apiimex.ExportRequest(log.ResourceID(l.Key))
+		env := MustSucceed(export(subject(l), req))
 		var body struct {
 			Channels []struct {
 				Channel any `json:"channel"`
 			} `json:"channels"`
 		}
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).To(Succeed())
-		Expect(body.Channels).To(HaveLen(1))
-		Expect(body.Channels[0].Channel).To(Equal(chName))
+		channels := make([]any, len(body.Channels))
+		for i, e := range body.Channels {
+			channels[i] = e.Channel
+		}
+		return channels
+	}
+
+	It("Should export each channel of a log as its path", func(ctx SpecContext) {
+		Expect(exportedChannels(ctx, func(log.Log) freighter.Context {
+			return rootCtx(ctx)
+		})).To(Equal([]any{chName}))
+	})
+
+	It("Should export the raw key of a channel the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "exporter-" + uuid.New().String(),
+		}))
+		Expect(exportedChannels(ctx, func(l log.Log) freighter.Context {
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				u.Key,
+				[]access.Action{access.ActionRetrieve},
+				log.ResourceID(l.Key),
+			))
+			return subjectCtx(ctx, u)
+		})).To(ConsistOf(BeNumerically("==", ch)))
 	})
 
 	It("Should import a log that names its channel by path", func(ctx SpecContext) {

@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +44,7 @@ var _ = Describe("Links", Ordered, func() {
 		stand, sensors       string
 		rootName, nestedName string
 		root, nested         channel.Key
+		standKey             group.Key
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -58,6 +60,7 @@ var _ = Describe("Links", Ordered, func() {
 			if err := groupSvc.NewWriter(tx).Create(ctx, &standFolder); err != nil {
 				return err
 			}
+			standKey = standFolder.Key
 			sensorsFolder := group.Group{
 				Name:   sensors,
 				Scope:  resource.TypeChannel,
@@ -94,7 +97,8 @@ var _ = Describe("Links", Ordered, func() {
 				}
 				v.Inner.Channel = nested
 				nestedPath := stand + "." + sensors + "." + nestedName
-				Expect(json.Marshal(v, svc.LinkWriter(ctx, db))).To(MatchJSON(`{
+				links := svc.LinkWriter(ctx, db, readAll)
+				Expect(json.Marshal(v, links)).To(MatchJSON(`{
 				"channel": "` + rootName + `",
 				"channels": ["` + nestedPath + `", "` + rootName + `"],
 				"inner": {"channel": "` + nestedPath + `"},
@@ -107,8 +111,45 @@ var _ = Describe("Links", Ordered, func() {
 			"Should write 0 for key 0 and for a key of no channel",
 			func(ctx SpecContext) {
 				v := linked{Channels: []channel.Key{nested + 1000}}
-				Expect(json.Marshal(v, svc.LinkWriter(ctx, db))).To(MatchJSON(
-					`{"channel": 0, "channels": [0], "inner": {"channel": 0}, "rate": 0}`,
+				links := svc.LinkWriter(ctx, db, readAll)
+				Expect(json.Marshal(v, links)).To(MatchJSON(`{
+					"channel": 0, "channels": [0], "inner": {"channel": 0}, "rate": 0
+				}`))
+			},
+		)
+	})
+
+	Describe("LinkWriter access", func() {
+		nestedPath := func() string { return stand + "." + sensors + "." + nestedName }
+
+		It("Should write the raw key of a channel that readable refuses", func(
+			ctx SpecContext,
+		) {
+			refused := channel.ResourceID(root)
+			readable := func(id resource.ID) bool { return id != refused }
+			v := linked{Channel: root, Channels: []channel.Key{nested}}
+			Expect(json.Marshal(v, svc.LinkWriter(ctx, db, readable))).To(MatchJSON(
+				fmt.Sprintf(
+					`{"channel": %d, "channels": [%q], "inner": {"channel": 0}, `+
+						`"rate": 0}`,
+					root,
+					nestedPath(),
+				),
+			))
+		})
+
+		It("Should write the raw key of a channel below a folder that readable refuses",
+			func(ctx SpecContext) {
+				refused := group.ResourceID(standKey)
+				readable := func(id resource.ID) bool { return id != refused }
+				v := linked{Channel: root, Channels: []channel.Key{nested}}
+				Expect(json.Marshal(v, svc.LinkWriter(ctx, db, readable))).To(MatchJSON(
+					fmt.Sprintf(
+						`{"channel": %q, "channels": [%d], "inner": {"channel": 0}, `+
+							`"rate": 0}`,
+						rootName,
+						nested,
+					),
 				))
 			},
 		)
@@ -165,7 +206,7 @@ var _ = Describe("Links", Ordered, func() {
 
 		It("Should read back the keys that a LinkWriter wrote", func(ctx SpecContext) {
 			v := linked{Channel: nested, Channels: []channel.Key{root, nested}}
-			b := MustSucceed(json.Marshal(v, svc.LinkWriter(ctx, db)))
+			b := MustSucceed(json.Marshal(v, svc.LinkWriter(ctx, db, readAll)))
 			r := svc.NewLinkReader(ctx, db)
 			var read linked
 			Expect(json.Unmarshal(b, &read, r.Options())).To(Succeed())

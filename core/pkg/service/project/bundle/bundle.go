@@ -142,6 +142,7 @@ func (s *Service) Export(
 	snap gorp.Snapshot,
 	key project.Key,
 	encoder encoding.FileEncoder,
+	readable func(resource.ID) bool,
 ) (zip.Files, []resource.ID, error) {
 	var proj project.Project
 	if err := s.cfg.Project.NewRetrieve().
@@ -168,7 +169,7 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	files := make(zip.Files, len(w.refs)+len(w.panels)+1)
-	links := s.cfg.Channel.LinkWriter(ctx, snap)
+	links := s.cfg.Channel.LinkWriter(ctx, snap, readable)
 	for id, path := range w.refs {
 		env, err := s.cfg.ImEx.Export(ctx, snap, id)
 		if err != nil {
