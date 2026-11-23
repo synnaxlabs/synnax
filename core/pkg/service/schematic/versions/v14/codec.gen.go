@@ -185,22 +185,41 @@ func (ec *EdgeConfig) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (fc FormatConfig) EncodeOrc(w *orc.Writer) error {
-	w.String(fc.Units)
+	if fc.Units != nil {
+		w.Bool(true)
+		w.String(*fc.Units)
+	} else {
+		w.Bool(false)
+	}
 	if fc.Precision != nil {
 		w.Bool(true)
 		w.Uint8(uint8(*fc.Precision))
 	} else {
 		w.Bool(false)
 	}
-	w.String(string(fc.Notation))
+	if fc.Notation != nil {
+		w.Bool(true)
+		w.String(string(*fc.Notation))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (fc *FormatConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if fc.Units, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			fc.Units = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -216,11 +235,21 @@ func (fc *FormatConfig) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		rawV, err := r.String()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		fc.Notation = notation.Notation(rawV)
+		if present {
+			var hv notation.Notation
+			{
+				rawV, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = notation.Notation(rawV)
+			}
+			fc.Notation = &hv
+		}
 	}
 	return nil
 }
@@ -3600,14 +3629,24 @@ func (s *Source) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (sb StateBinding) EncodeOrc(w *orc.Writer) error {
-	w.String(sb.Units)
+	if sb.Units != nil {
+		w.Bool(true)
+		w.String(*sb.Units)
+	} else {
+		w.Bool(false)
+	}
 	if sb.Precision != nil {
 		w.Bool(true)
 		w.Uint8(uint8(*sb.Precision))
 	} else {
 		w.Bool(false)
 	}
-	w.String(string(sb.Notation))
+	if sb.Notation != nil {
+		w.Bool(true)
+		w.String(string(*sb.Notation))
+	} else {
+		w.Bool(false)
+	}
 	w.String(sb.Key)
 	if sb.Source != nil {
 		w.Bool(true)
@@ -3650,8 +3689,18 @@ func (sb StateBinding) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (sb *StateBinding) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if sb.Units, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			sb.Units = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -3667,11 +3716,21 @@ func (sb *StateBinding) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		rawV, err := r.String()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		sb.Notation = notation.Notation(rawV)
+		if present {
+			var hv notation.Notation
+			{
+				rawV, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = notation.Notation(rawV)
+			}
+			sb.Notation = &hv
+		}
 	}
 	if sb.Key, err = r.String(); err != nil {
 		return err
