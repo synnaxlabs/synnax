@@ -10,20 +10,8 @@
 import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id, TimeStamp } from "@synnaxlabs/x";
 
-import type { Description } from "@/feature/ethercat/device/settings";
-import {
-  MAKE,
-  type PDOs,
-  SLAVE_MODEL,
-  SLAVE_SCHEMAS,
-  type SlaveDevice,
-  type SlaveProperties,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
-import {
-  READ_CHANNEL_SCHEMAS,
-  WRITE_CHANNEL_SCHEMAS,
-} from "@/feature/ethercat/task/types";
+import { Device } from "@/feature/ethercat/device";
+import { Task } from "@/feature/ethercat/task";
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -46,7 +34,7 @@ export const CONTROL_ENTRY: ethercat.PDOEntry = {
 };
 
 /** Builds a PDO set with one input ("Status") and one output ("Control") entry. */
-export const createPDOs = (): PDOs => ({
+export const createPDOs = (): Device.PDOs => ({
   inputs: [STATUS_ENTRY],
   outputs: [CONTROL_ENTRY],
 });
@@ -56,7 +44,7 @@ export const createPDOs = (): PDOs => ({
  * eight one-bit entries per direction that share one name, told apart by their PDO
  * names ("Channel 1" to "Channel 8") and addresses (0x6000:01 to 0x6070:01).
  */
-export const createRepeatedNamePDOs = (): PDOs => {
+export const createRepeatedNamePDOs = (): Device.PDOs => {
   const channels = Array.from({ length: 8 }, (_, i) => i);
   const entry = (name: string, base: number, i: number): ethercat.PDOEntry => ({
     name,
@@ -100,7 +88,7 @@ export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
  */
 export const createExcitationDescription = (
   held: { polarity?: number; voltage?: number } = {},
-): Description => {
+): Device.Settings.Description => {
   const polarity = { index: 0x8040, subIndex: 0x21 };
   const voltage = {
     index: 0x8040,
@@ -146,7 +134,7 @@ export const createExcitationDescription = (
  * input one of two. A bridge shows an excitation voltage from 0 to 24 V and needs one
  * above 0.
  */
-export const createSettingsDescription = (): Description => {
+export const createSettingsDescription = (): Device.Settings.Description => {
   const measurement = { index: 0x8040, subIndex: 1 };
   const ranges = ["50 V", "10 V", "3 V", "1 V", "0.1 V"];
   return {
@@ -237,7 +225,7 @@ export const createSettingsDescription = (): Description => {
  * 0x8040:15 and the offset at 0x8040:14 calibrating the samples of
  * {@link STRAIN_ENTRY}.
  */
-export const createCalibratedDescription = (): Description => {
+export const createCalibratedDescription = (): Device.Settings.Description => {
   const description = createSettingsDescription();
   description.channels[0].entries[0].calibration = {
     dataType: "int32",
@@ -258,7 +246,7 @@ export const createCalibratedDescription = (): Description => {
 export const createDewesoftXSettings = (
   shared: boolean,
   bus: 1 | 2 = 1,
-): NonNullable<SlaveProperties["settings"]> => {
+): NonNullable<Device.SlaveProperties["settings"]> => {
   const description = createSettingsDescription();
   return {
     ...description,
@@ -291,7 +279,7 @@ export const createUnresolvedReadChannel = (
   pdo: string,
   overrides: Partial<ethercat.UnresolvedReadChannel> = {},
 ): ethercat.UnresolvedReadChannel =>
-  READ_CHANNEL_SCHEMAS.unresolved.parse({
+  Task.READ_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
     pdo,
@@ -304,7 +292,7 @@ export const createUnresolvedWriteChannel = (
   pdo: string,
   overrides: Partial<ethercat.UnresolvedWriteChannel> = {},
 ): ethercat.UnresolvedWriteChannel =>
-  WRITE_CHANNEL_SCHEMAS.unresolved.parse({
+  Task.WRITE_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
     pdo,
@@ -321,9 +309,9 @@ export const createUnresolvedWriteChannel = (
 export const createSlaveDevice = async (
   client: Synnax,
   rackKey: number,
-  properties: Partial<SlaveProperties> = {},
+  properties: Partial<Device.SlaveProperties> = {},
   configured = true,
-): Promise<SlaveDevice> => {
+): Promise<Device.SlaveDevice> => {
   const key = id.create();
   const position = properties.position ?? Math.floor(Math.random() * 2 ** 31);
   return await client.devices.create(
@@ -332,23 +320,23 @@ export const createSlaveDevice = async (
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
       location: `soem:eth0.Slot ${position}`,
-      make: MAKE,
-      model: SLAVE_MODEL,
+      make: Device.MAKE,
+      model: Device.SLAVE_MODEL,
       configured,
       properties: {
-        ...ZERO_SLAVE_PROPERTIES,
+        ...Device.ZERO_SLAVE_PROPERTIES,
         ...properties,
         position,
       },
     },
-    SLAVE_SCHEMAS,
+    Device.SLAVE_SCHEMAS,
   );
 };
 
 /** Gives the slave the status that a scan gives a slave that the Driver reaches. */
 export const createReachedStatus = async (
   client: Synnax,
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
 ): Promise<void> => {
   await client.statuses.set({
     owner: device.resourceID(slave.key),
@@ -363,7 +351,7 @@ export const createReachedStatus = async (
 /** Gives the slave a warning status, as a scan of the Driver does. */
 export const createWarningStatus = async (
   client: Synnax,
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   message: string,
   description: string,
   connected = true,
@@ -383,7 +371,7 @@ export const createWarningStatus = async (
 export const createRepeatedNameSlave = async (
   client: Synnax,
   rackKey: number,
-): Promise<SlaveDevice> =>
+): Promise<Device.SlaveDevice> =>
   await createSlaveDevice(client, rackKey, {
     identifier: createIdentifier(),
     network: "eth0",

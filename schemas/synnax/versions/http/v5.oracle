@@ -1,0 +1,85 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/icd/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+Method = v2.Method
+
+Header = v2.Header
+
+QueryParam = v2.QueryParam
+
+ReadField = v4.ReadField
+
+ReadEndpoint struct extends v4.ReadEndpoint {
+    key
+    disabled bool = false {
+        @doc value "is true when the endpoint is excluded from the task."
+    }
+    body
+    icd      icd.Key?          {
+        @doc value """
+            is the key of the ICD that holds the messages of the endpoint. Absent when
+            the endpoint reads no messages.
+        """
+    }
+    messages icd.ReadMessage[] = [] {
+        @doc value "are the messages that the response body is read as."
+    }
+}
+
+InlineEndpoint struct {
+    key    string = "" {
+        @doc value "is the key of the endpoint that held the fields."
+    }
+    index  string = "" {
+        @doc value """
+            is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        """
+    }
+    fields ReadField[] = [] {
+        @doc value "are the fields of the endpoint."
+    }
+
+    @doc value "is an endpoint from before ICDs, which held its fields inline."
+}
+
+InlineRead struct {
+    endpoints InlineEndpoint[] = [] {
+        @doc value "are the endpoints that held their fields inline."
+    }
+
+    @doc value "holds the fields of a read config from before ICDs."
+}
+
+ReadConfig struct extends v4.ReadConfig {
+    inline InlineRead? {
+        @doc value  """
+            holds the fields of each endpoint of a config from before ICDs. A write
+            moves them into a new ICD and clears it.
+        """
+        @go marshal omit
+    }
+}
+
+ChannelField = v4.ChannelField
+
+BaseWriteField = v2.BaseWriteField
+
+WriteField = v4.WriteField
+
+WriteEndpoint = v4.WriteEndpoint
+
+WriteConfig = v4.WriteConfig
+
+ScanConfig = v2.ScanConfig

@@ -12,8 +12,7 @@ import { randomBytes } from "node:crypto";
 import { and, desc, eq, isNull, lt, notExists, or } from "drizzle-orm";
 
 import type { Analytics, Capture } from "@/server/analytics";
-import { schema } from "@/server/db";
-import type { Reader, Store } from "@/server/db/db";
+import { type Reader, schema, type Store } from "@/server/db";
 import type { Account, Directory } from "@/server/directory";
 import { badRequest, HTTPError, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
