@@ -71,20 +71,21 @@ stream or read the channel, and it stops when nothing uses the channel.
 
   <Fragment slot="python">
 
+Call `client.calculations.create`. It creates the calculated channel with the name you
+give, and returns the calculation. `output` is the key of the channel.
+
 ```python
 import synnax as sy
 
-pressure_drop = client.channels.create(
+pressure_drop = client.calculations.create(
     name="filter_pressure_drop",
     expression="return inlet_pressure - outlet_pressure",
 )
 
-avg_pressure = client.channels.create(
+avg_pressure = client.calculations.create(
     name="avg_tank_pressure",
     expression="return tank_pressure",
-    operations=[
-        sy.channel.Operation(type="avg", duration=10 * sy.TimeSpan.SECOND),
-    ],
+    operations=[sy.calculation.AvgOperation(duration=10 * sy.TimeSpan.SECOND)],
 )
 ```
 
@@ -92,25 +93,23 @@ avg_pressure = client.channels.create(
 
   <Fragment slot="typescript">
 
-```typescript
-import { DataType, TimeSpan } from "@synnaxlabs/client";
+Call `client.calculations.create`. It creates the calculated channel with the name you
+give, and returns the calculation. `output` is the key of the channel.
 
-const pressureDrop = await client.channels.create({
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+const pressureDrop = await client.calculations.create({
   name: "filter_pressure_drop",
-  dataType: DataType.FLOAT64,
   expression: "return inlet_pressure - outlet_pressure",
 });
 
-const avgPressure = await client.channels.create({
+const avgPressure = await client.calculations.create({
   name: "avg_tank_pressure",
-  dataType: DataType.FLOAT64,
   expression: "return tank_pressure",
   operations: [{ type: "avg", duration: TimeSpan.seconds(10) }],
 });
 ```
-
-The TypeScript client requires `dataType`, but Synnax replaces it with the data type of
-the expression.
 
   </Fragment>
 
@@ -136,13 +135,18 @@ the name, the expression, or the operation, then click **Save**.
 
   <Fragment slot="python">
 
-Call `set_expression` with the key of the channel. The Core sets the data type from the
-new expression.
+Call `client.calculations.dispatch` with a `set` action and the key of the calculation.
+The Core sets the data type of the channel from the new expression.
 
 ```python
-client.channels.set_expression(
+client.calculations.dispatch(
     pressure_drop.key,
-    "return (inlet_pressure - outlet_pressure) * 0.0689",
+    sy.calculation.set(
+        sy.calculation.SetPayload(
+            path=["expression"],
+            value="return (inlet_pressure - outlet_pressure) * 0.0689",
+        )
+    ),
 )
 ```
 
@@ -150,15 +154,15 @@ client.channels.set_expression(
 
   <Fragment slot="typescript">
 
-Call `client.channels.dispatch` with a `channel.set` action. The Core sets the data type
-from the new expression.
+Call `client.calculations.dispatch` with a `calculation.set` action and the key of the
+calculation. The Core sets the data type of the channel from the new expression.
 
 ```typescript
-import { channel } from "@synnaxlabs/client";
+import { calculation } from "@synnaxlabs/client";
 
-await client.channels.dispatch(
+await client.calculations.dispatch(
   pressureDrop.key,
-  channel.set({
+  calculation.set({
     path: ["expression"],
     value: "return (inlet_pressure - outlet_pressure) * 0.0689",
   }),
