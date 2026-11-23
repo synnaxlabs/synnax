@@ -373,7 +373,10 @@ var _ = Describe("Service", func() {
 				}
 			}, "writes.1"),
 			Entry("a duplicate Sparkplug write", func(b *broker.Broker) {
-				b.Writes = []broker.Write{sparkplugWrite("Speed"), sparkplugWrite("Speed")}
+				b.Writes = []broker.Write{
+					sparkplugWrite("Speed"),
+					sparkplugWrite("Speed"),
+				}
 			}, "writes.1"),
 			Entry("a duplicate edge command", func(b *broker.Broker) {
 				b.EdgeCommands = []broker.EdgeCommand{

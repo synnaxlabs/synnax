@@ -72,13 +72,15 @@ var _ = Describe("Where", Ordered, func() {
 			DB:     whereDB,
 			Status: stat,
 			Secret: secrets,
-			Certificate: MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
-				DB:      whereDB,
-				Secret:  secrets,
-				Status:  stat,
-				Rack:    racks.EmbeddedKey,
-				HostKey: 1,
-			})),
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      whereDB,
+					Secret:  secrets,
+					Status:  stat,
+					Rack:    racks.EmbeddedKey,
+					HostKey: 1,
+				}),
+			),
 			Rack: racks,
 		}))
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(

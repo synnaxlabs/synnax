@@ -30,7 +30,9 @@ var _ = Describe("Update", func() {
 			Host: "mqtt.example.com",
 			Port: new(uint16(8883)),
 			Transport: broker.Transport{Variant: broker.TlsTransport{
-				CaCertificate: new(uuid.MustParse("44444444-4444-4444-8444-444444444444")),
+				CaCertificate: new(
+					uuid.MustParse("44444444-4444-4444-8444-444444444444"),
+				),
 			}},
 			Auth: broker.Auth{Variant: broker.UsernameAuth{
 				Username: "admin",

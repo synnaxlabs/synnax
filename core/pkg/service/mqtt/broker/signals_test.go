@@ -92,13 +92,15 @@ var _ = Describe("Signals", Ordered, func() {
 			DB:     node.DB,
 			Status: stat,
 			Secret: secrets,
-			Certificate: MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
-				DB:      node.DB,
-				Secret:  secrets,
-				Status:  stat,
-				Rack:    rackSvc.EmbeddedKey,
-				HostKey: 1,
-			})),
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      node.DB,
+					Secret:  secrets,
+					Status:  stat,
+					Rack:    rackSvc.EmbeddedKey,
+					HostKey: 1,
+				}),
+			),
 			Rack:    rackSvc,
 			Signals: sigs,
 		}))
