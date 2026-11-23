@@ -11,8 +11,8 @@ import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
-import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/errors";
 import { icd } from "@/icd";
+import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -745,6 +745,19 @@ describe("icd", () => {
       const keys = ics.map((i) => i.key);
       await client.icds.delete(keys);
       await expect(client.icds.retrieve(keys)).rejects.toThrow(NotFoundError);
+    });
+
+    it("should notify another client of a delete", async () => {
+      const ic = await client.icds.create(createNew());
+      const other = createTestClient();
+      await other.connect();
+      const deleted: icd.Key[] = [];
+      const stop = other.icds.onDelete((key) => deleted.push(key));
+      await other.icds.retrieve(ic.key);
+      await client.icds.delete(ic.key);
+      await expect.poll(() => deleted).toEqual([ic.key]);
+      stop();
+      await other.close();
     });
   });
 

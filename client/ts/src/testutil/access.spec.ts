@@ -10,8 +10,11 @@
 import type { Middleware } from "@synnaxlabs/freighter";
 import { describe, expect, it, vi } from "vitest";
 
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createRequestHold, createTestClient } from "@/testutil/client";
+import {
+  createRequestHold,
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@/testutil";
 import { user } from "@/user";
 
 const POLICY_RETRIEVE = "/access/policy/retrieve";

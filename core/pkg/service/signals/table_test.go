@@ -154,7 +154,7 @@ var _ = Describe("Table", func() {
 				Resource:   testResource[uuid.UUID],
 				SetName:    setName,
 				DeleteName: nextName(),
-				SetCheck: func(e testUUIDEntry) signals.Check {
+				SetCheck: func(e testUUIDEntry) func(func(resource.ID) bool) bool {
 					checks++
 					return func(allowed func(resource.ID) bool) bool {
 						return allowed(marker) && e.Name == "published"

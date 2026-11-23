@@ -18,9 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { SCHEMAS } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
@@ -31,14 +29,14 @@ import {
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
   <PForm.Field path={path} label="Method">
@@ -66,7 +64,7 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
   const channelKey = PForm.useFieldValue(path.channel.channel);
   const endpointPath = PForm.useFieldValue(path.path);
   const disabled = PForm.useFieldValue(path.disabled);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   return (
     <Select.Item
       {...props}
@@ -158,7 +156,7 @@ const duplicateEndpoints = (
 
 const Form: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ep: WriteEndpoint) =>
     dev == null
       ? null
@@ -203,7 +201,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
@@ -223,7 +221,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    await Device.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };
