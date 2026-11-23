@@ -678,6 +678,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(blink.checked).toBe(true);
       expect(blink.disabled).toBe(true);
       expect(findButton("None").getAttribute("aria-disabled")).toBe("true");
+      expect(screen.getByLabelText<HTMLInputElement>("Motion rate").disabled).toBe(
+        true,
+      );
     });
 
     it("clears the own blink and motion of a part under those of the drawing", async () => {
