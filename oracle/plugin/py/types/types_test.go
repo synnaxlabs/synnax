@@ -583,6 +583,25 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should keep precision of small float bounds", func() {
+			source := `
+				@py output "out"
+
+				Entry struct {
+					low  float64 @validate min 0.0000001
+					high float64 @validate max 0.0000001
+				}
+			`
+			table, diag := Analyze(source, "entry", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			resp := MustSucceed(typesPlugin.Generate(
+				&plugin.Request{Resolutions: table},
+			))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring("ge=1e-07"))
+			Expect(content).To(ContainSubstring("le=1e-07"))
+		})
+
 		It("Should reject infinity and NaN on a float with a finite rule", func() {
 			source := `
 				@py output "out"

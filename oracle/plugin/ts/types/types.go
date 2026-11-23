@@ -2959,7 +2959,7 @@ func numberBoundCall(zodType, method string, n validation.Number) string {
 	if n.IsInt {
 		return fmt.Sprintf("%s.%s(%d)", zodType, method, n.Int)
 	}
-	return fmt.Sprintf("%s.%s(%f)", zodType, method, n.Float)
+	return fmt.Sprintf("%s.%s(%s)", zodType, method, literal.Float(n.Float))
 }
 
 // applyBoundChecks appends the numeric bounds of rules as zod checks.

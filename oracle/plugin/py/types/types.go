@@ -1276,7 +1276,7 @@ func boundConstraint(name string, n validation.Number) string {
 	if n.IsInt {
 		return fmt.Sprintf("%s=%d", name, n.Int)
 	}
-	return fmt.Sprintf("%s=%f", name, n.Float)
+	return fmt.Sprintf("%s=%s", name, literal.Float(n.Float))
 }
 
 // appendDefault appends the default= or default_factory= constraints for the default
