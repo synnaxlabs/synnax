@@ -175,7 +175,8 @@ var _ = Describe("Table", func() {
 			)).To(BeFalse())
 			Expect(checks).To(Equal(1))
 			unpublished := []byte(`{"key":"` + uuid.New().String() + `"}`)
-			Expect(MustSucceed(record.Check(unpublished))(admit)).To(BeFalse())
+			Expect(record.Check(unpublished)).Error().
+				To(MatchError("[signals] - the check of a change is gone"))
 		})
 
 		It("Should write a numeric key as its raw bytes", func(ctx SpecContext) {

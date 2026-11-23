@@ -67,6 +67,16 @@ type Service struct {
 	indexes  indexes
 	state    *actions.State[Key, Action]
 	channels *channel.Service
+	// checks holds the check of each action batch that a transaction attaches.
+	checks *gorp.Attachment[batchCheck]
+}
+
+// batchCheck is the check of one action batch, from the calculation as the batch
+// leaves it.
+type batchCheck struct {
+	key   Key
+	seq   uint64
+	check func(allowed func(resource.ID) bool) bool
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -80,6 +90,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes:  newIndexes(),
 		state:    actions.NewState[Key, Action](cfg.DB),
 		channels: cfg.Channel,
+		checks:   gorp.NewAttachment[batchCheck](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -191,11 +202,25 @@ func (s *Service) denied(
 	channels []resource.ID,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	if id := ResourceID(c.Key); !allowed(id) {
-		return id, true
-	}
+	calc := ResourceID(c.Key)
 	if channels == nil {
+		if !allowed(calc) {
+			return calc, true
+		}
 		channels = s.Channels(c)
+	}
+	return refused(calc, channels, allowed)
+}
+
+// refused returns the first that allowed refuses of calc, the resource of a
+// calculation, and channels, the channels that the calculation links.
+func refused(
+	calc resource.ID,
+	channels []resource.ID,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	if !allowed(calc) {
+		return calc, true
 	}
 	for _, id := range channels {
 		if !allowed(id) {
@@ -205,18 +230,58 @@ func (s *Service) denied(
 	return resource.ID{}, false
 }
 
-// ReadableIn returns Readable of the calculation with key as commit c left it. It
-// refuses every subject when c deleted the calculation or did not change it.
-func (s *Service) ReadableIn(
+// BatchChecks returns the lookup of the check of each action batch that the transaction
+// of c attached, by the key of its calculation and its number. Each check is Readable
+// of
+// the calculation as its batch left it, so a later batch in the commit does not change
+// who receives an earlier one.
+func (s *Service) BatchChecks(
 	c gorp.Commit,
-	key Key,
-) func(allowed func(resource.ID) bool) bool {
-	for ch := range s.Changes(c) {
-		if ch.Key == key && ch.Kind != gorp.ChangeDelete {
-			return s.Readable(ch.Value)
+) func(key Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
+	attached := s.checks.Of(c)
+	byBatch := make(map[batchID]func(func(resource.ID) bool) bool, len(attached))
+	for _, b := range attached {
+		byBatch[batchID{key: b.key, seq: b.seq}] = b.check
+	}
+	return func(key Key, seq uint64) (func(func(resource.ID) bool) bool, bool) {
+		check, ok := byBatch[batchID{key: key, seq: seq}]
+		return check, ok
+	}
+}
+
+// batchID names one action batch.
+type batchID struct {
+	key Key
+	seq uint64
+}
+
+// DeleteChecks returns the lookup of the check of each calculation that c deleted, by
+// key. Only a subject that read the calculation before the delete passes it.
+func (s *Service) DeleteChecks(
+	c gorp.Commit,
+) func(key Key) (func(allowed func(resource.ID) bool) bool, bool) {
+	byKey := make(map[string]func(func(resource.ID) bool) bool)
+	for _, ch := range c.Changes {
+		if ch.Record.Table != tableName || ch.Kind != gorp.ChangeDelete {
+			continue
+		}
+		calc := resource.ID{Type: resource.TypeCalculation, Key: ch.Record.Key}
+		channels := make([]resource.ID, len(ch.Removed))
+		for i, l := range ch.Removed {
+			channels[i] = resource.ID{
+				Type: resource.Type(l.Target.Table),
+				Key:  l.Target.Key,
+			}
+		}
+		byKey[ch.Record.Key] = func(allowed func(resource.ID) bool) bool {
+			_, denied := refused(calc, channels, allowed)
+			return !denied
 		}
 	}
-	return func(func(resource.ID) bool) bool { return false }
+	return func(key Key) (func(func(resource.ID) bool) bool, bool) {
+		check, ok := byKey[gorp.FormatKey(key)]
+		return check, ok
+	}
 }
 
 // NewWriter opens a Writer that changes calculations in tx.

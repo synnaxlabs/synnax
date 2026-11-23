@@ -128,7 +128,7 @@ func admits(
 	allowed func(resource.ID) bool,
 	sample []byte,
 ) (bool, error) {
-	if record.Check != nil && !record.Deleted {
+	if record.Check != nil {
 		check, err := record.Check(sample)
 		if err != nil {
 			return false, err

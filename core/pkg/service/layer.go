@@ -598,13 +598,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err = l.Signals.PublishTable(
 		ctx,
 		signals.TableConfig[calculation.Key, calculation.Calculation]{
-			SetName:    "sy_calculation_set",
-			DeleteName: "sy_calculation_delete",
-			Changes:    l.Calculation.Changes,
-			Resource:   calculation.ResourceID,
-			SetCheck: func(c calculation.Calculation) signals.Check {
-				return l.Calculation.Readable(c)
-			},
+			SetName:      "sy_calculation_set",
+			DeleteName:   "sy_calculation_delete",
+			Changes:      l.Calculation.Changes,
+			Resource:     calculation.ResourceID,
+			SetCheck:     l.Calculation.Readable,
+			DeleteChecks: l.Calculation.DeleteChecks,
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -612,12 +611,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err = l.Signals.PublishActions(
 		ctx,
 		signals.ActionConfig[calculation.Key, calculation.Action]{
-			Name:     "sy_calculation_action_set",
-			Actions:  l.Calculation.Actions(),
-			Resource: calculation.ResourceID,
-			BatchCheck: func(c gorp.Commit, k calculation.Key) (signals.Check, error) {
-				return l.Calculation.ReadableIn(c, k), nil
-			},
+			Name:        "sy_calculation_action_set",
+			Actions:     l.Calculation.Actions(),
+			Resource:    calculation.ResourceID,
+			BatchChecks: l.Calculation.BatchChecks,
 		},
 	); !ok(err, nil) {
 		return nil, err

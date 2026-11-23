@@ -13,12 +13,17 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// checkCommits is how many commits of checks a change channel holds. A streamer that
-// falls further behind sends none of their samples.
-const checkCommits = 64
+// checkCommits is how many commits of checks a change channel holds. It is more than
+// the frames that the relay holds for a streamer, which drops the frames past them, so
+// a streamer finds the check of each sample it receives.
+const checkCommits = 256
+
+// errCheckGone is the error of a stream whose sample has no check, which fails the
+// stream rather than send or drop the sample.
+var errCheckGone = errors.New("[signals] - the check of a change is gone")
 
 // commitChecks holds the checks that a change channel made at publish for the samples
 // of its recent commits, so that each streamer reads a check rather than the record. It
@@ -39,30 +44,27 @@ func (c *commitChecks[I]) add(checks map[I]Check) {
 	c.commits = append(c.commits, checks)
 }
 
-// get returns the check of the sample named id, or a check that refuses every subject
-// when the check is gone.
-func (c *commitChecks[I]) get(id I) Check {
+// get returns the check of the sample named id, or errCheckGone.
+func (c *commitChecks[I]) get(id I) (Check, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, checks := range slices.Backward(c.commits) {
 		if check, ok := checks[id]; ok {
-			return check
+			return check, nil
 		}
 	}
-	return refuse
+	return nil, errCheckGone
 }
 
 // getSample is get for checks named by the bytes of their samples. It does not copy
 // sample.
-func getSample(c *commitChecks[string], sample []byte) Check {
+func getSample(c *commitChecks[string], sample []byte) (Check, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, checks := range slices.Backward(c.commits) {
 		if check, ok := checks[string(sample)]; ok {
-			return check
+			return check, nil
 		}
 	}
-	return refuse
+	return nil, errCheckGone
 }
-
-func refuse(func(resource.ID) bool) bool { return false }
