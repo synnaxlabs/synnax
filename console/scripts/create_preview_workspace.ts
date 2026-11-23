@@ -182,7 +182,7 @@ const createProject = async (
   else await client.projects.create({ key, name });
 };
 
-// A group delete would take its members with it, so a second run keeps the group.
+// The Core refuses to delete a group that holds members, so a second run keeps it.
 const createGroup = async (
   client: Synnax,
   key: group.Key,
