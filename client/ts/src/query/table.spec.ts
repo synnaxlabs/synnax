@@ -12,7 +12,7 @@ import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { AccessDeniedError, MissingCredentialsError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1921,10 +1921,13 @@ describe("delete rollback", () => {
       );
   });
 
-  it("should not report a fetch that cannot reach the Core", async () => {
+  it.each([
+    ["cannot reach the Core", () => new Unreachable()],
+    ["runs after a logout", () => new MissingCredentialsError()],
+  ])("should not report a fetch that %s", async (_, offline) => {
     const onError = vi.fn();
     const fetch = vi.fn(async (): Promise<Doc[]> => {
-      throw new Unreachable();
+      throw offline();
     });
     const table = newTable(fetch, onError);
     table.set("k1", doc("a"));

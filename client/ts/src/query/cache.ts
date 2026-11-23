@@ -18,14 +18,11 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import {
-  AccessDeniedError,
-  isConnectionError,
-  MissingCredentialsError,
-} from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
+import { isOffline } from "@/query/offline";
 import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
@@ -408,9 +405,7 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
-          // The next reopen reconciles again, so an unreachable cluster is churn. A
-          // client that logged out has no session to reconcile with until it logs in.
-          if (isConnectionError(exc) || MissingCredentialsError.matches(exc)) return;
+          if (isOffline(exc)) return;
           this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
         }
       }),

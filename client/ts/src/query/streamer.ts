@@ -11,9 +11,10 @@ import { EOF } from "@synnaxlabs/freighter";
 import { type breaker, caseconv, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { isConnectionError, NotFoundError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import type { framer } from "@/framer";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
+import { isOffline } from "@/query/offline";
 
 /**
  * A raw channel reaction: parses each sample from the channel with the schema and
@@ -119,9 +120,7 @@ export const createStreamer = ({
   let closed = false;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
-    // A connectivity failure mid-change is repaired by the reconcile that
-    // follows the stream's reopen, so it is churn, not a defect.
-    if (isConnectionError(exc)) return;
+    if (isOffline(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
   const deliver = async (fn: () => unknown, message: string) => {
