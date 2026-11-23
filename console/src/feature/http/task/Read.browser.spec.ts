@@ -596,6 +596,52 @@ describe("Read", () => {
     );
   });
 
+  it("should keep the channel of the first endpoint that reads a path and message", async () => {
+    const temperature = createField("temperature");
+    const first = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const later: HTTP.Task.ReadEndpoint = {
+      ...http.readEndpointZ.parse({ key: "ep2", method: "POST", path: "/query" }),
+      icd: first.icd,
+      messages: [
+        icd.readMessageZ.parse({
+          message: first.messages[0].message,
+          bindings: [icd.readBindingZ.parse({ field: temperature.key })],
+        }),
+      ],
+    };
+    const { container, draft, dev } = await renderWithDevice([first, later]);
+    await screen.findAllByRole("treeitem", { name: /\/query/ });
+    const created = await deploy(container, draft.key);
+    const [kept, other] = created.config.endpoints.map(
+      ({ messages }) => messages[0].bindings[0].channel,
+    );
+    expect(kept).not.toBe(other);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(
+      properties.read[`/query#${first.messages[0].message}`].channels["/temperature"],
+    ).toBe(kept);
+    const channelOf = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings[0]?.channel;
+    const [item] = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(item);
+    const box = await within(item).findByRole<HTMLInputElement>("checkbox", {
+      name: "Read temperature",
+    });
+    await waitFor(() => expect(box.disabled).toBe(false));
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBeUndefined());
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBe(kept));
+  });
+
   it("should not reuse a stored channel that the field does not convert to", async () => {
     const ch = await client.channels.create({
       name: uniqueName("mode"),

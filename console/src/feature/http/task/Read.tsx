@@ -537,16 +537,33 @@ const storedSource = ({
 });
 
 /**
+ * @returns whether ep stores and reuses the channels of message: no endpoint before it
+ * in endpoints reads message from the path of ep.
+ */
+const ownsStored = (
+  endpoints: ReadEndpoint[],
+  ep: ICDEndpoint,
+  message: icd.MessageKey,
+): boolean =>
+  endpoints.find(
+    ({ path, messages }) =>
+      path === ep.path && messages.some((read) => read.message === message),
+  )?.key === ep.key;
+
+/**
  * @returns stored without the channels of messages that other endpoints with the path
- * of ep read, which the device stores beside the channels of ep.
+ * of ep read, which the device stores beside the channels of ep. It keeps a message
+ * that ep reads only when ep owns its channels.
  */
 const storedFor = (
   stored: Record<string, Task.ReadChannelProps>,
   endpoints: ReadEndpoint[],
   ep: ICDEndpoint,
 ): Record<string, Task.ReadChannelProps> => {
-  const own = new Set(
-    ep.messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
+  const owned = new Set(
+    ep.messages
+      .filter(({ message }) => ownsStored(endpoints, ep, message))
+      .map(({ message }) => ICD.Stored.key(ep.path, message)),
   );
   const others = new Set(
     endpoints
@@ -554,7 +571,7 @@ const storedFor = (
       .flatMap(({ messages }) =>
         messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
       )
-      .filter((at) => !own.has(at)),
+      .filter((at) => !owned.has(at)),
   );
   return Object.fromEntries(Object.entries(stored).filter(([at]) => !others.has(at)));
 };
@@ -812,10 +829,9 @@ const Endpoints: FC<EndpointsProps> = ({
     SourceItem: EndpointItem,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled endpoint reads it, it belongs to a message that another
-    // endpoint reads, or it no longer exists or fits the field. An endpoint that reads
-    // one message also reuses the channels of its earlier messages, so a new message
-    // format keeps its channels.
+    // unless an enabled endpoint reads it, another endpoint owns its message, or it no
+    // longer exists or fits the field. An endpoint that reads one message also reuses
+    // the channels of its earlier messages, so a new message format keeps its channels.
     bindDisabled,
     bindingOf: (key, read, field) => {
       const ep = ctx.get(icdPath(key)).value;
@@ -998,24 +1014,38 @@ type BoundMessage = ICD.BoundMessage<ICDEndpoint>;
 const storedKeyOf = ({ source, read }: BoundMessage): string =>
   ICD.Stored.key(source.path, source.messages[read].message);
 
+/**
+ * @returns the channels that the device stores for b, or undefined when an earlier
+ * endpoint of endpoints owns them.
+ */
+const storedPropsOf = (
+  dev: Device.Device,
+  endpoints: ReadEndpoint[],
+  b: BoundMessage,
+): Task.ReadChannelProps | undefined =>
+  ownsStored(endpoints, b.source, b.source.messages[b.read].message)
+    ? dev.properties.read[storedKeyOf(b)]
+    : undefined;
+
 /** @returns the prefix of the names of the channels that a message creates. */
 const prefixOf = (deviceName: string, { source, read, message }: BoundMessage) =>
   messagePrefix(deviceName, source.path, read, message.name);
 
 /**
- * Plans the channels of each message, in deploy order with one namer. A message plans
- * with the channels that earlier ones keep added to written, so it leaves a stored
- * channel that another binding writes. Reads from the Core alone. Throws between
+ * Plans the channels of each message of endpoints in bound, in deploy order with one
+ * namer. A message plans with the channels that earlier ones keep, so it leaves a
+ * stored channel that another binding writes. Reads from the Core alone. Throws between
  * messages once signal aborts.
  */
 const planMessages = async (
   client: Synnax,
   dev: Device.Device,
+  endpoints: ReadEndpoint[],
   bound: BoundMessage[],
-  written: Set<channel.Key>,
   signal?: AbortSignal,
 ): Promise<ICD.MessagePlan[]> => {
   const namer = Task.createNamer(client);
+  const written = writtenChannels(endpoints);
   const plans: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
@@ -1024,7 +1054,7 @@ const planMessages = async (
       namer,
       b,
       prefixOf(dev.name, b),
-      dev.properties.read[storedKeyOf(b)],
+      storedPropsOf(dev, endpoints, b),
       written,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
@@ -1061,12 +1091,12 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
     read: b.source.messages[b.read],
     message: b.message,
     prefix: prefixOf(device.name, b),
-    props: device.properties.read[storedKeyOf(b)],
+    props: storedPropsOf(device, endpoints, b),
   }));
   const plans = Task.useChannelPlans(
     sources,
     async (client, signal) =>
-      await planMessages(client, device, bound, writtenChannels(endpoints), signal),
+      await planMessages(client, device, endpoints, bound, signal),
   );
   const reads = bound.map(({ source, read }, i): ICD.PlannedRead => ({
     path: icdPath(source.key),
@@ -1142,17 +1172,14 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
   // A deploy that fails partway keeps the channels it made for the next one.
   const before = deep.copy(dev.properties);
   try {
-    const plans = await planMessages(
-      client,
-      dev,
-      bound,
-      writtenChannels(config.endpoints),
-    );
-    for (const [i, b] of bound.entries())
-      await ICD.applyMessage(client, b, plans[i], {
-        read: dev.properties.read,
-        key: storedKeyOf(b),
-      });
+    const plans = await planMessages(client, dev, config.endpoints, bound);
+    for (const [i, b] of bound.entries()) {
+      const message = b.source.messages[b.read].message;
+      const stored = ownsStored(config.endpoints, b.source, message)
+        ? { read: dev.properties.read, key: storedKeyOf(b) }
+        : undefined;
+      await ICD.applyMessage(client, b, plans[i], stored);
+    }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
