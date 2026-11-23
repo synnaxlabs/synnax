@@ -14,10 +14,10 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
-#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -45,18 +45,15 @@ namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
 
-/// @brief the Core's codec fixtures.
-const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata";
+/// @brief the Core's encode fixtures. Each holds one JSON message and either the error
+/// that creating an encoder for it returns, or the samples it encodes.
+const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/encode";
 
 /// @brief the suffix of a Go validation error, which a C++ error keeps in its type.
 constexpr std::string_view VALIDATION_SUFFIX = ": validation error";
 
-/// @brief the prefix of an error from Go's JSON syntax parser, whose text the Driver
-/// does not copy.
-constexpr std::string_view SYNTAX_PREFIX = "jsontext: ";
-
-/// @brief returns the text of the value at pointer in doc. The fixtures hold numbers
-/// such as 1e999 that nlohmann rejects, so it reads them as text.
+/// @brief returns the text of the value at pointer in doc. The fixtures hold integers
+/// past the 53 bits of a double, so it reads them as text.
 std::optional<std::string> raw_at(const std::string &doc, const std::string &pointer) {
     x::json::Extractor e({ASSERT_NIL_P(x::json::Pointer::parse(pointer))});
     std::vector<std::optional<std::string_view>> values;
@@ -103,104 +100,6 @@ JSONMessage parse_message(const nlohmann::json &m) {
     return msg;
 }
 
-std::vector<JSONMessage> parse_messages(const std::string &doc) {
-    std::vector<JSONMessage> out;
-    for (const auto &m: nlohmann::json::parse(required_at(doc, "/messages")))
-        out.push_back(parse_message(m));
-    return out;
-}
-
-/// @brief returns the JSON form of the one sample in s, as the fixtures write it.
-nlohmann::json sample_json(const x::telem::Series &s) {
-    const auto dt = s.data_type();
-    if (dt == x::telem::FLOAT64_T) return s.at<double>(0);
-    if (dt == x::telem::FLOAT32_T) return static_cast<double>(s.at<float>(0));
-    if (dt == x::telem::INT64_T) return s.at<std::int64_t>(0);
-    if (dt == x::telem::INT32_T) return s.at<std::int32_t>(0);
-    if (dt == x::telem::INT16_T) return s.at<std::int16_t>(0);
-    if (dt == x::telem::INT8_T) return s.at<std::int8_t>(0);
-    if (dt == x::telem::UINT64_T) return s.at<std::uint64_t>(0);
-    if (dt == x::telem::TIMESTAMP_T)
-        return static_cast<std::uint64_t>(s.at<x::telem::TimeStamp>(0).nanoseconds());
-    if (dt == x::telem::UINT32_T) return s.at<std::uint32_t>(0);
-    if (dt == x::telem::UINT16_T) return s.at<std::uint16_t>(0);
-    if (dt == x::telem::UINT8_T) return s.at<std::uint8_t>(0);
-    if (dt == x::telem::BOOLEAN_T) return s.at<std::uint8_t>(0) == 1;
-    if (dt == x::telem::STRING_T) return s.at<std::string>(0);
-    if (dt == x::telem::JSON_T) return nlohmann::json::parse(s.at<std::string>(0));
-    if (dt == x::telem::UUID_T) return s.uuids()[0].to_string();
-    if (dt == x::telem::BYTES_T) return x::base64::encode(s.at<std::string>(0));
-    ADD_FAILURE() << "unknown data type " << dt.name();
-    return nullptr;
-}
-
-/// @brief checks the decode of one case of a fixture.
-void check_decode_case(
-    JSON &dec,
-    const std::vector<JSONMessage> &messages,
-    const std::string &doc,
-    const std::string &c
-) {
-    const auto document = raw_at(doc, c + "/text").has_value()
-                            ? string_at(doc, c + "/text")
-                            : required_at(doc, c + "/document");
-    const auto [message, err] = dec.decode(document);
-    if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
-        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        if (!expected.starts_with(SYNTAX_PREFIX)) {
-            ASSERT_EQ(err.data, error_data(expected));
-        }
-        return;
-    }
-    ASSERT_NIL(err);
-    if (raw_at(doc, c + "/unmatched") == "true") {
-        ASSERT_FALSE(message.has_value());
-        return;
-    }
-    const auto name = string_at(doc, c + "/message");
-    const auto want = static_cast<std::size_t>(
-        std::ranges::find(messages, name, &JSONMessage::name) - messages.begin()
-    );
-    ASSERT_LT(want, messages.size()) << "no message " << name;
-    ASSERT_EQ(message, want);
-    const auto expected = nlohmann::json::parse(required_at(doc, c + "/samples"));
-    const auto &samples = dec.samples(want);
-    ASSERT_EQ(samples.size(), expected.size());
-    for (std::size_t k = 0; k < samples.size(); k++) {
-        ASSERT_EQ(samples[k].size(), 1) << "binding " << k;
-        ASSERT_EQ(sample_json(samples[k]), expected[k]) << "binding " << k;
-    }
-}
-
-/// @brief returns the text of the fixture at path, which must have a description.
-std::string read_fixture(const std::filesystem::path &path) {
-    std::ifstream file(path);
-    std::stringstream buf;
-    buf << file.rdbuf();
-    auto doc = buf.str();
-    EXPECT_FALSE(string_at(doc, "/description").empty());
-    return doc;
-}
-
-/// @brief checks that a decoder for the messages of the fixture at path decodes its
-/// documents, or fails to create with its error.
-void check_decode_fixture(const std::filesystem::path &path) {
-    const auto doc = read_fixture(path);
-    const auto messages = parse_messages(doc);
-    auto [dec, err] = JSON::create(messages);
-    if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
-        ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, error_data(expected));
-        return;
-    }
-    ASSERT_NIL(err);
-    ASSERT_TRUE(raw_at(doc, "/cases/0").has_value());
-    for (std::size_t i = 0; raw_at(doc, "/cases/" + std::to_string(i)); i++) {
-        SCOPED_TRACE("case " + std::to_string(i));
-        check_decode_case(dec, messages, doc, "/cases/" + std::to_string(i));
-    }
-}
-
 /// @brief returns the integer that raw, the text of a JSON integer, holds exactly.
 template<typename T>
 T integer_of(const std::string &raw) {
@@ -242,7 +141,7 @@ x::telem::Series sample_of(const x::telem::DataType &dt, const std::string &raw)
 }
 
 /// @brief checks the encode of one case of a fixture.
-void check_encode_case(
+void check_case(
     JSONEncoder &enc,
     const JSONMessage &message,
     const std::string &doc,
@@ -285,8 +184,12 @@ void check_encode_case(
 
 /// @brief checks that an encoder for the message of the fixture at path encodes the
 /// samples of its cases, or fails to create with its error.
-void check_encode_fixture(const std::filesystem::path &path) {
-    const auto doc = read_fixture(path);
+void check_fixture(const std::filesystem::path &path) {
+    std::ifstream file(path);
+    std::stringstream buf;
+    buf << file.rdbuf();
+    const auto doc = buf.str();
+    ASSERT_FALSE(string_at(doc, "/description").empty());
     const auto message = parse_message(
         nlohmann::json::parse(required_at(doc, "/message"))
     );
@@ -300,36 +203,22 @@ void check_encode_fixture(const std::filesystem::path &path) {
     ASSERT_TRUE(raw_at(doc, "/cases/0").has_value());
     for (std::size_t i = 0; raw_at(doc, "/cases/" + std::to_string(i)); i++) {
         SCOPED_TRACE("case " + std::to_string(i));
-        check_encode_case(enc, message, doc, "/cases/" + std::to_string(i));
+        check_case(enc, message, doc, "/cases/" + std::to_string(i));
     }
 }
-
-/// @brief returns the fixtures in the directory dir of FIXTURES, in name order.
-std::vector<std::filesystem::path> fixture_paths(const std::string &dir) {
-    std::vector<std::filesystem::path> paths;
-    for (const auto &e: std::filesystem::directory_iterator(FIXTURES / dir))
-        if (e.path().extension() == ".json") paths.push_back(e.path());
-    std::ranges::sort(paths);
-    EXPECT_FALSE(paths.empty());
-    return paths;
-}
-}
-
-/// @brief it should decode the documents of every decode fixture of the Core, or reject
-/// its messages with the same error.
-TEST(DecodeFixtures, MatchTheCore) {
-    for (const auto &path: fixture_paths("decode")) {
-        SCOPED_TRACE(path.filename().string());
-        check_decode_fixture(path);
-    }
 }
 
 /// @brief it should encode the samples of every encode fixture of the Core, or reject
 /// its message or samples with the same error.
 TEST(EncodeFixtures, MatchTheCore) {
-    for (const auto &path: fixture_paths("encode")) {
+    std::vector<std::filesystem::path> paths;
+    for (const auto &e: std::filesystem::directory_iterator(FIXTURES))
+        if (e.path().extension() == ".json") paths.push_back(e.path());
+    std::ranges::sort(paths);
+    ASSERT_FALSE(paths.empty());
+    for (const auto &path: paths) {
         SCOPED_TRACE(path.filename().string());
-        check_encode_fixture(path);
+        check_fixture(path);
     }
 }
 }
