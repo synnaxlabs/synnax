@@ -15,7 +15,15 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { disposable, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
+import {
+  disposable,
+  errors,
+  Rate,
+  sync,
+  TimeRange,
+  TimeSpan,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -49,6 +57,13 @@ const resZ = z.object({
   ack: z.boolean().optional(),
   /** Marks the empty response the Core sends after it drops frames for the streamer. */
   missed: z.boolean().optional(),
+  /** Maps each channel that lost samples in a missed marker to their time range. */
+  missedRanges: z
+    .record(z.string(), TimeRange.z)
+    .transform(
+      (ranges) => new Map(Object.entries(ranges).map(([key, tr]) => [Number(key), tr])),
+    )
+    .optional(),
 });
 
 /**
@@ -89,9 +104,15 @@ export interface StreamerCallbacks {
    * Called when the Core drops frames because the streamer fell behind. The changes
    * in those frames never arrive, so state built from the stream must be read again.
    * Called once for each run of drops. The stream continues.
+   * @param ranges - Maps each channel that lost samples to their time range. The zero
+   * range means the time of the lost samples is unknown. Undefined when the Core sends
+   * no ranges.
    */
-  onMissed?: () => void;
+  onMissed?: MissedHandler;
 }
+
+/** Receives a missed marker. See {@link StreamerCallbacks.onMissed}. */
+export type MissedHandler = (ranges?: Map<channel.Key, TimeRange>) => void;
 
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */
 export type StreamerConfig =
@@ -212,7 +233,7 @@ class BaseStreamer implements Streamer {
   private readonly throttleRate: Rate;
   private readonly excludeGroups: number[];
   private readonly deadline: TimeSpan;
-  private readonly onMissed?: () => void;
+  private readonly onMissed?: MissedHandler;
   // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
@@ -227,7 +248,7 @@ class BaseStreamer implements Streamer {
     throttleRate: Rate = new Rate(0),
     excludeGroups: number[] = [],
     keepAlive: TimeSpan = TimeSpan.ZERO,
-    onMissed?: () => void,
+    onMissed?: MissedHandler,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -277,7 +298,7 @@ class BaseStreamer implements Streamer {
         continue;
       }
       if (res.missed === true) {
-        this.onMissed?.();
+        this.onMissed?.(res.missedRanges);
         continue;
       }
       const { keys, series } = res.frame;
