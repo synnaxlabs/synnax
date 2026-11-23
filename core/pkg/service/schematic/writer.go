@@ -46,6 +46,17 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // that holds the group. Create returns an error wrapping validate.ErrValidation when a
 // schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	if err := w.prepare(ctx, s); err != nil {
+		return err
+	}
+	if err := w.checkBindings(ctx, *s, nil); err != nil {
+		return err
+	}
+	return w.insert(ctx, s)
+}
+
+// prepare gives s a key when it has none and its group's project, then validates it.
+func (w Writer) prepare(ctx context.Context, s *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	}
@@ -62,12 +73,10 @@ func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	if err := validateParents(*s); err != nil {
 		return err
 	}
-	if err := w.checkBindings(ctx, *s, nil); err != nil {
-		return err
-	}
-	if err := project.CheckMember(s.Project); err != nil {
-		return err
-	}
+	return project.CheckMember(s.Project)
+}
+
+func (w Writer) insert(ctx context.Context, s *Schematic) error {
 	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -120,7 +129,8 @@ func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 }
 
 // Copy creates a copy of the schematic with the given key and name, and binds it into
-// result. The copy sits in no group and belongs to the project of the original.
+// result. The copy sits in no group and belongs to the project of the original. Copy
+// does not check the bindings of the nodes, which the original already holds.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -136,7 +146,10 @@ func (w Writer) Copy(
 	result.Key = uuid.New()
 	result.Name = name
 	result.Group = nil
-	return w.Create(ctx, result)
+	if err := w.prepare(ctx, result); err != nil {
+		return err
+	}
+	return w.insert(ctx, result)
 }
 
 // Delete deletes the schematics with the given keys.

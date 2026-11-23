@@ -216,6 +216,19 @@ var _ = Describe("Symbol node bindings", func() {
 			)
 		}
 
+		It("Should copy a schematic that holds the stale node", func(ctx SpecContext) {
+			var cpy schematic.Schematic
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Copy(ctx, s.Key, "Copy", &cpy)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, cpy.Key)
+				})).To(Succeed())
+			})
+			Expect(cpy.Nodes).To(Equal(s.Nodes))
+		})
+
 		DescribeTable(
 			"Should check the stale node only when an action rebinds it",
 			func(
