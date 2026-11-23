@@ -431,7 +431,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       default: 0,
     });
 
-    // openPainted opens the editor on a new symbol whose one part, Body, selects #a.
+    // openPainted opens the editor on a new symbol whose one part, Body, selects #a,
+    // and selects Body.
     const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("painted"));
@@ -445,11 +446,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      const item = (await screen.findByText("Body")).closest<HTMLElement>(
-        ".console-schematic-part-list-item",
-      );
-      assertDefined(item);
-      return { symbol, fill: within(item).getByLabelText("Fill") };
+      fireEvent.click(await screen.findByText("Body"));
+      await screen.findByRole("heading", { name: "Body" });
+      return { symbol, fill: screen.getByLabelText("Fill") };
     };
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
