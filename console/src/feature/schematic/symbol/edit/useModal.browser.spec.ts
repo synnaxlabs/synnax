@@ -153,7 +153,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
       expect(screen.getByText("0 shapes")).toBeDefined();
-      expect(screen.getByText("Click shapes in the drawing to add or remove them."));
+      expect(
+        screen.getByText("Click shapes in the drawing to add or remove them."),
+      ).toBeDefined();
     });
 
     it("saves a part stroke picked in the inspector", async () => {

@@ -68,23 +68,14 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { get, set } = Form.useContext();
   const { part } = inspector;
   const { at } = field;
+  const f = field.field as F;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, at) as Look[F] | undefined,
-    inherited:
-      part == null
-        ? undefined
-        : (Spec.effective({ looks }, undefined, field.field, at) as
-            Look[F] | undefined),
-    own: Spec.effective(
-      { looks: looks.filter((l) => l.part === part) },
-      part,
-      field.field,
-      at,
-    ) as Look[F] | undefined,
-    onChange: (v) =>
-      set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
+    value: Spec.effective({ looks }, part, f, at),
+    inherited: part == null ? undefined : Spec.effective({ looks }, undefined, f, at),
+    own: Spec.effective({ looks: looks.filter((l) => l.part === part) }, part, f, at),
+    onChange: (v) => set(path.data, Spec.setOwn(get(path.data).value, part, f, v, at)),
   };
 };
 
