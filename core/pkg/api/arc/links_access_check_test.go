@@ -70,6 +70,7 @@ var _ = Describe("Graph Arc channel links access check", func() {
 		imexSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
 			ImEx:    svc.ImEx,
 			Channel: channelSvc,
+			RBAC:    rbacSvc,
 		}))
 		export := bind.Read(binder, imexSvc.Export)
 		exportFile = func(ctx SpecContext) string {
