@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Panel, Synnax } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
-import { useMovePicker } from "@/feature/panel/MovePicker";
+import { MovePicker } from "@/feature/panel/movePicker";
 import type { TabOrigin } from "@/feature/panel/useMoveTab";
 import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
@@ -83,7 +83,7 @@ const SplitItems = (): ReactElement | null => {
 
 const MoveToPanelItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
-  const openPicker = useMovePicker();
+  const openPicker = MovePicker.use();
   const canEdit = Panel.useCanEdit({});
   const handleMove = () => {
     const origin = getOrigin();

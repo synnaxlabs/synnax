@@ -30,12 +30,12 @@ import {
   RawBlock,
   rawKey,
 } from "@/framer/cache/block";
-import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
-import { tileSpan } from "@/framer/cache/grid";
+import { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
 import { COMMIT_MARGIN } from "@/framer/cache/reader";
 
 export interface StoreProps extends Partial<
-  Pick<DynamicProps, "dynamicBufferSize" | "now">
+  Pick<dynamic.Props, "dynamicBufferSize" | "now">
 > {
   /**
    * Byte size the store evicts down to, least recently used first. Each block counts
@@ -75,7 +75,7 @@ const DEFAULT_LIVE_SAMPLES = 2 ** 17;
 const ENTRY_OVERHEAD = 256;
 
 // Moves the samples of the buffer's leading series into the block as fetched ones.
-const flushInto = (block: RawBlock, buffer: Dynamic): void => {
+const flushInto = (block: RawBlock, buffer: dynamic.Dynamic): void => {
   const flushed = buffer.flush();
   if (flushed != null && flushed.length > 0)
     block.fill([flushed], block.coveredEnd, block.coveredCount);
@@ -89,7 +89,7 @@ interface Entry {
 
 // The stream's buffer of one channel, and the raw block it writes into.
 interface Live {
-  buffer: Dynamic;
+  buffer: dynamic.Dynamic;
   block: RawBlock | null;
 }
 
@@ -170,7 +170,7 @@ export class Store {
   constructor({
     budget = DEFAULT_BUDGET,
     staleThreshold = DEFAULT_STALE_THRESHOLD,
-    dynamicBufferSize = tileSpan(RAW_LEVEL),
+    dynamicBufferSize = grid.tileSpan(RAW_LEVEL),
     liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
@@ -627,7 +627,7 @@ export class Store {
 
   private liveOf(ch: channel.Key): Live {
     return map.getOrInsert(this.live, ch, () => ({
-      buffer: new Dynamic({
+      buffer: new dynamic.Dynamic({
         dynamicBufferSize: this.dynamicBufferSize,
         maxBufferSize: this.liveSamples / 16,
         instrumentation: this.instrumentation.child(`live-${ch}`),

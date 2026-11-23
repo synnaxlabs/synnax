@@ -12,15 +12,13 @@ import { box, color, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { gauge } from "@/vis/gauge/aether";
 import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 const BOX = box.construct({ x: 0, y: 0 }, { width: 200, height: 200 });
-
-const STALE = color.construct("#ff0000");
 
 interface SetupOptions {
   value?: string;
@@ -62,7 +60,7 @@ describe("gauge/aether/Gauge", () => {
   describe("color", () => {
     it("should stroke the arc with the first series color while its color is absent", () => {
       const first = color.construct("#20a4f3");
-      const { recorder } = setup({ seriesColors: [first, STALE] });
+      const { recorder } = setup({ seriesColors: [first, color.construct("#ff0000")] });
       expect(styles(recorder, "strokeStyle")).toContain(color.hex(first));
     });
   });
@@ -98,120 +96,25 @@ describe("gauge/aether/Gauge", () => {
     });
 
     it("should stay live before the source has ever sent", () => {
-      const { component, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-        },
+      const { component } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       vi.advanceTimersByTime(10000);
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      expect(component.state.stale).toBe(false);
     });
 
-    it("should use the staleness color once the source goes quiet", () => {
+    it("should keep its own colors once the source goes quiet", () => {
       const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-        },
-      });
-      source.setValue("60");
-      vi.advanceTimersByTime(1250);
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
-    });
-
-    it("should keep its own colors while the stale color is hidden", () => {
-      const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-          staleColorHidden: true,
-        },
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
       expect(component.state.stale).toBe(true);
       recorder.clear();
       component.render({});
-      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
-      expect(styles(recorder, "strokeStyle")).not.toContain(color.hex(STALE));
-    });
-
-    it("should recolor the arc as well as the value text", () => {
-      const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-        },
-      });
-      source.setValue("60");
-      vi.advanceTimersByTime(1250);
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "strokeStyle")).toContain(color.hex(STALE));
-    });
-
-    it("should fall back to the warning color when no staleness color is set", () => {
-      const { component, source, recorder } = setup({
-        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
-      });
-      source.setValue("60");
-      vi.advanceTimersByTime(1250);
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "fillStyle")).toContain(
-        color.hex(THEME.colors.warning.m1),
-      );
-    });
-
-    it("should repaint itself when the source goes quiet", () => {
-      const { source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-        },
-      });
-      source.setValue("60");
-      recorder.clear();
-      // Nothing else asks the canvas to redraw once the source stops sending, so the
-      // transition has to request the repaint itself.
-      vi.advanceTimersByTime(1250);
-      expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
-    });
-
-    it("should stay live while the source keeps sending", () => {
-      const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
-          stalenessColor: STALE,
-        },
-      });
-      for (let i = 0; i < 5; i++) {
-        vi.advanceTimersByTime(1000);
-        source.setValue(`${i}`);
-      }
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
-    });
-
-    it("should clear the staleness color when the source sends again", () => {
-      const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: STALE,
-        },
-      });
-      source.setValue("60");
-      vi.advanceTimersByTime(1250);
-      source.setValue("70");
-      recorder.clear();
-      component.render({});
-      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      const warning = color.hex(THEME.colors.warning.m1);
+      expect(styles(recorder, "fillStyle")).not.toContain(warning);
+      expect(styles(recorder, "strokeStyle")).not.toContain(warning);
     });
 
     it("should release its registration on delete", () => {

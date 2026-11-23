@@ -496,6 +496,30 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should bound a bytes field by its byte count",
+			func() {
+				source := `
+				@py output "out"
+
+				Frame struct {
+					data bytes @validate {
+						min_length 1
+						max_length 64
+					}
+				}
+			`
+				table, diag := Analyze(source, "frame", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+					`data: Bytes = Field(min_length=1, max_length=64)`,
+				))
+			},
+		)
+
+		It(
 			"Should apply an exclusive lower bound in place of the implied one",
 			func() {
 				source := `

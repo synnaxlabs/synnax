@@ -561,6 +561,21 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should show float64 as the default data type of a scaled field", async () => {
+    await renderRead({ fields: [createField("count", "integer")] });
+    await selectField("count");
+    await screen.findByText("int64");
+    const scale = await screen.findByLabelText("Scale");
+    fireEvent.change(scale, { target: { value: "0.5" } });
+    fireEvent.blur(scale);
+    await screen.findByText("float64");
+    fireEvent.click(await findDialogTriggerByText("float64"));
+    const dialogs = await screen.findAllByRole("dialog");
+    const options = within(dialogs[dialogs.length - 1]);
+    expect(options.getByText("float32")).toBeTruthy();
+    expect(options.queryByText("int64")).toBeNull();
+  });
+
   it("should remove the default of a timestamp field in its details", async () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const time = icd.jsonFieldZ.parse({
@@ -1448,6 +1463,40 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should not bind the stored integer channel of a scaled field that starts to read", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("count"),
+        dataType: DataType.INT64,
+        virtual: true,
+      });
+      const count = icd.jsonFieldZ.parse({
+        ...createField("count", "integer"),
+        scale: 0.5,
+      });
+      const entry = await createEntry({ fields: [count], bound: {} });
+      const { draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${entry.messages[0].message}`]: {
+              index: 0,
+              channels: { "/count": ch.key },
+            },
+          },
+        },
+      });
+      await openTopic();
+      const read = () =>
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Read count" });
+      await waitFor(() => expect(read().disabled).toBe(false));
+      fireEvent.click(read());
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: count.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
     it("should add a new topic to the ICD that most topics read", async () => {
       const lone = await createEntry({ fields: [createField("temperature", "float")] });
       const pump = await createEntry({
@@ -1729,6 +1778,29 @@ describe("MQTT read form", () => {
         entries: [entry],
         beforeRender: () => retype(entry, count, "float"),
       });
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: count.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should unbind an integer channel when its field gains a scale", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("count"),
+        dataType: DataType.INT64,
+        virtual: true,
+      });
+      const count = createField("count", "integer");
+      const entry = await createEntry({
+        fields: [count],
+        bound: { [count.key]: ch.key },
+      });
+      const { draft } = await renderRead({ entries: [entry] });
+      await selectField("count");
+      const scale = await screen.findByLabelText("Scale");
+      fireEvent.change(scale, { target: { value: "0.5" } });
+      fireEvent.blur(scale);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
           { field: count.key, channel: 0, dataType: "" },

@@ -10,11 +10,7 @@
 import { type device, status, type Synnax, TimeSpan } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import {
-  LIST_ASSETS_COMMAND_TYPE,
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-} from "@/feature/sift/task/types";
+import { Device } from "@/feature/sift/device";
 
 const LIST_TIMEOUT = TimeSpan.seconds(15);
 
@@ -35,13 +31,13 @@ export interface ListResult extends z.infer<typeof listResultZ> {}
 export const list = async (client: Synnax, key: device.Key): Promise<ListResult> => {
   const dev = await client.devices.retrieve({ key });
   const scanTask = await client.tasks.retrieve({
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     rack: dev.rack,
     one: true,
-    schemas: SCAN_SCHEMAS,
+    schemas: Device.SCAN_SCHEMAS,
   });
   const res = await scanTask.executeCommandSync({
-    type: LIST_ASSETS_COMMAND_TYPE,
+    type: Device.LIST_ASSETS_COMMAND_TYPE,
     timeout: LIST_TIMEOUT,
     args: { device: key },
   });
