@@ -14,7 +14,7 @@ import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { theming } from "@/theming/aether";
 
 const { Leaf, Composite } = aetherTest;
