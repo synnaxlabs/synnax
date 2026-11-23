@@ -38,7 +38,6 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
-#include "driver/common/sample_clock.h"
 #include "driver/errors/errors.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/device/device.h"
@@ -547,8 +546,11 @@ public:
 class ArrayReadTaskSource final : public BaseReadTaskSource {
     /// @brief the number of samples each read returns per node.
     const std::size_t array_size;
-    /// @brief regulates the read rate and times each block of samples.
-    common::SoftwareTimedSampleClock sample_clock;
+    /// @brief regulates the rate blocks of samples are read at.
+    x::loop::Timer timer;
+    /// @brief where the next block may start at the earliest: the end of the previous
+    /// block, or the start of the run.
+    x::telem::TimeStamp prev_end = x::telem::TimeStamp(0);
 
 public:
     ArrayReadTaskSource(
@@ -564,15 +566,14 @@ public:
             std::move(cfg)
         ),
         array_size(std::get<::synnax::opcua::ArraySampling>(this->cfg.sampling).size),
-        sample_clock(this->cfg.sample_rate / this->array_size) {}
+        timer(this->cfg.sample_rate / this->array_size) {}
 
-    /// @brief re-arms the block timer. Without it, the first block after a restart
-    /// spans only the time the read took instead of a full acquisition window.
+    /// @brief re-arms the block timer, so the first read after a restart waits a full
+    /// block.
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
-        this->sample_clock = common::SoftwareTimedSampleClock(
-            this->cfg.sample_rate / this->array_size
-        );
+        this->timer = x::loop::Timer(this->cfg.sample_rate / this->array_size);
+        this->prev_end = x::telem::TimeStamp::now();
         return BaseReadTaskSource::start(cmd_key, cancel);
     }
 
@@ -583,8 +584,9 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
-        const auto start = this->sample_clock.wait(breaker);
+        this->timer.wait(breaker);
         auto [ua_res, read_err] = this->read_values();
+        const auto end = x::telem::TimeStamp::now();
         if (res.error = read_err; res.error) return res;
         fr.clear();
         Quality quality;
@@ -625,15 +627,20 @@ public:
                     this->cfg.channels[i]->synnax_key,
                     std::move(values[i].value())
                 );
-        // Stamping ahead of the clock would make the next run of this task open its
-        // writer inside data this run already wrote.
-        const auto end = this->sample_clock.end();
+        // The array holds the samples taken at the sample rate up to the read, so a
+        // late read does not compress them. A block never starts before the previous
+        // block's end or the start of the run, so stamps stay in order.
+        const auto start = std::max(
+            this->prev_end,
+            end - this->cfg.sample_rate.period() * this->array_size
+        );
         for (const auto &idx: this->cfg.index_keys)
             if (!skipped.contains(idx))
                 fr.emplace(
                     idx,
                     x::telem::Series::linspace(start, end, this->array_size)
                 );
+        this->prev_end = end;
         res.warning = quality.warning();
         return res;
     }

@@ -22,7 +22,6 @@ import { Stale } from "@/schematic/node/common/stale";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as VisScale } from "@/vis/scale";
-import { Staleness } from "@/vis/staleness";
 
 const STROKE_WIDTH = 2;
 // The canvas fill and the DOM wall round to device pixels independently, so the fill is
@@ -78,7 +77,8 @@ const Body = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted ? <Deleted.Item /> : staleIndicated && <Stale.Indicator />}
+      {staleIndicated && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <Tank
         strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
@@ -100,7 +100,6 @@ const Filled = (props: NodeProps<schematic.TankNodeConfig>): ReactElement => {
     scaleVisible,
     dimensions: dims = Border.DEFAULT_DIMENSIONS,
   } = config;
-  const badged = Staleness.useBadged();
   const telem = Scale.source({ channel, rollingAverage });
   const vis = Scale.useVisProps({
     ...config,
@@ -118,9 +117,8 @@ const Filled = (props: NodeProps<schematic.TankNodeConfig>): ReactElement => {
     direction: "y",
     externalScale: true,
     cornerRadii: cornerRadii(borderRadius, dims),
-    staleColorHidden: badged,
   });
-  return <Body {...props} staleIndicated={stale && badged} />;
+  return <Body {...props} staleIndicated={stale} />;
 };
 
 export const Symbol = (props: NodeProps<schematic.TankNodeConfig>): ReactElement =>

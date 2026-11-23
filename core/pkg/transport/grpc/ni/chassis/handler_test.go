@@ -36,8 +36,8 @@ var _ = Describe("Handler", func() {
 		transport.NIChassisUpdate.BindHandler(func(
 			context.Context,
 			chassis.UpdateRequest,
-		) (struct{}, error) {
-			return struct{}{}, nil
+		) (chassis.UpdateResponse, error) {
+			return chassis.UpdateResponse{}, nil
 		})
 		transport.NIChassisDelete.BindHandler(func(
 			context.Context,
@@ -97,14 +97,20 @@ var _ = Describe("Handler", func() {
 		transport.NIChassisUpdate.BindHandler(func(
 			_ context.Context,
 			req chassis.UpdateRequest,
-		) (struct{}, error) {
+		) (chassis.UpdateResponse, error) {
 			received = req
-			return struct{}{}, nil
+			return chassis.UpdateResponse{Chassis: svcchassis.Chassis{
+				Key:          req.Key,
+				Rack:         rack.NewKey(1, 2),
+				Name:         "Stored",
+				ResourceName: "{GUID}",
+				Model:        "NI 9205",
+			}}, nil
 		})
 		update := svcchassis.Update{Variant: svcchassis.ConfigurationUpdate{
 			Configuration: svcchassis.Configuration{Name: "Bench chassis"},
 		}}
-		MustSucceed(grpcchassis.NewNIChassisUpdateServiceClient(conn).Exec(
+		res := MustSucceed(grpcchassis.NewNIChassisUpdateServiceClient(conn).Exec(
 			ctx,
 			&grpcchassis.UpdateRequest{
 				Key:    key.String(),
@@ -113,6 +119,8 @@ var _ = Describe("Handler", func() {
 		))
 		Expect(received.Key).To(Equal(key))
 		Expect(received.Update).To(Equal(update))
+		Expect(res.Chassis.Key).To(Equal(key.String()))
+		Expect(res.Chassis.Name).To(Equal("Stored"))
 	})
 
 	It("Should delete chassis by key", func(ctx SpecContext) {

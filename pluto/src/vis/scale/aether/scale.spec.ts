@@ -12,7 +12,7 @@ import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { canvasTest } from "@/vis/render/testutil";
 import { scale } from "@/vis/scale/aether";
 
@@ -211,72 +211,17 @@ describe("scale/aether/Scale", () => {
       expect(component.state.stale).toBe(false);
     });
 
-    it("should recolor the fill once the source stops sending", () => {
-      const { recorder, source } = setup({
-        color: ACCENT,
-        showScale: false,
-        showCaret: false,
-        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-      });
-      source.setValue(50);
-      expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
-      vi.advanceTimersByTime(2000);
-      expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(STALE);
-    });
-
-    it("should keep its own colors while the stale color is hidden", () => {
+    it("should keep its own colors once the source stops sending", () => {
       const { component, recorder, source } = setup({
         color: ACCENT,
-        showCaret: false,
         stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-        staleColorHidden: true,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);
       expect(component.state.stale).toBe(true);
+      component.render({});
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
       expect(canvasStyles(recorder, "upper2d", "fillStyle")).not.toContain(STALE);
-    });
-
-    it("should stay live while samples keep arriving", () => {
-      const { recorder, source } = setup({
-        color: ACCENT,
-        showScale: false,
-        showCaret: false,
-        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-      });
-      for (let i = 0; i < 5; i++) {
-        source.setValue(50 + i);
-        vi.advanceTimersByTime(500);
-      }
-      expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
-    });
-
-    it("should recolor the readout once the source stops sending", () => {
-      const { recorder, source } = setup({
-        color: ACCENT,
-        showFill: false,
-        showScale: false,
-        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-      });
-      source.setValue(50);
-      vi.advanceTimersByTime(2000);
-      expect(canvasStyles(recorder, "upper2d", "fillStyle")).toContain(STALE);
-    });
-
-    it("should return to the configured color once a sample arrives", () => {
-      const { recorder, source } = setup({
-        color: ACCENT,
-        showScale: false,
-        showCaret: false,
-        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-      });
-      source.setValue(50);
-      vi.advanceTimersByTime(2000);
-      source.setValue(60);
-      expect(canvasStyles(recorder, "lower2d", "fillStyle").at(-1)).toEqual(
-        color.hex(ACCENT),
-      );
     });
   });
 

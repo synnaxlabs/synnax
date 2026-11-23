@@ -20,6 +20,7 @@ import { FlexShowcase } from "@/showcase/FlexShowcase";
 import { HeaderShowcase } from "@/showcase/HeaderShowcase";
 import { InputShowcase } from "@/showcase/InputShowcase";
 import { MenuShowcase } from "@/showcase/MenuShowcase";
+import { MotionShowcase } from "@/showcase/MotionShowcase";
 import { NoteShowcase } from "@/showcase/NoteShowcase";
 import { PreviewShowcase } from "@/showcase/PreviewShowcase";
 import { SchematicStyleShowcase } from "@/showcase/SchematicStyleShowcase";
@@ -126,6 +127,13 @@ export const Showcase = () => {
       description:
         "Competing schematic style philosophies rendered over one shared symbol set. Judge each on its specimens and on the composed fragment.",
       component: <SchematicStyleShowcase />,
+    },
+    {
+      key: "motion",
+      title: "Symbol motion",
+      description:
+        "Spin, flow, blink, level, rotate, and move on custom symbols, drawn by one animation loop.",
+      component: <MotionShowcase />,
     },
     {
       key: "flex",

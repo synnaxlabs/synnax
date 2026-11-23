@@ -30,12 +30,12 @@ import {
   RawBlock,
   rawKey,
 } from "@/framer/cache/block";
-import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
-import { tileSpan } from "@/framer/cache/grid";
+import { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
 import { COMMIT_MARGIN } from "@/framer/cache/reader";
 
 export interface StoreProps extends Partial<
-  Pick<DynamicProps, "dynamicBufferSize" | "now">
+  Pick<dynamic.Props, "dynamicBufferSize" | "now">
 > {
   /**
    * Byte size the store evicts down to, least recently used first. Each block counts
@@ -75,7 +75,7 @@ const DEFAULT_LIVE_SAMPLES = 2 ** 17;
 const ENTRY_OVERHEAD = 256;
 
 // Moves the samples of the buffer's leading series into the block as fetched ones.
-const flushInto = (block: RawBlock, buffer: Dynamic): void => {
+const flushInto = (block: RawBlock, buffer: dynamic.Dynamic): void => {
   const flushed = buffer.flush();
   if (flushed != null && flushed.length > 0)
     block.fill([flushed], block.coveredEnd, block.coveredCount);
@@ -89,7 +89,7 @@ interface Entry {
 
 // The stream's buffer of one channel, and the raw block it writes into.
 interface Live {
-  buffer: Dynamic;
+  buffer: dynamic.Dynamic;
   block: RawBlock | null;
 }
 
@@ -109,9 +109,14 @@ export interface Floor {
 
 /**
  * Receives a span of a channel's history that changed, or of every channel's when the
- * channel is null.
+ * channel is null. missed is true when the stream missed frames, not when history
+ * changed.
  */
-export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
+export type InvalidateHandler = (
+  ch: channel.Key | null,
+  tr: TimeRange,
+  missed: boolean,
+) => void;
 
 /**
  * @returns true when a calculation writes the channel's samples. It writes a calculated
@@ -165,7 +170,7 @@ export class Store {
   constructor({
     budget = DEFAULT_BUDGET,
     staleThreshold = DEFAULT_STALE_THRESHOLD,
-    dynamicBufferSize = tileSpan(RAW_LEVEL),
+    dynamicBufferSize = grid.tileSpan(RAW_LEVEL),
     liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
@@ -293,6 +298,21 @@ export class Store {
     );
   }
 
+  /** @returns true when the Core stores the channel's samples. */
+  stored(ch: channel.Key): boolean {
+    return this.leaseholders.has(ch);
+  }
+
+  /**
+   * Restarts the time from which history signals count as delivered, after the stream
+   * dropped frames that could hold them. A sealed block fetched before now then stays
+   * valid only until it is older than the stale threshold, and a held block until it
+   * is released.
+   */
+  restartSignals(): void {
+    if (this.signalsSince != null) this.signalsSince = this.now();
+  }
+
   /** @returns true when the channel is calculated. */
   isCalculated(ch: channel.Key): boolean {
     return this.calculated.has(ch);
@@ -334,16 +354,21 @@ export class Store {
 
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
-   * when the channel is null.
+   * when the channel is null. Set missed when the stream missed frames, not when
+   * history changed.
    */
-  invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
+  invalidate(
+    ch: channel.Key | null = null,
+    tr: TimeRange = TimeRange.MAX,
+    missed = false,
+  ): void {
     const touched = [...this.entries]
       .map(([key, { block }]) => [key, block] as const)
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
       if (!(block instanceof RawBlock)) this.delete(key);
       else if (block.expire()) this.set(key, block);
-    this.invalidateHandlers.forEach((h) => h(ch, tr));
+    this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
   }
 
   /** @returns the data type of the channel's cached samples. */
@@ -602,7 +627,7 @@ export class Store {
 
   private liveOf(ch: channel.Key): Live {
     return map.getOrInsert(this.live, ch, () => ({
-      buffer: new Dynamic({
+      buffer: new dynamic.Dynamic({
         dynamicBufferSize: this.dynamicBufferSize,
         maxBufferSize: this.liveSamples / 16,
         instrumentation: this.instrumentation.child(`live-${ch}`),
