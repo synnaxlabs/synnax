@@ -43,8 +43,7 @@ import {
 
 import { Errors } from "@/errors";
 import { Panel } from "@/panel";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Body.css";
+
 import type { record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import type { z } from "zod";
@@ -76,28 +78,28 @@ export interface BorderedListProps {
 }
 
 /** The option list of a select, with the footer pinned under it. */
-export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement =>
-  footer == null || footer === false ? (
-    <SelectList bordered borderColor={6} grow rounded full="x">
-      {children}
-    </SelectList>
-  ) : (
+export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement => {
+  const hasFooter = footer != null && footer !== false;
+  // One element tree with or without a footer, so a footer that appears late never
+  // remounts the options.
+  return (
     <Flex.Box
       y
       empty
       grow
-      className={CSS.BE("select", "body")}
-      bordered
+      className={CSS.BE("select", hasFooter ? "body" : "frame")}
+      bordered={hasFooter}
       borderColor={6}
       rounded
       full="x"
     >
-      <SelectList grow full="x">
+      <SelectList bordered={!hasFooter} borderColor={6} grow full="x">
         {children}
       </SelectList>
       {footer}
     </Flex.Box>
   );
+};
 
 // In the menu, only the matching options show: no field, footer, or empty content.
 const InlineBody = <K extends record.Key>({

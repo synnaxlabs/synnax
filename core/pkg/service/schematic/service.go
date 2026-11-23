@@ -11,11 +11,13 @@ package schematic
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -28,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -55,6 +58,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Enumeration holds the enumerations that symbol states show.
+	//
+	// [REQUIRED]
+	Enumeration *enumeration.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -66,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Enumeration = override.Nil(c.Enumeration, other.Enumeration)
 	return c
 }
 
@@ -75,17 +83,19 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("group", c.Group)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("enumeration", c.Enumeration)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
-	cfg     ServiceConfig
-	Symbol  *symbol.Service
-	closer  io.MultiCloser
-	table   *gorp.Table[Key, Schematic]
-	indexes indexes
-	state   *actions.State[Key, Action]
+	cfg      ServiceConfig
+	Symbol   *symbol.Service
+	builtins map[string]symbol.Builtin
+	closer   io.MultiCloser
+	table    *gorp.Table[Key, Schematic]
+	indexes  indexes
+	state    *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -100,6 +110,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:     cfg,
 		state:   actions.NewState[Key, Action](cfg.DB),
 		indexes: newIndexes(),
+		builtins: lo.KeyBy(
+			symbol.Builtins(),
+			func(b symbol.Builtin) string { return b.Name },
+		),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -110,9 +124,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
-		// A named color delete rewrites the schematic outside any schematic write, so
-		// the service sends the schematic as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, sch Schematic) error {
+		// An enumeration retarget or a named color delete rewrites the schematic
+		// outside any schematic write, so the service sends the schematic as a create.
+		OnRewrite: func(_ context.Context, tx gorp.Tx, sch Schematic) error {
 			s.state.Dispatcher().
 				Attach(tx, sch.Key, NewCreateAction(CreatePayload{Schematic: sch}))
 			return nil
@@ -129,6 +143,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Signals:         cfg.Signals,
 		ImEx:            cfg.ImEx,
+		Enumeration:     cfg.Enumeration,
+		Actuators:       s.actuatorSymbols,
+		RemoveOrphans:   s.removeOrphans,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
@@ -170,6 +187,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
 		table:      s.table,
+		symbols:    s.Symbol,
+		builtins:   s.builtins,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
@@ -204,4 +223,29 @@ func (s *Service) MoveGroups(
 	}
 	keys := lo.Map(moved, func(e Schematic, _ int) Key { return e.Key })
 	return s.NewWriter(tx).setProject(ctx, *p, keys...)
+}
+
+// actuatorSymbols returns the keys of the symbols that a custom_actuator node draws.
+func (s *Service) actuatorSymbols(
+	ctx context.Context,
+	tx gorp.Tx,
+) (set.Set[symbol.Key], error) {
+	var all []Schematic
+	if err := s.table.NewRetrieve().Entries(&all).Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	keys := set.Set[symbol.Key]{}
+	for _, sc := range all {
+		for _, n := range sc.Nodes {
+			cfg, isActuator := n.Config.Variant.(CustomActuatorNodeConfig)
+			if !isActuator {
+				continue
+			}
+			// A spec key that is not a UUID names no symbol.
+			if key, err := uuid.Parse(cfg.SpecKey); err == nil {
+				keys.Add(key)
+			}
+		}
+	}
+	return keys, nil
 }

@@ -45,6 +45,13 @@ describe("resource", () => {
       expect(resource.parseID("channel:1")).toEqual({ type: "channel", key: "1" });
     });
 
+    it("should keep every colon after the first in the key", () => {
+      expect(resource.parseID("device:opc.tcp://host:4840")).toEqual({
+        type: "device",
+        key: "opc.tcp://host:4840",
+      });
+    });
+
     it("should throw a labeled error for an invalid resource type", () => {
       expect(() => resource.parseID("dog:1")).toThrow(
         "Failed to parse resource ID (1 issue)",

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Timeout } from "@synnaxlabs/freighter";
-import { errors, id, uuid } from "@synnaxlabs/x";
+import { type Context, Timeout, Unreachable } from "@synnaxlabs/freighter";
+import { errors, id, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { errorsMiddleware } from "@/errors";
 import {
   AccessDeniedError,
   AuthError,
@@ -33,7 +34,7 @@ import {
   UnauthorizedError,
   UnexpectedError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
@@ -112,6 +113,29 @@ describe("error", () => {
       expect(payload.type).toBe(errors.UNKNOWN);
       expect(payload.data).toBe("boom");
     });
+  });
+});
+
+describe("errorsMiddleware", () => {
+  const ctx: Context = { target: "", protocol: "", params: {}, role: "client" };
+  const endpoint = new url.URL({ host: "core.example.com", port: 9090 });
+
+  const failWith = async (err: Error): Promise<unknown> =>
+    await errorsMiddleware(ctx, async () => {
+      throw err;
+    }).catch((e: unknown) => e);
+
+  test("should name the Core in an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint }));
+    expect(err).toHaveProperty("message", "Cannot reach Core at core.example.com:9090");
+  });
+
+  test("should keep the hint of an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint, hint: "Check TLS" }));
+    expect(err).toHaveProperty(
+      "message",
+      "Cannot reach Core at core.example.com:9090. Check TLS",
+    );
   });
 });
 

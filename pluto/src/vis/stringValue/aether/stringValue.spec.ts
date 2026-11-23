@@ -13,8 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
-import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import { renderAether } from "@/testutil/internal";
+import type { FillTextOptions } from "@/vis/draw2d";
 import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
@@ -197,8 +197,6 @@ describe("stringValue.StringValue", () => {
   });
 
   describe("staleness", () => {
-    const stale = color.construct("#ff0000");
-
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
@@ -216,98 +214,49 @@ describe("stringValue.StringValue", () => {
     });
 
     it("should stay live before the source has ever sent", () => {
-      const { component, recorder } = setup({
+      const { component } = setup({
         value: "IDLE",
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: stale,
-        },
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       vi.advanceTimersByTime(10000);
+      expect(component.state.stale).toBe(false);
+    });
+
+    it("should keep the text color once the source goes quiet", () => {
+      const { component, source, recorder } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("ARMED");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
       recorder.clear();
       component.render({});
       expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
     });
 
-    it("should repaint in the staleness color once the source goes quiet", () => {
-      const { source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: stale,
-        },
-      });
-      source.setValue("ARMED");
-      recorder.clear();
-      vi.advanceTimersByTime(1250);
-      expect(fillTexts(recorder)).toEqual(["ARMED"]);
-      expect(lastFillStyle(recorder)).toBe(color.hex(stale));
-    });
-
-    it("should keep the text color while the stale color is hidden", () => {
-      const { component, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: stale,
-          staleColorHidden: true,
-        },
-      });
-      source.setValue("ARMED");
-      vi.advanceTimersByTime(1250);
-      expect(component.state.stale).toBe(true);
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
-    });
-
-    it("should fall back to the warning color when no staleness color is set", () => {
-      const { source, recorder } = setup({
-        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
-      });
-      source.setValue("ARMED");
-      vi.advanceTimersByTime(1250);
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.warning.m1));
-    });
-
     it("should restart the countdown on every received value", () => {
-      const { source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(2).nanoseconds,
-          stalenessColor: stale,
-        },
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(2).nanoseconds },
       });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1500);
       source.setValue("FIRING");
       vi.advanceTimersByTime(1500);
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
+      expect(component.state.stale).toBe(false);
       vi.advanceTimersByTime(750);
-      expect(lastFillStyle(recorder)).toBe(color.hex(stale));
-    });
-
-    it("should return to the text color when a value arrives after going stale", () => {
-      const { source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: stale,
-        },
-      });
-      source.setValue("ARMED");
-      vi.advanceTimersByTime(1250);
-      source.setValue("FIRING");
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
+      expect(component.state.stale).toBe(true);
     });
 
     // A prop change re-reads the source with no new sample behind it, so it must not
     // present a stale value as fresh.
     it("should stay stale across an update that does not carry a value", () => {
-      const { h, source, recorder } = setup({
-        state: {
-          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-          stalenessColor: stale,
-        },
+      const { h, component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1250);
       h.setState((p) => ({ ...p, level: "h2" }));
-      expect(lastFillStyle(recorder)).toBe(color.hex(stale));
+      expect(component.state.stale).toBe(true);
     });
   });
 

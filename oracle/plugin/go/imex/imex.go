@@ -275,24 +275,15 @@ func (p *Plugin) generatePackage(
 	}
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
-		dir := versioning.VersionedPath(outputPath, k)
-		subject, err := versionSubject(req, targets[0].livePath, k)
-		if err != nil {
+		if err := p.generateVersion(
+			req,
+			resp,
+			outputPath,
+			targets[0].livePath,
+			k,
+		); err != nil {
 			return err
 		}
-		var buf bytes.Buffer
-		if err := versionTemplate.Execute(&buf, &versionData{
-			Package: naming.DerivePackageName(dir),
-			Subject: subject,
-			Version: k,
-			Runtime: p.options.RuntimeImportPath,
-		}); err != nil {
-			return err
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    dir + "/" + p.options.FileNamePattern,
-			Content: buf.Bytes(),
-		})
 	}
 	imports := make([]string, 0, len(versionNums))
 	for _, k := range versionNums {
@@ -321,16 +312,52 @@ func (p *Plugin) generatePackage(
 	if targets[0].body {
 		return nil
 	}
-	name, err := exportedName(targets[0].typ, req.Resolutions)
+	return p.generateExport(req, resp, outputPath, targets[0])
+}
+
+// generateVersion adds the file of version k of the chain at livePath to resp.
+func (p *Plugin) generateVersion(
+	req *plugin.Request,
+	resp *plugin.Response,
+	outputPath, livePath string,
+	k int,
+) error {
+	dir := versioning.VersionedPath(outputPath, k)
+	subject, err := versionSubject(req, livePath, k)
 	if err != nil {
 		return err
 	}
-	// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
-	// would overwrite the chain file appended above.
-	var exportBuf bytes.Buffer
-	if err := exportTemplate.Execute(&exportBuf, &exportData{
+	var buf bytes.Buffer
+	if err := versionTemplate.Execute(&buf, &versionData{
+		Package: naming.DerivePackageName(dir),
+		Subject: subject,
+		Version: k,
+		Runtime: p.options.RuntimeImportPath,
+	}); err != nil {
+		return err
+	}
+	resp.Files = append(resp.Files, plugin.File{
+		Path:    dir + "/" + p.options.FileNamePattern,
+		Content: buf.Bytes(),
+	})
+	return nil
+}
+
+// generateExport adds the file that exports the type of t to resp.
+func (p *Plugin) generateExport(
+	req *plugin.Request,
+	resp *plugin.Response,
+	outputPath string,
+	t target,
+) error {
+	name, err := exportedName(t.typ, req.Resolutions)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	if err := exportTemplate.Execute(&buf, &exportData{
 		Package: naming.DerivePackageName(outputPath),
-		Type:    targets[0].goName,
+		Type:    t.goName,
 		Name:    name,
 		Versions: gomod.ResolveImportPath(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
@@ -342,13 +369,13 @@ func (p *Plugin) generatePackage(
 		),
 		Runtime:    p.options.RuntimeImportPath,
 		Resource:   p.options.ResourceImportPath,
-		References: targets[0].references,
+		References: t.references,
 	}); err != nil {
 		return err
 	}
 	resp.Files = append(resp.Files, plugin.File{
 		Path:    outputPath + "/" + p.options.FileNamePattern,
-		Content: exportBuf.Bytes(),
+		Content: buf.Bytes(),
 	})
 	return nil
 }

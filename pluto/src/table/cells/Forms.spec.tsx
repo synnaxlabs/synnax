@@ -14,8 +14,8 @@ import { act, fireEvent, render } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { TextForm, ValueForm } from "@/table/cells/Forms";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Cell } from "@/table/cells";
+import { createSynnaxWrapper } from "@/testutil";
 
 const path = deep.path<table.ValueCellConfig>();
 
@@ -38,7 +38,7 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 const renderTab = (tab: string) => {
   const result = render(
     <FormWrapper>
-      <ValueForm />
+      <Cell.ValueForm />
     </FormWrapper>,
   );
   fireEvent.click(result.getByText(tab));
@@ -51,7 +51,7 @@ describe("ValueForm", () => {
   it("should open on the telemetry tab", () => {
     const { getByRole } = render(
       <FormWrapper>
-        <ValueForm />
+        <Cell.ValueForm />
       </FormWrapper>,
     );
     expect(getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
@@ -254,7 +254,7 @@ describe("TextForm", () => {
   it("should edit the text color as auto and show the stored fill", () => {
     const { getAllByText, container } = render(
       <TextWrapper>
-        <TextForm />
+        <Cell.TextForm />
       </TextWrapper>,
     );
     expect(getAllByText("Text")).toHaveLength(3);

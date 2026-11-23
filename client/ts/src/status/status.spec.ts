@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
@@ -114,8 +114,8 @@ describe("Status", () => {
 
     it("should keep the stored labels on an update and ignore the carried ones", async () => {
       const [held, carried] = await client.labels.create([
-        { name: "Held", color: color.construct("#0000FF") },
-        { name: "Carried", color: color.construct("#FF0000") },
+        { name: "Held", color: { type: "fixed", value: "#0000FF" } },
+        { name: "Carried", color: { type: "fixed", value: "#FF0000" } },
       ]);
       const key = uuid.create();
       await client.statuses.set({
@@ -213,6 +213,7 @@ describe("Status", () => {
         ),
       );
       const local = createTestClient();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         owners.map(async (owner) => await local.statuses.retrieveOwned([owner])),
@@ -400,7 +401,7 @@ describe("Status", () => {
         ),
       );
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         keys.map(async (key) => await local.statuses.retrieve(key)),
@@ -674,11 +675,11 @@ describe("Status", () => {
     it("should correctly retrieve a status with labels attached", async () => {
       const label1 = await client.labels.create({
         name: "Label 1",
-        color: color.construct("#0000FF"),
+        color: { type: "fixed", value: "#0000FF" },
       });
       const label2 = await client.labels.create({
         name: "Label 2",
-        color: color.construct("#FF0000"),
+        color: { type: "fixed", value: "#FF0000" },
       });
       const stat = await client.statuses.set({
         name: "Idempotent",
@@ -702,7 +703,7 @@ describe("Status", () => {
     it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
-        color: color.construct("#00FF00"),
+        color: { type: "fixed", value: "#00FF00" },
       });
       const member = uuid.create();
       const joiner = uuid.create();

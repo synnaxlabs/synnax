@@ -17,8 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Status } from "@/status";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Status.formPath;
 
@@ -34,7 +33,7 @@ describe("Status queries", () => {
     it("should list the statuses with a label", async () => {
       const lbl = await client.labels.create({
         name: "Filter Label",
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const [labeled] = await client.statuses.set([
         {
@@ -338,8 +337,14 @@ describe("Status queries", () => {
     });
 
     it("should handle status with labels", async () => {
-      const label1 = await client.labels.create({ name: "Label 1", color: "#FF0000" });
-      const label2 = await client.labels.create({ name: "Label 2", color: "#00FF00" });
+      const label1 = await client.labels.create({
+        name: "Label 1",
+        color: { type: "fixed", value: "#FF0000" },
+      });
+      const label2 = await client.labels.create({
+        name: "Label 2",
+        color: { type: "fixed", value: "#00FF00" },
+      });
       const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
@@ -365,9 +370,18 @@ describe("Status queries", () => {
     });
 
     it("should replace the labels of an existing status on save", async () => {
-      const kept = await client.labels.create({ name: "Kept", color: "#FF0000" });
-      const dropped = await client.labels.create({ name: "Dropped", color: "#00FF00" });
-      const added = await client.labels.create({ name: "Added", color: "#0000FF" });
+      const kept = await client.labels.create({
+        name: "Kept",
+        color: { type: "fixed", value: "#FF0000" },
+      });
+      const dropped = await client.labels.create({
+        name: "Dropped",
+        color: { type: "fixed", value: "#00FF00" },
+      });
+      const added = await client.labels.create({
+        name: "Added",
+        color: { type: "fixed", value: "#0000FF" },
+      });
       const key = uuid.create();
       await client.statuses.set({
         name: "Labeled",
@@ -517,15 +531,15 @@ describe("Status queries", () => {
     it("should handle adding and removing labels", async () => {
       const label1 = await client.labels.create({
         name: "Add Label 1",
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       const label2 = await client.labels.create({
         name: "Add Label 2",
-        color: "#00FF00",
+        color: { type: "fixed", value: "#00FF00" },
       });
       const label3 = await client.labels.create({
         name: "Add Label 3",
-        color: "#0000FF",
+        color: { type: "fixed", value: "#0000FF" },
       });
       const key = uuid.create();
       await client.statuses.set({
@@ -559,11 +573,11 @@ describe("Status queries", () => {
     it("should sync label changes from external updates", async () => {
       const label1 = await client.labels.create({
         name: "Sync Label 1",
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       const label2 = await client.labels.create({
         name: "Sync Label 2",
-        color: "#00FF00",
+        color: { type: "fixed", value: "#00FF00" },
       });
       const key = uuid.create();
       await client.statuses.set({

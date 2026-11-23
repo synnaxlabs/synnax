@@ -13,20 +13,8 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { Haul } from "@/haul";
 import { List } from "@/list";
-import { mockGeometry } from "@/testutil/dom";
-import { createRenderCounter } from "@/testutil/renders";
-import type { Node } from "@/tree/base";
-import { Item } from "@/tree/Item";
-import {
-  canDropHaulItem,
-  createHaulItem,
-  filterHaulItems,
-  HAUL_TYPE,
-  isHaulItem,
-  type ToggleOn,
-  Tree,
-  use,
-} from "@/tree/Tree";
+import { createRenderCounter, mockGeometry } from "@/testutil";
+import { Tree } from "@/tree";
 import { Triggers } from "@/triggers";
 
 const KEY = "node-1";
@@ -35,40 +23,43 @@ const OTHER: Haul.Item = { type: "other_type", key: "other" };
 describe("tree haul utilities", () => {
   describe("createHaulItem", () => {
     it("creates an item with the tree HAUL_TYPE", () => {
-      expect(createHaulItem(KEY).type).toEqual(HAUL_TYPE);
+      expect(Tree.createHaulItem(KEY).type).toEqual(Tree.HAUL_TYPE);
     });
 
     it("creates an item with the provided key", () => {
-      expect(createHaulItem(KEY).key).toEqual(KEY);
+      expect(Tree.createHaulItem(KEY).key).toEqual(KEY);
     });
   });
 
   describe("isHaulItem", () => {
     it("returns true for an item of the tree kind", () => {
-      expect(isHaulItem(createHaulItem(KEY))).toBe(true);
+      expect(Tree.isHaulItem(Tree.createHaulItem(KEY))).toBe(true);
     });
 
     it("returns false for an item of another kind", () => {
-      expect(isHaulItem(OTHER)).toBe(false);
+      expect(Tree.isHaulItem(OTHER)).toBe(false);
     });
   });
 
   describe("filterHaulItems", () => {
     it("keeps tree items and drops items of other kinds", () => {
-      const item = createHaulItem(KEY);
-      expect(filterHaulItems([item, OTHER])).toEqual([item]);
+      const item = Tree.createHaulItem(KEY);
+      expect(Tree.filterHaulItems([item, OTHER])).toEqual([item]);
     });
   });
 
   describe("canDropHaulItem", () => {
     it("returns true when at least one item is a tree item", () => {
       expect(
-        canDropHaulItem({ source: OTHER, items: [createHaulItem(KEY), OTHER] }),
+        Tree.canDropHaulItem({
+          source: OTHER,
+          items: [Tree.createHaulItem(KEY), OTHER],
+        }),
       ).toBe(true);
     });
 
     it("returns false when no item is a tree item", () => {
-      expect(canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
+      expect(Tree.canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
     });
   });
 });
@@ -76,7 +67,7 @@ describe("tree haul utilities", () => {
 describe("Tree", () => {
   beforeAll(() => mockGeometry(100, 100));
 
-  const NODES: Node[] = Array.from({ length: 200 }, (_, i) => ({
+  const NODES: Tree.Node[] = Array.from({ length: 200 }, (_, i) => ({
     key: `node-${String(i).padStart(3, "0")}`,
   }));
 
@@ -90,15 +81,15 @@ describe("Tree", () => {
   }
 
   const Component = ({ pinned }: ComponentProps) => {
-    const props = use({ nodes: NODES });
+    const props = Tree.use({ nodes: NODES });
     return (
-      <Tree {...props} getItem={getItem} pinned={pinned}>
+      <Tree.Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
-          <Item key={key} {...rest}>
+          <Tree.Item key={key} {...rest}>
             {key}
-          </Item>
+          </Tree.Item>
         )}
-      </Tree>
+      </Tree.Tree>
     );
   };
 
@@ -139,7 +130,7 @@ describe("Tree", () => {
 describe("Tree toggling", () => {
   beforeAll(() => mockGeometry(100, 100));
 
-  const NODES: Node[] = [
+  const NODES: Tree.Node[] = [
     { key: "parent", children: [{ key: "child" }] },
     { key: "second", children: [{ key: "second-child" }] },
   ];
@@ -149,16 +140,16 @@ describe("Tree toggling", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  const Component = ({ toggleOn }: { toggleOn?: ToggleOn }) => {
-    const props = use({ nodes: NODES, toggleOn });
+  const Component = ({ toggleOn }: { toggleOn?: Tree.ToggleOn }) => {
+    const props = Tree.use({ nodes: NODES, toggleOn });
     return (
-      <Tree {...props} getItem={getItem}>
+      <Tree.Tree {...props} getItem={getItem}>
         {({ key, ...rest }) => (
-          <Item key={key} {...rest}>
+          <Tree.Item key={key} {...rest}>
             {key}
-          </Item>
+          </Tree.Item>
         )}
-      </Tree>
+      </Tree.Tree>
     );
   };
 
@@ -221,14 +212,14 @@ describe("Tree toggling", () => {
 });
 
 describe("Tree expansion", () => {
-  const NODES: Node[] = [
+  const NODES: Tree.Node[] = [
     { key: "a", children: [{ key: "a1" }] },
     { key: "b", children: [{ key: "b1" }] },
   ];
 
   it("should report the expanded keys after an expand", () => {
     const onExpand = vi.fn();
-    const { result } = renderHook(() => use({ nodes: NODES, onExpand }));
+    const { result } = renderHook(() => Tree.use({ nodes: NODES, onExpand }));
     act(() => result.current.expand("a"));
     act(() => result.current.expand("b"));
     expect(onExpand).toHaveBeenLastCalledWith({
@@ -241,7 +232,7 @@ describe("Tree expansion", () => {
   it("should show the expanded keys its caller holds", () => {
     const onExpandedChange = vi.fn();
     const { result } = renderHook(() =>
-      use({ nodes: NODES, expanded: ["a"], onExpandedChange }),
+      Tree.use({ nodes: NODES, expanded: ["a"], onExpandedChange }),
     );
     act(() => result.current.expand("b"));
     expect(onExpandedChange).toHaveBeenLastCalledWith(["a", "b"]);
@@ -252,7 +243,10 @@ describe("Tree expansion", () => {
   it("should toggle a node that its collapsed parent hides", () => {
     const onExpand = vi.fn();
     const { result } = renderHook(() =>
-      use({ nodes: [{ key: "a", children: [{ key: "a1", children: [] }] }], onExpand }),
+      Tree.use({
+        nodes: [{ key: "a", children: [{ key: "a1", children: [] }] }],
+        onExpand,
+      }),
     );
     act(() => result.current.toggle("a1"));
     expect(onExpand).toHaveBeenLastCalledWith({
@@ -265,7 +259,7 @@ describe("Tree expansion", () => {
   it("should report the expanded keys after a contract", () => {
     const onExpand = vi.fn();
     const { result } = renderHook(() =>
-      use({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
+      Tree.use({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
     );
     act(() => result.current.contract("a"));
     expect(onExpand).toHaveBeenLastCalledWith({
@@ -279,7 +273,7 @@ describe("Tree expansion", () => {
 describe("Tree keys", () => {
   beforeAll(() => mockGeometry(100, 100));
 
-  const NODES: Node[] = [
+  const NODES: Tree.Node[] = [
     { key: "a", children: [{ key: "a1" }, { key: "a2" }] },
     { key: "b" },
     { key: "c" },
@@ -291,7 +285,7 @@ describe("Tree keys", () => {
   );
 
   interface ComponentProps {
-    nodes?: Node[];
+    nodes?: Tree.Node[];
     onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
     onDoubleClick?: (key: string) => void;
     onContextMenu?: (e: MouseEvent<HTMLDivElement>) => void;
@@ -303,22 +297,22 @@ describe("Tree keys", () => {
     onDoubleClick,
     onContextMenu,
   }: ComponentProps) => {
-    const props = use({ nodes });
+    const props = Tree.use({ nodes });
     return (
       <Triggers.Provider>
-        <Tree
+        <Tree.Tree
           {...props}
           getItem={getItem}
           onKeyDown={onKeyDown}
           onContextMenu={onContextMenu}
         >
           {({ key, ...rest }) => (
-            <Item key={key} {...rest} onDoubleClick={() => onDoubleClick?.(key)}>
+            <Tree.Item key={key} {...rest} onDoubleClick={() => onDoubleClick?.(key)}>
               {key}
               {key === "b" && <input aria-label="b name" />}
-            </Item>
+            </Tree.Item>
           )}
-        </Tree>
+        </Tree.Tree>
       </Triggers.Provider>
     );
   };
@@ -577,16 +571,16 @@ describe("Tree keys", () => {
     const { Counted, counts, reset } = createRenderCounter();
     const nodes = Array.from({ length: 30 }, (_, i) => ({ key: `${i}` }));
     const Counter = () => {
-      const props = use({ nodes });
+      const props = Tree.use({ nodes });
       return (
         <Triggers.Provider>
-          <Tree {...props} getItem={getItem}>
+          <Tree.Tree {...props} getItem={getItem}>
             {({ key, ...rest }) => (
               <Counted key={key} id={key}>
-                <Item {...rest}>{key}</Item>
+                <Tree.Item {...rest}>{key}</Tree.Item>
               </Counted>
             )}
-          </Tree>
+          </Tree.Tree>
         </Triggers.Provider>
       );
     };

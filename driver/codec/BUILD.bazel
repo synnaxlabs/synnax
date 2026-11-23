@@ -13,12 +13,23 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "codec",
     srcs = [
+        "binary.cpp",
+        "bits.cpp",
+        "field.cpp",
+        "field.h",
         "json.cpp",
         "match.cpp",
+        "mux.cpp",
+        "text.cpp",
     ],
     hdrs = [
+        "binary.h",
+        "binding.h",
+        "bits.h",
         "errors.h",
         "json.h",
+        "mux.h",
+        "text.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -28,20 +39,26 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/json:read",
         "//x/cpp/payload",
+        "//x/cpp/strings",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 
 cc_test(
     name = "codec_test",
     srcs = [
+        "binary_test.cpp",
+        "bits_test.cpp",
         "decode_fixture_test.cpp",
         "json_test.cpp",
+        "text_test.cpp",
     ],
     data = ["//core/pkg/service/icd:decode_fixtures"],
     deps = [
         ":codec",
         "//client/cpp/icd",
+        "//driver/codec/testutil",
         "//x/cpp/base64",
         "//x/cpp/bench:alloc",
         "//x/cpp/errors",

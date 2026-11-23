@@ -10,6 +10,9 @@
 #pragma once
 
 #include <cctype>
+#include <charconv>
+#include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -17,6 +20,44 @@
 #include <vector>
 
 namespace x::strings {
+
+/// @brief Formats v as the shortest text that parses back to v. The text is in exponent
+/// notation when the decimal exponent of its shortest digits is below -6 or from 21,
+/// with an unpadded exponent (1e-7, 1e+21). NaN is "NaN", and infinities are "Infinity"
+/// and "-Infinity".
+template<std::floating_point T>
+std::string format_float(T v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    char buf[64];
+    const auto [end, ec] = std::to_chars(
+        buf,
+        buf + sizeof(buf),
+        v,
+        std::chars_format::scientific
+    );
+    if (ec != std::errc{}) return "";
+    // Fixed-mode to_chars writes every integer digit of a large value, not the
+    // shortest ones, so expand the shortest scientific digits by hand.
+    const std::string sci(buf, end);
+    const size_t e = sci.find('e');
+    const int exp = std::stoi(sci.substr(e + 1));
+    const bool neg = sci[0] == '-';
+    std::string digits;
+    for (size_t i = neg ? 1 : 0; i < e; ++i)
+        if (sci[i] != '.') digits += sci[i];
+    std::string out = neg ? "-" : "";
+    if (exp < -6 || exp >= 21) {
+        out += digits[0];
+        if (digits.size() > 1) out += "." + digits.substr(1);
+        return out + (exp < 0 ? "e-" : "e+") + std::to_string(std::abs(exp));
+    }
+    if (exp < 0) return out + "0." + std::string(-exp - 1, '0') + digits;
+    const auto point = static_cast<size_t>(exp) + 1;
+    if (digits.size() <= point)
+        return out + digits + std::string(point - digits.size(), '0');
+    return out + digits.substr(0, point) + "." + digits.substr(point);
+}
 
 /// @brief escapes the line breaks in s so it occupies one line.
 /// @param s the string to escape.
@@ -55,13 +96,17 @@ inline void write_number(char *p, int v, int width) noexcept {
     }
 }
 
+/// @brief the characters that trim removes from each end of a string.
+constexpr std::string_view TRIMMED = " \t\r";
+
 /// @brief removes leading and trailing spaces, tabs, and carriage returns.
 /// @param s the string to trim.
-/// @returns the trimmed string, or an empty string when s is all whitespace.
-[[nodiscard]] inline std::string trim(const std::string &s) {
-    const auto first = s.find_first_not_of(" \t\r");
-    if (first == std::string::npos) return {};
-    return s.substr(first, s.find_last_not_of(" \t\r") - first + 1);
+/// @returns a view into s without the TRIMMED characters at its ends, or an empty view
+/// when s holds only them. It is valid only while s is.
+[[nodiscard]] constexpr std::string_view trim(const std::string_view s) {
+    const auto first = s.find_first_not_of(TRIMMED);
+    if (first == std::string_view::npos) return {};
+    return s.substr(first, s.find_last_not_of(TRIMMED) - first + 1);
 }
 
 /// @brief removes one layer of matching single or double quotes.

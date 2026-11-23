@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -37,7 +38,7 @@ var _ = Describe("Resource", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		term = "probe" + uuid.New().String()[:8]
-		lbl = label.Label{Name: term}
+		lbl = label.Label{Name: term, Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Label.NewWriter(tx).Create(ctx, &lbl)
 		})).To(Succeed())
@@ -213,3 +214,6 @@ var _ = Describe("Resource", func() {
 		)
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

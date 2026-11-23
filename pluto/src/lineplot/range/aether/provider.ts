@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, type scale, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
+import { type color, ranger, type Synnax } from "@synnaxlabs/client";
+import { bounds, box, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { flux } from "@/flux/aether";
+import type { lineplot } from "@/lineplot/aether";
 import {
   type Bar,
   drawBars,
@@ -49,7 +51,10 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
-  window?: TimeRange;
+  colors: flux.Retrieve<aetherColor.ListQuery, color.Named[]>;
+  named: Map<color.Key, color.Named>;
+  // The fetch window of each segment of the x axis.
+  windows: TimeRange[];
   client: Synnax | null;
   render: render.Context;
   requestRender: render.Requestor;
@@ -60,12 +65,16 @@ interface InternalState {
 }
 
 export interface ProviderProps {
-  dataToDecimalScale: scale.Scale;
-  viewport: box.Box;
+  /** The layout of the x axis. */
+  layout: lineplot.Layout;
   region: box.Box;
   timeRange: TimeRange;
   /** The newest sample, when the x axis ends at it. */
   newest?: TimeStamp;
+  /** Draws that the plot runs after every axis draws. The strip adds its tooltip. */
+  raised: Array<() => void>;
+  /** The current time. Defaults to the system clock. */
+  now?: TimeStamp;
 }
 
 /**
@@ -109,6 +118,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
+    i.windows ??= [];
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
     i.requestRender = render.useRequestor(ctx);
@@ -118,6 +128,15 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       onChange: () => i.requestRender("tool"),
       onError: (error) => i.runAsync(error, "Failed to retrieve ranges"),
     });
+    i.named ??= new Map();
+    i.colors ??= new flux.Retrieve({
+      definition: aetherColor.listDefinition,
+      onChange: () => {
+        i.named = new Map((i.colors.value ?? []).map((c) => [c.key, c]));
+        i.requestRender("tool");
+      },
+      onError: (error) => i.runAsync(error, "Failed to retrieve colors"),
+    });
     const client = synnax.use(ctx);
     if (client != null) i.client = client;
     i.requestRender("tool");
@@ -125,6 +144,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   override afterDelete(): void {
     this.internal.retrieve.close();
+    this.internal.colors.close();
     clearTimeout(this.internal.timer);
   }
 
@@ -140,38 +160,63 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    const { dataToDecimalScale, region, viewport, timeRange, newest } = props;
+    const {
+      layout: xLayout,
+      region,
+      timeRange,
+      newest,
+      raised,
+      now = TimeStamp.now(),
+    } = props;
     const { internal: i } = this;
-    if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
-    if (i.client != null)
+    // Each segment fetches its own time, so the strip never asks for a collapsed gap.
+    const pieces =
+      xLayout.segments.length < 2
+        ? [timeRange]
+        : xLayout.segments.map(({ bounds: b }) =>
+            new TimeRange(b.lower, b.upper).boundBy(timeRange),
+          );
+    if (
+      i.windows.length !== pieces.length ||
+      pieces.some((p, j) => !covers(i.windows[j], p))
+    )
+      i.windows = pieces.map(pad);
+    if (i.client != null) {
       i.retrieve.update(i.client, {
-        where: { overlaps: i.window },
+        where:
+          i.windows.length === 1
+            ? { overlaps: i.windows[0] }
+            : { or: i.windows.map((overlaps) => ({ overlaps })) },
         limit: FETCH_LIMIT,
       });
+      i.colors.update(i.client, {});
+    }
     const { draw } = i;
-    const now = TimeStamp.now();
     const fetched = i.retrieve.value ?? [];
-    const start = timeRange.start.valueOf();
-    const end = timeRange.end.valueOf();
-    const inView = fetched.filter(
-      (r) => r.timeRange.end.valueOf() >= start && r.timeRange.start.valueOf() <= end,
+    const inView = fetched.filter((r) =>
+      pieces.some(
+        (p) =>
+          r.timeRange.end.valueOf() >= p.start.valueOf() &&
+          r.timeRange.start.valueOf() <= p.end.valueOf(),
+      ),
     );
     const saturated = fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS;
-    const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     // Lanes pack over the axis bounds, not the viewport, so a range keeps its lane
     // while the viewport moves.
     const { bars: packed, lanes } = layout(
       saturated ? [] : inView,
       region,
-      (v) => regionScale.pos(v),
+      (v) => box.left(region) + xLayout.pos(v) * box.width(region),
       draw.theme,
+      i.named,
       now,
       newest,
+      xLayout.segments.map((s) => s.extent),
     );
     const bars = packed.filter(
       (b) => b.end >= box.left(region) && b.start <= box.right(region),
     );
-    const count = packed.length;
+    const count = new Set(packed.map((b) => b.range.key)).size;
     const height = stripHeight(lanes);
     const { cursor, visible, menuOpen, hovered: shown } = this.state;
     // A bar changes when its range starts. A running bar enters a view ahead of now
@@ -183,7 +228,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       .filter((t) => now.before(t))
       .map((t) => new TimeRange(now, t).span.milliseconds);
     const running = visible ? bars.filter((b) => b.running) : [];
-    if (running.some((b) => b.end <= box.right(region))) delays.push(HEAD_PERIOD);
+    // A seam that cuts a running bar hides its head, so that piece does not pulse.
+    if (running.some((b) => !b.endCut && b.end <= box.right(region)))
+      delays.push(HEAD_PERIOD);
     else if (running.length > 0) delays.push(CLOCK_PERIOD);
     this.redrawIn(delays.length === 0 ? undefined : Math.min(...delays));
     // The range of an open menu stays hovered while a live plot slides it away from the
@@ -202,10 +249,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       drawFills(draw, bars, region, hovered);
       drawBars(draw, bars, region, lanes, hovered, now);
       clearScissor();
+      // The tooltip draws over the bands of the breaks, which draw after the strip.
       if (hovered != null && cursor != null && !menuOpen)
-        drawTooltip(draw, hovered, cursor, region, now);
+        raised.push(() => drawTooltip(draw, hovered, cursor, region, now));
     }
-    const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
     let hoveredState: SelectedState | null = null;
     if (hovered != null) {
       const r = hovered.range;
@@ -222,8 +269,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         timeRange: r.timeRange,
         hasChildren: r.hasChildren,
         viewport: {
-          lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
-          upper: viewportScale.pos(Number(end.valueOf())),
+          lower: xLayout.home(Number(r.timeRange.start.valueOf())),
+          upper: xLayout.home(Number(end.valueOf())),
         },
       };
     }

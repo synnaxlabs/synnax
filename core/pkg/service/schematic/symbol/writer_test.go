@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"uuid"
 
@@ -17,11 +18,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,12 +37,8 @@ var _ = Describe("Writer", func() {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "test-symbol",
 				Data: symbol.Spec{
-					SVG:     "<svg>...</svg>",
+					Drawing: svg("<svg>...</svg>"),
 					Variant: "valve",
-					States: []symbol.State{
-						{Key: "default", Name: "default"},
-						{Key: "active", Name: "active"},
-					},
 				},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
@@ -51,20 +51,20 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("missing name", defaults.Fill(symbol.Symbol{
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			}), "name: required"),
-			Entry("missing svg", defaults.Fill(symbol.Symbol{
-				Name: "no-svg",
+			Entry("missing drawing", defaults.Fill(symbol.Symbol{
+				Name: "no-drawing",
 				Data: symbol.Spec{Variant: "valve"},
-			}), "svg: required"),
+			}), "drawing.type: required"),
 			Entry("missing variant", defaults.Fill(symbol.Symbol{
 				Name: "no-variant",
-				Data: symbol.Spec{SVG: "<svg/>"},
+				Data: symbol.Spec{Drawing: svg("<svg/>")},
 			}), "variant: required"),
 			Entry("invalid handle orientation", defaults.Fill(symbol.Symbol{
 				Name: "bad-handle",
 				Data: symbol.Spec{
-					SVG:     "<svg/>",
+					Drawing: svg("<svg/>"),
 					Variant: "valve",
 					Handles: []symbol.Handle{{Key: "h1", Orientation: "diagonal"}},
 				},
@@ -77,7 +77,7 @@ var _ = Describe("Writer", func() {
 				var sym symbol.Symbol
 				Expect(json.Unmarshal(
 					[]byte(
-						`{"name":"scaled","data":{"svg":"<svg/>","variant":"valve"}}`,
+						`{"name":"scaled","data":{"drawing":{"type":"svg","markup":"<svg/>"},"variant":"valve"}}`,
 					),
 					&sym,
 				)).To(Succeed())
@@ -94,7 +94,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject a decoded symbol with a zero scale", func(ctx SpecContext) {
 			var sym symbol.Symbol
 			Expect(json.Unmarshal([]byte(
-				`{"name":"scaled","data":{"svg":"<svg/>","variant":"valve","scale":0}}`,
+				`{"name":"scaled","data":{"drawing":{"type":"svg","markup":"<svg/>"},"variant":"valve","scale":0}}`,
 			), &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -107,7 +107,7 @@ var _ = Describe("Writer", func() {
 			sym := defaults.Fill(symbol.Symbol{
 				Key:  key,
 				Name: "predefined-key-symbol",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(sym.Key).To(Equal(key))
@@ -117,15 +117,18 @@ var _ = Describe("Writer", func() {
 			g := group.Group{Name: "Stored", Scope: resource.TypeSchematicSymbol}
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			stored := defaults.Fill(symbol.Symbol{
-				Name:  "original-name",
-				Data:  symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
+				Name: "original-name",
+				Data: symbol.Spec{
+					Drawing: svg("<svg>original</svg>"),
+					Variant: "valve",
+				},
 				Group: &g.Key,
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
 			again := defaults.Fill(symbol.Symbol{
 				Key:  stored.Key,
 				Name: "updated-name",
-				Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>updated</svg>"), Variant: "valve"},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -147,7 +150,7 @@ var _ = Describe("Writer", func() {
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			sym := defaults.Fill(symbol.Symbol{
 				Name:  "group-test",
-				Data:  symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Data:  symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
 				Group: &g.Key,
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
@@ -167,7 +170,7 @@ var _ = Describe("Writer", func() {
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "moved",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			})
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &sym)).To(Succeed())
@@ -191,11 +194,11 @@ var _ = Describe("Writer", func() {
 			symbols := defaults.Fill([]symbol.Symbol{
 				{
 					Name: "symbol-1",
-					Data: symbol.Spec{SVG: "<svg>1</svg>", Variant: "valve"},
+					Data: symbol.Spec{Drawing: svg("<svg>1</svg>"), Variant: "valve"},
 				},
 				{
 					Name: "symbol-2",
-					Data: symbol.Spec{SVG: "<svg>2</svg>", Variant: "valve"},
+					Data: symbol.Spec{Drawing: svg("<svg>2</svg>"), Variant: "valve"},
 				},
 			})
 			Expect(
@@ -215,7 +218,7 @@ var _ = Describe("Writer", func() {
 		It("Should rename a Symbol", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "original-name",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
@@ -230,13 +233,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should not affect data when renaming", func(ctx SpecContext) {
 			originalData := symbol.Spec{
-				SVG:     "<svg>complex</svg>",
+				Drawing: svg("<svg>complex</svg>"),
 				Variant: "valve",
-				States: []symbol.State{
-					{Key: "default", Name: "default"},
-					{Key: "active", Name: "active"},
-					{Key: "error", Name: "error"},
-				},
 			}
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "data-preservation-test",
@@ -252,7 +250,7 @@ var _ = Describe("Writer", func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res.Data.SVG).To(Equal(originalData.SVG))
+			Expect(res.Data.Drawing).To(Equal(originalData.Drawing))
 		})
 	})
 
@@ -260,7 +258,7 @@ var _ = Describe("Writer", func() {
 		It("Should delete a single Symbol", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "to-delete",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
@@ -275,15 +273,15 @@ var _ = Describe("Writer", func() {
 		It("Should delete multiple Symbols", func(ctx SpecContext) {
 			sym1 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-1",
-				Data: symbol.Spec{SVG: "<svg>1</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>1</svg>"), Variant: "valve"},
 			})
 			sym2 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-2",
-				Data: symbol.Spec{SVG: "<svg>2</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>2</svg>"), Variant: "valve"},
 			})
 			sym3 := defaults.Fill(symbol.Symbol{
 				Name: "to-keep",
-				Data: symbol.Spec{SVG: "<svg>3</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>3</svg>"), Variant: "valve"},
 			})
 
 			Expect(
@@ -310,12 +308,74 @@ var _ = Describe("Writer", func() {
 		It("Should leave a deleted symbol out of its resources", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "resource-delete-test",
-				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{sym.ResourceID()})).
 				To(BeEmpty())
 		})
+	})
+})
+
+var _ = Describe("Orphan removal", func() {
+	var (
+		orphanDB  *gorp.DB
+		orphanSvc *symbol.Service
+		saved     []symbol.Symbol
+		refusal   error
+		sym       symbol.Symbol
+	)
+	apply := func(ctx SpecContext, act symbol.Action) error {
+		return orphanDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return orphanSvc.NewWriter(tx).Apply(ctx, sym.Key, act)
+		})
+	}
+	rename := symbol.NewSetAction(symbol.SetPayload{
+		Path:  []string{"name"},
+		Value: "After",
+	})
+	BeforeEach(func(ctx SpecContext) {
+		saved, refusal = nil, nil
+		orphanDB = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(orphanDB.Run)
+		orphanSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
+			DB: orphanDB,
+			Group: MustOpen(
+				group.OpenService(ctx, group.ServiceConfig{DB: orphanDB}),
+			),
+			ImEx:        imex.NewService(),
+			Enumeration: openEnumerations(ctx, orphanDB),
+			Actuators:   noActuators,
+			RemoveOrphans: func(_ context.Context, _ gorp.Tx, s symbol.Symbol) error {
+				saved = append(saved, s)
+				return refusal
+			},
+		}))
+		sym = symbol.Symbol{
+			Name: "Before",
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+		}
+		Expect(orphanDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return orphanSvc.NewWriter(tx).Create(ctx, &sym)
+		})).To(Succeed())
+	})
+
+	It("Should remove the orphans of the symbol that a save stores", func(
+		ctx SpecContext,
+	) {
+		Expect(apply(ctx, rename)).To(Succeed())
+		Expect(saved).To(HaveExactElements(HaveField("Name", "After")))
+	})
+
+	It("Should refuse a save whose orphans fail to be removed", func(ctx SpecContext) {
+		refusal = errors.New("schematic unavailable")
+		Expect(apply(ctx, rename)).To(MatchError(refusal))
+		var stored symbol.Symbol
+		Expect(orphanSvc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&stored).
+			Exec(ctx, orphanDB)).To(Succeed())
+		Expect(stored.Name).To(Equal("Before"))
 	})
 })

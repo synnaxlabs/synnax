@@ -15,14 +15,18 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -49,6 +53,20 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Enumeration holds the enumerations that symbol states show.
+	//
+	// [REQUIRED]
+	Enumeration *enumeration.Service
+	// Actuators returns the keys of the symbols that a custom_actuator node draws, for
+	// the migration that gives them the commands of an actuator.
+	//
+	// [REQUIRED]
+	Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
+	// RemoveOrphans removes, in tx, the node bindings and overrides that the states and
+	// commands of sym orphan.
+	//
+	// [REQUIRED]
+	RemoveOrphans func(ctx context.Context, tx gorp.Tx, sym Symbol) error
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -60,6 +78,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Enumeration = override.Nil(c.Enumeration, other.Enumeration)
+	c.Actuators = override.Nil(c.Actuators, other.Actuators)
+	c.RemoveOrphans = override.Nil(c.RemoveOrphans, other.RemoveOrphans)
 	return c
 }
 
@@ -69,6 +90,9 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("group", c.Group)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("enumeration", c.Enumeration)
+	v.NotNil("actuators", c.Actuators)
+	v.NotNil("remove_orphans", c.RemoveOrphans)
 	return v.Error()
 }
 
@@ -97,11 +121,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Intern: func(tx gorp.Tx) v5.Intern {
+				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+			},
+			Actuators: cfg.Actuators,
+		}),
+		// A named color delete or an enumeration retarget rewrites the symbol outside
+		// any symbol write, so the service sends it as a create.
+		OnRewrite: func(_ context.Context, tx gorp.Tx, sym Symbol) error {
+			s.state.Dispatcher().
+				Attach(tx, sym.Key, NewCreateAction(CreatePayload{Symbol: sym}))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -132,9 +168,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // NewWriter opens a new writer for creating, updating, and deleting symbols in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         tx,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
+		tx:            tx,
+		table:         s.table,
+		dispatcher:    s.state.Dispatcher(),
+		removeOrphans: s.cfg.RemoveOrphans,
 	}
 }
 
@@ -147,6 +184,16 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
+}
+
+// Uses returns the ID of every schematic in snap with a symbol node that draws the
+// symbol with key. Each one refuses the delete of the symbol.
+func (s *Service) Uses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Uses(ctx, snap, s.table, key)
 }
 
 // Close closes the symbol service, shutting down signal publishers.

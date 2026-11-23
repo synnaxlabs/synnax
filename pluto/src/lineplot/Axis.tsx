@@ -14,9 +14,10 @@ import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { direction, type text } from "@synnaxlabs/x";
+import { direction, type location, type text } from "@synnaxlabs/x";
 import {
   type FC,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
@@ -27,8 +28,7 @@ import type { z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
-import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
-import { useGridEntry } from "@/lineplot/Frame";
+import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { text as aetherText } from "@/text/aether";
 
 export interface AxisProps
@@ -66,6 +66,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     axisKey,
     autoBoundUpdateInterval,
     style,
+    onClick,
     ...rest
   }: AxisProps): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
@@ -87,16 +88,24 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey: cKey,
       type: aetherType,
-      schema: baseAxisStateZ,
+      schema: lineplot.baseAxisStateZ,
       initialState: aetherProps,
     });
 
     useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
+    const component = `LinePlot.${dir.toUpperCase()}Axis`;
     const gridStyle = useGridEntry(
       { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
-      `LinePlot.${dir.toUpperCase()}Axis`,
+      component,
     );
+    const { toggleBreak } = useContext(component);
+    const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+      // Only x1 holds breaks, and its marks sit on the ticks, not on the label.
+      if (dir === "x" && axisKey === "x1" && onTicks(e, location, size))
+        toggleBreak(e.clientX, "axis");
+      onClick?.(e);
+    };
 
     const font = Theming.useTypography(labelLevel).toString();
 
@@ -116,7 +125,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
         let labelSize = dims.height * 1.3;
         if (labelSize > 0) labelSize += 12;
         const prevSize = prevLabelSize.current;
-        if (!withinSizeThreshold(prevSize, labelSize)) {
+        if (!lineplot.withinSizeThreshold(prevSize, labelSize)) {
           prevLabelSize.current = labelSize;
           setState((state) => ({ ...state, labelSize }));
         }
@@ -136,6 +145,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           align="center"
           justify={location !== "left" ? "end" : "start"}
           direction={direction.swap(dir)}
+          onClick={handleClick}
           {...rest}
         >
           {showLabel && (
@@ -153,6 +163,17 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
   };
   C.displayName = `${dir.toUpperCase()}Axis`;
   return C;
+};
+
+// onTicks returns whether a click lands on the ticks of an x axis of size pixels, which
+// sit next to the plot.
+const onTicks = (
+  e: MouseEvent<HTMLDivElement>,
+  loc: location.Outer,
+  size: number,
+): boolean => {
+  const { top, bottom } = e.currentTarget.getBoundingClientRect();
+  return loc === "top" ? bottom - e.clientY <= size : e.clientY - top <= size;
 };
 
 export const XAxis = axisFactory("x");

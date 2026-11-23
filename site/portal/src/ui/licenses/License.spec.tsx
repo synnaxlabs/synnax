@@ -21,7 +21,7 @@ import {
 } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { License, Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 
@@ -32,7 +32,7 @@ vi.mock("@/ui/api", async (importOriginal) => ({
   navigate,
 }));
 
-const ACME: Organization = {
+const ACME: schema.Organization = {
   key: uuid.create(),
   kind: "team",
   name: "Acme",
@@ -42,7 +42,7 @@ const ACME: Organization = {
   createdAt: NOW,
 };
 
-const LICENSE: License = {
+const LICENSE: schema.License = {
   key: uuid.create(),
   organization: ACME.key,
   edition: "enterprise",

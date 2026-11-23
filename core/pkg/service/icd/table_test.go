@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/payload"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/xuri/excelize/v2"
 )
@@ -66,13 +65,12 @@ var tableMessages = []icd.Message{
 		"Engine",
 		canID(0x100, false),
 		new(uint16(8)),
-		icd.BinaryField{
+		icd.BinaryField{Variant: icd.UnsignedBinaryField{
 			Name: "rpm", Scale: 0.25, Units: "rpm",
 			BitLength: 16,
 			ByteOrder: icd.ByteOrderLittleEndian,
-			Kind:      payload.KindUnsigned,
-		},
-		icd.BinaryField{
+		}},
+		icd.BinaryField{Variant: icd.IntegerBinaryField{
 			Name:      "temp",
 			Scale:     1,
 			Offset:    -40,
@@ -82,31 +80,28 @@ var tableMessages = []icd.Message{
 			StartBit:  16,
 			BitLength: 8,
 			ByteOrder: icd.ByteOrderLittleEndian,
-			Kind:      payload.KindInteger,
-		},
+		}},
 	),
 	tableMessage(
 		"Battery",
 		canID(0x18FEF100, true),
 		nil,
-		icd.BinaryField{
+		icd.BinaryField{Variant: icd.UnsignedBinaryField{
 			Name: "voltage", Scale: 0.01, Units: "V",
 			StartBit:  7,
 			BitLength: 16,
 			ByteOrder: icd.ByteOrderBigEndian,
-			Kind:      payload.KindUnsigned,
-		},
+		}},
 	),
 	tableMessage(
 		"Raw",
 		nil,
 		nil,
-		icd.BinaryField{
+		icd.BinaryField{Variant: icd.FloatBinaryField{
 			Name: "value", Scale: 1,
 			BitLength: 32,
 			ByteOrder: icd.ByteOrderLittleEndian,
-			Kind:      payload.KindFloat,
-		},
+		}},
 	),
 }
 
@@ -335,7 +330,7 @@ var _ = Describe("Import CSV", func() {
 		messages := MustSucceed(importFile(ctx, icd.ImportFormatCSV, toCSV(tableRows)))
 		m := messages[0]
 		Expect(m.Key).ToNot(Equal(uuid.Nil()))
-		Expect(binaryFields(m)[0].Key).ToNot(Equal(uuid.Nil()))
+		Expect(binaryFields(m)[0].Base().Key).ToNot(Equal(uuid.Nil()))
 	})
 
 	It("Should skip a leading byte order mark", func(ctx SpecContext) {
@@ -459,7 +454,7 @@ var _ = Describe("Import XLSX", func() {
 					MustSucceed(f.WriteToBuffer()).Bytes(),
 				),
 			)
-			a := binaryFields(messages[0])[0]
+			a := binaryFields(messages[0])[0].Base()
 			Expect(a.StartBit).To(Equal(uint16(8)))
 			Expect(a.Scale).To(Equal(0.001))
 			Expect(a.Offset).To(Equal(0.125))

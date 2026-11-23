@@ -22,9 +22,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { formatRelativeTime } from "@/vis/axis/relative";
+import { axis } from "@/vis/axis";
 import { Draw2D } from "@/vis/draw2d";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -135,8 +135,10 @@ const POINT_LABEL_SPACING = 8;
 const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 
 export interface MeasureProps {
-  findByXDecimal: (target: number) => FindResult[];
-  findByXValue: (target: number) => FindResult[];
+  findByXDecimal: (target: number) => line.FindResult[];
+  findByXValue: (target: number) => line.FindResult[];
+  /** @returns true when a closed break lies between the points one and two. */
+  closedBetween: (one: line.FindResult, two: line.FindResult) => boolean;
   region: box.Box;
 }
 
@@ -184,7 +186,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     cachedData: xy.XY | null,
     cachedClick: xy.XY | null,
     s: scale.XY,
-  ): FindResult | null {
+  ): line.FindResult | null {
     const clickChanged = cachedClick != null && !xy.equals(clickPos, cachedClick);
 
     if (cachedData != null && !clickChanged) {
@@ -210,7 +212,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     )[0];
   }
 
-  private find(props: MeasureProps): [FindResult, FindResult] | null {
+  private find(props: MeasureProps): [line.FindResult, line.FindResult] | null {
     const { one, two } = this.state;
     if (one == null || two == null) return null;
     const { dataOne, dataTwo, clickOne, clickTwo } = this.internal;
@@ -278,7 +280,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     position: xy.XY,
     xValue: string,
     yValue: string,
-    slopeValue: string,
+    slopeValue: string | null,
     viewRegion: box.Box,
     centered: boolean,
   ): void {
@@ -286,11 +288,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const padding = xy.construct(LABEL_CONTAINER_PADDING);
 
     const labelWidth = LABEL_CHAR_WIDTH * 5; // "Slope" is longest at 5 chars
-    const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+    const maxValueLength = Math.max(
+      xValue.length,
+      yValue.length,
+      slopeValue?.length ?? 0,
+    );
     const width =
       labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding.x * LABEL_VALUE_SPACING;
     const lineHeight = LABEL_CONTAINER_HEIGHT;
-    const height = lineHeight * 3 + padding.y * 2;
+    const rows = slopeValue == null ? 2 : 3;
+    const height = lineHeight * rows + padding.y * 2;
 
     let region: box.Box;
     if (centered) {
@@ -333,6 +340,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       leftOffset: 0,
     });
 
+    if (slopeValue == null) return;
     this.drawPointLabelRow({
       region,
       label: "Slope",
@@ -377,7 +385,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
     const xValue = this.state.relative
-      ? formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
+      ? axis.formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
       : ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
@@ -585,13 +593,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineWidth: strokeWidth,
     });
 
-    draw.line({
-      start: xy.construct(onePos.x, onePos.y),
-      end: xy.construct(twoPos.x, twoPos.y),
-      stroke: this.obliqueLineColor,
-      lineDash: strokeDash,
-      lineWidth: strokeWidth,
-    });
+    // No line joins data across a closed break, so neither does the oblique line.
+    const broken = props.closedBetween(oneValue, twoValue);
+    if (!broken)
+      draw.line({
+        start: xy.construct(onePos.x, onePos.y),
+        end: xy.construct(twoPos.x, twoPos.y),
+        stroke: this.obliqueLineColor,
+        lineDash: strokeDash,
+        lineWidth: strokeWidth,
+      });
 
     this.drawPointMarker(onePos, oneValue.color);
     this.drawPointMarker(twoPos, twoValue.color);
@@ -600,11 +611,12 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const trunc = xDist.lessThan(TIME_FORMAT_THRESHOLD)
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
-    const xValue = xDist.truncate(trunc).toString();
-    let slopeValue = math
-      .smartRound(slope, bounds.construct(Math.abs(slope)))
-      .toString();
-    if (oneValue.units != null && oneValue.units.length > 0)
+    let xValue = xDist.truncate(trunc).toString();
+    if (broken) xValue += " //";
+    let slopeValue: string | null = broken
+      ? null
+      : math.smartRound(slope, bounds.construct(Math.abs(slope))).toString();
+    if (slopeValue != null && oneValue.units != null && oneValue.units.length > 0)
       slopeValue += ` ${oneValue.units} / s`;
 
     if (isVeryClose) {
@@ -616,11 +628,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
       // Calculate combined label dimensions
       const labelWidth = LABEL_CHAR_WIDTH * 6; // "Slope" is longest at 6 chars, "ΔX" and "ΔY" are 2 chars each
-      const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+      const maxValueLength = Math.max(
+        xValue.length,
+        yValue.length,
+        slopeValue?.length ?? 0,
+      );
       const padding = LABEL_CONTAINER_PADDING;
       const combinedWidth =
         labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding * LABEL_VALUE_SPACING;
-      const combinedHeight = LABEL_CONTAINER_HEIGHT * 3 + padding * 2;
+      const combinedHeight =
+        LABEL_CONTAINER_HEIGHT * (slopeValue == null ? 2 : 3) + padding * 2;
 
       const centeredCombinedRegion = box.construct(
         xy.translate(centerPos, [-combinedWidth / 2, -combinedHeight / 2]),
@@ -688,15 +705,17 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       );
       this.drawLabelValue("ΔX", xValue, xy.translateX(xLabelPos, -15), xLabelColor);
 
-      const slopeLabelPos = this.calculateSlopeLabelPosition({
-        basePos: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
-        yLabelPos,
-        isVeryClose,
-        isHorizontal,
-        xPixelDist,
-        yPixelDist,
-      });
-      this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
+      if (slopeValue != null) {
+        const slopeLabelPos = this.calculateSlopeLabelPosition({
+          basePos: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
+          yLabelPos,
+          isVeryClose,
+          isHorizontal,
+          xPixelDist,
+          yPixelDist,
+        });
+        this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
+      }
     }
 
     const oneIsTop = onePos.y < twoPos.y;

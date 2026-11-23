@@ -1799,7 +1799,7 @@ var _ = Describe("Range compare", func() {
 		})).To(Succeed())
 		return p
 	}
-	createRange := func(ctx SpecContext, c *xcolor.Color) ranger.Ref {
+	createRange := func(ctx SpecContext, c *color.Ref) ranger.Ref {
 		GinkgoHelper()
 		r := ranger.Range{
 			Key:       uuid.New(),
@@ -1852,7 +1852,7 @@ var _ = Describe("Range compare", func() {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
 						createRange(ctx, nil),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{
@@ -1860,12 +1860,50 @@ var _ = Describe("Range compare", func() {
 				}))
 			})
 
+		It("Should give a range the reference to its own named color",
+			func(ctx SpecContext) {
+				own := color.Named{Name: "Own", Light: orange}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &own)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						createRange(ctx, nil),
+						createRange(ctx, named(own.Key)),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), named(own.Key),
+				}))
+			})
+
+		It("Should give a series color to a range whose named color is near another",
+			func(ctx SpecContext) {
+				// The first series color is 0xDC136C.
+				near := color.Named{
+					Name:  "Near",
+					Light: xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &near)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(series[0])),
+						createRange(ctx, named(near.Key)),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), named(series[1]),
+				}))
+			})
+
 		It("Should give a series color to a range whose own color another range uses",
 			func(ctx SpecContext) {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
-						createRange(ctx, &orange),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{
@@ -1881,7 +1919,7 @@ var _ = Describe("Range compare", func() {
 				)
 				// The first series color is 0xDC136C.
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
-				added := createRange(ctx, &near)
+				added := createRange(ctx, fixed(near))
 				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{Range: added}),
 				})).To(Succeed())
@@ -1918,7 +1956,7 @@ var _ = Describe("Range compare", func() {
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
-						createRange(ctx, &near),
+						createRange(ctx, fixed(near)),
 						createRange(ctx, nil),
 					},
 				})
@@ -1964,7 +2002,7 @@ var _ = Describe("Range compare", func() {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
 						colored(createRange(ctx, nil), named(dark.Key)),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{
@@ -2157,6 +2195,98 @@ var _ = Describe("Range compare", func() {
 				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
 			},
 		)
+
+		Describe("Without a range that has a zero", func() {
+			relative := lineplot.TimeModeRelative
+			rolling := ranger.Ref{Variant: ranger.WindowRef{Window: telem.Window{
+				Variant: telem.DynamicWindow{TimeSpan: 30 * telem.Second},
+			}}}
+			fixedWindow := ranger.Ref{Variant: ranger.WindowRef{Window: telem.Window{
+				Variant: telem.StaticWindow{
+					TimeRange: telem.TimeRange{Start: 1, End: 2},
+				},
+			}}}
+			// relativeOver creates a plot of the ranges with x1 in relative time and
+			// manual bounds.
+			relativeOver := func(ctx SpecContext, refs ...ranger.Ref) lineplot.LinePlot {
+				GinkgoHelper()
+				p := create(ctx, lineplot.LinePlot{Ranges: refs})
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetAxisTimeModeAction(lineplot.SetAxisTimeModePayload{
+						Key: lineplot.XAxisKeyX1, TimeMode: &relative,
+					}),
+					lineplot.NewSetAxisBoundsAction(lineplot.SetAxisBoundsPayload{
+						Key:          lineplot.AxisKeyX1,
+						Bounds:       spatial.Bounds{Upper: 60},
+						ManualBounds: lineplot.ManualBounds{Lower: true, Upper: true},
+					}),
+				})).To(Succeed())
+				return p
+			}
+			expectAbsolute := func(ctx SpecContext, key lineplot.Key) {
+				GinkgoHelper()
+				x1 := retrieve(ctx, key).Axes.X1
+				Expect(x1.TimeMode).To(BeNil())
+				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
+			}
+			expectRelative := func(ctx SpecContext, key lineplot.Key) {
+				GinkgoHelper()
+				x1 := retrieve(ctx, key).Axes.X1
+				Expect(x1.TimeMode).To(HaveValue(Equal(relative)))
+				Expect(x1.ManualBounds).To(Equal(
+					lineplot.ManualBounds{Lower: true, Upper: true},
+				))
+			}
+
+			removeRange := func(r ranger.Ref) lineplot.Action {
+				return lineplot.NewRemoveRangeAction(
+					lineplot.RemoveRangePayload{Range: r},
+				)
+			}
+			setRolling := func(ranger.Ref) lineplot.Action {
+				return lineplot.NewSetRangesAction(
+					lineplot.SetRangesPayload{Ranges: []ranger.Ref{rolling}},
+				)
+			}
+
+			DescribeTable("Should return x1 to absolute time when the last zero leaves",
+				func(ctx SpecContext, edit func(saved ranger.Ref) lineplot.Action) {
+					saved := createRange(ctx, nil)
+					p := relativeOver(ctx, rolling, saved)
+					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{edit(saved)})).
+						To(Succeed())
+					expectAbsolute(ctx, p.Key)
+				},
+				Entry("on a RemoveRange of the saved range", removeRange),
+				Entry("on a SetRanges of rolling windows", setRolling),
+			)
+
+			It("Should keep relative time while a range with a zero remains",
+				func(ctx SpecContext) {
+					saved := createRange(ctx, nil)
+					p := relativeOver(ctx, fixedWindow, saved)
+					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+						lineplot.NewRemoveRangeAction(
+							lineplot.RemoveRangePayload{Range: saved},
+						),
+					})).To(Succeed())
+					expectRelative(ctx, p.Key)
+				},
+			)
+
+			DescribeTable(
+				"Should leave the time mode alone on an edit that changes nothing",
+				func(ctx SpecContext, edit func(absent ranger.Ref) lineplot.Action) {
+					absent := createRange(ctx, nil)
+					p := relativeOver(ctx, rolling)
+					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{edit(absent)})).
+						To(Succeed())
+					expectRelative(ctx, p.Key)
+				},
+				Entry("a RemoveRange of a range the plot does not show", removeRange),
+				Entry("a SetRanges of the ranges the plot shows", setRolling),
+			)
+		})
 
 		It("Should reject a time mode for an unknown x axis", func(ctx SpecContext) {
 			p := create(ctx, lineplot.LinePlot{})

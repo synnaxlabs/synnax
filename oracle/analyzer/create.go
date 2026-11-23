@@ -54,24 +54,7 @@ func synthesizeCreateTypes(c *analysisCtx) {
 				structNewSynthesized = true
 				continue
 			}
-			var omitted []string
-			for _, f := range form.Fields {
-				if _, ok := f.Domains["output"]; ok {
-					omitted = append(omitted, f.Name)
-				}
-			}
-			created = append(created, resolution.Type{
-				Name:          "New",
-				Namespace:     c.namespace,
-				QualifiedName: c.namespace + ".New",
-				FilePath:      c.filePath,
-				Form: resolution.StructForm{
-					TypeParams:    form.TypeParams,
-					Extends:       []resolution.TypeRef{{Name: typ.QualifiedName}},
-					OmittedFields: omitted,
-				},
-				Domains: newTypeDomains(typ),
-			})
+			created = append(created, structNewType(c, typ, form))
 			structNewSynthesized = true
 		case resolution.UnionForm:
 			name := "New" + typ.Name
@@ -102,6 +85,31 @@ func synthesizeCreateTypes(c *analysisCtx) {
 				diagnostics.Errorf(nil, "failed to synthesize New type: %v", err),
 			)
 		}
+	}
+}
+
+// structNewType returns the New type of a @create struct, which omits its @output
+// fields.
+func structNewType(
+	c *analysisCtx, typ resolution.Type, form resolution.StructForm,
+) resolution.Type {
+	var omitted []string
+	for _, f := range form.Fields {
+		if _, ok := f.Domains["output"]; ok {
+			omitted = append(omitted, f.Name)
+		}
+	}
+	return resolution.Type{
+		Name:          "New",
+		Namespace:     c.namespace,
+		QualifiedName: c.namespace + ".New",
+		FilePath:      c.filePath,
+		Form: resolution.StructForm{
+			TypeParams:    form.TypeParams,
+			Extends:       []resolution.TypeRef{{Name: typ.QualifiedName}},
+			OmittedFields: omitted,
+		},
+		Domains: newTypeDomains(typ),
 	}
 }
 

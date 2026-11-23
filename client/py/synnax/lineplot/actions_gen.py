@@ -90,7 +90,9 @@ class SetChannelsPayload(BaseModel):
     """
 
     axis_key: YAxisKey
-    channels: list[channel_.Key] = Field(default_factory=list)
+    channels: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 class SetXChannelPayload(BaseModel):
@@ -110,7 +112,8 @@ class AddRangePayload(BaseModel):
 
 class RemoveRangePayload(BaseModel):
     """Removes the reference to the same range or window as range from the plot's
-    ranges. No-op when there is none.
+    ranges. No-op when there is none. Relative x axes return to absolute time with auto
+    bounds when no range left has a zero.
     """
 
     range: ranger.Ref
@@ -120,7 +123,8 @@ class SetRangesPayload(BaseModel):
     """Replaces the plot's range references with ranges, such as when the user edits a
     window. A reference to a range or window the plot already shows keeps its T0 and
     color unless the new reference sets them. Lines style channels, so they are
-    unaffected.
+    unaffected. Relative x axes return to absolute time with auto bounds when no range
+    left has a zero.
     """
 
     ranges: list[ranger.Ref] = Field(default_factory=list)

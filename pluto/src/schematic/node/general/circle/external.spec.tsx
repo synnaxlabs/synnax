@@ -13,7 +13,7 @@ import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { spec } from "@/schematic/node/general/circle/external";
+import { Circle } from "@/schematic/node/general/circle";
 
 // React Flow resizes a node by pointer drags that jsdom cannot run, so the spec calls
 // the resize callback that the control receives.
@@ -47,7 +47,7 @@ describe("Circle.spec", () => {
       <ReactFlowProvider>
         <Haul.Provider>
           <div data-id="c1">
-            <spec.Node
+            <Circle.spec.Node
               nodeKey="c1"
               selected
               onConfigChange={onConfigChange}

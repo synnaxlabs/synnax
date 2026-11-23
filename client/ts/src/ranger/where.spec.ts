@@ -7,166 +7,211 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, TimeStamp, uuid } from "@synnaxlabs/x";
+import { compare, TimeRange, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { NotFoundError } from "@/index";
 import { ranger } from "@/ranger";
-import { LINES } from "@/ranger/where";
-import {
-  compareCursors,
-  cursor,
-  matches,
-  retrieveInputZ,
-  serverComputed,
-} from "@/ranger/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import { vectors } from "@/testutil/vectors";
+
+const client = createTestClient();
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("ranges", ranger.payloadZ, ranger.whereZ),
-    (r, where) => matches(LINES, r, where),
-    (where) => serverComputed(LINES, where),
-  );
+  vectors.itFiltersLive(vectors.read("ranges", ranger.payloadZ, ranger.whereZ), () => {
+    const local = createTestClient();
+    let labels = new Map<string, string>();
+    const keys = new Map<string, string>();
+    return {
+      client: local,
+      target: "/range/retrieve",
+      prepare: async (records) => {
+        labels = await vectors.createLabels(
+          local,
+          records.flatMap(([, r]) => r.labels),
+        );
+        records.forEach(([, r]) => keys.set(r.key, uuid.create()));
+        return {
+          keys: new Map(records.map(([alias, r]) => [alias, keys.get(r.key) ?? r.key])),
+          values: new Map<unknown, unknown>([...labels, ...keys]),
+        };
+      },
+      write: async (records) => {
+        await local.ranges.create(
+          records.map(([, r]) => ({
+            ...r,
+            key: keys.get(r.key),
+            labels: r.labels.map((l) => labels.get(l) ?? l),
+          })),
+        );
+      },
+      watch: (where) => local.ranges.watch({ where }),
+    };
+  });
 });
 
-describe("retrieveInputZ", () => {
-  const inputZ = retrieveInputZ(ranger.retrieveRequestZ.omit({ where: true }).shape);
-  const key = uuid.create();
+describe("retrieve input", () => {
+  const sentWhere = async (retrieve: () => Promise<unknown>): Promise<unknown> => {
+    const send = spyOnSend(client);
+    try {
+      // A single retrieve fails when nothing matches; only the request matters here.
+      const outcome = await retrieve().catch((e: unknown) => e);
+      if (outcome instanceof Error) expect(NotFoundError.matches(outcome)).toBe(true);
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/range/retrieve") ?? [];
+      return req;
+    } finally {
+      send.mockRestore();
+    }
+  };
   const labelKey = uuid.create();
 
-  it("should read a value as eq", () => {
-    expect(inputZ.parse({ key })).toEqual({ where: { key: { eq: key } } });
+  it("should send a value as eq", async () => {
+    const name = `where-${uuid.create()}`;
+    expect(
+      await sentWhere(async () => await client.ranges.retrieve({ name })),
+    ).toMatchObject({ where: { name: { eq: name } } });
   });
 
-  it("should read a list as in", () => {
-    expect(inputZ.parse({ name: ["a", "b"] })).toEqual({
+  it("should send a list as in", async () => {
+    expect(
+      await sentWhere(async () => await client.ranges.retrieve({ name: ["a", "b"] })),
+    ).toMatchObject({
       where: { name: { in: ["a", "b"] } },
     });
   });
 
-  it("should keep an operator", () => {
+  it("should keep an operator", async () => {
     const name = { startsWith: "Hot", caseInsensitive: true };
-    expect(inputZ.parse({ name })).toEqual({ where: { name } });
+    expect(
+      await sentWhere(async () => await client.ranges.retrieve({ name })),
+    ).toMatchObject({ where: { name } });
   });
 
-  it("should read a value on a list line as a list of one", () => {
-    expect(inputZ.parse({ labels: labelKey })).toEqual({
+  it("should send a value on a list line as a list of one", async () => {
+    expect(
+      await sentWhere(async () => await client.ranges.retrieve({ labels: labelKey })),
+    ).toMatchObject({
       where: { labels: [labelKey] },
     });
   });
 
-  it("should read the children of or", () => {
+  it("should send the children of or", async () => {
     expect(
-      inputZ.parse({
-        or: [{ name: { startsWith: "Hot" } }, { labels: labelKey }],
-      }),
-    ).toEqual({
+      await sentWhere(
+        async () =>
+          await client.ranges.retrieve({
+            or: [{ name: { startsWith: "Hot" } }, { labels: labelKey }],
+          }),
+      ),
+    ).toMatchObject({
       where: { or: [{ name: { startsWith: "Hot" } }, { labels: [labelKey] }] },
     });
   });
 
-  it("should split the options from the fields", () => {
-    expect(inputZ.parse({ name: "a", limit: 2, searchTerm: "b" })).toEqual({
-      where: { name: { eq: "a" } },
-      limit: 2,
-      searchTerm: "b",
+  it("should split the options from the fields", async () => {
+    expect(
+      await sentWhere(
+        async () =>
+          await client.ranges.retrieve({ name: ["a", "b"], limit: 2, searchTerm: "b" }),
+      ),
+    ).toMatchObject({ where: { name: { in: ["a", "b"] } }, limit: 2, searchTerm: "b" });
+  });
+
+  it("should leave where unset when only options are set", async () => {
+    expect(
+      await sentWhere(async () => await client.ranges.retrieve({ limit: 5 })),
+    ).toMatchObject({ where: undefined });
+  });
+
+  it("should reject a field set to undefined", async () => {
+    await expect(client.ranges.retrieve({ name: undefined })).rejects.toMatchObject({
+      issues: [{ code: "invalid_union" }],
     });
   });
 
-  it("should leave where unset when only options are set", () => {
-    expect(inputZ.parse({ limit: 5 }).where).toBeUndefined();
-  });
-
-  it("should reject a field set to undefined", () => {
-    const { error } = inputZ.safeParse({ name: undefined });
-    expect(error?.issues).toMatchObject([{ code: "invalid_union", path: ["name"] }]);
-  });
-
-  it("should reject a field the filter does not have", () => {
-    const { error } = inputZ.safeParse({ color: "red" });
-    expect(error?.issues).toMatchObject([
-      { code: "unrecognized_keys", keys: ["color"] },
-    ]);
+  it("should reject a field the filter does not have", async () => {
+    // @ts-expect-error - the filter has no color field.
+    await expect(client.ranges.retrieve({ color: "red" })).rejects.toMatchObject({
+      issues: [{ code: "unrecognized_keys", keys: ["color"] }],
+    });
   });
 });
 
-describe("compareCursors", () => {
-  const [low, high] = [uuid.create(), uuid.create()].sort(compare.uuids);
-  const record = (key: string, name: string, start: number): ranger.Payload =>
-    ranger.payloadZ.parse({
-      key,
-      name,
-      timeRange: { start: TimeStamp.seconds(start), end: TimeStamp.seconds(start + 1) },
-    });
+describe("live list order", () => {
+  const [low, middle, high] = [uuid.create(), uuid.create(), uuid.create()].sort(
+    compare.uuids,
+  );
 
-  it("should order names by lower case, then by key", () => {
-    const order: ranger.Order = { field: "name", descending: false };
-    const positions = [
-      record(high, "alpha", 1),
-      record(low, "Beta", 1),
-      record(low, "ALPHA", 1),
-    ].map((r) => cursor(r, order));
-    positions.sort((a, b) => compareCursors(a, b, order));
-    expect(positions).toEqual([
-      { key: low, name: "ALPHA" },
-      { key: high, name: "alpha" },
-      { key: low, name: "Beta" },
-    ]);
+  const orderOf = async (
+    order: ranger.Order | undefined,
+    records: Array<{ key: string; name: string; start: number; end?: number }>,
+  ): Promise<string[]> => {
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    const keys = records.map(({ key }) => key);
+    const list = local.ranges.watch({ where: { key: { in: keys } }, order });
+    const close = list.onChange(() => {});
+    try {
+      await list.retrieve();
+      await local.ranges.create(
+        records.map(({ key, name, start, end }) => ({
+          key,
+          name,
+          timeRange: new TimeRange(
+            TimeStamp.seconds(start),
+            TimeStamp.seconds(end ?? start + 1),
+          ),
+        })),
+      );
+      const held = () => list.getCached()?.records.map(({ key }) => key) ?? [];
+      await expect.poll(() => held().length).toBe(records.length);
+      return held();
+    } finally {
+      close();
+    }
+  };
+
+  it("should order names by lower case, then by key", async () => {
+    const [a, b, c] = [uuid.create(), uuid.create(), uuid.create()].sort(compare.uuids);
+    expect(
+      await orderOf({ field: "name", descending: false }, [
+        { key: c, name: "alpha", start: 1 },
+        { key: b, name: "Beta", start: 1 },
+        { key: a, name: "ALPHA", start: 1 },
+      ]),
+    ).toEqual([a, c, b]);
   });
 
-  it("should reverse the order and the key tie when descending", () => {
-    const order: ranger.Order = { field: "time_range_start", descending: true };
-    const early = cursor(record(low, "a", 1), order);
-    const tie = cursor(record(high, "a", 1), order);
-    const late = cursor(record(low, "a", 2), order);
-    expect([early, late, tie].sort((a, b) => compareCursors(a, b, order))).toEqual([
-      late,
-      tie,
-      early,
-    ]);
+  it("should reverse the order and the key tie when descending", async () => {
+    expect(
+      await orderOf({ field: "time_range_start", descending: true }, [
+        { key: low, name: "a", start: 1 },
+        { key: middle, name: "a", start: 1 },
+        { key: high, name: "a", start: 2 },
+      ]),
+    ).toEqual([high, middle, low]);
   });
 
-  it("should order by end time, then by key", () => {
-    const order: ranger.Order = { field: "time_range_end", descending: false };
-    const at = (key: string, start: number, end: number): ranger.Payload =>
-      ranger.payloadZ.parse({
-        key,
-        name: "a",
-        timeRange: { start: TimeStamp.seconds(start), end: TimeStamp.seconds(end) },
-      });
-    const late = cursor(at(low, 1, 9), order);
-    const tie = cursor(at(high, 2, 5), order);
-    const early = cursor(at(low, 3, 5), order);
-    expect(late).toEqual({ key: low, timeRangeEnd: TimeStamp.seconds(9) });
-    expect([late, tie, early].sort((a, b) => compareCursors(a, b, order))).toEqual([
-      early,
-      tie,
-      late,
-    ]);
-    expect(() => compareCursors({ key: low }, late, order)).toThrow(
-      "a cursor has no time_range_end",
-    );
+  it("should order by end time, then by key", async () => {
+    const [a, b, c] = [uuid.create(), uuid.create(), uuid.create()].sort(compare.uuids);
+    expect(
+      await orderOf({ field: "time_range_end", descending: false }, [
+        { key: a, name: "a", start: 1, end: 9 },
+        { key: c, name: "a", start: 2, end: 5 },
+        { key: b, name: "a", start: 3, end: 5 },
+      ]),
+    ).toEqual([b, c, a]);
   });
 
-  it("should return 0 for the same position", () => {
-    const order: ranger.Order = { field: "name", descending: false };
-    const a = cursor(record(low, "a", 1), order);
-    expect(compareCursors(a, { ...a }, order)).toBe(0);
-  });
-
-  it("should order by key alone with no order", () => {
-    const positions = [record(high, "a", 1), record(low, "b", 2)].map((r) => cursor(r));
-    expect(positions).toEqual([{ key: high }, { key: low }]);
-    expect(positions.sort((a, b) => compareCursors(a, b))).toEqual([
-      { key: low },
-      { key: high },
-    ]);
-  });
-
-  it("should throw for a position with no value for the order's field", () => {
-    const order: ranger.Order = { field: "name", descending: false };
-    expect(() => compareCursors({ key: low }, { key: high, name: "a" }, order)).toThrow(
-      "a cursor has no name",
-    );
+  it("should order by key alone with no order", async () => {
+    const [a, b] = [uuid.create(), uuid.create()].sort(compare.uuids);
+    expect(
+      await orderOf(undefined, [
+        { key: b, name: "a", start: 1 },
+        { key: a, name: "b", start: 2 },
+      ]),
+    ).toEqual([a, b]);
   });
 });

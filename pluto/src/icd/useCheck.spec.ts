@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { icd, PathError, ValidationError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import type { deep } from "@synnaxlabs/x";
@@ -16,7 +16,7 @@ import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ICD } from "@/icd";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -116,7 +116,9 @@ describe("ICD.useCheck", () => {
     await waitFor(() => expect(check).toHaveBeenCalledOnce());
     check.mockImplementationOnce(async () => {
       await gate;
-      return [{ path: "messages.1.name", message: "out of date" }];
+      return [
+        new PathError(["messages", "1", "name"], new ValidationError("out of date")),
+      ];
     });
     act(() => result.current.set(mode, "A"));
     await waitFor(() => expect(check).toHaveBeenCalledTimes(2));

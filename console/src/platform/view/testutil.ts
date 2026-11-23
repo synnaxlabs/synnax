@@ -12,15 +12,20 @@ import { createPanelProject } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type FC, type PropsWithChildren, Suspense } from "react";
+import { expect } from "vitest";
 
 import {
   createPanelWrapper,
   createServerPanel,
+  type PanelWrapperParams,
   primePanel,
 } from "@/platform/panel/testutil";
 import { getBySelector, getIconButton, type TestStore } from "@/testutil";
 
-export interface TabWrapperParams {
+export interface TabWrapperParams extends Pick<
+  PanelWrapperParams,
+  "skipPermissionLoad"
+> {
   /** Creates the panel on the Core. */
   client: Synnax;
   /** The user the Console signs in as. Defaults to the client. */
@@ -49,6 +54,7 @@ export const createTabWrapper = async ({
   tab,
   beside = [],
   store,
+  skipPermissionLoad,
 }: TabWrapperParams): Promise<TabWrapper> => {
   const tabKey = uuid.create();
   const { key: panelKey } = await createServerPanel(client, {
@@ -61,6 +67,7 @@ export const createTabWrapper = async ({
     project: await createPanelProject(client),
     panelKey,
     tabKey,
+    skipPermissionLoad,
   });
   await primePanel(wrapper, panelKey);
   // A tab suspends inside a boundary in the mosaic.
@@ -86,4 +93,14 @@ export const openFilterProperty = async (name: string): Promise<HTMLElement> => 
   fireEvent.click(await waitFor(() => getIconButton(document.body, "filter")));
   fireEvent.click(await screen.findByRole("menuitem", { name }));
   return await screen.findByRole("dialog", { name });
+};
+
+/**
+ * Waits for the strip tab of the view with the name to be enabled, and returns it. The
+ * tab is disabled until the grant to open a view loads.
+ */
+export const findViewTab = async (name: string): Promise<HTMLElement> => {
+  const tab = await screen.findByRole("tab", { name });
+  await waitFor(() => expect(tab.getAttribute("aria-disabled")).toBeNull());
+  return tab;
 };

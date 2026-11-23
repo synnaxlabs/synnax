@@ -16,8 +16,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -47,8 +50,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ICD holds the ICDs that read entries read the messages of, and creates the ICD of
-	// a read config from before ICDs.
+	// ICD holds the ICDs that read entries and write targets use, and creates the ICD
+	// of a config from before ICDs.
 	//
 	// [REQUIRED]
 	ICD *icd.Service
@@ -131,10 +134,11 @@ func (s *Service) Stores() []config.Store {
 
 // readServiceConfig returns the config of the read task config service.
 func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
+	channels := icd.ReadChannels(cfg.Channel)
 	resolver := readResolver{
 		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
-		create:   createICD(cfg.ICD),
+		channels: channels,
+		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}
 	return config.ServiceConfig[ReadConfig]{
@@ -144,7 +148,7 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 		Type:            ReadTaskType,
 		Ladder:          versions.ReadConfigLadder,
 		Migrations: []gorp.Migration{
-			v2.NewReadMigration(resolver.channels, resolver.create),
+			v2.NewReadMigration(resolver.channels, createICD(cfg.ICD)),
 		},
 		SetEntryKey:    (*ReadConfig).SetKey,
 		PatchEntry:     (*ReadConfig).Patch,
@@ -158,16 +162,29 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 
 // writeServiceConfig returns the config of the write task config service.
 func writeServiceConfig(cfg ServiceConfig) config.ServiceConfig[WriteConfig] {
+	channels := icd.ReadChannels(cfg.Channel)
+	resolver := writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}
 	return config.ServiceConfig[WriteConfig]{
 		DB:              cfg.DB,
 		References:      writeConfigReferences(),
 		Instrumentation: cfg.Instrumentation,
 		Type:            WriteTaskType,
 		Ladder:          versions.WriteConfigLadder,
-		SetEntryKey:     (*WriteConfig).SetKey,
-		PatchEntry:      (*WriteConfig).Patch,
-		HashEntry:       (*WriteConfig).HashContent,
-		ValidateEntry:   (*WriteConfig).Validate,
+		Migrations: []gorp.Migration{
+			v3.NewWriteMigration(resolver.channels, createWriteICD(cfg.ICD)),
+		},
+		SetEntryKey:    (*WriteConfig).SetKey,
+		PatchEntry:     (*WriteConfig).Patch,
+		HashEntry:      (*WriteConfig).HashContent,
+		HashReferences: resolver.hash,
+		HashedTables:   []string{"icd"},
+		ResolveEntry:   resolver.resolve,
+		ValidateEntry:  (*WriteConfig).Validate,
 	}
 }
 

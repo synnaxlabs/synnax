@@ -87,6 +87,31 @@ describe("Client", () => {
       expect(series.alignmentMultiple).toEqual(2n);
       expect(frame.get(time.key).series[0].alignment).toEqual(series.alignment);
     });
+    it("should read the samples of several time ranges in time order", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        index: time.key,
+      });
+      await client.write(TimeStamp.seconds(1), {
+        [time.key]: secondsLinspace(1, 8),
+        [data.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
+      });
+      const series = await client.read(
+        [
+          new TimeRange(TimeStamp.seconds(6), TimeStamp.seconds(8)),
+          new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(3)),
+          new TimeRange(TimeStamp.seconds(2), TimeStamp.seconds(3)),
+        ],
+        data.key,
+      );
+      expect(Array.from(series)).toEqual([1, 2, 6, 7]);
+    });
     it("should correctly write a single series of data", async () => {
       const time = await client.channels.create({
         name: id.create(),

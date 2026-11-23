@@ -31,7 +31,7 @@ class ID(BaseModel):
         if isinstance(key, ID):
             super().__init__(key=key.key, type=key.type)
         elif type is None and key is not None:
-            type_str, key = key.split(":")
+            type_str, _, key = key.partition(":")
             super().__init__(key=key, type=_TYPE.validate_python(type_str))
         else:
             super().__init__(key=key, type=type)

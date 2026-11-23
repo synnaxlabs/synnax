@@ -1,0 +1,1627 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  channel,
+  DataType,
+  group,
+  resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import type { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Group } from "@synnaxlabs/pluto";
+import { map, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+  useState,
+} from "react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+import { Access } from "@/platform/access";
+import { Tree } from "@/platform/tree";
+import {
+  countHiddenTrees,
+  createGroupItem,
+  createScopeTree,
+  createSearchTree,
+  expandTreeRow,
+  findTreeRow,
+  getTreeRow,
+  itemName,
+  openTreeRootContextMenu,
+  openTreeRowContextMenu,
+  renderLiveTree,
+  renderSearchableTree,
+  retrieveChildGroupKeys,
+  searchTree,
+} from "@/platform/tree/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
+import {
+  awaitTextEditingElement,
+  awaitTextEditingExit,
+  CaptureStatuses,
+  createConsoleWrapper,
+  getIconButton,
+  renderSuspended,
+  uniqueToken,
+  withControlHeld,
+} from "@/testutil";
+
+const client = createTestClient();
+const roles = new RoleClients(client);
+
+const GROUP_ITEMS: Tree.Items = { group: createGroupItem() };
+
+const toHit = (g: group.Group): Tree.Hit => ({
+  ...Tree.toResource("group")(g),
+  parent: g.parent ?? { type: g.scope, key: "" },
+});
+
+const useGroupMatches: Tree.UseMatches = (query) => [
+  Tree.toMatches(
+    Group.useResultList(
+      query == null ? null : { searchTerm: query.term, limit: query.limit },
+    ),
+    toHit,
+  ),
+];
+
+// Shows every match at the top of the results.
+const usePlacementAtTop: Tree.UsePlacement = (query) =>
+  query == null
+    ? { variant: "loading" }
+    : {
+        variant: "success",
+        placement: {
+          resources: [],
+          paths: Object.fromEntries(query.matches.map(({ key }) => [key, [[]]])),
+        },
+      };
+
+const useGroupSearch = Tree.createSearch({
+  noun: "groups",
+  useMatches: useGroupMatches,
+  usePlacement: usePlacementAtTop,
+});
+
+const ROOT_MENU = "root menu";
+const MIXED_MENU = "mixed menu";
+
+const CONTEXT_MENUS: Tree.ContextMenus = {
+  root: () => (
+    <Menu.Menu>
+      <Menu.Item itemKey="root">{ROOT_MENU}</Menu.Item>
+    </Menu.Menu>
+  ),
+  mixed: () => (
+    <Menu.Menu>
+      <Menu.Item itemKey="mixed">{MIXED_MENU}</Menu.Item>
+    </Menu.Menu>
+  ),
+};
+
+const createWrapper = async (items: Tree.Items = GROUP_ITEMS, as: Client = client) => {
+  const { wrapper: Console } = await createConsoleWrapper({ client: as });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Haul.Provider>
+        <Tree.Provider items={items} contextMenus={CONTEXT_MENUS}>
+          {children}
+        </Tree.Provider>
+      </Haul.Provider>
+    </Console>
+  );
+  return Wrapper;
+};
+
+const PERMISSIONS_LOADING = "loading permissions";
+
+// The Console mounts every tree below a permissions boundary, so a row reads its grants
+// on its first render.
+const renderTree = async (
+  root: resource.ID | null,
+  items: Tree.Items = GROUP_ITEMS,
+  as: Client = client,
+  listRoot?: Tree.TreeProps["listRoot"],
+) =>
+  await renderSuspended(
+    <Access.PermissionsBoundary loading={PERMISSIONS_LOADING}>
+      <Tree.Tree root={root} listRoot={listRoot} />
+    </Access.PermissionsBoundary>,
+    { wrapper: await createWrapper(items, as) },
+  );
+
+const NO_CHILDREN = "no children here";
+
+interface CommitProbeProps {
+  onCommit: () => void;
+}
+
+const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
+  useLayoutEffect(() => {
+    onCommit();
+  }, [onCommit]);
+  return null;
+};
+
+describe("Tree.Tree", () => {
+  it("should render nothing when the root is null", async () => {
+    const { container } = await renderTree(null);
+    await waitFor(() => expect(screen.queryByText(PERMISSIONS_LOADING)).toBeNull());
+    // The test wrapper draws only its window box.
+    expect(container.firstElementChild?.innerHTML).toBe("");
+  });
+
+  it("should load a group's children when it is expanded", async () => {
+    const root = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("root"),
+    });
+    const groupName = uniqueName("parent");
+    const created = await client.groups.create({
+      parent: group.resourceID(root.key),
+      name: groupName,
+    });
+    const childName = uniqueName("child");
+    const child = await client.groups.create({
+      parent: group.resourceID(created.key),
+      name: childName,
+    });
+    await renderTree(group.resourceID(root.key));
+    await screen.findByText(groupName);
+    expandTreeRow(groupName);
+    await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
+    await client.groups.delete(child.key);
+  });
+
+  it("should keep a loaded subtree when its parent is collapsed and re-expanded", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.resourceID(container.key),
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.resourceID(parent.key),
+      name: uniqueName("child"),
+    });
+    const grandchild = await client.groups.create({
+      parent: group.resourceID(child.key),
+      name: uniqueName("grandchild"),
+    });
+    const parentID = group.resourceID(parent.key);
+    await renderTree(group.resourceID(container.key));
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    expandTreeRow(child.name);
+    await screen.findByText(grandchild.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(grandchild.name)).toBeNull());
+    expandTreeRow(parent.name);
+    // Joining the re-expansion's in-flight children fetch flushes the tree's
+    // update, so the assertion sees the state the fetch produced.
+    await act(async () => {
+      await client.groups.retrieve({ parents: [parentID] });
+    });
+    expect(screen.getByText(grandchild.name)).toBeTruthy();
+  });
+
+  it("should keep every expanded parent live", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const containerID = group.resourceID(container.key);
+    const first = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("first"),
+    });
+    const firstID = group.resourceID(first.key);
+    const second = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("second"),
+    });
+    const secondID = group.resourceID(second.key);
+    await client.groups.create({ parent: firstID, name: uniqueName("seed") });
+    await client.groups.create({ parent: secondID, name: uniqueName("seed") });
+    await renderTree(containerID);
+    await screen.findByText(first.name);
+    expandTreeRow(first.name);
+    expandTreeRow(second.name);
+    // Expanding the second parent must not cost the first one its subscription.
+    const lateUnderFirst = await client.groups.create({
+      parent: firstID,
+      name: uniqueName("late-first"),
+    });
+    const lateUnderSecond = await client.groups.create({
+      parent: secondID,
+      name: uniqueName("late-second"),
+    });
+    await screen.findByText(lateUnderFirst.name);
+    await screen.findByText(lateUnderSecond.name);
+  });
+
+  it("should stop a row loading when it is expanded again", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.resourceID(container.key),
+      name: uniqueName("parent"),
+    });
+    await client.groups.create({
+      parent: group.resourceID(parent.key),
+      name: uniqueName("child"),
+    });
+    const SPINNING = "spinning";
+    const items: Tree.Items = {
+      group: createGroupItem({
+        ContextMenu: ({ selection: { ids }, state }: Tree.ContextMenuProps) => (
+          <button onClick={() => state.expand(resource.idToString(ids[0]))}>
+            expand again
+          </button>
+        ),
+        Content: ({ resource, loading, onDoubleClick, icon: _, ...rest }) => (
+          <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
+            {resource.name}
+            {loading && <span>{SPINNING}</span>}
+          </PTree.Item>
+        ),
+      }),
+    };
+    await renderTree(group.resourceID(container.key), items);
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(SPINNING)).toBeNull());
+    fireEvent.contextMenu(getTreeRow(parent.name));
+    fireEvent.click(await screen.findByText("expand again"));
+    // Expanding an expanded row starts no fetch, so nothing else will ever end
+    // the wait it just started.
+    await act(async () => {});
+    expect(screen.queryByText(SPINNING)).toBeNull();
+  });
+
+  it("should keep loaded children when the root id is rebuilt on every render", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const containerID = group.resourceID(container.key);
+    const parent = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.resourceID(parent.key),
+      name: uniqueName("child"),
+    });
+    // Toolbars build the root id inline, so every render hands the tree a new
+    // object with the same contents.
+    const Harness = (): ReactElement => {
+      const [, setRenders] = useState(0);
+      return (
+        <>
+          <button onClick={() => setRenders((prev) => prev + 1)}>rerender</button>
+          <Tree.Tree root={group.resourceID(container.key)} />
+        </>
+      );
+    };
+    render(<Harness />, { wrapper: await createWrapper() });
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    fireEvent.click(screen.getByText("rerender"));
+    await act(async () => {
+      await client.groups.retrieve({ parents: [containerID] });
+    });
+    expect(screen.getByText(child.name)).toBeTruthy();
+  });
+
+  it("should paint retained root children in the commit that mounts the tree", async () => {
+    const parent = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("parent"),
+    });
+    const parentID = group.resourceID(parent.key);
+    const child = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("child"),
+    });
+    const { rerender } = render(<Tree.Tree key="first" root={parentID} />, {
+      wrapper: await createWrapper(),
+    });
+    await screen.findByText(child.name);
+    let rowsInMountCommit: number | null = null;
+    // The changed key remounts the tree with fresh state. The probe reads the DOM
+    // from a layout effect, so it sees the mount commit itself: the frame a browser
+    // paints before any passive effect runs.
+    rerender(
+      <>
+        <Tree.Tree key="second" root={parentID} />
+        <CommitProbe
+          onCommit={() => {
+            rowsInMountCommit = screen.queryAllByText(child.name).length;
+          }}
+        />
+      </>,
+    );
+    expect(rowsInMountCommit).toBe(1);
+    await act(async () => {
+      await client.groups.retrieve({ parents: [parentID] });
+    });
+  });
+
+  it("should paint retained empty content in the commit that mounts the tree", async () => {
+    const empty = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("empty"),
+    });
+    const emptyID = group.resourceID(empty.key);
+    const content = <p>{NO_CHILDREN}</p>;
+    const { rerender } = render(
+      <Tree.Tree key="first" root={emptyID} emptyContent={content} />,
+      { wrapper: await createWrapper() },
+    );
+    await screen.findByText(NO_CHILDREN);
+    let messagesInMountCommit: number | null = null;
+    // A retained answer that is empty is still an answer, so the remount owes the
+    // message immediately rather than a blank frame.
+    rerender(
+      <>
+        <Tree.Tree key="second" root={emptyID} emptyContent={content} />
+        <CommitProbe
+          onCommit={() => {
+            messagesInMountCommit = screen.queryAllByText(NO_CHILDREN).length;
+          }}
+        />
+      </>,
+    );
+    expect(messagesInMountCommit).toBe(1);
+    await act(async () => {
+      await client.groups.retrieve({ parents: [emptyID] });
+    });
+  });
+
+  it("should withhold empty content until the root children answer arrives", async () => {
+    const empty = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("empty"),
+    });
+    const emptyID = group.resourceID(empty.key);
+    render(<Tree.Tree root={emptyID} emptyContent={<p>{NO_CHILDREN}</p>} />, {
+      wrapper: await createWrapper(),
+    });
+    // An unanswered root has the same empty node list as a childless one, so the
+    // message here would be a guess the fetch has not confirmed.
+    expect(screen.queryByText(NO_CHILDREN)).toBeNull();
+    await screen.findByText(NO_CHILDREN);
+  });
+
+  it("should paint a re-expanded node's retained children synchronously after a remount", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const containerID = group.resourceID(container.key);
+    const parent = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.resourceID(parent.key);
+    const child = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("child"),
+    });
+    const { rerender } = render(<Tree.Tree key="first" root={containerID} />, {
+      wrapper: await createWrapper(),
+    });
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    rerender(<Tree.Tree key="second" root={containerID} />);
+    expandTreeRow(parent.name);
+    expect(screen.getByText(child.name)).toBeTruthy();
+    await act(async () => {
+      await client.groups.retrieve({ parents: [containerID] });
+      await client.groups.retrieve({ parents: [parentID] });
+    });
+  });
+
+  describe("large trees", () => {
+    const CHILD_COUNT = 150;
+    const ITEM_HEIGHT = 27;
+    let parentID: resource.ID;
+    let names: string[];
+
+    beforeAll(async () => {
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("populated"),
+      });
+      parentID = group.resourceID(parent.key);
+      names = Array.from({ length: CHILD_COUNT }, (_, i) =>
+        // Zero padded so the tree's alphabetical sort matches creation order.
+        uniqueName(`child-${String(i).padStart(3, "0")}`),
+      );
+      for (const name of names) await client.groups.create({ parent: parentID, name });
+    });
+
+    it("should keep a draft outside the window mounted for its rename", async () => {
+      const id = group.resourceID(uuid.create());
+      const key = resource.idToString(id);
+      const RootMenu = ({ root, state }: Tree.RootContextMenuProps): ReactElement => (
+        <button
+          onClick={() => {
+            state.addDraft({
+              resource: { key, id, name: "" },
+              parent: resource.idToString(root),
+            });
+            void Text.asyncEdit(List.itemNameID(key));
+          }}
+        >
+          Draft
+        </button>
+      );
+      await renderLiveTree({
+        client,
+        root: channel.TYPE_RESOURCE_ID,
+        contextMenus: { root: RootMenu, mixed: () => null },
+        ...createScopeTree(parentID.key),
+      });
+      await findTreeRow(names[CHILD_COUNT - 1]);
+      expect(screen.queryByText(names[0])).toBeNull();
+      await openTreeRootContextMenu();
+      fireEvent.click(await screen.findByText("Draft"));
+      const editable = await awaitTextEditingElement();
+      await act(async () => {
+        fireEvent.keyDown(editable, { key: "Escape" });
+      });
+      await awaitTextEditingExit();
+    });
+
+    it("should render only the rows inside the window", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const rendered = container.querySelectorAll(".lyra-tree__item");
+      expect(rendered.length).toBeGreaterThan(0);
+      expect(rendered.length).toBeLessThan(CHILD_COUNT);
+      expect(screen.queryByText(names[CHILD_COUNT - 1])).toBeNull();
+    });
+
+    it("should reveal a row outside the window when scrolled to it", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const last = names[CHILD_COUNT - 1];
+      expect(screen.queryByText(last)).toBeNull();
+      const scroller = container.querySelector<HTMLElement>(".lyra-list__scroll");
+      if (scroller == null) throw new Error("list scroll container not found");
+      scroller.scrollTop = CHILD_COUNT * ITEM_HEIGHT;
+      fireEvent.scroll(scroller);
+      await waitFor(() => expect(screen.getByText(last)).toBeTruthy());
+    });
+
+    it("should hold every row at the same height", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const offsets = Array.from(
+        container.querySelectorAll<HTMLElement>(".lyra-tree__item"),
+      ).map((row) => row.style.top);
+      offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
+    });
+  });
+
+  describe("paged folders", () => {
+    // A folder list fetches this many children at a time.
+    const PAGE_SIZE = 1000;
+    const SHOW_MORE = "Show more";
+    // A fresh client starts with no page fetched, as a list another test grew stays
+    // grown in its client's cache.
+    const renderPaged = async (items: Tree.Items = GROUP_ITEMS) =>
+      await renderTree(channel.TYPE_RESOURCE_ID, items, createTestClient(), listRoot);
+    let groupKey: string;
+    let destination: group.Group;
+    let names: string[];
+    let lastKey: channel.Key;
+    const listRoot: Tree.TreeProps["listRoot"] = (c) => [
+      Tree.createSource(
+        c.groups,
+        { parents: [group.resourceID(groupKey)] },
+        Tree.toResource("group"),
+      ),
+      Tree.createSource(
+        c.channels,
+        { where: { groups: [groupKey] } },
+        Tree.toResource("channel"),
+      ),
+    ];
+
+    beforeAll(async () => {
+      const g = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("paged"),
+      });
+      groupKey = g.key;
+      const tag = uniqueName("paged");
+      // Zero padded so the tree's name order matches creation order.
+      names = Array.from(
+        { length: PAGE_SIZE + 1 },
+        (_, i) => `${tag}_${String(i).padStart(4, "0")}`,
+      );
+      const created = await client.channels.create(
+        names.map((name) => ({
+          name,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          group: g.key,
+        })),
+      );
+      lastKey = created[PAGE_SIZE - 1].key;
+      destination = await client.groups.create({
+        parent: group.resourceID(g.key),
+        name: uniqueName("destination"),
+      });
+    });
+
+    it("should show one page and load the next from the show more node", async () => {
+      await renderPaged();
+      const more = await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      fireEvent.click(more);
+      await findTreeRow(names[PAGE_SIZE]);
+      expect(screen.queryByText(SHOW_MORE)).toBeNull();
+    });
+
+    it("should load the next page when Enter lands on the show more node", async () => {
+      await renderPaged();
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      const tree = screen.getByRole("tree");
+      const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+      fireEvent.keyDown(tree, arrowDown);
+      fireEvent.keyUp(tree, arrowDown);
+      fireEvent.keyDown(tree, { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(tree, { key: "Enter", code: "Enter" });
+      await findTreeRow(names[PAGE_SIZE]);
+    });
+
+    it("should show the root menu on the show more node", async () => {
+      await renderPaged();
+      await openTreeRowContextMenu(SHOW_MORE);
+      expect(await screen.findByText(ROOT_MENU)).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a selected record's menu", async () => {
+      await renderPaged({
+        ...GROUP_ITEMS,
+        channel: Tree.createItem({
+          ContextMenu: ({ selection: { ids } }: Tree.ContextMenuProps) => (
+            <span>{ids.map((id) => resource.idToString(id)).join(" ")}</span>
+          ),
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      await openTreeRowContextMenu(names[PAGE_SIZE - 1]);
+      expect(
+        await screen.findByText(resource.idToString(channel.resourceID(lastKey))),
+      ).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a dragged selection", async () => {
+      const dropped: string[][] = [];
+      await renderPaged({
+        group: createGroupItem({
+          canDrop: () => true,
+          drop: async ({ items }) => {
+            dropped.push(items.map(({ id }) => resource.idToString(id)));
+          },
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      fireEvent.dragStart(getTreeRow(names[PAGE_SIZE - 1]), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(await findTreeRow(destination.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      await waitFor(() =>
+        expect(dropped).toEqual([[resource.idToString(channel.resourceID(lastKey))]]),
+      );
+    });
+  });
+
+  describe("context menu", () => {
+    it("should render the root menu of the provider when right-clicking empty space", async () => {
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const name = uniqueName("grp");
+      await client.groups.create({ parent: group.resourceID(root.key), name });
+      const { items, listRoot } = createScopeTree(root.key);
+      await renderTree(channel.TYPE_RESOURCE_ID, items, client, listRoot);
+      await screen.findByText(name);
+      await openTreeRootContextMenu();
+      expect(await screen.findByText(ROOT_MENU)).toBeTruthy();
+    });
+
+    it("should render a reload menu when the provider gives no menus", async () => {
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const name = uniqueName("grp");
+      await client.groups.create({ parent: group.resourceID(root.key), name });
+      await renderLiveTree({
+        client,
+        root: channel.TYPE_RESOURCE_ID,
+        ...createScopeTree(root.key),
+      });
+      await screen.findByText(name);
+      await openTreeRootContextMenu();
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
+    /** Selects a group and a channel, then opens the menu of the selection. */
+    const openMixedMenu = async (contextMenus?: Tree.ContextMenus) => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const child = await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: uniqueName("child"),
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("ch"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: container.key,
+      });
+      await renderLiveTree({
+        client,
+        root: channel.TYPE_RESOURCE_ID,
+        contextMenus,
+        ...createScopeTree(container.key),
+      });
+      fireEvent.click(await findTreeRow(child.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(ch.name)));
+      fireEvent.contextMenu(getTreeRow(ch.name));
+    };
+
+    it("should render the mixed menu of the provider for a selection of two types", async () => {
+      await openMixedMenu(CONTEXT_MENUS);
+      expect(await screen.findByText(MIXED_MENU)).toBeTruthy();
+    });
+
+    it("should offer Copy for a selection of two types without a mixed menu", async () => {
+      await openMixedMenu();
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+      expect(screen.getByText("Copy")).toBeTruthy();
+    });
+
+    it("should render the given root context menu in place of the provider's", async () => {
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const name = uniqueName("grp");
+      await client.groups.create({ parent: group.resourceID(root.key), name });
+      const { items, listRoot } = createScopeTree(root.key);
+      const RootContextMenu = (): ReactElement => (
+        <Menu.Menu>
+          <Menu.Item itemKey="extra">Extra item</Menu.Item>
+        </Menu.Menu>
+      );
+      render(
+        <Tree.Tree
+          root={channel.TYPE_RESOURCE_ID}
+          listRoot={listRoot}
+          rootContextMenu={RootContextMenu}
+        />,
+        { wrapper: await createWrapper(items) },
+      );
+      await screen.findByText(name);
+      await openTreeRootContextMenu();
+      await waitFor(() => expect(screen.getByText("Extra item")).toBeTruthy());
+      expect(screen.queryByText(ROOT_MENU)).toBeNull();
+    });
+
+    it("should route a right-click on an item to its service's context menu with the selection", async () => {
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("parent"),
+      });
+      const parentID = group.resourceID(parent.key);
+      const childName = uniqueName("child");
+      const child = await client.groups.create({ parent: parentID, name: childName });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: createGroupItem({ ContextMenu: TreeContextMenu }),
+      };
+      await renderTree(parentID, items);
+      await screen.findByText(childName);
+      fireEvent.contextMenu(getTreeRow(childName));
+      await waitFor(() => expect(screen.getByText("group service menu")).toBeTruthy());
+      const [props] = menuSpy.mock.calls[0] as [Tree.ContextMenuProps];
+      expect(props.selection.ids).toHaveLength(1);
+      expect(props.selection.ids[0].key).toBe(child.key);
+      expect(resource.idsEqual(props.selection.rootID, parentID)).toBe(true);
+      expect(props.selection.parentID).toEqual(parentID);
+    });
+
+    it("should give the parent of a selected group when its child is selected too", async () => {
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const rootID = group.resourceID(root.key);
+      const outer = await client.groups.create({
+        parent: rootID,
+        name: uniqueName("outer"),
+      });
+      const inner = await client.groups.create({
+        parent: group.resourceID(outer.key),
+        name: uniqueName("inner"),
+      });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: createGroupItem({ ContextMenu: TreeContextMenu }),
+      };
+      await renderLiveTree({ client, root: rootID, items });
+      // A click on a folded group selects it and opens it.
+      fireEvent.click(await findTreeRow(outer.name));
+      const innerRow = await findTreeRow(inner.name);
+      withControlHeld(() => fireEvent.click(innerRow));
+      fireEvent.contextMenu(innerRow);
+      await screen.findByText("group service menu");
+      const [props] = menuSpy.mock.lastCall as [Tree.ContextMenuProps];
+      expect(props.selection.ids).toHaveLength(2);
+      expect(props.selection.parentID).toEqual(rootID);
+    });
+
+    it("should drop a deleted resource from the selection backing the menu", async () => {
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("parent"),
+      });
+      const parentID = group.resourceID(parent.key);
+      const doomed = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("doomed"),
+      });
+      const survivor = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("survivor"),
+      });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: createGroupItem({ ContextMenu: TreeContextMenu }),
+      };
+      await renderLiveTree({ client, root: parentID, items });
+      await screen.findByText(doomed.name);
+      await screen.findByText(survivor.name);
+      // Both must be selected: the menu falls back to the live selection only when
+      // the right-clicked row is part of it.
+      fireEvent.click(getTreeRow(doomed.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(survivor.name)));
+      await act(async () => {
+        await client.groups.delete(doomed.key);
+      });
+      await waitFor(() => expect(screen.queryByText(doomed.name)).toBeNull());
+      // The deleted group is gone from the tree, so its depth is unknowable. Left in
+      // the selection it takes down every later right-click.
+      fireEvent.contextMenu(getTreeRow(survivor.name));
+      await waitFor(() => expect(screen.getByText("group service menu")).toBeTruthy());
+      const [props] = menuSpy.mock.calls.at(-1) as [Tree.ContextMenuProps];
+      expect(props.selection.ids.map(({ key }) => key)).toEqual([survivor.key]);
+    });
+
+    it("should show the fallback menu when a selected resource is deleted while the menu is open", async () => {
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("parent"),
+      });
+      const parentID = group.resourceID(parent.key);
+      const doomed = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("doomed"),
+      });
+      const TreeContextMenu = ({
+        selection: { ids },
+        state,
+      }: Tree.ContextMenuProps): ReactElement => {
+        const [resource] = Tree.useResources(state, ids);
+        return <span>{`menu for ${resource.name}`}</span>;
+      };
+      const items: Tree.Items = {
+        group: createGroupItem({ ContextMenu: TreeContextMenu }),
+      };
+      await renderTree(parentID, items);
+      await screen.findByText(doomed.name);
+      fireEvent.contextMenu(getTreeRow(doomed.name));
+      await screen.findByText(`menu for ${doomed.name}`);
+      await act(async () => {
+        await client.groups.delete(doomed.key);
+      });
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      expect(screen.queryByText(`menu for ${doomed.name}`)).toBeNull();
+    });
+  });
+
+  it("should invoke the service's onSelect handler when an item is double-clicked", async () => {
+    const parent = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("parent"),
+    });
+    const childName = uniqueName("child");
+    await client.groups.create({
+      parent: group.resourceID(parent.key),
+      name: childName,
+    });
+    const onSelect = vi.fn();
+    const items: Tree.Items = {
+      group: createGroupItem({ useOnSelect: () => onSelect }),
+    };
+    await renderTree(group.resourceID(parent.key), items);
+    const item = await screen.findByText(childName);
+    fireEvent.doubleClick(item);
+    await waitFor(() => expect(onSelect).toHaveBeenCalled());
+    const [resource] = onSelect.mock.calls[0];
+    expect(resource.name).toBe(childName);
+  });
+
+  it("should move a resource to a new parent when dragged onto it", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const containerID = group.resourceID(container.key);
+    const source = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("source"),
+    });
+    const destination = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("dest"),
+    });
+    const moved = await client.groups.create({
+      parent: group.resourceID(source.key),
+      name: uniqueName("moved"),
+    });
+    const items: Tree.Items = {
+      group: createGroupItem({ canDrop: () => true }),
+    };
+    await renderTree(containerID, items);
+    await screen.findByText(source.name);
+    expandTreeRow(source.name);
+    await screen.findByText(moved.name);
+    fireEvent.dragStart(getTreeRow(moved.name), { dataTransfer: new DataTransfer() });
+    fireEvent.drop(getTreeRow(destination.name), { dataTransfer: new DataTransfer() });
+    await waitFor(async () =>
+      expect(
+        await retrieveChildGroupKeys(client, group.resourceID(destination.key)),
+      ).toContain(moved.key),
+    );
+    expect(
+      await retrieveChildGroupKeys(client, group.resourceID(source.key)),
+    ).not.toContain(moved.key);
+  });
+
+  describe("copying", () => {
+    const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
+
+    const renderCopyTree = async (items: Tree.Items) => {
+      const tok = uniqueToken();
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const rootID = group.resourceID(root.key);
+      const a = await client.groups.create({ parent: rootID, name: `R&D <a> ${tok}` });
+      const b = await client.groups.create({ parent: rootID, name: `b ${tok}` });
+      let statuses: Status.NotificationSpec[] = [];
+      await renderLiveTree({
+        client,
+        root: rootID,
+        items,
+        preloadedState: createCoreState([CORE], CORE.key),
+        extra: <CaptureStatuses onStatuses={(s) => (statuses = s)} />,
+      });
+      await screen.findByText(b.name);
+      return { a, b, tok, statuses: () => statuses };
+    };
+
+    const copy = (target: HTMLElement) => {
+      const clipboardData = new DataTransfer();
+      const setData = vi.spyOn(clipboardData, "setData");
+      const allowed = fireEvent.copy(target, { clipboardData });
+      return { setData, allowed };
+    };
+
+    it("should copy the selected names as text, and as links for a type a link opens", async () => {
+      const { a, b, tok, statuses } = await renderCopyTree({
+        group: createGroupItem({ linkable: true }),
+      });
+      fireEvent.click(getTreeRow(a.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+      const { setData, allowed } = copy(getTreeRow(b.name));
+      expect(allowed).toBe(false);
+      expect(setData).toHaveBeenCalledWith("text/plain", `${a.name}\n${b.name}`);
+      const href = (key: string) => `synnax://cluster/cluster-9/group/${key}`;
+      expect(setData).toHaveBeenCalledWith(
+        "text/html",
+        `<a href="${href(a.key)}">R&amp;D &lt;a&gt; ${tok}</a><br>` +
+          `<a href="${href(b.key)}">${b.name}</a>`,
+      );
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "success",
+            message: "Copied 2 names to clipboard",
+          }),
+        ),
+      );
+    });
+
+    it("should copy names without links for a type a link cannot open", async () => {
+      const { a, tok, statuses } = await renderCopyTree(GROUP_ITEMS);
+      fireEvent.click(getTreeRow(a.name));
+      const { setData } = copy(getTreeRow(a.name));
+      expect(setData).toHaveBeenCalledWith("text/html", `R&amp;D &lt;a&gt; ${tok}`);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            name: a.name,
+            message: "Copied name to clipboard",
+          }),
+        ),
+      );
+    });
+
+    it("should leave a text selection to the browser", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      const row = getTreeRow(a.name);
+      fireEvent.click(row);
+      const range = document.createRange();
+      range.selectNodeContents(row);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      try {
+        const { setData, allowed } = copy(row);
+        expect(allowed).toBe(true);
+        expect(setData).not.toHaveBeenCalled();
+      } finally {
+        getSelection()?.removeAllRanges();
+      }
+    });
+
+    it("should offer Copy in the menu of a type with no menu of its own", async () => {
+      const { a, statuses } = await renderCopyTree(GROUP_ITEMS);
+      const writeText = stubClipboardWriteText();
+      fireEvent.contextMenu(getTreeRow(a.name));
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+      fireEvent.click(screen.getByText("Copy"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(a.name));
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({ message: "Copied name to clipboard" }),
+        ),
+      );
+    });
+
+    it("should drop a text selection outside the tree when the tree takes focus", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      const outside = document.createElement("p");
+      outside.textContent = "a line of a log";
+      document.body.append(outside);
+      const range = document.createRange();
+      range.selectNodeContents(outside);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      try {
+        fireEvent.click(getTreeRow(a.name));
+        // focus() in jsdom collapses the selection, which a click in Chromium does not.
+        fireEvent.focusIn(screen.getByRole("tree"));
+        expect(getSelection()?.rangeCount).toBe(0);
+        const { setData, allowed } = copy(getTreeRow(a.name));
+        expect(allowed).toBe(false);
+        expect(setData).toHaveBeenCalledWith("text/plain", a.name);
+      } finally {
+        getSelection()?.removeAllRanges();
+        outside.remove();
+      }
+    });
+
+    it("should leave the copy to the browser when nothing is selected", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      const { setData, allowed } = copy(getTreeRow(a.name));
+      expect(allowed).toBe(true);
+      expect(setData).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("dragging a multiple selection", () => {
+    const DROPPABLE: Tree.Items = {
+      group: createGroupItem({ canDrop: () => true }),
+    };
+
+    const createGroup = async (parent: resource.ID | null, label: string) =>
+      await client.groups.create({
+        ...(parent == null ? { scope: "channel" } : { parent }),
+        name: uniqueName(label),
+      });
+
+    const childKeysOf = async (id: resource.ID): Promise<string[]> =>
+      await retrieveChildGroupKeys(client, id);
+
+    const previewText = (): string | null | undefined =>
+      document.querySelector(".lyra-haul__layer")?.textContent;
+
+    it("should picture the dragged resource with its type name", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const folder = await createGroup(containerID, "folder");
+      await renderLiveTree({
+        client,
+        root: containerID,
+        items: { group: createGroupItem({ canDrop: () => true, typeName: "Group" }) },
+      });
+      fireEvent.dragStart(await findTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      expect(previewText()).toBe(`${folder.name}Group`);
+    });
+
+    it("should picture the pressed item with a count when a selection drags", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const a = await createGroup(containerID, "a");
+      const b = await createGroup(containerID, "b");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      fireEvent.click(await findTreeRow(a.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+      fireEvent.dragStart(getTreeRow(b.name), { dataTransfer: new DataTransfer() });
+      expect(previewText()).toBe(`${b.name}2`);
+    });
+
+    it("should move only the parent when a parent and its own child are selected", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const folder = await createGroup(containerID, "folder");
+      const folderID = group.resourceID(folder.key);
+      const report = await createGroup(folderID, "report");
+      const dest = await createGroup(containerID, "dest");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folder.name);
+      expandTreeRow(folder.name);
+      await screen.findByText(report.name);
+      // The child is clicked first: a plain click on the folder row would toggle it
+      // shut and take the child's row with it.
+      fireEvent.click(getTreeRow(report.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(folder.name)));
+      fireEvent.dragStart(getTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
+      await waitFor(async () =>
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(folder.key),
+      );
+      // The report rides along inside the folder. Moving it explicitly would
+      // re-parent it onto the destination as a sibling of its own folder.
+      expect(await childKeysOf(group.resourceID(dest.key))).not.toContain(report.key);
+      expect(await childKeysOf(folderID)).toContain(report.key);
+    });
+
+    it("should move both when the selection spans depths but neither contains the other", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const loose = await createGroup(containerID, "loose");
+      const folder = await createGroup(containerID, "folder");
+      const folderID = group.resourceID(folder.key);
+      const nested = await createGroup(folderID, "nested");
+      const dest = await createGroup(containerID, "dest");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folder.name);
+      expandTreeRow(folder.name);
+      await screen.findByText(nested.name);
+      fireEvent.click(getTreeRow(loose.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(nested.name)));
+      fireEvent.dragStart(getTreeRow(loose.name), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
+      await waitFor(async () =>
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(loose.key),
+      );
+      // Deeper does not mean contained: nested is selected in its own right.
+      expect(await childKeysOf(group.resourceID(dest.key))).toContain(nested.key);
+      expect(await childKeysOf(folderID)).not.toContain(nested.key);
+    });
+
+    it("should detach each item from its own parent when the selection spans parents", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const folderA = await createGroup(containerID, "folderA");
+      const folderAID = group.resourceID(folderA.key);
+      const reportA = await createGroup(folderAID, "reportA");
+      const folderB = await createGroup(containerID, "folderB");
+      const folderBID = group.resourceID(folderB.key);
+      const reportB = await createGroup(folderBID, "reportB");
+      const dest = await createGroup(containerID, "dest");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folderA.name);
+      expandTreeRow(folderA.name);
+      await screen.findByText(reportA.name);
+      expandTreeRow(folderB.name);
+      await screen.findByText(reportB.name);
+      fireEvent.click(getTreeRow(reportA.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(reportB.name)));
+      fireEvent.dragStart(getTreeRow(reportA.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
+      await waitFor(async () =>
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(reportA.key),
+      );
+      expect(await childKeysOf(group.resourceID(dest.key))).toContain(reportB.key);
+      expect(await childKeysOf(folderAID)).not.toContain(reportA.key);
+      // reportB left folderB, not the parent that reportA happened to have.
+      expect(await childKeysOf(folderBID)).not.toContain(reportB.key);
+    });
+  });
+
+  it("should add a node when a child is created under the root after render", async () => {
+    const parent = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("parent"),
+    });
+    const parentID = group.resourceID(parent.key);
+    await renderTree(parentID);
+    const childName = uniqueName("child");
+    await client.groups.create({ parent: parentID, name: childName });
+    await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
+  });
+
+  it("should remove a node when its resource is deleted after render", async () => {
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("container"),
+    });
+    const name = uniqueName("grp");
+    const created = await client.groups.create({
+      parent: group.resourceID(container.key),
+      name,
+    });
+    await renderTree(group.resourceID(container.key));
+    await screen.findByText(name);
+    await client.groups.delete(created.key);
+    await waitFor(() => expect(screen.queryByText(name)).toBeNull());
+  });
+
+  describe("without permission to move a resource", () => {
+    const DROPPABLE: Tree.Items = {
+      group: createGroupItem({ canDrop: () => true }),
+    };
+
+    it("should leave the rows undraggable and refuse the drop", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const containerID = group.resourceID(container.key);
+      const folder = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("folder"),
+      });
+      const dest = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("dest"),
+      });
+      const viewer = await roles.get("Viewer");
+      await renderTree(containerID, DROPPABLE, viewer);
+      await screen.findByText(folder.name);
+      await waitFor(() =>
+        expect(getTreeRow(folder.name).getAttribute("draggable")).toBe("false"),
+      );
+      fireEvent.dragStart(getTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
+      expect(
+        await retrieveChildGroupKeys(client, group.resourceID(dest.key)),
+      ).not.toContain(folder.key);
+    });
+  });
+
+  describe("Core event isolation", () => {
+    const countingItems = (counts: Map<string, number>): Tree.Items => ({
+      group: createGroupItem({
+        Content: ({ resource, onDoubleClick, icon: _, loading: __, ...rest }) => {
+          map.increment(counts, resource.name);
+          return (
+            <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
+              {resource.name}
+            </PTree.Item>
+          );
+        },
+      }),
+    });
+
+    it("should not re-render rows for a resource event outside the tree", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const childName = uniqueName("child");
+      const child = await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: childName,
+      });
+      const foreign = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("foreign"),
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.resourceID(container.key), countingItems(counts));
+      await screen.findByText(childName);
+      const before = counts.get(childName) ?? 0;
+      await client.groups.rename(foreign.key, uniqueName("foreign-renamed"));
+      // Ordered events: the child rename rendering proves the foreign one processed.
+      const childRenamed = uniqueName("child-renamed");
+      await client.groups.rename(child.key, childRenamed);
+      await screen.findByText(childRenamed);
+      expect(counts.get(childName)).toBe(before);
+    });
+
+    it("should not re-render rows for a color change", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const childName = uniqueName("child");
+      const child = await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: childName,
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.resourceID(container.key), countingItems(counts));
+      await screen.findByText(childName);
+      const before = counts.get(childName) ?? 0;
+      await client.colors.create({ name: uniqueName("color"), light: "#123456" });
+      // Ordered events: the child rename rendering proves the color one processed.
+      const childRenamed = uniqueName("child-renamed");
+      await client.groups.rename(child.key, childRenamed);
+      await screen.findByText(childRenamed);
+      expect(counts.get(childName)).toBe(before);
+    });
+
+    it("should not re-render the siblings of a renamed row", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const containerID = group.resourceID(container.key);
+      const sibling = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("sibling"),
+      });
+      const target = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("target"),
+      });
+      const counts = new Map<string, number>();
+      await renderTree(containerID, countingItems(counts));
+      await screen.findByText(sibling.name);
+      await act(async () => {
+        await client.groups.retrieve({ parents: [containerID] });
+      });
+      const before = counts.get(sibling.name) ?? 0;
+      const renamed = uniqueName("target-renamed");
+      await client.groups.rename(target.key, renamed);
+      await screen.findByText(renamed);
+      expect(counts.get(sibling.name)).toBe(before);
+    });
+
+    it("should re-sort rows when an in-tree resource is renamed", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const base = uniqueName("sort");
+      const firstName = `${base}-b`;
+      const lastName = `${base}-c`;
+      await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: firstName,
+      });
+      const moved = await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: lastName,
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.resourceID(container.key), countingItems(counts));
+      await screen.findByText(firstName);
+      await screen.findByText(lastName);
+      const renamed = `${base}-a`;
+      await client.groups.rename(moved.key, renamed);
+      const renamedRow = await screen.findByText(renamed);
+      await waitFor(() => {
+        const firstRow = screen.getByText(firstName);
+        expect(
+          renamedRow.compareDocumentPosition(firstRow) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+    });
+  });
+});
+
+const MORE_MATCHES = "Showing the first 100 matches. Type more to narrow the search.";
+
+describe("Tree.Tree search", () => {
+  it("should bring the tree back as it was when the search closes", async () => {
+    const { root, tok, names } = await createSearchTree(client);
+    await renderSearchableTree(client, root, useGroupSearch);
+    await findTreeRow(names.alpha);
+    expandTreeRow(names.alpha);
+    await findTreeRow(names.bravo);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.keyDown(screen.getByPlaceholderText("Search groups"), { key: "Escape" });
+    await waitFor(() => expect(countHiddenTrees()).toBe(0));
+    expect(await findTreeRow(names.bravo)).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
+  });
+
+  describe("keys", () => {
+    const results = (): HTMLElement => {
+      const tree = document.querySelector<HTMLElement>(
+        ".lyra-tree:not(.console-tree--hidden)",
+      );
+      if (tree == null) throw new Error("no results tree");
+      return tree;
+    };
+    const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+    const field = (): HTMLElement => screen.getByPlaceholderText("Search groups");
+
+    it.each(["ArrowDown", "Enter"])(
+      "should move into the results on %s and back on Escape",
+      async (key) => {
+        const { root, tok, names } = await createSearchTree(client);
+        await renderSearchableTree(client, root, useGroupSearch);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        const field = screen.getByPlaceholderText("Search groups");
+        fireEvent.keyDown(field, { key, code: key });
+        fireEvent.keyUp(results(), { key, code: key });
+        expect(document.activeElement).toBe(results());
+        const selected = results().querySelectorAll('[aria-selected="true"]');
+        expect(selected).toHaveLength(1);
+        expect(selected[0]).toBe(results().querySelector(".lyra-tree__item"));
+        fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+        expect(document.activeElement).toBe(field);
+        expect(countHiddenTrees()).toBe(1);
+      },
+    );
+
+    it("should leave no key held after Enter moves into the results", async () => {
+      const { root, tok, names } = await createSearchTree(client);
+      await renderSearchableTree(client, root, useGroupSearch);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const { result } = renderHook(
+        () => Triggers.useHeldRef({ triggers: [["ArrowDown"]], loose: true }),
+        { wrapper: Triggers.Provider },
+      );
+      fireEvent.keyDown(field(), { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(results(), { key: "Enter", code: "Enter" });
+      expect(result.current.current.held).toBe(false);
+    });
+
+    it.each([
+      ["an Enter", { key: "Enter", isComposing: true }],
+      ["a Down", { key: "ArrowDown", isComposing: true }],
+      ["a Safari Enter", { key: "Enter", keyCode: 229 }],
+    ])("should leave %s that is part of an IME word to the IME", async (_, key) => {
+      const { root, tok, names } = await createSearchTree(client);
+      await renderSearchableTree(client, root, useGroupSearch);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      field().focus();
+      fireEvent.keyDown(field(), key);
+      expect(document.activeElement).toBe(field());
+      expect(results().querySelector('[aria-selected="true"]')).toBeNull();
+    });
+
+    it("should come back to the selected match on ArrowDown", async () => {
+      const { root, tok, names } = await createSearchTree(client);
+      await renderSearchableTree(client, root, useGroupSearch);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const field = screen.getByPlaceholderText("Search groups");
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      fireEvent.keyDown(results(), arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      const selected = (): Array<string | null> =>
+        Array.from(results().querySelectorAll('[aria-selected="true"]')).map(
+          (e) => e.textContent,
+        );
+      const second = selected();
+      expect(second).toHaveLength(1);
+      fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      expect(document.activeElement).toBe(results());
+      expect(selected()).toEqual(second);
+    });
+
+    it.each([
+      ["Escape", () => fireEvent.keyDown(field(), { key: "Escape", code: "Escape" })],
+      [
+        "the close button",
+        () => fireEvent.click(getIconButton(document.body, "close")),
+      ],
+    ])(
+      "should give the focus to the tree when %s closes the search",
+      async (_, close) => {
+        const { root, tok, names } = await createSearchTree(client);
+        await renderSearchableTree(client, root, useGroupSearch);
+        searchTree(tok);
+        await findTreeRow(itemName(names.charlie));
+        field().focus();
+        close();
+        const tree = results();
+        expect(countHiddenTrees()).toBe(0);
+        expect(document.activeElement).toBe(tree);
+        // The tree lays out its rows again once it is shown.
+        await findTreeRow(names.alpha);
+        fireEvent.keyDown(tree, arrowDown);
+        fireEvent.keyUp(tree, arrowDown);
+        const [first] = tree.querySelectorAll(".lyra-tree__item");
+        expect(first.getAttribute("aria-selected")).toBe("true");
+      },
+    );
+
+    it("should keep the focus in the field when nothing matches", async () => {
+      const { root } = await createSearchTree(client);
+      await renderSearchableTree(client, root, useGroupSearch);
+      const term = uniqueToken();
+      searchTree(term);
+      await screen.findByText(`No groups match “${term}”`);
+      const field = screen.getByPlaceholderText("Search groups");
+      field.focus();
+      fireEvent.keyDown(field, arrowDown);
+      expect(document.activeElement).toBe(field);
+    });
+  });
+
+  it("should show a message when nothing matches", async () => {
+    const { root } = await createSearchTree(client);
+    await renderSearchableTree(client, root, useGroupSearch);
+    const term = uniqueToken();
+    searchTree(term);
+    expect(await screen.findByText(`No groups match “${term}”`)).toBeTruthy();
+  });
+
+  it("should show a new match as it arrives", async () => {
+    const { root, tok, names } = await createSearchTree(client);
+    await renderSearchableTree(client, root, useGroupSearch);
+    searchTree(tok);
+    await findTreeRow(itemName(names.delta));
+    const late = `${tok} foxtrot`;
+    await client.groups.create({ parent: root, name: late });
+    await findTreeRow(itemName(late));
+  });
+
+  it("should show at most 100 matches and say that more exist", async () => {
+    const tok = uniqueToken();
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("many"),
+    });
+    const root = group.resourceID(container.key);
+    await Promise.all(
+      Array.from(
+        { length: 101 },
+        async (_, i) =>
+          await client.groups.create({ parent: root, name: `${tok} ${i}` }),
+      ),
+    );
+    await renderSearchableTree(client, root, useGroupSearch);
+    searchTree(tok);
+    expect(await screen.findByText(MORE_MATCHES)).toBeTruthy();
+  });
+
+  it("should say that more exist when a match arrives past the limit", async () => {
+    const tok = uniqueToken();
+    const container = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("many"),
+    });
+    const root = group.resourceID(container.key);
+    await Promise.all(
+      Array.from(
+        { length: 100 },
+        async (_, i) =>
+          await client.groups.create({ parent: root, name: `${tok} ${i}` }),
+      ),
+    );
+    await renderSearchableTree(client, root, useGroupSearch);
+    searchTree(tok);
+    await findTreeRow(itemName(`${tok} 0`));
+    expect(screen.queryByText(MORE_MATCHES)).toBeNull();
+    // A prefix match ranks after the exact ones, so the first 100 stay the same.
+    await client.groups.create({ parent: root, name: `${tok}z` });
+    expect(await screen.findByText(MORE_MATCHES)).toBeTruthy();
+  });
+
+  it("should show a status when the search fails", async () => {
+    const failing = Tree.createSearch({
+      noun: "things",
+      useMatches: () => [{ variant: "error", description: "the index is gone" }],
+      usePlacement: usePlacementAtTop,
+    });
+    const { root, tok } = await createSearchTree(client);
+    await renderSearchableTree(client, root, failing);
+    searchTree(tok);
+    expect(await screen.findByText("Failed to search things")).toBeTruthy();
+    expect(screen.getByText("the index is gone")).toBeTruthy();
+    expect(countHiddenTrees()).toBe(1);
+  });
+
+  it("should show a status when the placement fails", async () => {
+    const failing = Tree.createSearch({
+      noun: "things",
+      useMatches: useGroupMatches,
+      usePlacement: () => ({ variant: "error", description: "the folders are gone" }),
+    });
+    const { root, tok } = await createSearchTree(client);
+    await renderSearchableTree(client, root, failing);
+    searchTree(tok);
+    expect(await screen.findByText("Failed to search things")).toBeTruthy();
+    expect(screen.getByText("the folders are gone")).toBeTruthy();
+  });
+});

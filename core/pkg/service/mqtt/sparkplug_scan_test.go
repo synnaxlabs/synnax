@@ -72,13 +72,13 @@ var _ = Describe("Sparkplug B browse", func() {
 		return stat.Details.Data
 	}
 
-	// expectFailed runs a browse that fails with message.
-	expectFailed := func(ctx context.Context, cmd task.Command, message string) {
+	// expectFailed runs a browse that fails with description.
+	expectFailed := func(ctx context.Context, cmd task.Command, description string) {
 		GinkgoHelper()
 		configured, t := scan(ctx)
 		stat := answer(ctx, configured, t, cmd)
 		Expect(stat.Variant).To(Equal(status.VariantError))
-		Expect(stat.Message).To(Equal(message))
+		Expect(stat.Description).To(Equal(description))
 	}
 
 	Describe("Edge nodes", func() {
@@ -270,7 +270,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				browseCommand(dev, msgpack.EncodedJSON{"duration": "long"}),
 			)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(SatisfyAll(
+			Expect(stat.Description).To(SatisfyAll(
 				HavePrefix("invalid arguments: "), HaveSuffix(": validation error"),
 			))
 		})
@@ -316,7 +316,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				msgpack.EncodedJSON{
 					"group": "plant", "edge_node": "line1", "duration": 50,
 				},
-				"edge node plant/line1 did not answer the rebirth request",
+				"Failed to execute command",
 			),
 		)
 	})

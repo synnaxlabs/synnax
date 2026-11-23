@@ -9,13 +9,12 @@
 
 import type { Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { render } from "@testing-library/react";
-import { type ComponentType, Suspense } from "react";
+import type { ComponentType } from "react";
 
 import { Settings } from "@/app/settings";
 import { Secret } from "@/feature/secret";
 import { Tree } from "@/platform/tree";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, renderLazy } from "@/testutil";
 
 /** Renders the Settings tab with the Console providers, as the given client. */
 export const renderSettings = async (
@@ -23,11 +22,9 @@ export const renderSettings = async (
 ): Promise<{ wrapper: ComponentType }> => {
   const { Content } = Settings.TABS.settings;
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+  await renderLazy(
     <Tree.Provider items={Secret.TREE_ITEMS}>
-      <Suspense fallback={null}>
-        <Content />
-      </Suspense>
+      <Content />
     </Tree.Provider>,
     { wrapper },
   );

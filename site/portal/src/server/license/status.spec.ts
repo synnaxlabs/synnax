@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { License } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { isStatus, STATUSES, statusOf } from "@/server/license/status";
 import { LICENSE, NOW } from "@/server/license/testutil";
 
-const licenseOf = (overrides: Partial<License>): License => ({
+const licenseOf = (overrides: Partial<schema.License>): schema.License => ({
   ...LICENSE,
   ...overrides,
 });

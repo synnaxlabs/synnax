@@ -25,7 +25,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame, frameZ, seriesFromPayload } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 import { IteratorCommand, IteratorResponseVariant } from "@/framer/types.gen";
 
@@ -240,7 +240,11 @@ export class Iterator {
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === IteratorResponseVariant.Ack) return res.ack;
-      this.value.push(this.adapter.adapt(new Frame(res.frame)));
+      if (res.frame == null) continue;
+      const { keys, series } = res.frame;
+      this.value.push(
+        this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload))),
+      );
     }
   }
 }

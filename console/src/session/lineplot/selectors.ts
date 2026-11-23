@@ -14,6 +14,8 @@ import type { record } from "@synnaxlabs/x";
 
 import {
   type ControlState,
+  type Hidden,
+  type Isolation,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
@@ -61,10 +63,19 @@ const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
 
 export const useSelectViewportMode = createSelector(selectViewportMode);
 
-const selectHiddenLines = (params: KeyedSelectorParams): string[] =>
-  selectState(params).hiddenLines;
+const selectHidden = (params: KeyedSelectorParams): Hidden => {
+  const { hiddenLines, hiddenRanges, hiddenTraces } = selectState(params);
+  return { lines: hiddenLines, ranges: hiddenRanges, traces: hiddenTraces };
+};
 
-export const useSelectHiddenLines = createSelector(selectHiddenLines);
+/** Selects the items of the plot that do not show. */
+export const useSelectHidden = createSelector(selectHidden);
+
+const selectIsolation = (params: KeyedSelectorParams): Isolation | null =>
+  selectState(params).isolation;
+
+/** Selects the item the user isolated, if any. */
+export const useSelectIsolation = createSelector(selectIsolation);
 
 const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =>
   selectState(params).measure.mode;
@@ -85,3 +96,13 @@ const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
   selectState(params).annotations.visible;
 
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
+
+const selectBreaksHidden = (params: KeyedSelectorParams): boolean =>
+  selectState(params).breaks.hidden;
+
+export const useSelectBreaksHidden = createSelector(selectBreaksHidden);
+
+const selectOpenBreaks = (params: KeyedSelectorParams): number[] =>
+  selectState(params).breaks.open;
+
+export const useSelectOpenBreaks = createSelector(selectOpenBreaks);

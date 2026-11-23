@@ -29,15 +29,9 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-namespace driver::codec {
-/// @brief Binding names a field of a message and the data type of the channel it feeds.
-struct Binding {
-    /// @brief field is the key of the message field to read.
-    synnax::icd::FieldKey field;
-    /// @brief data_type is the data type of the channel that the field writes to.
-    x::telem::DataType data_type;
-};
+#include "driver/codec/binding.h"
 
+namespace driver::codec {
 /// @brief JSONMessage is a JSON message and the fields to decode from its documents.
 struct JSONMessage {
     /// @brief name identifies the message in errors.
@@ -62,16 +56,25 @@ class JSON {
         [[nodiscard]] std::string to_string() const;
     };
 
-    /// @brief Router finds the message that a document belongs to. Every match rule
-    /// tests the value at one pointer, so one lookup on that value finds the message.
+    /// @brief Router finds the message that a document belongs to. Every value rule
+    /// tests the value at one pointer, so one lookup on that value finds its message.
+    /// Each present rule tests a pointer of its own.
     struct Router {
-        /// @brief ruled is true when a message has a match rule.
+        struct Present {
+            x::json::Pointer pointer;
+            std::size_t message = 0;
+        };
+
+        /// @brief names holds the name of each message, for errors.
+        std::vector<std::string> names;
+        /// @brief ruled is true when a message has a value rule.
         bool ruled = false;
         x::json::Pointer pointer;
         std::map<std::string, std::size_t, std::less<>> strings;
         std::array<std::optional<std::size_t>, 2> booleans;
         std::map<Integer, std::size_t> integers;
         std::unordered_map<double, std::size_t> floats;
+        std::vector<Present> present;
         /// @brief fallback is the message with no match rule.
         std::optional<std::size_t> fallback;
         /// @brief text is scratch space for the text of a string value.
@@ -92,10 +95,17 @@ class JSON {
             std::size_t message,
             std::unordered_map<double, Integer> &rounded
         );
-        /// @brief returns the message of a document whose value at the pointer is
-        /// value, or nothing when the document belongs to no message.
+        /// @brief returns the pointers that the rules test, in the order that find
+        /// takes their values.
+        [[nodiscard]] std::vector<x::json::Pointer> pointers() const;
+        /// @brief returns the message of a document, or nothing when it belongs to no
+        /// message. values starts with the values of the document at pointers().
+        /// @returns VALIDATION when the document meets two rules.
         std::pair<std::optional<std::size_t>, x::errors::Error>
-        find(const std::optional<std::string_view> &value);
+        find(const std::vector<std::optional<std::string_view>> &values);
+        /// @brief returns the message of the value rule that value meets, or nothing.
+        std::pair<std::optional<std::size_t>, x::errors::Error>
+        find_value(const std::optional<std::string_view> &value);
     };
 
     struct Field {
@@ -114,9 +124,11 @@ class JSON {
         x::telem::Series scratch{x::telem::FLOAT64_T, 1};
         /// @brief sample converts a JSON value to a sample of the channel's data type.
         x::json::Decoder sample;
-        /// @brief fallback is the sample used when a document has no value, or nothing
-        /// when the field requires one.
-        std::optional<x::telem::SampleValue> fallback;
+        /// @brief fallback holds the one sample used when a document has no value, or
+        /// nothing when the field requires one.
+        std::optional<x::telem::Series> fallback;
+        /// @brief generate, when set, appends a new sample in place of fallback.
+        void (*generate)(x::telem::Series &dst) = nullptr;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
@@ -132,45 +144,54 @@ class JSON {
         /// field.
         std::size_t first_value = 0;
         std::vector<x::telem::Series> samples;
+        std::vector<Failure> failures;
 
-        /// @brief decodes the value of each field in values into samples.
-        x::errors::Error
-        decode(const std::vector<std::optional<std::string_view>> &values);
+        /// @brief decodes the value of each field in values into samples, and each
+        /// field that it cannot decode into failures.
+        void decode(const std::vector<std::optional<std::string_view>> &values);
     };
 
     Router router;
     std::vector<Message> messages;
     x::json::Extractor extractor{{}};
-    /// @brief values holds the match value, when a message has a match rule, then the
-    /// value of each field of each message, in message order.
+    /// @brief values holds the values at the pointers of the router, then the value of
+    /// each field of each message, in message order.
     std::vector<std::optional<std::string_view>> values;
 
 public:
     /// @brief creates a JSON decoder for messages that share one source of documents. A
     /// document belongs to the message whose match rule it meets, or else to the
     /// message with no rule.
-    /// @returns CONFIG_ERROR when two match rules test different pointers, one document
-    /// value can meet two match rules, two messages have no match rule, a binding names
-    /// no field of its message, or a field does not convert to the data type of its
+    /// @returns CONFIG_ERROR when two value rules test different pointers, one document
+    /// value can meet two value rules, a present rule tests a pointer at or above the
+    /// pointer of another rule, two messages have no match rule, a binding names no
+    /// field of its message, or a field does not convert to the data type of its
     /// binding.
     static std::pair<JSON, x::errors::Error>
     create(const std::vector<JSONMessage> &messages);
 
     /// @brief finds the message that doc belongs to and decodes one sample for each of
-    /// its bindings into its samples.
+    /// its bindings into its samples. A field with no value and no default, or with a
+    /// value that does not convert, gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when doc belongs
     /// to no message.
-    /// @returns VALIDATION when doc is not JSON or a value does not convert. The error
-    /// names the field, and also the message when the decoder holds more than one.
+    /// @returns VALIDATION when doc is not JSON, or it meets two match rules.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message.
+    /// binding, in binding order, each holding one sample, or none for a field in its
+    /// failures. They are unspecified after a decode that does not return message.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields that the last decode of message could not decode, in
+    /// binding order. They are unspecified after a decode that does not return message.
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 }

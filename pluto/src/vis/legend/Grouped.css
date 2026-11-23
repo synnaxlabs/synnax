@@ -25,10 +25,15 @@
     & > .pluto-legend-divider {
         grid-column: 1 / -1;
     }
+}
 
-    & > .pluto-legend-footer {
-        grid-column: 1 / -1;
-    }
+.pluto-legend-name__label {
+    min-width: 0;
+}
+
+/* A long name wraps to a second line, then is cut. */
+.pluto-legend-name__text {
+    max-width: var(--legend-name-width);
 }
 
 /* Each group heads its entries, which line up with the group's name. */
@@ -37,9 +42,30 @@
     flex-direction: column;
     gap: 1rem;
 
+    /* A name on two lines keeps its swatch, badge, and eye on its first line. */
     .pluto-legend-name {
+        --row: round(3.25rem, 1px);
+
+        align-items: flex-start;
         justify-content: space-between;
-        height: round(3.25rem, 1px);
+        min-height: var(--row);
+
+        & .pluto-legend-name__label {
+            align-items: flex-start;
+
+            & > * {
+                flex-shrink: 0;
+            }
+        }
+
+        & .pluto-legend-name__actions {
+            height: var(--row);
+        }
+
+        & .pluto-legend-name__text {
+            flex-shrink: 1;
+            padding: calc((var(--row) - var(--pluto-small-line-height)) / 2) 0;
+        }
     }
 
     .pluto-legend-entry__label {

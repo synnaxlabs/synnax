@@ -52,8 +52,9 @@ var _ = Describe("Translator", func() {
 			Name: "Rig",
 			Messages: []icd.Message{
 				{
-					Key:  uuid.New(),
-					Name: "Engine",
+					Key:       uuid.New(),
+					Name:      "Engine",
+					CycleTime: new(100 * telem.Millisecond),
 					Payload: icd.Payload{Variant: icd.BinaryPayload{
 						Length: new(uint16(8)),
 						Identifier: &icd.Identifier{Variant: icd.CanIdentifier{
@@ -64,15 +65,15 @@ var _ = Describe("Translator", func() {
 							Mask:            new(uint32(0x7FF)),
 						}},
 						Fields: []icd.BinaryField{
-							{
+							{Variant: icd.UnsignedBinaryField{
 								Key:       mode,
 								Name:      "mode",
 								Scale:     1,
 								BitLength: 4,
 								ByteOrder: icd.ByteOrderLittleEndian,
-								Kind:      payload.KindUnsigned,
-							},
-							{
+								Default:   new(payload.Unsigned(1)),
+							}},
+							{Variant: icd.IntegerBinaryField{
 								Key:             uuid.New(),
 								Name:            "rpm",
 								Scale:           0.25,
@@ -83,10 +84,10 @@ var _ = Describe("Translator", func() {
 								StartBit:        15,
 								BitLength:       16,
 								ByteOrder:       icd.ByteOrderBigEndian,
-								Kind:            payload.KindInteger,
 								Multiplexor:     &mode,
 								MultiplexValues: []int32{1, 3},
-							},
+								Default:         new(payload.Integer(-5)),
+							}},
 						},
 					}},
 				},
@@ -103,6 +104,7 @@ var _ = Describe("Translator", func() {
 								Scale:    1,
 								Units:    "m/s",
 								Position: 2,
+								Default:  new(payload.Float(0.5)),
 							}},
 							{Variant: icd.TaggedTextField{
 								Key:   uuid.New(),
@@ -160,25 +162,26 @@ var _ = Describe("Translator", func() {
 							{Variant: icd.TimestampJSONField{
 								JSONBaseField: jsonBase("timestamp"),
 								TimeFormat:    payload.TimeFormatUnixMs,
-								Default: new(
-									telem.TimeStamp(1700000000000000000),
-								),
+								Default: &icd.TimestampDefault{
+									Variant: icd.ConstantTimestampDefault{
+										Value: telem.TimeStamp(1700000000000000000),
+									},
+								},
 							}},
-							{
-								Variant: icd.JSONJSONField{
-									JSONBaseField: jsonBase("json"),
+							{Variant: icd.JSONJSONField{
+								JSONBaseField: jsonBase("json"),
+								Default:       new(`{"id":9007199254740993}`),
+							}},
+							{Variant: icd.UuidJSONField{
+								JSONBaseField: jsonBase("uuid"),
+								Default: &icd.UUIDDefault{
+									Variant: icd.RandomUUIDDefault{},
 								},
-							},
-							{
-								Variant: icd.UuidJSONField{
-									JSONBaseField: jsonBase("uuid"),
-								},
-							},
-							{
-								Variant: icd.BytesJSONField{
-									JSONBaseField: jsonBase("bytes"),
-								},
-							},
+							}},
+							{Variant: icd.BytesJSONField{
+								JSONBaseField: jsonBase("bytes"),
+								Default:       new("AQI="),
+							}},
 						},
 					}},
 				},

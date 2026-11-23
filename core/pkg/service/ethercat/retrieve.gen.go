@@ -59,6 +59,22 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case EntryReadChannel:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Channels[i5].Variant = v6
+					case UnresolvedReadChannel:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Channels[i5].Variant = v6
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, device.Key]{
 			Name:     "channels.device",
@@ -97,6 +113,22 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case EntryReadChannel:
+						if v6.Device == from {
+							v6.Device = to
+						}
+						e.Channels[i5].Variant = v6
+					case UnresolvedReadChannel:
+						if v6.Device == from {
+							v6.Device = to
+						}
+						e.Channels[i5].Variant = v6
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, device.Key]{
 			Name:     "startup_parameters.device",
@@ -116,6 +148,13 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for i2 := range e.StartupParameters {
 					if e.StartupParameters[i2].Device == t {
 						e.StartupParameters[i2].Device = ""
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				for i3 := range e.StartupParameters {
+					if e.StartupParameters[i3].Device == from {
+						e.StartupParameters[i3].Device = to
 					}
 				}
 			},
@@ -163,6 +202,22 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case EntryWriteChannel:
+						if v6.CmdChannel == from {
+							v6.CmdChannel = to
+						}
+						e.Channels[i5].Variant = v6
+					case UnresolvedWriteChannel:
+						if v6.CmdChannel == from {
+							v6.CmdChannel = to
+						}
+						e.Channels[i5].Variant = v6
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.state_channel",
@@ -201,6 +256,22 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case EntryWriteChannel:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Channels[i5].Variant = v6
+					case UnresolvedWriteChannel:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Channels[i5].Variant = v6
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, device.Key]{
 			Name:     "channels.device",
@@ -236,6 +307,22 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 							v4.Device = ""
 						}
 						e.Channels[i3].Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to device.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case EntryWriteChannel:
+						if v6.Device == from {
+							v6.Device = to
+						}
+						e.Channels[i5].Variant = v6
+					case UnresolvedWriteChannel:
+						if v6.Device == from {
+							v6.Device = to
+						}
+						e.Channels[i5].Variant = v6
 					}
 				}
 			},

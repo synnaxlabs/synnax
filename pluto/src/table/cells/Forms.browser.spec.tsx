@@ -10,13 +10,13 @@
 import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
-import { deep } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { ValueForm } from "@/table/cells/Forms";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Cell } from "@/table/cells";
+import { createSynnaxWrapper } from "@/testutil";
 
 const path = deep.path<table.ValueCellConfig>();
 
@@ -37,16 +37,18 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 };
 
 describe("ValueForm telemetry tab", () => {
-  it("should write the staleness timeout to the cell config in seconds", async () => {
+  it("should write the staleness timeout to the cell config in nanoseconds", async () => {
     await renderThemed(
       <FormWrapper>
-        <ValueForm />
+        <Cell.ValueForm />
       </FormWrapper>,
     );
     await page.getByText("Telemetry", { exact: true }).click();
     const input = page.getByLabelText("Timeout");
     await userEvent.fill(input, "7s");
     input.element().blur();
-    await expect.poll(() => methods.get(path.stalenessTimeout).value).toBe(7);
+    await expect
+      .poll(() => methods.get(path.stalenessTimeout).value)
+      .toBe(TimeSpan.seconds(7).nanoseconds);
   });
 });

@@ -9,7 +9,7 @@
 
 
 import synnax as sy
-from console.schematic.symbol import Symbol, option_text
+from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
@@ -24,6 +24,7 @@ class Select(Symbol):
         channel_name: str,
         state_channel_name: str | None = None,
         options: list[sy.schematic.StateMapping] | None = None,
+        enumeration: str | None = None,
     ):
         """Initialize a select symbol with configuration.
 
@@ -31,11 +32,13 @@ class Select(Symbol):
         :param channel_name: Channel name for the select output
         :param state_channel_name: Channel name for the read-back (optional)
         :param options: States to add as options
+        :param enumeration: Name of the enumeration whose entries the symbol draws
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
         self.state_channel_name = state_channel_name
         self.options = options or []
+        self.enumeration = enumeration
 
     def _apply_properties(self) -> None:
         self.set_properties(
@@ -43,6 +46,8 @@ class Select(Symbol):
             state_channel_name=self.state_channel_name,
             options=self.options,
         )
+        if self.enumeration is not None:
+            self.set_enumeration(self.enumeration)
 
     def set_properties(
         self,
@@ -66,22 +71,7 @@ class Select(Symbol):
             self.set_channel(section="State", channel_name=state_channel_name)
 
         if options is not None and len(options) > 0:
-            self.click()
-            self.page.get_by_text("Properties").dispatch_event("click")
-            self.page.get_by_text("Options", exact=True).dispatch_event("click")
-            for i, option in enumerate(options):
-                if i == 0:
-                    self.page.get_by_text("Add an option").dispatch_event("click")
-                else:
-                    self.page.get_by_text("Add option", exact=True).dispatch_event(
-                        "click"
-                    )
-                items = self.page.locator(".lyra-list__item").all()
-                last_item = items[-1]
-                name_input = last_item.locator("input").first
-                name_input.fill(option.name)
-                value_input = last_item.locator("input").nth(1)
-                value_input.fill(option_text(option.value))
+            self.add_options(options)
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.

@@ -23,6 +23,7 @@ const NAMES: Record<icd.JSONMatchType, string> = {
   unsigned: "Unsigned integer",
   float: "Float",
   boolean: "Boolean",
+  present: "Present",
 };
 
 const TYPES = ["none", ...Object.keys(NAMES)] as Type[];
@@ -43,6 +44,8 @@ export const createMatch = (
       return { type, pointer, value: 0 };
     case "boolean":
       return { type, pointer, value: true };
+    case "present":
+      return { type, pointer };
   }
 };
 
@@ -57,7 +60,7 @@ interface ValueProps {
   type: icd.JSONMatchType;
 }
 
-const Value = ({ path, type }: ValueProps): ReactElement => {
+const Value = ({ path, type }: ValueProps): ReactElement | null => {
   switch (type) {
     case "float":
       return (
@@ -96,6 +99,8 @@ const Value = ({ path, type }: ValueProps): ReactElement => {
           )}
         </Form.Field>
       );
+    case "present":
+      return null;
   }
 };
 
@@ -107,8 +112,8 @@ export interface MatchProps {
 }
 
 /**
- * Picks the JSON documents that belong to a message: the ones whose value at a
- * pointer equals a value. A type change keeps the pointer.
+ * Picks the JSON documents that belong to a message: the ones whose value at a pointer
+ * equals a value, or that hold a value at a pointer. A type change keeps the pointer.
  */
 export const Match = ({
   path,

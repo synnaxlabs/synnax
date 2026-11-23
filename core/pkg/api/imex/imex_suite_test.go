@@ -10,6 +10,7 @@
 package imex_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -98,6 +101,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imexSvc,
+		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
+			DB: db,
+		})),
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
@@ -136,3 +144,9 @@ func subjectCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx.Set("Subject", u.ResourceID())
 	return fctx
 }
+
+func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
+	return nil, nil
+}
+
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

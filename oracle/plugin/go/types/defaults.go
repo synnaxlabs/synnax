@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -29,6 +30,7 @@ import (
 const (
 	validateImportPath = "github.com/synnaxlabs/x/validate"
 	strconvImportPath  = "strconv"
+	regexpImportPath   = "regexp"
 	msgpackImportPath  = "github.com/vmihailenco/msgpack/v5"
 )
 
@@ -611,9 +613,8 @@ func goLiteral(
 }
 
 // scalarFill returns the fill assigning the scalar or enum default d to the Go selector
-// goName of type typeRef. It returns ok=false when d equals the type's zero value
-// (nothing to fill) or is an integer-enum default (whose zeroth member is the zero
-// value).
+// goName of type typeRef. It returns ok=false when d equals the type's zero value, so
+// there is nothing to fill.
 func scalarFill(
 	goName string,
 	typeRef resolution.TypeRef,
@@ -664,9 +665,7 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		form, _ := ev.Type.Form.(resolution.EnumForm)
-		if form.IsIntEnum {
-			// A valid integer-enum default is the zeroth member (the zero value), so
-			// there is nothing to fill; a non-zeroth default is an invariant violation.
+		if form.IsIntEnum && ev.Variant.IntValue() == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
@@ -716,11 +715,15 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
-	// non_zero (numeric or uuid), or ge, le (numeric).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
+	// (string), min_bytes, max_bytes (bytes), non_zero (numeric or uuid), or ge, le,
+	// lt (numeric).
 	Kind string
-	// Arg is the length or numeric threshold literal for the kinds that take one.
+	// Arg is the length or numeric threshold literal for the kinds that take one, the
+	// Go name of the compared field for lt, or the regex var for pattern.
 	Arg string
+	// Message is the quoted error message of an lt or pattern check.
+	Message string
 	// Opens and Closes mark the first and last checks of an optional field, which the
 	// template wraps in one nil guard.
 	Opens, Closes bool
@@ -754,7 +757,7 @@ func goConstraintChecks(
 			FieldName: jsonName,
 			Kind:      kind,
 			Arg:       arg,
-			Deref:     field.Optional,
+			Deref:     field.Optional && !typemap.Nilable(field.Type, data.table),
 		}
 	}
 	required := rules.Required && !field.Optional
@@ -766,6 +769,8 @@ func goConstraintChecks(
 		}
 	case resolution.IsStringPrimitive(base):
 		checks = stringChecks(rules, required, check)
+	case base == "bytes":
+		checks = bytesChecks(rules, check)
 	}
 	if resolution.IsNumberPrimitive(base) {
 		checks = append(checks, numberChecks(rules, required, check)...)
@@ -775,6 +780,91 @@ func goConstraintChecks(
 		checks[len(checks)-1].Closes = true
 	}
 	return checks
+}
+
+// bytesChecks returns the length checks of a bytes field, which count bytes.
+func bytesChecks(rules *validation.Rules, check constraintCheck) []constraintCheckData {
+	var checks []constraintCheckData
+	if rules.MinLength != nil {
+		checks = append(
+			checks,
+			check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
+		)
+	}
+	if rules.MaxLength != nil {
+		checks = append(
+			checks,
+			check("max_bytes", strconv.FormatInt(*rules.MaxLength, 10)),
+		)
+	}
+	return checks
+}
+
+// goLessThanCheck returns the check of the lt rule that field sets for Go. siblings are
+// the fields of field's struct, which hold the compared field. parent is the field
+// that field restates a default of, or nil. A restated field that keeps its parent's
+// rule has no check, since the embedded parent's Validate checks it.
+func goLessThanCheck(
+	field resolution.Field,
+	siblings []resolution.Field,
+	parent *resolution.Field,
+) (constraintCheckData, bool) {
+	lt := validation.LessThan(field.Domains, "go")
+	if lt == nil {
+		return constraintCheckData{}, false
+	}
+	if parent != nil {
+		if inherited := validation.LessThan(parent.Domains, "go"); inherited != nil &&
+			*inherited == *lt {
+			return constraintCheckData{}, false
+		}
+	}
+	other := lo.Must(lo.Find(siblings, func(f resolution.Field) bool {
+		return f.Name == lt.Field
+	}))
+	message := lt.Message
+	if message == "" {
+		message = "must be less than " + lt.Field
+	}
+	return constraintCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: casing.FieldSnake(field.Name),
+		Kind:      "lt",
+		Arg:       naming.GetFieldName(other),
+		Message:   strconv.Quote(message),
+	}, true
+}
+
+// goPatternCheck returns the check of the pattern rule that field sets for Go. parent
+// is the field that field restates a default of, or nil. A restated field that keeps
+// its parent's rule has no check, since the embedded parent's Validate checks it.
+func goPatternCheck(
+	field resolution.Field,
+	parent *resolution.Field,
+	data *templateData,
+) (constraintCheckData, bool) {
+	m := validation.Matches(field.Domains, "go")
+	if m == nil {
+		return constraintCheckData{}, false
+	}
+	if parent != nil {
+		if inherited := validation.Matches(parent.Domains, "go"); inherited != nil &&
+			*inherited == *m {
+			return constraintCheckData{}, false
+		}
+	}
+	message := m.Message
+	if message == "" {
+		message = "must match " + m.Pattern
+	}
+	data.AddExternal(regexpImportPath)
+	return constraintCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: casing.FieldSnake(field.Name),
+		Kind:      "pattern",
+		Arg:       data.patternVar(m.Pattern),
+		Message:   strconv.Quote(message),
+	}, true
 }
 
 // constraintCheck builds the check of one constraint kind with its argument.
@@ -841,7 +931,7 @@ func numberLiteral(n *validation.Number) string {
 // present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
 	ref, mapKey := field.Type, false
-	m := unaliasContainer(field.Type, data)
+	m := underlyingContainer(field.Type, data)
 	if m.Name == "Map" && len(m.TypeArgs) == 2 {
 		ref, mapKey = m.TypeArgs[0], true
 	}
@@ -849,15 +939,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if !ok {
 		return enumCheckData{}, false
 	}
-	form, ok := resolved.Form.(resolution.EnumForm)
-	if !ok {
-		return enumCheckData{}, false
-	}
-	// Int enums do not generate an IsValid method (they rely on stringer, and their
-	// zero value is a valid first member), so emitting a membership check would
-	// reference a method that does not exist. Only string enums, whose zero value
-	// (the empty string) is never a valid member, carry a check.
-	if form.IsIntEnum {
+	if _, ok := resolved.Form.(resolution.EnumForm); !ok {
 		return enumCheckData{}, false
 	}
 	return enumCheckData{
@@ -912,7 +994,9 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, false, probe)) > 0
+	return len(goConstraintChecks(f, false, probe)) > 0 ||
+		validation.LessThan(f.Domains, "go") != nil ||
+		validation.Matches(f.Domains, "go") != nil
 }
 
 // methodRule selects the types that emit a recursive method.
@@ -977,10 +1061,10 @@ func probeData(data *templateData) *templateData {
 // typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
 // a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
 // nested struct field, slice/array element, map value, union base, or union variant
-// payload that (transitively) does. Generic types and type parameters never emit a
-// method. visited guards against cycles in recursive types. Probing must not leak
-// imports into the emitted file, so rule.hasOwn runs against a scratch-import copy of
-// data.
+// payload that (transitively) does. A type parameter, or a struct with a type parameter
+// that has no default, never emits a method. visited guards against cycles in recursive
+// types. Probing must not leak imports into the emitted file, so rule.hasOwn runs
+// against a scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -1014,7 +1098,11 @@ func typeNeedsMethod(
 	case resolution.AliasForm:
 		return typeNeedsMethod(form.Target, data, visited, rule)
 	case resolution.DistinctForm:
-		return typeNeedsMethod(form.Base, data, visited, rule)
+		// A distinct struct has none of its base's methods, so only a distinct slice or
+		// map takes part.
+		base := underlyingContainer(ref, data)
+		return (base.Name == "Array" || base.Name == "Map") &&
+			typeNeedsMethod(base, data, visited, rule)
 	}
 	return false
 }
@@ -1026,11 +1114,12 @@ func structNeedsMethod(
 	visited set.Set[string],
 	rule methodRule,
 ) bool {
-	if form.IsGeneric() {
+	if len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
-	for _, field := range resolution.UnifiedFields(resolved, data.table) {
+	fields, _ := resolution.RecordFields(resolved, data.table)
+	for _, field := range fields {
 		if rule.skip(field, data) {
 			continue
 		}
@@ -1075,23 +1164,31 @@ func hasSliceRecurse(steps []recurseStepData) bool {
 	return false
 }
 
-// unaliasContainer returns the Array or Map that ref names through aliases, or ref
-// itself when it names neither.
-func unaliasContainer(ref resolution.TypeRef, data *templateData) resolution.TypeRef {
-	for visited := set.New[string](); !visited.Contains(ref.Name); {
-		visited.Add(ref.Name)
-		resolved, ok := ref.Resolve(data.table)
+// underlyingContainer returns the Array or Map that ref names through aliases and
+// distinct types, or ref itself when it names neither. Go ranges over a distinct slice
+// or map as it does over the container.
+func underlyingContainer(
+	ref resolution.TypeRef,
+	data *templateData,
+) resolution.TypeRef {
+	cur := ref
+	for visited := set.New[string](); !visited.Contains(cur.Name); {
+		visited.Add(cur.Name)
+		resolved, ok := cur.Resolve(data.table)
 		if !ok {
 			return ref
 		}
-		alias, ok := resolved.Form.(resolution.AliasForm)
-		if !ok {
+		switch form := resolved.Form.(type) {
+		case resolution.AliasForm:
+			cur = form.Target
+		case resolution.DistinctForm:
+			cur = form.Base
+		default:
 			return ref
 		}
-		if alias.Target.Name == "Array" || alias.Target.Name == "Map" {
-			return alias.Target
+		if cur.Name == "Array" || cur.Name == "Map" {
+			return cur
 		}
-		ref = alias.Target
 	}
 	return ref
 }
@@ -1112,13 +1209,13 @@ func goRecurseStep(
 		return resolvesToMethodType(r, data) &&
 			typeNeedsMethod(r, data, set.New[string](), rule)
 	}
-	ref = unaliasContainer(ref, data)
+	ref = underlyingContainer(ref, data)
 	switch ref.Name {
 	case "Array":
 		if len(ref.TypeArgs) != 1 {
 			return recurseStepData{}, false
 		}
-		elem := unaliasContainer(ref.TypeArgs[0], data)
+		elem := underlyingContainer(ref.TypeArgs[0], data)
 		if elem.Name == "Array" && len(elem.TypeArgs) == 1 &&
 			needs(elem.TypeArgs[0]) {
 			step.Kind = recurseNestedSlice
@@ -1294,12 +1391,13 @@ func typeSetsDefaults(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return defaultsHasOwn(f, probe) ||
 				(!f.Optional && typeSetsDefaults(f.Type, data, visited))
@@ -1385,12 +1483,13 @@ func typeHasGroups(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
 				(!f.Optional && typeHasGroups(f.Type, data, visited))

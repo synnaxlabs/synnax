@@ -21,6 +21,7 @@ import {
 } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
+import { color } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
@@ -29,10 +30,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   client,
   createSymbolPayload,
+  preloadTab,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
+  TabToolbar,
 } from "@/feature/schematic/testutil";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -53,7 +55,7 @@ afterEach(() => {
 });
 
 const renderSymbolsToolbar = async (as?: Client) =>
-  await renderSchematic(Toolbar, {
+  await renderSchematic(TabToolbar, {
     sessionState: { editable: true },
     additionalRegistry: theming.REGISTRY,
     as,
@@ -76,6 +78,8 @@ const createRemoteSymbolGroup = async (
     );
   return { grp, symbols };
 };
+
+preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
   it("adds a static symbol node to the schematic on click", async () => {
@@ -170,7 +174,7 @@ describe("Schematic toolbar Symbols", () => {
       new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
     );
     expect(contents).toMatchObject({ name, type: "schematic_symbol" });
-    expect(contents.data.svg).toBe(symbols[0].data.svg);
+    expect(contents.data.drawing.markup).toBe(symbols[0].data.drawing.markup);
   });
 
   it("exports a remote group as a zip through its context menu", async () => {
@@ -264,7 +268,7 @@ describe("Schematic toolbar Symbols", () => {
 });
 
 const DraggableToolbar = (): ReactElement =>
-  createElement(HaulProvider, null, createElement(Toolbar));
+  createElement(HaulProvider, null, createElement(TabToolbar));
 
 const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
 
@@ -290,6 +294,46 @@ describe("Schematic toolbar Symbols drag preview", () => {
     });
     expect(layer()?.querySelector(".pluto-custom-drawing")).toBeInstanceOf(Element);
     expect(layer()?.textContent).toBe("");
+  });
+
+  it("should paint the looks of a remote symbol in its picture", async () => {
+    const grp = await client.groups.create({
+      scope: "schematic_symbol",
+      name: uniqueName("remote_grp"),
+    });
+    const name = uniqueName("painted_sym");
+    const payload = createSymbolPayload(name);
+    await client.schematics.symbols.create({
+      ...payload,
+      group: grp.key,
+      data: {
+        ...payload.data,
+        parts: [{ key: "body", name: "Body", selectors: ["#body"] }],
+        looks: [
+          {
+            key: "fill",
+            part: "body",
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      },
+    });
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText(grp.name));
+    await screen.findByText(name);
+    await waitFor(() =>
+      expect(
+        document.querySelector(".pluto-custom-drawing #body")?.getAttribute("fill"),
+      ).toBe("#ff0000"),
+    );
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    const body = layer()?.querySelector(".pluto-custom-drawing #body");
+    expect(body?.getAttribute("fill")).toBe("#ff0000");
   });
 });
 

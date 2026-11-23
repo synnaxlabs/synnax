@@ -12,6 +12,7 @@ package resolution
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 
@@ -187,6 +188,46 @@ type EnumForm struct {
 }
 
 func (EnumForm) typeForm() {}
+
+// IntBase returns the name of the smallest integer primitive that holds every member
+// of an integer enum: unsigned, unless a member is negative. It returns "uint8" for an
+// enum with no members.
+func (f EnumForm) IntBase() string {
+	var low, high int64
+	for _, v := range f.Values {
+		low, high = min(low, v.IntValue()), max(high, v.IntValue())
+	}
+	if low < 0 {
+		switch {
+		case low >= math.MinInt8 && high <= math.MaxInt8:
+			return "int8"
+		case low >= math.MinInt16 && high <= math.MaxInt16:
+			return "int16"
+		case low >= math.MinInt32 && high <= math.MaxInt32:
+			return "int32"
+		}
+		return "int64"
+	}
+	switch {
+	case high <= math.MaxUint8:
+		return "uint8"
+	case high <= math.MaxUint16:
+		return "uint16"
+	case high <= math.MaxUint32:
+		return "uint32"
+	}
+	return "uint64"
+}
+
+// ZeroMember returns the integer enum member whose value is 0, the zero value of the
+// enum's type in every language. It returns false for a string enum and for an integer
+// enum with no member of 0.
+func (f EnumForm) ZeroMember() (EnumValue, bool) {
+	if !f.IsIntEnum {
+		return EnumValue{}, false
+	}
+	return lo.Find(f.Values, func(v EnumValue) bool { return v.IntValue() == 0 })
+}
 
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.
@@ -412,10 +453,8 @@ func refersTo(
 	if ref.Name == targetQN {
 		return true
 	}
-	for _, arg := range ref.TypeArgs {
-		if refersTo(arg, targetQN, table, visited) {
-			return true
-		}
+	if anyRefersTo(ref.TypeArgs, targetQN, table, visited) {
+		return true
 	}
 	if visited.Contains(ref.Name) {
 		return false
@@ -427,36 +466,37 @@ func refersTo(
 	}
 	switch form := resolved.Form.(type) {
 	case StructForm:
-		for _, ext := range form.Extends {
-			if refersTo(ext, targetQN, table, visited) {
-				return true
-			}
+		if anyRefersTo(form.Extends, targetQN, table, visited) {
+			return true
 		}
-		for _, f := range form.Fields {
-			if refersTo(f.Type, targetQN, table, visited) {
-				return true
-			}
-		}
+		return slices.ContainsFunc(form.Fields, func(f Field) bool {
+			return refersTo(f.Type, targetQN, table, visited)
+		})
 	case UnionForm:
-		for _, ext := range form.Extends {
-			if refersTo(ext, targetQN, table, visited) {
-				return true
-			}
+		if anyRefersTo(form.Extends, targetQN, table, visited) {
+			return true
 		}
 		if form.BorrowsEnum() && refersTo(form.Enum, targetQN, table, visited) {
 			return true
 		}
-		for _, v := range form.Variants {
-			if refersTo(v.Type, targetQN, table, visited) {
-				return true
-			}
-		}
+		return slices.ContainsFunc(form.Variants, func(v UnionVariant) bool {
+			return refersTo(v.Type, targetQN, table, visited)
+		})
 	case AliasForm:
 		return refersTo(form.Target, targetQN, table, visited)
 	case DistinctForm:
 		return refersTo(form.Base, targetQN, table, visited)
 	}
 	return false
+}
+
+// anyRefersTo reports whether any of refs refers to the type named targetQN.
+func anyRefersTo(
+	refs []TypeRef, targetQN string, table *Table, visited set.Set[string],
+) bool {
+	return slices.ContainsFunc(refs, func(ref TypeRef) bool {
+		return refersTo(ref, targetQN, table, visited)
+	})
 }
 
 // PrimitiveBase follows ref through distinct-type and alias chains to the underlying
@@ -497,47 +537,89 @@ func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
 	return ""
 }
 
-// CollectionKind reports the collection kind that ref ultimately resolves to:
-// "Array", "Map", or "record". It follows type-parameter constraints and defaults,
-// alias targets, and distinct bases. ok is false when ref does not resolve to a
-// collection. Generators use it to decide which fields are nilable collections (for
-// omitzero tagging and empty defaults) even when the field is typed through an alias
-// or a constrained type parameter.
-func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
-	return collectionKind(ref, table, set.New[string]())
+const (
+	// maxCollectionDepth bounds the steps of Collection, so a cyclic alias or distinct
+	// chain ends.
+	maxCollectionDepth = 64
+	// maxCollectionRefSize bounds the references Collection builds, so an alias whose
+	// target grows at each step ends.
+	maxCollectionRefSize = 1024
+)
+
+// Collection returns the builtin collection reference ("Array", "Map", or "record")
+// that ref ultimately resolves to. It follows type-parameter constraints and defaults,
+// alias targets, and distinct bases, and applies the type arguments of a generic alias
+// or distinct type. ok is false when ref does not resolve to a collection.
+func Collection(ref TypeRef, table *Table) (TypeRef, bool) {
+	for range maxCollectionDepth {
+		if ref.IsTypeParam() {
+			switch {
+			case ref.TypeParam == nil:
+				return TypeRef{}, false
+			case ref.TypeParam.Constraint != nil:
+				ref = *ref.TypeParam.Constraint
+			case ref.TypeParam.Default != nil:
+				ref = *ref.TypeParam.Default
+			default:
+				return TypeRef{}, false
+			}
+			continue
+		}
+		if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
+			return ref, true
+		}
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			return TypeRef{}, false
+		}
+		switch form := resolved.Form.(type) {
+		case DistinctForm:
+			args := TypeArgMap(form.TypeParams, ref.TypeArgs)
+			ref = SubstituteTypeRef(form.Base, args)
+		case AliasForm:
+			args := TypeArgMap(form.TypeParams, ref.TypeArgs)
+			ref = SubstituteTypeRef(form.Target, args)
+		default:
+			return TypeRef{}, false
+		}
+		if refSize(ref, maxCollectionRefSize) > maxCollectionRefSize {
+			return TypeRef{}, false
+		}
+	}
+	return TypeRef{}, false
 }
 
-func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string, bool) {
-	if ref.IsTypeParam() {
-		if ref.TypeParam == nil {
-			return "", false
+// refSize counts the references in ref and its type arguments, stopping once the count
+// passes limit.
+func refSize(ref TypeRef, limit int) int {
+	size := 1
+	for _, arg := range ref.TypeArgs {
+		if size > limit {
+			break
 		}
-		if ref.TypeParam.Constraint != nil {
-			return collectionKind(*ref.TypeParam.Constraint, table, visited)
-		}
-		if ref.TypeParam.Default != nil {
-			return collectionKind(*ref.TypeParam.Default, table, visited)
-		}
-		return "", false
+		size += refSize(arg, limit-size)
 	}
-	if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
-		return ref.Name, true
+	return size
+}
+
+// CollectionKind reports the collection kind that ref ultimately resolves to:
+// "Array", "Map", or "record", as Collection resolves it. ok is false when ref does
+// not resolve to a collection. Generators use it to decide which fields are nilable
+// collections (for omitzero tagging and empty defaults) even when the field is typed
+// through an alias or a constrained type parameter.
+func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
+	collection, ok := Collection(ref, table)
+	return collection.Name, ok
+}
+
+// ArraySize returns the size of the fixed-size array that ref ultimately resolves to,
+// as Collection resolves it. ok is false when ref is not a fixed-size array.
+func ArraySize(ref TypeRef, table *Table) (size int64, ok bool) {
+	collection, ok := Collection(ref, table)
+	if !ok || collection.Name != "Array" || collection.ArraySize == nil {
+		return 0, false
 	}
-	if visited.Contains(ref.Name) {
-		return "", false
-	}
-	visited.Add(ref.Name)
-	resolved, ok := table.Get(ref.Name)
-	if !ok {
-		return "", false
-	}
-	switch form := resolved.Form.(type) {
-	case DistinctForm:
-		return collectionKind(form.Base, table, visited)
-	case AliasForm:
-		return collectionKind(form.Target, table, visited)
-	}
-	return "", false
+	return *collection.ArraySize, true
 }
 
 type TypeParam struct {
@@ -634,10 +716,37 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		childFieldMap[form.Fields[i].Name] = &form.Fields[i]
 	}
 
-	// Collect fields from all parents (left-to-right, first wins on conflict)
+	allParentFields := inheritedFields(form, table)
+	parentFieldMap := make(map[string]*Field, len(allParentFields))
+	for i := range allParentFields {
+		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
+	}
+
+	// Parent fields the child does not override, in parent order. Overrides are emitted
+	// below in child-declaration order.
+	var result []Field
+	for _, pf := range allParentFields {
+		if childFieldMap[pf.Name] != nil {
+			continue
+		}
+		result = append(result, pf)
+	}
+
+	for _, cf := range form.Fields {
+		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
+			result = append(result, MergeOverrideField(*pf, cf))
+		} else {
+			result = append(result, cf)
+		}
+	}
+	return result
+}
+
+// inheritedFields returns the fields that form takes from its parents, left to right.
+// The first parent wins on a conflict, and omitted fields drop.
+func inheritedFields(form StructForm, table *Table) []Field {
 	seenFields := make(set.Set[string])
 	var allParentFields []Field
-
 	for _, ext := range form.Extends {
 		parent, extendsRef, ok := Dealias(ext, table)
 		if !ok {
@@ -665,30 +774,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			allParentFields = append(allParentFields, substitutedField)
 		}
 	}
-
-	parentFieldMap := make(map[string]*Field, len(allParentFields))
-	for i := range allParentFields {
-		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
-	}
-
-	// Parent fields the child does not override, in parent order. Overrides are
-	// emitted below in child-declaration order.
-	var result []Field
-	for _, pf := range allParentFields {
-		if childFieldMap[pf.Name] != nil {
-			continue
-		}
-		result = append(result, pf)
-	}
-
-	for _, cf := range form.Fields {
-		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			result = append(result, MergeOverrideField(*pf, cf))
-		} else {
-			result = append(result, cf)
-		}
-	}
-	return result
+	return allParentFields
 }
 
 // InheritedFields returns the fields the given parents contribute, keyed by name, with

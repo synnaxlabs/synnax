@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type ranger, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import {
+  type label,
+  panel,
+  type ranger,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -46,7 +53,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   try {
     const { page } = session;
     await client.labels.create(
-      Object.entries(LABELS).map(([name, l]) => ({ name, ...l })),
+      Object.entries(LABELS).map(([name, { key, color }]): label.New => ({
+        name,
+        key,
+        color: { type: "fixed", value: color },
+      })),
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(

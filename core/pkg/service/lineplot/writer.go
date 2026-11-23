@@ -220,7 +220,7 @@ func (w Writer) fillColors(ctx context.Context, lp LinePlot) ([]Action, error) {
 	if err != nil {
 		return nil, err
 	}
-	named, err := w.namedColors(ctx, series, refs)
+	named, err := w.namedColors(ctx, series, slices.Concat(refs, own))
 	if err != nil {
 		return nil, err
 	}
@@ -240,14 +240,14 @@ func (w Writer) rangeColors(
 	ctx context.Context,
 	refs []ranger.Ref,
 	colors []*color.Ref,
-) ([]*xcolor.Color, error) {
+) ([]*color.Ref, error) {
 	var keys []ranger.Key
 	for i, r := range refs {
 		if k, ok := r.Variant.(ranger.KeyRef); ok && colors[i] == nil {
 			keys = append(keys, k.Key)
 		}
 	}
-	own := make([]*xcolor.Color, len(refs))
+	own := make([]*color.Ref, len(refs))
 	if len(keys) == 0 {
 		return own, nil
 	}
@@ -259,7 +259,7 @@ func (w Writer) rangeColors(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	byKey := lo.SliceToMap(ranges, func(r ranger.Range) (ranger.Key, *xcolor.Color) {
+	byKey := lo.SliceToMap(ranges, func(r ranger.Range) (ranger.Key, *color.Ref) {
 		return r.Key, r.Color
 	})
 	for i, r := range refs {
@@ -351,11 +351,11 @@ func refValues(r *color.Ref, named map[color.Key]color.Named) []themed {
 // one. A pick is the own color of the range when it is apart from every other color in
 // colors and earlier picks. Else it is the series color that the fewest of those colors
 // are too close to, and a tie goes to the first series color. named holds the value of
-// each named color in series and colors.
+// each named color in series, colors, and own.
 func pickRangeColors(
 	series []color.Key,
 	colors []*color.Ref,
-	own []*xcolor.Color,
+	own []*color.Ref,
 	named map[color.Key]color.Named,
 ) []*color.Ref {
 	values := func(r *color.Ref) []themed { return refValues(r, named) }
@@ -367,9 +367,9 @@ func pickRangeColors(
 	}
 	picks := make([]*color.Ref, len(colors))
 	for i, c := range colors {
-		if c == nil && own[i] != nil && apart([]themed{fixedThemed(*own[i])}, taken) {
-			taken = append(taken, fixedThemed(*own[i]))
-			picks[i] = &color.Ref{Variant: color.FixedRef{Value: *own[i]}}
+		if c == nil && own[i] != nil && apart(values(own[i]), taken) {
+			taken = append(taken, values(own[i])...)
+			picks[i] = own[i]
 		}
 	}
 	seriesValues := lo.Map(series, func(k color.Key, _ int) []themed {

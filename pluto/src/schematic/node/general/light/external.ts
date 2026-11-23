@@ -10,7 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 
 import { LightForm } from "@/schematic/node/general/light/Form";
-import { Light } from "@/schematic/node/general/light/Primitive";
+import { Primitive } from "@/schematic/node/general/light/primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -19,6 +19,8 @@ export const spec: Spec<"light", schematic.LightNodeConfig> = {
   name: "Light",
   Form: LightForm,
   Node: Symbol,
-  Preview: Light,
+  Preview: Primitive.Light,
   zIndex: 4,
 };
+
+export const SYMBOL = Primitive.SYMBOL;

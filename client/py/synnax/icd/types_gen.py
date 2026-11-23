@@ -53,6 +53,125 @@ class JSONBaseMatch(BaseModel):
     pointer: str = ""
 
 
+class ConstantTimestampDefault(BaseModel):
+    """Is one fixed timestamp."""
+
+    type: Literal["constant"] = "constant"
+    value: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class NowTimestampDefault(BaseModel):
+    """Is the time of each read or write."""
+
+    type: Literal["now"] = "now"
+
+
+# Is the default of a timestamp field.
+TimestampDefault = Annotated[
+    ConstantTimestampDefault | NowTimestampDefault,
+    Field(discriminator="type"),
+]
+
+
+class ConstantUUIDDefault(BaseModel):
+    """Is one fixed UUID."""
+
+    type: Literal["constant"] = "constant"
+    value: UUID
+
+
+class RandomUUIDDefault(BaseModel):
+    """Is a new random UUID for each read or write."""
+
+    type: Literal["random"] = "random"
+
+
+# Is the default of a UUID field.
+UUIDDefault = Annotated[
+    ConstantUUIDDefault | RandomUUIDDefault,
+    Field(discriminator="type"),
+]
+
+
+class FloatWriteValue(BaseModel):
+    """Is a fixed float."""
+
+    type: Literal["float"] = "float"
+    value: payload_.Float
+
+
+class IntegerWriteValue(BaseModel):
+    """Is a fixed signed integer."""
+
+    type: Literal["integer"] = "integer"
+    value: payload_.Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedWriteValue(BaseModel):
+    """Is a fixed unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: payload_.Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringWriteValue(BaseModel):
+    """Is a fixed string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanWriteValue(BaseModel):
+    """Is a fixed boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class TimestampWriteValue(BaseModel):
+    """Is a fixed timestamp."""
+
+    type: Literal["timestamp"] = "timestamp"
+    value: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class JSONWriteValue(BaseModel):
+    """Is a fixed JSON value."""
+
+    type: Literal["json"] = "json"
+    value: str
+
+
+class UuidWriteValue(BaseModel):
+    """Is a fixed UUID."""
+
+    type: Literal["uuid"] = "uuid"
+    value: UUID
+
+
+class BytesWriteValue(BaseModel):
+    """Is fixed bytes."""
+
+    type: Literal["bytes"] = "bytes"
+    value: str
+
+
+# Is a fixed value that a write binding sends as its field. Its type is the kind
+# of the field.
+WriteValue = Annotated[
+    FloatWriteValue
+    | IntegerWriteValue
+    | UnsignedWriteValue
+    | StringWriteValue
+    | BooleanWriteValue
+    | TimestampWriteValue
+    | JSONWriteValue
+    | UuidWriteValue
+    | BytesWriteValue,
+    Field(discriminator="type"),
+]
+
+
 class Where(BaseModel):
     """Is a filter that selects ICDs.
 
@@ -135,6 +254,16 @@ class ReadBinding(BaseModel):
     data_type: telem.DataType = telem.DataType("")
 
 
+class WriteBaseBinding(BaseModel):
+    """Carries the parts every write binding shares.
+
+    Attributes:
+        field: Is the key of the message field to fill.
+    """
+
+    field: FieldKey
+
+
 class CanIdentifier(BaseModel):
     """Matches a CAN frame by arbitration identifier."""
 
@@ -196,13 +325,20 @@ class BooleanJSONMatch(JSONBaseMatch):
     value: bool
 
 
+class PresentJSONMatch(JSONBaseMatch):
+    """Matches a document that holds a value other than null at the pointer."""
+
+    type: Literal["present"] = "present"
+
+
 # Selects the JSON documents that belong to a message.
 JSONMatch = Annotated[
     FloatJSONMatch
     | IntegerJSONMatch
     | UnsignedJSONMatch
     | StringJSONMatch
-    | BooleanJSONMatch,
+    | BooleanJSONMatch
+    | PresentJSONMatch,
     Field(discriminator="type"),
 ]
 
@@ -225,29 +361,15 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
 
-class BinaryField(BaseField):
-    """Is a field read from a bit range of a binary payload.
+class TextBaseField(BaseField):
+    """Carries the parts every text field shares.
 
     Attributes:
-        start_bit: Is the bit where the field starts, numbered as in a DBC file: the
-            least significant bit for little-endian fields and the most significant bit
-            for big-endian fields.
-        bit_length: Is the number of bits in the field, from 1 to 64.
-        byte_order: Is the byte order of the field.
-        kind: Is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
-            complement integer, or an unsigned integer. No other kind is valid.
-        multiplexor: Is the key of the field that selects whether this field is present.
-            When absent the field is always present.
-        multiplex_values: Are the raw values of the multiplexor for which this field is
-            present.
+        default: Is the raw number, before scale and offset, when a read finds none or
+            no channel is bound.
     """
 
-    start_bit: int = Field(default=0, ge=0, le=65535)
-    bit_length: int = Field(default=8, ge=1, le=64)
-    byte_order: ByteOrder = "little_endian"
-    kind: payload_.Kind = "unsigned"
-    multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    default: payload_.Float | None = None
 
 
 class JSONBaseField(BaseField):
@@ -261,25 +383,28 @@ class JSONBaseField(BaseField):
     pointer: str = ""
 
 
-class DelimitedTextField(BaseField):
-    """Is a field read from one item of a delimited text line."""
+class BinaryBaseField(BaseField):
+    """Carries the parts every binary field shares.
 
-    encoding: Literal["delimited"] = "delimited"
-    position: int = Field(default=0, ge=0, le=4294967295)
+    Attributes:
+        start_bit: Is the bit where the field starts, numbered as in a DBC file: the
+            least significant bit for little-endian fields and the most significant bit
+            for big-endian fields.
+        bit_length: Is the number of bits in the field, from 1 to 64.
+        byte_order: Is the byte order of the field.
+        multiplexor: Is the key of the field that selects whether this field is present.
+            When absent the field is always present.
+        multiplex_values: Are the raw values of the multiplexor for which this field is
+            present.
+    """
 
-
-class TaggedTextField(BaseField):
-    """Is a field read from the text that follows a tag."""
-
-    encoding: Literal["tagged"] = "tagged"
-    tag: str
-
-
-# Is a field read from a text line.
-TextField = Annotated[
-    DelimitedTextField | TaggedTextField,
-    Field(discriminator="encoding"),
-]
+    start_bit: int = Field(default=0, ge=0, le=65535)
+    bit_length: int = Field(default=8, ge=1, le=64)
+    byte_order: ByteOrder = "little_endian"
+    multiplexor: FieldKey | None = None
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
 
 
 class ReadMessage(BaseModel):
@@ -295,6 +420,49 @@ class ReadMessage(BaseModel):
     message: MessageKey
     index: FieldKey | None = None
     bindings: list[ReadBinding] = Field(default_factory=list)
+
+
+class ChannelWriteBinding(WriteBaseBinding):
+    """Fills a field with the values of a command channel."""
+
+    type: Literal["channel"] = "channel"
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType | None = None
+
+
+class ValueWriteBinding(WriteBaseBinding):
+    """Fills a field with a fixed value."""
+
+    type: Literal["value"] = "value"
+    value: WriteValue
+
+
+# Fills one message field with a command channel or a fixed value.
+WriteBinding = Annotated[
+    ChannelWriteBinding | ValueWriteBinding,
+    Field(discriminator="type"),
+]
+
+
+class DelimitedTextField(TextBaseField):
+    """Is a field read from one item of a delimited text line."""
+
+    encoding: Literal["delimited"] = "delimited"
+    position: int = Field(default=0, ge=0, le=4294967295)
+
+
+class TaggedTextField(TextBaseField):
+    """Is a field read from the text that follows a tag."""
+
+    encoding: Literal["tagged"] = "tagged"
+    tag: str
+
+
+# Is a field read from a text line. With no default, a write needs a channel.
+TextField = Annotated[
+    DelimitedTextField | TaggedTextField,
+    Field(discriminator="encoding"),
+]
 
 
 class FloatJSONField(JSONBaseField):
@@ -346,30 +514,32 @@ class TimestampJSONField(JSONBaseField):
 
     type: Literal["timestamp"] = "timestamp"
     time_format: payload_.TimeFormat
-    default: telem.TimeStamp | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
+    default: TimestampDefault | None = None
 
 
 class JSONJSONField(JSONBaseField):
     """Is any JSON value."""
 
     type: Literal["json"] = "json"
+    default: str | None = None
 
 
 class UuidJSONField(JSONBaseField):
     """Is a UUID held in a JSON string."""
 
     type: Literal["uuid"] = "uuid"
+    default: UUIDDefault | None = None
 
 
 class BytesJSONField(JSONBaseField):
     """Is base64 text held in a JSON string."""
 
     type: Literal["bytes"] = "bytes"
+    default: str | None = None
 
 
-# Is a field read from a JSON document.
+# Is a field read from a JSON document. With no default, a read needs its value
+# and a write needs a channel.
 JSONField = Annotated[
     FloatJSONField
     | IntegerJSONField
@@ -382,6 +552,52 @@ JSONField = Annotated[
     | BytesJSONField,
     Field(discriminator="type"),
 ]
+
+
+class FloatBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are an IEEE 754 float of 32 or 64 bits."""
+
+    kind: Literal["float"] = "float"
+    default: payload_.Float | None = None
+
+
+class IntegerBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are a two's complement integer."""
+
+    kind: Literal["integer"] = "integer"
+    default: payload_.Integer | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class UnsignedBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are an unsigned integer."""
+
+    kind: Literal["unsigned"] = "unsigned"
+    default: payload_.Unsigned | None = Field(
+        default=None, ge=0, le=18446744073709551615
+    )
+
+
+# Is a field read from a bit range of a binary payload. With no default, a write
+# needs a channel.
+BinaryField = Annotated[
+    FloatBinaryField | IntegerBinaryField | UnsignedBinaryField,
+    Field(discriminator="kind"),
+]
+
+
+class WriteMessage(BaseModel):
+    """Sends one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to send.
+        bindings: Are the fields that command channels or fixed values fill. Each other
+            field sends its default.
+    """
+
+    message: MessageKey
+    bindings: list[WriteBinding] = Field(default_factory=list)
 
 
 class BinaryPayload(BaseModel):
@@ -424,11 +640,16 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
+        cycle_time: Is the send cycle that the protocol states for the message. When
+            absent the protocol states none.
     """
 
     key: MessageKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     payload: Payload
+    cycle_time: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class ICD(BaseModel):

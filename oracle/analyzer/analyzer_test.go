@@ -1197,6 +1197,187 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an lt rule",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a type", `
+				Count int32 { @go validate lt max }
+			`, "test.Count has a @go validate rule, but only a struct field can have one"),
+			Entry("on a struct", `
+				Range struct {
+					min float64
+					max float64
+
+					@go validate lt max
+				}
+			`, "test.Range has a @go validate rule, but only a struct field can have one"),
+			Entry("naming a field the struct does not have", `
+				Range struct {
+					min float64 { @go validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
+			Entry("on a string", `
+				Range struct {
+					min string { @go validate lt max }
+					max string
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("naming an optional field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64?
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("in a generic struct", `
+				Range struct<T> {
+					min float64 { @go validate lt max }
+					max float64
+					value T
+				}
+			`, "test.Range.min has an lt rule, but test.Range is generic"),
+			Entry("inherited by a generic struct", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct<T> extends Range {
+					value T
+				}
+			`, "test.Holder.min has an lt rule, but test.Holder is generic"),
+			Entry("comparing two number types", `
+				Range struct {
+					min int32 { @go validate lt max }
+					max float64
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a distinct type with its base", `
+				Key uint32
+				Range struct {
+					min Key { @go validate lt max }
+					max uint32
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a field with itself", `
+				Range struct {
+					min float64 { @go validate lt min }
+				}
+			`, "test.Range.min is less than min, but a field cannot be less than itself"),
+			Entry("in a child that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					-max
+				}
+			`, "test.Holder.min is less than max, but test.Holder has no field max"),
+			Entry("in a child that retypes the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					max int32
+				}
+			`, "test.Holder.min is less than max, but the two have different types"),
+			Entry("in a variant that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Shape union on kind {
+					ranged extends Range {
+						-max
+					}
+				}
+			`, "min is less than max, but"),
+			Entry("that is not lt", `
+				Range struct {
+					min float64 { @go validate max 3 }
+				}
+			`, "test.Range.min has a @go validate rule, but only lt <field> and"),
+			Entry("with a pattern on a number", `
+				Range struct {
+					min float64 { @go validate pattern "^a$" }
+				}
+			`, "test.Range.min has a pattern rule, but only a required string can"),
+			Entry("with a pattern on an optional string", `
+				Device struct {
+					name string? { @go validate pattern "^a$" }
+				}
+			`, "test.Device.name has a pattern rule, but only a required string can"),
+			Entry("with a pattern that is not a regex", `
+				Device struct {
+					name string { @go validate pattern "^(a$" }
+				}
+			`, "test.Device.name has a pattern rule that is not valid"),
+			Entry("with a pattern that is not a string", `
+				Device struct {
+					name string { @go validate pattern foo }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with an empty pattern", `
+				Device struct {
+					name string { @go validate pattern "" }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a message that is not a string", `
+				Device struct {
+					name string { @go validate pattern "^a$" 5 }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a pattern in a generic struct", `
+				Device struct<T> {
+					name string { @go validate pattern "^a$" }
+					value T
+				}
+			`, "test.Device.name has a pattern rule, but test.Device is generic"),
+		)
+
+		DescribeTable(
+			"Should accept an lt rule",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("naming a field of the struct", `
+				Range struct {
+					min float64 { @go validate lt max "min must be below max" }
+					max float64
+				}
+			`),
+			Entry("with a pattern on a string", `
+				Device struct {
+					name string { @go validate pattern "^$|^[a-z]+$" "lowercase only" }
+				}
+			`),
+			Entry("naming an inherited field", `
+				Upper struct {
+					max int32
+				}
+				Range struct extends Upper {
+					min int32 { @go validate lt max }
+				}
+			`),
+			Entry("comparing aliases of one type", `
+				Bound = float64
+				Range struct {
+					min Bound { @go validate lt max }
+					max float64
+				}
+			`),
+			Entry("in a generic struct whose type parameters have defaults", `
+				Range struct<T extends numeric = float64> {
+					lower T { @go validate lt upper }
+					upper T
+				}
+			`),
+		)
+
+		DescribeTable(
 			"Should accept a finite rule on a float",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
@@ -1324,12 +1505,13 @@ Node union on variant {
 
 	Describe("Length rules", func() {
 		DescribeTable(
-			"Should reject a length rule on a field that is not a string",
+			"Should reject a length rule on a field that is not a string or bytes",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
-					"test.Entry.value has a length rule, but its type is not a string",
+					"test.Entry.value has a length rule, " +
+						"but its type is not a string or bytes",
 				))
 			},
 			Entry("a uuid with max_length", `
@@ -1352,6 +1534,11 @@ Node union on variant {
 					value string[] { @validate max_length 64 }
 				}
 			`),
+			Entry("an array of bytes", `
+				Entry struct {
+					value bytes[] { @validate min_length 1 }
+				}
+			`),
 			Entry("an alias of uuid", `
 				Key = uuid
 				Entry struct {
@@ -1369,7 +1556,7 @@ Node union on variant {
 		)
 
 		DescribeTable(
-			"Should accept a length rule on a string field",
+			"Should accept a length rule on a string or bytes field",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -1388,6 +1575,22 @@ Node union on variant {
 				Name = string
 				Entry struct {
 					value Name { @validate max_length 64 }
+				}
+			`),
+			Entry("bytes", `
+				Entry struct {
+					value bytes {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`),
+			Entry("an alias of bytes", `
+				Data = bytes
+				Entry struct {
+					value Data { @validate min_length 1 }
 				}
 			`),
 			Entry("an override of an inherited string field", `
@@ -4112,6 +4315,276 @@ Node union on variant {
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
 			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
+
+		It(
+			"Should keep an array inside a map or a type argument",
+			func() {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					ports  map<string, uint16[]>
+					pairs  map<string, uint8[2]>
+					boxed  Box<string[]>
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form, ok := table.MustGet("test.Config").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+
+				ports, _ := form.Field("ports")
+				Expect(ports.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(ports.Type.TypeArgs[1].ArraySize).To(BeNil())
+				Expect(ports.Type.TypeArgs[1].TypeArgs[0].Name).To(Equal("uint16"))
+
+				pairs, _ := form.Field("pairs")
+				Expect(pairs.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(
+					pairs.Type.TypeArgs[1].ArraySize,
+				).To(HaveValue(BeEquivalentTo(2)))
+
+				boxed, _ := form.Field("boxed")
+				Expect(boxed.Type.TypeArgs[0].Name).To(Equal("Array"))
+				Expect(boxed.Type.TypeArgs[0].TypeArgs[0].Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should keep an array on a type parameter constraint and default",
+			func() {
+				source := `
+				Box struct<T extends uint16[], U = uint8[2]> {
+					a T
+					b U
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form, ok := table.MustGet("test.Box").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				Expect(form.TypeParams).To(HaveLen(2))
+				constraint := form.TypeParams[0].Constraint
+				Expect(constraint.Name).To(Equal("Array"))
+				Expect(constraint.TypeArgs[0].Name).To(Equal("uint16"))
+				def := form.TypeParams[1].Default
+				Expect(def.Name).To(Equal("Array"))
+				Expect(def.ArraySize).To(HaveValue(BeEquivalentTo(2)))
+			},
+		)
+
+		It("Should reject an array as a union variant", func() {
+			source := `
+				Line struct {
+					a string
+				}
+
+				Shape union on kind {
+					lines Line[]
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`union Shape variant "lines" must reference a struct type`,
+			))
+		})
+
+		DescribeTable(
+			"Should reject an optional type argument",
+			func(fieldType, arg string) {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					value ` + fieldType + `
+				}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"type argument " + arg + " cannot be optional",
+				))
+			},
+			Entry("map value", "map<string, uint8[]?>", "uint8[]?"),
+			Entry("map key", "map<string?, uint8>", "string?"),
+			Entry(
+				"nested map",
+				"map<string, map<string, int32>?>",
+				"map<string,int32>?",
+			),
+			Entry("generic argument", "Box<string?>", "string?"),
+			Entry("argument in a map", "map<string, Box<int32?>>", "int32?"),
+		)
+
+		DescribeTable(
+			"Should reject an explicit type argument for a defaulted type parameter",
+			func(decl string) {
+				source := `
+				Box struct<T = uint8[2]> {
+					value T
+				}
+
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"cannot take a type argument for defaulted type parameter",
+				))
+			},
+			Entry("field", "Config struct {\n\tvalue Box<uint8[3]>\n}"),
+			Entry(
+				"argument equal to the default",
+				"Config struct {\n\tvalue Box<uint8[2]>\n}",
+			),
+			Entry("second parameter", "Config struct {\n\tvalue Pair<int32, int64>\n}"),
+			Entry("nested argument", "Config struct {\n\tvalue Box<uint8[3]>[]\n}"),
+			Entry("alias", "Wide = Box<uint8[3]>"),
+			Entry("extends", "Wide struct extends Box<uint8[3]> {}"),
+			Entry(
+				"pass-through of a parameter without a default",
+				"Wrap struct<U> {\n\tbox Box<U>\n}",
+			),
+			Entry(
+				"pass-through of a parameter with another default",
+				"Wrap struct<U = uint8[3]> {\n\tbox Box<U>\n}",
+			),
+		)
+
+		DescribeTable(
+			"Should allow a pass-through of a parameter with the same default",
+			func(def string) {
+				source := `
+				Details struct<Data? = ` + def + `> {
+					data Data
+				}
+
+				Status<Data? = ` + def + `> = Details<Data>
+
+				Info struct {
+					name string
+				}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("primitive", "record"),
+			Entry("struct declared later", "Info"),
+			Entry("fixed-size array", "uint8[2]"),
+		)
+
+		It("Should allow an omitted argument for a defaulted type parameter", func() {
+			source := `
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				Config struct {
+					value Pair<int32>
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
+			"Should reject an optional marker outside a field",
+			func(decl, message string) {
+				source := `
+				Base struct {
+					name string
+				}
+
+				Box struct<T> {
+					value T
+				}
+
+				Kind enum {
+					a = "a"
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					message + " cannot be optional: only a field can be absent",
+				))
+			},
+			Entry(
+				"struct extends",
+				"Child struct extends Base? {\n}",
+				"extended type Base?",
+			),
+			Entry("alias target", "Alias = Base?", "alias target Base?"),
+			Entry(
+				"type parameter constraint",
+				"Wrap struct<T extends Base?> {\n value T\n}",
+				"type parameter constraint Base?",
+			),
+			Entry(
+				"type parameter default",
+				"Wrap struct<T = Base?> {\n value T\n}",
+				"type parameter default Base?",
+			),
+			Entry("base type", "Key uint32?", "base type uint32?"),
+			Entry(
+				"named variant type",
+				"Shape union on type {\n base Base?\n}",
+				"variant type Base?",
+			),
+			Entry(
+				"union extends",
+				"Shape union on type extends Base? {\n base Base\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"inline variant extends",
+				"Shape union on type {\n base extends Base? {}\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"enum extends",
+				"More enum extends Kind? {\n b = \"b\"\n}",
+				"extended type Kind?",
+			),
+			Entry(
+				"action extends",
+				"Thing struct {\n action Rename extends Base? {}\n}",
+				"extended type Base?",
+			),
+		)
+
+		It("Should keep an optional marker on a field", func() {
+			source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					name   string?
+					box    Box<string>?
+					lookup map<string, int32>?
+				}
+			`
+			table, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form, ok := table.MustGet("test.Config").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			for _, name := range []string{"name", "box", "lookup"} {
+				field := MustBeOk(form.Field(name))
+				Expect(field.Optional).To(BeTrue(), name)
+			}
+		})
 	})
 
 	Describe("Recursive Types", func() {
@@ -4353,6 +4826,121 @@ Node union on variant {
 					def.Elements[1],
 				).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 			},
+		)
+
+		It(
+			"Should accept a fixed-size array default of the array's size",
+			func() {
+				def := defaultOf("coords float64[3] = [1.5, 2.5, 3.5]")
+				Expect(def.Elements).To(HaveLen(3))
+			},
+		)
+
+		DescribeTable(
+			"Should reject a fixed-size array default of another size",
+			func(decl, msg string) {
+				source := "Pair = uint8[2]\n\n" +
+					"Point struct {\n\tcoords float64[3]\n}\n\n" +
+					decl + "\n"
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry(
+				"fewer elements",
+				"Item struct {\n\tcoords float64[3] = [1.5]\n}",
+				`default of field "coords" in "Item" has an array of 1 elements, `+
+					"but its type holds exactly 3",
+			),
+			Entry(
+				"no elements",
+				"Item struct {\n\tcoords float64[3] = []\n}",
+				"has an array of 0 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an alias",
+				"Item struct {\n\tpair Pair = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an array element",
+				"Item struct {\n\tpairs Pair[] = [[1, 2], [1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a struct field",
+				"Item struct {\n\tpoint Point = { coords = [1.5] }\n}",
+				"has an array of 1 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a type parameter",
+				"Item struct<T extends uint8[2]> {\n\tvalue T = [1]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an element of a type parameter",
+				"Item struct<T extends Pair[]> {\n\tvalue T = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[2]> = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct at its default",
+				"Box struct<T = uint8[2]> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a union variant",
+				"Shape union on kind {\n\tline {\n\t\tends Pair\n\t}\n}\n\n"+
+					"Item struct {\n\tshape Shape = { kind = \"line\", ends = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias with a type argument",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a generic distinct type with a type argument",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an element of a generic distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<Pair[]> = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias at its default",
+				"Wrap<T = uint8[2]> = T\n\nItem struct {\n\tw Wrap = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+		)
+
+		DescribeTable(
+			"Should check a generic type against its type argument",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry(
+				"a struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n",
+			),
+			Entry(
+				"a distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2, 3]\n}\n",
+			),
+			Entry(
+				"an alias",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2, 3]\n}\n",
+			),
 		)
 	})
 
@@ -5606,6 +6194,27 @@ var _ = Describe("Analyze", func() {
 		})
 		Expect(files).To(ContainElement("broken.oracle"))
 	})
+})
+
+var _ = Describe("Integer enum values", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+	It("Should refuse two members with one value", func() {
+		_, diag := Analyze("Size enum {\none = 1\nuno = 1\n}", "test", loader)
+		Expect(diag.Error()).To(ContainSubstring(
+			"enum Size members one and uno have the same value 1",
+		))
+	})
+
+	DescribeTable("Should accept values of any width and sign",
+		func(members string) {
+			_, diag := Analyze("Size enum {\n"+members+"\n}", "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		},
+		Entry("0 and 255 with gaps between members", "low = 0\nmid = 4\nhigh = 255"),
+		Entry("a value over 255", "low = 0\nhigh = 230400"),
+		Entry("a negative value", "low = -1\nhigh = 1"),
+	)
 })
 
 var _ = Describe("Union enum discriminator", func() {

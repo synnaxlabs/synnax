@@ -16,6 +16,7 @@ import {
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
+  deep,
   destructor,
   primitive,
   type record,
@@ -52,7 +53,7 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 export interface ListSource<Q, E extends record.Keyed<record.Key>, I> {
   watch: {
     (item: NoInfer<I>): query.Live<NoInfer<E>>;
-    (query: Q): query.List<E, unknown>;
+    (query: Q): query.list.List<E, unknown>;
   };
 }
 
@@ -64,9 +65,12 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
    * order, so it drops the query's `order`. Null disables the list.
    */
   query?: Q | null;
-  /** Hides the records it rejects. */
+  /**
+   * Hides the records it rejects. The list reads on past a page that it hides whole, so
+   * a filter that hides most records belongs in the query.
+   */
   filter?: (item: E) => boolean;
-  /** How many records each call to `more` reads. */
+  /** How many records each fetch of a page reads. */
   pageSize?: number;
   /** How many records the list reads at first. Defaults to `pageSize`. */
   initialSize?: number;
@@ -102,8 +106,9 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
    */
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
   /**
-   * Reads the first page, then the next one on each later call. Does nothing while a
-   * read runs or once the list holds every record.
+   * Reads the first page, then the next one on each later call. With a filter, a call
+   * reads on past the pages that the filter hides whole. Does nothing while a read runs
+   * or once the list holds every record.
    */
   more: () => void;
   /** Lists the records that match the term. An empty term ends the search. */
@@ -117,7 +122,7 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
 
 /** A window and the search term it answers. */
 interface Answer<E extends record.Keyed<record.Key>> {
-  window: query.Window<E, unknown>;
+  window: query.list.Window<E, unknown>;
   searchTerm: string;
 }
 
@@ -125,11 +130,40 @@ const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
 const keyItem = <I>(key: record.Key): I => key as I;
 
+interface Frame {
+  /** Calls the callback at the next animation frame, once however often it queues. */
+  queue: (callback: () => void) => void;
+  /** Takes back a queued callback. */
+  drop: (callback: () => void) => void;
+}
+
+const createFrame = (): Frame => {
+  const queued = new Set<() => void>();
+  let requested = false;
+  const flush = () => {
+    requested = false;
+    const run = [...queued];
+    queued.clear();
+    run.forEach((callback) => callback());
+  };
+  return {
+    queue: (callback) => {
+      queued.add(callback);
+      if (requested) return;
+      requested = true;
+      requestAnimationFrame(flush);
+    },
+    drop: (callback) => queued.delete(callback),
+  };
+};
+
 /**
  * Reads a live list of the records of a domain client: a filter, the client's declared
  * order, and a window that grows by pages. The client cache keeps the window current,
  * so the hook holds no records of its own. The list reads nothing until the first call
  * to `more` or `search`, so a closed select costs no fetch, unless it is eager.
+ * Changes reach the list and its readers at the next animation frame, so a burst of
+ * them, such as many writes from another client, renders once.
  *
  * @param source - Selects the domain client, e.g. `(client) => client.ranges`.
  */
@@ -161,6 +195,8 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     searchDebounce,
     [],
   );
+  // The debounced call outlives an unmount, so a late search would set state after it.
+  useEffect(() => () => debouncedSearch.cancel(), [debouncedSearch]);
   // Q is left open so it can match each client's overloaded request input.
   const base = q as { order?: unknown } | null;
   let next: Q | null = null;
@@ -173,8 +209,16 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const retriever = client == null ? null : source(client);
   const list =
     retriever == null || listQuery == null ? null : retriever.watch(listQuery);
+  const frame = useInitializerRef(createFrame);
   const current = useSyncExternalStore(
-    (callback) => (list == null ? destructor.NOOP : list.onChange(callback)),
+    (callback) => {
+      if (list == null) return destructor.NOOP;
+      const release = list.onChange(() => frame.current.queue(callback));
+      return () => {
+        release();
+        frame.current.drop(callback);
+      };
+    },
     () => list?.getCached(),
   );
   // A new query, such as a new search term, shows the last answer until its own lands.
@@ -208,9 +252,30 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     setStatus(next);
   };
 
+  // A page that the filter hides whole shows nothing new, so the read goes on to the
+  // next page until a new record shows, the list ends, or a newer read starts.
+  const readShown = async (
+    l: query.list.List<E, unknown>,
+    first: Promise<query.list.Window<E, unknown>>,
+    before: E[] = [],
+  ): Promise<void> => {
+    const token = reading.current;
+    let w = await first;
+    if (filter == null) return;
+    const old = new Set(before.filter(filter).map(({ key }) => key));
+    const showsNew = ({ records }: query.list.Window<E, unknown>): boolean =>
+      records.some((r) => filter(r) && !old.has(r.key));
+    while (w.end != null && reading.current === token && !showsNew(w)) {
+      const { end } = w;
+      w = await l.more(pageSize);
+      // A search at its size cap fetches nothing and leaves the end in place.
+      if (deep.equal(w.end, end)) return;
+    }
+  };
+
   useEffect(() => {
     if (list == null || !started) return;
-    void read(op, async () => await list.retrieve());
+    void read(op, async () => await readShown(list, list.retrieve()));
     return () => {
       reading.current = null;
     };
@@ -220,9 +285,14 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (!started) return setStarted(true);
     if (list == null || reading.current != null) return;
     // A failed first read leaves no window, so the first page reads again.
-    if (current == null) return void read(op, async () => await list.retrieve());
+    if (current == null)
+      return void read(op, async () => await readShown(list, list.retrieve()));
     if (current.end == null) return;
-    void read(`retrieve more ${name}`, async () => await list.more(pageSize));
+    const { records } = current;
+    void read(
+      `retrieve more ${name}`,
+      async () => await readShown(list, list.more(pageSize), records),
+    );
   };
 
   const search = (next: string) => debouncedSearch(next);
@@ -242,16 +312,18 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // once and not once per key.
   const readers = useInitializerRef(() => new Map<() => void, number>());
   const membersByWindow = useInitializerRef(
-    () => new WeakMap<query.Window<E, unknown>, Map<K, E>>(),
+    () => new WeakMap<query.list.Window<E, unknown>, Map<K, E>>(),
   );
   const notifyReaders = () => readers.current.forEach((_, read) => read());
   useEffect(() => {
     if (list == null) return;
-    return list.onChange(notifyReaders);
+    return list.onChange(() =>
+      readers.current.forEach((_, read) => frame.current.queue(read)),
+    );
   }, [list]);
   // Readers read the values of the last commit, so a new value makes them read again.
   useLayoutEffect(notifyReaders, [list, shown, retriever, filter, itemQuery]);
-  const membersOf = (answer?: query.Window<E, unknown>): Map<K, E> | undefined => {
+  const membersOf = (answer?: query.list.Window<E, unknown>): Map<K, E> | undefined => {
     if (answer == null) return undefined;
     let members = membersByWindow.current.get(answer);
     if (members == null) {
@@ -282,16 +354,26 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (retriever == null || primitive.isZero(key)) return destructor.NOOP;
     readers.current.set(callback, (readers.current.get(callback) ?? 0) + 1);
     const live = retriever.watch(itemQuery(key));
-    const release = live.onChange(() => callback());
+    const release = live.onChange(() => frame.current.queue(callback));
+    let released = false;
     if (live.getCached() === undefined)
-      live.retrieve().then(callback, (error: unknown) => {
-        // The subscriber reads a missing record from getItem.
-        if (!NotFoundError.matches(error)) console.error(error);
-      });
+      live.retrieve().then(
+        () => {
+          if (!released) frame.current.queue(callback);
+        },
+        (error: unknown) => {
+          // The subscriber reads a missing record from getItem, and a released one
+          // reads nothing.
+          if (!released && !NotFoundError.matches(error)) console.error(error);
+        },
+      );
     return () => {
+      released = true;
       const count = readers.current.get(callback) ?? 0;
-      if (count <= 1) readers.current.delete(callback);
-      else readers.current.set(callback, count - 1);
+      if (count <= 1) {
+        readers.current.delete(callback);
+        frame.current.drop(callback);
+      } else readers.current.set(callback, count - 1);
       release();
     };
   };

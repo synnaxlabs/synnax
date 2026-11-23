@@ -14,12 +14,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useState } from "react";
 
-import type {
-  Activation,
-  Event,
-  License as LicenseRecord,
-  Organization,
-} from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
 import { statusOf } from "@/server/license/status";
@@ -36,10 +31,10 @@ import { useAction } from "@/ui/useAction";
 import { useClock } from "@/ui/useClock";
 
 export interface LicenseProps {
-  license: LicenseRecord;
-  organization: Organization;
-  activations: Activation[];
-  events: Event[];
+  license: schema.License;
+  organization: schema.Organization;
+  activations: schema.Activation[];
+  events: schema.Event[];
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
@@ -53,7 +48,7 @@ export interface LicenseProps {
 const LABEL_ID = "license-label";
 
 interface Renamed {
-  event: (Omit<Event, "at"> & { at: string }) | null;
+  event: (Omit<schema.Event, "at"> & { at: string }) | null;
   actor: string;
 }
 
@@ -253,7 +248,7 @@ const LicenseFacts = ({
   held,
   clock,
 }: {
-  license: LicenseRecord;
+  license: schema.License;
   held: number;
   clock: Clock;
 }): ReactElement => (

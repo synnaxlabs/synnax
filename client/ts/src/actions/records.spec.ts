@@ -13,9 +13,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { access } from "@/access";
 import { arc } from "@/arc";
-import type Synnax from "@/client";
 import { device } from "@/device";
 import { group } from "@/group";
+import type { Synnax } from "@/index";
 import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -179,7 +179,11 @@ const CASES: Case[] = [
       });
       return await c.schematics.symbols.create({
         name: uniqueName("dispatch"),
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          handles: [],
+          variant: "sensor",
+        },
         group: key,
       });
     },

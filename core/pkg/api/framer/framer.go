@@ -10,7 +10,10 @@
 package framer
 
 import (
+	"cmp"
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -178,25 +181,47 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
-// ReadRequest requests every sample in Bounds for the given channels.
+// ReadRequest requests every sample in TimeRanges for the given channels.
 type ReadRequest struct {
-	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// TimeRanges are the time ranges to read, in any order. A read takes at least one.
+	// Ranges that overlap or touch read as one, and the samples of every range arrive
+	// in time order.
+	TimeRanges []telem.TimeRange `json:"time_ranges" msgpack:"time_ranges"`
 	// Reduction reduces the samples of each channel. A read without one keeps every
-	// sample.
+	// sample. A stride keeps samples by their stored position, so each range keeps the
+	// samples it keeps when read alone. A read cannot take a limit over more than one
+	// range.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
-	// Latest reads only the newest Latest samples of each channel in Bounds, when it is
-	// above 0. A CSV or TDMS read takes the newest Latest rows of each index instead. A
-	// read cannot combine it with Earliest or Reduction.
+	// Latest reads only the newest Latest samples of each channel, when it is above 0.
+	// A CSV or TDMS read takes the newest Latest rows of each index instead. A read
+	// cannot combine it with Earliest, Reduction, or more than one range.
 	Latest uint32 `json:"latest" msgpack:"latest"`
-	// Earliest reads only the oldest Earliest samples of each channel in Bounds, when
-	// it
-	// is above 0. A CSV or TDMS read takes the oldest Earliest rows of each index
-	// instead. A read cannot combine it with Latest or Reduction.
+	// Earliest reads only the oldest Earliest samples of each channel, when it is above
+	// 0. A CSV or TDMS read takes the oldest Earliest rows of each index instead. A
+	// read cannot combine it with Latest, Reduction, or more than one range.
 	Earliest uint32 `json:"earliest" msgpack:"earliest"`
+}
+
+// UnmarshalJSONFrom implements json.UnmarshalerFrom. It adds the time range in bounds,
+// which older clients send in place of time_ranges, to TimeRanges.
+func (r *ReadRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadRequest
+	var body struct {
+		plain  `json:",inline"`
+		Bounds *telem.TimeRange `json:"bounds"`
+	}
+	if err := json.UnmarshalDecode(dec, &body); err != nil {
+		return err
+	}
+	*r = ReadRequest(body.plain)
+	if body.Bounds != nil {
+		r.TimeRanges = append(r.TimeRanges, *body.Bounds)
+	}
+	return nil
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It is
@@ -208,8 +233,9 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
-	// Bounds is the request's time range.
-	Bounds telem.TimeRange
+	// TimeRanges holds the request's time ranges, sorted by start, with none that
+	// overlap or touch. It holds one range when Latest or Earliest is above 0.
+	TimeRanges []telem.TimeRange
 	// Reduction is the request's reduction.
 	Reduction telem.Reduction
 	// Latest is the request's count of newest samples, or 0 to not limit the read to
@@ -231,18 +257,76 @@ type ReadResponse struct {
 // channels when req sets TimestampsIncluded, and returns the response an encoder
 // reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
+	ranges, err := validateRead(req)
+	if err != nil {
+		return ReadResponse{}, err
+	}
+	channels, indexes, err := s.retrieveReadChannels(ctx, req)
+	if err != nil {
+		return ReadResponse{}, err
+	}
+	return ReadResponse{
+		Channels:   channels,
+		Indexes:    indexes,
+		TimeRanges: ranges,
+		Reduction:  req.Reduction,
+		Latest:     req.Latest,
+		Earliest:   req.Earliest,
+		OpenIterator: func(
+			ctx context.Context,
+			keys channel.Keys,
+			bounds telem.TimeRange,
+		) (*framer.Iterator, error) {
+			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:      keys,
+				Bounds:    bounds,
+				Reduction: req.Reduction,
+				ChunkSize: int64(max(req.Latest, req.Earliest)),
+			})
+		},
+	}, nil
+}
+
+// validateRead checks the options in req against each other and returns its merged
+// time ranges.
+func validateRead(req ReadRequest) ([]telem.TimeRange, error) {
 	if req.Latest > 0 && req.Earliest > 0 {
-		return ReadResponse{}, errors.Wrap(
+		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"a read cannot take both latest and earliest",
 		)
 	}
 	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
-		return ReadResponse{}, errors.Wrap(
+		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"a read cannot take latest or earliest with a reduction",
 		)
 	}
+	ranges, err := mergeTimeRanges(req.TimeRanges)
+	if err != nil {
+		return nil, err
+	}
+	if len(ranges) > 1 && (req.Latest > 0 || req.Earliest > 0) {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest over more than one time range",
+		)
+	}
+	if _, ok := req.Reduction.Variant.(telem.LimitReduction); ok && len(ranges) > 1 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take a limit reduction over more than one time range",
+		)
+	}
+	return ranges, nil
+}
+
+// retrieveReadChannels checks that the caller may read the channels in req and returns
+// them, along with their missing index channels when req sets TimestampsIncluded.
+func (s *Service) retrieveReadChannels(
+	ctx context.Context,
+	req ReadRequest,
+) ([]channel.Channel, []channel.Channel, error) {
 	subject := auth.GetSubject(ctx)
 	var channels, indexes []channel.Channel
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
@@ -268,28 +352,42 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		}
 		return nil
 	}); err != nil {
-		return ReadResponse{}, err
+		return nil, nil, err
 	}
-	return ReadResponse{
-		Channels:  channels,
-		Indexes:   indexes,
-		Bounds:    req.Bounds,
-		Reduction: req.Reduction,
-		Latest:    req.Latest,
-		Earliest:  req.Earliest,
-		OpenIterator: func(
-			ctx context.Context,
-			keys channel.Keys,
-			bounds telem.TimeRange,
-		) (*framer.Iterator, error) {
-			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
-				Keys:      keys,
-				Bounds:    bounds,
-				Reduction: req.Reduction,
-				ChunkSize: int64(max(req.Latest, req.Earliest)),
-			})
-		},
-	}, nil
+	return channels, indexes, nil
+}
+
+// mergeTimeRanges returns ranges sorted by start, with each run of ranges that overlap
+// or touch merged into one. It returns a validation error when ranges is empty or holds
+// a range that ends before it starts.
+func mergeTimeRanges(ranges []telem.TimeRange) ([]telem.TimeRange, error) {
+	if len(ranges) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read must take at least one time range",
+		)
+	}
+	for _, tr := range ranges {
+		if !tr.Valid() {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"a read cannot take time range %s, which ends before it starts",
+				tr,
+			)
+		}
+	}
+	sorted := slices.SortedFunc(slices.Values(ranges), func(a, b telem.TimeRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+	merged := sorted[:1]
+	for _, tr := range sorted[1:] {
+		if last := &merged[len(merged)-1]; tr.Start <= last.End {
+			last.End = max(last.End, tr.End)
+			continue
+		}
+		merged = append(merged, tr)
+	}
+	return merged, nil
 }
 
 // enforceRetrieve reports whether subject may retrieve every given channel and every
@@ -659,39 +757,12 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	}
 
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, WriterRequest]{
-		Receiver: stream,
-		Transform: func(
-			_ context.Context,
-			req WriterRequest,
-		) (framer.WriterRequest, bool, error) {
-			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because MessagePack has a tough time decoding
-				// slices of uint8.
-				r.Config.Authorities = make(
-					[]control.Authority, len(req.Config.Authorities),
-				)
-				for i, a := range req.Config.Authorities {
-					r.Config.Authorities[i] = control.Authority(a)
-				}
-				r.Config.Keys = req.Config.Keys
-			}
-			return r, true, nil
-		},
+		Receiver:  stream,
+		Transform: translateWriterRequest,
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, WriterResponse]{
-		Sender: freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
-		Transform: func(
-			ctx context.Context,
-			i framer.WriterResponse,
-		) (WriterResponse, bool, error) {
-			return WriterResponse{
-				Command:    i.Command,
-				Authorized: i.Authorized,
-				Err:        s.errs.Encode(i.Err, false),
-				End:        i.End,
-			}, true, nil
-		},
+		Sender:    freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
+		Transform: s.translateWriterResponse,
 	}
 
 	pipe := plumber.New()
@@ -713,6 +784,35 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = sCtx.Wait()
 	return err
+}
+
+func translateWriterRequest(
+	_ context.Context,
+	req WriterRequest,
+) (framer.WriterRequest, bool, error) {
+	r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
+	if r.Command == framer.WriterCommandSetAuthority {
+		// We decode like this because MessagePack has a tough time decoding slices of
+		// uint8.
+		r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+		for i, a := range req.Config.Authorities {
+			r.Config.Authorities[i] = control.Authority(a)
+		}
+		r.Config.Keys = req.Config.Keys
+	}
+	return r, true, nil
+}
+
+func (s *Service) translateWriterResponse(
+	_ context.Context,
+	res framer.WriterResponse,
+) (WriterResponse, bool, error) {
+	return WriterResponse{
+		Command:    res.Command,
+		Authorized: res.Authorized,
+		Err:        s.errs.Encode(res.Err, false),
+		End:        res.End,
+	}, true, nil
 }
 
 func (s *Service) openWriter(

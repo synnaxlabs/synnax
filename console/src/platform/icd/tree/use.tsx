@@ -180,6 +180,7 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   node: FieldNode;
   onChange: (on: boolean) => void;
   readDisabled: boolean;
+  tareable: boolean;
 }
 
 const FieldItem = ({
@@ -187,6 +188,7 @@ const FieldItem = ({
   node: { read, field },
   onChange,
   readDisabled,
+  tareable,
   ...props
 }: FieldItemProps) => {
   const bindingsPath = path.messages[read].bindings;
@@ -209,6 +211,12 @@ const FieldItem = ({
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
+      {tareable && (
+        <Task.TareButton
+          channel={i < 0 ? 0 : bindings[i].channel}
+          disabled={sourceOff}
+        />
+      )}
       <ReadCheckbox
         bindings={bindingsPath}
         field={field}
@@ -242,9 +250,11 @@ interface BaseArgs<S extends Source> {
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
+  bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
   bindDisabled?: boolean;
+  /** The fields with float channels can tare while the task runs. */
+  tareable?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /**
@@ -276,8 +286,9 @@ export interface UseReturn {
   /** Adds a field to a message of a source and to its ICD, reads it, and selects it. */
   addField: (source: string, read: number) => void;
   /**
-   * Adds a message with no fields to a source and to its ICD. The match tests the
-   * pointer of the source's other matches, so the messages tell payloads apart.
+   * Adds a message with no fields to a source and to its ICD. Its match has the type of
+   * the source's other matches. A value match tests their pointer, so the messages tell
+   * payloads apart. A present match has an empty pointer for the user to fill in.
    */
   addMessage: (source: string) => void;
   /**
@@ -306,6 +317,7 @@ export const use = <
   SourceItem,
   bindingOf,
   bindDisabled = false,
+  tareable = false,
   messageName,
   made,
   selected,
@@ -343,8 +355,25 @@ export const use = <
   });
   const disabledPath = (source: string) =>
     deep.widen<Source[]>(listOf(source))[source].disabled;
-  const read = (source: string, r: number, field: TreeField, on: boolean) =>
-    setRead(ctx, pathOf(source), r, field, on, () => bindingOf(source, r, field));
+  /** @returns the field of a read of a source, as its message format holds it. */
+  const fullField = (source: string, r: number, key: icd.FieldKey): icd.JSONField => {
+    const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+    const { message } = messages[r];
+    const field = fieldsOf(formats, icdKey, message).find((f) => f.key === key);
+    if (field == null) throw new Error(`Message ${message} has no field ${key}`);
+    return field;
+  };
+  /** full is the field to bind, for a read whose format is not open yet. */
+  const read = (
+    source: string,
+    r: number,
+    field: TreeField,
+    on: boolean,
+    full?: icd.JSONField,
+  ) =>
+    setRead(ctx, pathOf(source), r, field, on, () =>
+      bindingOf(source, r, full ?? fullField(source, r, field.key)),
+    );
 
   const addMessage = (sourceKey: string) => {
     const path = pathOf(sourceKey);
@@ -355,12 +384,13 @@ export const use = <
       .map(({ message }) => held.find(({ key }) => key === message)?.payload)
       .find((p) => p?.format === "json" && p.match != null);
     const match = rule?.format === "json" ? rule.match : undefined;
+    const pointer = match?.type === "present" ? "" : (match?.pointer ?? "");
     const message: icd.Message = {
       key: uuid.create(),
       name: messageName(sourceKey, held),
       payload: {
         format: "json",
-        match: createMatch(match?.type ?? "string", match?.pointer ?? ""),
+        match: createMatch(match?.type ?? "string", pointer),
         fields: [],
       },
     };
@@ -408,7 +438,7 @@ export const use = <
     ctx.batch(() => {
       ctx.set(path.icd, icdKey);
       ctx.set(path.messages, [{ message: message.key, bindings: [] }]);
-      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true);
+      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true, field);
       if (index != null)
         ctx.set(
           path.messages[0],
@@ -439,7 +469,7 @@ export const use = <
       field,
       fields.at(-1)?.key,
     );
-    read(sourceKey, r, field, true);
+    read(sourceKey, r, field, true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, sourceKey, ...parent]));
     onSelect([fieldKey(sourceKey, message, field.key)]);
@@ -574,6 +604,13 @@ export const use = <
     if (fields.length > 0 && fields.length === chosen.length)
       onRemove = () => removeFields(fields);
     else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
+    const tareChannels = fields.flatMap(({ source, read, field }) => {
+      if (ctx.get(disabledPath(source)).value) return [];
+      const binding = ctx
+        .get(pathOf(source).messages[read].bindings)
+        .value.find(({ field: key }) => key === field.key);
+      return binding == null ? [] : [binding.channel];
+    });
     return (
       <Task.Views.ContextMenu
         keys={keys}
@@ -587,6 +624,7 @@ export const use = <
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
         onAddField={bindDisabled ? undefined : onAddField}
+        tareChannels={tareable ? tareChannels : undefined}
         extraMenuItems={
           source != null && (
             <Menu.Item itemKey="addMessage" onClick={() => addMessage(source)}>
@@ -612,6 +650,7 @@ export const use = <
           node={node}
           onChange={(on) => read(node.source, node.read, node.field, on)}
           readDisabled={bindDisabled}
+          tareable={tareable}
         />
       );
     if (node?.kind === "message")

@@ -300,5 +300,21 @@ describe("Panel tab", () => {
       expect(await screen.findByText("Loaded")).toBeTruthy();
       expect(load).toHaveBeenCalledTimes(1);
     });
+
+    it("shares one load between preload and the first render", async () => {
+      const load = vi.fn(async () => ({ Content: () => <p>Loaded</p> }));
+      const Content = Panel.lazyComponent(load, "Content");
+      await Promise.all([Content.preload(), Content.preload()]);
+      expect(load).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        render(
+          <Suspense fallback={<p>Loading</p>}>
+            <Content />
+          </Suspense>,
+        );
+      });
+      expect(await screen.findByText("Loaded")).toBeTruthy();
+      expect(load).toHaveBeenCalledTimes(1);
+    });
   });
 });

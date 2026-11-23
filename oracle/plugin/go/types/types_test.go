@@ -574,7 +574,7 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
-				"Should generate int enum type and iota constants",
+				"Should generate int enum type and constants with their values",
 				func() {
 					source := `
 				@go output "core/priority"
@@ -605,9 +605,9 @@ var _ = Describe("Go Types Plugin", func() {
 
 					content := string(resp.Files[0].Content)
 					Expect(content).To(ContainSubstring(`type Priority uint8`))
-					Expect(content).To(ContainSubstring(`PriorityLow Priority = iota`))
-					Expect(content).To(ContainSubstring(`PriorityMedium`))
-					Expect(content).To(ContainSubstring(`PriorityHigh`))
+					Expect(content).To(ContainSubstring(`PriorityLow Priority = 0`))
+					Expect(content).To(ContainSubstring(`PriorityMedium Priority = 1`))
+					Expect(content).To(ContainSubstring(`PriorityHigh Priority = 2`))
 					Expect(
 						content,
 					).To(ContainSubstring(`//go:generate go tool stringer -type=Priority`))
@@ -676,7 +676,7 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
-				"Should not generate an IsValid method for int enums",
+				"Should generate an IsValid method for int enums",
 				func() {
 					source := `
 					@go output "core/priority"
@@ -702,7 +702,9 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`type Priority uint8`))
 					Expect(
 						content,
-					).NotTo(ContainSubstring(`func (p Priority) IsValid()`))
+					).To(ContainSubstring(`func (p Priority) IsValid() bool {
+	switch p {
+	case PriorityLow, PriorityMedium, PriorityHigh:`))
 				},
 			)
 
@@ -2416,7 +2418,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("plugin interface methods", func() {
 		})
 
-		Context("enum starts-at-one optimization", func() {
+		Context("int enum values", func() {
 			It("Should render the doc of each int enum value", func() {
 				source := `
 					@go output "core/pkg/service/task"
@@ -2452,26 +2454,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			)
 
 			It(
-				"Should use iota+1 for enums starting at 1 with sequential values",
-				func() {
-					source := `
-					@go output "core/status"
-
-					Status enum {
-						pending = 1
-						active = 2
-						completed = 3
-					}
-				`
-					resp := MustGenerate(source, "status", loader, goPlugin)
-					ExpectContent(resp, "types.gen.go").
-						ToContain("StatusPending Status = iota + 1").
-						ToNotContain("StatusPending Status = 1")
-				},
-			)
-
-			It(
-				"Should not use iota+1 for enums starting at 1 with non-sequential values",
+				"Should write the schema value of each int enum member",
 				func() {
 					source := `
 					@go output "core/status"
@@ -2484,10 +2467,79 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				`
 					resp := MustGenerate(source, "status", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
-						ToContain("StatusPending Status = iota").
-						ToNotContain("iota + 1")
+						ToContain(
+							"StatusPending Status = 1",
+							"StatusActive Status = 3",
+							"StatusCompleted Status = 5",
+							"case StatusPending, StatusActive, StatusCompleted:",
+						).
+						ToNotContain("iota")
 				},
 			)
+
+			DescribeTable(
+				"Should pick the smallest underlying type that holds every member",
+				func(values, base string) {
+					source := `
+					@go output "core/rate"
+
+					Rate enum {
+						` + values + `
+					}
+				`
+					resp := MustGenerate(source, "rate", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").ToContain("type Rate " + base)
+				},
+				Entry("uint8", "a = 0\n b = 255", "uint8"),
+				Entry("uint16", "a = 0\n b = 256", "uint16"),
+				Entry("uint32", "a = 1200\n b = 230400", "uint32"),
+				Entry("uint64", "a = 0\n b = 4294967296", "uint64"),
+				Entry("int8", "a = -1\n b = 1", "int8"),
+				Entry("int32", "a = -1\n b = 65536", "int32"),
+			)
+
+			It(
+				"Should fill a non-first default of an enum with no member of 0",
+				func() {
+					source := `
+				@go output "core/serial"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+					resp := MustGenerate(source, "serial", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type BaudRate uint32").
+						ToContain("BaudRateBaud1200 BaudRate = 1200").
+						ToContain("BaudRateBaud230400 BaudRate = 230400").
+						ToContain("c.BaudRate = BaudRateBaud19200")
+				},
+			)
+
+			It("Should not fill a default on the member of value 0", func() {
+				source := `
+				@go output "core/priority"
+
+				Priority enum {
+					low = 0
+					high = 1
+				}
+
+				Task struct {
+					priority Priority = low
+				}
+			`
+				resp := MustGenerate(source, "priority", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToNotContain("t.Priority = PriorityLow")
+			})
 		})
 
 		Context("generic distinct types", func() {

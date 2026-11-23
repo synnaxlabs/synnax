@@ -26,9 +26,10 @@ import (
 // executes all operations within the transaction provided to the Service.NewWriter
 // method.
 type Writer struct {
-	tx         gorp.Tx
-	table      *gorp.Table[Key, Symbol]
-	dispatcher actions.Dispatcher[Key, Action]
+	tx            gorp.Tx
+	table         *gorp.Table[Key, Symbol]
+	dispatcher    actions.Dispatcher[Key, Action]
+	removeOrphans func(context.Context, gorp.Tx, Symbol) error
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -40,12 +41,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Create creates the given symbol in s.Group, assigning a new key when s.Key is zero.
 // The commit carries a create action that holds the stored symbol. Create returns an
-// error wrapping validate.ErrValidation when a symbol with s.Key exists.
+// error wrapping validate.ErrValidation when a symbol with s.Key exists or s breaks a
+// rule of the symbol model.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
 	if err := validateScale(nil, *s); err != nil {
+		return err
+	}
+	if err := checkSpec(s.Data); err != nil {
 		return err
 	}
 	if s.Key == uuid.Nil() {
@@ -68,11 +73,14 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 }
 
 // Apply applies the actions to the symbol with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create, the
-// result fails to decode or validate, or the new group cannot hold a symbol, and an
-// error wrapping query.ErrNotFound when no symbol has the key.
+// transaction of w, so its commit broadcasts them with the dispatch key of w. In the
+// same transaction, it removes the node bindings and overrides that the result
+// orphans. Apply returns an error wrapping validate.ErrValidation when an action is a
+// create, the result fails to decode or validate or breaks a rule of the symbol model,
+// or the new group cannot hold a symbol, and an error wrapping query.ErrNotFound when
+// no symbol has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var saved Symbol
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Symbol](key)).
 		ChangeErr(func(_ gorp.Context, s Symbol) (Symbol, error) {
@@ -80,10 +88,14 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Symbol{}, err
 			}
+			saved = next
 			if err = next.Validate(); err != nil {
 				return Symbol{}, err
 			}
 			if err = validateScale(&s, next); err != nil {
+				return Symbol{}, err
+			}
+			if err = checkSpec(next.Data); err != nil {
 				return Symbol{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
@@ -101,6 +113,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.removeOrphans(ctx, w.tx, saved); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)

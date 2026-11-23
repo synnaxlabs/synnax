@@ -10,16 +10,16 @@
 import type { channel, schematic } from "@synnaxlabs/client";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import type { color, xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import type { ReactElement, RefCallback } from "react";
 
 import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { Input } from "@/schematic/node/general/input/Primitive";
+import { Primitive } from "@/schematic/node/general/input/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Input as InputTelem } from "@/vis/input";
@@ -31,9 +31,7 @@ interface UseReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
-  stalenessColor?: color.Color;
   stalenessTimeout?: number;
-  staleColorHidden: boolean;
 }
 
 interface UseReadbackReturn {
@@ -46,21 +44,17 @@ const useReadback = ({
   position,
   channel,
   size,
-  stalenessColor,
   stalenessTimeout,
-  staleColorHidden,
 }: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
-  const cell = Primitive.useCanvasBox<HTMLParagraphElement>(position);
+  const cell = BasePrimitive.useCanvasBox<HTMLParagraphElement>(position);
   const { stale } = StringValue.use({
     aetherKey: `${nodeKey}-readback`,
     box: cell.box,
     telem: telem.streamChannelStringValue({ channel }),
-    level: Primitive.READOUT_LEVELS[size],
+    level: BasePrimitive.READOUT_LEVELS[size],
     color: theme.colors.gray.l10,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden,
   });
   return { stale, valueRef: cell.ref };
 };
@@ -75,7 +69,6 @@ export const Symbol = ({
     control,
     commandChannel,
     stateChannel,
-    stalenessColor,
     stalenessTimeout,
     size,
     inlineSize,
@@ -87,15 +80,12 @@ export const Symbol = ({
   const sink = Telem.stringSink(commandChannel);
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
-  const badged = Staleness.useBadged();
   const { stale, valueRef } = useReadback({
     nodeKey,
     position,
     channel: stateChannel,
     size,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
   });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -107,17 +97,19 @@ export const Symbol = ({
         channel={commandChannel}
         onChange={onConfigChange}
       >
-        {stale && badged ? <Staleness.Badge /> : null}
+        {stale ? <Staleness.Badge /> : null}
       </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Input
+      <Primitive.Input
         onSend={set}
         fillColor={resolve(fillColor)}
         value={value}
         size={size}
         inlineSize={inlineSize}
         readback={
-          stateChannel !== 0 && <Primitive.Readout size={size} valueRef={valueRef} />
+          stateChannel !== 0 && (
+            <BasePrimitive.Readout size={size} valueRef={valueRef} />
+          )
         }
         {...rest}
       />

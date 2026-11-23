@@ -146,7 +146,7 @@ export interface EraseCall {
 
 /** A single `loop.set()` call recorded on the recorder. */
 export interface LoopCall {
-  args: unknown[];
+  args: [render.Request];
 }
 
 /** Duck-typed render context that records every component-visible call.
@@ -179,6 +179,22 @@ export class Recorder {
       this.loopCalls.push({ args: [req] });
     },
   };
+
+  /**
+   * Runs the render of the last loop request whose key starts with prefix.
+   * @throws if no request has such a key.
+   */
+  renderLast(prefix: string): void {
+    const req = this.loopCalls.findLast(({ args: [r] }) => r.key.startsWith(prefix));
+    if (req == null)
+      throw new Error(`no render request with a key that starts with ${prefix}`);
+    req.args[0].render();
+  }
+
+  /** The recorder as a render context, for code that runs outside an Aether tree. */
+  get context(): render.Context {
+    return this as unknown as render.Context;
+  }
 
   constructor() {
     this.upper2d = buildCanvas();

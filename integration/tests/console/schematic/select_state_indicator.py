@@ -79,32 +79,16 @@ class SelectStateIndicator(ConsoleCase):
         self.log("Sending 'Open' via Select")
         select.send("Open")
         self.wait_for_eq(CHANNEL_NAME, 1)
-        self._assert_indicator_label(indicator, "Open")
+        indicator.wait_for_label("Open")
 
         self.log("Sending 'Closed' via Select")
         select.send("Closed")
         self.wait_for_eq(CHANNEL_NAME, 2)
-        self._assert_indicator_label(indicator, "Closed")
+        indicator.wait_for_label("Closed")
 
         self.log("Sending 'Standby' via Select")
         select.send("Standby")
         self.wait_for_eq(CHANNEL_NAME, 3)
-        self._assert_indicator_label(indicator, "Standby")
+        indicator.wait_for_label("Standby")
 
         schematic.screenshot()
-
-    def _assert_indicator_label(
-        self,
-        indicator: StateIndicator,
-        expected: str,
-        timeout: float = 5.0,
-    ) -> None:
-        def shown() -> bool | None:
-            return True if indicator.get_label() == expected else None
-
-        sy.poll(shown, timeout=timeout, interval=0.25)
-        actual = indicator.get_label()
-        assert actual == expected, (
-            f"State Indicator label mismatch after {timeout}s: "
-            f"expected '{expected}', got '{actual}'"
-        )

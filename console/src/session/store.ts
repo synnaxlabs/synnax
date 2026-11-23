@@ -26,7 +26,9 @@ import { Analytics } from "@/session/analytics";
 import { Arc } from "@/session/arc";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
+import { FileBrowser } from "@/session/file-browser";
 import { Haul } from "@/session/haul";
+import { ICD } from "@/session/icd";
 import { Legacy } from "@/session/legacy";
 import { LinePlot } from "@/session/lineplot";
 import { Link } from "@/session/link";
@@ -66,8 +68,10 @@ export const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Color.SLICE_NAME]: Color.sliceStateZ,
     [Theme.SLICE_NAME]: Theme.sliceStateZ,
   },
-  // Statuses and ranges belong to the cluster, not to a project under it.
+  // Statuses, ranges, and the folders of racks belong to the cluster, not to a project
+  // under it.
   core: {
+    [FileBrowser.SLICE_NAME]: FileBrowser.sliceStateZ,
     [Project.SLICE_NAME]: Project.sliceStateZ,
     [Range.SLICE_NAME]: Range.sliceStateZ,
     [Status.SLICE_NAME]: Status.sliceStateZ,
@@ -87,6 +91,7 @@ export const PERSIST_SCOPES: Persist.Scopes<State> = {
   transient: [
     Analytics.SLICE_NAME,
     Haul.SLICE_NAME,
+    ICD.SLICE_NAME,
     Link.SLICE_NAME,
     Persist.SLICE_NAME,
   ],
@@ -115,7 +120,9 @@ export const ZERO_STATE: State = {
   [Core.SLICE_NAME]: Core.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [FileBrowser.SLICE_NAME]: FileBrowser.ZERO_SLICE_STATE,
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
+  [ICD.SLICE_NAME]: ICD.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
@@ -137,7 +144,9 @@ const combinedReducer = combineReducers({
   [Core.SLICE_NAME]: Core.reducer,
   [Color.SLICE_NAME]: Color.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
+  [FileBrowser.SLICE_NAME]: FileBrowser.reducer,
   [Haul.SLICE_NAME]: Haul.reducer,
+  [ICD.SLICE_NAME]: ICD.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
@@ -172,7 +181,9 @@ export interface State {
   [Core.SLICE_NAME]: Core.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
+  [FileBrowser.SLICE_NAME]: FileBrowser.SliceState;
   [Haul.SLICE_NAME]: Haul.SliceState;
+  [ICD.SLICE_NAME]: ICD.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Link.SLICE_NAME]: Link.SliceState;
@@ -194,7 +205,9 @@ export type Action =
   | Core.Action
   | Color.Action
   | Drift.Action
+  | FileBrowser.Action
   | Haul.Action
+  | ICD.Action
   | Log.Action
   | LinePlot.Action
   | Link.Action
@@ -220,6 +233,7 @@ const BASE_MIDDLEWARE = [
   Window.removalMiddleware,
   ...Arc.MIDDLEWARE,
   ...Core.MIDDLEWARE,
+  ...ICD.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Log.MIDDLEWARE,
   ...Nav.MIDDLEWARE,

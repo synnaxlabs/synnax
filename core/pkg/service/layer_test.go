@@ -33,6 +33,7 @@ import (
 	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -40,6 +41,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
+	httpv3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
@@ -88,6 +93,8 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -100,20 +107,23 @@ func markTaskChain(ctx context.Context, db *gorp.DB, lastApplied string) {
 		func(m gorp.Migration, _ int) string { return m.Key() },
 	)
 	Expect(chain).To(ContainElement(lastApplied))
+	markApplied(ctx, db, "Task", chain[:slices.Index(chain, lastApplied)+1]...)
+}
+
+// markApplied marks the migrations of namespace with keys as applied.
+func markApplied(ctx context.Context, db *gorp.DB, namespace string, keys ...string) {
+	GinkgoHelper()
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:        db,
-		Namespace: "Task",
-		Migrations: lo.Map(
-			chain[:slices.Index(chain, lastApplied)+1],
-			func(key string, _ int) gorp.Migration {
-				return migrate.New(
-					key,
-					func(context.Context, gorp.Tx, alamos.Instrumentation) error {
-						return nil
-					},
-				)
-			},
-		),
+		Namespace: namespace,
+		Migrations: lo.Map(keys, func(key string, _ int) gorp.Migration {
+			return migrate.New(
+				key,
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					return nil
+				},
+			)
+		}),
 	})).To(Succeed())
 }
 
@@ -558,6 +568,65 @@ var _ = Describe("Layer", func() {
 			},
 			false,
 		),
+	)
+
+	It("Should move the fields of a stored HTTP read config into an ICD in one start",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			markTaskChain(ctx, db, "v62_task_drop_snapshot")
+			markApplied(
+				ctx,
+				db,
+				types.Name[httpv4.ReadConfig](),
+				httpv3.Migration.Key(),
+				httpv4.Migration.Key(),
+			)
+			key := uuid.New()
+			Expect(gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+				ctx,
+				taskv4.Task{Key: key, Name: "Tank farm", Type: "http_read"},
+			)).To(Succeed())
+			Expect(gorp.WrapWriter[uuid.UUID, httpv4.ReadConfig](db).Set(
+				ctx,
+				httpv4.ReadConfig{Key: key, Endpoints: []httpv4.ReadEndpoint{{
+					Key:    "ep",
+					Method: "GET",
+					Path:   "/level",
+					Fields: []httpv4.ReadField{{
+						Key:      "level",
+						Pointer:  "/level",
+						DataType: telem.Float64T,
+					}},
+				}}},
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			Expect(db.Get(httpv5.StagedFieldsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
+			var cfg http.ReadConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, http.ReadConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, http.ReadConfig](key)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Endpoints).To(HaveLen(1))
+			ep := cfg.Endpoints[0]
+			Expect(ep.Fields).To(HaveLen(1))
+			var ic icd.ICD
+			Expect(layer.ICD.NewRetrieve().
+				Where(icd.MatchKeys(*ep.ICD)).
+				Entry(&ic).
+				Exec(ctx, db)).To(Succeed())
+			Expect(ic.Name).To(Equal("Tank farm"))
+			Expect(ic.Messages).To(HaveLen(1))
+			Expect(ic.Messages[0].Name).To(Equal("GET /level"))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.HTTP.Read.Hash(ctx, db, key))))
+		},
 	)
 
 	It(
@@ -1137,5 +1206,36 @@ var _ = Describe("Auth methods", func() {
 			[]auth.Method{},
 			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
 		),
+		Entry(
+			"no OIDC without a provider",
+			[]auth.Method{auth.MethodPassword, auth.MethodOIDC},
+			[]auth.Method{auth.MethodPassword},
+		),
 	)
+	It("Should accept OIDC with a provider", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			OIDCProviders: []oidc.Provider{{
+				Name:     "idp",
+				Issuer:   "https://idp.example.com",
+				ClientID: "synnax",
+			}},
+		}))
+		Expect(layer.Auth.Methods()).To(Equal([]auth.Method{
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+			auth.MethodPassword,
+		}))
+	})
+	It("Should reject OIDC as the only method without a provider", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		Expect(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodOIDC},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("oidc needs at least one provider")),
+		))
+	})
 })

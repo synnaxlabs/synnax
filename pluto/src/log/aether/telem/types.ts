@@ -10,7 +10,7 @@
 import type { channel, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { type Source, sourceSpecZ } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 
 export interface LogEntry {
   channelKey: channel.Key;
@@ -22,7 +22,7 @@ export interface LogEntry {
   alignment?: bigint;
 }
 
-export interface LogSource extends Source<LogEntry[]> {
+export interface LogSource extends telem.Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
   /** Reads entries older than the oldest one, if the channels store any. */
   loadOlder?: () => void;
@@ -39,5 +39,5 @@ export interface LogSource extends Source<LogEntry[]> {
   resume?: () => void;
 }
 
-export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });
+export const logSourceSpecZ = telem.sourceSpecZ.extend({ valueType: z.literal("log") });
 export type LogSourceSpec = z.infer<typeof logSourceSpecZ>;

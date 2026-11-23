@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, ACTIONS, replayURL, type Visit } from "@/server/analytics";
-import type { License, Organization, Referral } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import type { Account } from "@/server/directory";
 import type { Denial } from "@/server/license/deny";
 import type { Fact } from "@/server/mail";
@@ -150,7 +150,7 @@ export const firstLogin = (
 /** claimed tells staff that someone opened a referral link while logged in. */
 export const claimed = (
   account: Omit<Account, "joinedAt">,
-  ref: Referral,
+  ref: schema.Referral,
   referrer: string,
 ): Note => ({
   title: "Referral claimed",
@@ -172,8 +172,8 @@ const DENIALS: Record<Denial, string> = {
 };
 
 export interface RefusalArgs {
-  organization: Organization;
-  license: License;
+  organization: schema.Organization;
+  license: schema.License;
   reason: Denial;
   /** actor is who tried to activate. */
   actor: Pick<Account, "name" | "email">;

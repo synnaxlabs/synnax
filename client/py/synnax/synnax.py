@@ -15,7 +15,6 @@ import os
 import threading
 import weakref
 from collections.abc import Callable
-from importlib.metadata import version as _version
 from typing import Self, overload
 
 from urllib3.exceptions import MaxRetryError
@@ -62,6 +61,7 @@ from synnax.exceptions import ValidationError
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
+from synnax.version import VERSION
 from x.exceptions import Registry
 from x.params import deprecate_positional
 
@@ -212,6 +212,7 @@ class Synnax(framer.Client):
             api_key=api_key,
         )
         registry = exceptions.create_registry()
+        self._registry = registry
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -241,7 +242,7 @@ class Synnax(framer.Client):
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
-            client_version=_version("synnax"),
+            client_version=VERSION,
             clock_skew_threshold=clock_skew_threshold,
             embedded=embedded,
         )
@@ -378,7 +379,7 @@ class Synnax(framer.Client):
 
     @_Lazy
     def icds(self) -> icd.Client:
-        return icd.Client(client=self._transport.unary)
+        return icd.Client(client=self._transport.unary, registry=self._registry)
 
     @_Lazy
     def imex(self) -> imex_.Client:

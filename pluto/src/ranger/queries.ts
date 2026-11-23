@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type color,
   label,
   query as clientQuery,
   ranger,
   type Synnax as SynnaxClient,
 } from "@synnaxlabs/client";
 import {
-  color,
   type CrudeTimeRange,
   deep,
   destructor,
@@ -346,7 +346,7 @@ export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangePara
 export interface SetColorParams {
   key: ranger.Key;
   /** The color of the range. Undefined clears it. */
-  color?: color.Color;
+  color?: color.Ref;
 }
 
 export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
@@ -356,7 +356,7 @@ export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
     const { key, color: value } = data;
     await client.ranges.dispatch(
       key,
-      ranger.set({ path: ["color"], value: value == null ? null : color.hex(value) }),
+      ranger.set({ path: ["color"], value: value ?? null }),
     );
     return data;
   },

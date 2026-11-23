@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
   color,
-  type direction,
   type location,
   primitive,
   resolveWindow,
@@ -33,8 +32,7 @@ import {
   useState,
 } from "react";
 
-import { canDropHaulItem, filterHaulItems } from "@/channel/types";
-import { CSS } from "@/css";
+import { Channel } from "@/channel";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -52,6 +50,7 @@ import {
   useLine,
   useLineCount,
   useName,
+  useRanges,
   useRedo,
   useRename,
   useRule,
@@ -69,6 +68,7 @@ import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import type { tooltip } from "@/lineplot/tooltip/aether";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
+import { Ranger } from "@/ranger";
 import { telem } from "@/telem/aether";
 import type { Viewport } from "@/viewport";
 
@@ -105,21 +105,75 @@ const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
   Triggers.useUndoRedo({ undo, redo, enabled });
 };
 
-const useAxisDrop = <K extends lineplot.AxisKey>(
-  axisKey: K,
-  direction: direction.Direction,
-  onDrop?: (key: K, keys: channel.Key[]) => void,
-): Haul.UseDropReturn =>
-  Haul.useDrop({
-    type: `channel_lineplot_${direction}_axis`,
-    canDrop: canDropHaulItem,
-    onDrop: ({ items }) => {
-      const dropped = filterHaulItems(items);
-      const keys = dropped.map(({ key }) => key);
-      onDrop?.(axisKey, keys);
-      return dropped;
-    },
-  });
+/**
+ * @returns a function that applies actions as one undo step on an editable plot, and
+ * returns false when the plot is not editable.
+ */
+const useEdit = (
+  key: lineplot.Key,
+  editable: boolean,
+): ((actions: lineplot.Action[]) => boolean) => {
+  const { dispatch } = useDispatch();
+  return (actions: lineplot.Action[]): boolean => {
+    if (!editable) return false;
+    if (actions.length > 0) dispatch({ key, actions });
+    return true;
+  };
+};
+
+// A drag source removes the items that a drop reports, so a drop reports only the
+// channels and ranges that the plot did not have.
+const newChannels = (
+  items: Channel.HaulItem[],
+  existing: channel.Key[],
+): Channel.HaulItem[] =>
+  items.filter(
+    ({ key }, i) =>
+      !existing.includes(key) && items.findIndex((item) => item.key === key) === i,
+  );
+
+const newRanges = (
+  items: Ranger.HaulItem[],
+  existing: ranger.Ref[],
+): Ranger.HaulItem[] =>
+  items.filter(
+    ({ key }, i) =>
+      !existing.some((r) => r.variant === "key" && r.key === key) &&
+      items.findIndex((item) => item.key === key) === i,
+  );
+
+const addChannels = (
+  axisKey: lineplot.YAxisKey,
+  items: Channel.HaulItem[],
+): lineplot.Action[] =>
+  items.map(({ key }) => lineplot.addChannel({ axisKey, channel: key }));
+
+const addRanges = (items: Ranger.HaulItem[]): lineplot.Action[] =>
+  items.map(({ key }) => lineplot.addRange({ range: { variant: "key", key } }));
+
+interface DropHighlight extends Omit<Haul.UseDragOverReturn, "over"> {
+  /** Set while a drag that the element can take is in progress. */
+  "data-droppable"?: true;
+  /** Set while a drag that the element can take is over it. */
+  "data-drag-over"?: true;
+}
+
+/**
+ * @returns props that mark a drop target while it can take the dragged items, and more
+ * strongly while the drag is over it.
+ */
+const useDropHighlight = (canDrop: Haul.CanDrop): DropHighlight => {
+  const { over, ...dragOverProps } = Haul.useDragOver();
+  const droppable = canDrop(Haul.useDraggingState());
+  return {
+    ...dragOverProps,
+    "data-droppable": droppable ? true : undefined,
+    "data-drag-over": droppable && over ? true : undefined,
+  };
+};
+
+const canDropChannelOrRange: Haul.CanDrop = (state) =>
+  Channel.canDropHaulItem(state) || Ranger.canDropHaulItem(state);
 
 /** @returns whether an x axis draws each range from its zero. */
 export const isRelative = ({ type, timeMode }: lineplot.Axis): boolean =>
@@ -211,9 +265,9 @@ const createTelemetry = (
 };
 
 // Line draws a stored line as one trace per range the plot shows. On an absolute x axis
-// the traces are styled alike, and only the first has a legend entry, under the stored
-// line's key. On a relative axis each trace takes its range's color and has its own
-// legend entry under the range.
+// the traces are styled alike and split the time between them, and only the first has
+// a legend entry, under the stored line's key. On a relative axis each trace takes its
+// range's color and has its own legend entry under the range.
 const Line = ({
   pKey,
   lineKey,
@@ -233,6 +287,7 @@ const Line = ({
             line={line}
             window={range.window}
             aetherKey={i === 0 ? line.key : `${line.key}/${i}`}
+            group={line.key}
             legend={i === 0}
             legendGroup={line.yAxis.toUpperCase()}
             visible={visible}
@@ -287,6 +342,7 @@ interface TraceProps {
   legendGroup: string;
   visible: boolean;
   zero?: TimeStamp;
+  group?: string;
   tooltipGroup?: string;
   tooltipLabel?: string;
   color?: color.Color;
@@ -302,6 +358,7 @@ const Trace = ({
   legendGroup,
   visible,
   zero,
+  group,
   tooltipGroup,
   tooltipLabel,
   color: traceColor,
@@ -330,6 +387,7 @@ const Trace = ({
       color={traceColor ?? line.color}
       strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
       zero={zero}
+      group={group}
       tooltipGroup={tooltipGroup}
       tooltipLabel={tooltipLabel}
       opacity={opacity}
@@ -366,7 +424,6 @@ interface LegendProps extends Pick<
   | "onRangeColorChange"
   | "onRangeVisibleChange"
   | "onHoverChange"
-  | "footer"
 > {
   pKey: lineplot.Key;
   editable: boolean;
@@ -484,25 +541,23 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
-  const handleDrop = (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
-    if (!editable) return;
-    const existing = new Set(channels);
-    const additions = dropped.filter((channel) => !existing.has(channel));
-    if (additions.length > 0)
-      dispatch({
-        key,
-        actions: additions.map((channel) => lineplot.addChannel({ axisKey, channel })),
-      });
-  };
+  const { axis, lineKeys, channels: existing } = useYAxis({ key, axisKey });
+  const edit = useEdit(key, editable);
+  const highlight = useDropHighlight(Channel.canDropHaulItem);
+  const dropProps = Haul.useDrop({
+    type: "channel_lineplot_y_axis",
+    canDrop: Channel.canDropHaulItem,
+    onDrop: ({ items }) => {
+      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      return edit(addChannels(axisKey, channels)) ? channels : [];
+    },
+  });
   const handleLabelChange = (label: string) =>
     editable &&
     dispatch({
       key,
       actions: [lineplot.setAxisLabel({ key: axisKey, label })],
     });
-  const dropProps = useAxisDrop(axisKey, "y", handleDrop);
-  const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = axis;
   return (
     <BaseYAxis
@@ -511,7 +566,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      {...highlight}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -546,15 +601,24 @@ const XAxis = ({
   relativeDisabled,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const handleDrop = (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
-    if (editable && channel != null)
-      dispatch({
-        key,
-        actions: [lineplot.setXChannel({ axisKey, channel })],
-      });
-  };
-  const dropProps = useAxisDrop(axisKey, "x", handleDrop);
-  const dragging = Haul.useDraggingState();
+  const edit = useEdit(key, editable);
+  const highlight = useDropHighlight(canDropChannelOrRange);
+  const plotRanges = useRanges({ key });
+  const dropProps = Haul.useDrop({
+    type: "lineplot_x_axis",
+    canDrop: canDropChannelOrRange,
+    onDrop: ({ items }) => {
+      // An X axis has one channel, so only the first dropped channel applies.
+      const channels = Channel.filterHaulItems(items).slice(0, 1);
+      const ranges = newRanges(Ranger.filterHaulItems(items), plotRanges);
+      const setChannel = channels.map(({ key }) =>
+        lineplot.setXChannel({ axisKey, channel: key }),
+      );
+      return edit([...setChannel, ...addRanges(ranges)])
+        ? [...channels, ...ranges]
+        : [];
+    },
+  });
   const axis = useXAxis({ key, axisKey });
   const { key: _, timeMode: __, ...axisConfig } = axis;
   const relative = !relativeDisabled && isRelative(axis);
@@ -571,7 +635,7 @@ const XAxis = ({
       type={relative ? "relative" : axisConfig.type}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      {...highlight}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >
@@ -588,9 +652,38 @@ const XAxis = ({
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
-      {!relative && <Range.Provider {...rangeProviderProps} />}
+      {!relative && (
+        <Range.Provider {...rangeProviderProps} breaksDisabled={axisKey !== "x1"} />
+      )}
     </BaseXAxis>
   );
+};
+
+const FIRST_Y_AXIS: lineplot.YAxisKey = "y1";
+
+interface PlotDrop extends Haul.UseDropReturn, DropHighlight {}
+
+/**
+ * Adds a channel dropped on the plot area to the first Y axis, and a range to the plot.
+ * Marks the plot area while it can take the dragged items, and more strongly while the
+ * drag is over it.
+ */
+const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
+  const edit = useEdit(key, editable);
+  const { channels: existing } = useYAxis({ key, axisKey: FIRST_Y_AXIS });
+  const plotRanges = useRanges({ key });
+  const highlight = useDropHighlight(canDropChannelOrRange);
+  const dropProps = Haul.useDrop({
+    type: "lineplot_plot",
+    canDrop: canDropChannelOrRange,
+    onDrop: ({ items }) => {
+      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      const ranges = newRanges(Ranger.filterHaulItems(items), plotRanges);
+      const actions = [...addChannels(FIRST_Y_AXIS, channels), ...addRanges(ranges)];
+      return edit(actions) ? [...channels, ...ranges] : [];
+    },
+  });
+  return { ...dropProps, ...highlight };
 };
 
 interface UseViewportResetParams {
@@ -633,7 +726,6 @@ export interface LinePlotProps extends FrameProps {
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
   initialViewport?: Viewport.UseProps["initial"];
-  onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
@@ -650,11 +742,9 @@ export interface LinePlotProps extends FrameProps {
    * Called when the user toggles a legend entry: a stored line on an absolute x axis,
    * or a line of one range (see traceKey) on a relative axis.
    */
-  onLineVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
-  onRangeVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onLineVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
+  onRangeVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
   onRangeColorChange?: (key: string, color: color.Color) => void;
-  /** Shown under the legend. */
-  legendFooter?: BaseLegendProps["footer"];
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;
   /** Draws a relative x axis as absolute. */
@@ -743,7 +833,6 @@ export const LinePlot = ({
   onLineVisibleChange,
   onRangeVisibleChange,
   onRangeColorChange,
-  legendFooter,
   onHoveredChange,
   relativeDisabled = false,
   children,
@@ -773,11 +862,13 @@ export const LinePlot = ({
     hiddenRanges,
     hiddenTraces,
   });
+  const plotDropProps = usePlotDrop(key, editable);
   return (
     <Frame
       ref={ref}
       viewportRef={viewportRef}
       loadingMessage={fetchingMessage(ranges)}
+      onViewportChange={onViewportChange}
       {...rest}
     >
       <HoverContext value={{ hover, hiddenRanges, hiddenTraces }}>
@@ -804,14 +895,13 @@ export const LinePlot = ({
         onRangeVisibleChange={onRangeVisibleChange}
         onRangeColorChange={onRangeColorChange}
         onHoverChange={setHoverKey}
-        footer={legendFooter}
       />
       <Title pKey={key} editable={editable} />
       <BaseViewport
         initial={initialViewport}
-        onChange={onViewportChange}
         triggers={viewportTriggers}
         ref={viewportRef}
+        {...plotDropProps}
       >
         {enableTooltip && (
           <Tooltip.Tooltip

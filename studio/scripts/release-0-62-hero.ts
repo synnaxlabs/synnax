@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type label,
   panel,
   type ranger,
   type Synnax,
@@ -106,7 +107,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   try {
     const { page } = session;
     await client.labels.create(
-      Object.entries(LABELS).map(([name, l]) => ({ name, ...l })),
+      Object.entries(LABELS).map(([name, { key, color }]): label.New => ({
+        name,
+        key,
+        color: { type: "fixed", value: color },
+      })),
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
@@ -122,7 +127,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     const campaign = await client.ranges.create({
       name: CAMPAIGN,
-      color: "#7C5CFF",
+      color: { type: "fixed", value: "#7C5CFF" },
       timeRange: new TimeRange(
         tests[0].timeRange.start.sub(TimeSpan.minutes(12)),
         TimeStamp.MAX,
@@ -171,7 +176,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const start = session.now();
     const test = await client.ranges.create({
       name: TEST,
-      color: "#3B7DDB",
+      color: { type: "fixed", value: "#3B7DDB" },
       timeRange: new TimeRange(start, TimeStamp.MAX),
       parent: campaign.key,
     });
@@ -184,13 +189,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await client.ranges.create([
       {
         name: "Pressurization",
-        color: "#3774D0",
+        color: { type: "fixed", value: "#3774D0" },
         timeRange: new TimeRange(start, flowing),
         parent: test.key,
       },
       {
         name: "Flow",
-        color: "#F5C400",
+        color: { type: "fixed", value: "#F5C400" },
         timeRange: new TimeRange(flowing, TimeStamp.MAX),
         parent: test.key,
       },

@@ -38,10 +38,7 @@ import {
   useState,
 } from "react";
 
-import { use } from "@/feature/kafka/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
-import { type Device, SCHEMAS } from "@/feature/kafka/device/types";
-import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
+import { Device } from "@/feature/kafka/device";
 import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
@@ -113,7 +110,7 @@ const renderStartOffsetSelect = Component.renderProp(SelectStartOffset);
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
@@ -149,9 +146,14 @@ const messagePrefix = (
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
 
-/** @returns the key of the device properties that store the channels of a message. */
-const storedKey = (topic: string, recordKey: string, message: icd.MessageKey): string =>
-  `${topic}#${recordKey}#${message}`;
+/** @returns the key of a record of topic in the read properties of a device. */
+const sourceKey = (topic: string, recordKey: string): string => `${topic}#${recordKey}`;
+
+/** @returns where the device stores the channels of the messages of a record. */
+const storedSource = (
+  topic: string,
+  { recordKey, messages }: Pick<ReadRecord, "recordKey" | "messages">,
+): ICD.Stored.Source => ({ key: sourceKey(topic, recordKey), messages });
 
 /** @returns the channels that enabled records bind. The Core skips disabled ones. */
 const writtenChannels = (topics: ReadTopic[]): Set<channel.Key> => {
@@ -254,7 +256,7 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
 
 /** @returns the props that the panels of a message of a record share. */
 const useMessageProps = (
-  device: Device,
+  device: Device.Device,
   topic: string,
   path: deep.Path<ReadRecord>,
   read: number,
@@ -280,7 +282,7 @@ interface MessagePanelProps {
   /** The index of the message in the record's reads. */
   read: number;
   format: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
 }
 
 const MessageSections = ({ device, topic, path, read, format }: MessagePanelProps) => {
@@ -290,6 +292,7 @@ const MessageSections = ({ device, topic, path, read, format }: MessagePanelProp
 
 interface MessageDetailsProps extends MessagePanelProps {
   onAddField: () => void;
+  bindDisabled: boolean;
 }
 
 const MessageDetails = ({
@@ -299,6 +302,7 @@ const MessageDetails = ({
   read,
   format,
   onAddField,
+  bindDisabled,
 }: MessageDetailsProps) => {
   const props = useMessageProps(device, topic, path, read);
   return (
@@ -308,6 +312,7 @@ const MessageDetails = ({
       matchTitle="Values"
       anyLabel="Any value"
       onAddField={onAddField}
+      addFieldDisabled={bindDisabled}
     />
   );
 };
@@ -342,11 +347,14 @@ interface RecordDetailsProps {
   topic: string;
   path: deep.Path<ReadRecord>;
   format: ICD.FormatForm;
-  device: Device;
+  device: Device.Device;
   /** Adds a field to the message of a record that reads one. */
   onAddField: () => void;
   /** Adds a message to the record, for values that its messages do not cover. */
   onAddMessage: () => void;
+  /** Reads a message of an ICD instead of the one message that the record reads. */
+  onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  bindDisabled: boolean;
 }
 
 /**
@@ -360,9 +368,12 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   device,
   onAddField,
   onAddMessage,
+  onFormatChange,
+  bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
   const reads = PForm.useFieldValue(path.messages);
+  const icdKey = PForm.useFieldValue(path.icd);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
     { optional: true, ctx: format },
@@ -375,7 +386,9 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && (
+                  <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
+                )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -390,6 +403,15 @@ const RecordDetails: FC<RecordDetailsProps> = ({
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
           />
+          {reads.length === 1 && (
+            <ICD.MessageFormatField
+              icdKey={icdKey}
+              message={reads[0].message}
+              onChange={onFormatChange}
+              disabled={bindDisabled}
+              preview={isPreview}
+            />
+          )}
         </PForm.Section>
         {reads.length === 1 && (
           <MessageSections
@@ -406,7 +428,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
 };
 
 interface RecordsProps {
-  device: Device;
+  device: Device.Device;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -432,6 +454,7 @@ const Records: FC<RecordsProps> = ({
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
   const stored = device.properties.read;
+  const { dataTypes, bindDisabled } = ICD.Stored.useDataTypes(stored);
   const pathOf = (record: string) =>
     recordPath(topicOf(ctx.get(root.config.topics).value, record), record);
   const {
@@ -443,6 +466,7 @@ const Records: FC<RecordsProps> = ({
     currentGroup,
     addField,
     addMessage,
+    setMessage,
   } = ICD.Tree.use({
     groups: {
       path: root.config.topics,
@@ -453,17 +477,24 @@ const Records: FC<RecordsProps> = ({
     pathOf,
     SourceItem: RecordItem,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled record reads it.
-    bindingOf: (key, read, { key: field, pointer }) => {
+    // unless an enabled record reads it. A record that reads one message also reuses
+    // the channels of its earlier messages, so a new message format keeps its channels.
+    bindDisabled,
+    bindingOf: (key, read, field) => {
       const all = ctx.get(root.config.topics).value;
-      const topic = ctx.get(topicPath(topicOf(all, key))).value;
-      const { recordKey, messages } = ctx.get(pathOf(key)).value;
-      const ch =
-        stored[storedKey(topic.name, recordKey, messages[read].message)]?.channels[
-          pointer
-        ] ?? 0;
-      const written = writtenChannels(all);
-      return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+      const topic = ctx.get(topicPath(topicOf(all, key))).value.name;
+      const rec = ctx.get(pathOf(key)).value;
+      const { message } = rec.messages[read];
+      const channels =
+        rec.messages.length === 1
+          ? ICD.Stored.channels(stored, storedSource(topic, rec), message)
+          : (ICD.Stored.of(stored, storedSource(topic, rec), read)?.channels ?? {});
+      return ICD.Stored.bindingsOf(
+        channels,
+        [field],
+        writtenChannels(all),
+        dataTypes,
+      )[0];
     },
     messageName: (key, held) => {
       const rec = ctx.get(pathOf(key)).value;
@@ -496,8 +527,8 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts messages in the ICD of the first record, or in a new ICD for a task with no
-   * record, then adds the records that read them to their topics.
+   * Puts messages in the ICD that the most records read, or in a new ICD for a task
+   * with no record, then adds the records that read them to their topics.
    * @param recordsOf - Returns the records to add to each topic, by topic name.
    */
   const addRecords = async (
@@ -505,13 +536,11 @@ const Records: FC<RecordsProps> = ({
     recordsOf: (icdKey: icd.Key) => Map<string, ReadRecord[]>,
   ) => {
     if (client == null) throw new DisconnectedError();
-    const first = records.at(0);
-    let icdKey: icd.Key;
-    if (first == null) {
+    let icdKey = ICD.mostRead(records);
+    if (icdKey == null) {
       const name = icdName(ctx.get(root.name).value);
       icdKey = (await client.icds.create({ name, messages })).key;
     } else {
-      icdKey = first.icd;
       const format = ICD.formatOf(formats, icdKey);
       let after = format.value().messages.at(-1)?.key;
       format.batch(() => {
@@ -521,6 +550,7 @@ const Records: FC<RecordsProps> = ({
         }
       });
     }
+    for (const { key } of messages) made.current.add(key);
     const added = recordsOf(icdKey);
     const keys = [...added].map(([topic, recs]) => pushRecords(topic, recs));
     const [{ key: shown }] = [...added.values()].flat();
@@ -528,10 +558,10 @@ const Records: FC<RecordsProps> = ({
     onExpand((prev) => unique.unique([...prev, ...keys, shown]));
   };
 
-  /** @returns the messages of the ICD of the first record. */
+  /** @returns the messages of the ICD that the most records read. */
   const heldMessages = (): icd.Message[] => {
-    const first = records.at(0);
-    return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
+    const home = ICD.mostRead(records);
+    return home == null ? [] : ICD.formatOf(formats, home).value().messages;
   };
 
   /** @returns the name of the topic of the selected item, or of the only topic. */
@@ -669,6 +699,7 @@ const Records: FC<RecordsProps> = ({
         format={format}
         device={device}
         onAddField={() => addField(rec.key, current.read)}
+        bindDisabled={bindDisabled}
       />
     );
   } else if (rec != null) {
@@ -684,6 +715,8 @@ const Records: FC<RecordsProps> = ({
           device={device}
           onAddField={() => addField(rec.key, 0)}
           onAddMessage={() => addMessage(rec.key)}
+          onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
+          bindDisabled={bindDisabled}
         />
       );
   }
@@ -723,7 +756,10 @@ interface BoundMessage extends ICD.BoundMessage<ReadRecord> {
 
 /** @returns the key of the device properties that store the channels of a message. */
 const storedKeyOf = ({ topic, source, read }: BoundMessage): string =>
-  storedKey(topic.name, source.recordKey, source.messages[read].message);
+  ICD.Stored.key(
+    sourceKey(topic.name, source.recordKey),
+    source.messages[read].message,
+  );
 
 /** @returns the prefix of the names of the channels that a message creates. */
 const prefixOf = (deviceName: string, { topic, source, read, message }: BoundMessage) =>
@@ -737,7 +773,7 @@ const prefixOf = (deviceName: string, { topic, source, read, message }: BoundMes
  */
 const planRead = async (
   client: Synnax,
-  dev: Pick<Device, "name" | "properties">,
+  dev: Pick<Device.Device, "name" | "properties">,
   bound: BoundMessage[],
   written: Set<channel.Key>,
   signal?: AbortSignal,
@@ -761,7 +797,7 @@ const planRead = async (
 };
 
 interface PlansProps extends PropsWithChildren {
-  device: Device;
+  device: Device.Device;
 }
 
 /**
@@ -804,7 +840,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
   return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
 };
 
-const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
   // The tree selects its first item, a topic, when nothing is selected.
@@ -850,15 +886,18 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 };
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
 
 /** Gives each field that an enabled record reads a channel, and binds it. */
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const enabled = config.topics.flatMap((topic) =>
     topic.records.filter(({ disabled }) => !disabled).map((rec) => ({ topic, rec })),
   );
@@ -888,7 +927,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         key: storedKeyOf(b),
       });
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

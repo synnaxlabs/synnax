@@ -12,9 +12,13 @@ import { array, id } from "@synnaxlabs/x";
 import type { policy } from "@/access/policy";
 import type { role } from "@/access/role";
 import type Synnax from "@/client";
+import type { SynnaxParams } from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil/client";
+import { createFileTestClient, createTestClient } from "@/testutil/client";
 import { user } from "@/user";
+
+/** The password of every user that the access helpers create. */
+export const TEST_USER_PASSWORD = "test";
 
 /** Reports whether the error, or any error in its cause chain, is an access denial. */
 const isDenial = (err: unknown): boolean =>
@@ -41,8 +45,9 @@ const connectAs = async (
   username: string,
   key: user.Key,
   onInternalError: (err: Error) => void = logAllButDenials,
+  create = createTestClient,
 ) => {
-  const client = createTestClient({ username, password: "test", onInternalError });
+  const client = create({ username, password: TEST_USER_PASSWORD, onInternalError });
   await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   return client;
 };
@@ -51,7 +56,7 @@ const createUser = async (client: Synnax, role: role.Key) => {
   const username = id.create();
   const u = await client.users.create({
     username,
-    password: "test",
+    password: TEST_USER_PASSWORD,
     name: "test",
     role,
   });
@@ -71,18 +76,25 @@ export type TestPolicy = Omit<policy.New, "role">;
  * policy cannot express.
  * @param onInternalError - Receives every internal error of the new client, denials
  * included. Omit it to tolerate denials.
+ * @param params - Further parameters of the new client.
  */
 export const createTestClientWithPolicy = async (
   client: Synnax,
   pol: TestPolicy | TestPolicy[],
   onInternalError?: (err: Error) => void,
+  params?: Partial<SynnaxParams>,
 ) => {
   const r = await createEmptyRole(client);
   await client.access.policies.create(
     array.toArray(pol).map((p) => ({ ...p, role: r.key })),
   );
   const u = await createUser(client, r.key);
-  return await connectAs(u.username, u.key, onInternalError);
+  return await connectAs(
+    u.username,
+    u.key,
+    onInternalError ?? params?.onInternalError,
+    (p) => createTestClient({ ...params, ...p }),
+  );
 };
 
 /** The roles the Core provisions on startup. */
@@ -105,12 +117,18 @@ export type BuiltInRole = (typeof BUILT_IN_ROLES)[number];
 export const createTestClientWithRole = async (
   client: Synnax,
   name: BuiltInRole,
+): Promise<Synnax> => await connectAsRole(client, name, createTestClient);
+
+const connectAsRole = async (
+  client: Synnax,
+  name: BuiltInRole,
+  create: typeof createTestClient,
 ): Promise<Synnax> => {
   const roles = await client.access.roles.retrieve({});
   const r = roles.find((r) => r.name === name);
   if (r == null) throw new NotFoundError(`no built-in role named ${name}`);
   const u = await createUser(client, r.key);
-  return await connectAs(u.username, u.key);
+  return await connectAs(u.username, u.key, undefined, create);
 };
 
 /**
@@ -129,7 +147,8 @@ export class RoleClients {
   async get(name: BuiltInRole): Promise<Synnax> {
     const existing = this.byRole.get(name);
     if (existing != null) return await existing;
-    const created = createTestClientWithRole(this.client, name);
+    // The cache outlives the test that fills it, so its clients do too.
+    const created = connectAsRole(this.client, name, createFileTestClient);
     this.byRole.set(name, created);
     return await created;
   }

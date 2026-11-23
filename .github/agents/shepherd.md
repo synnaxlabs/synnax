@@ -25,9 +25,16 @@ When CI failed on the head:
 
 1. Read the failed jobs: `gh run view <run> --log-failed`.
 2. Find the cause and fix it in one place. Run the failed check locally when you can.
-3. When the failure does not come from this pull request (a flake, an outage, a break on
-   `main`), change nothing. For a flake, put the line `<!-- agent:rerun -->` in your
-   last message. The workflow then reruns the failed jobs.
+3. When the failure does not come from this pull request, change no code:
+   - For a flake or an outage, put the line `<!-- agent:rerun -->` in your last message.
+     The workflow then reruns the failed jobs.
+   - For a break on the base branch, a rerun tests the same merge commit again, so it
+     never sees a later fix. The checkout step of the failed job names the merge commit
+     as `Merge <head> into <tested base>`. `--log-failed` leaves out passed steps, so
+     read it with `gh run view <run> --job <job> --log`. Run `git fetch origin <base>`
+     and read `git log <tested base>..origin/<base>`. When a commit there fixes the
+     failure, merge the base branch as in step 1 and push: the push runs CI on the fixed
+     base. When none does, name the break in your last message for a person.
 
 ## 3. Fix CodeQL alerts
 
@@ -96,7 +103,9 @@ You deliver the work yourself, as your GitHub App.
    head ended `failure` or `cancelled`, name it in your comment for a person.
 5. Comment on the pull request with `gh pr comment`. Start the comment with the line
    `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
-   each one with its fix or the reason you left it. Keep it short: what you merged,
-   fixed, and answered, and the decisions a person must make.
+   each one with its fix or the reason you left it. When one is wrong, give the evidence
+   and mention `@sedosaur`. The review of your push may have read the comments already,
+   so ask a person in the comment to run a `repeat=true` review. Keep it short: what you
+   merged, fixed, and answered, and the decisions a person must make.
 
 Your last message is the run report. Keep it to a few lines.

@@ -19,10 +19,10 @@ import { List } from "@synnaxlabs/lyra/list";
 import { color, id, map, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
@@ -51,7 +51,7 @@ describe("useList", () => {
   beforeEach(async () => {
     lbl = await client.labels.create({
       name: uuid.create(),
-      color: color.construct("#000000"),
+      color: { type: "fixed", value: color.construct("#000000") },
     });
   });
 
@@ -59,6 +59,27 @@ describe("useList", () => {
     where: { labels: [lbl.key] },
     order: { field: "name", descending: false },
   });
+
+  /** Holds the animation frames until the test advances them. */
+  const holdFrames = (): void => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+  };
+
+  const nextFrame = (): void =>
+    act(() => {
+      vi.advanceTimersToNextFrame();
+    });
+
+  /** @returns a read that first advances one held frame, for `expect.poll`. */
+  const framed =
+    <T,>(read: () => T): (() => T) =>
+    () => {
+      nextFrame();
+      return read();
+    };
 
   // A late change signal from a create reads that one range by key. Only a read in the
   // list's order is a list read.
@@ -257,6 +278,40 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([a.key]));
   });
 
+  it("should render the changes of one frame once", async () => {
+    const remote = createTestClient();
+    const a = await create("a");
+    holdFrames();
+    let commits = 0;
+    const { result } = renderHook(
+      () => {
+        useEffect(() => {
+          commits++;
+        });
+        return Flux.useList(ranges, { name: "ranges", query: byName() });
+      },
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await expect.poll(framed(() => result.current.data)).toEqual([a.key]);
+    await waitFor(() => expect(result.current.variant).toBe("success"));
+    nextFrame();
+    const before = commits;
+    const b = await remote.ranges.create({
+      name: "b",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [lbl.key],
+    });
+    await remote.ranges.rename(a.key, "c");
+    // getItem reads the window at call time, so it sees both changes before a render.
+    // expect.poll advances held frames, so the waits use waitFor.
+    await waitFor(() => expect(result.current.getItem(a.key)?.name).toBe("c"));
+    expect(result.current.getItem(b.key)).toBeDefined();
+    expect(commits).toBe(before);
+    nextFrame();
+    expect(result.current.data).toEqual([b.key, a.key]);
+    expect(commits).toBe(before + 1);
+  });
   it("should read the next page on more", async () => {
     const a = await create("a");
     const b = await create("b");
@@ -392,6 +447,102 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([b.key]));
   });
 
+  it("should read past a page that the filter hides whole", async () => {
+    const a = await create("a");
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, z.key]));
+  });
+
+  it("should read past a first page that the filter hides whole", async () => {
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([z.key]));
+  });
+
+  it("should read on when a shown record leaves during a read past a hidden page", async () => {
+    const a = await create("a");
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const local = createTestClient();
+    await waitForStreamLive(local.connection);
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+    let reads = 0;
+    // Holds the second page read past a, which fetches h2.
+    const { responded, release } = holdResponses(
+      local,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null &&
+        ++reads === 2,
+    );
+    act(() => result.current.more());
+    await responded;
+    await client.ranges.delete(a.key);
+    await waitFor(() => expect(result.current.data).toEqual([]));
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([z.key]));
+  });
+
+  it("should stop at the end of a list that the filter hides whole", async () => {
+    await create("h1");
+    await create("h2");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => {
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.complete).toBe(true);
+    });
+    expect(result.current.data).toEqual([]);
+  });
+
   it("should fetch a subscribed record outside the list", async () => {
     const outside = await client.ranges.create({
       name: "outside",
@@ -416,29 +567,180 @@ describe("useList", () => {
     release();
   });
 
+  it("should not call a subscriber that released before its read lands", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const reader = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: reader }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    const send = spyOnSend(reader);
+    const callback = vi.fn();
+    result.current.subscribe(callback, outside.key)();
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    await Promise.allSettled(send.mock.results.map(({ value }) => value));
+    await act(async () => {});
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("should not log the failed read of a subscriber that released", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    // With no change stream, a change from another spec starts no fetch that the
+    // rejection below would fail.
+    const reader = createTestClient({ cache: false });
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: reader }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    const reads = rejectRequests(
+      reader,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order == null,
+      new Error("boom"),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const callback = vi.fn();
+    result.current.subscribe(callback, outside.key)();
+    await waitFor(() =>
+      expect(
+        reads.mock.calls.some(
+          ([target, req]) =>
+            target === "/range/retrieve" &&
+            ranger.retrieveRequestZ.parse(req).order == null,
+        ),
+      ).toBe(true),
+    );
+    await act(async () => {});
+    expect(error).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("should call a reader of many keys once for each change of the list", async () => {
     const records = [await create("a"), await create("b"), await create("c")];
+    holdFrames();
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper },
     );
     act(() => result.current.more());
-    await waitFor(() => expect(result.current.data).toHaveLength(3));
-    // A first subscriber fetches each record, so the fetches call no counted reader.
+    await expect.poll(framed(() => result.current.data)).toHaveLength(3);
+    nextFrame();
+    // The first subscriber fetches each record. The fetches call it once, in a frame.
     const fetched = vi.fn();
     const releases = records.map(({ key }) => result.current.subscribe(fetched, key));
-    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      records.forEach(({ key }) =>
+        expect(client.ranges.watch(key).getCached()).toBeDefined(),
+      ),
+    );
+    expect(fetched).not.toHaveBeenCalled();
+    nextFrame();
+    nextFrame();
+    expect(fetched).toHaveBeenCalledTimes(1);
     const many = vi.fn();
     const one = vi.fn();
     releases.push(...records.map(({ key }) => result.current.subscribe(many, key)));
     releases.push(result.current.subscribe(one, records[0].key));
-    await create("d");
-    await waitFor(() => expect(result.current.data).toHaveLength(4));
-    expect(one).toHaveBeenCalled();
-    expect(many).toHaveBeenCalledTimes(one.mock.calls.length);
+    const d = await create("d");
+    await waitFor(() => expect(result.current.getItem(d.key)).toBeDefined());
+    nextFrame();
+    expect(result.current.data).toHaveLength(4);
+    expect(one).toHaveBeenCalledTimes(1);
+    expect(many).toHaveBeenCalledTimes(1);
+    releases.forEach((release) => release());
+  });
+  it("should call a reader once for the first fetches of records outside the list", async () => {
+    const remote = createTestClient();
+    const outside = await remote.ranges.create(
+      ["x", "y", "z"].map((name) => ({
+        name,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      })),
+    );
+    holdFrames();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    const reader = vi.fn();
+    const releases = outside.map(({ key }) => result.current.subscribe(reader, key));
+    await waitFor(() =>
+      outside.forEach(({ key }) => expect(result.current.getItem(key)).toBeDefined()),
+    );
+    expect(reader).not.toHaveBeenCalled();
+    nextFrame();
+    nextFrame();
+    expect(reader).toHaveBeenCalledTimes(1);
     releases.forEach((release) => release());
   });
 
+  it("should call a reader once at the frame for the record changes in it", async () => {
+    const remote = createTestClient();
+    const records = [await create("a"), await create("b")];
+    holdFrames();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await expect.poll(framed(() => result.current.data)).toHaveLength(2);
+    const reader = vi.fn();
+    const releases = records.map(({ key }) => result.current.subscribe(reader, key));
+    await waitFor(() =>
+      records.forEach(({ key }) =>
+        expect(client.ranges.watch(key).getCached()).toBeDefined(),
+      ),
+    );
+    nextFrame();
+    reader.mockClear();
+    await remote.ranges.rename(records[0].key, "a2");
+    await remote.ranges.rename(records[1].key, "b2");
+    await waitFor(() =>
+      expect(result.current.getItem(records[1].key)?.name).toBe("b2"),
+    );
+    expect(reader).not.toHaveBeenCalled();
+    nextFrame();
+    expect(reader).toHaveBeenCalledTimes(1);
+    releases.forEach((release) => release());
+  });
+  it("should not call a reader released while its frame is pending", async () => {
+    const remote = createTestClient();
+    const a = await create("a");
+    holdFrames();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await expect.poll(framed(() => result.current.data)).toEqual([a.key]);
+    const released = vi.fn();
+    const kept = vi.fn();
+    const release = result.current.subscribe(released, a.key);
+    const keep = result.current.subscribe(kept, a.key);
+    await waitFor(() => expect(client.ranges.watch(a.key).getCached()).toBeDefined());
+    nextFrame();
+    released.mockClear();
+    kept.mockClear();
+    await remote.ranges.rename(a.key, "a2");
+    await waitFor(() => expect(result.current.getItem(a.key)?.name).toBe("a2"));
+    release();
+    nextFrame();
+    expect(kept).toHaveBeenCalledTimes(1);
+    expect(released).not.toHaveBeenCalled();
+    keep();
+  });
   it("should read nothing before the first more or search", async () => {
     await create("a");
     const { result } = renderHook(
@@ -470,6 +772,22 @@ describe("useList", () => {
     expect(result.current.complete).toBe(false);
     act(() => result.current.more());
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+  });
+
+  it("should drop a pending search when it unmounts", () => {
+    // No client, so every timer left pending belongs to the list.
+    const { result, unmount } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges" }),
+      { wrapper: createSynnaxWrapper({ client: null }) },
+    );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      act(() => result.current.search(randomWord()));
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should start the list on a search", async () => {

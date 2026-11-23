@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from review import Target, Unrestorable, render, restore
+from review import Outcome, Target, Unrestorable, render, restore
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -65,9 +65,14 @@ class FakeGH:
                 "app": {"slug": "sedosaur"},
                 "external_id": KEY,
                 "started_at": "2026-11-18T05:00:00Z",
+                "status": "completed",
                 "conclusion": "success",
             }
         ]
+        self.relays: list[str] = []
+        """The IDs of the relay runs for HEAD that are queued or running."""
+        self.reviews: list[str] = []
+        """The titles of the review runs that are queued or running."""
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
 
     @property
@@ -85,6 +90,13 @@ class FakeGH:
             return lines(self.edits)
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
+        if path.startswith(f"repos/{REPO}/actions/workflows/relay.sedosaur.yaml/runs?"):
+            assert f"head_sha={HEAD}" in path
+            return "".join(f"{r}\n" for r in self.relays)
+        if path.startswith(
+            f"repos/{REPO}/actions/workflows/review.sedosaur.yaml/runs?"
+        ):
+            return "".join(f"{r}\n" for r in self.reviews)
         if path == f"repos/{REPO}/pulls/7":
             body = self.bodies.pop(0) if len(self.bodies) > 1 else self.body
             return json.dumps({"head": self.head, "body": body}) + "\n"
@@ -111,7 +123,7 @@ def gh() -> FakeGH:
     return FakeGH()
 
 
-def run(gh: FakeGH) -> bool:
+def run(gh: FakeGH) -> Outcome:
     return restore(TARGET, gh, key=KEY, writer=gh.writer)
 
 
@@ -119,7 +131,7 @@ class TestRestore:
     """Tests putting the bot's last summary back in the pull request body."""
 
     def test_should_put_back_the_summary_the_bot_wrote_last(self, gh: FakeGH) -> None:
-        assert run(gh)
+        assert run(gh) == Outcome.RESTORED
         assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     def test_should_leave_the_rest_of_the_body_the_same(self, gh: FakeGH) -> None:
@@ -134,18 +146,41 @@ class TestRestore:
 
     def test_should_write_nothing_when_the_body_holds_it(self, gh: FakeGH) -> None:
         gh.body = f"{TEXT}\n\n{block(HEAD, 5)}"
-        assert not run(gh)
+        assert run(gh) == Outcome.PRESENT
         assert gh.written() is None
 
-    def test_should_fail_when_the_head_has_no_review(self, gh: FakeGH) -> None:
+    def test_should_write_nothing_while_the_relay_waits(self, gh: FakeGH) -> None:
         gh.runs = []
-        with pytest.raises(Unrestorable, match=f"no finished review of {HEAD}"):
+        gh.relays = ["11"]
+        assert run(gh) == Outcome.PENDING
+        assert gh.written() is None
+
+    def test_should_write_nothing_while_a_review_is_queued(self, gh: FakeGH) -> None:
+        gh.runs = []
+        gh.reviews = ["7 repeat"]
+        assert run(gh) == Outcome.PENDING
+        assert gh.written() is None
+
+    def test_should_fail_when_no_review_is_on_the_way(self, gh: FakeGH) -> None:
+        gh.runs = []
+        with pytest.raises(Unrestorable, match=f"no review of {HEAD} on the way"):
             run(gh)
+        assert gh.written() is None
+
+    def test_should_not_count_a_replay_or_restore_as_a_review(self, gh: FakeGH) -> None:
+        gh.runs = []
+        gh.reviews = ["7 replay", "7 restore", "70"]
+        with pytest.raises(Unrestorable, match="on the way"):
+            run(gh)
+
+    def test_should_write_nothing_while_the_review_runs(self, gh: FakeGH) -> None:
+        gh.runs[0]["status"] = "in_progress"
+        assert run(gh) == Outcome.PENDING
         assert gh.written() is None
 
     def test_should_fail_when_the_review_of_the_head_failed(self, gh: FakeGH) -> None:
         gh.runs[0]["conclusion"] = "failure"
-        with pytest.raises(Unrestorable, match="no finished review"):
+        with pytest.raises(Unrestorable, match=f"review of {HEAD} failed"):
             run(gh)
 
     def test_should_fail_when_the_bot_wrote_no_summary(self, gh: FakeGH) -> None:
@@ -192,7 +227,17 @@ class TestMain:
         assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     @pytest.mark.usefixtures("env")
-    def test_should_exit_with_an_error_without_a_review(self, gh: FakeGH) -> None:
+    def test_should_succeed_while_a_review_is_on_the_way(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         gh.runs = []
-        with pytest.raises(SystemExit, match="::error::Sedosaur has no finished"):
+        gh.relays = ["11"]
+        main(["restore"])
+        assert capsys.readouterr().out == f"{Outcome.PENDING.value}\n"
+        assert gh.written() is None
+
+    @pytest.mark.usefixtures("env")
+    def test_should_exit_with_an_error_after_a_failed_review(self, gh: FakeGH) -> None:
+        gh.runs[0]["conclusion"] = "failure"
+        with pytest.raises(SystemExit, match=f"::error::Sedosaur's review of {HEAD}"):
             main(["restore"])

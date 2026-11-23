@@ -58,10 +58,39 @@ type FieldIdentifier = versions.FieldIdentifier
 // BaseField carries the parts every message field shares.
 type BaseField = versions.BaseField
 
-// BinaryField is a field read from a bit range of a binary payload.
+// BinaryField is a field read from a bit range of a binary payload. With no default, a
+// write needs a channel.
 type BinaryField = versions.BinaryField
 
-// TextField is a field read from a text line.
+// BinaryFieldVariant is implemented by every BinaryField variant.
+type BinaryFieldVariant = versions.BinaryFieldVariant
+
+// BinaryFieldType is the "kind" value that selects a variant of BinaryField.
+type BinaryFieldType = versions.BinaryFieldType
+
+const (
+	// FloatBinaryFieldType is a field whose raw bits are an IEEE 754 float of 32 or 64
+	// bits.
+	FloatBinaryFieldType BinaryFieldType = versions.FloatBinaryFieldType
+	// IntegerBinaryFieldType is a field whose raw bits are a two's complement integer.
+	IntegerBinaryFieldType BinaryFieldType = versions.IntegerBinaryFieldType
+	// UnsignedBinaryFieldType is a field whose raw bits are an unsigned integer.
+	UnsignedBinaryFieldType BinaryFieldType = versions.UnsignedBinaryFieldType
+)
+
+// FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64 bits.
+type FloatBinaryField = versions.FloatBinaryField
+
+// IntegerBinaryField is a field whose raw bits are a two's complement integer.
+type IntegerBinaryField = versions.IntegerBinaryField
+
+// UnsignedBinaryField is a field whose raw bits are an unsigned integer.
+type UnsignedBinaryField = versions.UnsignedBinaryField
+
+// TextBaseField carries the parts every text field shares.
+type TextBaseField = versions.TextBaseField
+
+// TextField is a field read from a text line. With no default, a write needs a channel.
 type TextField = versions.TextField
 
 // TextFieldVariant is implemented by every TextField variant.
@@ -83,10 +112,55 @@ type DelimitedTextField = versions.DelimitedTextField
 // TaggedTextField is a field read from the text that follows a tag.
 type TaggedTextField = versions.TaggedTextField
 
+// TimestampDefault is the default of a timestamp field.
+type TimestampDefault = versions.TimestampDefault
+
+// TimestampDefaultVariant is implemented by every TimestampDefault variant.
+type TimestampDefaultVariant = versions.TimestampDefaultVariant
+
+// TimestampDefaultType is the "type" value that selects a variant of TimestampDefault.
+type TimestampDefaultType = versions.TimestampDefaultType
+
+const (
+	// ConstantTimestampDefaultType is one fixed timestamp.
+	ConstantTimestampDefaultType TimestampDefaultType = versions.ConstantTimestampDefaultType
+	// NowTimestampDefaultType is the time of each read or write.
+	NowTimestampDefaultType TimestampDefaultType = versions.NowTimestampDefaultType
+)
+
+// ConstantTimestampDefault is one fixed timestamp.
+type ConstantTimestampDefault = versions.ConstantTimestampDefault
+
+// NowTimestampDefault is the time of each read or write.
+type NowTimestampDefault = versions.NowTimestampDefault
+
+// UUIDDefault is the default of a UUID field.
+type UUIDDefault = versions.UUIDDefault
+
+// UUIDDefaultVariant is implemented by every UUIDDefault variant.
+type UUIDDefaultVariant = versions.UUIDDefaultVariant
+
+// UUIDDefaultType is the "type" value that selects a variant of UUIDDefault.
+type UUIDDefaultType = versions.UUIDDefaultType
+
+const (
+	// ConstantUUIDDefaultType is one fixed UUID.
+	ConstantUUIDDefaultType UUIDDefaultType = versions.ConstantUUIDDefaultType
+	// RandomUUIDDefaultType is a new random UUID for each read or write.
+	RandomUUIDDefaultType UUIDDefaultType = versions.RandomUUIDDefaultType
+)
+
+// ConstantUUIDDefault is one fixed UUID.
+type ConstantUUIDDefault = versions.ConstantUUIDDefault
+
+// RandomUUIDDefault is a new random UUID for each read or write.
+type RandomUUIDDefault = versions.RandomUUIDDefault
+
 // JSONBaseField carries the parts every JSON field shares.
 type JSONBaseField = versions.JSONBaseField
 
-// JSONField is a field read from a JSON document.
+// JSONField is a field read from a JSON document. With no default, a read needs its
+// value and a write needs a channel.
 type JSONField = versions.JSONField
 
 // JSONFieldVariant is implemented by every JSONField variant.
@@ -142,6 +216,9 @@ const (
 	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
 	// BooleanJSONMatchType matches an equal JSON boolean.
 	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+	// PresentJSONMatchType matches a document that holds a value other than null at the
+	// pointer.
+	PresentJSONMatchType JSONMatchType = versions.PresentJSONMatchType
 )
 
 // FloatJSONMatch matches a JSON number equal to a float.
@@ -158,6 +235,10 @@ type StringJSONMatch = versions.StringJSONMatch
 
 // BooleanJSONMatch matches an equal JSON boolean.
 type BooleanJSONMatch = versions.BooleanJSONMatch
+
+// PresentJSONMatch matches a document that holds a value other than null at the
+// pointer.
+type PresentJSONMatch = versions.PresentJSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload
@@ -186,6 +267,71 @@ type ReadBinding = versions.ReadBinding
 
 // ReadMessage reads one message of an ICD.
 type ReadMessage = versions.ReadMessage
+
+// WriteValue is a fixed value that a write binding sends as its field. Its type is the
+// kind of the field.
+type WriteValue = versions.WriteValue
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant = versions.WriteValueVariant
+
+// FloatWriteValue is a fixed float.
+type FloatWriteValue = versions.FloatWriteValue
+
+// IntegerWriteValue is a fixed signed integer.
+type IntegerWriteValue = versions.IntegerWriteValue
+
+// UnsignedWriteValue is a fixed unsigned integer.
+type UnsignedWriteValue = versions.UnsignedWriteValue
+
+// StringWriteValue is a fixed string.
+type StringWriteValue = versions.StringWriteValue
+
+// BooleanWriteValue is a fixed boolean.
+type BooleanWriteValue = versions.BooleanWriteValue
+
+// TimestampWriteValue is a fixed timestamp.
+type TimestampWriteValue = versions.TimestampWriteValue
+
+// JSONWriteValue is a fixed JSON value.
+type JSONWriteValue = versions.JSONWriteValue
+
+// UuidWriteValue is a fixed UUID.
+type UuidWriteValue = versions.UuidWriteValue
+
+// BytesWriteValue is fixed bytes.
+type BytesWriteValue = versions.BytesWriteValue
+
+// WriteBaseBinding carries the parts every write binding shares.
+type WriteBaseBinding = versions.WriteBaseBinding
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding = versions.WriteBinding
+
+// WriteBindingVariant is implemented by every WriteBinding variant.
+type WriteBindingVariant = versions.WriteBindingVariant
+
+// WriteBindingType is the "type" value that selects a variant of WriteBinding.
+type WriteBindingType = versions.WriteBindingType
+
+const (
+	// ChannelWriteBindingType fills a field with the values of a command channel.
+	ChannelWriteBindingType WriteBindingType = versions.ChannelWriteBindingType
+	// ValueWriteBindingType fills a field with a fixed value.
+	ValueWriteBindingType WriteBindingType = versions.ValueWriteBindingType
+)
+
+// ChannelWriteBinding fills a field with the values of a command channel.
+type ChannelWriteBinding = versions.ChannelWriteBinding
+
+// ValueWriteBinding fills a field with a fixed value.
+type ValueWriteBinding = versions.ValueWriteBinding
+
+// WriteMessage sends one message of an ICD.
+type WriteMessage = versions.WriteMessage
+
+// BinaryBaseField carries the parts every binary field shares.
+type BinaryBaseField = versions.BinaryBaseField
 
 // ImportFormat is the file format of an ICD that an import reads.
 type ImportFormat string

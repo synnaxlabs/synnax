@@ -17,9 +17,10 @@ import {
 import { type KeyboardEvent, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
-import { useRegistryContext } from "@/select/registry";
+import { openContextMenu } from "@/menu/keyboard";
+import { useRegistryContext, useSearching } from "@/select/registry";
 import {
   type Cursor,
   type SelectionOrder,
@@ -115,14 +116,26 @@ export interface UseReturn<K extends record.Key> extends Omit<
   clear: () => void;
 }
 
-// The registry holds keys of every selection's type, so the order narrows them to K.
-const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
+/**
+ * @returns a function that finds the element of an option, fixed or in the list, or
+ * undefined when the option is not rendered.
+ */
+export const useGetElement = (): ((key: record.Key) => HTMLElement | undefined) => {
+  const registry = useRegistryContext("Select.Frame");
+  const getRowElement = List.useGetElement();
+  return (key) =>
+    registry.hasItem(key)
+      ? (registry.getElement(key) ?? undefined)
+      : getRowElement(key);
+};
+
+/** Reads and acts on the options of the enclosing select by key. */
+export const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
-  const getRowElement = List.useGetElement();
+  const getElement = useGetElement();
+  // The registry holds keys of every selection's type, so the order narrows them to K.
   const getOrder = () => registry.getOrder(getData()) as K[];
-  const getElement = (key: K) =>
-    registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
   const scrollTo = (key: K, direction: location.Y) => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
@@ -135,16 +148,7 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     );
   const contextMenu = (key: K) => {
     const element = getElement(key);
-    if (element == null) return;
-    const { left, bottom } = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: left,
-        clientY: bottom,
-      }),
-    );
+    if (element != null) openContextMenu(element);
   };
   return {
     getOrder,
@@ -161,6 +165,16 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
       };
     },
   };
+};
+
+// The keys a cursor starts from. A search lists its matches in their own order, so a
+// hover then starts at the first match.
+const useCursorStart = <K extends record.Key>(
+  selected: K[],
+  cursor: Cursor | undefined,
+): K[] => {
+  const searching = useSearching();
+  return searching && cursor !== "selection" ? [] : selected;
 };
 
 /**
@@ -183,9 +197,10 @@ export const useSingle = <K extends record.Key>({
   const order = useOrder<K>();
   const { getOrder, subscribe } = order;
   const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
+  const selected = useCursorStart(value == null ? [] : [value], cursor);
   const { setCursor, target, ...rest } = useCursor({
     order,
-    selected: value == null ? [] : [value],
+    selected,
     select: (key) => setSelected([key]),
     initialHover,
     cursor,
@@ -248,9 +263,10 @@ export const useMultiple = <K extends record.Key>({
     shiftValueRef.current = key;
     onChange([key], { clicked: null });
   };
+  const selected = useCursorStart(value, cursor);
   const { setCursor, target, ...rest } = useCursor({
     order,
-    selected: value,
+    selected,
     select,
     initialHover,
     cursor,

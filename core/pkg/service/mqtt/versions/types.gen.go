@@ -95,6 +95,50 @@ type SparkplugReadEntry = v3.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = v3.ReadConfig
 
+// BaseWriteTarget carries the fields every write target shares.
+type BaseWriteTarget = v3.BaseWriteTarget
+
+// WriteTarget is a single destination of an MQTT write task. The type field selects a
+// plain topic that publishes an ICD message or a Sparkplug B tag command.
+type WriteTarget = v3.WriteTarget
+
+// WriteTargetVariant is implemented by every WriteTarget variant.
+type WriteTargetVariant = v3.WriteTargetVariant
+
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
+type WriteTargetType = v3.WriteTargetType
+
+const (
+	// PlainWriteTargetType publishes the JSON documents of one ICD message to one
+	// topic.
+	PlainWriteTargetType WriteTargetType = v3.PlainWriteTargetType
+	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
+	SparkplugWriteTargetType WriteTargetType = v3.SparkplugWriteTargetType
+)
+
+// PlainWriteTarget publishes the JSON documents of one ICD message to one topic.
+type PlainWriteTarget = v3.PlainWriteTarget
+
+// SparkplugWriteTarget sends a Sparkplug B command for one tag.
+type SparkplugWriteTarget = v3.SparkplugWriteTarget
+
+// WriteConfig configures an MQTT write task, which publishes a message whenever a value
+// is written to the command channel of a target.
+type WriteConfig = v3.WriteConfig
+
+// ScanConfig configures an MQTT scan task.
+type ScanConfig = v3.ScanConfig
+
+// EdgeTag is a single tag published by a Sparkplug B edge node task.
+type EdgeTag = v3.EdgeTag
+
+// EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
+// as the tags of one edge node and writes inbound tag commands to Synnax channels.
+type EdgeConfig = v3.EdgeConfig
+
+// ReadField is a single value extracted from the JSON payload of a topic.
+type ReadField = v3.ReadField
+
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = v3.ChannelField
 
@@ -125,45 +169,8 @@ type StaticWriteField = v3.StaticWriteField
 // GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
 type GeneratedWriteField = v3.GeneratedWriteField
 
-// BaseWriteTarget carries the fields every write target shares.
-type BaseWriteTarget = v3.BaseWriteTarget
+// InlineTarget is a plain target from before ICDs, which held its payload inline.
+type InlineTarget = v3.InlineTarget
 
-// WriteTarget is a single destination of an MQTT write task. The type field selects a
-// plain topic with a JSON payload or a Sparkplug B tag command.
-type WriteTarget = v3.WriteTarget
-
-// WriteTargetVariant is implemented by every WriteTarget variant.
-type WriteTargetVariant = v3.WriteTargetVariant
-
-// WriteTargetType is the "type" value that selects a variant of WriteTarget.
-type WriteTargetType = v3.WriteTargetType
-
-const (
-	// PlainWriteTargetType publishes a JSON payload to one topic.
-	PlainWriteTargetType WriteTargetType = v3.PlainWriteTargetType
-	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
-	SparkplugWriteTargetType WriteTargetType = v3.SparkplugWriteTargetType
-)
-
-// PlainWriteTarget publishes a JSON payload to one topic.
-type PlainWriteTarget = v3.PlainWriteTarget
-
-// SparkplugWriteTarget sends a Sparkplug B command for one tag.
-type SparkplugWriteTarget = v3.SparkplugWriteTarget
-
-// WriteConfig configures an MQTT write task, which publishes a message whenever a value
-// is written to the command channel of a target.
-type WriteConfig = v3.WriteConfig
-
-// ScanConfig configures an MQTT scan task.
-type ScanConfig = v3.ScanConfig
-
-// EdgeTag is a single tag published by a Sparkplug B edge node task.
-type EdgeTag = v3.EdgeTag
-
-// EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
-// as the tags of one edge node and writes inbound tag commands to Synnax channels.
-type EdgeConfig = v3.EdgeConfig
-
-// ReadField is a single value extracted from the JSON payload of a topic.
-type ReadField = v3.ReadField
+// InlineWrite holds the plain targets of a write config from before ICDs.
+type InlineWrite = v3.InlineWrite

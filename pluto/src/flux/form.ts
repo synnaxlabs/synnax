@@ -42,17 +42,7 @@ import {
   type ResultStatus,
   successResult,
 } from "@/flux/result";
-import {
-  fulfilled,
-  invalidate,
-  type LocalCache,
-  localFor,
-  promiseFor,
-  type RetrieveParams,
-  subscribeReader,
-  useMemoQuery,
-  usePendingFetch,
-} from "@/flux/suspend";
+import { Suspend } from "@/flux/suspend";
 import type { UpdateParams } from "@/flux/update";
 import { Synnax } from "@/synnax";
 
@@ -85,12 +75,12 @@ export interface CreateFormParams<
    * hook suspends on this, so the form is built from real values rather than
    * from a placeholder the fetch overwrites.
    */
-  retrieve?: (params: RetrieveParams<Query>) => Promise<z.infer<Schema>>;
+  retrieve?: (params: Suspend.RetrieveParams<Query>) => Promise<z.infer<Schema>>;
   /**
    * Projects the record's form values out of the domain client's cache.
    * A hit resolves the read synchronously, with no fetch and no suspension.
    */
-  getCached?: (params: RetrieveParams<Query>) => z.infer<Schema> | undefined;
+  getCached?: (params: Suspend.RetrieveParams<Query>) => z.infer<Schema> | undefined;
   update: (params: FormUpdateParams<Schema>) => Promise<void>;
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
@@ -180,6 +170,11 @@ const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 
 const covers = (pending: Set<string>, path: string): boolean =>
   [...pending].some((p) => deep.pathsMatch(path, p));
+
+const toTarget = (path: string): deep.Target<unknown> =>
+  path
+    .split(deep.SEPARATOR)
+    .reduce<deep.Path<unknown>>((parent, key) => parent[key], deep.path<unknown>());
 
 const ABSENT = Symbol("absent");
 
@@ -301,11 +296,11 @@ const persist = async <
 };
 
 const readCached = <Query extends query.Params, Data>(
-  getCached: ((params: RetrieveParams<Query>) => Data | undefined) | undefined,
-  params: RetrieveParams<Query>,
+  getCached: ((params: Suspend.RetrieveParams<Query>) => Data | undefined) | undefined,
+  params: Suspend.RetrieveParams<Query>,
 ): Promise<Data> | undefined => {
   const cached = getCached?.(params);
-  return cached === undefined ? undefined : fulfilled(cached);
+  return cached === undefined ? undefined : Suspend.fulfilled(cached);
 };
 
 export const createForm = <
@@ -321,15 +316,15 @@ export const createForm = <
   initialValues: baseInitialValues,
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
-  const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  const locals = new WeakMap<Client, Suspend.LocalCache<z.infer<Schema>>>();
   // The last form to unmount drops the settled answer, so a later mount reads again.
   const holdSettled = (client: Client, q: Query): (() => void) => {
-    const local = localFor(locals, client);
+    const local = Suspend.localFor(locals, client);
     const hash = query.hash(q);
-    const release = subscribeReader(local, hash, () => {});
+    const release = Suspend.subscribeReader(local, hash, () => {});
     return () => {
       release();
-      if (!local.listeners.has(hash)) invalidate(local, hash);
+      if (!local.listeners.has(hash)) Suspend.invalidate(local, hash);
     };
   };
   const useForm = ({
@@ -349,7 +344,7 @@ export const createForm = <
     const client = Synnax.use();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
-    const memoQuery = useMemoQuery(query, normalizeQuery);
+    const memoQuery = Suspend.useMemoQuery(query, normalizeQuery);
 
     // One read per query. One call keeps the read and its promise in one memo block.
     const cached =
@@ -357,7 +352,7 @@ export const createForm = <
         ? undefined
         : readCached(getCached, { client, query: memoQuery });
 
-    const pending = usePendingFetch<Query, z.infer<Schema>>(memoQuery);
+    const pending = Suspend.usePendingFetch<Query, z.infer<Schema>>(memoQuery);
     // A replay resumes through the promise the suspended attempt holds. Reading the
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
@@ -365,9 +360,9 @@ export const createForm = <
       pending.promise == null && cached != null ? use(cached) : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = use(
-        promiseFor(
+        Suspend.promiseFor(
           { client, query: memoQuery },
-          { name, retrieve, getCached, local: localFor(locals, client) },
+          { name, retrieve, getCached, local: Suspend.localFor(locals, client) },
           pending,
         ),
       );
@@ -404,8 +399,17 @@ export const createForm = <
       if (covers(pending, path)) return;
       noNotifySet(target, keepPending(form.value(), path, value, pending), options);
     };
-    const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
-      form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
+    // The reset values become the baseline, so each pending edit stays touched.
+    const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) => {
+      const live = form.value();
+      const kept = next == null ? new Set<string>() : pending();
+      form.reset(next);
+      for (const p of kept) {
+        const edit = readLive(live, p);
+        if (edit === ABSENT || !deep.canSet(form.value(), p)) continue;
+        form.set(toTarget(p), edit, { notifyOnChange: false });
+      }
+    };
     const listenerReset = (next?: z.infer<Schema>) => {
       if (next != null) stored.current = next;
       resetKeeping(pendingPaths)(next);

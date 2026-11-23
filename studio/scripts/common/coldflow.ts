@@ -85,12 +85,12 @@ export const startColdflow = async (
   await client.ranges.create([
     {
       name: "Pressurization",
-      color: "#3774D0",
+      color: { type: "fixed", value: "#3774D0" },
       timeRange: new TimeRange(start, flowing),
     },
     {
       name: "Coldflow",
-      color: "#F5C400",
+      color: { type: "fixed", value: "#F5C400" },
       timeRange: new TimeRange(flowing, flowing.add(TimeSpan.seconds(30))),
     },
   ]);
@@ -120,9 +120,14 @@ export const createPhases = async (
   const tr = test.timeRange;
   const [closed] = await changes(client, tr, "ox_vent");
   const [opened, shut] = await changes(client, tr, "ox_mpv");
-  const phase = (name: string, color: string, start: TimeStamp, end: TimeStamp) => ({
+  const phase = (
+    name: string,
+    color: string,
+    start: TimeStamp,
+    end: TimeStamp,
+  ): ranger.New => ({
     name,
-    color,
+    color: { type: "fixed", value: color },
     timeRange: new TimeRange(start, end),
     parent: test.key,
   });

@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { color, type group } from "@synnaxlabs/client";
-import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
-import type z from "zod";
+import { array, color as xcolor, deep, verbs } from "@synnaxlabs/x";
+import { generateKeyBetween } from "fractional-indexing";
+import z from "zod";
 
+import { color as aetherColor } from "@/color/aether";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 
-const RESOURCE_NAME = "named color";
-const PLURAL_RESOURCE_NAME = "named colors";
+const RESOURCE_NAME = "color";
+const PLURAL_RESOURCE_NAME = "colors";
 
 export type RetrieveQuery = color.RetrieveSingleParams;
 
@@ -51,27 +53,51 @@ const { useEnsure } = Flux.createRetrieve<RetrieveQuery, color.Named>({
   getCached: ({ client, query: { key } }) => client.colors.watch(key).getCached(),
 });
 
-export type ListQuery = color.RetrieveMultipleParams;
+export type ListQuery = aetherColor.ListQuery;
 
 /** Every named color that the query matches, kept live. */
 export const { useResult: useResultList } = Flux.createRetrieve<
   ListQuery,
   color.Named[]
+>(aetherColor.listDefinition);
+
+const ALL: ListQuery = {};
+
+// Every caller shares the one list of all named colors and selects its own keys.
+const { createResultSelector } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  color.Named[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  ...flux.listReads(({ client, query }) => client.colors.watch(query)),
+  ...flux.listReads(({ client }) => client.colors.watch(ALL)),
 });
+
+/**
+ * The loaded named colors among the keys, kept live. The caller re-renders only when
+ * one of them changes.
+ */
+export const useResultAmong = createResultSelector(
+  (all, { keys }: RetrieveMultipleQuery) => {
+    const wanted = new Set(keys);
+    return all.filter((c) => wanted.has(c.key));
+  },
+  array.equal,
+);
 
 /** The named colors that the Core ships, with their shipped values. */
 export const { useResult: useResultBuiltins } = Flux.createRetrieve<
   Record<string, never>,
   color.Named[]
 >({
-  name: "built-in named colors",
+  name: "built-in colors",
   retrieve: async ({ client }) => await client.colors.retrieveBuiltins(),
 });
 
-export const createFormSchema = color.namedZ.partial({ key: true });
+const nameZ = z.string().refine((name) => name.trim() !== "", "Name is required");
+
+export const createFormSchema = color.namedZ
+  .partial({ key: true })
+  .extend({ name: nameZ });
 
 export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
@@ -90,7 +116,9 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   },
 });
 
-export const formSchema = color.namedZ.pick({ name: true, light: true, dark: true });
+export const formSchema = color.namedZ
+  .pick({ name: true, light: true, dark: true })
+  .extend({ name: nameZ });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -107,10 +135,25 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, light, dark }) => ({ name, light, dark }),
 });
 
+/**
+ * Creates a named color. With no position, it goes after every color of its palette
+ * that has a position, and the colors with no position stay after it.
+ */
 export const { useUpdate: useCreate } = Flux.createUpdate<color.New, color.Named>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.colors.create(data),
+  update: async ({ client, data }) => {
+    if (data.position != null) return await client.colors.create(data);
+    const where = data.group == null ? { grouped: false } : { groups: [data.group] };
+    const last = (await client.colors.retrieve({ where }))
+      .filter((c) => c.position != null)
+      .sort(color.compare)
+      .at(-1);
+    return await client.colors.create({
+      ...data,
+      position: generateKeyBetween(last?.position ?? null, null),
+    });
+  },
 });
 
 export interface RenameParams extends Pick<color.Named, "key" | "name"> {}
@@ -172,6 +215,21 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
     await client.colors.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
+    return data;
+  },
+});
+
+export interface CreatePaletteParams {
+  key: group.Key;
+  name: string;
+}
+
+/** Creates a palette with no colors. */
+export const { useUpdate: useCreatePalette } = Flux.createUpdate<CreatePaletteParams>({
+  name: "palette",
+  verbs: verbs.CREATE,
+  update: async ({ client, data }) => {
+    await client.groups.create({ ...data, scope: color.TYPE_RESOURCE_ID.type });
     return data;
   },
 });

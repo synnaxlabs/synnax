@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package codec turns the payloads that ICD messages describe into channel samples.
+// Package codec converts between the payloads that ICD messages describe and channel
+// samples.
 package codec
 
 import (
 	"encoding/json/jsontext"
 	"math"
 	"strconv"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -24,21 +26,33 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Binding names a field of a message and the data type of the channel it feeds.
+// Binding names a field of a message and the data type of the channel bound to it. A
+// decode writes the field to the channel, and an encode the channel to the field.
 type Binding struct {
-	// Field is the key of the message field to read.
+	// Field is the key of the message field.
 	Field icd.FieldKey
-	// DataType is the data type of the channel that the field writes to.
+	// DataType is the data type of the channel.
 	DataType telem.DataType
 }
 
-// JSONMessage is a JSON message and the fields to decode from its documents.
+// Failure is a field of a document that did not decode.
+type Failure struct {
+	// Binding is the index of the field's binding in its message.
+	Binding int
+	// Missing is true when the document has no value for the field, and the field has
+	// no default.
+	Missing bool
+	// Err names the field, and also the message when the decoder holds more than one.
+	Err error
+}
+
+// JSONMessage is a JSON message and the fields bound to channels.
 type JSONMessage struct {
 	// Name identifies the message in errors.
 	Name string
 	// Payload is the layout of the message's documents.
 	Payload icd.JSONPayload
-	// Bindings name the fields to decode, in sample order.
+	// Bindings name the bound fields, in sample order.
 	Bindings []Binding
 }
 
@@ -46,11 +60,15 @@ type JSONMessage struct {
 // It is not safe for concurrent use.
 type JSON struct {
 	extractor *xjson.Extractor
-	// values holds the match value, when a message has a match rule, then the value of
-	// each field of each message, in message order.
-	values   []jsontext.Value
-	messages []jsonMessage
-	router   *router
+	// values holds the values that the match rules test, then the value of each field
+	// of each message, in message order.
+	values []jsontext.Value
+	// ruleValues is the number of values that the match rules test.
+	ruleValues int
+	messages   []jsonMessage
+	router     *router
+	// failures holds the failures of the last decode.
+	failures []Failure
 }
 
 type jsonMessage struct {
@@ -58,8 +76,6 @@ type jsonMessage struct {
 	fields []jsonField
 	// values are the values of fields, a part of JSON.values.
 	values []jsontext.Value
-	// lengths holds the length of each sample slice before a decode, to undo it.
-	lengths []int
 }
 
 type jsonField struct {
@@ -76,16 +92,19 @@ type jsonField struct {
 	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
-	// fallback is the sample used when a document has no value, or nil when the field
-	// requires one.
+	// fallback is the sample used when a document has no value.
 	fallback []byte
+	// generate appends a new sample when a document has no value. A field with no
+	// generate and no fallback requires a value.
+	generate func(dst []byte) []byte
 }
 
 // NewJSON returns a JSON decoder for messages that share one source of documents. A
 // document belongs to the message whose match rule it meets, or else to the message
 // with no rule. NewJSON returns an error wrapping validate.ErrValidation when:
-//   - two match rules test different pointers
-//   - one document value can meet two match rules
+//   - two value rules test different pointers
+//   - one document value can meet two value rules
+//   - a present rule tests the pointer of another rule, or a value that holds it
 //   - two messages have no match rule
 //   - a binding names no field of its message
 //   - a field's kind does not convert to its binding's data type
@@ -94,10 +113,11 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	j := &JSON{messages: make([]jsonMessage, len(messages)), router: r}
-	var pointers []xjson.Pointer
-	if r.ruled {
-		pointers = append(pointers, r.pointer)
+	pointers := r.pointers()
+	j := &JSON{
+		messages:   make([]jsonMessage, len(messages)),
+		router:     r,
+		ruleValues: len(pointers),
 	}
 	for i, m := range messages {
 		if j.messages[i], err = newJSONMessage(m); err != nil {
@@ -109,10 +129,7 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	}
 	j.extractor = xjson.NewExtractor(pointers)
 	j.values = make([]jsontext.Value, len(pointers))
-	values := j.values
-	if r.ruled {
-		values = values[1:]
-	}
+	values := j.values[j.ruleValues:]
 	for i := range j.messages {
 		m := &j.messages[i]
 		m.values, values = values[:len(m.fields)], values[len(m.fields):]
@@ -125,11 +142,7 @@ func newJSONMessage(m JSONMessage) (jsonMessage, error) {
 	for _, f := range m.Payload.Fields {
 		byKey[f.Base().Key] = f
 	}
-	msg := jsonMessage{
-		name:    m.Name,
-		fields:  make([]jsonField, len(m.Bindings)),
-		lengths: make([]int, len(m.Bindings)),
-	}
+	msg := jsonMessage{name: m.Name, fields: make([]jsonField, len(m.Bindings))}
 	for i, b := range m.Bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
@@ -202,11 +215,55 @@ type jsonVariant struct {
 	floatDefault *payload.Float
 }
 
-// readVariant sets the kind of f from the variant of jf, and the fallback of a
-// timestamp field. It returns the rest of what the variant sets.
+// quotedDefault returns d as a JSON string, or nil when d is nil.
+func quotedDefault(d *string) (jsontext.Value, error) {
+	if d == nil {
+		return nil, nil
+	}
+	v, err := jsontext.AppendQuote(nil, *d)
+	if err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return v, nil
+}
+
+// readTimestampDefault sets the fallback or generator of a timestamp field from d, if
+// any.
+func (f *jsonField) readTimestampDefault(d *icd.TimestampDefault) error {
+	if d == nil {
+		return nil
+	}
+	switch v := d.Variant.(type) {
+	case icd.ConstantTimestampDefault:
+		f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(v.Value))
+	case icd.NowTimestampDefault:
+		f.generate = appendNow
+	case nil:
+		return errUntypedDefault
+	}
+	return nil
+}
+
+// readUUIDDefault sets the fallback or generator of a UUID field from d, if any.
+func (f *jsonField) readUUIDDefault(d *icd.UUIDDefault) error {
+	if d == nil {
+		return nil
+	}
+	switch v := d.Variant.(type) {
+	case icd.ConstantUUIDDefault:
+		f.fallback = v.Value[:]
+	case icd.RandomUUIDDefault:
+		f.generate = appendRandomUUID
+	case nil:
+		return errUntypedDefault
+	}
+	return nil
+}
+
+// readVariant sets the kind of f from the variant of jf, and the fallback or generator
+// of a timestamp or UUID field. It returns the rest of what the variant sets.
 func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
-	var err error
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		f.kind = payload.KindFloat
@@ -221,37 +278,68 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 		if v.Default != nil {
 			out.fallback = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
-	case icd.StringJSONField:
-		f.kind = payload.KindString
-		if v.Default != nil {
-			if out.fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
-				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-		}
 	case icd.BooleanJSONField:
 		f.kind = payload.KindBoolean
 		if v.Default != nil {
 			out.fallback = strconv.AppendBool(nil, *v.Default)
 		}
+	default:
+		if err := f.readTextVariant(jf, &out); err != nil {
+			return jsonVariant{}, err
+		}
+	}
+	return out, nil
+}
+
+// readTextVariant sets the kind of f and the fields of out from the variant of jf, a
+// field whose values are not numbers or Booleans.
+func (f *jsonField) readTextVariant(jf icd.JSONField, out *jsonVariant) error {
+	var err error
+	switch v := jf.Variant.(type) {
+	case icd.StringJSONField:
+		f.kind = payload.KindString
+		out.fallback, err = quotedDefault(v.Default)
+		return err
 	case icd.TimestampJSONField:
 		f.kind = payload.KindTimestamp
 		format := string(v.TimeFormat)
 		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return jsonVariant{}, err
+			return err
 		}
-		if v.Default != nil {
-			f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(*v.Default))
-		}
+		return f.readTimestampDefault(v.Default)
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
+		if v.Default == nil {
+			return nil
+		}
+		if out.fallback, err = jsonText(*v.Default); err != nil {
+			return errors.Wrap(err, "default")
+		}
+		return nil
 	case icd.UuidJSONField:
 		f.kind = payload.KindUUID
+		return f.readUUIDDefault(v.Default)
 	case icd.BytesJSONField:
 		f.kind = payload.KindBytes
+		out.fallback, err = quotedDefault(v.Default)
+		return err
 	default:
-		return jsonVariant{}, errors.Wrap(validate.ErrValidation, "type is required")
+		return errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	return out, nil
+}
+
+var (
+	errUntyped        = errors.Wrap(validate.ErrValidation, "type is required")
+	errUntypedDefault = errors.Wrap(errUntyped, "default")
+)
+
+func appendNow(dst []byte) []byte {
+	return telem.ByteOrder.AppendUint64(dst, uint64(telem.Now()))
+}
+
+func appendRandomUUID(dst []byte) []byte {
+	id := uuid.NewV4()
+	return append(dst, id[:]...)
 }
 
 // enumsOf returns the enum labels of jf.
@@ -361,46 +449,51 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // bindings to samples[message]. samples holds an entry for each message in NewJSON
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
-// error, appending nothing, when doc is not JSON or a value does not convert. The error
-// names the field, and also the message when the decoder holds more than one.
+// error, appending nothing, when doc is not JSON or meets two match rules.
+//
+// failures holds each field whose value does not convert, or that has no value and no
+// default. A failed field appends no sample, and the other fields still append.
+// failures is nil when every field decodes, and valid until the next Decode.
 func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
-) (message int, ok bool, err error) {
+) (message int, ok bool, failures []Failure, err error) {
 	if err := j.extractor.Extract(doc, j.values); err != nil {
-		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
+		return 0, false, nil, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	var match jsontext.Value
-	if j.router.ruled {
-		match = j.values[0]
-	}
-	if message, ok, err = j.router.find(match); err != nil || !ok {
-		return 0, false, err
+	if message, ok, err = j.router.find(j.values[:j.ruleValues]); err != nil || !ok {
+		return 0, false, nil, err
 	}
 	m := &j.messages[message]
-	if err := m.decode(samples[message]); err != nil {
-		if len(j.messages) > 1 {
-			err = errors.Wrapf(err, "message %s", m.name)
-		}
-		return 0, false, err
+	if j.failures = m.decode(samples[message], j.failures[:0]); len(j.failures) == 0 {
+		return message, true, nil, nil
 	}
-	return message, true, nil
+	if len(j.messages) > 1 {
+		for i := range j.failures {
+			j.failures[i].Err = errors.Wrapf(j.failures[i].Err, "message %s", m.name)
+		}
+	}
+	return message, true, j.failures, nil
 }
 
-func (m *jsonMessage) decode(samples [][]byte) error {
-	for i := range samples {
-		m.lengths[i] = len(samples[i])
-	}
+// decode appends the sample of each field to samples, and each failed field to
+// failures.
+func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
 		var err error
+		missing := false
 		if payload.Absent(m.values[i], f.dataType) {
-			if f.fallback == nil {
+			switch {
+			case f.generate != nil:
+				samples[i] = f.generate(samples[i])
+			case f.fallback != nil:
+				samples[i] = append(samples[i], f.fallback...)
+			default:
+				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
-			} else {
-				samples[i] = append(samples[i], f.fallback...)
 			}
 		} else {
 			var out []byte
@@ -409,11 +502,21 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 			}
 		}
 		if err != nil {
-			for k := range samples {
-				samples[k] = samples[k][:m.lengths[k]]
-			}
-			return errors.Wrapf(err, "field %s", f.name)
+			failures = append(failures, Failure{
+				Binding: i,
+				Missing: missing,
+				Err:     errors.Wrapf(err, "field %s", f.name),
+			})
 		}
 	}
-	return nil
+	return failures
+}
+
+// jsonText returns the exact bytes of text. It returns a validation error when text is
+// not valid JSON.
+func jsonText(text string) ([]byte, error) {
+	if !jsontext.Value(text).IsValid() {
+		return nil, errors.Wrap(validate.ErrValidation, "not valid JSON")
+	}
+	return []byte(text), nil
 }

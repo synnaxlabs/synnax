@@ -43,6 +43,7 @@ import (
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -510,7 +511,9 @@ var _ = Describe("HTTP", func() {
 			cookie := loginWithCookie("localhost:9090")
 			headers := withCookie("localhost:9090", cookie)
 			headers[fiber.HeaderAccept] = "text/csv"
-			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{})
+			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+			})
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
 		})
@@ -651,6 +654,15 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should refuse a first password for a caller that has one", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/create",
+				token,
+				apiauth.PasswordCreateRequest{Username: "other", Password: "new"},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
 		})
 		It("Should set the caller's own password", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})

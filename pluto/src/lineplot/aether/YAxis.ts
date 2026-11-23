@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, box, location, scale, xy } from "@synnaxlabs/x";
+import { bounds, box, direction, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import type { Layout, Trace } from "@/lineplot/aether/layout";
 import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
 
@@ -18,9 +19,8 @@ export const yAxisStateZ = baseAxisStateZ.extend({
 });
 
 export interface YAxisProps extends AxisRenderProps {
-  xDataToDecimalScale: scale.Scale;
-  /** Bounds of the parent x axis; y bounds cover only samples inside them. */
-  xBounds: bounds.Bounds;
+  /** The layout of the parent x axis. Y bounds cover only samples inside its bounds. */
+  layout: Layout;
 }
 
 type Children = line.Line | rule.Rule;
@@ -34,16 +34,34 @@ const invalidArea = (region: box.Box): boolean =>
   box.signedWidth(region) < INVALID_SIZE_THRESHOLD ||
   box.signedHeight(region) < INVALID_SIZE_THRESHOLD;
 
+// lineProps returns the props of the line of key, which draws with the scale of its
+// segment.
+const lineProps = (
+  layout: Layout,
+  region: box.Box,
+  yScale: scale.Scale,
+  key: string,
+): line.LineProps => ({
+  region,
+  dataToDecimalScale: new scale.XY(layout.segment(key).scale, yScale),
+  span: layout.span(key),
+});
+
 export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   override schema = baseAxisStateZ;
 
-  xBounds(): line.DataBounds[] {
-    return this.visibleLines.map((el) => el.xBounds());
+  /** @returns the window of each visible line. */
+  traces(): Trace[] {
+    return this.visibleLines.map((el) => ({
+      ...el.xBounds(),
+      key: el.key,
+      group: el.state.group,
+    }));
   }
 
-  bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {
-    const [bound, err] = this.iBounds(hold, () => this.dataBounds(xBounds));
+  bounds(hold: boolean, layout: Layout): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, () => this.dataBounds(layout));
     if (err != null) throw err;
     return bound;
   }
@@ -54,11 +72,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
    */
   render(props: YAxisProps, raised: Array<() => void>): void {
     if (this.deleted) return;
-    const [dataToDecimalScale, , error] = this.dataToDecimalScale(
-      props.hold,
-      () => this.dataBounds(props.xBounds),
-      props.viewport,
-    );
+    const [dataToDecimalScale, error] = this.dataToDecimalScale(props);
     // We need to invert scale because the y-axis is inverted in decimal space.
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
@@ -70,16 +84,13 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   private renderLines(
-    { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
+    { layout, plot, canvases }: YAxisProps,
     yScale: scale.Scale,
     raised: Array<() => void>,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
-    const props: line.LineProps = {
-      region: plot,
-      dataToDecimalScale: new scale.XY(xScale, yScale),
-    };
     this.lines.forEach((el) => {
+      const props = lineProps(layout, plot, yScale, el.key);
       if (el.raised) raised.push(() => el.render(props));
       else el.render(props);
     });
@@ -105,9 +116,9 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   findByXValue(props: Omit<YAxisProps, "canvases">, target: number): line.FindResult[] {
-    const p = this.lineProps(props);
+    const yScale = this.yScale(props);
     return this.lines.map((el) => ({
-      ...el.findByXValue(p, target),
+      ...el.findByXValue(lineProps(props.layout, props.plot, yScale, el.key), target),
       units: this.state.label,
     }));
   }
@@ -117,28 +128,38 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     props: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const p = this.lineProps(props);
+    const yScale = this.yScale(props);
     return this.lines.map((el) => ({
-      ...el.findDrawnByXValue(p, target),
+      ...el.findDrawnByXValue(
+        lineProps(props.layout, props.plot, yScale, el.key),
+        target,
+      ),
       units: this.state.label,
     }));
   }
 
-  private lineProps({
-    xDataToDecimalScale,
-    xBounds,
-    plot,
-    viewport,
-    hold,
-  }: Omit<YAxisProps, "canvases">): line.LineProps {
-    const [yDataToDecimalScale, , error] = this.dataToDecimalScale(
-      hold,
-      () => this.dataBounds(xBounds),
-      viewport,
-    );
+  private yScale(props: Omit<YAxisProps, "canvases">): scale.Scale {
+    const [s, error] = this.dataToDecimalScale(props);
     if (error != null) throw error;
-    const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    return { region: plot, dataToDecimalScale };
+    return s;
+  }
+
+  // dataToDecimalScale returns the scale from the axis values to decimal positions
+  // across the viewport, with the error that the bounds of the axis met.
+  private dataToDecimalScale({
+    hold,
+    layout,
+    viewport,
+  }: Omit<YAxisProps, "canvases">): [scale.Scale, Error | null] {
+    const [b, err] = this.iBounds(hold, () => this.dataBounds(layout));
+    const dir = direction.swap(direction.construct(this.state.location));
+    return [
+      scale.Scale.scale<number>(b)
+        .scale(1)
+        .translate(-box.root(viewport)[dir])
+        .magnify(1 / box.dim(viewport, dir)),
+      err,
+    ];
   }
 
   get loading(): boolean {
@@ -149,8 +170,13 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return this.lines.some((el) => el.fetching);
   }
 
-  private dataBounds(xBounds: bounds.Bounds): line.DataBounds[] {
-    return this.visibleLines.map((el) => el.yBounds(xBounds));
+  // dataBounds returns the y bounds of each visible line over its span inside the
+  // bounds of the x axis. A line with no time there gives none.
+  private dataBounds(layout: Layout): line.DataBounds[] {
+    return this.visibleLines.flatMap((el) => {
+      const window = bounds.intersection([layout.span(el.key), layout.bounds]);
+      return window.lower < window.upper ? [el.yBounds(window)] : [];
+    });
   }
 
   private get lines(): readonly line.Line[] {

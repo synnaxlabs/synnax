@@ -40,10 +40,13 @@ struct Where;
 struct Cursor;
 struct BaseField;
 struct ReadBinding;
+struct WriteBaseBinding;
 struct RetrieveRequest;
-struct BinaryField;
+struct TextBaseField;
 struct JSONBaseField;
+struct BinaryBaseField;
 struct ReadMessage;
+struct WriteMessage;
 struct Message;
 struct ICD;
 struct RetrieveResponse;
@@ -75,6 +78,196 @@ struct JSONBaseMatch {
     static std::pair<JSONBaseMatch, x::errors::Error>
     from_proto(const ::service::icd::pb::JSONBaseMatch &pb);
 };
+
+/// @brief ConstantTimestampDefault is one fixed timestamp.
+struct ConstantTimestampDefault {
+    std::string type = "constant";
+    /// @brief value is the timestamp that the default gives.
+    ::x::telem::TimeStamp value = x::telem::TimeStamp(0);
+
+    static ConstantTimestampDefault parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::TimestampDefaultConstantPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::TimestampDefaultConstantPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<ConstantTimestampDefault, x::errors::Error>
+    from_proto(const ::service::icd::pb::TimestampDefaultConstantPayload &pb);
+};
+
+/// @brief NowTimestampDefault is the time of each read or write.
+struct NowTimestampDefault {
+    std::string type = "now";
+
+    static NowTimestampDefault parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::TimestampDefaultNowPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::TimestampDefaultNowPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<NowTimestampDefault, x::errors::Error>
+    from_proto(const ::service::icd::pb::TimestampDefaultNowPayload &pb);
+};
+
+/// @brief TimestampDefault is the default of a timestamp field.
+using TimestampDefault = std::variant<ConstantTimestampDefault, NowTimestampDefault>;
+
+TimestampDefault parse_timestamp_default(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const TimestampDefault &value);
+[[nodiscard]] std::pair<::service::icd::pb::TimestampDefault, x::errors::Error>
+to_proto(const TimestampDefault &value);
+std::pair<TimestampDefault, x::errors::Error>
+timestamp_default_from_proto(const ::service::icd::pb::TimestampDefault &pb);
+
+/// @brief ConstantUUIDDefault is one fixed UUID.
+struct ConstantUUIDDefault {
+    std::string type = "constant";
+    /// @brief value is the UUID that the default gives.
+    x::uuid::UUID value;
+
+    static ConstantUUIDDefault parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::UUIDDefaultConstantPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::UUIDDefaultConstantPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<ConstantUUIDDefault, x::errors::Error>
+    from_proto(const ::service::icd::pb::UUIDDefaultConstantPayload &pb);
+};
+
+/// @brief RandomUUIDDefault is a new random UUID for each read or write.
+struct RandomUUIDDefault {
+    std::string type = "random";
+
+    static RandomUUIDDefault parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::UUIDDefaultRandomPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::UUIDDefaultRandomPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<RandomUUIDDefault, x::errors::Error>
+    from_proto(const ::service::icd::pb::UUIDDefaultRandomPayload &pb);
+};
+
+/// @brief UUIDDefault is the default of a UUID field.
+using UUIDDefault = std::variant<ConstantUUIDDefault, RandomUUIDDefault>;
+
+UUIDDefault parse_uuid_default(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const UUIDDefault &value);
+[[nodiscard]] std::pair<::service::icd::pb::UUIDDefault, x::errors::Error>
+to_proto(const UUIDDefault &value);
+std::pair<UUIDDefault, x::errors::Error>
+uuid_default_from_proto(const ::service::icd::pb::UUIDDefault &pb);
+
+/// @brief FloatWriteValue is a fixed float.
+struct FloatWriteValue {
+    std::string type = ::x::payload::KIND_FLOAT;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Float value = 0;
+
+    static FloatWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief IntegerWriteValue is a fixed signed integer.
+struct IntegerWriteValue {
+    std::string type = ::x::payload::KIND_INTEGER;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Integer value = 0;
+
+    static IntegerWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnsignedWriteValue is a fixed unsigned integer.
+struct UnsignedWriteValue {
+    std::string type = ::x::payload::KIND_UNSIGNED;
+    /// @brief value is the raw value, before scale and offset.
+    ::x::payload::Unsigned value = 0;
+
+    static UnsignedWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringWriteValue is a fixed string.
+struct StringWriteValue {
+    std::string type = ::x::payload::KIND_STRING;
+    /// @brief value is the string.
+    std::string value;
+
+    static StringWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanWriteValue is a fixed boolean.
+struct BooleanWriteValue {
+    std::string type = ::x::payload::KIND_BOOLEAN;
+    /// @brief value is the boolean.
+    bool value = false;
+
+    static BooleanWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TimestampWriteValue is a fixed timestamp.
+struct TimestampWriteValue {
+    std::string type = ::x::payload::KIND_TIMESTAMP;
+    /// @brief value is the timestamp.
+    ::x::telem::TimeStamp value = x::telem::TimeStamp(0);
+
+    static TimestampWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief JSONWriteValue is a fixed JSON value.
+struct JSONWriteValue {
+    std::string type = ::x::payload::KIND_JSON;
+    /// @brief value is the JSON text of the value.
+    std::string value;
+
+    static JSONWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UuidWriteValue is a fixed UUID.
+struct UuidWriteValue {
+    std::string type = ::x::payload::KIND_UUID;
+    /// @brief value is the UUID.
+    x::uuid::UUID value;
+
+    static UuidWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BytesWriteValue is fixed bytes.
+struct BytesWriteValue {
+    std::string type = ::x::payload::KIND_BYTES;
+    /// @brief value is the base64 text of the value.
+    std::string value;
+
+    static BytesWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteValue is a fixed value that a write binding sends as its field. Its type
+/// is the kind of the field.
+using WriteValue = std::variant<
+    FloatWriteValue,
+    IntegerWriteValue,
+    UnsignedWriteValue,
+    StringWriteValue,
+    BooleanWriteValue,
+    TimestampWriteValue,
+    JSONWriteValue,
+    UuidWriteValue,
+    BytesWriteValue>;
+
+WriteValue parse_write_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteValue &value);
 
 /// @brief Where is a filter that selects ICDs.
 struct Where {
@@ -178,6 +371,15 @@ struct ReadBinding {
     ::x::telem::DataType data_type = ::x::telem::DataType("");
 
     static ReadBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteBaseBinding carries the parts every write binding shares.
+struct WriteBaseBinding {
+    /// @brief field is the key of the message field to fill.
+    FieldKey field;
+
+    static WriteBaseBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -320,13 +522,30 @@ struct BooleanJSONMatch : public JSONBaseMatch {
     from_proto(const ::service::icd::pb::JSONMatchBooleanPayload &pb);
 };
 
+/// @brief PresentJSONMatch matches a document that holds a value other than null at the
+/// pointer.
+struct PresentJSONMatch : public JSONBaseMatch {
+    std::string type = "present";
+
+    static PresentJSONMatch parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::JSONMatchPresentPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::JSONMatchPresentPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<PresentJSONMatch, x::errors::Error>
+    from_proto(const ::service::icd::pb::JSONMatchPresentPayload &pb);
+};
+
 /// @brief JSONMatch selects the JSON documents that belong to a message.
 using JSONMatch = std::variant<
     FloatJSONMatch,
     IntegerJSONMatch,
     UnsignedJSONMatch,
     StringJSONMatch,
-    BooleanJSONMatch>;
+    BooleanJSONMatch,
+    PresentJSONMatch>;
 
 JSONMatch parse_json_match(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const JSONMatch &value);
@@ -381,34 +600,20 @@ struct RetrieveRequest {
     from_proto(const ::api::icd::pb::RetrieveRequest &pb);
 };
 
-/// @brief BinaryField is a field read from a bit range of a binary payload.
-struct BinaryField : public BaseField {
-    /// @brief start_bit is the bit where the field starts, numbered as in a DBC file:
-    /// the least significant bit for little-endian fields and the most significant bit
-    /// for big-endian fields.
-    std::uint16_t start_bit = 0;
-    /// @brief bit_length is the number of bits in the field, from 1 to 64.
-    std::uint8_t bit_length = 8;
-    /// @brief byte_order is the byte order of the field.
-    std::string byte_order = BYTE_ORDER_LITTLE_ENDIAN;
-    /// @brief kind is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a
-    /// two's complement integer, or an unsigned integer. No other kind is valid.
-    std::string kind = ::x::payload::KIND_UNSIGNED;
-    /// @brief multiplexor is the key of the field that selects whether this field is
-    /// present. When absent the field is always present.
-    std::optional<FieldKey> multiplexor;
-    /// @brief multiplex_values are the raw values of the multiplexor for which this
-    /// field is present.
-    std::vector<std::int32_t> multiplex_values = {};
+/// @brief TextBaseField carries the parts every text field shares.
+struct TextBaseField : public BaseField {
+    /// @brief default_ is the raw number, before scale and offset, when a read finds
+    /// none or no channel is bound.
+    std::optional<::x::payload::Float> default_;
 
-    static BinaryField parse(x::json::Parser parser);
+    static TextBaseField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::icd::pb::BinaryField;
-    [[nodiscard]] std::pair<::service::icd::pb::BinaryField, x::errors::Error>
+    using proto_type = ::service::icd::pb::TextBaseField;
+    [[nodiscard]] std::pair<::service::icd::pb::TextBaseField, x::errors::Error>
     to_proto() const;
-    static std::pair<BinaryField, x::errors::Error>
-    from_proto(const ::service::icd::pb::BinaryField &pb);
+    static std::pair<TextBaseField, x::errors::Error>
+    from_proto(const ::service::icd::pb::TextBaseField &pb);
 };
 
 /// @brief JSONBaseField carries the parts every JSON field shares.
@@ -427,54 +632,32 @@ struct JSONBaseField : public BaseField {
     from_proto(const ::service::icd::pb::JSONBaseField &pb);
 };
 
-/// @brief DelimitedTextField is a field read from one item of a delimited text line.
-struct DelimitedTextField : public BaseField {
-    std::string encoding = "delimited";
-    /// @brief position is the zero-based item index after splitting on the delimiter.
-    std::uint32_t position = 0;
+/// @brief BinaryBaseField carries the parts every binary field shares.
+struct BinaryBaseField : public BaseField {
+    /// @brief start_bit is the bit where the field starts, numbered as in a DBC file:
+    /// the least significant bit for little-endian fields and the most significant bit
+    /// for big-endian fields.
+    std::uint16_t start_bit = 0;
+    /// @brief bit_length is the number of bits in the field, from 1 to 64.
+    std::uint8_t bit_length = 8;
+    /// @brief byte_order is the byte order of the field.
+    std::string byte_order = BYTE_ORDER_LITTLE_ENDIAN;
+    /// @brief multiplexor is the key of the field that selects whether this field is
+    /// present. When absent the field is always present.
+    std::optional<FieldKey> multiplexor;
+    /// @brief multiplex_values are the raw values of the multiplexor for which this
+    /// field is present.
+    std::vector<std::int32_t> multiplex_values = {};
 
-    static DelimitedTextField parse(x::json::Parser parser);
+    static BinaryBaseField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::icd::pb::TextFieldDelimitedPayload;
-    [[nodiscard]] std::
-        pair<::service::icd::pb::TextFieldDelimitedPayload, x::errors::Error>
-        to_proto() const;
-    static std::pair<DelimitedTextField, x::errors::Error>
-    from_proto(const ::service::icd::pb::TextFieldDelimitedPayload &pb);
+    using proto_type = ::service::icd::pb::BinaryBaseField;
+    [[nodiscard]] std::pair<::service::icd::pb::BinaryBaseField, x::errors::Error>
+    to_proto() const;
+    static std::pair<BinaryBaseField, x::errors::Error>
+    from_proto(const ::service::icd::pb::BinaryBaseField &pb);
 };
-
-/// @brief TaggedTextField is a field read from the text that follows a tag.
-struct TaggedTextField : public BaseField {
-    std::string encoding = "tagged";
-    /// @brief tag is the text that comes just before the value in the line.
-    std::string tag;
-
-    static TaggedTextField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::TextFieldTaggedPayload;
-    [[nodiscard]] std::
-        pair<::service::icd::pb::TextFieldTaggedPayload, x::errors::Error>
-        to_proto() const;
-    static std::pair<TaggedTextField, x::errors::Error>
-    from_proto(const ::service::icd::pb::TextFieldTaggedPayload &pb);
-};
-
-/// @brief TextField is a field read from a text line.
-using TextField = std::variant<DelimitedTextField, TaggedTextField>;
-
-TextField parse_text_field(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const TextField &value);
-[[nodiscard]] std::pair<::service::icd::pb::TextField, x::errors::Error>
-to_proto(const TextField &value);
-std::pair<TextField, x::errors::Error>
-text_field_from_proto(const ::service::icd::pb::TextField &pb);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const BaseField &base(const TextField &value) {
-    return std::visit([](const auto &v) -> const BaseField & { return v; }, value);
-}
 
 /// @brief ReadMessage reads one message of an ICD.
 struct ReadMessage {
@@ -492,12 +675,102 @@ struct ReadMessage {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ChannelWriteBinding fills a field with the values of a command channel.
+struct ChannelWriteBinding : public WriteBaseBinding {
+    std::string type = "channel";
+    /// @brief channel is the command channel whose values the field sends. 0 means that
+    /// a client creates the channel on configure.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief data_type is the data type of the command channel that a client creates
+    /// for the field. Absent takes float64 for a scaled field and the default of the
+    /// field's kind for any other. The Core ignores it once the channel exists.
+    std::optional<::x::telem::DataType> data_type;
+
+    static ChannelWriteBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ValueWriteBinding fills a field with a fixed value.
+struct ValueWriteBinding : public WriteBaseBinding {
+    std::string type = "value";
+    /// @brief value is the fixed value that the field sends.
+    WriteValue value;
+
+    static ValueWriteBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteBinding fills one message field with a command channel or a fixed value.
+using WriteBinding = std::variant<ChannelWriteBinding, ValueWriteBinding>;
+
+WriteBinding parse_write_binding(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteBinding &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const WriteBaseBinding &base(const WriteBinding &value) {
+    return std::visit(
+        [](const auto &v) -> const WriteBaseBinding & { return v; },
+        value
+    );
+}
+
+/// @brief DelimitedTextField is a field read from one item of a delimited text line.
+struct DelimitedTextField : public TextBaseField {
+    std::string encoding = "delimited";
+    /// @brief position is the zero-based item index after splitting on the delimiter.
+    std::uint32_t position = 0;
+
+    static DelimitedTextField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::TextFieldDelimitedPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::TextFieldDelimitedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<DelimitedTextField, x::errors::Error>
+    from_proto(const ::service::icd::pb::TextFieldDelimitedPayload &pb);
+};
+
+/// @brief TaggedTextField is a field read from the text that follows a tag.
+struct TaggedTextField : public TextBaseField {
+    std::string encoding = "tagged";
+    /// @brief tag is the text that comes just before the value in the line.
+    std::string tag;
+
+    static TaggedTextField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::TextFieldTaggedPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::TextFieldTaggedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<TaggedTextField, x::errors::Error>
+    from_proto(const ::service::icd::pb::TextFieldTaggedPayload &pb);
+};
+
+/// @brief TextField is a field read from a text line. With no default, a write needs a
+/// channel.
+using TextField = std::variant<DelimitedTextField, TaggedTextField>;
+
+TextField parse_text_field(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const TextField &value);
+[[nodiscard]] std::pair<::service::icd::pb::TextField, x::errors::Error>
+to_proto(const TextField &value);
+std::pair<TextField, x::errors::Error>
+text_field_from_proto(const ::service::icd::pb::TextField &pb);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const TextBaseField &base(const TextField &value) {
+    return std::visit([](const auto &v) -> const TextBaseField & { return v; }, value);
+}
+
 /// @brief FloatJSONField is a JSON number read as a float.
 struct FloatJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_FLOAT;
     /// @brief enum_values maps text labels in the document to values.
     std::vector<::x::payload::FloatEntry> enum_values;
-    /// @brief default_ is the value when the document has none. Absent requires one.
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
     std::optional<::x::payload::Float> default_;
 
     static FloatJSONField parse(x::json::Parser parser);
@@ -515,7 +788,8 @@ struct IntegerJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_INTEGER;
     /// @brief enum_values maps text labels in the document to values.
     std::vector<::x::payload::IntegerEntry> enum_values;
-    /// @brief default_ is the value when the document has none. Absent requires one.
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
     std::optional<::x::payload::Integer> default_;
 
     static IntegerJSONField parse(x::json::Parser parser);
@@ -534,7 +808,8 @@ struct UnsignedJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_UNSIGNED;
     /// @brief enum_values maps text labels in the document to values.
     std::vector<::x::payload::UnsignedEntry> enum_values;
-    /// @brief default_ is the value when the document has none. Absent requires one.
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
     std::optional<::x::payload::Unsigned> default_;
 
     static UnsignedJSONField parse(x::json::Parser parser);
@@ -553,7 +828,7 @@ struct StringJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_STRING;
     /// @brief enum_values maps text labels in the document to values.
     std::vector<::x::payload::StringEntry> enum_values;
-    /// @brief default_ is the value when the document has none. Absent requires one.
+    /// @brief default_ is the value when a read finds none or no channel is bound.
     std::optional<std::string> default_;
 
     static StringJSONField parse(x::json::Parser parser);
@@ -572,7 +847,7 @@ struct BooleanJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_BOOLEAN;
     /// @brief enum_values maps text labels in the document to values.
     std::vector<::x::payload::BooleanEntry> enum_values;
-    /// @brief default_ is the value when the document has none. Absent requires one.
+    /// @brief default_ is the value when a read finds none or no channel is bound.
     std::optional<bool> default_;
 
     static BooleanJSONField parse(x::json::Parser parser);
@@ -591,8 +866,8 @@ struct TimestampJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_TIMESTAMP;
     /// @brief time_format is the encoding of the timestamp.
     std::string time_format;
-    /// @brief default_ is the value when the document has none. Absent requires one.
-    std::optional<::x::telem::TimeStamp> default_;
+    /// @brief default_ is the value when a read finds none or no channel is bound.
+    std::optional<TimestampDefault> default_;
 
     static TimestampJSONField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -608,6 +883,9 @@ struct TimestampJSONField : public JSONBaseField {
 /// @brief JSONJSONField is any JSON value.
 struct JSONJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_JSON;
+    /// @brief default_ is the JSON text of the value when a read finds none or no
+    /// channel is bound.
+    std::optional<std::string> default_;
 
     static JSONJSONField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -622,6 +900,8 @@ struct JSONJSONField : public JSONBaseField {
 /// @brief UuidJSONField is a UUID held in a JSON string.
 struct UuidJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_UUID;
+    /// @brief default_ is the value when a read finds none or no channel is bound.
+    std::optional<UUIDDefault> default_;
 
     static UuidJSONField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -636,6 +916,9 @@ struct UuidJSONField : public JSONBaseField {
 /// @brief BytesJSONField is base64 text held in a JSON string.
 struct BytesJSONField : public JSONBaseField {
     std::string type = ::x::payload::KIND_BYTES;
+    /// @brief default_ is the base64 text of the value when a read finds none or no
+    /// channel is bound.
+    std::optional<std::string> default_;
 
     static BytesJSONField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -647,7 +930,8 @@ struct BytesJSONField : public JSONBaseField {
     from_proto(const ::service::icd::pb::JSONFieldBytesPayload &pb);
 };
 
-/// @brief JSONField is a field read from a JSON document.
+/// @brief JSONField is a field read from a JSON document. With no default, a read needs
+/// its value and a write needs a channel.
 using JSONField = std::variant<
     FloatJSONField,
     IntegerJSONField,
@@ -670,6 +954,93 @@ json_field_from_proto(const ::service::icd::pb::JSONField &pb);
 [[nodiscard]] inline const JSONBaseField &base(const JSONField &value) {
     return std::visit([](const auto &v) -> const JSONBaseField & { return v; }, value);
 }
+
+/// @brief FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64
+/// bits.
+struct FloatBinaryField : public BinaryBaseField {
+    std::string kind = "float";
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
+    std::optional<::x::payload::Float> default_;
+
+    static FloatBinaryField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::BinaryFieldFloatPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::BinaryFieldFloatPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<FloatBinaryField, x::errors::Error>
+    from_proto(const ::service::icd::pb::BinaryFieldFloatPayload &pb);
+};
+
+/// @brief IntegerBinaryField is a field whose raw bits are a two's complement integer.
+struct IntegerBinaryField : public BinaryBaseField {
+    std::string kind = "integer";
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
+    std::optional<::x::payload::Integer> default_;
+
+    static IntegerBinaryField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::BinaryFieldIntegerPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::BinaryFieldIntegerPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<IntegerBinaryField, x::errors::Error>
+    from_proto(const ::service::icd::pb::BinaryFieldIntegerPayload &pb);
+};
+
+/// @brief UnsignedBinaryField is a field whose raw bits are an unsigned integer.
+struct UnsignedBinaryField : public BinaryBaseField {
+    std::string kind = "unsigned";
+    /// @brief default_ is the raw value, before scale and offset, when a read finds
+    /// none or no channel is bound.
+    std::optional<::x::payload::Unsigned> default_;
+
+    static UnsignedBinaryField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::BinaryFieldUnsignedPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::BinaryFieldUnsignedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<UnsignedBinaryField, x::errors::Error>
+    from_proto(const ::service::icd::pb::BinaryFieldUnsignedPayload &pb);
+};
+
+/// @brief BinaryField is a field read from a bit range of a binary payload. With no
+/// default, a write needs a channel.
+using BinaryField = std::
+    variant<FloatBinaryField, IntegerBinaryField, UnsignedBinaryField>;
+
+BinaryField parse_binary_field(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const BinaryField &value);
+[[nodiscard]] std::pair<::service::icd::pb::BinaryField, x::errors::Error>
+to_proto(const BinaryField &value);
+std::pair<BinaryField, x::errors::Error>
+binary_field_from_proto(const ::service::icd::pb::BinaryField &pb);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BinaryBaseField &base(const BinaryField &value) {
+    return std::visit(
+        [](const auto &v) -> const BinaryBaseField & { return v; },
+        value
+    );
+}
+
+/// @brief WriteMessage sends one message of an ICD.
+struct WriteMessage {
+    /// @brief message is the key of the ICD message to send.
+    MessageKey message;
+    /// @brief bindings are the fields that command channels or fixed values fill. Each
+    /// other field sends its default.
+    std::vector<WriteBinding> bindings = {};
+
+    static WriteMessage parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {
@@ -751,6 +1122,9 @@ struct Message {
     std::string name;
     /// @brief payload is the layout of the message's payload.
     Payload payload;
+    /// @brief cycle_time is the send cycle that the protocol states for the message.
+    /// When absent the protocol states none.
+    std::optional<::x::telem::TimeSpan> cycle_time;
 
     static Message parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

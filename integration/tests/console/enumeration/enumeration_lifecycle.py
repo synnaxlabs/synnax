@@ -10,7 +10,8 @@
 from playwright.sync_api import expect
 
 from console.case import ConsoleCase
-from x import random_name
+from synnax import enumeration, project, schematic
+from x import random_name, spatial
 
 # A built-in that no other test edits.
 _BUILTIN = "Switch"
@@ -22,14 +23,37 @@ class EnumerationLifecycle(ConsoleCase):
 
     name: str
     entries: list[str]
+    replaced: str
+    users: project.Project
 
     def setup(self) -> None:
         super().setup()
         self.name = random_name()
         self.entries = [random_name() for _ in range(3)]
+        self.replaced = random_name()
+        replaced = self.client.enumerations.create(
+            enumeration.Enumeration(name=self.replaced)
+        )
+        # A select that uses the enumeration makes its delete ask for a replacement.
+        self.users = self.client.projects.create(name=random_name())
+        select = schematic.SelectNodeConfig(enumeration=replaced.key)
+        self.client.schematics.create(
+            schematic.Schematic(
+                name=random_name(),
+                project=self.users.key,
+                nodes=[
+                    schematic.Node(
+                        key="select", position=spatial.XY(x=0, y=0), config=select
+                    )
+                ],
+            )
+        )
 
     def teardown(self) -> None:
-        stale = self.client.enumerations.retrieve(names=[self.name])
+        # The select in the project uses an enumeration until test_replace runs, and the
+        # Core refuses to delete an enumeration in use.
+        self.client.projects.delete(self.users.key)
+        stale = self.client.enumerations.retrieve(names=[self.name, self.replaced])
         if stale:
             self.client.enumerations.delete([e.key for e in stale])
         # A run that fails after editing the built-in leaves it edited for the retry.
@@ -46,6 +70,7 @@ class EnumerationLifecycle(ConsoleCase):
         self.test_add_and_remove_entry()
         self.test_rename()
         self.test_restore_builtin()
+        self.test_replace()
         self.test_delete()
 
     def test_create(self) -> None:
@@ -62,9 +87,9 @@ class EnumerationLifecycle(ConsoleCase):
         first, second, third = self.entries
         renamed = random_name()
         enums.rename_entry(self.name, old_name=second, new_name=renamed)
-        enums.set_value(third, 5)
-        enums.toggle_abnormal(first)
-        enums.set_color(first, "#FF0000")
+        enums.set_value(self.name, third, 5)
+        enums.toggle_abnormal(self.name, first)
+        enums.set_color(self.name, first, "#FF0000")
         self.entries = [first, renamed, third]
         stored = enums.wait_for(
             self.name,
@@ -81,31 +106,29 @@ class EnumerationLifecycle(ConsoleCase):
         assert color.value == "#FF0000"
 
     def test_refuse_taken_value(self) -> None:
-        """Test that a value another entry holds is refused with a status."""
+        """Test that a value another entry has stays in its cell, marked and unsent."""
         self.log("Testing: Refuse a taken value")
         enums = self.console.enumerations
-        enums.set_value(self.entries[1], 5)
-        assert self.console.notifications.wait_for(
-            "Value in use",
-            description=f"{self.entries[2]} has the value 5.",
-        ), "Expected a Value in use status"
+        enums.set_value(self.name, self.entries[1], 5)
+        cell = enums.entries(self.name).get_by_label("Value 2", exact=True)
+        expect(cell).to_have_value("5")
+        expect(cell).to_have_attribute("aria-invalid", "true")
         stored = self.client.enumerations.retrieve(names=[self.name])[0]
         assert [e.value for e in stored.entries] == [0, 1, 5]
 
     def test_add_and_remove_entry(self) -> None:
-        """Test the add button on the heading and Remove in the entry menu."""
+        """Test the Add entry button and the Remove button of an entry."""
         self.log("Testing: Add and remove an entry")
         enums = self.console.enumerations
         added = random_name()
         enums.add_entry(self.name, added)
         stored = enums.wait_for(
             self.name,
-            lambda e: len(e.entries) == 4,
+            lambda e: [x.name for x in e.entries] == [*self.entries, added],
             f"The Core did not add {added}",
         )
-        assert stored.entries[3].name == added
         assert stored.entries[3].value == 6
-        enums.remove_entry(added)
+        enums.remove_entry(self.name, added)
         enums.wait_for(
             self.name,
             lambda e: [x.name for x in e.entries] == self.entries,
@@ -113,7 +136,7 @@ class EnumerationLifecycle(ConsoleCase):
         )
 
     def test_rename(self) -> None:
-        """Test renaming an enumeration from the menu of its heading."""
+        """Test renaming an enumeration from its menu."""
         self.log("Testing: Rename enumeration")
         new_name = random_name()
         self.console.enumerations.rename(old_name=self.name, new_name=new_name)
@@ -124,10 +147,10 @@ class EnumerationLifecycle(ConsoleCase):
         self.log("Testing: Restore a built-in")
         enums = self.console.enumerations
         enums.search(_BUILTIN)
-        heading = enums.heading(_BUILTIN)
-        expect(heading.get_by_text("Built-in", exact=True)).to_be_visible()
+        item = enums.item(_BUILTIN)
+        expect(item.get_by_text("Built-in", exact=True)).to_be_visible()
         enums.rename_entry(_BUILTIN, old_name="Off", new_name=random_name())
-        expect(heading.get_by_text("Edited", exact=True)).to_be_visible(timeout=5000)
+        expect(item.get_by_text("Edited", exact=True)).to_be_visible(timeout=5000)
         assert enums.menu_options(_BUILTIN, ["Restore default", "Delete"]) == [
             "Restore default"
         ]
@@ -137,10 +160,18 @@ class EnumerationLifecycle(ConsoleCase):
             lambda e: [(x.key, x.name, x.value) for x in e.entries] == _BUILTIN_ENTRIES,
             f"The Core did not restore {_BUILTIN}",
         )
-        expect(heading.get_by_text("Edited", exact=True)).to_have_count(0)
+        expect(item.get_by_text("Edited", exact=True)).to_have_count(0)
+
+    def test_replace(self) -> None:
+        """Test that deleting an enumeration in use moves its select to the pick."""
+        self.log("Testing: Replace an enumeration")
+        self.console.enumerations.search(self.replaced)
+        # The built-in takes the select, so the enumeration that test_delete deletes
+        # stays unused.
+        self.console.enumerations.replace(self.replaced, with_name=_BUILTIN)
 
     def test_delete(self) -> None:
-        """Test deleting an enumeration from the menu of its heading."""
+        """Test deleting an enumeration from its menu."""
         self.log("Testing: Delete enumeration")
         self.console.enumerations.search(self.name)
         self.console.enumerations.delete(self.name)

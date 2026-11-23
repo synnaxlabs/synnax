@@ -14,7 +14,7 @@ import type { Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { assert } from "vitest";
+import { assert, beforeAll } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
@@ -27,7 +27,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   CaptureStatuses,
   createTestStore,
-  renderSuspended,
+  renderLazy,
   type TestStore,
 } from "@/testutil";
 
@@ -76,7 +76,7 @@ export const renderOverview = async (
   const { Content, Guard } = TAB;
   assert(Guard != null);
   let statuses: Status.NotificationSpec[] = [];
-  await renderSuspended(
+  await renderLazy(
     <>
       <div style={{ width }}>
         <Guard FallbackComponent={Deleted}>
@@ -96,3 +96,6 @@ export const renderOverview = async (
     });
   return { store, project: proj.key, setTabResource, statuses: () => statuses };
 };
+
+/** Loads the module of the lazy overview before the specs of a file run. */
+export const preloadOverview = (): void => beforeAll(TAB.Content.preload);

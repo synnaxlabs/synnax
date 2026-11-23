@@ -19,8 +19,7 @@ import { z } from "zod";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const formSchema = z.object({
   key: z.string(),
@@ -889,7 +888,7 @@ describe("useForm", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {
@@ -943,7 +942,7 @@ describe("useForm", () => {
     it("should not mark form fields as touched when setting them view the listener", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {
@@ -1059,6 +1058,54 @@ describe("useForm", () => {
       });
       act(() => listenerSet(path.name, "Remote Name"));
       expect(result.current.form.value().name).toEqual("Remote Name");
+    });
+  });
+
+  describe("a remote reset during an unsaved edit", () => {
+    const INITIAL = { key: "1", name: "Initial Name", age: 25 };
+
+    const renderResetForm = async () => {
+      let listenerReset!: (values: z.infer<typeof formSchema>) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {},
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
+      return {
+        result,
+        listenerReset: (values: z.infer<typeof formSchema>) => listenerReset(values),
+      };
+    };
+
+    it("should keep the edit touched when the reset leaves the values equal", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL }));
+      expect(result.current.form.value().name).toEqual("Edited Name");
+      expect(result.current.form.get(path.name).touched).toBe(true);
+    });
+
+    it("should take the remote values as the baseline", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL, age: 30 }));
+      expect(result.current.form.value()).toEqual({
+        key: "1",
+        name: "Edited Name",
+        age: 30,
+      });
+      act(() => result.current.form.set(path.name, "Initial Name"));
+      expect(result.current.form.get(path.name).touched).toBe(false);
     });
   });
 

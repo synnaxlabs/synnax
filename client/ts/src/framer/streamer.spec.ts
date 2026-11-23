@@ -19,6 +19,7 @@ import {
   id,
   Series,
   sleep,
+  TimeRange,
   TimeSpan,
   TimeStamp,
   url,
@@ -28,9 +29,14 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
-import { AccessDeniedError, MissingLicenseError } from "@/index";
+import {
+  AccessDeniedError,
+  AuthError,
+  ExpiredTokenError,
+  MissingLicenseError,
+  SessionEndedError,
+} from "@/index";
 import {
   createProxiedTestClient,
   createTestClient,
@@ -1469,6 +1475,32 @@ describe("Streamer", () => {
     });
   });
 
+  describe("hardened missed hook", () => {
+    it("should hand the config's onMissed to every stream it opens", async () => {
+      const configs: framer.StreamerConfig[] = [];
+      const onMissed = vi.fn();
+      const reopened = new MockStreamer();
+      reopened.responses.push([new framer.Frame(), null]);
+      const streams = [new MockStreamer(), reopened];
+      const hardened = new framer.HardenedStreamer(
+        async (config) => {
+          configs.push(config);
+          return streams.shift() ?? new MockStreamer();
+        },
+        { channels: [1], onMissed },
+        { breaker: { baseInterval: TimeSpan.milliseconds(1) } },
+      );
+      await hardened.start();
+      await hardened.read();
+      expect(configs).toHaveLength(2);
+      configs.forEach((config) => {
+        if (typeof config === "object" && "onMissed" in config) config.onMissed?.();
+      });
+      expect(onMissed).toHaveBeenCalledTimes(2);
+      hardened.close();
+    });
+  });
+
   describe("observable", () => {
     it("should notify observers when frames are received", async () => {
       const mockStreamer = new MockStreamer();
@@ -1671,7 +1703,7 @@ describe("update against a local server", () => {
     reply(ws, { type: "data", payload: { frame: { keys: [], series: [] }, ...extra } });
 
   // Calls onAckRequest for each update that asks for an ack.
-  const open = async (onAckRequest: (ws: WebSocket) => void) => {
+  const open = async (onAckRequest: (ws: WebSocket) => void, onMissed?: () => void) => {
     const { port } = server.address() as AddressInfo;
     const ws = new WebSocketClient({
       endpoint: new url.URL({ host: "127.0.0.1", port }),
@@ -1684,7 +1716,10 @@ describe("update against a local server", () => {
           onAckRequest(sock);
       }),
     );
-    return await framer.openStreamer(retrieveChannels, ws, { channels: [1] });
+    return await framer.openStreamer(retrieveChannels, ws, {
+      channels: [1],
+      onMissed,
+    });
   };
 
   beforeEach(async () => {
@@ -1720,6 +1755,53 @@ describe("update against a local server", () => {
       StreamClosed,
     );
     await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should ask for missed markers when onMissed is set", async () => {
+    const openRequest = async (onMissed?: () => void): Promise<unknown> => {
+      const first = connected.then(
+        async (ws) =>
+          await new Promise<Buffer>((resolve) => ws.once("message", resolve)),
+      );
+      const streamer = await open(() => {}, onMissed);
+      const data = await first;
+      streamer.close();
+      return new binary.JSONCodec().decode(data, z.object({ payload: z.unknown() }))
+        .payload;
+    };
+    expect(await openRequest(() => {})).toMatchObject({ missedRequested: true });
+  });
+
+  it("should call onMissed for a missed marker and keep reading", async () => {
+    const onMissed = vi.fn();
+    const streamer = await open(() => {}, onMissed);
+    const ws = await connected;
+    replyData(ws, { missed: true });
+    replyData(ws);
+    const frame = await streamer.read();
+    expect(onMissed).toHaveBeenCalledTimes(1);
+    expect(onMissed).toHaveBeenCalledWith(undefined);
+    expect(frame.keys).toEqual([]);
+    streamer.close();
+  });
+
+  it("should pass the lost time range of each channel to onMissed", async () => {
+    const onMissed = vi.fn();
+    const streamer = await open(() => {}, onMissed);
+    const ws = await connected;
+    replyData(ws, {
+      missed: true,
+      missed_ranges: { 1: { start: "10", end: "20" }, 2: { start: "0", end: "0" } },
+    });
+    replyData(ws);
+    await streamer.read();
+    expect(onMissed).toHaveBeenCalledWith(
+      new Map([
+        [1, new TimeRange(10, 20)],
+        [2, TimeRange.ZERO],
+      ]),
+    );
+    streamer.close();
   });
 
   it("should reject an update sent after close", async () => {

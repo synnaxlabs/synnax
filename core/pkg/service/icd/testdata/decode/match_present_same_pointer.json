@@ -1,0 +1,60 @@
+{
+  "description": "Two present rules test different pointers.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "pressure",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/pressure",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/pressure"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "sample",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/pressure"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "messages reading and sample both match a value at \"/pressure\": validation error"
+}

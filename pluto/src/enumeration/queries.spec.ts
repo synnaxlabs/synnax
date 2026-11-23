@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -16,8 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/enumeration";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -43,7 +42,6 @@ describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     await remote.connect();
   });
 
@@ -135,15 +133,15 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultDependents", () => {
-    it("should return no records for an unused enumeration", async () => {
+  describe("useResult", () => {
+    it("should return empty uses of an unused enumeration", async () => {
       const created = await createEnumeration();
       const { result } = renderHook(
-        () => Enumeration.useResultDependents({ key: created.key }),
+        () => Enumeration.useResult({ key: created.key, includeUses: true }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(result.current.data).toEqual([]);
+      expect(result.current.data?.uses).toEqual([]);
     });
   });
 
@@ -198,6 +196,20 @@ describe("queries", () => {
       await expect(
         createTestClient().enumerations.retrieve(created.key),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("useReplace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      const { result } = renderHook(Enumeration.useReplace, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ from: from.key, to: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow();
+      expect((await other.enumerations.retrieve(to.key)).key).toEqual(to.key);
     });
   });
 

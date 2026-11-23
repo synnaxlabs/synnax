@@ -14,14 +14,14 @@ import { Session } from "@/session";
 
 const TAB_TYPE = "settings";
 
-const TAB: Panel.Tab = {
+const TAB = {
   Icon: Icon.Settings,
   iconKey: "gear",
   Name: Panel.createStaticTabName({ name: "Settings", icon: <Icon.Settings /> }),
   Content: Panel.lazyComponent(() => import("@/app/settings/Settings"), "Settings"),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
+export const TABS = { [TAB_TYPE]: TAB } satisfies Panel.Tabs;
 
 /** The key of the Labels section. */
 export const LABELS_SECTION = "labels";

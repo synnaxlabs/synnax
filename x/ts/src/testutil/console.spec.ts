@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { failOnConsoleOutput } from "@/testutil/console";
+import { failOnConsoleOutput } from "@/testutil";
 
 // The x setup file calls failOnConsoleOutput, so these specs run under the check.
 describe("failOnConsoleOutput", () => {
@@ -34,6 +34,10 @@ describe("failOnConsoleOutput", () => {
 
     it("should pass a test that writes only ignored output", () => {
       console.warn("a slow step took 23ms");
+    });
+
+    it("should match an ignore pattern against the cause of an error", () => {
+      console.warn(new Error("outer", { cause: new Error("a slow step took 23ms") }));
     });
 
     it.fails("should fail a test that writes other output", () => {

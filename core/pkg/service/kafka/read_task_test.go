@@ -329,14 +329,15 @@ var _ = Describe("Read task", func() {
 			Device: dev.Key,
 			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
 		})
-		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
+		start(ctx, dt, t)
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+		Expect(timestamps(stored(ctx, index.Key()))).
+			To(Equal([]telem.TimeStamp{11 * telem.SecondTS}))
 		stat := taskStatus(ctx, t)
 		Expect(stat.Variant).To(Equal(status.VariantWarning))
-		// The two records can arrive in one poll or in two.
-		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
+		Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
 		Expect(stat.Description).
 			To(Equal("Record value: field v: no value at /v: validation error " +
 				"(topic " + topic + ", partition 0, offset 0)."))
@@ -1664,7 +1665,7 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
 		Entry("text that is not base64",
 			telem.BytesT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
+			map[string]any{"ts": 10e9, "v": "a*b="}, "not canonical base64"),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),

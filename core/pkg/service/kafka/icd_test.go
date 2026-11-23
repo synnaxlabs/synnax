@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 )
@@ -79,9 +80,13 @@ func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord
 	GinkgoHelper()
 	cfg := kafka.ReadConfig{Inline: &kafka.InlineRead{Records: records}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		ic, _, err := v1.ResolveReadConfig(
+		old, _, err := v1.ResolveReadConfig(
 			ctx, tx, channels, "Plant", &cfg, func(string, string) {},
 		)
+		if err != nil {
+			return err
+		}
+		ic, err := icdv1.MigrateICD(ctx, old)
 		if err != nil {
 			return err
 		}

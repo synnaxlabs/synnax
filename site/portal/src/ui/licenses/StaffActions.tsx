@@ -14,7 +14,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { errors } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import type { License } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
 import { navigate, post, postFile, reload, RequestError, save } from "@/ui/api";
@@ -23,7 +23,7 @@ import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
 
 export interface StaffActionsProps {
-  license: License;
+  license: schema.License;
   now: Date;
   /** back is the page that opens once the license is deleted. */
   back: string;

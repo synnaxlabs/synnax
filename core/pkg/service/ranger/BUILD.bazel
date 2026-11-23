@@ -15,7 +15,7 @@ proto_library(
     srcs = ["pb/ranger.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/go/color:color_proto",
+        "//core/pkg/service/color:color_proto",
         "//x/go/filter:filter_proto",
         "//x/go/telem:telem_proto",
     ],
@@ -27,7 +27,7 @@ cpp_grpc_library(
     protos = [":range_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/go/color:color_grpc",
+        "//core/pkg/service/color:color_grpc",
         "//x/go/filter:filter_grpc",
         "//x/go/telem:telem_grpc",
     ],

@@ -23,12 +23,12 @@ import {
   vi,
 } from "vitest";
 
-import type { License, Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import type { Held, Owned } from "@/server/license/list";
 import { HASH_A, NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 
-const ACME: Organization = {
+const ACME: schema.Organization = {
   key: uuid.create(),
   kind: "team",
   name: "Acme",
@@ -38,7 +38,10 @@ const ACME: Organization = {
   createdAt: NOW,
 };
 
-const createChoice = (license: Partial<License> = {}, seats = 0): Owned & Held => ({
+const createChoice = (
+  license: Partial<schema.License> = {},
+  seats = 0,
+): Owned & Held => ({
   license: {
     key: uuid.create(),
     organization: ACME.key,

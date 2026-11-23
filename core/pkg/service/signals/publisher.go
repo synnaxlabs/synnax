@@ -143,22 +143,8 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	setEnabled := cfg.SetChannel.Name != ""
-	deleteEnabled := cfg.DeleteChannel.Name != ""
-	var channels []channel.Channel
-	if setEnabled {
-		channels = append(channels, cfg.SetChannel)
-	}
-	if deleteEnabled {
-		channels = append(channels, cfg.DeleteChannel)
-	}
-	if err = p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return p.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&channels,
-			channel.RetrieveIfNameExists(),
-			channel.OverwriteIfNameExistsAndDifferentProperties(),
-		)
-	}); err != nil {
+	channels, err := p.createChannels(ctx, &cfg)
+	if err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
@@ -170,55 +156,10 @@ func (p *Provider) PublishFromObservable(
 	if err != nil {
 		return nil, err
 	}
-	for _, ch := range channels {
-		switch ch.Name {
-		case cfg.SetChannel.Name:
-			cfg.SetChannel = ch
-		case cfg.DeleteChannel.Name:
-			cfg.DeleteChannel = ch
-		}
-	}
 	t := &confluence.ObservableTransformPublisher[[]Change, framer.WriterRequest]{
 		Instrumentation: p.cfg.Instrumentation,
 		Observable:      cfg.Observable,
-		Transform: func(
-			_ context.Context, changes []Change,
-		) (framer.WriterRequest, bool, error) {
-			if len(changes) == 0 {
-				return framer.WriterRequest{}, false, nil
-			}
-			var (
-				frame   framer.Frame
-				sets    = telem.Series{DataType: cfg.SetChannel.DataType}
-				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
-			)
-			for _, ch := range changes {
-				if ch.Deleted {
-					if !deleteEnabled {
-						continue
-					}
-					deletes.Data = append(deletes.Data, ch.Sample...)
-				} else {
-					if !setEnabled {
-						continue
-					}
-					sets.Data = append(sets.Data, ch.Sample...)
-				}
-			}
-			if len(sets.Data) > 0 {
-				frame = frame.Append(cfg.SetChannel.Key(), sets)
-			}
-			if len(deletes.Data) > 0 {
-				frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
-			}
-			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
-				return framer.WriterRequest{}, false, nil
-			}
-			return framer.WriterRequest{
-				Command: framer.WriterCommandWrite,
-				Frame:   frame,
-			}, true, nil
-		},
+		Transform:       encodeChanges(cfg.SetChannel, cfg.DeleteChannel),
 	}
 	pl := plumber.New()
 	pl.SetSource("source", t)
@@ -247,4 +188,79 @@ func (p *Provider) PublishFromObservable(
 		confluence.RecoverWithErrOnPanic(),
 	)
 	return signal.NewHardShutdown(sCtx, cancel), nil
+}
+
+// createChannels creates the set and delete channels that cfg names, retrieving any
+// that already exist by name, and binds the stored channels back into cfg.
+func (p *Provider) createChannels(
+	ctx context.Context,
+	cfg *ObservablePublisherConfig,
+) ([]channel.Channel, error) {
+	var channels []channel.Channel
+	if cfg.SetChannel.Name != "" {
+		channels = append(channels, cfg.SetChannel)
+	}
+	if cfg.DeleteChannel.Name != "" {
+		channels = append(channels, cfg.DeleteChannel)
+	}
+	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return p.cfg.Channel.NewWriter(tx).CreateMany(
+			ctx,
+			&channels,
+			channel.RetrieveIfNameExists(),
+			channel.OverwriteIfNameExistsAndDifferentProperties(),
+		)
+	}); err != nil {
+		return nil, err
+	}
+	for _, ch := range channels {
+		switch ch.Name {
+		case cfg.SetChannel.Name:
+			cfg.SetChannel = ch
+		case cfg.DeleteChannel.Name:
+			cfg.DeleteChannel = ch
+		}
+	}
+	return channels, nil
+}
+
+// encodeChanges returns a transform that encodes changes as a write to set and del. It
+// drops the changes for a channel with an empty name.
+func encodeChanges(
+	set, del channel.Channel,
+) func(context.Context, []Change) (framer.WriterRequest, bool, error) {
+	setEnabled := set.Name != ""
+	deleteEnabled := del.Name != ""
+	return func(_ context.Context, changes []Change) (framer.WriterRequest, bool, error) {
+		if len(changes) == 0 {
+			return framer.WriterRequest{}, false, nil
+		}
+		var (
+			frame   framer.Frame
+			sets    = telem.Series{DataType: set.DataType}
+			deletes = telem.Series{DataType: del.DataType}
+		)
+		for _, ch := range changes {
+			if ch.Deleted {
+				if deleteEnabled {
+					deletes.Data = append(deletes.Data, ch.Sample...)
+				}
+			} else if setEnabled {
+				sets.Data = append(sets.Data, ch.Sample...)
+			}
+		}
+		if len(sets.Data) > 0 {
+			frame = frame.Append(set.Key(), sets)
+		}
+		if len(deletes.Data) > 0 {
+			frame = frame.Append(del.Key(), deletes)
+		}
+		if len(sets.Data) == 0 && len(deletes.Data) == 0 {
+			return framer.WriterRequest{}, false, nil
+		}
+		return framer.WriterRequest{
+			Command: framer.WriterCommandWrite,
+			Frame:   frame,
+		}, true, nil
+	}
 }

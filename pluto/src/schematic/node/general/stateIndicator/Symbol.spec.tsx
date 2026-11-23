@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -17,8 +17,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Staleness } from "@/vis/staleness";
+import { createSynnaxWrapper } from "@/testutil";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
@@ -96,10 +95,10 @@ const StaleWrapper = createSynnaxWrapper({
   telemFactories: [],
 });
 
-const renderStale = (badged: boolean) =>
-  render(
-    <StaleWrapper>
-      <Staleness.Provider badged={badged}>
+describe("StateIndicator.Symbol staleness", () => {
+  it("should show the stale indicator below the symbol", async () => {
+    const { findByRole } = render(
+      <StaleWrapper>
         <ReactFlowProvider>
           <StateIndicator.spec.Node
             nodeKey="s1"
@@ -111,23 +110,11 @@ const renderStale = (badged: boolean) =>
             })}
           />
         </ReactFlowProvider>
-      </Staleness.Provider>
-    </StaleWrapper>,
-  );
-
-describe("StateIndicator.Symbol staleness", () => {
-  it("should show the stale indicator in place of the stale color", async () => {
-    const { findByRole, getByText } = renderStale(true);
+      </StaleWrapper>,
+    );
     const indicator = await findByRole("img", { name: "Stale" });
     expect(indicator.closest(".pluto-grid__item")?.classList).toContain(
       "lyra--location-bottom",
     );
-    expect(getByText("Unknown").style.color).toBe("");
-  });
-
-  it("should paint the stale color with no indicator when not badged", async () => {
-    const { getByText, queryByRole } = renderStale(false);
-    await waitFor(() => expect(getByText("Unknown").style.color).not.toBe(""));
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });

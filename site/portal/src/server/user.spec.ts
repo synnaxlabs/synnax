@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { event, type EventKind, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, memory, type Records } from "@/server/directory";
 import { HASH_A, NOW } from "@/server/license/testutil";
@@ -21,8 +21,8 @@ const at = (iso: string): Date => new Date(iso);
 
 describe("user", () => {
   let store: Memory;
-  let ada: Organization;
-  let bob: Organization;
+  let ada: schema.Organization;
+  let bob: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -39,12 +39,12 @@ describe("user", () => {
   });
 
   const record = async (
-    org: Organization,
-    kind: EventKind,
+    org: schema.Organization,
+    kind: schema.EventKind,
     iso: string,
   ): Promise<void> => {
     await store.query
-      .insert(event)
+      .insert(schema.event)
       .values({ kind, actor: "user_a", organization: org.key, at: at(iso) });
   };
 

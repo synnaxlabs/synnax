@@ -129,7 +129,21 @@ describe("Legend", () => {
       await waitFor(() => expect(container.textContent).toContain("pressure"));
       const text = container.textContent ?? "";
       expect(text.indexOf("Test 2")).toBeLessThan(text.indexOf("Test 1"));
-      expect(text).toMatch(/Test 2Y1pressure.*Test 1Y1pressure/);
+      expect(text).toMatch(/Test 2pressure.*Test 1pressure/);
+    });
+
+    it("should name the axis of each line when the lines use two axes", async () => {
+      const valve: LegendLineProps = {
+        lineKey: "b/r1",
+        legendGroup: "r1",
+        label: "valve",
+        axis: "y2",
+      };
+      const container = renderLegend([...LINES, valve], { ranges: RANGES });
+      await waitFor(() => expect(container.textContent).toContain("valve"));
+      expect(container.textContent).toMatch(
+        /Test 2Y1pressure.*Test 1Y1pressureY2valve/,
+      );
     });
 
     it("should mark a range with a custom T0", async () => {
@@ -157,11 +171,6 @@ describe("Legend", () => {
       expect(onRangeVisibleChange).toHaveBeenLastCalledWith("r1", false, false);
       fireEvent.click(eye, { altKey: true });
       expect(onRangeVisibleChange).toHaveBeenLastCalledWith("r1", false, true);
-    });
-
-    it("should end with the footer", async () => {
-      renderLegend(LINES, { ranges: RANGES, footer: <span>Show all</span> });
-      expect(await screen.findByText("Show all")).toBeDefined();
     });
 
     it("should report the hover of a range name with the range key", async () => {

@@ -11,7 +11,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
-import { useItems } from "@/store/items";
+import { Store } from "@/store";
 
 interface Entry {
   key: string;
@@ -28,7 +28,11 @@ interface HarnessProps {
 
 const useHarness = ({ keys }: HarnessProps) => {
   const data = List.useMapData<string, Entry>({ initialData: [A, B, C] });
-  const items = useItems({ keys, subscribe: data.subscribe, getItem: data.getItem });
+  const items = Store.useItems({
+    keys,
+    subscribe: data.subscribe,
+    getItem: data.getItem,
+  });
   return { data, items };
 };
 

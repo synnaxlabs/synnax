@@ -9,16 +9,14 @@
 
 import { Text } from "@synnaxlabs/lyra/text";
 import { type color, compare, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 
 import { type LineSpec, useContext } from "@/lineplot/Frame";
-import { formatRelativeTime } from "@/vis/axis/relative";
+import { axis } from "@/vis/axis";
 import { Legend as Base } from "@/vis/legend";
-import type { EntriesProps } from "@/vis/legend/Entries";
-import type { GroupData } from "@/vis/legend/Grouped";
 
 type LineHandlers = Pick<
-  EntriesProps,
+  Base.EntriesProps,
   "onColorChange" | "onLabelChange" | "onVisibleChange" | "onHoverChange"
 >;
 
@@ -39,17 +37,16 @@ export interface LegendProps extends Omit<
   Base.SimpleProps,
   "data" | "onColorChange" | "onLabelChange" | "onVisibleChange"
 > {
-  onLineColorChange?: EntriesProps["onColorChange"];
-  onLineLabelChange?: EntriesProps["onLabelChange"];
-  onLineVisibleChange?: EntriesProps["onVisibleChange"];
+  onLineColorChange?: Base.EntriesProps["onColorChange"];
+  onLineLabelChange?: Base.EntriesProps["onLabelChange"];
+  onLineVisibleChange?: Base.EntriesProps["onVisibleChange"];
   /** Lists lines under these ranges, in order, instead of under their axes. */
   ranges?: LegendRange[];
   hiddenRanges?: Set<string>;
-  onRangeVisibleChange?: EntriesProps["onVisibleChange"];
+  onRangeVisibleChange?: Base.EntriesProps["onVisibleChange"];
   onRangeColorChange?: (key: string, color: color.Color) => void;
   /** Called with the key of the line or range the pointer is on, or null. */
-  onHoverChange?: EntriesProps["onHoverChange"];
-  footer?: ReactNode;
+  onHoverChange?: Base.EntriesProps["onHoverChange"];
 }
 
 const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
@@ -70,8 +67,8 @@ const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
 
 const ABSOLUTE_ONLY = "Shows in absolute time only";
 
-const zeroBadge = (zero: TimeStamp, start: TimeStamp): GroupData["badge"] => {
-  const offset = formatRelativeTime(
+const zeroBadge = (zero: TimeStamp, start: TimeStamp): Base.GroupData["badge"] => {
+  const offset = axis.formatRelativeTime(
     Number(start.valueOf() - zero.valueOf()),
     Number(TimeSpan.MILLISECOND.valueOf()),
   );
@@ -82,13 +79,15 @@ const zeroBadge = (zero: TimeStamp, start: TimeStamp): GroupData["badge"] => {
 };
 
 // groupRanges lists each range in order with the lines registered under its key. A
-// range with no zero does not draw, so it has no eye.
+// range with no zero does not draw, so it has no eye. Lines name their axis only when
+// the lines use more than one.
 const groupRanges = (
   ranges: LegendRange[],
   lines: LineSpec[],
   hidden: Set<string> | undefined,
-): GroupData[] =>
-  ranges.map(({ key, name, color, zero, start }) => ({
+): Base.GroupData[] => {
+  const axisNamed = new Set(lines.map((l) => l.axis)).size > 1;
+  return ranges.map(({ key, name, color, zero, start }) => ({
     key,
     name,
     color,
@@ -102,13 +101,14 @@ const groupRanges = (
         label,
         visible,
         start:
-          axis == null ? undefined : (
+          !axisNamed || axis == null ? undefined : (
             <Text.Text level="small" color={9} weight={500}>
               {axis.toUpperCase()}
             </Text.Text>
           ),
       })),
   }));
+};
 
 export const Legend = ({
   onLineColorChange,
@@ -119,7 +119,6 @@ export const Legend = ({
   onRangeVisibleChange,
   onRangeColorChange,
   onHoverChange,
-  footer,
   ...rest
 }: LegendProps): ReactElement => {
   const { lines } = useContext("LinePlot.Legend");
@@ -138,7 +137,6 @@ export const Legend = ({
         onGroupVisibleChange={onRangeVisibleChange}
         onGroupColorChange={onRangeColorChange}
         onHoverChange={onHoverChange}
-        footer={footer}
         nested
         {...rest}
       />

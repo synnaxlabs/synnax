@@ -9,6 +9,8 @@
 
 import "@/feature/mqtt/task/discover/Discover.css";
 
+import type { icd } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -17,24 +19,34 @@ import { math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
-import type { Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
 import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
 import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
-import { Modals } from "@/platform/modals";
+import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
+
+const FORMAT_REQUIRED = "Select a message format to add topics.";
+
+/** A message of an ICD. */
+export interface Format {
+  icd: icd.Key;
+  message: icd.Message;
+}
 
 /** The values picked from topics and the tags picked from edge nodes. */
 export interface Picks {
   topics: TopicPicks;
   tags: TagPicks;
+  /** The message that each entry from a topic sends, when the kind picks one. */
+  format: Format | null;
 }
 
 /** What a dialog adds to a task: the entries of a read or the targets of a write. */
-export interface Kind<E extends HeldEntry> {
+export interface Kind<E> {
   /** Names the dialog. */
   title: string;
   /** Says what a picked value of a topic becomes, under the title of each pane. */
@@ -45,46 +57,62 @@ export interface Kind<E extends HeldEntry> {
   noun: string;
   /** Names what one picked tag adds. Defaults to noun. */
   tagNoun?: string;
-  /** Each topic takes one value, and a topic that the task holds takes none. */
-  single?: boolean;
+  /** Each pick is a whole topic, and a topic that the task holds takes none. */
+  whole?: boolean;
+  /** A pick of a topic that the task does not read takes its index too. */
+  indexed?: boolean;
+  /**
+   * Each entry from a topic sends one message, which a field under the topics picks. An
+   * add that holds a topic before the pick shows the error at that field.
+   */
+  formatRequired?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
-  create: (picks: Picks, entries: E[]) => E[];
-  /** @returns what a topic added by name adds. */
-  createTopic: (topic: string) => E;
+  create: (picks: Picks, entries: HeldEntry[]) => E[];
+  /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
+  createTopic?: (topic: string, picks: Picks) => E;
   /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
   createTag?: () => E;
 }
 
-interface Params<E extends HeldEntry> {
-  device: Device;
+export interface Params {
+  device: Device.Device;
   /** What the task holds now. */
-  entries: E[];
+  entries: HeldEntry[];
 }
 
-type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & {
+export type DiscoverProps<E> = Modals.ContentProps<Params, E[]> & {
   kind: Kind<E>;
 };
 
-const Discover = <E extends HeldEntry>({
-  device,
-  entries,
-  close,
-  kind,
-}: DiscoverProps<E>) => {
-  const { createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
-  const [mode, setMode] = useState<Mode>("topics");
+export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>) => {
+  const { createTopic, createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
+  const [mode, setMode] = useState<Mode>(createTopic == null ? "sparkplug" : "topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
+  const [format, setFormat] = useState<Format | null>(null);
+  const [refused, setRefused] = useState(false);
+  const picks: Picks = { topics: topicPicks, tags: tagPicks, format };
+  const formatError = refused && format == null ? FORMAT_REQUIRED : undefined;
 
-  const picked = (): E[] =>
-    kind.create({ topics: topicPicks, tags: tagPicks }, entries);
+  const add = (extra: () => E[], extraTopics = 0) => {
+    const topicCount = topicPicks.size + extraTopics;
+    if (kind.formatRequired === true && format == null && topicCount > 0) {
+      setMode("topics");
+      setRefused(true);
+      return;
+    }
+    close([...kind.create(picks, entries), ...extra()]);
+  };
 
-  const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
+  const entryCount =
+    kind.whole === true
+      ? topicPicks.size
+      : math.sum([...topicPicks.values()].map((p) => p.pointers.size));
   const parts: string[] = [];
-  if (values > 0) {
-    const topics = pluralize("topic", topicPicks.size, true);
-    parts.push(`${pluralize("value", values, true)} from ${topics}`);
-  }
+  const topics = pluralize("topic", topicPicks.size, true);
+  if (kind.whole === true && entryCount > 0) parts.push(topics);
+  else if (entryCount > 0)
+    parts.push(`${pluralize("value", entryCount, true)} from ${topics}`);
   if (tagPicks.size > 0) parts.push(pluralize("Sparkplug B tag", tagPicks.size, true));
   const summary = parts.length === 0 ? null : `${parts.join(" and ")} selected`;
 
@@ -92,23 +120,39 @@ const Discover = <E extends HeldEntry>({
     <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
       <Modal.Header icon={<Icon.Logo.MQTT />}>{[kind.title, device.name]}</Modal.Header>
       <ICD.Picker.Bar>
-        {createTag != null && (
+        {createTopic != null && createTag != null && (
           <Select.Buttons<Mode> value={mode} onChange={setMode}>
             <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
             <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
           </Select.Buttons>
         )}
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey="topics" hint={hint}>
-        <TopicPicker
-          device={device}
-          entries={entries}
-          single={kind.single}
-          value={topicPicks}
-          onChange={setTopicPicks}
-          onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
-        />
-      </ICD.Picker.Frame>
+      {createTopic != null && (
+        <ICD.Picker.Frame itemKey="topics" hint={hint}>
+          <TopicPicker
+            device={device}
+            entries={entries}
+            whole={kind.whole}
+            indexed={kind.indexed}
+            value={topicPicks}
+            onChange={setTopicPicks}
+            onAddByName={(topic) => add(() => [createTopic(topic, picks)], 1)}
+          >
+            {kind.formatRequired === true && (
+              <Flex.Box y empty className={CSS.BE("mqtt-discover", "format")}>
+                <ICD.MessageFormatField
+                  icdKey={format?.icd}
+                  message={format?.message.key}
+                  onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
+                  helpText={formatError}
+                  status={formatError == null ? undefined : "error"}
+                  padHelpText
+                />
+              </Flex.Box>
+            )}
+          </TopicPicker>
+        </ICD.Picker.Frame>
+      )}
       {createTag != null && (
         <ICD.Picker.Frame itemKey="sparkplug" hint={tagHint}>
           <TagPicker
@@ -116,17 +160,17 @@ const Discover = <E extends HeldEntry>({
             entries={entries}
             value={tagPicks}
             onChange={setTagPicks}
-            onAddByName={() => close([...picked(), createTag()])}
+            onAddByName={() => add(() => [createTag()])}
           />
         </ICD.Picker.Frame>
       )}
       <ICD.Picker.Footer
         counts={[
-          [noun, values],
+          [noun, entryCount],
           [tagNoun, tagPicks.size],
         ]}
         idle={mode === "sparkplug" ? tagNoun : noun}
-        onAdd={() => close(picked())}
+        onAdd={() => add(() => [])}
         onCancel={() => close()}
       >
         {summary != null && (
@@ -137,18 +181,4 @@ const Discover = <E extends HeldEntry>({
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );
-};
-
-/**
- * Creates a hook that opens a dialog listing what the broker publishes, so the user can
- * pick values. The dialog resolves with what the kind creates from the picks, or null
- * when the user closes it.
- */
-export const createDiscoverModal = <E extends HeldEntry>(
-  kind: Kind<E>,
-): Modals.PromptHook<Params<E>, E[]> => {
-  const Content = (props: Modals.ContentProps<Params<E>, E[]>) => (
-    <Discover {...props} kind={kind} />
-  );
-  return Modals.createPrompt<E[], Params<E>>(Content);
 };

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  waitFor,
+} from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
@@ -15,8 +21,8 @@ import { page } from "vitest/browser";
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockGeometry } from "@/testutil/dom";
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter, mockGeometry } from "@/testutil";
+import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 interface RenderOptions {
@@ -375,12 +381,15 @@ describe("Select render isolation", () => {
       onActivate?: () => void;
       onChange?: (keys: string[]) => void;
       disabled?: boolean;
+      /** Draws each name as text that can be edited. */
+      editable?: boolean;
     }
 
     const Checkable = ({
       onActivate,
       onChange,
       disabled,
+      editable = false,
     }: CheckableProps): ReactElement => {
       const [value, setValue] = useState<string[]>([]);
       const handleChange = (next: string[]): void => {
@@ -405,7 +414,15 @@ describe("Select render isolation", () => {
                     onActivate={onActivate}
                     disabled={disabled}
                   >
-                    {p.itemKey}
+                    {editable ? (
+                      <Text.Editable
+                        id={`${p.itemKey}-name`}
+                        value={p.itemKey}
+                        onChange={vi.fn()}
+                      />
+                    ) : (
+                      p.itemKey
+                    )}
                   </Select.Item>
                 )}
               </List.Items>
@@ -427,6 +444,20 @@ describe("Select render isolation", () => {
       fireEvent.click(item(c, "alpha"));
       expect(onActivate).toHaveBeenCalledTimes(1);
       expect(checkbox(c, "alpha").checked).toBe(false);
+    });
+
+    it("should not activate on a click in a name under edit", async () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} editable />);
+      const name = c.baseElement.querySelector<HTMLElement>("#alpha-name")!;
+      act(() => Text.edit("alpha-name"));
+      await waitFor(() => expect(name.isContentEditable).toBe(true));
+      fireEvent.click(name, { metaKey: true });
+      fireEvent.click(name);
+      expect(onActivate).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(false);
+      fireEvent.click(item(c, "alpha"));
+      expect(onActivate).toHaveBeenCalledTimes(1);
     });
 
     it("should select on a click with Command held without activating", () => {

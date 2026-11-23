@@ -88,15 +88,15 @@ These properties are the same for each message format.
 </Field.Item>
 
 <Field.Item label="Min" field="min" type="number">
-  The smallest value that a write task accepts. Empty leaves the limit to the bits or
-  the type of the field. Only a number field can have a min. The Console does not show
-  it.
+  The smallest value, after the scale and offset, that a write task accepts. Empty
+  leaves the limit to the bits or the type of the field. Only a number field can have a
+  min. The Console does not show it.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
-  The largest value that a write task accepts. It cannot be less than the min. Empty
-  leaves the limit to the bits or the type of the field. Only a number field can have a
-  max. The Console does not show it.
+  The largest value, after the scale and offset, that a write task accepts. It cannot be
+  less than the min. Empty leaves the limit to the bits or the type of the field. Only a
+  number field can have a max. The Console does not show it.
 </Field.Item>
 
 </Field.List>
@@ -230,9 +230,8 @@ When a task reads more than one message from a topic:
 
 ### Defaults
 
-A field of type Float, Signed integer, Unsigned integer, String, Boolean, or Timestamp
-can have a default. The task writes the default when the document has no value at the
-pointer of the field:
+Every JSON field can have a default. The task writes the default when the document has
+no value at the pointer of the field:
 
 - The document has no value at the pointer.
 - The value is `null`, and the channel is not a `json` channel.
@@ -242,9 +241,16 @@ pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
-To set a default in the Console, open the **Options** of the field and select
-**Optional**. The Console shows the default of a timestamp field and can remove it, but
-only code can set it.
+A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
+timestamp default is now, the time of each read or write, or a constant time. In Python,
+the class is `NowTimestampDefault` or `ConstantTimestampDefault`. In TypeScript, `type`
+is `"now"` or `"constant"`. A UUID default is random, a new UUID for each message, or a
+constant UUID. In Python, the class is `RandomUUIDDefault` or `ConstantUUIDDefault`. In
+TypeScript, `type` is `"random"` or `"constant"`.
+
+To set a default in the Console, open the **Options** of the field, select **Optional**,
+and set the **Default**. A timestamp default is **Now** or **Constant**, and a UUID
+default is **Random** or **Constant**.
 
 ### Enum values
 
@@ -304,6 +310,12 @@ TypeScript, `encoding` is `"delimited"` or `"tagged"`.
 <Field.Item label="Tag" field="tag" type="string" required>
   For a tagged field: the text that comes just before the value, such as `T=` in
   `T=21.4`.
+</Field.Item>
+
+<Field.Item id="text-default" label="Default" field="default">
+  The raw number, before scale and offset, for a read that finds no value or a write
+  with no channel for the field. With no default, a write needs a channel. In the
+  Console, a blank **Default** cell means no default.
 </Field.Item>
 
 </Field.List>
@@ -391,7 +403,9 @@ A **Field value** identifier has these properties. In Python, the class is
 
 ### Binary field properties
 
-In Python, a binary field is a `BinaryField`.
+A binary field is a float, signed integer, or unsigned integer field. In Python, the
+class is `FloatBinaryField`, `IntegerBinaryField`, or `UnsignedBinaryField`. In
+TypeScript, `kind` is `"float"`, `"integer"`, or `"unsigned"`.
 
 <Field.List>
 
@@ -423,9 +437,15 @@ In Python, a binary field is a `BinaryField`.
   **Little endian** (`little_endian`) or **Big endian** (`big_endian`).
 </Field.Item>
 
-<Field.Item id="binary-type" label="Type" field="kind" type="string" default="unsigned">
+<Field.Item id="binary-type" label="Type" field="kind" type="string" required>
   The type of the raw bits: **Unsigned integer** (`unsigned`), **Signed integer**
   (`integer`), or **Float** (`float`).
+</Field.Item>
+
+<Field.Item id="binary-default" label="Default" field="default">
+  The raw value, before scale and offset, for a read that finds no value or a write with
+  no channel for the field. With no default, a write needs a channel. The value must fit
+  the bits of the field. In the Console, a blank **Default** cell means no default.
 </Field.Item>
 
 <Field.Item label="Multiplexor" field="multiplexor" type="field key">
@@ -482,6 +502,15 @@ code, `client.icds.check` returns the problems of an ICD.
     a value.
   </Problem.Cause>
   <Problem.Fix>Set one of the values that this page lists.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"default is not valid"}>
+  <Problem.Cause>
+    The default of a number field is text that is not a number of the field's kind, such
+    as `-1` for an unsigned field or `1.5` for an integer field, or an integer default
+    that 64 bits cannot hold.
+  </Problem.Cause>
+  <Problem.Fix>Enter a number, or clear the default.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
@@ -547,6 +576,38 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a finite number. A scale cannot be 0.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  message={[
+    "default must be finite",
+    "default <n> does not fit a 32-bit float",
+    "default <n> does not fit the field",
+  ]}
+>
+  <Problem.Cause>
+    A float default is not a finite number, or a binary default does not fit the bits of
+    its field.
+  </Problem.Cause>
+  <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={[
+    "default <n> is below the min <m>",
+    "default <n> is above the max <m>",
+    "default <n> decodes to <v>, which is below the min <m>",
+    "default <n> decodes to <v>, which is above the max <m>",
+    "enum value <n> is below the min <m>",
+    "enum value <n> is above the max <m>",
+  ]}
+>
+  <Problem.Cause>
+    A default, after the scale and offset, is outside the min and max of its field. An
+    enum value of a JSON field can also be outside them. The scale and offset do not
+    apply to an enum value.
+  </Problem.Cause>
+  <Problem.Fix>Change the value, the min, or the max.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"max must be greater than or equal to min"}>
   <Problem.Cause>The max of a field is less than its min.</Problem.Cause>
   <Problem.Fix>Change the min or the max.</Problem.Fix>
@@ -593,6 +654,14 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a finite number.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={["default must be valid JSON", "default must be base64"]}>
+  <Problem.Cause>
+    The default of a JSON field is not valid JSON, or the default of a bytes field is
+    not base64 text.
+  </Problem.Cause>
+  <Problem.Fix>Enter valid JSON, or base64 text such as `AQI=`.</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Text
@@ -602,6 +671,24 @@ code, `client.icds.check` returns the problems of an ICD.
 <Problem.Item message={"tag is required"}>
   <Problem.Cause>A tagged field has no tag.</Problem.Cause>
   <Problem.Fix>Enter the text that comes before the value, such as `T=`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={'the tag contains the delimiter "<delimiter>"'}>
+  <Problem.Cause>
+    The tag of a tagged field holds the delimiter of its message. The Driver splits each
+    line on the delimiter, so no item of the line can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>
+    Remove the delimiter from the tag, or enter a different delimiter.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"the tag starts with whitespace"}>
+  <Problem.Cause>
+    The tag of a tagged field starts with a space, a tab, or a carriage return. The
+    Driver removes these from the start of each item, so no item can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

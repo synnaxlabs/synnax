@@ -11,6 +11,7 @@ package auth_test
 
 import (
 	"context"
+	"strings"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -23,6 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding"
@@ -91,7 +94,7 @@ func expectLegacyUser(u apiauth.User, username string) {
 
 func passwordProof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
-		Credentials: auth.Credentials{Username: username, Password: pwd},
+		Username: username, Password: pwd,
 	}}
 }
 
@@ -103,7 +106,7 @@ var _ = Describe("NewService", func() {
 })
 
 var _ = Describe("HeldTables", func() {
-	It("Should name the tables of the API keys, password, and sessions of a user", func(
+	It("Should name the tables of the records that a user holds", func(
 		ctx SpecContext,
 	) {
 		tx := DeferClose(db.OpenTx())
@@ -114,6 +117,16 @@ var _ = Describe("HeldTables", func() {
 		passwords := passwordSvc.NewWriter(tx)
 		Expect(passwords.Set(ctx, root.ResourceID(), creds.Username, h)).To(Succeed())
 		MustSucceed2(authSvc.NewWriter(tx).Open(ctx, root.ResourceID(), k.Key))
+		MustSucceed(oidcSvc.NewWriter(tx).Create(
+			ctx,
+			root.Key,
+			oidc.Account{
+				Provider: "idp",
+				Issuer:   provider.Issuer(),
+				ID:       uuid.New().String(),
+			},
+		),
+		)
 		tables := lo.Map(gorp.ChangesOf(tx), func(c gorp.Change, _ int) string {
 			return c.Record.Table
 		})
@@ -152,9 +165,23 @@ var _ = Describe("Login", func() {
 })
 
 var _ = Describe("Methods", func() {
-	It("Should list the methods the Core accepts", func(ctx SpecContext) {
-		Expect(apiSvc.Methods(ctx, struct{}{})).To(Equal(apiauth.MethodsResponse{
-			Methods: []auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+	It("Should list the methods the Core accepts and each provider's issuer", func(
+		ctx SpecContext,
+	) {
+		Eventually(func() (apiauth.MethodsResponse, error) {
+			return apiSvc.Methods(ctx, struct{}{})
+		}).Should(Equal(apiauth.MethodsResponse{
+			Methods: []auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodOIDC,
+				auth.MethodPassword,
+			},
+			Providers: []apiauth.OIDCLogin{{
+				Provider:              "idp",
+				Issuer:                provider.Issuer(),
+				AuthorizationEndpoint: provider.Issuer() + "/authorize",
+				ClientID:              testutil.ClientID,
+			}},
 		}))
 	})
 })
@@ -166,6 +193,7 @@ var _ = Describe("Disabled methods", func() {
 		authenticators := map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
+			auth.MethodOIDC:     oidcSvc,
 		}
 		delete(authenticators, method)
 		other := DeferClose(gorp.Wrap(memkv.New()))
@@ -179,6 +207,7 @@ var _ = Describe("Disabled methods", func() {
 			Auth:     svc,
 			Password: passwordSvc,
 			APIKey:   apiKeySvc,
+			OIDC:     oidcSvc,
 			User:     userSvc,
 			RBAC:     rbacSvc,
 			Identity: node.Identity,
@@ -190,9 +219,17 @@ var _ = Describe("Disabled methods", func() {
 	})
 	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
-			To(Equal(apiauth.MethodsResponse{
-				Methods: []auth.Method{auth.MethodAPIKey},
-			}))
+			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOIDC}))
+	})
+	It("Should list no providers while oidc is off", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOIDC).Methods(ctx, struct{}{})).
+			To(HaveField("Providers", BeEmpty()))
+	})
+	It("Should refuse to link a provider account", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOIDC).PrepareLinkOIDC(
+			requestCtx(ctx),
+			apiauth.OIDCLinkRequest{},
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a password login and keep the password", func(ctx SpecContext) {
 		proof := passwordProof(own.Username, own.Password)
@@ -215,6 +252,18 @@ var _ = Describe("Disabled methods", func() {
 			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "old"},
 		)).Error().To(MatchError(validate.ErrValidation))
 		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse to create a password", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "nopass-" + uuid.New().String(),
+		}))
+		Expect(disabled(ctx, auth.MethodPassword).PrepareCreatePassword(
+			requestCtx(ctx),
+			apiauth.PasswordCreateRequest{
+				Subject:  u.ResourceID(),
+				Username: u.Name, Password: "p",
+			},
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a new API key", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
@@ -449,6 +498,144 @@ var _ = Describe("SetPassword", func() {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
 			Subject: bob.ResourceID(),
 		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
+})
+
+var _ = Describe("CreatePassword", func() {
+	var (
+		bob       user.User
+		bobToken  string
+		rootToken string
+		nopass    user.User
+	)
+	create := func(
+		ctx context.Context,
+		token string,
+		req apiauth.PasswordCreateRequest,
+	) (struct{}, error) {
+		return createPassword(authed(ctx, token), req)
+	}
+	login := func(ctx context.Context, username, pwd string) string {
+		GinkgoHelper()
+		return MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
+		)).Token
+	}
+	BeforeEach(func(ctx SpecContext) {
+		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
+		bobToken = login(ctx, bob.Name, "old")
+		rootToken = login(ctx, creds.Username, creds.Password)
+		nopass = MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "nopass-" + uuid.New().String()},
+		))
+	})
+	It("Should let the owner give a user its first password", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, nopass.Name, "p")
+	})
+	It("Should let a user give itself its first password", func(ctx SpecContext) {
+		key := MustSucceed(createKey(
+			authed(ctx, rootToken),
+			apiauth.KeyCreateRequest{Subject: nopass.ResourceID(), Name: "nopass"},
+		))
+		token := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
+		)).Token
+		Expect(create(ctx, token, apiauth.PasswordCreateRequest{
+			Username: nopass.Name, Password: "p",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, nopass.Name, "p")
+	})
+	It("Should deny a user giving another user a password", func(ctx SpecContext) {
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should deny a caller that may only create users", func(ctx SpecContext) {
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			bob.Key,
+			[]access.Action{access.ActionCreate},
+			resource.ID{Type: resource.TypeUser},
+		))
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should deny a caller that may only update users", func(ctx SpecContext) {
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			bob.Key,
+			[]access.Action{access.ActionUpdate},
+			resource.ID{Type: resource.TypeUser},
+		))
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should refuse a user named by a key in another case", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject: resource.ID{
+				Type: resource.TypeUser,
+				Key:  strings.ToUpper(bob.Key.String()),
+			},
+			Username: "other", Password: "p",
+		})).Error().To(MatchError(ContainSubstring("already has a password")))
+	})
+	It("Should refuse a user that already has a password", func(ctx SpecContext) {
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Username: "other", Password: "new",
+		})).Error().To(MatchError(ContainSubstring("already has a password")))
+	})
+	It("Should refuse a username another user holds", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: creds.Username, Password: "p",
+		})).Error().To(MatchError(auth.ErrRepeatedUsername))
+	})
+	It("Should reject a subject that is not a user", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  resource.ID{Type: resource.TypeRack, Key: "1"},
+			Username: "rack", Password: "p",
+		})).Error().To(MatchError(validate.ErrValidation))
+	})
+	It("Should report a user that does not exist as not found", func(
+		ctx SpecContext,
+	) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  user.ResourceID(uuid.New()),
+			Username: "ghost", Password: "p",
+		})).Error().To(MatchError(query.ErrNotFound))
+	})
+	It("Should reject an empty password", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Username: nopass.Name,
+		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
+	It("Should reject an empty username", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.ResourceID(),
+			Password: "p",
+		})).Error().To(MatchError(ContainSubstring("username: required")))
 	})
 })
 

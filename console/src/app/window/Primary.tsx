@@ -18,11 +18,12 @@ import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
-import { Guard } from "@/app/window/Guard";
+import { Guard } from "@/app/window/guard";
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
+import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -36,10 +37,11 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Mounts inside the guard: tear-off reads the required project selectors, and the
-// Monaco preload waits until the workspace has started.
+// Mounts inside the guard: tear-off and the tab title read the required project
+// selectors, and the Monaco preload waits until the workspace has started.
 const ProjectSideEffect = (): null => {
   Panel.useTearOff();
+  Project.useBrowserTabTitle();
   Code.usePreload();
   return null;
 };
@@ -54,7 +56,7 @@ export const Primary = (): ReactElement => {
   return (
     <>
       <SideEffect />
-      <Guard>
+      <Guard.Guard>
         <ProjectSideEffect />
         <div
           className={CSS.cls(
@@ -72,7 +74,7 @@ export const Primary = (): ReactElement => {
             <Nav.Drawer.Bottom />
           </Flex.Box>
         </div>
-      </Guard>
+      </Guard.Guard>
     </>
   );
 };

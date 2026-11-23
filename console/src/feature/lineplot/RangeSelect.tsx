@@ -15,7 +15,7 @@ import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useNow } from "@synnaxlabs/lyra/hooks";
+import { useClock, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -27,6 +27,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, LinePlot, Ranger } from "@synnaxlabs/pluto";
 import {
+  destructor,
   type DynamicWindow,
   dynamicWindow,
   resolveWindow,
@@ -34,7 +35,7 @@ import {
   staticWindow,
   type TimeRange,
   TimeSpan,
-  TimeStamp,
+  type TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
@@ -171,9 +172,9 @@ interface StaticTagProps {
 }
 
 const StaticTag = ({ onRemove, window }: StaticTagProps): ReactElement => {
-  const timeRange = resolveWindow(window, TimeStamp.now());
   // The day prefix changes at midnight.
   const now = useNow((now) => Telem.Text.nextMidnight(now));
+  const timeRange = resolveWindow(window, now);
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
@@ -350,10 +351,8 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     { name: "ranges", query: { order: NEWEST } },
   );
   // `1h ago` reads against the time it was typed, so Enter adds what the option shows.
-  const [{ term, typedAt }, setTerm] = useState(() => ({
-    term: "",
-    typedAt: TimeStamp.now(),
-  }));
+  const clock = useClock();
+  const [{ term, typedAt }, setTerm] = useState(() => ({ term: "", typedAt: clock() }));
   const language = Input.useLanguage();
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
@@ -363,6 +362,12 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
         : (Session.Range.findKey(ref, states) ?? windowKey(ref)),
   });
   const entries = refs.map(entryOf);
+  // A window is not a range on the Core, so it has nothing to watch.
+  const windowKeys = new Set(
+    entries.filter(({ ref }) => ref.variant !== "key").map(({ key }) => key),
+  );
+  const subscribeRange = (onChange: () => void, key: string): destructor.Destructor =>
+    windowKeys.has(key) ? destructor.NOOP : subscribe(onChange, key);
   const typedWindow = readWindow(term, language, typedAt);
   const typed =
     typedWindow == null
@@ -445,7 +450,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           onChange={handleChange}
           data={data}
           getItem={getItem}
-          subscribe={subscribe}
+          subscribe={subscribeRange}
           onFetchMore={more}
           initialHover={0}
           virtual
@@ -462,7 +467,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           <Select.Dialog>
             <WindowSearch
               onSearch={(next) => {
-                setTerm({ term: next, typedAt: TimeStamp.now() });
+                setTerm({ term: next, typedAt: clock() });
                 search(next);
               }}
               typed={typed}

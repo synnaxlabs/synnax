@@ -38,7 +38,8 @@ the finding that FINDING names, with REASON, for ACTOR, a person with write acce
 leaves the score to `dismiss`. It fails when no one finding has that title.
 `restore` takes KEY, and puts the summary that the bot wrote last back in the pull
 request body when an edit dropped or changed it. It writes the body with WRITE_TOKEN,
-asks Claude Code nothing, and fails when the head has no successful review.
+asks Claude Code nothing, writes nothing while a review of the head is on the way, and
+fails when none is on the way or the review of the head failed.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY.
@@ -79,6 +80,7 @@ from review import (
     load,
     outside_findings,
     post,
+    replies,
     restore,
     reviewed,
     rule,
@@ -171,6 +173,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     # A replay of an old commit must not see the threads that came after it.
     found = [] if replay else threads(target, gh)
     held = set() if replay else outside_findings(target, gh)
+    can = authority(target, gh)
     pr = PullRequest(
         number=target.pr,
         title=meta["title"],
@@ -178,9 +181,8 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         head=head,
         diff=diff,
         open={(th.path, th.title) for th in found if not th.resolved} | held,
-        dismissed=[]
-        if replay
-        else dismissals(target, gh, found, authority(target, gh)),
+        dismissed=[] if replay else dismissals(target, gh, found, can),
+        replies=[] if replay else replies(target, gh, can),
         new=new,
         dropped=dropped,
         reviewed=since is not None or rewritten,
@@ -312,14 +314,7 @@ def _claude(target: Target, command: str, path: Path) -> None:
 
 def _writer(token: str) -> GH:
     def run(*args: str, stdin: str | None = None) -> str:
-        return subprocess.run(
-            ["gh", *args],
-            input=stdin,
-            stdout=subprocess.PIPE,
-            text=True,
-            check=True,
-            env=os.environ | {"GH_TOKEN": token},
-        ).stdout
+        return gh(*args, stdin=stdin, env=os.environ | {"GH_TOKEN": token})
 
     return run
 
@@ -370,10 +365,9 @@ def main(argv: list[str]) -> None:
     if argv[0] == "restore":
         writer = _writer(env["WRITE_TOKEN"])
         try:
-            done = restore(target, gh, key=env["KEY"], writer=writer)
+            print(restore(target, gh, key=env["KEY"], writer=writer).value)
         except Unrestorable as e:
             sys.exit(f"::error::{e}")
-        print("Restored the summary." if done else "The body holds the summary.")
         return
     path = Path(argv[1])
     if argv[0] in ("judge", "run"):

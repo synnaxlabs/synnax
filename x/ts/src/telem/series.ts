@@ -17,6 +17,7 @@ import { math } from "@/math";
 import type { numeric } from "@/numeric";
 import { primitive } from "@/primitive";
 import { bounds } from "@/spatial";
+import { strings } from "@/strings";
 import {
   type GLBufferController,
   type GLBufferUsage,
@@ -49,20 +50,6 @@ interface GL {
   copied: number;
   offset: numeric.Value | null;
 }
-
-/**
- * Shortest decimal string that round-trips through f32 — JS analogue of Go's
- * strconv.FormatFloat(_, 'g', -1, 32).
- */
-const stringifyFloat32 = (value: number): string => {
-  const f32 = Math.fround(value);
-  if (!Number.isFinite(f32)) return f32.toString();
-  for (let p = 1; p <= 9; p++) {
-    const parsed = parseFloat(f32.toPrecision(p));
-    if (Math.fround(parsed) === f32) return parsed.toString();
-  }
-  return f32.toString();
-};
 
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
@@ -143,6 +130,11 @@ const checkAsType = (jsType: JSType, dataType: DataType) => {
 
 const SERIES_DISCRIMINATOR = "sy_x_telem_series";
 
+// Checks the tag instead of instanceof, which fails for an ArrayBuffer from another
+// realm, such as the buffer of a BigInt64Array under jsdom.
+const isArrayBuffer = (value: unknown): value is ArrayBuffer =>
+  Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
@@ -169,8 +161,8 @@ export class Series<T extends TelemValue = TelemValue> {
   sampleOffset: numeric.Value;
   /** Stores information about the buffer state of this array into a WebGL buffer. */
   private readonly gl: GL;
-  /** The underlying data. */
-  private readonly _data: ArrayBuffer;
+  /** The underlying data. A typed array always matches the data type. */
+  private readonly _data: ArrayBuffer | TypedArray;
   /** The time range occupied by the series' data. */
   readonly timeRange: TimeRange = TimeRange.ZERO;
   /**
@@ -228,7 +220,7 @@ export class Series<T extends TelemValue = TelemValue> {
         stringArrayZ,
         nullArrayZ,
         z.instanceof(ArrayBuffer),
-        z.instanceof(Uint8Array),
+        z.instanceof(Uint8Array).transform((b) => b.slice().buffer),
       ])
       .default(() => new Uint8Array().buffer),
     glBufferUsage: glBufferUsageZ.default("static").optional(),
@@ -247,6 +239,8 @@ export class Series<T extends TelemValue = TelemValue> {
    *
    * @throws Error when the data type is neither given nor inferable, which is the case
    * for an ArrayBuffer and for an empty JS array.
+   * @throws RangeError when an ArrayBuffer's byte length is not a multiple of the
+   * data type's density.
    */
   constructor(props: SeriesParams | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
@@ -282,7 +276,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const isArray = Array.isArray(data);
 
     if (dataType != null) this.dataType = new DataType(dataType);
-    else if (data instanceof ArrayBuffer)
+    else if (isArrayBuffer(data))
       throw new Error(
         "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
       );
@@ -312,11 +306,22 @@ export class Series<T extends TelemValue = TelemValue> {
         );
     } else this.dataType = new DataType(data);
 
-    if (!isArray && !isSingle) this._data = data as ArrayBuffer;
+    if (isArrayBuffer(data)) {
+      const density = this.dataType.density.valueOf();
+      if (density > 0 && data.byteLength % density !== 0)
+        throw new RangeError(
+          `cannot construct a ${this.dataType.toString()} Series from ${data.byteLength} bytes: the byte length is not a multiple of the density ${density}`,
+        );
+      this._data = data;
+    } else if (data instanceof this.dataType.Array) this._data = data;
     else if (isArray && data.length === 0)
       this._data = new this.dataType.Array([]).buffer;
     else {
-      let data_ = isSingle ? [data] : data;
+      let data_ = isSingle
+        ? [data]
+        : isArray
+          ? data
+          : Array.from<number | bigint>(data);
       const first = data_[0];
       if (
         first instanceof TimeStamp ||
@@ -500,17 +505,14 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBuffer {
-    if (typeof this._data === "object" && "buffer" in this._data)
-      return (this._data as unknown as Uint8Array).buffer as ArrayBuffer;
-    return this._data;
+    if (isArrayBuffer(this._data)) return this._data;
+    return this._data.buffer;
   }
 
-  // The backing store and data type never change after construction, so views and
-  // type conversions are cached. A typed-array constructor given a typed array
-  // copies every element, so an already-matching array is returned as is.
+  // The backing store and data type never change after construction, so the view is
+  // cached.
   private get underlyingData(): TypedArray {
-    const data = this._data as ArrayBuffer | TypedArray;
-    if (data instanceof this.dataType.Array) return data;
+    if (!isArrayBuffer(this._data)) return this._data;
     return (this.cachedUnderlyingView ??= new this.dataType.Array(this._data));
   }
 
@@ -521,7 +523,8 @@ export class Series<T extends TelemValue = TelemValue> {
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
+    if (!isArrayBuffer(this._data))
+      throw new Error("a partially written series must be backed by an ArrayBuffer");
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
       const length = this.writePos * elementsPerSample(this.dataType);
@@ -867,6 +870,8 @@ export class Series<T extends TelemValue = TelemValue> {
   // coerce through Number() and lose precision above 2^53; do the addition in bigint
   // space when the offset is a bigint.
   private applyOffset(v: numeric.Value): numeric.Value {
+    // Adding a zero offset would turn -0 into 0.
+    if (this.sampleOffset === 0) return v;
     if (typeof this.sampleOffset === "bigint" && typeof v === "number")
       return BigInt(Math.round(v)) + this.sampleOffset;
     return math.add(v, this.sampleOffset);
@@ -907,8 +912,7 @@ export class Series<T extends TelemValue = TelemValue> {
     // bigint at runtime — an i64 value narrowed into a float32 GL buffer and
     // reconstructed via a bigint sampleOffset — which stringifies as an integer.
     if (typeof v !== "number") return String(v);
-    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v);
-    return String(v);
+    return strings.formatFloat(v, this.dataType.equals(DataType.FLOAT32) ? 32 : 64);
   }
 
   private atVariable(index: number, required: boolean): string | undefined {
@@ -1337,7 +1341,7 @@ const convertDataType = (
 const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   if (value == null) return false;
   if (Array.isArray(value)) return true;
-  if (value instanceof ArrayBuffer) return true;
+  if (isArrayBuffer(value)) return true;
   if (ArrayBuffer.isView(value) && !(value instanceof DataView)) return true;
   if (value instanceof Series) return true;
   return isTelemValue(value);
@@ -1618,10 +1622,11 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   at(index: number, required?: false): T | undefined;
   at(index: number, required: boolean = false): T | undefined {
     if (index < 0) index = this.length + index;
-    for (const ser of this.series) {
-      if (index < ser.length) return ser.at(index, required as true);
-      index -= ser.length;
-    }
+    if (index >= 0)
+      for (const ser of this.series) {
+        if (index < ser.length) return ser.at(index, required as true);
+        index -= ser.length;
+      }
     if (required) throw new Error(`[series] - no value at index ${index}`);
     return undefined;
   }

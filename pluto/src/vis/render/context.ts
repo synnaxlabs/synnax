@@ -24,10 +24,9 @@ import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { text } from "@/text/aether";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { applyOverScan, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
-import { applyOverScan } from "@/vis/render/util";
 
 export type Canvas2DVariant = "upper2d" | "lower2d";
 export type CanvasGLVariant = "gl";
@@ -116,6 +115,8 @@ export class Context {
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
   private frames?: Frames;
+  // glScissors holds the box of each GL scissor in place, outermost first.
+  private readonly glScissors: box.Box[] = [];
 
   /**
    * Creates a render context and sets it on ctx.
@@ -468,16 +469,36 @@ export class Context {
     return () => destructor.forEach((d) => d());
   }
 
+  // A GL scissor inside another draws only where both boxes overlap. Its cleanup puts
+  // back the box before it.
   private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): destructor.Destructor {
+    const outer = this.glScissors.at(-1);
+    const b = applyOverScan(region, overscan);
+    const clipped = outer == null ? b : box.intersection(outer, b);
+    this.glScissors.push(clipped);
+    this.applyGLScissor(clipped);
+    return () => {
+      this.glScissors.pop();
+      const prev = this.glScissors.at(-1);
+      if (prev == null) this.gl.disable(this.gl.SCISSOR_TEST);
+      else this.applyGLScissor(prev);
+    };
+  }
+
+  // applyGLScissor rounds each edge to a device pixel, so two boxes that meet share an
+  // edge. GL truncates each argument, which leaves a gap between them.
+  private applyGLScissor(region: box.Box): void {
     this.gl.enable(this.gl.SCISSOR_TEST);
-    region = applyOverScan(region, overscan);
+    const px = (v: number): number => Math.round(v * this.dpr);
+    const height = box.height(this.region);
+    const left = px(box.left(region));
+    const bottom = px(height - box.bottom(region));
     this.gl.scissor(
-      box.left(region) * this.dpr,
-      (box.height(this.region) - box.bottom(region)) * this.dpr,
-      box.width(region) * this.dpr,
-      box.height(region) * this.dpr,
+      left,
+      bottom,
+      px(box.right(region)) - left,
+      px(height - box.top(region)) - bottom,
     );
-    return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
   erase(

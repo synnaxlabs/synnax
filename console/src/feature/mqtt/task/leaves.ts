@@ -7,35 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type payload } from "@synnaxlabs/x";
+import type { json, payload } from "@synnaxlabs/x";
 
-import type { BrowsedField } from "@/feature/mqtt/task/types";
+import type { Device } from "@/feature/mqtt/device";
 
 /** A value that a browsed payload offers. */
-export interface Leaf {
-  /** The JSON pointer of the value. */
-  pointer: string;
-  /** The JSON type of the value's sample. */
-  type: payload.JSONType;
-  /** The data type of a channel that reads the value. */
-  dataType: string;
-}
+export interface Leaf extends Pick<
+  json.InferredField,
+  "pointer" | "type" | "kind" | "timeFormat"
+> {}
 
-const DATA_TYPES: Record<payload.JSONType, string> = {
-  number: DataType.FLOAT64.toString(),
-  boolean: DataType.UINT8.toString(),
-  string: DataType.STRING.toString(),
-};
-
-const createLeaf = (pointer: string, type: payload.JSONType): Leaf => ({
-  pointer,
-  type,
-  dataType: DATA_TYPES[type],
-});
+/** The kind of a browsed value that the Core gave none, by its JSON type. */
+const SAMPLE_KINDS = {
+  number: "float",
+  boolean: "boolean",
+  string: "string",
+} as const satisfies Record<payload.JSONType, payload.Kind>;
 
 /** @returns one leaf for each scalar of a browsed payload. */
-export const createLeaves = (scalars: BrowsedField[]): Leaf[] =>
-  scalars.map(({ pointer, type }) => createLeaf(pointer, type));
+export const createLeaves = (scalars: Device.BrowsedField[]): Leaf[] =>
+  scalars.map(({ pointer, type, kind = SAMPLE_KINDS[type], timeFormat }) => ({
+    pointer,
+    type,
+    kind,
+    timeFormat,
+  }));
 
 /** @returns the leaf of a payload that is not JSON, which reads it as one string. */
-export const createRawLeaf = (): Leaf => createLeaf("", "string");
+export const createRawLeaf = (): Leaf => ({
+  pointer: "",
+  type: "string",
+  kind: "string",
+});

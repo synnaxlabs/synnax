@@ -74,7 +74,7 @@ tokio = { version = "1.54.1", optional = true, features = [
 
 [dev-dependencies]
 tempfile = "3.27.0"
-tokio = { version = "1.54.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "test-util"] }
 
 [features]
 # by default Tauri runs in production mode when `tauri dev` runs it is executed with

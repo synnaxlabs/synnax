@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -120,7 +121,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, symbol.ResourceID)
 }
 
-// Retrieve returns the symbols that req selects and that the subject can retrieve.
+// Retrieve returns the symbols that req selects and that the subject can retrieve,
+// with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -134,7 +136,48 @@ func (s *Service) Retrieve(
 	if err = q.Where(bind.Filter(snap, symbol.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Symbols); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each symbol, leaving out the schematics that the subject
+// cannot retrieve. A symbol with no readable uses gets empty uses, so the response
+// tells it apart from a symbol whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	symbols []symbol.Symbol,
+) error {
+	for i := range symbols {
+		uses, err := s.internal.Uses(ctx, snap, symbols[i].Key)
+		if err != nil {
+			return err
+		}
+		symbols[i].Uses = lo.Filter(
+			uses,
+			func(id resource.ID, _ int) bool { return snap.Allowed(id) },
+		)
+	}
+	return nil
+}
+
+// RetrieveBuiltinsResponse holds the built-in symbols.
+type RetrieveBuiltinsResponse struct {
+	// Builtins are the symbols that the Core ships, with their states and commands.
+	Builtins []symbol.Builtin `json:"builtins" msgpack:"builtins"`
+}
+
+// RetrieveBuiltins returns the symbols that the Core ships. Any signed-in subject can
+// read them.
+func (s *Service) RetrieveBuiltins(
+	context.Context,
+	struct{},
+) (RetrieveBuiltinsResponse, error) {
+	return RetrieveBuiltinsResponse{Builtins: symbol.Builtins()}, nil
 }
 
 // DeleteRequest carries the keys of the symbols to delete.

@@ -13,7 +13,10 @@
       "lyra-icon",
       "lyra-select__dialog"
     ],
-    "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
+    "console/src/feature/arc/editor/controls/TaskControls.css": [
+      "lyra-btn",
+      "pluto-editor"
+    ],
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
       "lyra-input",
       "lyra-list__item",
@@ -34,7 +37,7 @@
       "lyra--center",
       "pluto-panel-mosaic--overlaid"
     ],
-    "console/src/feature/panel/MovePicker.css": ["lyra-modal__body"],
+    "console/src/feature/panel/movePicker/MovePicker.css": ["lyra-modal__body"],
     "console/src/feature/panel/Selector.css": ["lyra-btn"],
     "console/src/feature/project/Selector.css": [
       "lyra-avatar",
@@ -147,11 +150,6 @@
       "lyra-tabs__selector--scrollable",
       "lyra-tabs__tab"
     ],
-    "pluto/src/schematic/Tooltip.css": ["lyra-icon"],
-    "pluto/src/schematic/node/common/form/StateMapping.css": [
-      "lyra-btn",
-      "lyra-list__item"
-    ],
     "pluto/src/schematic/node/common/orientation/select.css": [
       "lyra-btn",
       "lyra-form-section__body",
@@ -181,13 +179,8 @@
       "lyra-input"
     ],
     "pluto/src/schematic/node/general/stringDisplay/stringDisplay.css": ["lyra-text"],
-    "pluto/src/schematic/node/general/switch/switch.css": [
-      "lyra--disabled",
-      "lyra-btn",
-      "lyra-input__switch",
-      "lyra-input__switch-indicator"
-    ],
     "pluto/src/schematic/node/general/value/value.css": ["lyra-text"],
+    "pluto/src/schematic/tooltip/tooltip.css": ["lyra-icon"],
     "pluto/src/table/Table.css": ["lyra-text"],
     "pluto/src/table/cells/Cells.css": ["lyra-text--editable"],
     "pluto/src/telem/control/Legend.css": ["lyra-icon"],
@@ -257,7 +250,6 @@
       "lyra-text--p"
     ],
     "site/docs/src/styles/pluto.css": [
-      "lyra--visible",
       "lyra-caret",
       "lyra-dialog__bg",
       "lyra-dialog__dialog",

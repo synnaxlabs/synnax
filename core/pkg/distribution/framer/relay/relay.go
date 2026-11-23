@@ -165,14 +165,21 @@ func (r *Relay) Close() error {
 
 func (r *Relay) connectToDelta(
 	accepts func(Response) bool,
-) (<-chan Response, observe.Disconnect) {
+	missedRequested bool,
+) (*subscriber, observe.Disconnect) {
 	s := &subscriber{
-		responses: make(chan Response, r.cfg.StreamerBufferSize),
-		accepts:   accepts,
-		addr:      address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String()),
+		responses:       make(chan Response, r.cfg.StreamerBufferSize),
+		missed:          make(chan struct{}, 1),
+		accepts:         accepts,
+		missedRequested: missedRequested,
+		addr: address.Newf(
+			"%s_%s",
+			r.ins.Meta.Path,
+			address.Rand().String(),
+		),
 	}
 	r.delta.connections <- s
-	return s.responses, func() {
+	return s, func() {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.

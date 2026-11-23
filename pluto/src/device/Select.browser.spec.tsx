@@ -16,7 +16,7 @@ import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 import { Device } from "@/device";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

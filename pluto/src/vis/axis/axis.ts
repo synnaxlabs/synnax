@@ -16,6 +16,11 @@ import {
   tickType,
 } from "@/vis/axis/ticks";
 
+/** The width in pixels of the mark that a break draws over its seam. */
+export const BREAK_WIDTH = 12;
+/** The height in pixels of the mark that a break draws across the axis line. */
+export const BREAK_HEIGHT = 12;
+
 export interface RenderResult {
   size: number;
 }
@@ -34,8 +39,12 @@ export type ParsedAxisState = z.infer<typeof axisStateZ>;
 
 export interface AxisProps extends Omit<TickFactoryRenderParams, "size"> {
   plot: box.Box;
+  /** The region that holds the plot and its axes. No label draws past it. */
+  container: box.Box;
   position: xy.XY;
   size: number;
+  /** The decimal positions across the axis of open breaks, which draw a faint mark. */
+  openBreaks?: number[];
 }
 
 export interface Axis {

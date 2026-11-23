@@ -20,5 +20,12 @@
 
 // Owner: Emiliano Bonilla. Umbrella: SY-4970. Removed in 0.63.
 export const icds = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
-// Owner: Emiliano Bonilla. Umbrella: SY-6226. Removed in 0.63.
-export const staleBadges = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
+// Owner: Emiliano Bonilla. Umbrella: SY-6601. On in Desktop. Removed in 0.64.
+export const breaks =
+  IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
+// Owner: Emiliano Bonilla. Umbrella: SY-3942. On in Desktop. Removed in 0.64.
+export const compare =
+  IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
+// Owner: Patrick Dotson. Umbrella: SY-5127. Removed in 0.63. Reads NI devices from
+// their typed tables. Turns on when the Driver writes them.
+export const typedNIDevices = false;

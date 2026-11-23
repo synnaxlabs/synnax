@@ -23,7 +23,7 @@ import {
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
-import { Timeout, Unreachable } from "@/errors";
+import { asUntrustedCertificate, Timeout, Unreachable } from "@/errors";
 import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { UnaryClient } from "@/unary";
@@ -80,23 +80,17 @@ const shouldCastToUnreachable = (
     err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
   )
     return true;
-
-  // Browser/Safari fallback: detect canonical network-failure TypeError messages
-  if (err.name === "TypeError") {
-    const msg = String(err.message || "").toLowerCase();
-    if (/load failed|failed to fetch|networkerror|network error/.test(msg)) {
-      if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
-      // If you want to be conservative, return false here and treat generically. If you
-      // want parity with Node for user messaging, you can return true.
-      return true;
-    }
-  }
-
-  // Abort should not be "unreachable"
-  if (err.name === "AbortError" || err.code === "ABORT_ERR") return false;
-
-  return false;
+  return isBrowserFetchFailure(err);
 };
+
+// Browsers hide the cause of a failed fetch, so a certificate failure looks like this.
+const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network error/i;
+
+const isBrowserFetchFailure = (err: Error): boolean =>
+  err.name === "TypeError" && BROWSER_FETCH_FAILURE.test(err.message);
+
+const BROWSER_CERTIFICATE_HINT =
+  "The server may be down, or the browser may not trust its certificate";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
@@ -156,8 +150,12 @@ const detectRequestStreams = (): boolean => {
 
 // Browsers implement streaming request bodies but send them only over HTTP/2 or HTTP/3,
 // and the negotiated protocol is unknowable before the request goes out. Everywhere
-// else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
-const STREAMS_REQUEST_BODIES = runtime.RUNTIME === "node" && detectRequestStreams();
+// else a stream rides HTTP/1.1 chunked, which is what the Core speaks. An Electron
+// renderer sets process.versions.node but sends with the browser's fetch.
+const STREAMS_REQUEST_BODIES =
+  runtime.RUNTIME === "node" &&
+  typeof document === "undefined" &&
+  detectRequestStreams();
 
 const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
   if (STREAMS_REQUEST_BODIES || !(body instanceof ReadableStream)) return body;
@@ -224,6 +222,8 @@ export class HTTPClient
    * Sends a request to the target and waits for its response.
    * @throws {Timeout} if no response arrives within the timeout.
    * @throws {Unreachable} if the target cannot be reached.
+   * @throws {UntrustedCertificate} if the runtime does not trust the certificate of
+   * the target.
    */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -364,9 +364,15 @@ export class HTTPClient
   ): Promise<FetchResponse> {
     const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      return shouldCastToUnreachable(err)
-        ? new Unreachable({ url, cause: err, delivered })
-        : err;
+      const untrusted = asUntrustedCertificate(err, url);
+      if (untrusted != null) return untrusted;
+      if (!shouldCastToUnreachable(err)) return err;
+      // A body read failure comes after the TLS handshake.
+      const hint =
+        url.protocol === "https" && !delivered && isBrowserFetchFailure(err)
+          ? BROWSER_CERTIFICATE_HINT
+          : undefined;
+      return new Unreachable({ url, cause: err, delivered, hint });
     };
     let res: FetchResponse;
     try {

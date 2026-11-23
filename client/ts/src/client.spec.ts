@@ -9,12 +9,13 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createHTTPServer } from "node:http";
 import { createServer, type Server } from "node:https";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import { TimeSpan, url } from "@synnaxlabs/x";
 import {
   afterAll,
@@ -74,7 +75,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "core.env",
       port: 9091,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -85,7 +85,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "rig",
       port: 1,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -104,6 +103,13 @@ describe("constructor", () => {
     }
   });
 });
+
+const CODE = {
+  provider: "idp",
+  code: "code",
+  verifier: "verifier",
+  redirectUri: "http://127.0.0.1:4242/callback",
+};
 
 // Writes a test CA and a certificate for 127.0.0.1 that the CA signs.
 const createCertificates = (dir: string): void => {
@@ -136,6 +142,48 @@ describe("constructor with caCert", () => {
     expect(
       () => new Synnax({ host: "localhost", port: 9090, secure: false, caCert: PEM }),
     ).toThrow("caCert requires secure; leave secure out or set it to true");
+  });
+
+  it("should reject an OpenID Connect code given with an API key", () => {
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, apiKey: "syk", oidc: CODE }),
+    ).toThrow(
+      "Give one of a username and password, an API key, or an OpenID Connect code",
+    );
+  });
+
+  it("should not fill SYNNAX_API_KEY in next to an OpenID Connect code", async () => {
+    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    const logins: string[] = [];
+    const server = createHTTPServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        if (req.url === "/api/v1/auth/session/create") logins.push(body);
+        res.statusCode = 500;
+        res.end();
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new Error("no port");
+    const client = new Synnax({
+      host: "127.0.0.1",
+      port: address.port,
+      oidc: CODE,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await client.channels.retrieve(["ch"]).catch(() => {});
+    await client.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    expect(logins.length).toBeGreaterThan(0);
+    logins.forEach((login) => {
+      expect(login).toContain('"oidc"');
+      expect(login).not.toContain("syk_env");
+    });
   });
 
   it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
@@ -330,6 +378,16 @@ describe("connect", () => {
   });
 });
 
+describe("middleware", () => {
+  it("should run the middleware on each request", async () => {
+    const middleware = vi.fn<Middleware>(async (ctx, next) => await next(ctx));
+    const client = createTestClient({ middleware: [middleware] });
+    await client.channels.retrieve(["no-such-channel"]);
+    const targets = middleware.mock.calls.map(([ctx]) => ctx.target);
+    expect(targets.some((t) => t.endsWith("/channel/retrieve"))).toBe(true);
+  });
+});
+
 describe("denied change stream", () => {
   it("should connect with a warning when the user cannot stream changes", async () => {
     const root = createTestClient();
@@ -346,7 +404,7 @@ describe("denied change stream", () => {
     // the reads the user is allowed to make still work
     const created = await root.labels.create({
       name: "denied-stream",
-      color: "#000000",
+      color: { type: "fixed", value: "#000000" },
     });
     await expect(restricted.labels.retrieve(created.key)).resolves.toMatchObject({
       key: created.key,
@@ -381,6 +439,23 @@ describe("short circuit", () => {
       virtual: true,
     });
     expect(ch.key).not.toBe(0);
+    await client.close();
+  });
+});
+
+describe("logout", () => {
+  it.each([
+    ["a password", { username: "synnax", password: "secret" }],
+    ["an API key", { apiKey: "secret" }],
+    ["a token", { token: "secret" }],
+    ["an OpenID Connect code", { oidc: { ...CODE, code: "secret" } }],
+  ])("should keep no copy of %s on the client", async (_, given) => {
+    const client = new Synnax({ host: "localhost", port: 9090, ...given });
+    await client.auth.logout();
+    const text = JSON.stringify(client.params, (_, v: unknown) =>
+      typeof v === "bigint" ? v.toString() : v,
+    );
+    expect(text).not.toContain("secret");
     await client.close();
   });
 });

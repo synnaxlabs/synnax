@@ -1,0 +1,60 @@
+{
+  "description": "A present rule tests no pointer that leads into the value of another present rule.",
+  "messages": [
+    {
+      "name": "status",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "pressure",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/pressure",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/status"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "fault",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/status/fault"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "messages status and fault both match a value at \"/status/fault\": validation error"
+}

@@ -518,6 +518,7 @@ MinMaxVal struct {
     min_val float64 = 0 {
         @default group "range"
         @doc value     "is the minimum expected value, in scaled units."
+        @go validate   lt max_val "Minimum value must be less than maximum value"
     }
     max_val float64 = 1 {
         @default group "range"
@@ -1230,10 +1231,11 @@ CIChannel union on type extends BaseCIChannel {
         meas_method CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time   float64 = 0.000006 {
-            @doc value """
-                is the averaging window for high-frequency measurement, in seconds.
-            """
+        meas_time   telem.TimeSpan = 6000 {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @ts type      telem.NumericTimeSpan
+            @validate max 9007199254740991
+            @validate min 1
         }
         divisor     uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."
@@ -1279,10 +1281,11 @@ CIChannel union on type extends BaseCIChannel {
         meas_method   CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time     float64 = 0.001 {
-            @doc value """
-                is the averaging window for high-frequency measurement, in seconds.
-            """
+        meas_time     telem.TimeSpan = 1000000 {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @ts type      telem.NumericTimeSpan
+            @validate max 9007199254740991
+            @validate min 1
         }
         divisor       uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -70,7 +71,7 @@ func createLabels(ctx context.Context, n int) []label.Label {
 	base := uuid.New()
 	labels := make([]label.Label, n)
 	for i := range labels {
-		labels[i] = label.Label{Key: base, Name: "label"}
+		labels[i] = label.Label{Key: base, Name: "label", Color: labelColor}
 		labels[i].Key[15] = byte(i)
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -185,7 +186,7 @@ var _ = Describe("Read", func() {
 		Expect(bind.Read(
 			binder,
 			func(context.Context, bind.Snapshot, labelQuery) ([]label.Label, error) {
-				return []label.Label{{Name: "partial"}}, fail
+				return []label.Label{{Name: "partial", Color: labelColor}}, fail
 			},
 		)(AuthedCtx(ctx, u), labelQuery{})).Error().To(MatchError(fail))
 	})
@@ -355,3 +356,6 @@ var _ = Describe("Keys", func() {
 		Expect(bind.Keys(nil, label.ResourceID)).To(BeNil())
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

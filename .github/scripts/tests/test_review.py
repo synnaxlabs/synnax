@@ -15,17 +15,20 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH as Executable
 
 from review import (
     Finding,
     Fix,
     Review,
     Target,
+    authority,
     gh as call_gh,
     outside_findings,
     parse,
     post,
     render,
+    replies,
     reviewed,
 )
 
@@ -128,8 +131,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
-        if path == f"repos/{REPO}/collaborators/member/permission":
-            return "write\n"
+        if path.startswith(f"repos/{REPO}/collaborators/"):
+            return ("write" if path.endswith("/member/permission") else "read") + "\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -263,6 +266,30 @@ class TestInlineFindings:
         gh.threads = [posted(finding())]
         post(record(finding()), target=TARGET, gh=gh)
         assert gh.written("PATCH", "pulls/comments/9") == []
+
+    @pytest.mark.parametrize("path", ["a.go", "image.png"])
+    def test_should_post_one_off_the_changed_lines_as_a_file_thread(
+        self, gh: FakeGH, path: str
+    ) -> None:
+        post(record(finding(path=path, line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [posted] = gh.written("POST", "pulls/7/comments")
+        assert {k: v for k, v in posted.items() if k != "body"} == {
+            "commit_id": "head",
+            "path": path,
+            "subject_type": "file",
+        }
+        heading, where, _ = posted["body"].split("\n\n", 2)
+        assert heading.endswith("**Samples return old data**")
+        assert where == f"[`{path}:10`](https://github.com/{REPO}/blob/head/{path}#L10)"
+        assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_skip_a_file_finding_an_open_thread_of_the_bot_holds(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        post(record(finding(line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/comments") == []
 
     def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
@@ -429,17 +456,14 @@ class TestOutsideFindings:
     """Tests listing findings off the diff in the bot's one outside-diff comment."""
 
     def test_should_post_them_in_a_new_comment(self, gh: FakeGH) -> None:
-        post(
-            record(finding(line=10), finding(path="b.go", line=1, title="Gone")),
-            target=TARGET,
-            gh=gh,
-        )
+        post(record(finding(path="b.go", line=1, title="Gone")), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
+        assert gh.written("POST", "pulls/7/comments") == []
         [comment] = gh.written("POST", "issues/7/comments")
         body = comment["body"]
         assert body.startswith(OUTSIDE)
         assert "These findings could not be posted inline." in body
-        assert f"[`a.go:10`](https://github.com/{REPO}/blob/head/a.go#L10)" in body
+        assert f"[`b.go:1`](https://github.com/{REPO}/blob/head/b.go#L1)" in body
         assert "**Gone**" in body
 
     def test_should_edit_the_bot_comment_when_none_remain(self, gh: FakeGH) -> None:
@@ -606,6 +630,33 @@ class TestReviewed:
         assert reviewed(TARGET, gh) == []
 
 
+def conversation(id: int, body: str, login: str, kind: str = "User") -> dict[str, Any]:
+    """A comment on the pull request in the shape that `comments` serves."""
+    return {
+        "id": id,
+        "login": login if kind == "User" else f"{login}[bot]",
+        "author": {"__typename": kind, "login": login},
+        "body": body,
+    }
+
+
+class TestReplies:
+    """Tests reading the comments on the pull request that mention the bot."""
+
+    def test_should_keep_those_of_members_and_agents(self, gh: FakeGH) -> None:
+        member = conversation(1, "@sedosaur `b.go:3` checks it.", "member")
+        agent = conversation(2, "@Sedosaur `b.go:3` checks it.", "synnax-codex", "Bot")
+        gh.comments = [
+            member,
+            conversation(3, "@sedosaur it is fine.", "reader"),
+            conversation(4, "@sedosaur it is fine.", "dependabot", "Bot"),
+            conversation(5, "Looks good to me.", "member"),
+            conversation(6, "> @sedosaur review\n\nThanks.", "member"),
+            agent,
+        ]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [member, agent]
+
+
 class TestGH:
     """Tests the helper that runs the `gh` executable."""
 
@@ -624,3 +675,61 @@ class TestGH:
         with pytest.raises(subprocess.CalledProcessError):
             call_gh("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews")
         assert "HTTP 422: Unprocessable Entity" in capfd.readouterr().err
+
+    @pytest.fixture
+    def fake(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Executable:
+        fake = Executable(tmp_path)
+        fake.serve("api *", {"ok": 1})
+        monkeypatch.setenv("PATH", f"{fake.bin_dir}{os.pathsep}{os.environ['PATH']}")
+        monkeypatch.setenv("GH_API_RETRY_DELAY", "0")
+        return fake
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55", "--input", "-"),
+            ("api", f"repos/{REPO}/pulls/7", "--jq", ".body"),
+            ("api", "graphql", "-f", "query=query { viewer { login } }"),
+        ],
+    )
+    def test_should_retry_a_transient_failure_of_a_repeatable_call(
+        self, fake: Executable, args: tuple[str, ...]
+    ) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        assert call_gh(*args, stdin="{}") != ""
+        assert len(fake.calls()) == 2
+
+    def test_should_send_the_body_again_on_a_retry(self, fake: Executable) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        body = '{"status": "completed"}'
+        path = f"repos/{REPO}/check-runs/55"
+        call_gh("api", "-X", "PATCH", path, "--input", "-", stdin=body)
+        assert fake.inputs() == [body, body]
+
+    def test_should_fail_a_client_error_at_once(self, fake: Executable) -> None:
+        fake.fail("api *", "gh: Not Found (HTTP 404)")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55")
+        assert len(fake.calls()) == 1
+
+    def test_should_fail_when_every_attempt_fails(self, fake: Executable) -> None:
+        fake.fail("api *", "gh: Server Error (HTTP 502)", times=5)
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55")
+        assert len(fake.calls()) == 5
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews", "--input", "-"),
+            ("api", f"repos/{REPO}/issues/7/comments", "-f", "body=x"),
+            ("api", "graphql", "-f", "query=mutation { x }"),
+        ],
+    )
+    def test_should_send_a_create_only_once(
+        self, fake: Executable, args: tuple[str, ...]
+    ) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh(*args, stdin="{}")
+        assert len(fake.calls()) == 1

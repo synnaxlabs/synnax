@@ -292,7 +292,9 @@ var _ = Describe("Service", func() {
 			stamped := jsonMessage("Stamped", nil, jsonField(
 				"ts", "/ts", icd.TimestampJSONField{
 					TimeFormat: payload.TimeFormatUnixSec,
-					Default:    &stamp,
+					Default: &icd.TimestampDefault{
+						Variant: icd.ConstantTimestampDefault{Value: stamp},
+					},
 				},
 			))
 			frame := icd.Message{
@@ -445,7 +447,7 @@ var _ = Describe("Service", func() {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdRecord("", f.ic, read)}
 			}, "topics.0.records.0.messages.0.bindings.0.channel",
-				"only the index field can write to index channel"),
+				"because only the index field can. Bind field ts to a data channel"),
 			Entry("a channel that two records write", func(f format) []map[string]any {
 				return []map[string]any{
 					icdRecord("a", f.ic, readMessage(f.m, binding(f.m, 1, f.value))),

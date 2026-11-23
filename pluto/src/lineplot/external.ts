@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@/lineplot/aether";
+
 export * from "@/lineplot/Axis";
 export * from "@/lineplot/Frame";
 export * from "@/lineplot/Icons";
@@ -22,3 +24,5 @@ export * from "@/lineplot/Suspended";
 export * from "@/lineplot/Title";
 export * from "@/lineplot/tooltip";
 export * from "@/lineplot/Viewport";
+
+export const shownSpans = lineplot.shownSpans;

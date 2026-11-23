@@ -15,12 +15,12 @@ import { aether } from "@/aether/aether";
 import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import type { Element } from "@/vis/diagram/aether/Diagram";
+import type { diagram } from "@/vis/diagram/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-const gaugeState = staleness.drawnStateZ.extend({
+const gaugeState = staleness.stateZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
@@ -75,7 +75,7 @@ interface InternalState {
 
 export class Gauge
   extends aether.Leaf<typeof gaugeState, InternalState>
-  implements Element
+  implements diagram.Element
 {
   static readonly TYPE = "gauge";
   static readonly z = gaugeState;
@@ -87,9 +87,7 @@ export class Gauge
     i.theme = theming.use(ctx);
     i.textColor = this.state.color ?? i.theme.colors.gray.l9;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
-      this.requestRender(),
-    );
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       i.staleness.received();
@@ -166,14 +164,11 @@ export class Gauge
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
-    const staleColor = staleness.drawnColor(this.state, i.theme);
-
     draw2d.text({
       align: "center",
       text: value,
       position: i.valueTextPos,
       shade: 10,
-      color: staleColor,
       level: i.textLevel,
       justify: "center",
       weight: 450,
@@ -222,7 +217,7 @@ export class Gauge
     });
 
     draw2d.circle({
-      stroke: staleColor ?? i.strokeColor,
+      stroke: i.strokeColor,
       radius: { inner: i.innerRadius, outer: i.outerRadius },
       position: i.centerPos,
       angle: {

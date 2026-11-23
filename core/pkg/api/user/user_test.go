@@ -446,6 +446,18 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should report a user who has no password as not found",
+			func(ctx SpecContext) {
+				u := MustSucceed(
+					rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+						Name: "change-username-" + uuid.New().String(),
+					}),
+				)
+				Expect(dispatch(rootCtx(ctx), setUsername(u.Key, "new"))).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
 			"Should be a no-op when the target name already matches",
 			func(ctx SpecContext) {
 				username := "change-username-noop-" + uuid.New().String()

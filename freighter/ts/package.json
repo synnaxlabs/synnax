@@ -51,7 +51,6 @@
     "!dist/eslint.config.*"
   ],
   "browser": {
-    "node:tls": false,
     "undici": false
   },
   "exports": {

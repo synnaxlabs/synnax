@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { Account } from "@/feature/account";
-import { License } from "@/platform/license";
 
 const FIELDS = {
   state: "s",
@@ -30,29 +29,6 @@ describe("account handoff", () => {
       const a = Account.mintState();
       expect(a).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
       expect(a).not.toBe(Account.mintState());
-    });
-  });
-
-  describe("loginURL", () => {
-    it("should carry the state, fingerprint, name, and version", () => {
-      const url = new URL(
-        Account.loginURL({
-          state: "s",
-          fingerprint: ["aa", "bb"],
-          name: "my-mac",
-          version: "0.58.0",
-        }),
-      );
-      expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
-      expect(url.searchParams.get("state")).toBe("s");
-      expect(url.searchParams.get("fp")).toBe("aa, bb");
-      expect(url.searchParams.get("name")).toBe("my-mac");
-      expect(url.searchParams.get("v")).toBe("0.58.0");
-    });
-
-    it("should leave the version out when unknown", () => {
-      const url = new URL(Account.loginURL({ state: "s", fingerprint: [], name: "n" }));
-      expect(url.searchParams.has("v")).toBe(false);
     });
   });
 

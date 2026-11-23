@@ -64,14 +64,25 @@ type decodeCase struct {
 	Samples   []json.RawMessage `json:"samples"`
 }
 
-func decodeEntries() []TableEntry {
+func fixtureEntry(path string) TableEntry {
+	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+}
+
+// fixturePaths returns the fixtures in the dir folder of testdata.
+func fixturePaths(dir string) []string {
 	GinkgoHelper()
 	paths := MustSucceed(
-		filepath.Glob(filepath.Join("..", "testdata", "decode", "*.json")),
+		filepath.Glob(filepath.Join("..", "testdata", dir, "*.json")),
 	)
 	Expect(paths).ToNot(BeEmpty())
-	return lo.Map(paths, func(path string, _ int) TableEntry {
-		return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+	return paths
+}
+
+// fixtureEntries returns an entry for each fixture in the dir folder of testdata.
+func fixtureEntries(dir string) []TableEntry {
+	GinkgoHelper()
+	return lo.Map(fixturePaths(dir), func(path string, _ int) TableEntry {
+		return fixtureEntry(path)
 	})
 }
 
@@ -118,6 +129,32 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
+func readDecodeFixture(path string) decodeFixture {
+	GinkgoHelper()
+	var f decodeFixture
+	Expect(
+		json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+	).To(Succeed())
+	Expect(f.Description).ToNot(BeEmpty())
+	return f
+}
+
+func (m fixtureMessage) jsonMessage() codec.JSONMessage {
+	return codec.JSONMessage{
+		Name:    m.Name,
+		Payload: m.Payload,
+		Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
+			return codec.Binding{Field: b.Field, DataType: b.DataType}
+		}),
+	}
+}
+
+func (f decodeFixture) messages() []codec.JSONMessage {
+	return lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
+		return m.jsonMessage()
+	})
+}
+
 // newSamples returns empty sample slices for each binding of each message.
 func newSamples(messages []codec.JSONMessage) [][][]byte {
 	return lo.Map(messages, func(m codec.JSONMessage, _ int) [][]byte {
@@ -125,22 +162,30 @@ func newSamples(messages []codec.JSONMessage) [][][]byte {
 	})
 }
 
+// decode decodes doc into samples, and fails the spec on an error or a failed field. It
+// returns the message of doc, and whether doc belongs to one.
+func decode(dec *codec.JSON, doc []byte, samples [][][]byte) (int, bool) {
+	GinkgoHelper()
+	message, ok, failures, err := dec.Decode(doc, samples)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(failures).To(BeNil())
+	return message, ok
+}
+
+// decodeError returns the error of decoding doc, or else the error of its first failed
+// field.
+func decodeError(dec *codec.JSON, doc []byte, samples [][][]byte) error {
+	_, _, failures, err := dec.Decode(doc, samples)
+	if err == nil && len(failures) > 0 {
+		return failures[0].Err
+	}
+	return err
+}
+
 var _ = Describe("JSON", func() {
 	DescribeTable("Should decode the documents of a fixture", func(path string) {
-		var f decodeFixture
-		Expect(
-			json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
-		).To(Succeed())
-		Expect(f.Description).ToNot(BeEmpty())
-		messages := lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
-			return codec.JSONMessage{
-				Name:    m.Name,
-				Payload: m.Payload,
-				Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
-					return codec.Binding{Field: b.Field, DataType: b.DataType}
-				}),
-			}
-		})
+		f := readDecodeFixture(path)
+		messages := f.messages()
 		if f.Error != "" {
 			Expect(codec.NewJSON(messages)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -159,17 +204,26 @@ var _ = Describe("JSON", func() {
 			samples := newSamples(messages)
 			switch {
 			case c.Error != "":
-				Expect(dec.Decode(doc, samples)).Error().To(SatisfyAll(
+				m, _, failures, err := dec.Decode(doc, samples)
+				if err == nil {
+					Expect(failures).ToNot(BeEmpty())
+					err = failures[0].Err
+					for _, failure := range failures {
+						Expect(samples[m][failure.Binding]).To(BeEmpty())
+					}
+				} else {
+					Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+				}
+				Expect(err).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(c.Error),
 				))
-				Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
 			case c.Unmatched:
-				_, ok := MustSucceed2(dec.Decode(doc, samples))
+				_, ok := decode(dec, doc, samples)
 				Expect(ok).To(BeFalse())
 				Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
 			default:
-				m, ok := MustSucceed2(dec.Decode(doc, samples))
+				m, ok := decode(dec, doc, samples)
 				Expect(ok).To(BeTrue())
 				Expect(messages[m].Name).To(Equal(c.Message))
 				bindings := messages[m].Bindings
@@ -187,7 +241,7 @@ var _ = Describe("JSON", func() {
 				}
 			}
 		}
-	}, decodeEntries())
+	}, fixtureEntries("decode"))
 
 	It("Should reject a match rule with no type", func() {
 		key := uuid.New()
@@ -206,6 +260,102 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
+	Describe("Generated defaults", func() {
+		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+			GinkgoHelper()
+			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+			}}))
+		}
+
+		It("Should fill a missing timestamp with the time of the read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "ts", Scale: 1, Pointer: "/ts",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+			}}, telem.TimestampT)
+			samples := [][][]byte{make([][]byte, 1)}
+			before := telem.Now()
+			_, ok := decode(dec, []byte(`{}`), samples)
+			after := telem.Now()
+			Expect(ok).To(BeTrue())
+			read := telem.TimeStamp(telem.ByteOrder.Uint64(samples[0][0]))
+			Expect(read).To(BeNumerically(">=", before))
+			Expect(read).To(BeNumerically("<=", after))
+		})
+
+		It("Should fill a missing UUID with a new random UUID on each read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "id", Scale: 1, Pointer: "/id",
+				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}}, telem.UUIDT)
+			samples := [][][]byte{make([][]byte, 1)}
+			for range 2 {
+				_, ok := decode(dec, []byte(`{}`), samples)
+				Expect(ok).To(BeTrue())
+			}
+			read := samples[0][0]
+			Expect(read).To(HaveLen(32))
+			first, second := uuid.UUID(read[:16]), uuid.UUID(read[16:])
+			Expect(first).ToNot(Equal(second))
+			Expect(first[6] >> 4).To(Equal(byte(4)))
+			Expect(second[6] >> 4).To(Equal(byte(4)))
+		})
+
+		It("Should fill a missing JSON value with every digit of its default", func() {
+			dec := decoder(icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id": 9007199254740993}`),
+			}}, telem.JSONT)
+			samples := [][][]byte{make([][]byte, 1)}
+			_, ok := decode(dec, []byte(`{}`), samples)
+			Expect(ok).To(BeTrue())
+			Expect(string(samples[0][0][4:])).To(Equal(`{"id":9007199254740993}`))
+		})
+
+		It("Should reject a JSON default that is not valid JSON", func() {
+			f := icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id":`),
+			}}
+			Expect(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.JSONT}},
+			}})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					"message reading: field doc: default: not valid JSON: validation error",
+				),
+			))
+		})
+
+		DescribeTable("Should reject a default with no type",
+			func(f icd.JSONField, dt telem.DataType) {
+				Expect(codec.NewJSON([]codec.JSONMessage{{
+					Name:     "reading",
+					Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+					Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+				}})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("message reading: field v: default: type is required: "+
+						"validation error"),
+				))
+			},
+			Entry("for a timestamp", icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{},
+			}}, telem.TimestampT),
+			Entry("for a UUID", icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				Default: &icd.UUIDDefault{},
+			}}, telem.UUIDT),
+		)
+	})
+
 	It("Should append to the samples of earlier documents", func() {
 		key := uuid.New()
 		dec := MustSucceed(codec.NewJSON([]codec.JSONMessage{
@@ -221,13 +371,117 @@ var _ = Describe("JSON", func() {
 		}))
 		samples := [][][]byte{make([][]byte, 1)}
 		for _, doc := range []string{`{"v": 1}`, `{"v": 2}`} {
-			_, ok := MustSucceed2(dec.Decode([]byte(doc), samples))
+			_, ok := decode(dec, []byte(doc), samples)
 			Expect(ok).To(BeTrue())
 		}
-		Expect(dec.Decode([]byte(`{"v": "x"}`), samples)).
-			Error().To(MatchError(validate.ErrValidation))
+		Expect(decodeError(dec, []byte(`{"v": "x"}`), samples)).
+			To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0][0]}).
 			To(telem.MatchSeriesDataV[float64](1, 2))
+	})
+
+	Describe("Failures", func() {
+		// reading returns a decoder of one message with n float fields, at /a, /b, and
+		// so on.
+		reading := func(n int) (*codec.JSON, [][][]byte) {
+			GinkgoHelper()
+			m := codec.JSONMessage{Name: "reading"}
+			for i := range n {
+				name, key := string(rune('a'+i)), uuid.New()
+				m.Payload.Fields = append(m.Payload.Fields, icd.JSONField{
+					Variant: icd.FloatJSONField{
+						Key: key, Name: name, Scale: 1, Pointer: "/" + name,
+					},
+				})
+				m.Bindings = append(m.Bindings, codec.Binding{
+					Field: key, DataType: telem.Float64T,
+				})
+			}
+			messages := []codec.JSONMessage{m}
+			return MustSucceed(codec.NewJSON(messages)), newSamples(messages)
+		}
+
+		series := func(data []byte) telem.Series {
+			return telem.Series{DataType: telem.Float64T, Data: data}
+		}
+
+		It(
+			"Should list each field that does not convert and append the others",
+			func() {
+				dec, samples := reading(3)
+				_, ok, failures, err := dec.Decode(
+					[]byte(`{"a": "x", "b": 2, "c": "y"}`), samples,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(failures).To(HaveLen(2))
+				Expect(failures[0].Binding).To(Equal(0))
+				Expect(failures[0].Missing).To(BeFalse())
+				Expect(failures[0].Err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("field a: ")),
+				))
+				Expect(failures[1].Binding).To(Equal(2))
+				Expect(samples[0][0]).To(BeEmpty())
+				Expect(series(samples[0][1])).To(telem.MatchSeriesDataV[float64](2))
+				Expect(samples[0][2]).To(BeEmpty())
+			},
+		)
+
+		It("Should list a field with no value and no default as missing", func() {
+			dec, samples := reading(2)
+			_, _, failures, err := dec.Decode([]byte(`{"a": 1}`), samples)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(failures).To(HaveLen(1))
+			Expect(failures[0].Binding).To(Equal(1))
+			Expect(failures[0].Missing).To(BeTrue())
+			Expect(failures[0].Err).
+				To(MatchError("field b: no value at /b: validation error"))
+		})
+
+		It("Should clear the failures of the last decode", func() {
+			dec, samples := reading(1)
+			Expect(decodeError(dec, []byte(`{"a": "x"}`), samples)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("field a: ")),
+			))
+			decode(dec, []byte(`{"a": 1}`), samples)
+		})
+
+		It("Should name the message of a failure when the decoder holds more", func() {
+			status, other := uuid.New(), uuid.New()
+			messages := []codec.JSONMessage{
+				{
+					Name: "status",
+					Payload: icd.JSONPayload{
+						Match: &icd.JSONMatch{Variant: icd.StringJSONMatch{
+							JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
+							Value:         "status",
+						}},
+						Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
+							Key: status, Name: "a", Scale: 1, Pointer: "/a",
+						}}},
+					},
+					Bindings: []codec.Binding{
+						{Field: status, DataType: telem.Float64T},
+					},
+				},
+				{
+					Name: "other",
+					Payload: icd.JSONPayload{
+						Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
+							Key: other, Name: "b", Scale: 1, Pointer: "/b",
+						}}},
+					},
+					Bindings: []codec.Binding{{Field: other, DataType: telem.Float64T}},
+				},
+			}
+			dec := MustSucceed(codec.NewJSON(messages))
+			doc := []byte(`{"type": "status"}`)
+			Expect(decodeError(dec, doc, newSamples(messages))).To(MatchError(
+				"message status: field a: no value at /a: validation error",
+			))
+		})
 	})
 
 	DescribeTable("Should decode a document without allocating",
@@ -274,18 +528,20 @@ var _ = Describe("JSON", func() {
 			dec := MustSucceed(codec.NewJSON(messages))
 			samples := newSamples(messages)
 			var (
-				message int
-				ok      bool
-				err     error
+				message  int
+				ok       bool
+				failures []codec.Failure
+				err      error
 			)
 			decode := func() {
 				for i := range samples[1] {
 					samples[1][i] = samples[1][i][:0]
 				}
-				message, ok, err = dec.Decode(doc, samples)
+				message, ok, failures, err = dec.Decode(doc, samples)
 			}
 			Expect(testing.AllocsPerRun(100, decode)).To(BeZero())
 			Expect(err).ToNot(HaveOccurred())
+			Expect(failures).To(BeNil())
 			Expect(ok).To(BeTrue())
 			Expect(message).To(Equal(1))
 		},

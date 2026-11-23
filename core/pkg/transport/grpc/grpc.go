@@ -93,6 +93,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// AUTH
 	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
+	t.AuthOIDCLink = noop.UnaryServer[apiauth.OIDCLinkRequest, apiauth.OIDCLinkResponse]{}
+	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
+	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
+	t.AuthPasswordCreate = noop.UnaryServer[apiauth.PasswordCreateRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
@@ -168,6 +172,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}
+	t.SchematicSymbolRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		symbol.RetrieveBuiltinsResponse,
+	]{}
 
 	// LINE PLOT
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
@@ -234,13 +242,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	]{}
 	t.EnumerationDelete = noop.UnaryServer[enumeration.DeleteRequest, struct{}]{}
 	t.EnumerationDispatch = noop.UnaryServer[enumeration.DispatchRequest, struct{}]{}
+	t.EnumerationReplace = noop.UnaryServer[enumeration.ReplaceRequest, struct{}]{}
 	t.EnumerationRetrieveBuiltins = noop.UnaryServer[
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
-	]{}
-	t.EnumerationRetrieveDependents = noop.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
 	]{}
 
 	// ACCESS

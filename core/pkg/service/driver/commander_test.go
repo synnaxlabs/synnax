@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -123,6 +124,19 @@ var _ = Describe("Commander", func() {
 				Expect(stat.Details.Data).To(Equal(msgpack.EncodedJSON{"path": "/x"}))
 			})
 
+		It("Should answer an error with the failure message and the error text",
+			func(ctx SpecContext) {
+				c := open(
+					func(context.Context, task.Command) (msgpack.EncodedJSON, error) {
+						return nil, errors.New("disk read failed")
+					},
+				)
+				stat := answer(ctx, run(ctx, c, "list"))
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to execute command"))
+				Expect(stat.Description).To(Equal("disk read failed"))
+			})
+
 		It("Should answer a command that exec does not support with an error",
 			func(ctx SpecContext) {
 				c := open(
@@ -216,7 +230,7 @@ var _ = Describe("Commander", func() {
 				defer cancel()
 				stat := answer(ctx, run(limited, c, "list"))
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("context deadline exceeded"))
+				Expect(stat.Description).To(Equal("context deadline exceeded"))
 			})
 	})
 

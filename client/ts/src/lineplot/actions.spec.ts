@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
+import { freeze } from "immer";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
@@ -274,6 +275,21 @@ describe("lineplot reducer", () => {
     const t0 = new TimeStamp(5);
     const styled: ranger.Ref = { variant: "key", key: r1, t0, color: red };
 
+    it("should color a range that a frozen action earlier in the batch adds", () => {
+      const add = freeze(
+        lineplot.addRange({ range: { variant: "key", key: r1, t0 } }),
+        true,
+      );
+      const { next } = lineplot.reduceAll(createEmpty(), [
+        add,
+        lineplot.setRangeColor({ range: keyRef(r1), color: red }),
+      ]);
+      expect(next.ranges).toEqual([styled]);
+      expect(next.ranges[0].variant === "key" && next.ranges[0].t0).toBeInstanceOf(
+        TimeStamp,
+      );
+    });
+
     it("should not add a second reference to a range with another T0 or color", () => {
       const state = createEmpty({ ranges: [keyRef(r1)] });
       const { next, inverse } = lineplot.reduceAll(state, [
@@ -510,6 +526,54 @@ describe("lineplot reducer", () => {
       };
       const out = apply(createEmpty(), lineplot.setRanges({ ranges: [fixed] }));
       expect(out.ranges).toEqual([fixed]);
+    });
+  });
+
+  describe("relative time without a zero", () => {
+    const r1 = "00000000-0000-4000-8000-000000000001";
+    const fixedRef: ranger.Ref = {
+      variant: "window",
+      window: { variant: "static", timeRange: { start: "0", end: "1000" } },
+    };
+
+    // relativeOver returns a plot of the ranges with x1 in relative time and manual
+    // bounds.
+    const relativeOver = (ranges: ranger.Ref[]): lineplot.LinePlot =>
+      apply(
+        createEmpty({ ranges }),
+        lineplot.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
+        lineplot.setAxisBounds({
+          key: "x1",
+          bounds: { lower: 0, upper: 60e9 },
+          manualBounds: { lower: true, upper: true },
+        }),
+      );
+
+    it("should give a saved range and a fixed window a zero, and a rolling window none", () => {
+      expect(lineplot.hasZero(keyRef(r1))).toBe(true);
+      expect(lineplot.hasZero(fixedRef)).toBe(true);
+      expect(lineplot.hasZero(windowRef(60e9))).toBe(false);
+    });
+
+    it.each([
+      ["removeRange", lineplot.removeRange({ range: keyRef(r1) })],
+      ["setRanges", lineplot.setRanges({ ranges: [windowRef(60e9)] })],
+    ])(
+      "%s should return x1 to absolute time with auto bounds once no range has a zero",
+      (_, action) => {
+        const state = relativeOver([windowRef(60e9), keyRef(r1)]);
+        const { next, inverse, targets } = lineplot.reduceAll(state, [action]);
+        expect(next.axes.x1.timeMode).toBeUndefined();
+        expect(next.axes.x1.manualBounds).toEqual({ lower: false, upper: false });
+        expect(targets).toContain("axis:x1");
+        expect(lineplot.reduceAll(next, inverse).next).toEqual(state);
+      },
+    );
+
+    it("should keep relative time while a range with a zero remains", () => {
+      const state = relativeOver([fixedRef, keyRef(r1)]);
+      const out = apply(state, lineplot.removeRange({ range: keyRef(r1) }));
+      expect(out.axes.x1).toEqual(state.axes.x1);
     });
   });
 

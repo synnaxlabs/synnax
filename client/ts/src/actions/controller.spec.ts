@@ -11,15 +11,10 @@ import { observe, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import {
-  Controller,
-  type Frame,
-  type Reducer,
-  type SendDispatch,
-} from "@/actions/controller";
+import { actions } from "@/actions";
 import { batch } from "@/batch";
-import { AccessDeniedError, NotCachedError } from "@/errors";
-import { Table } from "@/query/table";
+import { AccessDeniedError, NotCachedError } from "@/index";
+import { query } from "@/query";
 
 interface Doc {
   values: Record<string, number>;
@@ -33,7 +28,7 @@ type Action =
   | { type: "invalid" }
   | { type: "noop" };
 
-const reducer: Reducer<Doc, Action> = (state, actions) => {
+const reducer: actions.Reducer<Doc, Action> = (state, actions) => {
   let next = state;
   const inverse: Action[] = [];
   const targets = new Set<string>();
@@ -62,7 +57,7 @@ const frameZ = z.object({
   dispatchKey: z.string(),
   seq: z.number().int().nonnegative(),
   actions: z.array(z.any()),
-}) as unknown as z.ZodType<Frame<string, Action>>;
+}) as unknown as z.ZodType<actions.Frame<string, Action>>;
 
 /** A manually advanced clock, so coalesce-window tests need no real sleeps. */
 const createFakeClock = () => {
@@ -84,17 +79,19 @@ const setupStore = (
     now: () => TimeStamp;
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
     encode: (doc: Doc, action: Action) => Action;
-    send: SendDispatch<string, Action>;
+    send: actions.SendDispatch<string, Action>;
     listed: (a: Action) => boolean;
   }> = {},
 ) => {
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
-  const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
+  const docs = new query.Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
   const downs = new observe.Observer<void>();
-  const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => []));
-  const controller = new Controller<string, Doc, Action>({
+  const send = vi.fn<actions.SendDispatch<string, Action>>(
+    opts.send ?? (async () => []),
+  );
+  const controller = new actions.Controller<string, Doc, Action>({
     store: docs,
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
@@ -128,7 +125,7 @@ interface HeldCall {
 /** A send that settles only when the spec says, to hold a dispatch pending. */
 const createHeldSend = () => {
   const calls: HeldCall[] = [];
-  const send: SendDispatch<string, Action> = async (_, actions, dispatchKey) =>
+  const send: actions.SendDispatch<string, Action> = async (_, actions, dispatchKey) =>
     await new Promise<Action[]>((resolve, reject) =>
       calls.push({
         actions,
@@ -141,7 +138,7 @@ const createHeldSend = () => {
 };
 
 const prime = (
-  docs: Table<string, Doc>,
+  docs: query.Table<string, Doc>,
   key: string,
   values: Record<string, number> = {},
 ) => docs.set(key, { values });
@@ -304,7 +301,7 @@ describe("actions.Controller", () => {
 
   describe("coalescing", () => {
     const push = (
-      controller: Controller<string, Doc, Action>,
+      controller: actions.Controller<string, Doc, Action>,
       key: string,
       target: string,
       value: number,
@@ -614,7 +611,7 @@ describe("actions.Controller", () => {
     // A send that waits on the returned gate before its first call settles.
     const createGatedSend = () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (send.mock.calls.length === 1) await gate.promise;
         return [];
       });
@@ -698,7 +695,7 @@ describe("actions.Controller", () => {
 
     // Fails the sends whose call numbers are listed, counting from 1.
     const createFailingSend = (...failing: number[]) => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (failing.includes(send.mock.calls.length)) throw new Error("rejected");
         return [];
       });
@@ -814,7 +811,7 @@ describe("actions.Controller", () => {
 
     it("rolls back every dispatch in a failed batch, newest first", async () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (send.mock.calls.length === 1) {
           await gate.promise;
           return [];
@@ -835,7 +832,7 @@ describe("actions.Controller", () => {
     });
 
     it("sends undo and redo through the queue in program order", async () => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => []);
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => []);
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       await controller.dispatch("k", [set("a", 1)]);
@@ -1241,6 +1238,36 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("overlaid", () => {
+    it("reports a doc with a pending dispatch as overlaid", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      prime(docs, "other", { a: 0 });
+      expect([...docs.overlaid()]).toEqual([]);
+      await controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+    });
+
+    it("drops the doc once the echo of its dispatch settles it", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+
+    it("drops the doc once the Core refuses its dispatch", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+  });
+
   describe("applyRemote", () => {
     it("applies foreign actions and stamps targets as remote-touched", async () => {
       const { docs, controller } = setupStore();
@@ -1422,6 +1449,19 @@ describe("actions.Controller", () => {
       calls[0].resolve();
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("tells the doc's subscribers when the echo of the first pending dispatch arrives", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      const events: string[] = [];
+      docs.subscribe((event) => events.push(event.variant), "k");
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      expect(events).toEqual(["set"]);
+      calls[0].resolve();
+      await dispatched;
     });
 
     it("applies the actions that the Core adds to the echo of a dispatch", async () => {
@@ -1762,6 +1802,44 @@ describe("actions.Controller", () => {
       controller.applyRemote("k", 1, dispatchKey, [create]);
       expect(docs.get("j")).toEqual({ key: "j", values: { a: 1 } });
       expect(docs.get("k")).toEqual({ key: "k", values: { a: 1 } });
+    });
+
+    it("settles an echo whose added action edits an object that a dispatched one adds", async () => {
+      interface Plot {
+        ranges: Array<{ key: string; color?: string }>;
+      }
+      type PlotAction =
+        | { type: "add"; range: { key: string } }
+        | { type: "color"; key: string; color: string };
+      const reduce = actions.createReduceAll<Plot, PlotAction>((draft, a) => {
+        if (a.type === "add") draft.ranges.push(a.range);
+        else {
+          const range = draft.ranges.find(({ key }) => key === a.key);
+          if (range != null) range.color = a.color;
+        }
+        return { inverse: [], targets: ["ranges"] };
+      });
+      const errors: Error[] = [];
+      const onError = (error: Error) => errors.push(error);
+      const docs = new query.Table<string, Plot>({ onError, fetch: async () => [] });
+      const epochs = new observe.Observer<number>();
+      const color: PlotAction = { type: "color", key: "r", color: "#f00" };
+      const controller = new actions.Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError,
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [color],
+      });
+      epochs.notify(1);
+      docs.set("k", { ranges: [] });
+      await controller.dispatch("k", [{ type: "add", range: { key: "r" } }]);
+      const settled = controller.settled("k");
+      await vi.advanceTimersByTimeAsync(10_000);
+      await settled;
+      expect(errors).toEqual([]);
+      expect(docs.get("k")?.ranges).toEqual([{ key: "r", color: "#f00" }]);
     });
 
     const invalid: Action = { type: "invalid" };

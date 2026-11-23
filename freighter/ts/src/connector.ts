@@ -46,18 +46,16 @@ export interface Socket {
   onerror: Listener<object> | null;
 }
 
-/** Opens a WebSocket to the URL and sends the headers with the upgrade request. */
+/**
+ * Opens a WebSocket to the URL and sends the headers with the upgrade request. A dial
+ * that cannot send headers sends the Authorization header as the {@link subprotocols}.
+ */
 export type Dial = (url: string, headers: Record<string, string>) => Promise<Socket>;
 
 /** The functions a transport opens its connections with. */
 export interface Connector {
   fetch: Fetch;
   dial: Dial;
-  /**
-   * True when dial sends the Authorization header to the server. Otherwise the client
-   * puts it in the URL.
-   */
-  sendsHeaders?: boolean;
 }
 
 // Node, Bun, and Deno take a headers option that the DOM types do not have.
@@ -71,14 +69,19 @@ const SUBPROTOCOL = "synnax.v1";
 const TOKEN_SUBPROTOCOL_PREFIX = "synnax.token.";
 const BEARER_PREFIX = "Bearer ";
 
-// A session token or API key holds only base64url characters, which a subprotocol
-// allows.
-const openWithSubprotocol = (url: string, authorization?: string): Socket => {
-  if (authorization == null) return new WebSocket(url);
+/**
+ * Returns the WebSocket subprotocols that carry the Authorization header to the Core.
+ * @param authorization - The Authorization header value, or undefined for none.
+ * @throws {Error} if the authorization is not a Bearer token.
+ */
+export const subprotocols = (authorization?: string): string[] => {
+  if (authorization == null) return [];
   if (!authorization.startsWith(BEARER_PREFIX))
     throw new Error("WebSocket authorization must be a Bearer token");
+  // A session token or API key holds only base64url characters, which a subprotocol
+  // allows.
   const token = authorization.slice(BEARER_PREFIX.length);
-  return new WebSocket(url, [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`]);
+  return [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`];
 };
 
 /**
@@ -92,17 +95,24 @@ export const DEFAULT_CONNECTOR: Connector = {
   dial: async (url, headers) =>
     runtime.RUNTIME === "node" && typeof document === "undefined"
       ? openWithOptions(url, { headers })
-      : openWithSubprotocol(url, headers.Authorization),
-  sendsHeaders: true,
+      : new WebSocket(url, subprotocols(headers.Authorization)),
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
 const withDefaultCAs = async (ca: string): Promise<string[]> => {
-  const { getCACertificates, rootCertificates } = await import("node:tls");
-  // Node 22.15 added getCACertificates, which also keeps NODE_EXTRA_CA_CERTS.
-  const defaults =
-    getCACertificates == null ? rootCertificates : getCACertificates("default");
-  return [...defaults, ca];
+  // webpack cannot build a node: import for a browser, but it skips getBuiltinModule.
+  const { getCACertificates, rootCertificates } = process.getBuiltinModule("node:tls");
+  // Node 22.15 added getCACertificates. Before it, the defaults are the bundled roots
+  // and NODE_EXTRA_CA_CERTS.
+  if (getCACertificates != null) return [...getCACertificates("default"), ca];
+  const extra = process.env.NODE_EXTRA_CA_CERTS;
+  if (extra == null || extra === "") return [...rootCertificates, ca];
+  const { readFile } = process.getBuiltinModule("node:fs/promises");
+  // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
+  const extraCAs = await readFile(extra, "utf8").catch(() => null);
+  return extraCAs == null
+    ? [...rootCertificates, ca]
+    : [...rootCertificates, extraCAs, ca];
 };
 
 const loadUndici = async (ca: string) => {
@@ -138,7 +148,6 @@ const nodeConnector = (ca: string): Connector => {
       const { WebSocket, dispatcher } = await load();
       return new WebSocket(url, { dispatcher, headers });
     },
-    sendsHeaders: true,
   };
 };
 
@@ -151,7 +160,6 @@ const bunConnector = (ca: string): Connector => {
       return await fetch(target, req);
     },
     dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
-    sendsHeaders: true,
   };
 };
 

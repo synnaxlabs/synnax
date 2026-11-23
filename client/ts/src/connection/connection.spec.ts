@@ -19,7 +19,7 @@ import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { advance, createInitialStatus, type Event, reduce } from "@/connection/status";
+import { lifecycle } from "@/connection/lifecycle";
 import {
   AccessDeniedError,
   AuthError,
@@ -68,6 +68,8 @@ interface ScriptedUnary extends UnaryClient {
   setClusterKey: (key: string) => void;
   /** Changes the license state answered by later checks. */
   setLicense: (state: license.State) => void;
+  /** Changes how far this host's clock appears ahead of the cluster's. */
+  setSkew: (skew: TimeSpan) => void;
 }
 
 /** A unary whose reachability and cluster identity change mid-test. */
@@ -83,13 +85,14 @@ const createScriptedUnary = ({
   let key = clusterKey;
   let down = failing;
   let state = license;
+  let skew = TimeSpan.ZERO;
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
       return {
         clusterKey: key,
         nodeVersion: __VERSION__,
-        nodeTime: TimeStamp.now(),
+        nodeTime: TimeStamp.now().sub(skew),
         license: state,
       };
     }),
@@ -97,6 +100,7 @@ const createScriptedUnary = ({
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
     setLicense: (next) => (state = next),
+    setSkew: (next) => (skew = next),
   };
 };
 
@@ -188,10 +192,13 @@ const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info =
 });
 
 /** Folds events over an initial status, mirroring the client's dispatch. */
-const apply = (config: connection.Config, ...events: Event[]): connection.Status =>
+const apply = (
+  config: connection.Config,
+  ...events: lifecycle.Event[]
+): connection.Status =>
   events.reduce(
-    (status, event) => reduce(status, event, config),
-    createInitialStatus(config),
+    (status, event) => lifecycle.reduce(status, event, config),
+    lifecycle.createInitialStatus(config),
   );
 
 /** Reads the error reason, or undefined when the status is not an error. */
@@ -306,6 +313,80 @@ describe("connection", () => {
       warn.mockRestore();
     });
 
+    const createSkewed = () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const unary = createScriptedUnary();
+      const send = vi.mocked(unary.send);
+      const client = createClient(unary);
+      // checks run in sequence, so the second check sent after a change starts only
+      // once the first has finished
+      const passChecks = async (skew?: TimeSpan): Promise<void> => {
+        if (skew != null) unary.setSkew(skew);
+        const target = send.mock.calls.length + 2;
+        await expect
+          .poll(() => send.mock.calls.length, POLL)
+          .toBeGreaterThanOrEqual(target);
+      };
+      const close = async (): Promise<void> => {
+        await client.close();
+        warn.mockRestore();
+        info.mockRestore();
+      };
+      return { warn, info, unary, client, passChecks, close };
+    };
+
+    it("should warn only when skew starts and log once when it ends", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      await passChecks(TimeSpan.hours(2));
+      await passChecks(TimeSpan.hours(3));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.ZERO);
+      await passChecks();
+      expect(info).toHaveBeenCalledOnce();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining("back in sync"));
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should stay skewed until skew falls below half the threshold", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      for (const ms of [1500, 900, 1100, 800, 650, 1050, 600])
+        await passChecks(TimeSpan.milliseconds(ms));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.milliseconds(300));
+      expect(info).toHaveBeenCalledOnce();
+      await close();
+    });
+
+    it("should warn again when a new Core answers with skew", async () => {
+      const { warn, unary, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledOnce();
+      unary.setClusterKey("other");
+      await passChecks();
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should not warn again on a reconnect to the same Core", async () => {
+      const { warn, info, unary, client, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      unary.setFailing(true);
+      await expect.poll(() => client.status.variant, POLL).toEqual("error");
+      unary.setFailing(false);
+      await expect.poll(() => client.status.variant, POLL).toEqual("success");
+      await passChecks();
+      expect(client.status.details.clockSkewExceeded).toBe(true);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await close();
+    });
+
     it("should not flag skew within threshold", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary, { clockSkewThreshold: TimeSpan.seconds(1) });
@@ -341,7 +422,7 @@ describe("connection", () => {
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      const initial = createInitialStatus(createConfig());
+      const initial = lifecycle.createInitialStatus(createConfig());
       expect(initial.variant).toEqual("loading");
       expect(initial.message).toEqual("Connecting");
     });
@@ -351,16 +432,16 @@ describe("connection", () => {
       const error = new Unreachable({ message: "server down" });
       const parked = apply(config, { type: "check.failure", error, attempt: 1 });
       expect(parked.variant).toEqual("error");
-      const checking = reduce(parked, { type: "check.started" }, config);
+      const checking = lifecycle.reduce(parked, { type: "check.started" }, config);
       expect(checking.variant).toEqual("error");
       expect(checking.details.checking).toBe(true);
-      const failed = reduce(
+      const failed = lifecycle.reduce(
         checking,
         { type: "check.failure", error, attempt: 2 },
         config,
       );
       expect(failed.details.checking).toBe(false);
-      const succeeded = reduce(
+      const succeeded = lifecycle.reduce(
         checking,
         { type: "check.success", info: createInfo() },
         config,
@@ -385,7 +466,7 @@ describe("connection", () => {
       const checked = apply(config, { type: "check.success", info: createInfo() });
       expect(checked.variant).toEqual("loading");
       expect(checked.details.authenticated).toBe(true);
-      const live = reduce(checked, { type: "stream.live" }, config);
+      const live = lifecycle.reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
       expect(live.details.streamLive).toBe(true);
     });
@@ -397,7 +478,7 @@ describe("connection", () => {
       expect(parked.variant).toEqual("error");
       // reachable again: the error must lift, or its short circuit starves
       // the stream reopen that success waits on
-      const checked = reduce(
+      const checked = lifecycle.reduce(
         parked,
         { type: "check.success", info: createInfo() },
         config,
@@ -405,7 +486,7 @@ describe("connection", () => {
       expect(checked.variant).toEqual("loading");
       expect(checked.message).toEqual("Reconnecting");
       expect(reasonOf(checked)).toBeUndefined();
-      const live = reduce(checked, { type: "stream.live" }, config);
+      const live = lifecycle.reduce(checked, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
     });
 
@@ -414,7 +495,7 @@ describe("connection", () => {
       const error = new Unreachable({ message: "server down" });
       const first = apply(config, { type: "check.failure", error, attempt: 1 });
       expect(first.variant).toEqual("loading");
-      const second = reduce(
+      const second = lifecycle.reduce(
         first,
         { type: "check.failure", error, attempt: 2 },
         config,
@@ -427,7 +508,7 @@ describe("connection", () => {
       const config = createConfig({ escalateAfter: 100 });
       const error = new Unreachable({ message: "server down" });
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
-      const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
+      const exhausted = lifecycle.reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
       expect(exhausted.message).toEqual("Cannot reach Core");
       expect(exhausted.description).toEqual("server down");
@@ -443,7 +524,7 @@ describe("connection", () => {
         { type: "stream.live" },
       );
       expect(connected.variant).toEqual("success");
-      const dropped = reduce(
+      const dropped = lifecycle.reduce(
         connected,
         { type: "stream.drop", error: new Error("socket died") },
         config,
@@ -451,7 +532,7 @@ describe("connection", () => {
       expect(dropped.variant).toEqual("loading");
       expect(dropped.message).toEqual("Reconnecting");
       expect(dropped.details.streamLive).toBe(false);
-      const reopened = reduce(dropped, { type: "stream.live" }, config);
+      const reopened = lifecycle.reduce(dropped, { type: "stream.live" }, config);
       expect(reopened.variant).toEqual("success");
     });
 
@@ -470,7 +551,7 @@ describe("connection", () => {
       expect(denied.details.streamDenied).toBe(true);
       expect(denied.details.streamLive).toBe(false);
       // later checks must not drag the settled denial back into loading
-      const checked = reduce(
+      const checked = lifecycle.reduce(
         denied,
         { type: "check.success", info: createInfo() },
         config,
@@ -487,20 +568,20 @@ describe("connection", () => {
         { type: "stream.denied" },
       );
       const error = new Unreachable({ message: "server down" });
-      const reconnecting = reduce(
+      const reconnecting = lifecycle.reduce(
         denied,
         { type: "check.failure", error, attempt: 1 },
         config,
       );
       expect(reconnecting.variant).toEqual("loading");
       expect(reconnecting.message).toEqual("Reconnecting");
-      const unreachable = reduce(
+      const unreachable = lifecycle.reduce(
         reconnecting,
         { type: "check.failure", error, attempt: 2 },
         config,
       );
       expect(unreachable.variant).toEqual("error");
-      const recovered = reduce(
+      const recovered = lifecycle.reduce(
         unreachable,
         { type: "check.success", info: createInfo() },
         config,
@@ -516,11 +597,15 @@ describe("connection", () => {
         { type: "check.success", info: createInfo() },
         { type: "stream.denied" },
       );
-      const live = reduce(denied, { type: "stream.live" }, config);
+      const live = lifecycle.reduce(denied, { type: "stream.live" }, config);
       expect(live.variant).toEqual("success");
       expect(live.details.streamDenied).toBe(false);
       expect(live.description).toEqual("");
-      const replaced = reduce(denied, { type: "credentials.replaced" }, config);
+      const replaced = lifecycle.reduce(
+        denied,
+        { type: "credentials.replaced" },
+        config,
+      );
       expect(replaced.variant).toEqual("loading");
       expect(replaced.details.streamDenied).toBe(false);
     });
@@ -533,10 +618,10 @@ describe("connection", () => {
         { type: "credentials.replaced" },
       );
       expect(replaced.details.authenticated).toBe(false);
-      const live = reduce(replaced, { type: "stream.live" }, config);
+      const live = lifecycle.reduce(replaced, { type: "stream.live" }, config);
       expect(live.variant).toEqual("loading");
       expect(live.details.streamLive).toBe(true);
-      const checked = reduce(
+      const checked = lifecycle.reduce(
         live,
         { type: "check.success", info: createInfo() },
         config,
@@ -547,7 +632,7 @@ describe("connection", () => {
     it("should degrade to reconnecting when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "check.success", info: createInfo() });
-      const degraded = reduce(
+      const degraded = lifecycle.reduce(
         connected,
         {
           type: "check.failure",
@@ -571,10 +656,14 @@ describe("connection", () => {
       expect(rejected.description).toEqual("invalid credentials");
       expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
-      const retrying = reduce(rejected, { type: "retry.requested" }, config);
+      const retrying = lifecycle.reduce(rejected, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("error");
       expect(reasonOf(retrying)).toEqual("auth");
-      const replaced = reduce(rejected, { type: "credentials.replaced" }, config);
+      const replaced = lifecycle.reduce(
+        rejected,
+        { type: "credentials.replaced" },
+        config,
+      );
       expect(replaced.variant).toEqual("loading");
       expect(reasonOf(replaced)).toBeUndefined();
     });
@@ -650,7 +739,7 @@ describe("connection", () => {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      const licensed = reduce(
+      const licensed = lifecycle.reduce(
         unlicensed,
         { type: "check.success", info: createInfo() },
         config,
@@ -666,7 +755,7 @@ describe("connection", () => {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      const checked = reduce(
+      const checked = lifecycle.reduce(
         unlicensed,
         { type: "check.success", info: createInfo() },
         config,
@@ -682,13 +771,17 @@ describe("connection", () => {
         info: createInfo({ license: "missing" }),
       });
       const error = new Unreachable({ message: "server down" });
-      const once = reduce(
+      const once = lifecycle.reduce(
         unlicensed,
         { type: "check.failure", error, attempt: 1 },
         config,
       );
       expect(once.variant).toEqual("loading");
-      const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
+      const twice = lifecycle.reduce(
+        once,
+        { type: "check.failure", error, attempt: 2 },
+        config,
+      );
       expect(reasonOf(twice)).toEqual("unreachable");
       expect(twice.message).toEqual("Cannot reach Core");
       expect(twice.description).toEqual("server down");
@@ -701,7 +794,11 @@ describe("connection", () => {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      const retrying = reduce(unlicensed, { type: "retry.requested" }, config);
+      const retrying = lifecycle.reduce(
+        unlicensed,
+        { type: "retry.requested" },
+        config,
+      );
       expect(retrying.variant).toEqual("loading");
     });
 
@@ -713,7 +810,7 @@ describe("connection", () => {
         attempt: 1,
       });
       expect(reasonOf(failed)).toEqual("unreachable");
-      const retrying = reduce(failed, { type: "retry.requested" }, config);
+      const retrying = lifecycle.reduce(failed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
     });
 
@@ -730,7 +827,7 @@ describe("connection", () => {
 
     it("should mirror epochs into the status", () => {
       const config = createConfig();
-      expect(createInitialStatus(config).details.epoch).toBe(0);
+      expect(lifecycle.createInitialStatus(config).details.epoch).toBe(0);
       expect(apply(config, { type: "epoch.advanced", epoch: 2 }).details.epoch).toBe(2);
     });
 
@@ -743,7 +840,7 @@ describe("connection", () => {
         { type: "epoch.advanced", epoch: 1 },
       );
       expect(connected.variant).toEqual("success");
-      const replaced = reduce(
+      const replaced = lifecycle.reduce(
         connected,
         {
           type: "check.success",
@@ -768,7 +865,7 @@ describe("connection", () => {
         { type: "retry.exhausted" },
       );
       expect(parked.variant).toEqual("error");
-      const replaced = reduce(
+      const replaced = lifecycle.reduce(
         parked,
         {
           type: "check.success",
@@ -785,7 +882,7 @@ describe("connection", () => {
       const config = createConfig();
       const closed = apply(config, { type: "closed" });
       expect(closed.variant).toEqual("disabled");
-      const after = reduce(
+      const after = lifecycle.reduce(
         closed,
         { type: "check.success", info: createInfo() },
         config,
@@ -813,8 +910,11 @@ describe("connection", () => {
       apply(config, { type: "retry.scheduled", attempt: 1, nextAt }),
     );
 
-    const expectQuiet = (prev: connection.Status, event: Event): connection.Status => {
-      const [next, changed] = advance(prev, event, config);
+    const expectQuiet = (
+      prev: connection.Status,
+      event: lifecycle.Event,
+    ): connection.Status => {
+      const [next, changed] = lifecycle.advance(prev, event, config);
       expect(changed).toBe(false);
       expect(next.time).toBe(prev.time);
       return next;
@@ -835,7 +935,7 @@ describe("connection", () => {
     });
 
     it("should ignore error identity churn", () => {
-      const failure = (attempt: number): Event => ({
+      const failure = (attempt: number): lifecycle.Event => ({
         type: "check.failure",
         error: new Unreachable({ message: "down" }),
         attempt,
@@ -859,7 +959,7 @@ describe("connection", () => {
           { type: "retry.exhausted" },
         ),
       );
-      const changes: [string, connection.Status, Event][] = [
+      const changes: [string, connection.Status, lifecycle.Event][] = [
         ["variant", base, { type: "stream.drop" }],
         ["checking", base, { type: "check.started" }],
         ["streamLive", base, { type: "stream.live" }],
@@ -914,7 +1014,7 @@ describe("connection", () => {
         ],
       ];
       changes.forEach(([field, prev, event]) => {
-        const [next, changed] = advance(prev, event, config);
+        const [next, changed] = lifecycle.advance(prev, event, config);
         expect(changed, field).toBe(true);
         expect(next.time.after(prev.time), field).toBe(true);
       });
@@ -940,7 +1040,7 @@ describe("connection", () => {
         "checking",
         "license",
       ];
-      const authError = reduce(
+      const authError = lifecycle.reduce(
         authenticated,
         { type: "auth.failure", error: new AuthError("bad password") },
         config,

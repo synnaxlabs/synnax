@@ -9,6 +9,7 @@
 
 import {
   type channel,
+  type label,
   status,
   type table,
   TimeSpan,
@@ -244,7 +245,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const labels = new Map(
       (
         await client.labels.create(
-          Object.entries(LABELS).map(([name, color]) => ({ name, color })),
+          Object.entries(LABELS).map(([name, value]): label.New => ({
+            name,
+            color: { type: "fixed", value },
+          })),
         )
       ).map((l) => [l.name, l.key]),
     );

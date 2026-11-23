@@ -13,8 +13,8 @@
 
 #include <string>
 
+#include "client/cpp/color/json.gen.h"
 #include "client/cpp/label/types.gen.h"
-#include "x/cpp/color/color.h"
 #include "x/cpp/json/json.h"
 
 namespace synnax::label {
@@ -23,7 +23,7 @@ inline Label Label::parse(x::json::Parser parser) {
     return Label{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .color = parser.field<::x::color::Color>("color"),
+        .color = ::synnax::color::parse_ref(parser.child("color")),
     };
 }
 
@@ -31,7 +31,7 @@ inline x::json::json Label::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
-    j["color"] = this->color.to_json();
+    j["color"] = ::synnax::color::to_json(this->color);
     return j;
 }
 

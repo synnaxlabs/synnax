@@ -94,11 +94,11 @@ describe("range", () => {
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       expect(range.key).not.toHaveLength(0);
       expect(timeRange).toEqual(range.timeRange);
-      expect(range.color).toEqual([231, 116, 208, 255]);
+      expect(range.color).toEqual({ type: "fixed", value: [231, 116, 208, 255] });
     });
     it("should create multiple ranges", async () => {
       const ranges: ranger.New[] = [
@@ -137,7 +137,10 @@ describe("range", () => {
       ]);
     });
     it("should create a range with labels", async () => {
-      const lbl = await client.labels.create({ name: "Created", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Created",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const rng = await client.ranges.create({
         name: "Labeled",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -147,8 +150,8 @@ describe("range", () => {
     });
     it("should refuse a range whose key exists and keep its labels", async () => {
       const [held, carried] = await client.labels.create([
-        { name: "Held", color: "#E774D0" },
-        { name: "Carried", color: "#E774D0" },
+        { name: "Held", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Carried", color: { type: "fixed", value: "#E774D0" } },
       ]);
       const rng = await client.ranges.create({
         name: "Labeled",
@@ -162,7 +165,10 @@ describe("range", () => {
       expect(retrieved.labels).toEqual([held.key]);
     });
     it("should keep a label change that arrives before the create reply", async () => {
-      const lbl = await client.labels.create({ name: "Late", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Late",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const key = uuid.create();
       const local = createTestClient();
       await local.connect();
@@ -252,7 +258,10 @@ describe("range", () => {
         { name: `${prefix}-labeled`, timeRange },
         { name: `${prefix}-plain`, timeRange },
       ]);
-      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: prefix,
+        color: { type: "fixed", value: "#E774D0" },
+      });
       await labeled.addLabel(lbl.key);
       const retrieved = await client.ranges.retrieve({
         name: { startsWith: prefix },
@@ -382,7 +391,7 @@ describe("range", () => {
       });
       const label = await client.labels.create({
         name: "My New Label",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await rng.addLabel(label.key);
       const newRange = await createTestClient().ranges.retrieve(rng.key);
@@ -395,13 +404,19 @@ describe("range", () => {
         name: "Labeled later",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      const label = await client.labels.create({ name: "Later", color: "#E774D0" });
+      const label = await client.labels.create({
+        name: "Later",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       await rng.addLabel(label.key);
       expect(await rng.retrieveLabels()).toEqual([label]);
     });
 
     it("should remove a label from the range", async () => {
-      const label = await client.labels.create({ name: "Removed", color: "#E774D0" });
+      const label = await client.labels.create({
+        name: "Removed",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const rng = await client.ranges.create({
         name: "My New One Second Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -723,7 +738,7 @@ describe("cached reads", () => {
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [await createRange(), await createRange()];
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.ranges.retrieve(key)),
@@ -899,7 +914,7 @@ describe("cached reads", () => {
       const rng = await createRange();
       const lbl = await remote.labels.create({
         name: `qry-label-${id.create()}`,
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       const off = client.ranges.watch(rng.key).onChange(vi.fn());
       try {
@@ -918,8 +933,11 @@ describe("cached reads", () => {
 
     it("drops a deleted label from the cached ranges that hold it", async () => {
       const [kept, deleted] = await client.labels.create([
-        { name: `qry-kept-${id.create()}`, color: "#E774D0" },
-        { name: `qry-deleted-${id.create()}`, color: "#E774D0" },
+        { name: `qry-kept-${id.create()}`, color: { type: "fixed", value: "#E774D0" } },
+        {
+          name: `qry-deleted-${id.create()}`,
+          color: { type: "fixed", value: "#E774D0" },
+        },
       ]);
       const rng = await createRange(client, { labels: [kept.key, deleted.key] });
       const off = client.ranges.watch(rng.key).onChange(vi.fn());
@@ -1062,7 +1080,7 @@ describe("cached reads", () => {
     it("admits a newly labeled range and evicts an unlabeled one", async () => {
       const lbl = await client.labels.create({
         name: `qry-lbl-${id.create()}`,
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       const labeled = await createRange();
       await client.labels.label(ranger.resourceID(labeled.key), [lbl.key]);
@@ -1237,7 +1255,7 @@ describe("dispatch", () => {
     const send = spyOnSend(client);
     const tx = client.ranges.beginTransaction(rng.key);
     tx.add(rename("Cold flow"));
-    tx.add(ranger.set({ path: ["color"], value: "#ff0000" }));
+    tx.add(ranger.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }));
     expect(expectLive(client.ranges.watch(rng.key).getCached()).name).toBe("Cold flow");
     expect(await tx.commit()).toBe(true);
     expect(
@@ -1245,7 +1263,7 @@ describe("dispatch", () => {
     ).toHaveLength(1);
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.name).toBe("Cold flow");
-    expect(stored.color).toEqual(color.construct("#ff0000"));
+    expect(stored.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
   });
 
   it("applies another client's dispatch to a cached range", async () => {

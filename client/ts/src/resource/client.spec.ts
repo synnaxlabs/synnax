@@ -11,8 +11,8 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError, ValidationError } from "@/errors";
 import { group } from "@/group";
+import { NotFoundError, ValidationError } from "@/index";
 import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { query } from "@/query";
@@ -28,7 +28,10 @@ const createGroup = async (name: string): Promise<resource.ID> =>
   group.resourceID((await client.groups.create({ scope: "channel", name })).key);
 
 const createLabel = async (name: string): Promise<resource.ID> =>
-  label.resourceID((await client.labels.create({ name, color: "#E87E04" })).key);
+  label.resourceID(
+    (await client.labels.create({ name, color: { type: "fixed", value: "#E87E04" } }))
+      .key,
+  );
 
 describe("Resource", () => {
   describe("search", () => {
@@ -161,7 +164,7 @@ describe("Resource", () => {
 
     const subscribeThenLeave = async (
       params: resource.SearchParams,
-    ): Promise<query.List<resource.Resource, string>> => {
+    ): Promise<query.list.List<resource.Resource, string>> => {
       const list = client.resources.watch(params);
       const off = list.onChange(() => {});
       await list.retrieve();

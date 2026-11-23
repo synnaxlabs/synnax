@@ -1,0 +1,589 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  bounds,
+  box,
+  dynamicWindow,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+
+import { lineplot } from "@/lineplot/aether";
+
+describe("lineplot.Layout", () => {
+  describe("one segment", () => {
+    const layout = new lineplot.Layout([{ lower: 100, upper: 200 }], box.DECIMAL);
+
+    it("should map the segment bounds onto the home view", () => {
+      expect(layout.home(100)).toBeCloseTo(0);
+      expect(layout.home(150)).toBeCloseTo(0.5);
+      expect(layout.home(200)).toBeCloseTo(1);
+    });
+
+    it("should extend past the segment bounds", () => {
+      expect(layout.home(50)).toBeCloseTo(-0.5);
+      expect(layout.home(300)).toBeCloseTo(2);
+      expect(layout.reverseHome(-0.5)).toBeCloseTo(50);
+      expect(layout.reverseHome(2)).toBeCloseTo(300);
+    });
+
+    it("should give the bounds of the segment", () => {
+      expect(layout.bounds).toEqual({ lower: 100, upper: 200 });
+    });
+
+    it("should map positions across the viewport", () => {
+      const zoomed = new lineplot.Layout(
+        [{ lower: 100, upper: 200 }],
+        box.construct({ x: 0.5, y: 0 }, { width: 0.25, height: 1 }),
+      );
+      expect(zoomed.pos(150)).toBeCloseTo(0);
+      expect(zoomed.pos(175)).toBeCloseTo(1);
+      expect(zoomed.reverse(0.5)).toBeCloseTo(162.5);
+      expect(zoomed.segments[0].scale.pos(175)).toBeCloseTo(1);
+    });
+  });
+
+  describe("several segments", () => {
+    // Spans of 10, 30, and 60 share the home view as 0.1, 0.3, and 0.6.
+    const layout = new lineplot.Layout(
+      [
+        { lower: 0, upper: 10 },
+        { lower: 1000, upper: 1030 },
+        { lower: 5000, upper: 5060 },
+      ],
+      box.DECIMAL,
+    );
+
+    it("should place each segment after the one before it", () => {
+      expect(layout.home(0)).toBeCloseTo(0);
+      expect(layout.home(10)).toBeCloseTo(0.1);
+      expect(layout.home(1000)).toBeCloseTo(0.1);
+      expect(layout.home(1015)).toBeCloseTo(0.25);
+      expect(layout.home(5000)).toBeCloseTo(0.4);
+      expect(layout.home(5060)).toBeCloseTo(1);
+    });
+
+    it("should map a value between two segments to where they meet", () => {
+      expect(layout.home(500)).toBeCloseTo(0.1);
+      expect(layout.home(4000)).toBeCloseTo(0.4);
+    });
+
+    it("should map a position where two segments meet to the later one", () => {
+      expect(layout.reverseHome(0.1)).toBeCloseTo(1000);
+      expect(layout.reverseHome(0.4)).toBeCloseTo(5000);
+    });
+
+    it("should map a span that ends where two segments meet to the earlier one", () => {
+      const s = layout.reverseHomeBounds({
+        lower: 0.05,
+        upper: layout.segments[1].position.lower,
+      });
+      expect(s.lower).toBeCloseTo(5);
+      expect(s.upper).toBeCloseTo(10);
+    });
+
+    it("should map a span that starts where two segments meet to the later one", () => {
+      const s = layout.reverseHomeBounds({
+        lower: layout.segments[1].position.lower,
+        upper: 0.25,
+      });
+      expect(s.lower).toBeCloseTo(1000);
+      expect(s.upper).toBeCloseTo(1015);
+    });
+
+    it("should map positions inside each segment back to their values", () => {
+      [5, 1020, 5030].forEach((v) =>
+        expect(layout.reverseHome(layout.home(v))).toBeCloseTo(v),
+      );
+    });
+
+    it("should give each segment one scale per unit of value", () => {
+      layout.segments.forEach(({ scale }) => expect(scale.dim(10)).toBeCloseTo(0.1));
+    });
+
+    it("should give the bounds from the first segment to the last", () => {
+      expect(layout.bounds).toEqual({ lower: 0, upper: 5060 });
+    });
+  });
+});
+
+const MINUTE = Number(TimeSpan.MINUTE.valueOf());
+const SECOND = Number(TimeSpan.SECOND.valueOf());
+
+const trace = (
+  key: string,
+  lower: number,
+  upper: number,
+  extra: Partial<lineplot.Trace> = {},
+): lineplot.Trace => ({
+  key,
+  group: "a",
+  bounds: { lower, upper },
+  loading: false,
+  ...extra,
+});
+
+describe("lineplot.spans", () => {
+  describe("time", () => {
+    it("should split the time between two windows at its middle", () => {
+      const s = lineplot.spans([trace("1", 0, 10), trace("2", 30, 40)], "time");
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual({ lower: 20, upper: Infinity });
+    });
+
+    it("should give an overlap to the window that starts first", () => {
+      const s = lineplot.spans([trace("2", 5, 20), trace("1", 0, 10)], "time");
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 10 });
+      expect(s.get("2")).toEqual({ lower: 10, upper: Infinity });
+    });
+
+    it("should give no time to a window that an earlier window holds", () => {
+      const s = lineplot.spans([trace("1", 0, 100), trace("2", 10, 20)], "time");
+      expect(s.get("1")).toEqual(bounds.INFINITE);
+      const empty = s.get("2");
+      expect(empty?.lower).toEqual(empty?.upper);
+    });
+
+    it("should give a rolling window the time of a fixed window inside it", () => {
+      const s = lineplot.spans(
+        [trace("fixed", 40, 60), trace("live", 0, 100, { edge: "rolling" })],
+        "time",
+      );
+      expect(s.get("live")).toEqual(bounds.INFINITE);
+      const empty = s.get("fixed");
+      expect(empty?.lower).toEqual(empty?.upper);
+    });
+
+    it("should give a fixed window only the time before a rolling window", () => {
+      const s = lineplot.spans(
+        [trace("fixed", 0, 60), trace("live", 40, 100, { edge: "rolling" })],
+        "time",
+      );
+      expect(s.get("fixed")).toEqual({ lower: -Infinity, upper: 40 });
+      expect(s.get("live")).toEqual({ lower: 40, upper: Infinity });
+    });
+
+    it("should split each group on its own", () => {
+      const s = lineplot.spans(
+        [trace("1", 0, 10), trace("2", 0, 10, { group: "b" }), trace("3", 30, 40)],
+        "time",
+      );
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual(bounds.INFINITE);
+    });
+
+    it("should give a trace with no group the time of its own group", () => {
+      const s = lineplot.spans(
+        [trace("1", 0, 10, { group: undefined }), trace("2", 30, 40)],
+        "time",
+      );
+      expect(s.get("1")).toEqual(bounds.INFINITE);
+    });
+
+    it("should give no span to a trace with no window", () => {
+      expect(lineplot.spans([trace("1", Infinity, -Infinity)], "time").size).toBe(0);
+    });
+
+    it("should keep each span inside the segment of its window", () => {
+      const segs = [
+        { lower: -1, upper: 11 },
+        { lower: 90, upper: 110 },
+      ];
+      const s = lineplot.spans([trace("1", 0, 10), trace("2", 95, 105)], "time", segs);
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 11 });
+      expect(s.get("2")).toEqual({ lower: 90, upper: Infinity });
+    });
+
+    it("should split the time inside one segment at its middle", () => {
+      const segs = [
+        { lower: -1, upper: 41 },
+        { lower: 90, upper: 110 },
+      ];
+      const s = lineplot.spans(
+        [trace("1", 0, 10), trace("2", 30, 40), trace("3", 95, 105)],
+        "time",
+        segs,
+      );
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual({ lower: 20, upper: 41 });
+      expect(s.get("3")).toEqual({ lower: 90, upper: Infinity });
+    });
+  });
+
+  describe("relative", () => {
+    it("should pad each window by a share of its span on each side", () => {
+      const s = lineplot.spans([trace("1", 0, 10 * MINUTE)], "relative");
+      expect(s.get("1")).toEqual({ lower: -0.5 * MINUTE, upper: 10.5 * MINUTE });
+    });
+
+    it("should pad a short window by at least the floor", () => {
+      const s = lineplot.spans([trace("1", 0, SECOND)], "relative");
+      expect(s.get("1")).toEqual({ lower: -SECOND, upper: 2 * SECOND });
+    });
+
+    it("should not split windows of one group", () => {
+      const s = lineplot.spans(
+        [trace("1", 0, MINUTE), trace("2", 0, MINUTE)],
+        "relative",
+      );
+      expect(s.get("1")).toEqual(s.get("2"));
+    });
+
+    it("should leave the end of a growing window open", () => {
+      const s = lineplot.spans(
+        [trace("1", 0, MINUTE, { edge: "growing" })],
+        "relative",
+      );
+      expect(s.get("1")).toEqual({ lower: -3 * SECOND, upper: Infinity });
+    });
+
+    it("should keep the margin before a growing window when it ends", () => {
+      const growing = lineplot.spans(
+        [trace("1", 0, MINUTE, { edge: "growing" })],
+        "relative",
+      );
+      const ended = lineplot.spans([trace("1", 0, MINUTE)], "relative");
+      expect(growing.get("1")?.lower).toEqual(ended.get("1")?.lower);
+    });
+  });
+
+  it("should give no spans on a linear axis", () => {
+    expect(lineplot.spans([trace("1", 0, 10)], "linear").size).toBe(0);
+  });
+});
+
+describe("lineplot.Layout.span", () => {
+  it("should give a line with no span every value", () => {
+    const layout = new lineplot.Layout([{ lower: 0, upper: 1 }], box.DECIMAL);
+    expect(layout.span("x")).toEqual(bounds.INFINITE);
+  });
+});
+
+describe("lineplot.collapse", () => {
+  const MIN = MINUTE;
+
+  it("should give one segment padded by a share of its span for one window", () => {
+    expect(lineplot.collapse([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
+      { lower: -MIN, upper: 101 * MIN },
+    ]);
+  });
+
+  it("should give each window far from the others its own segment", () => {
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
+      0,
+    );
+    expect(s).toEqual([
+      { lower: 0, upper: 10.5 * MIN },
+      { lower: 99.5 * MIN, upper: 110 * MIN },
+    ]);
+  });
+
+  it("should merge windows whose margins overlap", () => {
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)],
+      0,
+    );
+    expect(s).toEqual([{ lower: 0, upper: 20 * MIN }]);
+  });
+
+  it("should pad the outer edges by a share of the span of every segment", () => {
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
+      0.1,
+    );
+    expect(s[0].lower).toBeCloseTo(-2.1 * MIN);
+    expect(s[1].upper).toBeCloseTo(112.1 * MIN);
+  });
+
+  it("should give a growing window a margin before it and none after", () => {
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
+      0,
+    );
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should keep the margin before a growing window when it ends", () => {
+    const at = (edge?: "growing") =>
+      lineplot.collapse(
+        [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge })],
+        0,
+      );
+    expect(at("growing")[1].lower).toEqual(at()[1].lower);
+  });
+
+  it("should give a rolling window a margin from its span before it", () => {
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "rolling" })],
+      0,
+    );
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should pad a single sample by one on each side", () => {
+    expect(lineplot.collapse([trace("1", 5, 5)], 0.01)).toEqual([
+      { lower: 4, upper: 6 },
+    ]);
+  });
+
+  it("should give no segments when no trace has a window", () => {
+    expect(lineplot.collapse([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
+  });
+});
+
+describe("lineplot.Layout.segment", () => {
+  const layout = new lineplot.Layout(
+    [
+      { lower: 0, upper: 10 },
+      { lower: 100, upper: 110 },
+    ],
+    box.DECIMAL,
+    new Map([
+      ["1", { lower: -Infinity, upper: 10 }],
+      ["2", { lower: 100, upper: Infinity }],
+    ]),
+  );
+
+  it("should give the segment of the span of a line", () => {
+    expect(layout.segment("1")).toBe(layout.segments[0]);
+    expect(layout.segment("2")).toBe(layout.segments[1]);
+  });
+
+  it("should give the first segment for a line with no span", () => {
+    expect(layout.segment("3")).toBe(layout.segments[0]);
+  });
+
+  it("should extend the positions of the outer segments without end", () => {
+    expect(layout.segments[0].position).toEqual({ lower: -Infinity, upper: 0.5 });
+    expect(layout.segments[1].position).toEqual({ lower: 0.5, upper: Infinity });
+  });
+});
+
+describe("lineplot.join", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+
+  it("should list a closed gap between each two pieces", () => {
+    expect(lineplot.join(PIECES, [])).toEqual({
+      segments: PIECES,
+      gaps: [
+        { bounds: { lower: 10, upper: 100 }, open: false },
+        { bounds: { lower: 110, upper: 200 }, open: false },
+      ],
+    });
+  });
+
+  it("should merge the pieces on each side of an open gap", () => {
+    const { segments: s, gaps } = lineplot.join(PIECES, [110]);
+    expect(s).toEqual([
+      { lower: 0, upper: 10 },
+      { lower: 100, upper: 210 },
+    ]);
+    expect(gaps.map((g) => g.open)).toEqual([false, true]);
+  });
+
+  it("should give one segment when every gap is open", () => {
+    expect(lineplot.join(PIECES, [10, 110]).segments).toEqual([
+      { lower: 0, upper: 210 },
+    ]);
+  });
+});
+
+describe("lineplot.Layout.gapAt", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+  const layout = (open: number[]) => {
+    const { segments: s, gaps } = lineplot.join(PIECES, open);
+    return new lineplot.Layout(s, box.DECIMAL, new Map(), gaps);
+  };
+
+  it("should find the closed gap whose seam is within tolerance", () => {
+    expect(layout([]).gapAt(1 / 3 + 0.01, 0.02)?.bounds).toEqual({
+      lower: 10,
+      upper: 100,
+    });
+  });
+
+  it("should find no gap outside the tolerance", () => {
+    expect(layout([]).gapAt(0.4, 0.02)).toBeNull();
+  });
+
+  it("should mark an open gap at its middle", () => {
+    const l = layout([110]);
+    const open = l.gaps[1];
+    expect(l.gapAt(l.mark(open), 0.01)).toBe(open);
+    expect(l.pos(155)).toBeCloseTo(l.mark(open));
+  });
+
+  it("should skip an open gap when it finds only closed gaps", () => {
+    const l = layout([110]);
+    expect(l.gapAt(l.mark(l.gaps[1]), 0.01, true)).toBeNull();
+  });
+});
+
+describe("lineplot.Layout breaks", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+  const layout = (open: number[]) => {
+    const { segments: s, gaps } = lineplot.join(PIECES, open);
+    return new lineplot.Layout(s, box.DECIMAL, new Map(), gaps);
+  };
+
+  it("should list the home position of each seam", () => {
+    const [a, b] = layout([]).seams;
+    expect(a).toBeCloseTo(1 / 3);
+    expect(b).toBeCloseTo(2 / 3);
+  });
+
+  it("should list no seam for an open gap", () => {
+    expect(layout([10]).seams).toHaveLength(1);
+  });
+
+  it("should find a closed gap between two values in either order", () => {
+    expect(layout([]).closedBetween(5, 105)).toBe(true);
+    expect(layout([]).closedBetween(105, 5)).toBe(true);
+  });
+
+  it("should find no closed gap inside one segment or across an open gap", () => {
+    expect(layout([]).closedBetween(1, 9)).toBe(false);
+    expect(layout([10]).closedBetween(5, 105)).toBe(false);
+  });
+});
+
+describe("lineplot.shownSpans", () => {
+  const HOUR = Number(TimeSpan.HOUR.valueOf());
+  const window = (start: number, hours: number) =>
+    staticWindow(new TimeRange(start * HOUR, (start + hours) * HOUR));
+  const ns = (t: { valueOf: () => bigint }) => Number(t.valueOf());
+  const NOW = new TimeStamp(1000 * HOUR);
+
+  it("should leave out the gaps between windows far apart", () => {
+    const shown = lineplot.shownSpans([window(0, 1), window(100, 1)], {
+      now: NOW,
+      newest: NOW,
+    });
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].start)).toEqual(0);
+    expect(ns(shown[1].end)).toEqual(101 * HOUR);
+    expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
+    expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
+  });
+
+  it("should hold the time between windows close together in one span", () => {
+    const shown = lineplot.shownSpans([window(0, 1), window(1.05, 1)], {
+      now: NOW,
+      newest: NOW,
+    });
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].end)).toBeCloseTo(2.05 * HOUR, -1);
+  });
+
+  it("should keep the outer edges to the nanosecond", () => {
+    const start = TimeStamp.now().add(1n);
+    const first = new TimeRange(start, start.add(TimeSpan.HOUR));
+    const later = new TimeRange(
+      start.add(TimeSpan.days(2)),
+      start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
+    );
+    const shown = lineplot.shownSpans([staticWindow(first), staticWindow(later)], {
+      now: NOW,
+      newest: NOW,
+    });
+    expect(shown[0].start).toEqual(first.start);
+    expect(shown[1].end).toEqual(later.end);
+  });
+
+  it("should leave the span of a running window open", () => {
+    const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
+    const at101 = new TimeStamp(101 * HOUR);
+    const shown = lineplot.shownSpans([window(0, 1), staticWindow(running)], {
+      now: at101,
+      newest: at101,
+    });
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
+    expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
+    expect(shown[1].end).toEqual(TimeStamp.MAX);
+  });
+
+  it("should hold the time of an open break in one span", () => {
+    // The gap starts a margin of 5% of the first window after its end.
+    const lower = HOUR + HOUR * 0.05;
+    const shown = lineplot.shownSpans([window(0, 1), window(100, 1)], {
+      now: NOW,
+      newest: NOW,
+      open: [lower],
+    });
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].start)).toEqual(0);
+    expect(ns(shown[0].end)).toEqual(101 * HOUR);
+  });
+
+  it("should lay out a window that ends after now as running", () => {
+    // A fixed margin of 5% of eight hours would join the two windows.
+    const planned = new TimeRange(1.25 * HOUR, 9.25 * HOUR);
+    const at2 = new TimeStamp(2 * HOUR);
+    const shown = lineplot.shownSpans([window(0, 1), staticWindow(planned)], {
+      now: at2,
+      newest: at2,
+    });
+    expect(shown).toHaveLength(2);
+    // A running window stops at the newest sample, so its margin is 5% of 45 minutes.
+    expect(ns(shown[1].start)).toBeCloseTo(1.25 * HOUR - 0.05 * 0.75 * HOUR, -3);
+    expect(shown[1].end).toEqual(planned.end);
+  });
+
+  it("should lay out a window that ends before now in full", () => {
+    // The channels stopped before the second window ended. As a running window, it
+    // would stop at the newest sample, and its smaller margin would leave the gap
+    // between the windows out.
+    const shown = lineplot.shownSpans([window(0, 1), window(1.08, 1)], {
+      now: new TimeStamp(3 * HOUR),
+      newest: new TimeStamp(1.5 * HOUR),
+    });
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].end)).toEqual(2.08 * HOUR);
+  });
+
+  it("should give a dynamic window no margin after its newest sample", () => {
+    // A margin of 5% of 40 minutes after the dynamic window would join the windows.
+    const at2 = new TimeStamp(2 * HOUR);
+    const planned = staticWindow(new TimeRange(2 * HOUR + MINUTE, 3 * HOUR));
+    const live = dynamicWindow(TimeSpan.minutes(40));
+    const shown = lineplot.shownSpans([live, planned], {
+      now: new TimeStamp(1.9 * HOUR),
+      newest: at2,
+    });
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].start)).toEqual(2 * HOUR - 40 * MINUTE);
+    expect(ns(shown[0].end)).toEqual(2 * HOUR);
+  });
+
+  it("should list the spans in time order", () => {
+    const shown = lineplot.shownSpans([window(100, 1), window(0, 1)], {
+      now: NOW,
+      newest: NOW,
+    });
+    expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
+  });
+});
