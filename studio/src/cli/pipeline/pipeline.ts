@@ -183,7 +183,7 @@ const withBundle = async (
   captureDir: string,
   render: (serveUrl: string) => Promise<void>,
 ): Promise<void> => {
-  const src = path.resolve(import.meta.dirname, "..");
+  const src = path.resolve(import.meta.dirname, "../..");
   const serveUrl = await bundle({
     entryPoint: path.join(src, "remotion/entry.ts"),
     publicDir: captureDir,
