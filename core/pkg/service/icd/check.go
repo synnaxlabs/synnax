@@ -10,7 +10,6 @@
 package icd
 
 import (
-	"encoding/json/jsontext"
 	"math"
 	"slices"
 	"strconv"
@@ -178,10 +177,7 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 func checkDefaultRange[N types.Numeric](
 	c *checker, path []string, b BaseField, d *N,
 ) {
-	if d == nil || !xmath.Finite(float64(*d)) {
-		return
-	}
-	if message, out := outOfRawRange(b, float64(*d)); out {
+	if message, out := defaultRangeProblem(b, d); out {
 		c.addf(pathOf(path, "default"), "default %s", message)
 	}
 }
@@ -252,26 +248,8 @@ func (c *checker) checkJSONFields(
 			unscaled.Add(i)
 		}
 		c.checkEnums(fieldPath, f)
-		switch v := f.Variant.(type) {
-		case FloatJSONField:
-			if d := v.Default; d != nil && !xmath.Finite(*d) {
-				c.addf(pathOf(fieldPath, "default"), "default must be finite")
-			}
-			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
-		case IntegerJSONField:
-			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
-		case UnsignedJSONField:
-			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
-		case BytesJSONField:
-			if v.Default != nil {
-				if _, err := xjson.DecodeBase64(*v.Default); err != nil {
-					c.addf(pathOf(fieldPath, "default"), "default must be base64")
-				}
-			}
-		case JSONJSONField:
-			if v.Default != nil && !jsontext.Value(*v.Default).IsValid() {
-				c.addf(pathOf(fieldPath, "default"), "default must be valid JSON")
-			}
+		if message, bad := defaultProblem(f); bad {
+			c.addf(pathOf(fieldPath, "default"), "default %s", message)
 		}
 		b := f.Base()
 		pointer, err := xjson.ParsePointer(b.Pointer)
