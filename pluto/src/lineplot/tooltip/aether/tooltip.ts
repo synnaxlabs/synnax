@@ -275,6 +275,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           text: row.value,
           level: "small",
           justify: "right",
+          numeric: true,
           shade: 10,
           weight: row.bold === true ? 700 : undefined,
         });

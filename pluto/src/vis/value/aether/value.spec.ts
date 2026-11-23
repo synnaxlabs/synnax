@@ -132,12 +132,12 @@ describe("value/aether/Value", () => {
       expect(fillTexts(recorder)).toContain("42.5");
     });
 
-    it("should draw the value in the text font at the configured level", () => {
+    it("should draw the value with tabular digits at the configured level", () => {
       const { component, recorder } = setup({ value: "42.5", state: { level: "h2" } });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "set:font").at(-1)?.args[0]).toBe(
-        theme.fontString(THEME, { level: "h2" }),
+        theme.fontString(THEME, { level: "h2", numeric: true }),
       );
     });
 

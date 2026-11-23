@@ -94,7 +94,10 @@ export class Value
       i.staleness.received();
       this.requestRender();
     });
-    i.fontString = theme.fontString(i.theme, { level: this.state.level });
+    i.fontString = theme.fontString(i.theme, {
+      level: this.state.level,
+      numeric: true,
+    });
     i.backgroundTelem = telem.useSource(
       ctx,
       this.state.backgroundTelem,

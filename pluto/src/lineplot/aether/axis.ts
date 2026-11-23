@@ -157,7 +157,7 @@ export abstract class BaseAxis<
         : DEFAULT_Y_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
-      font: baseTheme.fontString(theme, { level: "small" }),
+      font: baseTheme.fontString(theme, { level: "small", numeric: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });

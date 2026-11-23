@@ -386,8 +386,9 @@ const drawLabel = (
   const width = x1 - x0;
   if (width < MIN_LABEL_WIDTH) return;
   const ctx = draw.canvas;
-  ctx.font = theme.fontString(draw.theme, { level: "small" });
+  ctx.font = theme.fontString(draw.theme, { level: "small", numeric: true });
   const timeWidth = ctx.textDimensions(time).width;
+  ctx.font = theme.fontString(draw.theme, { level: "small" });
   const nameWidth = ctx.textDimensions(name).width;
   const room = width - TIME_GAP - timeWidth;
   const timed = room >= Math.min(nameWidth, MIN_NAME_WIDTH);
@@ -398,6 +399,7 @@ const drawLabel = (
       justify: "right",
       level: "small",
       align: "center",
+      numeric: true,
       color: color.setOpacity(c, TIME_ALPHA),
     });
   draw.text({
@@ -509,7 +511,7 @@ export const drawTooltip = (
     const end = timeRange.end.toString(format, "local");
     details = [`${start} to ${end}`, timeRange.span.toString()];
   }
-  ctx.font = theme.fontString(t, { level: "small", weight: 400 });
+  ctx.font = theme.fontString(t, { level: "small", weight: 400, numeric: true });
   const detailWidth = Math.max(...details.map((d) => ctx.measureText(d).width));
   ctx.font = theme.fontString(t, { level: "small", weight: 500 });
   const nameWidth = ctx.measureText(name).width + SWATCH_INDENT;

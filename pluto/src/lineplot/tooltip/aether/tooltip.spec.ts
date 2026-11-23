@@ -204,6 +204,17 @@ describe("Tooltip", () => {
     expect(texts(recorder).filter((t) => t === "pressure")).toHaveLength(2);
   });
 
+  it("should draw values with tabular digits and labels without", () => {
+    const { recorder, component } = mount();
+    component.render({
+      hiddenAt: noBreak,
+      findByXDecimal: () => [found("pressure", 2)],
+      region: REGION,
+    });
+    expect(fontOf(recorder, "2")).toContain("Inter Tabular");
+    expect(fontOf(recorder, "pressure")).not.toContain("Inter Tabular");
+  });
+
   it("should draw the entry of the line under the cursor in bold", () => {
     const { recorder, component } = mount();
     const near = found("near", 1);

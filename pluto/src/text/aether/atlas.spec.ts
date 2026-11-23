@@ -25,13 +25,21 @@ const SCALE_FACTOR = 2;
 
 // Ink widths of glyphs narrower or wider than a digit. Every other glyph inks ADVANCE.
 const INK_WIDTHS: Record<string, number> = { "1": 2, m: 10 };
-const inkWidth = (char: string): number => INK_WIDTHS[char] ?? ADVANCE;
+// Glyphs whose ink starts this far right of their origin, as most Inter glyphs do.
+const BEARINGS: Record<string, number> = { "7": 3 };
+const bearing = (char: string): number => BEARINGS[char] ?? 0;
+const inkRight = (char: string): number => INK_WIDTHS[char] ?? ADVANCE;
 const WIDE_CELL = INK_WIDTHS.m + PADDING;
 
-const metrics = (ascent: number, descent: number, width = ADVANCE): TextMetrics =>
+const metrics = (
+  ascent: number,
+  descent: number,
+  right = ADVANCE,
+  left = 0,
+): TextMetrics =>
   ({
-    actualBoundingBoxLeft: 0,
-    actualBoundingBoxRight: width,
+    actualBoundingBoxLeft: left,
+    actualBoundingBoxRight: right,
     actualBoundingBoxAscent: ascent,
     actualBoundingBoxDescent: descent,
   }) as TextMetrics;
@@ -74,8 +82,8 @@ const overlaps = (a: Bounds, b: Bounds): boolean =>
 
 // Ink a glyph covers in atlas pixels, measured from the baseline it was drawn on.
 const inkOf = ({ char, x, y }: Glyph, descent = SET_DESCENT): Bounds => ({
-  left: x,
-  right: x + inkWidth(char),
+  left: x + bearing(char),
+  right: x + inkRight(char),
   top: y - SET_ASCENT,
   bottom: y + descent,
 });
@@ -119,7 +127,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
           const shift = shifts[ctx.textBaseline];
           return t === "0"
             ? metrics(DIGIT_ASCENT - shift, shift)
-            : metrics(SET_ASCENT - shift, descent + shift, inkWidth(t));
+            : metrics(SET_ASCENT - shift, descent + shift, inkRight(t), -bearing(t));
         },
         fillText: (char: string, x: number, y: number) => glyphs.push({ char, x, y }),
       };
@@ -245,6 +253,14 @@ describe("Atlas", () => {
       const { glyphOf, copy } = setup();
       const source = sourceOf(copy("1", 0, 0)[0]);
       const ink = inkOf(glyphOf("1"));
+      expect(source.right - source.left).toEqual(CELL_WIDTH);
+      expect(ink.left - source.left).toEqual(source.right - ink.right);
+    });
+
+    it("should center a glyph whose ink starts right of its origin", () => {
+      const { glyphOf, copy } = setup();
+      const source = sourceOf(copy("7", 0, 0)[0]);
+      const ink = inkOf(glyphOf("7"));
       expect(source.right - source.left).toEqual(CELL_WIDTH);
       expect(ink.left - source.left).toEqual(source.right - ink.right);
     });

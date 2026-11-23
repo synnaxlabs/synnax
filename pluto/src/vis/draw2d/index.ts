@@ -86,6 +86,8 @@ export interface DrawTextProps extends Pick<FillTextOptions, "useAtlas"> {
   /** fade fades text cut at maxWidth over this many pixels, in place of a hard cut. */
   fade?: number;
   code?: boolean;
+  /** numeric draws Inter with tabular digits, for data. */
+  numeric?: boolean;
   color?: ColorSpec;
 }
 
@@ -439,13 +441,14 @@ export class Draw2D {
     shade,
     maxWidth,
     code,
+    numeric,
     justify = "left",
     align = "top",
     useAtlas,
     fade,
     color: colorVal,
   }: DrawTextProps): void {
-    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
+    this.canvas.font = theme.fontString(this.theme, { level, weight, code, numeric });
     if (colorVal != null)
       this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);

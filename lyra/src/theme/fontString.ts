@@ -16,6 +16,8 @@ interface FontStringOptions {
   level: text.Level | Component.Size;
   weight?: text.Weight;
   code?: boolean;
+  /** Inter with tabular digits. A host registers the face as "Inter Tabular". */
+  numeric?: boolean;
 }
 
 type FontThreshold = {
@@ -35,6 +37,8 @@ const thresholds: FontThreshold[] = [
   { weight: 900, style: "bold", value: "Inter Nine, sans-serif" },
 ];
 
+const NUMERIC_FAMILY = "Inter Tabular, sans-serif";
+
 const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
   thresholds.find((t, i) => {
     const isLast = i === thresholds.length - 1;
@@ -46,7 +50,7 @@ const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
 
 export const fontString = (
   theme: ThemeSpec,
-  { level, weight, code }: FontStringOptions,
+  { level, weight, code, numeric }: FontStringOptions,
 ): string => {
   const {
     typography,
@@ -54,6 +58,7 @@ export const fontString = (
   } = theme;
   let fmly = typography.family;
   if (code) fmly = typography.codeFamily;
+  else if (numeric === true) fmly = NUMERIC_FAMILY;
   else if (weight != null) {
     const threshold = matchThreshold(weight);
     if (threshold != null) fmly = threshold.value;

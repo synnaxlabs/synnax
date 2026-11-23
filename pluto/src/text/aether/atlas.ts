@@ -54,7 +54,10 @@ export class Atlas {
     ctx.font = font;
     ctx.textBaseline = "alphabetic";
     const metrics = ctx.measureText("0");
-    this.charDims = dimensionsFromMetrics(metrics);
+    this.charDims = {
+      width: Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight),
+      height: dimensionsFromMetrics(metrics).height,
+    };
     // Width pads out to the cell of a digit, which fillText advances by and
     // measureText must report. Height stays the ink, which callers center on.
     this.charDims.width += PADDING;
@@ -89,7 +92,7 @@ export class Atlas {
     const inkLefts = new Map<string, number>();
     uniqueChars.forEach((char) => {
       const m = ctx.measureText(char);
-      const ink = dimensionsFromMetrics(m).width;
+      const ink = Math.ceil(m.actualBoundingBoxLeft + m.actualBoundingBoxRight);
       const advance = Math.max(this.charDims.width, ink + PADDING);
       this.advances.set(char, advance);
       inkLefts.set(char, (advance - ink) / 2 + m.actualBoundingBoxLeft);

@@ -467,7 +467,7 @@ export class Scale
     const { units } = this.state;
     const { theme, tickLevel, fillColor } = this.internal;
     const ctx = draw.canvas;
-    ctx.font = baseTheme.fontString(theme, { level: tickLevel });
+    ctx.font = baseTheme.fontString(theme, { level: tickLevel, numeric: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
     // The units are drawn separately so they sit tighter than an atlas cell.
     const unitsWidth =
@@ -499,6 +499,7 @@ export class Scale
         justify: "left",
         align: "alphabetic",
         shade: 11,
+        numeric: true,
         useAtlas: true,
       });
     text(valueText, left);
@@ -543,6 +544,7 @@ export class Scale
         color: textColor,
         align: vertical ? "center" : dir > 0 ? "top" : "bottom",
         justify: vertical ? (dir > 0 ? "left" : "right") : "center",
+        numeric: true,
         useAtlas: true,
       });
     });

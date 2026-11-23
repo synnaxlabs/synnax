@@ -60,7 +60,10 @@ export class StringValue
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    i.fontString = theme.fontString(i.theme, { level: this.state.level });
+    i.fontString = theme.fontString(i.theme, {
+      level: this.state.level,
+      numeric: true,
+    });
     i.source = telem.useSource(ctx, this.state.telem, i.source);
     i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     i.stopListening?.();
