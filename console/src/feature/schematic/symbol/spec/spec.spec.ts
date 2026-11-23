@@ -525,7 +525,7 @@ describe("symbol editor spec", () => {
 
   describe("toggleSelector", () => {
     it("should move a selector to the part from the other parts", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#seat");
+      const next = Spec.toggleSelector(createSpec(), "body", "#seat");
       expect(next).toEqual([
         { key: "body", name: "Body", selectors: ["#body", "#seat"] },
         { key: "seat", name: "Seat", selectors: [] },
@@ -533,8 +533,32 @@ describe("symbol editor spec", () => {
     });
 
     it("should remove a selector that the part already has", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#body");
+      const next = Spec.toggleSelector(createSpec(), "body", "#body");
       expect(next[0].selectors).toEqual([]);
+    });
+
+    const grouped = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="seat"/></g></svg>',
+      },
+      parts: [
+        { key: "body", name: "Body", selectors: ["#g"] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ],
+    });
+
+    it("should take a group out of the part when a shape inside it is clicked", () => {
+      expect(Spec.toggleSelector(grouped, "body", "#seat")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should keep the parts when another part holds a group around the shape", () => {
+      expect(Spec.toggleSelector(grouped, "seat", "#seat")).toBe(grouped.parts);
     });
   });
 

@@ -251,22 +251,47 @@ export const owner = (
   return undefined;
 };
 
+// holds returns whether every shape of inner sits inside a shape of outer.
+const holds = (doc: Document, outer: string, inner: string): boolean => {
+  const groups = [...doc.querySelectorAll(outer)];
+  const shapes = [...doc.querySelectorAll(inner)];
+  return (
+    shapes.length > 0 &&
+    shapes.every((s) => groups.some((g) => g !== s && g.contains(s)))
+  );
+};
+
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, so the other parts drop selector.
+ * already did. A shape belongs to one part, so the other parts drop selector. A shape
+ * inside a group that part holds takes the group out of part, and a shape inside a
+ * group that another part holds stays there, so the parts stay the same.
  */
 export const toggleSelector = (
-  parts: schematic.symbol.Part[],
+  spec: Pick<Spec, "drawing" | "parts">,
   part: string,
   selector: string,
 ): schematic.symbol.Part[] => {
-  const target = parts.find((p) => p.key === part);
-  if (target == null) return parts;
-  const selected = target.selectors.includes(selector);
-  return parts.map((p) => {
+  const target = spec.parts.find((p) => p.key === part);
+  if (target == null) return spec.parts;
+  if (target.selectors.includes(selector))
+    return spec.parts.map((p) => ({
+      ...p,
+      selectors: p.selectors.filter((s) => s !== selector),
+    }));
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const around = target.selectors.filter((s) => holds(doc, s, selector));
+  if (around.length > 0)
+    return spec.parts.map((p) =>
+      p.key === part
+        ? { ...p, selectors: p.selectors.filter((s) => !around.includes(s)) }
+        : p,
+    );
+  if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
+    return spec.parts;
+  return spec.parts.map((p) => {
     const rest = p.selectors.filter((s) => s !== selector);
-    if (p.key !== part || selected) return { ...p, selectors: rest };
-    return { ...p, selectors: [...rest, selector] };
+    return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
   });
 };
 
