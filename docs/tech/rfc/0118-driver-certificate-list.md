@@ -65,14 +65,14 @@ whose file it removed. A record that a user deletes comes back at the next start
 
 ### 3.3 Permissions
 
-A rack may delete only the file certificates of its own rack. The Driver role gains
-`delete` on certificates (`core/pkg/service/access/rbac/builtin/builtin.go:183`), and
-`certificate/delete` refuses a rack that names any other certificate, as
-`certificate/refresh` does (`core/pkg/api/certificate/certificate.go:299`). The Core
-provisions built-in policies at each start (`builtin/provision.go:40`), so a Core that
-upgrades needs no migration. The gRPC transport gains `certificate/delete`, which is a
-no-op today (`core/pkg/transport/grpc/grpc.go:267`), and the C++ client gains delete and
-a retrieve that filters by rack.
+A rack may write only the file certificates on it. The write binder lets a user change a
+draft panel that uses that user with no other access (`Owned` in
+`core/pkg/api/bind/service.go`). A file certificate uses its rack in the same way, so
+the certificate table joins the owned tables, and the Driver role does not change. A
+rack still gets an access error for a stored certificate or a file certificate on
+another rack. The gRPC transport gains `certificate/delete`, which is a no-op today
+(`core/pkg/transport/grpc/grpc.go:267`), and the C++ client gains delete and a retrieve
+that filters by rack.
 
 ### 3.4 The client certificate field
 
@@ -83,11 +83,11 @@ certificates, which the field lists today
 
 ## 4 Implementation phases
 
-| Phase | Scope                                                     | Touches                                                                                                                 | Depends on |
-| ----- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Let a rack delete its own file certificates               | `core/pkg/api/certificate`, `core/pkg/service/access/rbac/builtin`, `core/pkg/transport/grpc`, `client/cpp/certificate` | -          |
-| 2     | Offer only certificates with a key as client certificates | `console/src/platform/certificate`, `console/src/feature/opcua`                                                         | -          |
-| 3     | List the Driver certificate in the Core                   | `driver/opcua`, `site/docs`                                                                                             | 1          |
+| Phase | Scope                                                     | Touches                                                                                  | Depends on |
+| ----- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------- |
+| 1     | Let a rack delete its own file certificates               | `core/pkg/api/bind`, `core/pkg/api/certificate`, `core/pkg/transport/grpc`, `client/cpp` | -          |
+| 2     | Offer only certificates with a key as client certificates | `console/src/platform/certificate`, `console/src/feature/opcua`                          | -          |
+| 3     | List the Driver certificate in the Core                   | `driver/opcua`, `site/docs`                                                              | 1          |
 
 ## 5 Resolved decisions
 
