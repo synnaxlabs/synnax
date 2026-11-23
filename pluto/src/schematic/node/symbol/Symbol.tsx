@@ -58,7 +58,7 @@ interface DrawnProps extends Pick<
   Config,
   "spec" | "color" | "states" | "orientation" | "scale"
 > {
-  value: Custom.StateValue;
+  value: Custom.StateValues;
 }
 
 const Drawn = ({
@@ -134,7 +134,7 @@ export const Node = ({
   );
 };
 
-const NO_VALUES: Custom.StateValue = new Map();
+const NO_VALUES: Custom.StateValues = new Map();
 
 export const Preview = ({
   spec,
