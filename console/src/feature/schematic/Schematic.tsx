@@ -20,7 +20,7 @@ import type { ReactElement } from "react";
 import { Controller } from "@/feature/schematic/Controller";
 import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
-import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
+import { Navigate } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { Framer } from "@/platform/framer";
@@ -78,7 +78,7 @@ const Internal = (): ReactElement => {
     if (isCurrentlyEditable) dispatch(Session.Nav.showBottom({}));
   };
 
-  const handleNodeClickAction = useHandleNodeClickAction(key);
+  const handleNodeClickAction = Navigate.useHandleNodeClick(key);
 
   const handleNodeClick = (_: React.MouseEvent, node: { id: string }) =>
     handleNodeClickAction(node.id, false);

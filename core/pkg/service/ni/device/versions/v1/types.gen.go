@@ -12,6 +12,8 @@
 package v1
 
 import (
+	"regexp"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
@@ -19,6 +21,8 @@ import (
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Key uniquely identifies an NI device.
 type Key = v0.Key
@@ -122,5 +126,6 @@ func (d Device) Validate() error {
 	v.NotEmptyString("name", d.Name)
 	v.NotEmptyString("resource_name", d.ResourceName)
 	v.NotEmptyString("model", d.Model)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	return v.Error()
 }

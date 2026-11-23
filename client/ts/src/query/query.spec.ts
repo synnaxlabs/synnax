@@ -2123,6 +2123,90 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    it("refetches a maintained answer on a miss", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      let miss = (): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onMissed: (callback) => ((miss = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      miss();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("shows a create that a miss dropped when a closed view reopens", async () => {
+      const table = newTable();
+      const members = [rec("a", 5)];
+      const fetch = vi.fn(async ({ min }: LimitQ) => {
+        const found = min === 1 ? [rec("a", 5)] : [...members];
+        table.set(found);
+        return found.map(({ key }) => key);
+      });
+      let miss = (): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        {
+          onMissed: (callback) => ((miss = callback), () => {}),
+          teardownGrace: TimeSpan.ZERO,
+        },
+      );
+      // Another view holds the record, so the closed view keeps its answer.
+      answers.onChange({ min: 1 }, vi.fn());
+      await answers.retrieve({ min: 1 });
+      const close = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      close();
+      members.push(rec("b", 6));
+      miss();
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect
+        .poll(() => answers.getCached({ min: 3 }))
+        .toEqual([rec("a", 5), rec("b", 6)]);
+    });
+
+    it("runs one more refetch round for misses during a round", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      let miss = (): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onMissed: (callback) => ((miss = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      const held = Promise.withResolvers<string[]>();
+      fetch.mockImplementationOnce(async () => await held.promise);
+      miss();
+      miss();
+      miss();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      held.resolve(["a"]);
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
     describe("reconnect during the first fetch", () => {
       const setup = () => {
         const table = newTable();

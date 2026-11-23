@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { array, binary, caseconv, errors, strings, zod } from "@synnaxlabs/x";
+import {
+  array,
+  binary,
+  caseconv,
+  type destructor,
+  errors,
+  strings,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -258,6 +266,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
         ),
     });
     drop();
+  }
+
+  /** Subscribes to every ICD delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<ICD[]> {

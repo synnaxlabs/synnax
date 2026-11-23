@@ -180,7 +180,7 @@ describe("useConnectModal", () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
-      type: HTTP.Task.SCAN_TYPE,
+      type: HTTP.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -203,7 +203,7 @@ describe("useConnectModal", () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
-      type: HTTP.Task.SCAN_TYPE,
+      type: HTTP.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -227,7 +227,7 @@ describe("useConnectModal", () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
-      type: HTTP.Task.SCAN_TYPE,
+      type: HTTP.Device.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
@@ -253,7 +253,7 @@ describe("useConnectModal", () => {
     const dev = await createHTTPDevice(client, { rack: rack.key });
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
-      type: HTTP.Task.SCAN_TYPE,
+      type: HTTP.Device.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
@@ -273,7 +273,7 @@ describe("useConnectModal", () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
-      type: HTTP.Task.SCAN_TYPE,
+      type: HTTP.Device.SCAN_TYPE,
       config: {},
     });
     await renderModalOpener(HTTP.Device.useConnectModal, [{ rack: rack.key }], {

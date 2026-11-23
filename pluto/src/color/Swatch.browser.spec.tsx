@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { color } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor, id } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult, screen } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -45,7 +45,6 @@ describe("Color.Swatch", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
   });
 
   it("should call onChange with a named reference for a palette pick", async () => {
