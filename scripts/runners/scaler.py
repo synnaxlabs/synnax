@@ -36,16 +36,17 @@ class Scaler:
     still booting, and runners just commanded to start, count toward a pool's demand. An
     instance stops only after its runner is drained and offline: the agent holds a drain
     while a job runs, so a runner that takes a job after the decision keeps its
-    instance. The runner's GitHub registration is deleted before the stop, so GitHub
-    cannot assign a job to a runner that is going down; a runner GitHub still has a job
-    for keeps its instance and is enabled again to take the job. The caller reports a
-    runner GitHub does not list as offline, and its start registers it again. A drain is
-    sent again each RECOMMAND_DELAY while the runner stays online. Once the instance is
-    stopped, the runner is enabled again for its next start, unless the gate is closed.
-    While disabled, the writer is closed and no drain, start, stop, or delete is sent,
-    but idle time keeps accruing and each decision is logged once, marked [DISABLED], so
-    enabling clears whatever backlog built up. A runner this scaler drained is enabled
-    again while disabled, so no drain outlives the switch.
+    instance. The runner's GitHub registration is deleted before each drain and before
+    the stop, so GitHub cannot assign a job to a runner that is going down: a drain that
+    stops the runner between two jobs drops the second one. A runner GitHub still has a
+    job for is not drained, keeps its instance, and is enabled again to take the job.
+    The caller reports a runner GitHub does not list as offline, and its start registers
+    it again. A drain is sent again each RECOMMAND_DELAY while the runner stays online.
+    Once the instance is stopped, the runner is enabled again for its next start, unless
+    the gate is closed. While disabled, the writer is closed and no drain, start, stop,
+    or delete is sent, but idle time keeps accruing and each decision is logged once,
+    marked [DISABLED], so enabling clears whatever backlog built up. A runner this
+    scaler drained is enabled again while disabled, so no drain outlives the switch.
 
     :param gate: Sends the runner commands, and holds the last one of each runner.
     :param github: Deletes runner registrations.
@@ -185,13 +186,14 @@ class Scaler:
         # Runners GitHub refused to delete because it bound a job to them.
         bound: set[str] = set()
         if self.enabled:
-            for r in [r for r, start in commands.items() if not start]:
+            for r in [*drains, *(r for r, start in commands.items() if not start)]:
                 if not self.github.delete(r):
-                    del commands[r]
+                    drains.pop(r, None)
+                    commands.pop(r, None)
                     bound.add(r)
                     # A fresh cooldown gives the runner time to take the job.
                     self.idle_since.pop(r, None)
-                    self.log(f"{r} has a job, starting its runner to take it")
+                    self.log(f"{r} has a job, keeping its runner on to take it")
         self.drains = {r for r in self.drains if self.drained(r)}
         enables: dict[str, bool] = {}
         for r in known if self.gate.enabled else ():
