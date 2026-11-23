@@ -15,7 +15,6 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { BUILT_INS } from "@/schematic/node/builtIns";
 import { Custom } from "@/schematic/node/common/custom";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
@@ -23,30 +22,10 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
-import { Symbol } from "@/schematic/symbol";
+import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { SymbolNode } from "@/vis/symbolNode";
 
 type Config = schematic.SymbolNodeConfig;
-
-interface Resolved {
-  spec?: schematic.symbol.Spec;
-  builtIn: boolean;
-  missing: boolean;
-}
-
-const useResolved = (ref: schematic.symbol.Ref): Resolved => {
-  const custom = Symbol.useResolved(ref.type === "custom" ? ref.key : null);
-  switch (ref.type) {
-    case "builtin": {
-      const spec = BUILT_INS.get(ref.name);
-      return { spec, builtIn: true, missing: spec == null };
-    }
-    case "custom":
-      return { spec: custom.symbol?.data, builtIn: false, missing: custom.missing };
-    case "missing":
-      return { builtIn: false, missing: true };
-  }
-};
 
 // useBound resolves the symbol of a node, with the bindings of its states applied.
 const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Resolved => {
