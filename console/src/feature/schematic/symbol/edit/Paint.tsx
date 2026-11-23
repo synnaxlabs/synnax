@@ -58,6 +58,7 @@ const FILLS = ["--pluto-bg", "--pluto-hover-bg", "--pluto-active-bg"];
 
 const ICONS: Partial<Record<Kind, ReactElement>> = {
   entry: <Icon.Enumeration />,
+  contrast: <Icon.Contrast />,
   node: <Icon.Node />,
 };
 
