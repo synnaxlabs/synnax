@@ -292,12 +292,12 @@ type inferSource struct {
 	// disordered holds, for each time field, the pairs of sets where a value of one is
 	// older than the last value of the other.
 	disordered map[string]set.Set[[2]int]
-	// fields is the number of fields of all of the sets.
-	fields int
-	// limit is the most fields of all of the sets before the source has one set.
+	// held is the number of fields that the sets hold.
+	held int
+	// limit is the most fields that the sets hold before the source has one set.
 	limit int
-	// whole is true once the documents have more than 256 sets of fields, or more than
-	// limit fields of all of the sets. The one set in sets then takes every document.
+	// whole is true once the documents have more than 256 sets of fields, or the sets
+	// would hold more than limit fields. The one set in sets then takes every document.
 	whole bool
 }
 
@@ -354,11 +354,11 @@ func (src *inferSource) setOf(fields set.Set[string]) int {
 	if k, ok := src.byKey[fs.key]; ok {
 		return k
 	}
-	if len(src.sets) == maxFieldSets || src.fields+len(fields) > src.limit {
+	if len(src.sets) == maxFieldSets || src.held+len(fields) > src.limit {
 		src.collapse()
 		return 0
 	}
-	src.fields += len(fields)
+	src.held += len(fields)
 	fs.group = newInferGroup()
 	src.byKey[fs.key] = len(src.sets)
 	src.sets = append(src.sets, fs)
