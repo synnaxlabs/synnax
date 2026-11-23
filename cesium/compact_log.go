@@ -143,8 +143,10 @@ func (c *compactor) close() {
 }
 
 // rewrite copies the live ranges of cand into a new segment, then replaces cand with
-// it. It removes the new file when the copy or the Replace fails, and logs the failure.
-// It returns only an error of ctx, of close, or of a failed state.
+// it, and logs a failure. It removes the new file when the copy fails or the Replace is
+// stale. After any other Replace error, the log can hold the Replace, so the file stays
+// for the orphan pass of the next open. It returns only an error of ctx, of close, or
+// of a failed state.
 func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 	key := cand.Key
 	old, ok := c.e.pinSegment(key, cand.Segment)
@@ -167,7 +169,8 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 		return nil
 	}
 	r, err := c.copyLive(ctx, key, old, id)
-	if err == nil {
+	copied := err == nil
+	if copied {
 		if err = c.e.state.Replace(r); err == nil {
 			if err = c.e.reap(); err != nil {
 				c.e.ins.L.Error("unlink of a rewritten segment failed", zap.Error(err))
@@ -175,10 +178,14 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 			return nil
 		}
 	}
-	name := segmentName(key, id)
-	if rmErr := c.e.fs.Remove(name); rmErr != nil {
-		c.e.ins.L.Error("removal of a failed rewrite failed", zap.String("file", name),
-			zap.Error(rmErr))
+	if name := segmentName(key, id); !copied || errors.Is(err, state.ErrStale) {
+		if rmErr := c.e.fs.Remove(name); rmErr != nil {
+			c.e.ins.L.Error(
+				"removal of a failed rewrite failed",
+				zap.String("file", name),
+				zap.Error(rmErr),
+			)
+		}
 	}
 	fields := []zap.Field{
 		zap.Uint32("key", cand.Key), zap.Uint64("segment", old.ID),

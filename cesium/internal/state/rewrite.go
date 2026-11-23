@@ -204,9 +204,8 @@ func (s *State) replaced(records []log.Record) {
 	}
 }
 
-// failWaiting fails the parked requests, the Replace in flight, and the requests that
-// it
-// deferred, with err.
+// failWaiting fails with err the parked requests, the Replace in flight, and the
+// requests that the Replace deferred.
 func (s *State) failWaiting(err error) {
 	s.failParked(err)
 	if s.rep == nil {
