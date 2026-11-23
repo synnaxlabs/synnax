@@ -255,15 +255,15 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // A page that the filter hides whole shows nothing new, so the read goes on to the
   // next page until a new record shows, the list ends, or a newer read starts.
   const readShown = async (
-    l: query.List<E, unknown>,
-    first: Promise<query.Window<E, unknown>>,
+    l: query.list.List<E, unknown>,
+    first: Promise<query.list.Window<E, unknown>>,
     before: E[] = [],
   ): Promise<void> => {
     const token = reading.current;
     let w = await first;
     if (filter == null) return;
     const old = new Set(before.filter(filter).map(({ key }) => key));
-    const showsNew = ({ records }: query.Window<E, unknown>): boolean =>
+    const showsNew = ({ records }: query.list.Window<E, unknown>): boolean =>
       records.some((r) => filter(r) && !old.has(r.key));
     while (w.end != null && reading.current === token && !showsNew(w)) {
       const { end } = w;
