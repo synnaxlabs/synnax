@@ -65,14 +65,21 @@ class _Import:
         if self.imported == self.qualified:
             return True
         prefix = f"{self.qualified}."
-        return any(r == self.qualified or r.startswith(prefix) for r in self.refs)
+        return any(
+            r == self.qualified
+            or r.startswith(prefix)
+            # The file holds a namespace that reaches the export, as in a JSX element
+            # whose name Knip cuts to its first two parts.
+            or self.qualified.startswith(f"{r}.")
+            for r in self.refs
+        )
 
 
 def users(trace: str) -> dict[tuple[str, str], set[str]]:
     """Returns the files that use each export in a Knip trace, keyed by (file, name).
 
     A file that imports a namespace uses the export only when it references the
-    export's member of that namespace.
+    export's member of that namespace, or a namespace that holds it.
     """
     result: dict[tuple[str, str], set[str]] = {}
     imports: list[_Import] = []

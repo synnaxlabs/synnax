@@ -28,6 +28,12 @@ app/src/kv/kv.ts:MemoryKV
 app/src/other/kv.ts:MemoryKV
 └── app/src/other/other.spec.ts:import[Other] ⎆ ✓
       refs: [Other.MemoryKVs]
+app/src/kv/write/Writer.tsx:Writer
+└── app/src/kv/index.ts:reExportNS[KV.Write.Writer]
+    ├── app/src/store/write.tsx:import[KV] ✗
+    │     refs: [KV.Write, KV.Write.open]
+    └── app/src/store/read.tsx:import[KV] ✗
+          refs: [KV.Wr, KV.WriteMode]
 """
 
 
@@ -42,6 +48,13 @@ class TestUsers:
 
     def test_should_skip_files_that_reference_other_members(self) -> None:
         assert users(TRACE)[("app/src/other/kv.ts", "MemoryKV")] == set()
+
+    def test_should_keep_files_that_reference_a_namespace_that_holds_it(
+        self,
+    ) -> None:
+        assert users(TRACE)[("app/src/kv/write/Writer.tsx", "Writer")] == {
+            "app/src/store/write.tsx"
+        }
 
 
 class TestKnip:
