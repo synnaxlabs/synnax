@@ -14,6 +14,7 @@ import { act, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { z } from "zod";
 
 import { symbolSpec } from "@/schematic/node/symbol/spec";
 import { telemTest } from "@/telem/aether/testutil";
@@ -39,29 +40,8 @@ const FILLED = "[fill='#a0c2e3']";
 // Every sample of the synthetic Core reads as 1 through this match.
 const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
 
-// Builds the config by hand, since the built client can lag behind the node schema.
-const createConfig = (
-  config: Pick<schematic.SymbolNodeConfig, "spec"> &
-    Partial<schematic.SymbolNodeConfig>,
-): schematic.SymbolNodeConfig => ({
-  ...schematic.labeledConfigZ.parse({}),
-  ...schematic.scaledConfigZ.parse({}),
-  ...schematic.stalenessConfigZ.parse({}),
-  variant: "symbol",
-  disabled: false,
-  motionDisabled: false,
-  onClickDelay: 0,
-  states: [],
-  commands: [],
-  ...config,
-});
-
-const createBinding = (
-  binding: Omit<schematic.StateBinding, keyof schematic.FormatConfig>,
-): schematic.StateBinding => ({ units: "", notation: "standard", ...binding });
-
 const renderNode = (
-  config: Parameters<typeof createConfig>[0],
+  config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
   Wrapper: FC<PropsWithChildren> = LocalWrapper,
 ) =>
   render(
@@ -71,7 +51,7 @@ const renderNode = (
           nodeKey="s1"
           selected={false}
           onConfigChange={vi.fn()}
-          config={createConfig(config)}
+          config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
         />
       </ReactFlowProvider>
     </Wrapper>,
@@ -84,7 +64,7 @@ describe("Symbol node", () => {
     const { container } = renderNode({
       spec: { type: "builtin", name: "valve" },
       color: COLOR,
-      states: [createBinding({ key: "active", source: { type: "local", value: 1 } })],
+      states: [{ key: "active", source: { type: "local", value: 1 } }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
   });
@@ -93,7 +73,7 @@ describe("Symbol node", () => {
     const { container } = renderNode({
       spec: { type: "builtin", name: "valve" },
       color: COLOR,
-      states: [createBinding({ key: "active", default: 1 })],
+      states: [{ key: "active", default: 1 }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
   });
@@ -107,11 +87,11 @@ describe("Symbol node", () => {
         spec: { type: "builtin", name: "valve" },
         color: COLOR,
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
             match: WITHIN,
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
@@ -135,10 +115,10 @@ describe("Symbol node", () => {
       {
         spec: { type: "builtin", name: "valve" },
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
@@ -154,7 +134,7 @@ describe("Symbol node", () => {
     const { container, queryByRole } = renderNode({
       spec: { type: "builtin", name: "valve" },
       color: COLOR,
-      states: [createBinding({ key: "active", source: { type: "local", value: 1 } })],
+      states: [{ key: "active", source: { type: "local", value: 1 } }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
@@ -168,10 +148,10 @@ describe("Symbol node", () => {
       {
         spec: { type: "builtin", name: "valve" },
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
@@ -183,7 +163,7 @@ describe("Symbol node", () => {
     const { container, queryByRole } = renderNode({
       spec: { type: "builtin", name: "valve" },
       color: COLOR,
-      states: [createBinding({ key: "active", default: 1 })],
+      states: [{ key: "active", default: 1 }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     expect(queryByRole("img", { name: "Unknown" })).toBeNull();
@@ -199,11 +179,11 @@ describe("Symbol node", () => {
         spec: { type: "builtin", name: "valve" },
         // No enumeration has this key, so no value finds an entry.
         states: [
-          createBinding({
+          {
             key: "active",
             source: { type: "channel", key: reading.key },
             enumeration: "00000000-0000-0000-0000-000000000000",
-          }),
+          },
         ],
       },
       createCoreWrapper(core),
@@ -222,7 +202,7 @@ describe("Symbol node", () => {
 
   it.each([
     ["a built-in symbol that does not exist", { type: "builtin", name: "nope" }],
-    ["a missing symbol", { type: "missing" }],
+    ["a missing symbol", { type: "missing", key: "deleted" }],
   ] as const)("should warn for %s", async (_, spec) => {
     const { findByText } = renderNode({ spec });
     await findByText("Missing symbol");
