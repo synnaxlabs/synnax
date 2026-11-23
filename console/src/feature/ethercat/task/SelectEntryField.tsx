@@ -15,8 +15,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 import type { z } from "zod";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { onlyReaderOf } from "@/feature/ethercat/device/setup";
+import { Device } from "@/feature/ethercat/device";
 import {
   addressKey,
   type Channel,
@@ -43,7 +42,7 @@ export const SelectEntryField = ({
   schema,
 }: SelectEntryFieldProps): ReactElement => {
   const ch = PForm.useFieldValue(path);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
@@ -53,7 +52,7 @@ export const SelectEntryField = ({
       ? null
       : (slave.properties.pdos[pdoType]
           .filter((e) => !used.has(addressKey(e)))
-          .map((e) => onlyReaderOf(slave.properties, e))
+          .map((e) => Device.Setup.onlyReaderOf(slave.properties, e))
           .find((r) => r != null) ?? null);
   let emptyContent = `This device has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a device first.";

@@ -12,6 +12,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
 import { Tabs } from "@/components/tabs";
+import { sync } from "@/components/tabs/sync";
 
 export interface Option {
   type: string;
@@ -44,7 +45,7 @@ export const Options = ({ options }: OptionsProps): ReactElement => (
   <BaseTabs.Frame
     className="channel-types__options"
     initialValue={options[0].type}
-    {...{ [Tabs.QUERY_ATTRIBUTE]: "" }}
+    {...{ [sync.QUERY_ATTRIBUTE]: "" }}
   >
     <BaseTabs.Selector variant="chip" size="small" wrap>
       {options.map(({ type, name, icon }) => (

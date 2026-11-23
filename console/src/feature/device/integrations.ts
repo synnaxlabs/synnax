@@ -58,18 +58,18 @@ export const NETWORK: Network[] = [
 export const HARDWARE: Hardware[] = [
   {
     ...NI.Device.HARDWARE,
-    ContextMenuItems: NI.Device.ContextMenuItems,
-    RackMenuItems: NI.Device.RackMenuItems,
+    ContextMenuItems: NI.ContextMenuItems,
+    RackMenuItems: NI.RackMenuItems,
     useCreateRead: NI.Task.useCreateAnalogRead,
   },
   {
     ...LabJack.Device.HARDWARE,
-    ContextMenuItems: LabJack.Device.ContextMenuItems,
+    ContextMenuItems: LabJack.ContextMenuItems,
     useCreateRead: LabJack.Task.useCreateRead,
   },
   {
     ...EtherCAT.Device.HARDWARE,
-    ContextMenuItems: EtherCAT.Device.ContextMenuItems,
+    ContextMenuItems: EtherCAT.ContextMenuItems,
     useCreateRead: EtherCAT.Task.useCreateRead,
     useCreateWrite: EtherCAT.Task.useCreateWrite,
   },

@@ -18,7 +18,9 @@ import {
   scheduler,
   type Series,
   sync,
+  TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import type { channel } from "@/channel";
@@ -26,7 +28,7 @@ import { UnexpectedError } from "@/errors";
 import type { Joins } from "@/framer/cache/join";
 import type { Store } from "@/framer/cache/store";
 import { isDefinitive } from "@/framer/retry";
-import type { Streamer, StreamerConfig } from "@/framer/streamer";
+import type { Streamer } from "@/framer/streamer";
 import { status } from "@/status";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
@@ -35,6 +37,8 @@ export interface StreamHooks {
   onReopen: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop: (error: Error) => void;
+  /** Called when the Core drops frames for the stream. The stream stays open. */
+  onMissed: () => void;
   /** Aborts when the streamer closes while this stream is current. A stream still
    * opening or retrying must stop. */
   signal: AbortSignal;
@@ -42,7 +46,10 @@ export interface StreamHooks {
 
 /** Opens the underlying frame stream, hardened against connection loss. */
 export interface HardenedOpener {
-  (config: StreamerConfig, hooks: StreamHooks): Promise<Streamer>;
+  (
+    config: { channels: channel.Key[]; throttleRate: number },
+    hooks: StreamHooks,
+  ): Promise<Streamer>;
 }
 
 /**
@@ -65,7 +72,10 @@ export interface Demand {
   status: (key: channel.Key) => status.Status;
   /** Registers a handler for status transitions on the demand's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
-  /** Registers a handler that runs when the stream drops, since frames may be lost. */
+  /**
+   * Registers a handler that runs when frames may be lost: when the stream drops, or
+   * when the Core misses frames of a stored channel of the demand.
+   */
   onDrop: (handler: () => void) => destructor.Destructor;
 }
 
@@ -105,6 +115,10 @@ export interface MultiplexedStreamerProps {
 // Limits stream updates to one per interval while demand keeps changing.
 const RECONCILE_INTERVAL = TimeSpan.milliseconds(100);
 
+// Limits the reads that misses start to one round per interval while the Core keeps
+// dropping frames.
+const MISSED_INTERVAL = TimeSpan.seconds(1);
+
 const THROTTLE_RATE = Rate.hz(60).valueOf();
 
 const LOADING: status.Crude = { variant: "loading", message: "subscribing" };
@@ -137,6 +151,12 @@ export class MultiplexedStreamer {
   private readonly scheduleReconcile = scheduler.throttle(() => {
     void this.reconcile();
   }, RECONCILE_INTERVAL);
+  // The start of the open block of each stored channel when a marker arrived, kept
+  // until the throttled outdate runs.
+  private missedFrom = new Map<channel.Key, TimeStamp>();
+  private readonly scheduleOutdate = scheduler.throttle(() => {
+    this.outdateTails();
+  }, MISSED_INTERVAL);
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
   private streamer: Streamer | null = null;
@@ -280,6 +300,7 @@ export class MultiplexedStreamer {
     this.ackWaiters.forEach((w) => w.reject(closed));
     this.ackWaiters.clear();
     this.scheduleReconcile.cancel();
+    this.scheduleOutdate.cancel();
     this.removalTimers.forEach(clearTimeout);
     this.removalTimers.clear();
     this.connMu.closed = true;
@@ -374,19 +395,51 @@ export class MultiplexedStreamer {
   // Frames may drop until a stream opens again.
   private drop(): void {
     this.outdated = true;
+    this.entries.forEach((e) => this.runDropHandlers(e));
+  }
+
+  private runDropHandlers(e: Entry): void {
+    if (e.removed) return;
+    e.dropHandlers.forEach((handler) => {
+      try {
+        handler();
+      } catch (err) {
+        this.props.instrumentation.L.error("drop handler failed", { error: err }, true);
+      }
+    });
+  }
+
+  // Records where the open block of each streamed channel that the Core stores starts
+  // when a marker arrives, since the stream can move to the next block before the
+  // throttled outdate runs.
+  private recordMiss(): void {
+    const { store } = this.props;
+    for (const key of this.sentKeys) {
+      const start = store.open(key)?.range.start;
+      if (start == null || !store.stored(key)) continue;
+      const held = this.missedFrom.get(key);
+      if (held == null || start.before(held)) this.missedFrom.set(key, start);
+    }
+    this.scheduleOutdate();
+  }
+
+  // Outdates each stored channel from the start of the open block that a marker found
+  // to the end of time, since the dropped frames can hold its samples. Dropped history
+  // signals can name closed data of any channel, so a sealed block stays valid only
+  // until the stale threshold, or until a reader releases it when it is held. Virtual
+  // channels keep their held samples, since the Core stores none to read again.
+  private outdateTails(): void {
+    const { joins, store, onWait } = this.props;
+    store.restartSignals();
+    const missed = this.missedFrom;
+    this.missedFrom = new Map();
+    for (const [key, start] of missed)
+      onWait(joins.invalidate(key, new TimeRange(start, TimeStamp.MAX), true));
+    // A latest reader reads the samples after its newest one again on a drop, which
+    // also reaches a stored channel that has no open block.
     this.entries.forEach((e) => {
-      if (e.removed) return;
-      e.dropHandlers.forEach((handler) => {
-        try {
-          handler();
-        } catch (err) {
-          this.props.instrumentation.L.error(
-            "drop handler failed",
-            { error: err },
-            true,
-          );
-        }
-      });
+      if ([...e.keys].some((k) => this.sentKeys.has(k) && store.stored(k)))
+        this.runDropHandlers(e);
     });
   }
 
@@ -444,6 +497,7 @@ export class MultiplexedStreamer {
                 this.drop();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
+              onMissed: () => this.recordMiss(),
             },
           );
           this.streamer = streamer;

@@ -483,6 +483,187 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
     ASSERT_TRUE(write_task->stop("stop_cmd", true));
 }
 
+/// @brief it should show a missed commands warning that holds while the task runs.
+TEST(TestCommonWriteTask, MissedCommandsWarningHolds) {
+    x::breaker::Breaker cancel;
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
+    // The start answer comes after the streamer opens, so a miss must follow it.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return std::ranges::any_of(statuses, [](const auto &st) {
+                return st.message == "Started task";
+            });
+        },
+        true,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    streamer_factory->config.on_missed();
+    const auto last = [&] {
+        const auto statuses = ctx->snapshot();
+        return statuses.empty() ? std::string() : statuses.back().message;
+    };
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        last,
+        std::string("Missed commands"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses.back().message, "Missed commands");
+    EXPECT_EQ(statuses.back().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(statuses.back().details.running);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+}
+
+namespace {
+/// @brief commands that a spec pushes while the task runs.
+struct CommandQueue {
+    std::mutex mu;
+    std::vector<x::telem::Frame> frames;
+    bool closed = false;
+
+    void push(x::telem::Frame fr) {
+        std::lock_guard lock(this->mu);
+        this->frames.push_back(std::move(fr));
+    }
+};
+
+/// @brief reads the commands of a CommandQueue.
+class QueueStreamer final : public pipeline::Streamer {
+    std::shared_ptr<CommandQueue> queue;
+
+public:
+    explicit QueueStreamer(std::shared_ptr<CommandQueue> queue):
+        queue(std::move(queue)) {}
+
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        std::lock_guard lock(this->queue->mu);
+        if (this->queue->closed) return {x::telem::Frame(), freighter::STREAM_CLOSED};
+        if (this->queue->frames.empty()) return {x::telem::Frame(0), x::errors::NIL};
+        auto fr = std::move(this->queue->frames.front());
+        this->queue->frames.erase(this->queue->frames.begin());
+        return {std::move(fr), x::errors::NIL};
+    }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+
+    void close_send() override {
+        std::lock_guard lock(this->queue->mu);
+        this->queue->closed = true;
+    }
+};
+
+/// @brief opens QueueStreamers on one queue and keeps the config of the last open.
+class QueueStreamerFactory final : public pipeline::StreamerFactory {
+    std::shared_ptr<CommandQueue> queue;
+
+public:
+    std::mutex mu;
+    synnax::framer::StreamerConfig config;
+    std::atomic<int> opens{0};
+
+    explicit QueueStreamerFactory(std::shared_ptr<CommandQueue> queue):
+        queue(std::move(queue)) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(const synnax::framer::StreamerConfig cfg) override {
+        {
+            std::lock_guard lock(this->mu);
+            this->config = cfg;
+        }
+        {
+            std::lock_guard lock(this->queue->mu);
+            this->queue->closed = false;
+        }
+        ++this->opens;
+        return {std::make_unique<QueueStreamer>(this->queue), x::errors::NIL};
+    }
+};
+}
+
+/// @brief it should replace a missed commands warning with a later write error, so the
+/// clean write after that error clears the warning status.
+TEST(TestCommonWriteTask, WriteErrorAfterMissClearsOnACleanWrite) {
+    x::breaker::Breaker cancel;
+    const auto queue = std::make_shared<CommandQueue>();
+    const auto streamer_factory = std::make_shared<QueueStreamerFactory>(queue);
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const auto errors = std::make_shared<std::vector<x::errors::Error>>(std::vector{
+        x::errors::Error(driver::errors::TEMPORARY_HARDWARE_ERROR, "busy"),
+        x::errors::NIL,
+    });
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = x::telem::MILLISECOND},
+        std::make_unique<MockSink>(
+            x::telem::Rate(0),
+            std::vector<Sink::Output>{{1, std::nullopt}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            errors
+        ),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("start", cancel));
+    // The start answer comes after the streamer opens, so a miss must follow it.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return std::ranges::any_of(statuses, [](const auto &st) {
+                return st.message == "Started task";
+            });
+        },
+        true,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    {
+        std::lock_guard lock(streamer_factory->mu);
+        streamer_factory->config.on_missed();
+    }
+    const auto last = [&] {
+        const auto statuses = ctx->snapshot();
+        return statuses.empty() ? std::string() : statuses.back().message;
+    };
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        last,
+        std::string("Missed commands"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    queue->push(x::telem::Frame(1, x::telem::Series(1.0)));
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        last,
+        std::string("Failed to write commands"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    queue->push(x::telem::Frame(1, x::telem::Series(1.0)));
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        last,
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(ctx->snapshot().back().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
 /// @brief it should report a failed start and release the sink when the command
 /// streamer fails to open.
 TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
