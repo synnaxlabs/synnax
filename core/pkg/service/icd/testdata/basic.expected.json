@@ -6,6 +6,7 @@
       "extended": false,
       "fd": false,
       "length": 8,
+      "cycle_time": 100,
       "fields": [
         {
           "name": "Rpm",
@@ -71,6 +72,7 @@
       "extended": true,
       "fd": false,
       "length": 8,
+      "cycle_time": 1000,
       "fields": [
         {
           "name": "Voltage",
@@ -136,6 +138,7 @@
       "extended": false,
       "fd": false,
       "length": 8,
+      "cycle_time": null,
       "fields": [
         {
           "name": "AccelX",
@@ -173,6 +176,7 @@
       "extended": false,
       "fd": false,
       "length": 8,
+      "cycle_time": null,
       "fields": [
         {
           "name": "Latitude",
@@ -196,6 +200,7 @@
       "extended": true,
       "fd": true,
       "length": 64,
+      "cycle_time": null,
       "fields": [
         {
           "name": "Sequence",

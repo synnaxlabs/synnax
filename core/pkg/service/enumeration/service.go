@@ -79,7 +79,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		References: s.indexes.references(),
 		// A named color delete inlines the color into each entry that names it, which
 		// no enumeration write does, so the service sends the enumeration as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, e Enumeration) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, e Enumeration) error {
 			s.state.Dispatcher().
 				Attach(tx, e.Key, NewCreateAction(CreatePayload{Enumeration: e}))
 			return nil
@@ -115,9 +115,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: tx, table: s.table, dispatcher: s.state.Dispatcher()}
 }
 
-// Dependents returns the ID of every record that uses the enumeration with key, as seen
-// by snap. Each one refuses the delete of the enumeration.
-func (s *Service) Dependents(
+// Uses returns the ID of every record in snap that uses the enumeration with key. Each
+// one refuses the delete of the enumeration.
+func (s *Service) Uses(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key Key,

@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Channel } from "@synnaxlabs/pluto";
 import { type deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import {
   isMissing,

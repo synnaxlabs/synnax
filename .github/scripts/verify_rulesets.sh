@@ -10,8 +10,10 @@
 # included in the file licenses/APL.txt.
 
 # Fails unless the repository rulesets on GitHub match the files in .github/rulesets,
-# one ruleset per file, matched by name. Prints a diff for each mismatch. Run from the
-# repository root with a token that can read bypass actors, which takes admin access.
+# one ruleset per file, matched by name, and unless a maintainer must approve the
+# workflow runs of every outside contributor. Prints a diff for each mismatch. Run from
+# the repository root with a token that can read bypass actors, which takes admin
+# access.
 
 set -euo pipefail
 
@@ -52,7 +54,16 @@ for FILE in "$DIR"/*.json; do
     fi
 done
 
+# Fork code reaches a runner only after a maintainer approves it.
+APPROVAL=$(gh api "repos/${REPO}/actions/permissions/fork-pr-contributor-approval" \
+    --jq .approval_policy)
+if [ "$APPROVAL" != all_external_contributors ]; then
+    echo "fork workflow approval is $APPROVAL, not all_external_contributors" >&2
+    STATUS=1
+fi
+
 if [ "$STATUS" -eq 0 ]; then
     echo "$(wc -l <<< "$FILE_NAMES" | tr -d ' ') rulesets match $DIR"
+    echo "every outside contributor needs approval to run workflows"
 fi
 exit "$STATUS"

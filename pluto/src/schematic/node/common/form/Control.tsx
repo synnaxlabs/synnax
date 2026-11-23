@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   NegatedSwitchField,

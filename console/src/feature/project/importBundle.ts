@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { type Import } from "@/platform/import";
+import type { Import } from "@/platform/import";
 import { Session } from "@/session";
 
 /**

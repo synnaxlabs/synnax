@@ -12,12 +12,11 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Arc } from "@/arc";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

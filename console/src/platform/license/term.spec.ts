@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license } from "@synnaxlabs/client";
+import type { license } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { License } from "@/platform/license";
@@ -64,12 +64,6 @@ describe("License.editionLabel", () => {
   it("should name each edition", () => {
     expect(License.editionLabel(BASE)).toBe("Enterprise");
     expect(License.editionLabel({ ...BASE, edition: "d" })).toBe("Desktop");
-  });
-});
-
-describe("License.joinFingerprint", () => {
-  it("should join the host hashes with commas", () => {
-    expect(License.joinFingerprint(["a", "b"])).toBe("a, b");
   });
 });
 

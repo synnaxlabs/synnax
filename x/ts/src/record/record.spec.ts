@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import z from "zod";
 
 import { record } from "@/record";
@@ -369,8 +369,8 @@ describe("record", () => {
 
       it("should preserve the inferred typed shape", () => {
         const parsed = schema.parse({ a: 1 });
-        const value: number = parsed.a;
-        expect(value).toBe(1);
+        expectTypeOf(parsed).toEqualTypeOf<Record<string, number>>();
+        expect(parsed.a).toBe(1);
       });
     });
   });

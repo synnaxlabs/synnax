@@ -11,8 +11,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Direction } from "@/direction";
 import {

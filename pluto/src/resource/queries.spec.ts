@@ -14,8 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Resource } from "@/resource";
-import { renderHookSuspended } from "@/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
@@ -26,7 +25,10 @@ const createGroup = async (name: string): Promise<resource.ID> =>
   group.resourceID((await client.groups.create({ scope: "channel", name })).key);
 
 const createLabel = async (name: string): Promise<resource.ID> =>
-  label.resourceID((await client.labels.create({ name, color: "#E87E04" })).key);
+  label.resourceID(
+    (await client.labels.create({ name, color: { type: "fixed", value: "#E87E04" } }))
+      .key,
+  );
 
 describe("Resource Queries", () => {
   describe("useList", () => {

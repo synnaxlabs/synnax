@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { telem } from "@/telem/aether";
-import { backgroundTelem } from "@/vis/value/redline";
+import { Value } from "@/vis/value";
 
 const SOURCE = telem.fixedString("10");
 const RED = color.construct("#ff0000");
@@ -25,28 +25,32 @@ const band = (flashing: boolean): color.Band => ({
 
 describe("backgroundTelem", () => {
   it("should paint nothing with no bands and no background", () => {
-    expect(backgroundTelem(SOURCE, { bands: [], smooth: false })).toBeUndefined();
+    expect(Value.backgroundTelem(SOURCE, { bands: [], smooth: false })).toBeUndefined();
   });
 
   it("should paint the background alone when there are no bands", () => {
-    expect(backgroundTelem(SOURCE, { bands: [], smooth: false }, RED)).toEqual(
+    expect(Value.backgroundTelem(SOURCE, { bands: [], smooth: false }, RED)).toEqual(
       telem.fixedColor(RED),
     );
   });
 
   it("should fall back to the background below every band", () => {
-    const spec = backgroundTelem(SOURCE, { bands: [band(false)], smooth: false }, RED);
+    const spec = Value.backgroundTelem(
+      SOURCE,
+      { bands: [band(false)], smooth: false },
+      RED,
+    );
     expect(spec?.props.segments.band.props).toMatchObject({ background: RED });
   });
 
   it("should wire a clock into the bands when one flashes", () => {
-    const spec = backgroundTelem(SOURCE, { bands: [band(true)], smooth: false });
+    const spec = Value.backgroundTelem(SOURCE, { bands: [band(true)], smooth: false });
     expect(spec?.props.segments).toHaveProperty("phase");
     expect(spec?.props.connections).toContainEqual({ from: "phase", to: "band" });
   });
 
   it("should leave the clock out when no band flashes", () => {
-    const spec = backgroundTelem(SOURCE, { bands: [band(false)], smooth: false });
+    const spec = Value.backgroundTelem(SOURCE, { bands: [band(false)], smooth: false });
     expect(spec?.props.segments).not.toHaveProperty("phase");
   });
 });

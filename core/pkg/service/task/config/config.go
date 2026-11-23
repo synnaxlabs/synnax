@@ -98,17 +98,14 @@ type Store interface {
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
-	// OnDetach sets the hook that runs in the transaction of each delete that detaches
-	// a target from a record, with the key of the record. An error from the hook fails
-	// the delete. Set it before the store serves deletes.
-	OnDetach(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
+	// OnRewrite sets the hook that runs in the transaction of each delete or retarget
+	// that rewrites a record, with the key of the record. An error from the hook fails
+	// the delete or retarget. Set it before the store serves either.
+	OnRewrite(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
 	// OnTargetSet sets the hook that runs in the transaction of each write that sets a
 	// record of one of HashedTables that a record uses, with the key of the record. An
 	// error from the hook fails the write. Set it before the store serves writes.
 	OnTargetSet(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
-	// HashedTables returns the names of the tables whose records Hash covers, as
-	// ServiceConfig.HashedTables does.
-	HashedTables() []string
 }
 
 // Decoded is a config blob in the current stored shape that is not yet checked against
@@ -259,8 +256,8 @@ func (c ServiceConfig[E]) Validate() error {
 type Service[E gorp.Entry[uuid.UUID]] struct {
 	cfg   ServiceConfig[E]
 	table *gorp.Table[uuid.UUID, E]
-	// onDetach is nil until OnDetach sets it.
-	onDetach func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
+	// onRewrite is nil until OnRewrite sets it.
+	onRewrite func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
 	// onTargetSet is nil until OnTargetSet sets it.
 	onTargetSet func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
 }
@@ -294,11 +291,11 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 			[]gorp.Reference[uuid.UUID, E]{newTaskReference[E]()},
 			cfg.References...,
 		),
-		OnDetach: func(ctx context.Context, tx gorp.Tx, e E) error {
-			if s.onDetach == nil {
+		OnRewrite: func(ctx context.Context, tx gorp.Tx, e E) error {
+			if s.onRewrite == nil {
 				return nil
 			}
-			return s.onDetach(ctx, tx, e.GorpKey())
+			return s.onRewrite(ctx, tx, e.GorpKey())
 		},
 		OnTargetSet:     onTargetSet,
 		Instrumentation: cfg.Instrumentation,
@@ -609,15 +606,12 @@ func (s *Service[E]) Normalize(
 // Version implements Store.
 func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
 
-// OnDetach implements Store.
-func (s *Service[E]) OnDetach(
+// OnRewrite implements Store.
+func (s *Service[E]) OnRewrite(
 	hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error,
 ) {
-	s.onDetach = hook
+	s.onRewrite = hook
 }
-
-// HashedTables implements Store.
-func (s *Service[E]) HashedTables() []string { return s.cfg.HashedTables }
 
 // OnTargetSet implements Store.
 func (s *Service[E]) OnTargetSet(
