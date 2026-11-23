@@ -14,7 +14,7 @@ import {
   ALERT_TYPE,
   type AlertSchemas,
 } from "@/feature/pagerduty/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const getAlertInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {

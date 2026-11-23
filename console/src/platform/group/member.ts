@@ -9,7 +9,7 @@
 
 import { group, type resource, type Synnax } from "@synnaxlabs/client";
 
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 const SCOPES = new Set<resource.Type>(
   Object.values(group.MEMBER_RULES).map(({ scope }) => scope),

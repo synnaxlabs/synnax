@@ -26,11 +26,11 @@ interface InternalState {
 class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   /** The values resolved for "key" and "key2" on the most recent afterUpdate. */
   seen: { key?: number; key2?: number } = {};
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     this.seen = {
       key: ctx.getOptional<number>("key") ?? undefined,
@@ -39,7 +39,7 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
     this.internal.contextValue = this.seen.key ?? 0;
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -55,13 +55,13 @@ class ExampleComposite extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -77,14 +77,14 @@ class ContextSetterComposite extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", this.state.x);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 
@@ -100,11 +100,11 @@ class SecondaryContextSetter extends aether.Composite<
 > {
   updatef = vi.fn();
   deletef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   /** The value resolved for "key" on the most recent afterUpdate. */
   seen: { key?: number } = {};
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     const v = ctx.getOptional<number>("key");
     this.seen = { key: v ?? undefined };
@@ -120,10 +120,10 @@ class SecondaryContextSetter extends aether.Composite<
  * state. */
 class ConditionalReader extends aether.Leaf<typeof exampleProps> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
   seen: number | undefined = undefined;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     this.seen =
       this.state.x > 0 ? (ctx.getOptional<number>("key") ?? undefined) : undefined;
@@ -135,9 +135,9 @@ class ConditionalReader extends aether.Leaf<typeof exampleProps> {
  */
 class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", this.state.x * 10);
   }
@@ -147,11 +147,23 @@ class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleL
  * pattern. Subscribers must re-run even though the value is reference-equal. */
 class InstanceSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", 7);
+  }
+}
+
+/** Reads "key", then throws while `state.x` is negative. */
+class FailingReader extends aether.Leaf<typeof exampleProps> {
+  updatef = vi.fn();
+  override schema = exampleProps;
+
+  override afterUpdate(ctx: aether.Context): void {
+    ctx.getOptional<number>("key");
+    this.updatef();
+    if (this.state.x < 0) throw new Error("bad");
   }
 }
 
@@ -174,8 +186,8 @@ class InvokeLeaf
   extends aether.Leaf<typeof exampleProps, {}, typeof invokeMethodsSchema>
   implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
 {
-  schema = exampleProps;
-  methods = invokeMethodsSchema;
+  override schema = exampleProps;
+  override methods = invokeMethodsSchema;
 
   incrementSpy = vi.fn((n: number) => n + 1);
   greetSpy = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
@@ -209,8 +221,8 @@ class InvokeLeaf
     this.throwErrorSpy();
   }
 
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 class InvokeComposite extends aether.Composite<
@@ -219,11 +231,11 @@ class InvokeComposite extends aether.Composite<
   InvokeLeaf,
   aether.EmptyMethodsSchema
 > {
-  schema = exampleProps;
-  methods = undefined;
+  override schema = exampleProps;
+  override methods = undefined;
 
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 const make =
@@ -242,6 +254,7 @@ const createConditionalReader = make(ConditionalReader, "conditional");
 const createShadowingSetter = make(ShadowingSetter, "shadow");
 const createInstanceSetter = make(InstanceSetter, "instance");
 const createInvokeLeaf = make(InvokeLeaf, "invoke-leaf");
+const createFailingReader = make(FailingReader, "failing");
 const createInvokeComposite = make(InvokeComposite, "invoke-composite");
 
 const shouldNotCallCreate = (): aether.Component => {
@@ -418,6 +431,23 @@ describe("Aether Worker", () => {
       const v = createContextSetter("test");
       update(v, ["test"], 2);
       expect(v.testingChildCtxValues.get("key")).toEqual(2);
+    });
+
+    it("should not re-run a child whose first update failed", () => {
+      const v = createContextSetter("test");
+      update(v, ["test"], 2);
+      let reader = null as FailingReader | null;
+      expect(() =>
+        update(
+          v,
+          ["test", "reader"],
+          -1,
+          (c) => (reader = createFailingReader("reader", c)),
+        ),
+      ).toThrow();
+      expect(v.children).toHaveLength(0);
+      expect(() => update(v, ["test"], 3)).not.toThrow();
+      expect(reader!.updatef).toHaveBeenCalledTimes(1);
     });
 
     it("should correctly pass an initial context value to a leaf child", () => {
@@ -1011,15 +1041,15 @@ const runNode = (state: { x: number; id: string }, ctx: aether.Context): void =>
 };
 
 class PropComposite extends aether.Composite<typeof stateZ> {
-  schema = stateZ;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = stateZ;
+  override afterUpdate(ctx: aether.Context): void {
     runNode(this.state, ctx);
   }
 }
 
 class PropLeaf extends aether.Leaf<typeof stateZ> {
-  schema = stateZ;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = stateZ;
+  override afterUpdate(ctx: aether.Context): void {
     runNode(this.state, ctx);
   }
 }

@@ -9,7 +9,7 @@
 
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const VARIANTS: [Base.Variant, string][] = [
   ["success", "Success"],

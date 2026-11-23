@@ -12,15 +12,16 @@
 import { filter, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { rack } from "@/rack";
 import { resource } from "@/resource";
-
-export const ORDER_FIELDS = ["name"] as const;
-export const orderFieldZ = z.enum(ORDER_FIELDS);
-export type OrderField = z.infer<typeof orderFieldZ>;
 
 export const SOURCES = ["stored", "file"] as const;
 export const sourceZ = z.enum(SOURCES);
 export type Source = z.infer<typeof sourceZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /** Order is a sort of secrets. */
 export const orderZ = z.object({
@@ -57,6 +58,8 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
+  source?: filter.Set<typeof sourceZ>;
+  racks?: rack.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -75,6 +78,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
+  /** source selects by source. */
+  source: filter.setZ(sourceZ).optional(),
+  /** racks matches the file secrets on any of the given racks. */
+  racks: zod.nullToUndefined(rack.keyZ.array()),
 });
 
 /**
@@ -102,6 +109,8 @@ export const fileSecretZ = baseZ.extend({
   source: z.literal("file"),
   /** fileName is the name of the file in the secrets folder of the rack. */
   fileName: z.string(),
+  /** rack is the rack that reads the file. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
 });
 export interface FileSecret extends z.infer<typeof fileSecretZ> {}
 

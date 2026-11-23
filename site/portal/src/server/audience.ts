@@ -10,7 +10,7 @@
 import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import { Resend } from "resend";
 
-import { type Directory } from "@/server/directory";
+import type { Directory } from "@/server/directory";
 
 /**
  * Audience is the release notes list. Resend keeps it, with the people added by hand

@@ -9,8 +9,8 @@
 
 import "@/feature/modbus/device/Option.css";
 
-import { type Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { Select } from "@synnaxlabs/lyra/select";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

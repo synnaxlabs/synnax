@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";

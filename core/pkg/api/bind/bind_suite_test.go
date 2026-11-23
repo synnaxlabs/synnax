@@ -18,6 +18,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -48,6 +49,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Owned:       apipanel.OwnedTables(),
 		OwnedPlaces: apipanel.OwnedPlaces(),
 		Mirrors:     channel.MirrorTables(),
+		Vouched:     apisecret.Vouched(svc.Certificate),
 	}))
 })
 

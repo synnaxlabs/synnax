@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { SCHEMAS } from "@/feature/kafka/device/types";

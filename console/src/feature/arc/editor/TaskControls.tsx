@@ -9,7 +9,7 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { type arc, type rack } from "@synnaxlabs/client";
+import type { arc, rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 

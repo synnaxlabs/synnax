@@ -12,8 +12,11 @@
 package bind
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -48,6 +51,11 @@ type ServiceConfig struct {
 	// nothing, since the change that it mirrors is checked. A write that changes
 	// mirror records and no other record fails.
 	Mirrors []string
+	// Vouched reports whether only a user can make a record on a rack use target, such
+	// as a secret, because the user who saves a record vouches for what it uses. A
+	// rack's write cannot add a use of one, or move a record that uses one onto a rack.
+	// tx holds the write. Nil vouches for no record.
+	Vouched func(ctx context.Context, tx gorp.Tx, target resource.ID) (bool, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -60,6 +68,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Owned = override.Slice(c.Owned, other.Owned)
 	c.OwnedPlaces = override.Slice(c.OwnedPlaces, other.OwnedPlaces)
 	c.Mirrors = override.Slice(c.Mirrors, other.Mirrors)
+	c.Vouched = override.Nil(c.Vouched, other.Vouched)
 	return c
 }
 
