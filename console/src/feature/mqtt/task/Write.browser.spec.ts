@@ -162,8 +162,9 @@ describe("MQTT Write form", () => {
     expect(screen.queryByText("JSON type")).toBeNull();
   });
 
-  it("should duplicate a plain target with its message and bindings", async () => {
+  it("should duplicate a plain target with its message and bindings, but no command channels", async () => {
     const plain = await createPlainTarget("t1", "plant/valve/set");
+    const [binding] = plain.message.bindings;
     const { draft } = await renderWrite([plain]);
     fireEvent.contextMenu(await screen.findByRole("option", { name: /plant\/valve/ }));
     expect(await screen.findByText("Duplicate")).toBeTruthy();
@@ -172,8 +173,12 @@ describe("MQTT Write form", () => {
     await waitFor(async () => {
       const targets = await retrieveTargets(draft.key);
       expect(targets).toMatchObject([
-        { key: "t1" },
-        { topic: plain.topic, icd: plain.icd, message: plain.message },
+        { key: "t1", message: plain.message },
+        {
+          topic: plain.topic,
+          icd: plain.icd,
+          message: { ...plain.message, bindings: [{ ...binding, channel: 0 }] },
+        },
       ]);
       expect(targets[1].key).not.toBe("t1");
     });
@@ -598,6 +603,80 @@ describe("MQTT Write form", () => {
         [`${topic}#${value.key}`]: keys[0],
         [`${topic}#${open.key}`]: keys[1],
       });
+    });
+
+    it("should replace the integer command channel of a field that gains a scale", async () => {
+      const message = icd.messageZ.parse({
+        name: "Command",
+        payload: {
+          format: "json",
+          fields: [{ name: "count", pointer: "/count", type: "integer" }],
+        },
+      });
+      if (message.payload.format !== "json") throw new Error("expected a JSON message");
+      const [count] = message.payload.fields;
+      const ic = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [message],
+      });
+      const dev = await createBroker(client);
+      const name = `${dev.name}_plant_valve_set_count_cmd`;
+      const index = await client.channels.create({
+        name: `${name}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const old = await client.channels.create({
+        name,
+        dataType: "int64",
+        index: index.key,
+      });
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          mqtt.plainWriteTargetZ.parse({
+            type: "plain",
+            key: "t1",
+            topic: "plant/valve/set",
+            icd: ic.key,
+            message: {
+              message: message.key,
+              bindings: [
+                {
+                  type: "channel",
+                  field: count.key,
+                  channel: old.key,
+                  dataType: "int64",
+                },
+              ],
+            },
+          }),
+        ]),
+      );
+      await client.icds.dispatch(
+        ic.key,
+        icd.set({
+          path: ["messages", message.key, "payload", "fields", count.key, "scale"],
+          value: 0.5,
+        }),
+      );
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        { client, taskKey: draft.key },
+      );
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      const [target] = created.config.targets;
+      if (target.type !== "plain") throw new Error("expected a plain target");
+      const [binding] = target.message.bindings;
+      if (binding.type !== "channel") throw new Error("expected a channel binding");
+      const ch = await client.channels.retrieve(binding.channel);
+      expect([ch.name, ch.dataType.toString()]).toEqual([name, "float64"]);
+      expect((await client.channels.retrieve(old.key)).name).toBe(`${name}_2`);
     });
 
     it("should deploy a plain target as it is stored", async () => {
