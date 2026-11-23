@@ -20,13 +20,15 @@ import { createHTTPDevice } from "@/feature/http/testutil";
 import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getLabeledInput } from "@/testutil";
+import { findDialogTriggerByText, findIconButton, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -416,6 +418,28 @@ describe("Read", () => {
     expect(toggle.checked).toBe(true);
   });
 
+  it("should tare a float field from its button while the task runs", async () => {
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("value")],
+    });
+    ep.messages[0].bindings[0].channel = float.key;
+    const dev = await createHTTPDevice(client);
+    const draft = await createDraft(client, createReadConfig(dev.key, [ep]));
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should open each endpoint of a saved task with the fields it reads", async () => {
     await renderWithDevice([
       await createEndpoint({
@@ -635,6 +659,52 @@ describe("Read", () => {
         { field: temperature.key, channel: 0, dataType: "" },
       ]),
     );
+  });
+
+  it("should keep the channel of the first endpoint that reads a path and message", async () => {
+    const temperature = createField("temperature");
+    const first = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const later: HTTP.Task.ReadEndpoint = {
+      ...http.readEndpointZ.parse({ key: "ep2", method: "POST", path: "/query" }),
+      icd: first.icd,
+      messages: [
+        icd.readMessageZ.parse({
+          message: first.messages[0].message,
+          bindings: [icd.readBindingZ.parse({ field: temperature.key })],
+        }),
+      ],
+    };
+    const { container, draft, dev } = await renderWithDevice([first, later]);
+    await screen.findAllByRole("treeitem", { name: /\/query/ });
+    const created = await deploy(container, draft.key);
+    const [kept, other] = created.config.endpoints.map(
+      ({ messages }) => messages[0].bindings[0].channel,
+    );
+    expect(kept).not.toBe(other);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(
+      properties.read[`/query#${first.messages[0].message}`].channels["/temperature"],
+    ).toBe(kept);
+    const channelOf = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings[0]?.channel;
+    const [item] = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(item);
+    const box = await within(item).findByRole<HTMLInputElement>("checkbox", {
+      name: "Read temperature",
+    });
+    await waitFor(() => expect(box.disabled).toBe(false));
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBeUndefined());
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBe(kept));
   });
 
   it("should not reuse a stored channel that the field does not convert to", async () => {
