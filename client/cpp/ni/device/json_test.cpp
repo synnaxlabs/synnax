@@ -89,9 +89,41 @@ TEST(Device, RoundTripsProto) {
     dev.analog_input.channels[3] = 4;
     dev.counter_input[2] = CounterInputChannels{.index = 8, .channel = 9};
     dev.digital_output[1].lines[255] = CommandStatePair{.command = 13, .state = 14};
+    dev.hardware = Hardware{
+        .analog_inputs = {AnalogInputPort{
+            .port = 1,
+            .terminal_configs = {TERMINAL_CONFIG_RSE, TERMINAL_CONFIG_DIFF},
+            .default_terminal_config = TERMINAL_CONFIG_DIFF,
+            .types = {"ai_voltage"},
+            .negative = 9,
+        }},
+        .analog_outputs = {AnalogOutputPort{
+            .port = 0,
+            .terminal_configs = {TERMINAL_CONFIG_RSE},
+            .types = {"ao_voltage"},
+        }},
+        .counter_inputs = {CounterPort{.port = 0, .types = {"ci_frequency"}}},
+        .counter_outputs = {CounterPort{.port = 1, .types = {"co_pulse"}}},
+        .digital_ports = {DigitalPort{.port = 0, .lines = 8, .input = true}},
+        .terminals = {"PFI0"},
+        .ai_min_rate = x::telem::Rate(1.0),
+        .ai_max_single_channel_rate = x::telem::Rate(250000.0),
+        .ai_max_multi_channel_rate = x::telem::Rate(250000.0),
+        .ao_max_rate = x::telem::Rate(1000.0),
+        .ai_voltage_ranges = {x::spatial::Bounds{.lower = -10, .upper = 10}},
+        .ai_current_ranges = {x::spatial::Bounds{.lower = -0.02, .upper = 0.02}},
+        .ao_voltage_ranges = {x::spatial::Bounds{.lower = -10, .upper = 10}},
+    };
     const auto pb = ASSERT_NIL_P(dev.to_proto());
     const auto parsed = ASSERT_NIL_P(Device::from_proto(pb));
     ASSERT_EQ(parsed.to_json(), dev.to_json());
+}
+
+/// @brief it should reject an unknown terminal configuration.
+TEST(AnalogInputPort, RejectsUnknownTerminalConfigToProto) {
+    const AnalogInputPort port{.port = 0, .default_terminal_config = "Bogus"};
+    const auto [pb, err] = port.to_proto();
+    ASSERT_TRUE(err) << err;
 }
 
 /// @brief it should reject a line number that does not fit in a byte.

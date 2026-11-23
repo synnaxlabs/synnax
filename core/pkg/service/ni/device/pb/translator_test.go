@@ -20,9 +20,47 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+func newHardware() *device.Hardware {
+	return &device.Hardware{
+		AnalogInputs: []device.AnalogInputPort{{
+			Port: 1,
+			TerminalConfigs: []device.TerminalConfig{
+				device.TerminalConfigRse,
+				device.TerminalConfigDiff,
+			},
+			DefaultTerminalConfig: device.TerminalConfigDiff,
+			Types:                 []string{"ai_voltage"},
+			Negative:              9,
+		}},
+		AnalogOutputs: []device.AnalogOutputPort{{
+			Port:            0,
+			TerminalConfigs: []device.TerminalConfig{device.TerminalConfigRse},
+			Types:           []string{"ao_voltage"},
+		}},
+		CounterInputs: []device.CounterPort{
+			{Port: 0, Types: []string{"ci_frequency"}},
+		},
+		CounterOutputs: []device.CounterPort{
+			{Port: 1, Types: []string{"co_pulse"}},
+		},
+		DigitalPorts:           []device.DigitalPort{{Port: 0, Lines: 8, Input: true}},
+		Terminals:              []string{"PFI0"},
+		AiMinRate:              1,
+		AiMaxSingleChannelRate: 250 * telem.Kilohertz,
+		AiMaxMultiChannelRate:  250 * telem.Kilohertz,
+		AoMaxRate:              telem.Kilohertz,
+		AiVoltageRanges:        []spatial.Bounds{{Lower: -10, Upper: 10}},
+		AiCurrentRanges:        []spatial.Bounds{{Lower: -0.02, Upper: 0.02}},
+		AoVoltageRanges:        []spatial.Bounds{{Lower: -10, Upper: 10}},
+		AoCurrentRanges:        []spatial.Bounds{},
+	}
+}
 
 var _ = Describe("Translator", func() {
 	It("Should round trip a device with its port maps and status", func() {
@@ -36,6 +74,7 @@ var _ = Describe("Translator", func() {
 			ResourceName: "{GUID}",
 			Model:        "NI 9205",
 			Chassis:      &chassisKey,
+			Hardware:     newHardware(),
 			Identifier:   "mod1",
 			AnalogInput: device.AnalogInputPorts{
 				Index:       1,
@@ -88,6 +127,12 @@ var _ = Describe("Translator", func() {
 			To(MatchError(validate.ErrValidation))
 	})
 
+	It("Should reject an unknown terminal configuration", func() {
+		hw := newHardware()
+		hw.AnalogInputs[0].DefaultTerminalConfig = "Bogus"
+		Expect(pb.HardwareToPB(*hw)).Error().To(HaveOccurred())
+	})
+
 	DescribeTable("Should round trip an update", func(u device.Update) {
 		translated := MustSucceed(pb.UpdateToPB(u))
 		Expect(pb.UpdateFromPB(translated)).To(Equal(u))
@@ -98,6 +143,7 @@ var _ = Describe("Translator", func() {
 				Serial:       "01A",
 				ResourceName: "{GUID}",
 				Model:        "NI 9205",
+				Hardware:     newHardware(),
 			},
 		}}),
 		Entry("of the configuration group", device.Update{
