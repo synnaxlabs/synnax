@@ -11,6 +11,7 @@ package server_test
 
 import (
 	"context"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -201,6 +202,44 @@ var _ = Describe("Service", func() {
 					{Node: "NSU=urn:plc;S=Temp", Index: 1, Channel: 3},
 				}
 			}),
+			Entry("an IPv6 host that is not an address", func(s *server.Server) {
+				s.Connection.Endpoint = "opc.tcp://[:::]:4840"
+			}),
+			Entry("a field path with an empty name", func(s *server.Server) {
+				s.Reads = []server.Read{
+					{Node: "nsu=urn:plc;s=Temp", Field: "a..b", Index: 1, Channel: 2},
+				}
+			}),
+			Entry("a field path that ends in an escape", func(s *server.Server) {
+				s.Reads = []server.Read{
+					{Node: "nsu=urn:plc;s=Temp", Field: "a&", Index: 1, Channel: 2},
+				}
+			}),
+			Entry("a read whose index is its channel", func(s *server.Server) {
+				s.Reads = []server.Read{
+					{Node: "nsu=urn:plc;s=Temp", Index: 2, Channel: 2},
+				}
+			}),
+			Entry("two reads into one channel", func(s *server.Server) {
+				s.Reads = []server.Read{
+					{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 2},
+					{Node: "nsu=urn:plc;s=Flow", Index: 1, Channel: 2},
+				}
+			}),
+			Entry("two writes from one channel", func(s *server.Server) {
+				s.Writes = []server.Write{
+					{Node: "nsu=urn:plc;s=Valve", Channel: 2},
+					{Node: "nsu=urn:plc;s=Pump", Channel: 2},
+				}
+			}),
+			Entry("a string identifier over 4096 bytes", func(s *server.Server) {
+				s.Writes = []server.Write{
+					{Node: "nsu=urn:plc;s=" + strings.Repeat("a", 4097), Channel: 2},
+				}
+			}),
+			Entry("a namespace URI with a space", func(s *server.Server) {
+				s.Writes = []server.Write{{Node: "nsu=urn:my plc;s=Valve", Channel: 2}}
+			}),
 			Entry("two writes to one node", func(s *server.Server) {
 				s.Writes = []server.Write{
 					{Node: "i=85", Channel: 2},
@@ -236,6 +275,30 @@ var _ = Describe("Service", func() {
 			Expect(got.Writes[0].Node).
 				To(Equal("g=0e4b8f4c-6d2e-4b5a-9a63-2f9d8c7b1a00"))
 		})
+
+		It(
+			"Should store escaped field paths, a long string node, and an IPv6 host",
+			func(
+				ctx SpecContext,
+			) {
+				s := newServer()
+				s.Connection.Endpoint = "opc.tcp://[fe80::1]:4840"
+				s.Reads = []server.Read{
+					{
+						Node:    "nsu=urn:plc;s=Temp",
+						Field:   "a&.b.c&&",
+						Index:   1,
+						Channel: 2,
+					},
+					{
+						Node:    "nsu=urn:plc;s=" + strings.Repeat("a", 4096),
+						Index:   1,
+						Channel: 3,
+					},
+				}
+				Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			},
+		)
 
 		It("Should store a server that signs and logs in with a password", func(
 			ctx SpecContext,

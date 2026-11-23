@@ -44,7 +44,8 @@ Auth union on type {
     }
     username {
         username string      {
-            @doc value "is the user name to log in with."
+            @doc value   "is the user name to log in with."
+            @go validate pattern "[^[:space:]]" "User name must contain a character that is not a space"
         }
         password secret.Key? {
             @doc value "is the secret that holds the password. Absent for no password."
@@ -125,7 +126,7 @@ Security union on mode {
 Connection struct {
     endpoint                string         {
         @doc value   "is the endpoint URL of the server."
-        @go validate pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host and an optional port and path"
+        @go validate pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host, an optional port from 1 to 65535, and an optional path"
     }
     auth                    Auth = anonymous {
         @doc value "is how the Driver logs in."
@@ -134,7 +135,8 @@ Connection struct {
         @doc value "is the message security of the connection."
     }
     client_timeout          telem.TimeSpan = 5000000000 {
-        @doc value "is the timeout of each request and connection attempt."
+        @doc value   "is the timeout of each request and connection attempt."
+        @go validate lt session_timeout "Client timeout must be less than the session timeout"
     }
     secure_channel_lifetime telem.TimeSpan = 600000000000 {
         @doc value "is the lifetime of the secure channel."
@@ -213,7 +215,8 @@ Server struct {
         @doc value "is the key of the rack whose Driver connects to the server."
     }
     name       string     {
-        @doc value "is a human-readable name for the server."
+        @doc value   "is a human-readable name for the server."
+        @go validate pattern "[^[:space:]]" "Name must contain a character that is not a space"
     }
     connection Connection {
         @doc value "holds the settings that the Driver connects with."

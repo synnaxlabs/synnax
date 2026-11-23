@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
@@ -22,6 +23,9 @@ import (
 
 // coreNamespace is the URI of namespace 0, whose node IDs carry no namespace.
 const coreNamespace = "http://opcfoundation.org/UA/"
+
+// maxStringIdentifier is the longest string identifier, in bytes, that OPC UA allows.
+const maxStringIdentifier = 4096
 
 // normalizeNode returns id in the form the Driver writes: nsu=<uri>;<type>=<identifier>
 // with ';' and '%' in the URI percent-encoded, or <type>=<identifier> alone in
@@ -57,7 +61,8 @@ func splitNamespace(id string) (namespace, body string, err error) {
 			return "", "", errors.New("no identifier after the namespace URI")
 		}
 		decoded, err := url.PathUnescape(uri)
-		if err != nil || decoded == "" {
+		if err != nil || decoded == "" ||
+			strings.ContainsFunc(decoded, unicode.IsSpace) {
 			return "", "", errors.New("malformed namespace URI")
 		}
 		return decoded, rest, nil
@@ -92,6 +97,9 @@ func normalizeIdentifier(body string) (string, error) {
 		}
 		return "i=" + strconv.FormatUint(n, 10), nil
 	case 's', 'S':
+		if len(identifier) > maxStringIdentifier {
+			return "", errors.New("the string identifier is longer than 4096 bytes")
+		}
 		return "s=" + identifier, nil
 	case 'g', 'G':
 		g, err := uuid.Parse(identifier)

@@ -133,7 +133,7 @@ inline x::json::json StatusDetails::to_json() const {
 inline Server Server::parse(x::json::Parser parser) {
     return Server{
         .key = parser.field<Key>("key", x::uuid::create()),
-        .rack = parser.field<::synnax::rack::Key>("rack"),
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
         .connection = parser.field<Connection>("connection"),
         .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
@@ -282,7 +282,9 @@ inline x::json::json UsernameAuth::to_json() const {
 
 inline CertificateAuth CertificateAuth::parse(x::json::Parser parser) {
     CertificateAuth result;
-    result.certificate = parser.field<::synnax::certificate::Key>("certificate");
+    result.certificate = parser.required_field<::synnax::certificate::Key>(
+        "certificate"
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -308,7 +310,9 @@ inline x::json::json FirstUseServerTrust::to_json() const {
 
 inline PinnedServerTrust PinnedServerTrust::parse(x::json::Parser parser) {
     PinnedServerTrust result;
-    result.certificate = parser.field<::synnax::certificate::Key>("certificate");
+    result.certificate = parser.required_field<::synnax::certificate::Key>(
+        "certificate"
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }

@@ -51,6 +51,7 @@ Auth union on type {
     username {
         username string      {
             @doc value         "is the user name to log in with."
+            @go validate       pattern "[^[:space:]]" "User name must contain a character that is not a space"
             @validate required
         }
         password secret.Key? {
@@ -61,10 +62,11 @@ Auth union on type {
     }
     certificate {
         certificate certificate.Key {
-            @doc value """
+            @doc value         """
                 is the user certificate to log in with. It holds a private key and is
                 not the certificate that secures the channel.
             """
+            @validate required
         }
 
         @doc value "logs in with a user certificate."
@@ -83,7 +85,8 @@ ServerTrust union on type {
     }
     pinned {
         certificate certificate.Key {
-            @doc value "is the only server certificate that the Driver trusts."
+            @doc value         "is the only server certificate that the Driver trusts."
+            @validate required
         }
 
         @doc value "trusts one stored server certificate."
@@ -132,7 +135,7 @@ Security union on mode {
 Connection struct {
     endpoint                string         {
         @doc value         "is the endpoint URL of the server."
-        @go validate       pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host and an optional port and path"
+        @go validate       pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host, an optional port from 1 to 65535, and an optional path"
         @validate required
     }
     auth                    Auth = anonymous {
@@ -143,6 +146,7 @@ Connection struct {
     }
     client_timeout          telem.TimeSpan = 5000000000 {
         @doc value    "is the timeout of each request and connection attempt."
+        @go validate  lt session_timeout "Client timeout must be less than the session timeout"
         @ts type      telem.NumericTimeSpan
         @validate min 100000000
     }
@@ -235,13 +239,15 @@ Server struct {
         @key
     }
     rack       rack.Key   {
-        @doc value     "is the key of the rack whose Driver connects to the server."
-        @ref kind      place
-        @ref on_delete restrict
+        @doc value         "is the key of the rack whose Driver connects to the server."
+        @ref kind          place
+        @ref on_delete     restrict
+        @validate required
     }
     name       string     {
         @doc value         "is a human-readable name for the server."
         @filter
+        @go validate       pattern "[^[:space:]]" "Name must contain a character that is not a space"
         @search
         @validate required
     }
@@ -276,6 +282,7 @@ Identity struct {
     }
     name       string     {
         @doc value         "is a human-readable name for the server."
+        @go validate       pattern "[^[:space:]]" "Name must contain a character that is not a space"
         @validate required
     }
     connection Connection {

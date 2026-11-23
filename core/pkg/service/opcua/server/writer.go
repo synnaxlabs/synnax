@@ -12,6 +12,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -35,22 +37,55 @@ type Writer struct {
 	certs    *certificate.Service
 }
 
-// prepare validates s, normalizes the node ID of each binding, and refuses a read on
-// the same node, field, and index as another read, or a write to the same node as
-// another write.
+// prepare validates s and normalizes the node ID of each binding. Beyond the schema
+// rules, it refuses an IPv6 endpoint host that does not parse, a malformed field path,
+// a read whose index is its own channel, two reads on one node, field, and index, two
+// reads into one channel, and two writes to one node or from one channel.
 func prepare(s *Server) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
+	v := validate.New("Server")
+	v.Ternary(
+		"connection.endpoint",
+		!validIPv6Host(s.Connection.Endpoint),
+		"has an IPv6 host that is not an IPv6 address",
+	)
+	prepareReads(v, s.Reads)
+	prepareWrites(v, s.Writes)
+	return v.Error()
+}
+
+// validIPv6Host reports false when endpoint has a bracketed host that is not an IPv6
+// address.
+func validIPv6Host(endpoint string) bool {
+	rest, ok := strings.CutPrefix(endpoint, "opc.tcp://[")
+	if !ok {
+		return true
+	}
+	host, _, ok := strings.Cut(rest, "]")
+	ip := net.ParseIP(host)
+	return ok && ip != nil && ip.To4() == nil
+}
+
+func prepareReads(v *validate.Validator, reads []Read) {
 	type readKey struct {
 		node, field string
 		index       channel.Key
 	}
-	v := validate.New("Server")
-	reads := make(set.Set[readKey], len(s.Reads))
-	for i := range s.Reads {
-		r := &s.Reads[i]
+	keys := make(set.Set[readKey], len(reads))
+	channels := make(set.Set[channel.Key], len(reads))
+	for i := range reads {
+		r := &reads[i]
 		path := fmt.Sprintf("reads.%d", i)
+		v.Ternary(path+".field", !validFieldPath(r.Field), "is not a valid field path")
+		v.Ternary(path+".index", r.Index == r.Channel, "must differ from the channel")
+		v.Ternary(
+			path+".channel",
+			channels.Contains(r.Channel),
+			"duplicates the channel of another read",
+		)
+		channels.Add(r.Channel)
 		node, err := normalizeNode(r.Node)
 		if err != nil {
 			v.Exec(func() error { return validate.PathedError(err, path+".node") })
@@ -58,23 +93,59 @@ func prepare(s *Server) error {
 		}
 		r.Node = node
 		k := readKey{node: node, field: r.Field, index: r.Index}
-		v.Ternaryf(path, reads.Contains(k), "duplicates the read of %s", node)
-		reads.Add(k)
+		v.Ternaryf(path, keys.Contains(k), "duplicates the read of %s", node)
+		keys.Add(k)
 	}
-	writes := make(set.Set[string], len(s.Writes))
-	for i := range s.Writes {
-		w := &s.Writes[i]
+}
+
+func prepareWrites(v *validate.Validator, writes []Write) {
+	nodes := make(set.Set[string], len(writes))
+	channels := make(set.Set[channel.Key], len(writes))
+	for i := range writes {
+		w := &writes[i]
 		path := fmt.Sprintf("writes.%d", i)
+		v.Ternary(
+			path+".channel",
+			channels.Contains(w.Channel),
+			"duplicates the channel of another write",
+		)
+		channels.Add(w.Channel)
 		node, err := normalizeNode(w.Node)
 		if err != nil {
 			v.Exec(func() error { return validate.PathedError(err, path+".node") })
 			continue
 		}
 		w.Node = node
-		v.Ternaryf(path, writes.Contains(node), "duplicates the write to %s", node)
-		writes.Add(node)
+		v.Ternaryf(path, nodes.Contains(node), "duplicates the write to %s", node)
+		nodes.Add(node)
 	}
-	return v.Error()
+}
+
+// validFieldPath reports whether field is empty or is names joined by '.', where each
+// name is not empty and '&' escapes the next character.
+func validFieldPath(field string) bool {
+	if field == "" {
+		return true
+	}
+	empty := true
+	for i := 0; i < len(field); i++ {
+		switch field[i] {
+		case '&':
+			if i == len(field)-1 {
+				return false
+			}
+			i++
+			empty = false
+		case '.':
+			if empty {
+				return false
+			}
+			empty = true
+		default:
+			empty = false
+		}
+	}
+	return !empty
 }
 
 // checkPrivateKeys refuses a login certificate or a client certificate that has no

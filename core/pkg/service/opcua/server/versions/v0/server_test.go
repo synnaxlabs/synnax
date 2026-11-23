@@ -85,9 +85,13 @@ var _ = Describe("Server", func() {
 		Entry("with a user name login", func(s *v0.Server) {
 			s.Connection.Auth = v0.Auth{Variant: v0.UsernameAuth{Username: "op"}}
 		}),
+		Entry("with the highest port", func(s *v0.Server) {
+			s.Connection.Endpoint = "opc.tcp://plc:65535"
+		}),
 	)
 
-	DescribeTable("Should reject an invalid server",
+	DescribeTable(
+		"Should reject an invalid server",
 		func(change func(*v0.Server), message string) {
 			s := server()
 			change(&s)
@@ -142,6 +146,52 @@ var _ = Describe("Server", func() {
 				}
 			},
 			"policy",
+		),
+		Entry(
+			"a name of only spaces",
+			func(s *v0.Server) { s.Name = "  " },
+			"Name must",
+		),
+		Entry("no rack", func(s *v0.Server) { s.Rack = 0 }, "rack"),
+		Entry(
+			"port 0",
+			func(s *v0.Server) { s.Connection.Endpoint = "opc.tcp://plc:0" },
+			"65535",
+		),
+		Entry(
+			"a port above 65535",
+			func(s *v0.Server) { s.Connection.Endpoint = "opc.tcp://plc:65536" },
+			"65535",
+		),
+		Entry(
+			"a request timeout as long as the session timeout",
+			func(s *v0.Server) { s.Connection.ClientTimeout = s.Connection.SessionTimeout },
+			"session timeout",
+		),
+		Entry(
+			"a user name of only spaces",
+			func(s *v0.Server) {
+				s.Connection.Auth = v0.Auth{Variant: v0.UsernameAuth{Username: " "}}
+			},
+			"User name must",
+		),
+		Entry(
+			"a certificate login without a certificate",
+			func(s *v0.Server) {
+				s.Connection.Auth = v0.Auth{Variant: v0.CertificateAuth{}}
+			},
+			"certificate",
+		),
+		Entry(
+			"a pinned trust without a certificate",
+			func(s *v0.Server) {
+				c := secured()
+				c.ServerTrust = v0.ServerTrust{Variant: v0.PinnedServerTrust{}}
+				s.Connection.Security = v0.Security{
+					Variant: v0.SignSecurity{SecuredChannel: c},
+				}
+			},
+			"certificate",
 		),
 		Entry(
 			"a read without a node",
