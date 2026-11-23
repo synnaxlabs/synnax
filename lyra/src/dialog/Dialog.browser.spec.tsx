@@ -36,7 +36,7 @@ import { Input } from "@/input";
 import { List } from "@/list";
 import { Menu } from "@/menu";
 import { Portal } from "@/portal";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
@@ -205,21 +205,21 @@ const VirtualList = (): ReactElement => (
   </Triggers.Provider>
 );
 
-/** @returns whether each dialog added to the page was shown before it was painted. */
-const watchDialogMounts = (): boolean[] => {
-  const shown: boolean[] = [];
+/** @returns a snapshot of each dialog added to the page, taken before it is painted. */
+const watchDialogMounts = <T,>(snapshot: (dialog: Element) => T): T[] => {
+  const snapshots: T[] = [];
   const observer = new MutationObserver((records) => {
     for (const { addedNodes } of records)
       for (const node of addedNodes) {
         if (!(node instanceof Element)) continue;
         const dialog =
           node.closest('[role="dialog"]') ?? node.querySelector('[role="dialog"]');
-        if (dialog != null) shown.push(dialog.classList.contains(CSS.visible(true)));
+        if (dialog != null) snapshots.push(snapshot(dialog));
       }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   onTestFinished(() => observer.disconnect());
-  return shown;
+  return snapshots;
 };
 
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
@@ -429,6 +429,14 @@ describe("Dialog", () => {
       expect(dialog.matches(":popover-open")).toBe(true);
     });
 
+    it("should start its entrance animation only once it is placed", async () => {
+      const animations = watchDialogMounts((d) =>
+        withMotion(() => computed(d, "animation-name")),
+      );
+      await openDialog("floating");
+      expect(animations).toEqual(["none"]);
+    });
+
     it("should open beside its trigger without covering it", async () => {
       const { trigger, dialog } = await openDialog("floating");
       const t = trigger.getBoundingClientRect();
@@ -459,7 +467,7 @@ describe("Dialog", () => {
       await userEvent.click(button("Menu"));
       await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
       await userEvent.click(button("Grow"));
-      const shown = watchDialogMounts();
+      const shown = watchDialogMounts((d) => d.classList.contains(CSS.visible(true)));
       await userEvent.click(button("A much longer menu"));
       const dialog = page.getByRole("dialog").element();
       await expect.poll(() => computed(dialog, "opacity")).toBe("1");
