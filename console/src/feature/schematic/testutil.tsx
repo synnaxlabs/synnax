@@ -205,7 +205,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
 
 /**
  * Finds the action button inside the symbol-edit sidebar section header with the
- * given title (e.g. the add button of the "Colors" or "Handles" section).
+ * given title (e.g. the add button of the "Parts" or "Handles" section).
  */
 export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => {
   const header = screen.getByText(title).closest("header");
