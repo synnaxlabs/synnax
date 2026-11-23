@@ -22,7 +22,6 @@ import type { destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
-import { Task } from "@/platform/task";
 
 /** A JSON message of an ICD, as one option of the field. */
 interface Choice extends record.KeyedNamed<string> {
@@ -50,12 +49,14 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
 const choiceRenderProp = Component.renderProp(ChoiceItem);
 
 export interface MessageFormatFieldProps {
-  /** The ICD of the picked message. */
-  icdKey: icd.Key;
-  /** The key of the picked message. */
-  message: icd.MessageKey;
+  /** The ICD of the picked message. Absent before a pick. */
+  icdKey?: icd.Key;
+  /** The key of the picked message. Absent before a pick. */
+  message?: icd.MessageKey;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
   disabled?: boolean;
+  /** Shows the pick read only. */
+  preview?: boolean;
 }
 
 /**
@@ -68,8 +69,8 @@ export const MessageFormatField = ({
   message,
   onChange,
   disabled = false,
+  preview = false,
 }: MessageFormatFieldProps): ReactElement => {
-  const isPreview = Task.useIsPreview();
   const icds = PICD.useList();
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
@@ -132,7 +133,7 @@ export const MessageFormatField = ({
       <Flex.Box x align="center" gap="small">
         <Select.Single<string, Choice>
           resourceName="message format"
-          value={choiceKey(icdKey, message)}
+          value={icdKey == null || message == null ? "" : choiceKey(icdKey, message)}
           onChange={handleChange}
           data={data}
           getItem={getItem}
@@ -141,12 +142,14 @@ export const MessageFormatField = ({
           onSearch={handleSearch}
           status={icds.status}
           allowNone={false}
-          preview={isPreview}
+          preview={preview}
           disabled={disabled}
         >
           {choiceRenderProp}
         </Select.Single>
-        <OpenInEditor icdKey={icdKey} message={message} />
+        {icdKey != null && message != null && (
+          <OpenInEditor icdKey={icdKey} message={message} />
+        )}
       </Flex.Box>
     </Input.Item>
   );

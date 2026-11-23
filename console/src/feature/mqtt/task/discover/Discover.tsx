@@ -9,6 +9,7 @@
 
 import "@/feature/mqtt/task/discover/Discover.css";
 
+import type { icd } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -27,14 +28,22 @@ import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
 
+/** A message of an ICD. */
+export interface Format {
+  icd: icd.Key;
+  message: icd.Message;
+}
+
 /** The values picked from topics and the tags picked from edge nodes. */
 export interface Picks {
   topics: TopicPicks;
   tags: TagPicks;
+  /** The message that each entry from a topic sends, when the kind picks one. */
+  format: Format | null;
 }
 
 /** What a dialog adds to a task: the entries of a read or the targets of a write. */
-export interface Kind<E extends HeldEntry> {
+export interface Kind<E> {
   /** Names the dialog. */
   title: string;
   /** Says what a picked value of a topic becomes, under the title of each pane. */
@@ -47,37 +56,39 @@ export interface Kind<E extends HeldEntry> {
   tagNoun?: string;
   /** Each topic takes one value, and a topic that the task holds takes none. */
   single?: boolean;
+  /**
+   * Each entry from a topic sends one message, which the dialog picks under the topics.
+   * Nothing adds from a topic until it is picked.
+   */
+  formatRequired?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
-  create: (picks: Picks, entries: E[]) => E[];
+  create: (picks: Picks, entries: HeldEntry[]) => E[];
   /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
-  createTopic?: (topic: string) => E;
+  createTopic?: (topic: string, picks: Picks) => E;
   /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
   createTag?: () => E;
 }
 
-export interface Params<E extends HeldEntry> {
+export interface Params {
   device: Device.Device;
   /** What the task holds now. */
-  entries: E[];
+  entries: HeldEntry[];
 }
 
-export type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & {
+export type DiscoverProps<E> = Modals.ContentProps<Params, E[]> & {
   kind: Kind<E>;
 };
 
-export const Discover = <E extends HeldEntry>({
-  device,
-  entries,
-  close,
-  kind,
-}: DiscoverProps<E>) => {
+export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>) => {
   const { createTopic, createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
   const [mode, setMode] = useState<Mode>(createTopic == null ? "sparkplug" : "topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
+  const [format, setFormat] = useState<Format | null>(null);
+  const picks: Picks = { topics: topicPicks, tags: tagPicks, format };
+  const needsFormat = kind.formatRequired === true && format == null;
 
-  const picked = (): E[] =>
-    kind.create({ topics: topicPicks, tags: tagPicks }, entries);
+  const picked = (): E[] => kind.create(picks, entries);
 
   const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
   const parts: string[] = [];
@@ -107,7 +118,8 @@ export const Discover = <E extends HeldEntry>({
             single={kind.single}
             value={topicPicks}
             onChange={setTopicPicks}
-            onAddByName={(topic) => close([...picked(), createTopic(topic)])}
+            onAddByName={(topic) => close([...picked(), createTopic(topic, picks)])}
+            addByNameDisabled={needsFormat}
           />
         </ICD.Picker.Frame>
       )}
@@ -128,9 +140,17 @@ export const Discover = <E extends HeldEntry>({
           [tagNoun, tagPicks.size],
         ]}
         idle={mode === "sparkplug" ? tagNoun : noun}
+        disabled={needsFormat && values > 0}
         onAdd={() => close(picked())}
         onCancel={() => close()}
       >
+        {kind.formatRequired === true && mode === "topics" && (
+          <ICD.MessageFormatField
+            icdKey={format?.icd}
+            message={format?.message.key}
+            onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
+          />
+        )}
         {summary != null && (
           <Text.Text level="small" color={10}>
             {summary}

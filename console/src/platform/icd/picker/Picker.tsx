@@ -170,7 +170,7 @@ export const SideList = ({ children }: PropsWithChildren): ReactElement => (
 
 export interface SideActionProps extends Pick<
   Button.ButtonProps,
-  "onClick" | "children"
+  "onClick" | "children" | "disabled" | "tooltip"
 > {}
 
 /** A button at the foot of a {@link Side} that adds what its list does not hold. */
@@ -218,6 +218,8 @@ export interface FooterProps extends PropsWithChildren {
   counts: [noun: string, count: number][];
   /** Names what the add button adds while nothing is picked. */
   idle: string;
+  /** Turns the add button off while a pick still needs a choice. */
+  disabled?: boolean;
   onAdd: () => void;
   onCancel: () => void;
 }
@@ -226,6 +228,7 @@ export interface FooterProps extends PropsWithChildren {
 export const Footer = ({
   counts,
   idle,
+  disabled = false,
   onAdd,
   onCancel,
   children,
@@ -238,7 +241,7 @@ export const Footer = ({
       </Button.Button>
       <Button.Button
         variant="filled"
-        disabled={counts.every(([, count]) => count === 0)}
+        disabled={disabled || counts.every(([, count]) => count === 0)}
         onClick={onAdd}
       >
         {addLabel(counts, idle)}

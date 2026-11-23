@@ -270,7 +270,7 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
-interface MessageStatusProps {
+export interface MessageStatusProps {
   /** The message in the ICD, or null when the ICD has no message with its key. */
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
@@ -280,7 +280,7 @@ interface MessageStatusProps {
 }
 
 /** Warns when the ICD has no such message, or when the message is not JSON. */
-const MessageStatus = ({
+export const MessageStatus = ({
   message,
   missingDescription,
   actions,

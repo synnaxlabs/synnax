@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { icd } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
+import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 /**
@@ -45,3 +48,10 @@ export const pickMessageFormat = async (
     fireEvent.click(match);
   });
 };
+
+/** @returns the messages that the editor of the ICD selects in the store. */
+export const selectedIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): icd.MessageKey[] | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;

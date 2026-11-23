@@ -280,6 +280,8 @@ export interface TopicPickerProps {
   value: TopicPicks;
   onChange: (value: TopicPicks) => void;
   onAddByName: (topic: string) => void;
+  /** Adding a topic by name waits on a choice outside the picker. */
+  addByNameDisabled?: boolean;
 }
 
 /** Lists the JSON topics the broker publishes, and the fields of the one selected. */
@@ -290,6 +292,7 @@ export const TopicPicker = ({
   value,
   onChange,
   onAddByName,
+  addByNameDisabled = false,
 }: TopicPickerProps) => {
   const [term, setTerm] = useState("");
   const [scope, setScope] = useState("");
@@ -424,7 +427,11 @@ export const TopicPicker = ({
             </Flex.Box>
           </Flex.Box>
         )}
-        <ICD.Picker.SideAction onClick={() => onAddByName(trimmed)}>
+        <ICD.Picker.SideAction
+          onClick={() => onAddByName(trimmed)}
+          disabled={addByNameDisabled}
+          tooltip={addByNameDisabled ? "Pick a message format first" : undefined}
+        >
           {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
         </ICD.Picker.SideAction>
       </ICD.Picker.Side>

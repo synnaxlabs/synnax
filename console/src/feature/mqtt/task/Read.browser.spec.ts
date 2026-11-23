@@ -21,7 +21,11 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
-import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  searchMessageFormats,
+  selectedIn,
+} from "@/platform/icd/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
@@ -30,8 +34,6 @@ import {
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
-import { Session } from "@/session";
-import { documentIn } from "@/session/window/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
@@ -195,9 +197,6 @@ const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
 
 const NOT_JSON_NOTE =
   "The format of this message is not JSON. Open it in the editor to change its format.";
-
-const selectedIn = (store: { getState: () => Session.State }, key: icd.Key) =>
-  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
 
 /** Gives a field of the entry's message a new kind, in the ICD. */
 const retype = async (
