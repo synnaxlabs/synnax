@@ -237,7 +237,7 @@ class SpinMotion(BaseModel):
     """Turns a part around its pivot."""
 
     type: Literal["spin"] = "spin"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
@@ -245,7 +245,7 @@ class FlowMotion(BaseModel):
     """Moves the dashes of a stroke along it."""
 
     type: Literal["flow"] = "flow"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
@@ -337,6 +337,34 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class BuiltinRef(BaseModel):
+    """Is a symbol that the Core ships."""
+
+    type: Literal["builtin"] = "builtin"
+    name: str
+
+
+class CustomRef(BaseModel):
+    """Is a symbol that a user made."""
+
+    type: Literal["custom"] = "custom"
+    key: Key
+
+
+class MissingRef(BaseModel):
+    """Is a custom symbol that the Core does not have."""
+
+    type: Literal["missing"] = "missing"
+    key: str
+
+
+# Is the symbol that a node draws.
+Ref = Annotated[
+    BuiltinRef | CustomRef | MissingRef,
+    Field(discriminator="type"),
+]
+
+
 class StateOverride(BaseModel):
     """Is a node's replacement for the region colors of one value that it draws.
 
@@ -417,7 +445,7 @@ class Command(BaseModel):
 
 class Look(BaseModel):
     """Is paint, visibility, or motion on a part. A later look wins on each field that
-    it sets.
+    it sets. On motion, it replaces only an earlier motion of the same kind.
 
     Attributes:
         key: Is the look identifier.

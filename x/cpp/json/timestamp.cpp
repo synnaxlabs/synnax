@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
+#include <charconv>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -128,6 +130,23 @@ int nanos_exponent(const TimeFormat format) {
     return 0;
 }
 
+/// @brief appends v to out in decimal, with leading zeros up to width digits.
+void append_digits(std::string &out, const std::int64_t v, const int width = 0) {
+    std::array<char, 24> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
+    if (const auto n = static_cast<int>(res.ptr - buf.data()); n < width)
+        out.append(static_cast<std::size_t>(width - n), '0');
+    out.append(buf.data(), res.ptr);
+}
+
+/// @brief appends frac, a nonzero fraction of digits decimal places, to out with no
+/// trailing zeros.
+void append_fraction(std::string &out, std::int64_t frac, int digits) {
+    for (; frac % 10 == 0; digits--)
+        frac /= 10;
+    append_digits(out, frac, digits);
+}
+
 std::string format_name(const TimeFormat format) {
     switch (format) {
         case TimeFormat::UnixSecond:
@@ -190,5 +209,52 @@ parse_unix(const std::string_view text, const TimeFormat format) {
             errors::NIL
         };
     return {telem::TimeStamp(static_cast<std::int64_t>(d->magnitude)), errors::NIL};
+}
+
+void append_timestamp(
+    const telem::TimeStamp ts,
+    const TimeFormat format,
+    std::string &out
+) {
+    const std::int64_t ns = ts.nanoseconds();
+    if (format == TimeFormat::ISO8601) {
+        const auto c = date::civil_from_nanoseconds(ns);
+        out += '"';
+        append_digits(out, c.year, 4);
+        out += '-';
+        append_digits(out, c.month, 2);
+        out += '-';
+        append_digits(out, c.day, 2);
+        out += 'T';
+        append_digits(out, c.hour, 2);
+        out += ':';
+        append_digits(out, c.minute, 2);
+        out += ':';
+        append_digits(out, c.second, 2);
+        if (c.nanosecond != 0) {
+            out += '.';
+            append_fraction(out, c.nanosecond, 9);
+        }
+        out += "Z\"";
+        return;
+    }
+    const int digits = nanos_exponent(format);
+    std::int64_t unit = 1;
+    for (int e = 0; e < digits; e++)
+        unit *= 10;
+    std::int64_t whole = ns / unit;
+    std::int64_t frac = ns % unit;
+    if (frac == 0) {
+        append_digits(out, whole);
+        return;
+    }
+    if (frac < 0) {
+        out += '-';
+        whole = -whole;
+        frac = -frac;
+    }
+    append_digits(out, whole);
+    out += '.';
+    append_fraction(out, frac, digits);
 }
 }

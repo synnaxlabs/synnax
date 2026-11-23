@@ -34,8 +34,8 @@ public:
         std::vector<std::int64_t> values;
     };
 
-    /// @brief Mux is a field that selects which other fields a frame holds.
-    struct Mux {
+    /// @brief Entry is a field that selects which other fields a frame holds.
+    struct Entry {
         synnax::icd::FieldKey key;
         std::string name;
         BitRange bits;
@@ -60,13 +60,13 @@ public:
     selected(const Condition &c, std::span<const std::int64_t> raw) const;
 
     /// @brief returns the multiplexors, each after the multiplexor that selects it.
-    [[nodiscard]] const std::vector<Mux> &all() const { return this->muxes; }
+    [[nodiscard]] const std::vector<Entry> &all() const { return this->muxes; }
 
     /// @brief returns the number of payload bytes that the multiplexors need.
     [[nodiscard]] std::size_t end() const { return this->end_byte; }
 
 private:
-    std::vector<Mux> muxes;
+    std::vector<Entry> muxes;
     std::size_t end_byte = 0;
 
     /// @param depth is the number of multiplexors below f in its chain.

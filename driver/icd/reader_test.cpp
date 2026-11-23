@@ -10,9 +10,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,10 +33,7 @@ namespace driver::icd {
 namespace {
 const x::telem::TimeStamp RECEIVED(1000);
 
-/// @brief returns the bytes of text.
-std::span<const std::uint8_t> bytes(const std::string_view text) {
-    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
-}
+using x::testutil::bytes;
 
 /// @brief returns a channel of dt with key that index indexes.
 synnax::channel::Channel channel(
@@ -324,14 +319,50 @@ TEST(Reader, RejectsIndexGroupWithDifferentSelections) {
     );
 }
 
-/// @brief it should stamp the samples of a message with the time the response arrived.
+/// @brief it should add one sample for each channel of a message, stamped with the time
+/// the response arrived.
 TEST(Reader, StampsSamplesOnArrival) {
     auto r = ASSERT_NIL_P(reading().create());
     x::telem::Frame fr(2);
     ASSERT_NIL_P(r.read(bytes(R"({"v": 1.5})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
-    ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
-    ASSERT_EQ(fr.at<double>(2, 0), 1.5);
+    ASSERT_EQ(
+        fr.series->at(0).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds()})
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.5}));
+}
+
+/// @brief it should read a string field into a string channel.
+TEST(Reader, ReadsStringField) {
+    auto e = message("reading", synnax::icd::JSONPayload{});
+    synnax::icd::StringJSONField f;
+    f.key = x::uuid::create();
+    f.name = "s";
+    f.pointer = "/s";
+    e.bind(f, channel(2, x::telem::STRING_T));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(2);
+    ASSERT_NIL_P(r.read(bytes(R"({"s": "outlet valve open"})"), RECEIVED, fr));
+    ASSERT_EQ(
+        fr.series->at(1).strings(),
+        (std::vector<std::string>{"outlet valve open"})
+    );
+}
+
+/// @brief it should add the samples of a read to the series that the frame holds.
+TEST(Reader, AppendsToSeriesInFrame) {
+    auto r = ASSERT_NIL_P(frame().create());
+    x::telem::Frame fr;
+    const auto later = RECEIVED + x::telem::NANOSECOND;
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{7}, RECEIVED, fr, 2));
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{9}, later, fr, 2));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(
+        fr.series->at(0).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds(), later.nanoseconds()})
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0, 9.0}));
 }
 
 /// @brief it should stamp the samples of a message with the value of its index field.
@@ -342,6 +373,15 @@ TEST(Reader, StampsSamplesWithIndexField) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
     ASSERT_EQ(fr.at<double>(2, 0), 2.0);
+}
+
+/// @brief it should list each channel that it writes, with index channels last.
+TEST(Reader, ListsChannelsWithIndexesLast) {
+    auto e = indexed();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
+    e.bind(float_field("x"), channel(5, x::telem::FLOAT64_T, 0));
+    const auto r = ASSERT_NIL_P(e.create());
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 3, 5, 1, 4}));
 }
 
 /// @brief it should write no index for virtual channels.
@@ -495,11 +535,13 @@ TEST(Reader, RejectsIndexFieldOnDataChannel) {
 TEST(Reader, RejectsDataFieldOnIndexChannel) {
     auto e = indexed();
     e.reads[0].index.reset();
+    e.channels.at(1).name = "time";
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
         err.data,
-        "message reading: only the index field can write to an index channel"
+        "message reading: field t cannot write to index channel time, because only "
+        "the index field can. Bind field t to a data channel"
     );
 }
 

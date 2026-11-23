@@ -325,7 +325,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
     if (payload.size() < this->muxes.end()) {
         const auto &m = *std::ranges::find_if(
             this->muxes.all(),
-            [&](const Multiplexors::Mux &mux) {
+            [&](const Multiplexors::Entry &mux) {
                 return mux.bits.end() > payload.size();
             }
         );
@@ -747,7 +747,7 @@ BinaryEncoder::create(const BinaryMessage &m) {
     }
     enc.raw.resize(muxes.size());
     for (const auto &f: enc.fields) {
-        const Multiplexors::Mux *never = nullptr;
+        const Multiplexors::Entry *never = nullptr;
         for (const auto *at = &f.condition; at->mux >= 0 && never == nullptr;
              at = &muxes[at->mux].condition)
             if (const auto v = fixed[at->mux];
