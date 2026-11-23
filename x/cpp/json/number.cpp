@@ -345,6 +345,30 @@ std::string Number::to_string() const {
     return "";
 }
 
+errors::Error append_float(const double v, std::string &out) {
+    if (!std::isfinite(v))
+        return errors::Error(
+            errors::VALIDATION,
+            Number(v).to_string() + " is not a JSON number"
+        );
+    const double abs = std::abs(v);
+    const auto format = abs != 0 && (abs < 1e-6 || abs >= 1e21)
+                          ? std::chars_format::scientific
+                          : std::chars_format::fixed;
+    std::array<char, 64> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v, format);
+    const std::string_view text(buf.data(), res.ptr - buf.data());
+    // to_chars pads an exponent to two digits, as in e-07.
+    if (const auto n = text.size(); format == std::chars_format::scientific && n >= 4 &&
+                                    text.substr(n - 4, 3) == "e-0") {
+        out += text.substr(0, n - 2);
+        out += text.back();
+        return errors::NIL;
+    }
+    out += text;
+    return errors::NIL;
+}
+
 bool Number::integral() const {
     return this->kind != Kind::Float ||
            (!this->fraction && this->f == std::trunc(this->f));

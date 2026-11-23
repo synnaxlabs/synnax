@@ -15,7 +15,7 @@ import pydantic
 import pytest
 
 import synnax as sy
-from x import filter
+from x import control, filter
 from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually, untyped
@@ -1104,3 +1104,17 @@ class TestChannelGroup:
         assert client.channels.retrieve(ch.key).group == g.key
         client.channels.set_group(ch.key)
         assert client.channels.retrieve(ch.key).group is None
+
+
+class TestChannelPayload:
+    """Tests the conversion of a channel to its payload."""
+
+    def test_keeps_concurrency(self) -> None:
+        """Should keep the concurrency policy of the channel in its payload."""
+        ch = sy.Channel(
+            name=channel_name(),
+            data_type=sy.DataType.FLOAT32,
+            virtual=True,
+            concurrency=control.Concurrency.shared,
+        )
+        assert ch.to_payload().concurrency == control.Concurrency.shared

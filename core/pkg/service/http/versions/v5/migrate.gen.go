@@ -14,23 +14,35 @@ package v5
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 )
 
-func autoMigrateReadConfig(_ context.Context, old v4.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
+	endpoints, err := lo.MapErr(old.Endpoints, func(v v4.ReadEndpoint, _ int) (ReadEndpoint, error) {
+		return MigrateReadEndpoint(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		PersistConfig:  old.PersistConfig,
 		Device:         old.Device,
 		Rate:           old.Rate,
-		Endpoints:      old.Endpoints,
+		Endpoints:      endpoints,
 		NanFillEnabled: old.NanFillEnabled,
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v4.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Endpoints:   old.Endpoints,
+func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	return ReadEndpoint{
+		Key:         old.Key,
+		Method:      old.Method,
+		Path:        old.Path,
+		Headers:     old.Headers,
+		QueryParams: old.QueryParams,
+		Body:        old.Body,
+		Fields:      old.Fields,
+		Index:       old.Index,
 	}, nil
 }
