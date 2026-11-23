@@ -156,7 +156,7 @@ TEST_F(FileTest, ReadsAtPosition) {
     EXPECT_EQ(ASSERT_NIL_P(file->read(2, buf.data(), buf.size())), 4);
     EXPECT_EQ(buf, "cdef");
     EXPECT_EQ(ASSERT_NIL_P(file->read(4, buf.data(), buf.size())), 2);
-    EXPECT_EQ(ASSERT_NIL_P(file->stat()).size, 6);
+    EXPECT_EQ(ASSERT_NIL_P(file->size()), 6);
 }
 
 /// @brief it should let other handles replace and remove a file open for reading.
@@ -165,10 +165,24 @@ TEST_F(FileTest, ReadDoesNotBlockReplaceOrRemove) {
     ASSERT_NIL(create(path, "old"));
     const auto file = ASSERT_NIL_P(File::open_read(path));
     ASSERT_NIL(create(path, "new"));
-    EXPECT_TRUE(ASSERT_NIL_P(file->stat()).removed);
     const auto second = ASSERT_NIL_P(File::open_read(path));
     std::filesystem::remove(path);
     EXPECT_FALSE(std::filesystem::exists(path));
+}
+
+/// @brief it should create a file only when no file is at the path.
+TEST_F(FileTest, CreatesOnlyNewFile) {
+    const auto path = this->dir / "a";
+    ASSERT_NIL(create_new(path, "first"));
+    ASSERT_OCCURRED_AS(create_new(path, "second"), EXISTS);
+    EXPECT_EQ(read_file(path), "first");
+    EXPECT_EQ(
+        std::distance(
+            std::filesystem::directory_iterator(this->dir),
+            std::filesystem::directory_iterator()
+        ),
+        1
+    );
 }
 
 /// @brief it should remove only the temp files of the path.

@@ -80,29 +80,39 @@ Writer::~Writer() {
 
 std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig cfg) {
     if (auto err = validate(cfg.magic)) return {nullptr, err};
-    std::unique_ptr<File> file;
     bool created = false;
-    std::uint64_t start_cut = 0;
-    while (file == nullptr) {
-        auto [f, err] = File::open(cfg.path);
-        if (err) return {nullptr, err};
-        if (err = f->lock(); err) return {nullptr, err};
-        auto [info, stat_err] = f->stat();
-        if (stat_err) return {nullptr, stat_err};
-        // Another writer replaced the file before this one took the lock.
-        if (info.removed) continue;
-        if (info.size >= HEADER_SIZE) {
-            file = std::move(f);
-            break;
-        }
-        // The file is new, or a crash cut it before its start was on the disk. A
-        // replace keeps a crash from leaving a start of zeros.
-        start_cut = info.size;
-        if (err = remove_temps(cfg.path); err) return {nullptr, err};
-        if (err = create(cfg.path, encode_header(cfg.magic, cfg.flags)); err)
+    std::error_code ec;
+    if (!std::filesystem::exists(cfg.path, ec)) {
+        if (ec)
+            return {
+                nullptr,
+                x::errors::Error(
+                    BASE_ERROR,
+                    "failed to stat " + cfg.path.string() + ": " + ec.message()
+                )
+            };
+        // A crash during a create leaves its temp file.
+        if (auto err = remove_temps(cfg.path)) return {nullptr, err};
+        const auto err = create_new(cfg.path, encode_header(cfg.magic, cfg.flags));
+        if (err && !err.matches(EXISTS)) return {nullptr, err};
+        created = !err;
+    }
+    auto [file, err] = File::open(cfg.path);
+    if (err) return {nullptr, err};
+    if (err = file->lock(); err) return {nullptr, err};
+    auto [start, size_err] = file->size();
+    if (size_err) return {nullptr, size_err};
+    // create_new never leaves a short file, so a short file comes from elsewhere.
+    if (start < HEADER_SIZE) {
+        if (err = file->truncate(0); err) return {nullptr, err};
+        if (err = file->write(encode_header(cfg.magic, cfg.flags)); err)
             return {nullptr, err};
+        if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
+        const auto dir = cfg.path.parent_path();
+        if (err = sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
         created = true;
     }
+    const auto start_cut = start < HEADER_SIZE ? start : 0;
     auto [reader, r_err] = Reader::open(
         {.path = cfg.path, .magic = cfg.magic, .sync_bytes = cfg.sync_bytes}
     );
@@ -218,9 +228,9 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     auto [file, err] = File::open_read(reader->cfg.path);
     if (err) return {nullptr, err};
     reader->file = std::move(file);
-    auto [info, stat_err] = reader->file->stat();
-    if (stat_err) return {nullptr, stat_err};
-    reader->size = info.size;
+    auto [size, size_err] = reader->file->size();
+    if (size_err) return {nullptr, size_err};
+    reader->size = size;
     if (const auto end = reader->cfg.end; end.has_value()) {
         if (*end > reader->size)
             return {nullptr, x::errors::Error(CORRUPT, "end is outside " + path)};

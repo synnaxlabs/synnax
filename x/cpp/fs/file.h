@@ -22,14 +22,8 @@
 namespace x::fs {
 /// @brief another holder has the lock of a file.
 const x::errors::Error LOCKED = FS_ERROR.sub("locked");
-
-/// @brief the state of an open file.
-struct Info {
-    /// @brief the byte size of the file.
-    std::uint64_t size = 0;
-    /// @brief the file has no name, because a removal or a replace took it.
-    bool removed = false;
-};
+/// @brief a file is already at a path.
+const x::errors::Error EXISTS = FS_ERROR.sub("exists");
 
 /// @brief a file opened for appending or for reading.
 class File {
@@ -56,9 +50,8 @@ public:
     [[nodiscard]] std::pair<std::size_t, x::errors::Error>
     read(std::uint64_t pos, char *dst, std::size_t size) const;
 
-    /// @returns the size of the file, and whether a removal or a replace took its
-    /// name.
-    [[nodiscard]] std::pair<Info, x::errors::Error> stat() const;
+    /// @returns the byte size of the file.
+    [[nodiscard]] std::pair<std::uint64_t, x::errors::Error> size() const;
 
     /// @brief writes all of data at the end of the file.
     [[nodiscard]] x::errors::Error write(std::string_view data) const;
@@ -89,6 +82,17 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to);
 /// leaves the old file or the new one, and can leave a temp file named
 /// `<path>.tmp.<n>`. Returns after the new file is on the disk.
 x::errors::Error create(const std::filesystem::path &path, std::string_view data);
+
+/// @brief renames from to to when no file is at to.
+/// @returns EXISTS when a file is at to, and then both files are unchanged.
+x::errors::Error
+rename_new(const std::filesystem::path &from, const std::filesystem::path &to);
+
+/// @brief writes a file at path with data when no file is at path. A crash leaves no
+/// file or the whole file, and can leave a temp file named `<path>.tmp.<n>`. Returns
+/// after the new file is on the disk.
+/// @returns EXISTS when a file is at path, and then that file is unchanged.
+x::errors::Error create_new(const std::filesystem::path &path, std::string_view data);
 
 /// @brief removes the temp files that a crash during create(path) left. Call it only
 /// while no create(path) runs.

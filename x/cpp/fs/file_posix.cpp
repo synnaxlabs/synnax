@@ -81,17 +81,11 @@ File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
     return {done, x::errors::NIL};
 }
 
-std::pair<Info, x::errors::Error> File::stat() const {
+std::pair<std::uint64_t, x::errors::Error> File::size() const {
     struct stat st{};
     if (fstat(static_cast<int>(this->handle), &st) != 0)
-        return {{}, errno_error("failed to stat")};
-    return {
-        Info{
-            .size = static_cast<std::uint64_t>(st.st_size),
-            .removed = st.st_nlink == 0
-        },
-        x::errors::NIL
-    };
+        return {0, errno_error("failed to stat")};
+    return {static_cast<std::uint64_t>(st.st_size), x::errors::NIL};
 }
 
 x::errors::Error File::write(std::string_view data) const {
@@ -140,6 +134,18 @@ x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to) {
     if (std::rename(from.c_str(), to.c_str()) != 0)
         return errno_error("failed to rename " + from.string());
+    return x::errors::NIL;
+}
+
+x::errors::Error
+rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
+    // A link fails when to exists, where a rename would replace it.
+    if (link(from.c_str(), to.c_str()) != 0) {
+        if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+        return errno_error("failed to link " + from.string());
+    }
+    if (unlink(from.c_str()) != 0)
+        return errno_error("failed to remove " + from.string());
     return x::errors::NIL;
 }
 }

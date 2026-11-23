@@ -120,22 +120,11 @@ File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
     return {done, x::errors::NIL};
 }
 
-std::pair<Info, x::errors::Error> File::stat() const {
-    FILE_STANDARD_INFO info{};
-    if (!GetFileInformationByHandleEx(
-            to_handle(this->handle),
-            FileStandardInfo,
-            &info,
-            sizeof(info)
-        ))
-        return {{}, last_error("failed to stat")};
-    return {
-        Info{
-            .size = static_cast<std::uint64_t>(info.EndOfFile.QuadPart),
-            .removed = info.NumberOfLinks == 0 || info.DeletePending != FALSE,
-        },
-        x::errors::NIL
-    };
+std::pair<std::uint64_t, x::errors::Error> File::size() const {
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(to_handle(this->handle), &size))
+        return {0, last_error("failed to stat")};
+    return {static_cast<std::uint64_t>(size.QuadPart), x::errors::NIL};
 }
 
 x::errors::Error File::write(std::string_view data) const {
@@ -238,5 +227,15 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
         ))
         return last_error("failed to rename " + from.string());
     return x::errors::NIL;
+}
+
+x::errors::Error
+rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
+    if (MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH))
+        return x::errors::NIL;
+    const auto code = GetLastError();
+    if (code == ERROR_ALREADY_EXISTS || code == ERROR_FILE_EXISTS)
+        return x::errors::Error(EXISTS, to.string());
+    return last_error("failed to rename " + from.string());
 }
 }

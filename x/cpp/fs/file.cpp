@@ -43,6 +43,21 @@ create(const std::filesystem::path &path, const std::string_view data) {
     return sync_dir(dir.empty() ? "." : dir);
 }
 
+x::errors::Error
+create_new(const std::filesystem::path &path, const std::string_view data) {
+    auto tmp = path;
+    tmp += TEMP_INFIX + std::to_string(std::random_device()());
+    auto err = write_synced(tmp, data);
+    if (!err) err = rename_new(tmp, path);
+    if (err) {
+        std::error_code ec;
+        std::filesystem::remove(tmp, ec);
+        return err;
+    }
+    const auto dir = path.parent_path();
+    return sync_dir(dir.empty() ? "." : dir);
+}
+
 x::errors::Error remove_temps(const std::filesystem::path &path) {
     const auto dir = path.parent_path().empty() ? std::filesystem::path(".")
                                                 : path.parent_path();
