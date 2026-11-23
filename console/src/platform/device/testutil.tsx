@@ -61,10 +61,24 @@ const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> =>
   );
 };
 
+const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
+
+/** Reports the rack as running at the rate of a Driver until the test ends. */
+export const startRackHeartbeat = async (
+  client: Synnax,
+  r: rack.Rack,
+): Promise<void> => {
+  await reportRackRunning(client, r);
+  const interval = setInterval(
+    () => void reportRackRunning(client, r),
+    HEARTBEAT_PERIOD.milliseconds,
+  );
+  onTestFinished(() => clearInterval(interval));
+};
+
 /**
- * Creates a rack on the live Core whose Driver reports as running with the integration.
- * The Core marks it not running after one health check interval (5 s) without a new
- * status.
+ * Creates a rack on the live Core whose Driver reports as running with the integration
+ * until the test ends. Call it inside a test.
  */
 export const createRunningRack = async (
   client: Synnax,
@@ -74,7 +88,7 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
-  await reportRackRunning(client, r);
+  await startRackHeartbeat(client, r);
   return r;
 };
 
@@ -111,21 +125,6 @@ export const createWarningScanner = async (
     }),
   );
   return scanner;
-};
-
-const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
-
-/** Reports the rack as running at the rate of a Driver until the test ends. */
-export const startRackHeartbeat = async (
-  client: Synnax,
-  r: rack.Rack,
-): Promise<void> => {
-  await reportRackRunning(client, r);
-  const interval = setInterval(
-    () => void reportRackRunning(client, r),
-    HEARTBEAT_PERIOD.milliseconds,
-  );
-  onTestFinished(() => clearInterval(interval));
 };
 
 /**
