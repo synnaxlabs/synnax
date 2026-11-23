@@ -117,6 +117,31 @@ var _ = Describe("Checks", func() {
 		Expect(create(ctx, valveSpec())).To(Succeed())
 	})
 
+	It("Should keep a negative spin and flow rate", func(ctx SpecContext) {
+		data := valveSpec()
+		data.Looks[1].Motion = motion(
+			symbol.SpinMotion{Rate: -0.5, State: new("level")},
+		)
+		data.Looks = append(data.Looks, symbol.Look{
+			Key:    "flow",
+			Part:   new("body"),
+			Motion: motion(symbol.FlowMotion{Rate: -2}),
+		})
+		sym := symbol.Symbol{Name: "pump", Data: data}
+		tx := DeferClose(db.OpenTx())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+		var res symbol.Symbol
+		Expect(svc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res.Data.Looks[1].Motion.Variant).To(Equal(symbol.SpinMotion{
+			Rate:  -0.5,
+			State: new("level"),
+		}))
+		Expect(res.Data.Looks[2].Motion.Variant).To(Equal(symbol.FlowMotion{Rate: -2}))
+	})
+
 	DescribeTable("Should refuse a symbol that breaks a rule",
 		func(ctx SpecContext, breakRule func(*symbol.Spec), message string) {
 			data := valveSpec()
