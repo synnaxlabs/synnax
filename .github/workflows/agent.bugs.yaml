@@ -28,6 +28,7 @@ jobs:
       contents: read
     outputs:
       prompt: ${{ steps.prompt.outputs.prompt }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -139,6 +140,7 @@ jobs:
       pull-requests: read
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+    timeout-minutes: 10
     steps:
       # The agents open their own PRs, so the run finds them by the run ID each PR body
       # ends with. Every attempt of the run lists them all.

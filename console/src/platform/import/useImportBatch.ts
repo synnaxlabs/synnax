@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, type resource } from "@synnaxlabs/client";
+import type { panel, resource } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Panel } from "@/platform/panel";

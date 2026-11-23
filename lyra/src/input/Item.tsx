@@ -23,9 +23,9 @@ import { Flex } from "@/flex";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
 import { ItemContext, type ItemContextValue, useItemContext } from "@/input/scope";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 import { Text } from "@/text";
-import { type Tooltip } from "@/tooltip";
+import type { Tooltip } from "@/tooltip";
 
 /**
  * Resolves a control's aria-labelledby: an explicit value wins, then the enclosing

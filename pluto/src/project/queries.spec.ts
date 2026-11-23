@@ -11,13 +11,12 @@ import { group, NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Project } from "@/project";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

@@ -106,6 +106,14 @@ describe("framer.Frame", () => {
           expect(f.columns.length).toEqual(1);
           expect(f.series.length).toEqual(1);
         });
+
+        it("should read a byte view in a series payload as raw bytes", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: "float32", data: new Uint8Array(8) }],
+          });
+          expect(f.length.valueOf()).toEqual(2);
+        });
       });
 
       test("from record", () => {
@@ -351,6 +359,12 @@ describe("framer.Frame", () => {
       const pld = f.toPayload();
       expect(pld.keys).toEqual([12, 13]);
       expect(pld.series?.[0].data.byteLength).toEqual(12);
+    });
+
+    it("should send only the bytes inside a series' view", () => {
+      const data = new Float32Array([1, 2, 3, 4]).subarray(1, 3);
+      const pld = new framer.Frame(12, new Series({ data })).toPayload();
+      expect(Array.from(new Float32Array(pld.series[0].data))).toEqual([2, 3]);
     });
   });
 
@@ -946,6 +960,24 @@ describe("framer.Frame", () => {
       const result = f.mapFilter((k, arr, i) => [k, arr, i % 2 === 0]);
       expect(result.columns).toEqual([12, 14]);
       expect(result.series.length).toEqual(2);
+    });
+
+    it("should read a record key of all digits as a channel key", () => {
+      const keyed = new framer.Frame({
+        12: new Series([1]),
+        13: new Series([2]),
+      });
+      expect(keyed.columns).toEqual([12, 13]);
+      const named = new framer.Frame({
+        "3-tank": new Series([1]),
+        "1e3": new Series([2]),
+        "0x10": new Series([3]),
+      });
+      expect(named.columns).toEqual(["3-tank", "1e3", "0x10"]);
+    });
+
+    it("should read a column list of digit text as names", () => {
+      expect(new framer.Frame(["12"], [new Series([1])]).columns).toEqual(["12"]);
     });
 
     it("should work with string keys", () => {

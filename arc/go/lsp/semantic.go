@@ -85,12 +85,17 @@ func (s *Server) SemanticTokensFull(
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
 	}
-	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR)
+	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR, s.parserConfig())
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
-func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
-	allTokens := tokenizeContent(content)
+func extractSemanticTokens(
+	ctx context.Context,
+	content string,
+	docIR ir.IR,
+	cfg parser.Config,
+) []uint32 {
+	allTokens := tokenizeContent(content, cfg)
 	importIdents := importContextIdents(allTokens)
 	var tokens []lsp.Token
 	// Track prev/next token types so classifyToken can handle qualified names (e.g.,
@@ -101,7 +106,7 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		}
 		if t.GetTokenType() == parser.ArcLexerSTR_LITERAL ||
 			t.GetTokenType() == parser.ArcLexerSTR_LITERAL_MULTI {
-			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
+			tokens = append(tokens, expandStringToken(ctx, t, docIR, cfg)...)
 			continue
 		}
 		if isRoutingKey(allTokens, i) {
@@ -518,7 +523,12 @@ func mapLexerTokenType(antlrType int) *uint32 {
 // STR_LITERAL_MULTI. Format strings (f/rf prefix) with placeholders have their
 // {...} segments expanded with classified inner expression tokens; everything
 // else collapses to a single string-colored token.
-func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
+func expandStringToken(
+	ctx context.Context,
+	t antlr.Token,
+	docIR ir.IR,
+	cfg parser.Config,
+) []lsp.Token {
 	f, ok := parseFormatString(t)
 	if !ok {
 		return plainStringTokens(t, f.prefixLen)
@@ -526,6 +536,7 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	e := fmtStrEmitter{
 		ctx:     ctx,
 		docIR:   docIR,
+		cfg:     cfg,
 		text:    f.text,
 		bodyOff: f.bodyOff,
 		at:      f.at,
@@ -591,8 +602,11 @@ func parseFormatString(t antlr.Token) (formatString, bool) {
 // innerTokens returns the tokens of the placeholder seg of f, each with its byte span
 // in the text of f. The placeholder's text has its escapes applied, as the compiler
 // parses it, and Offsets maps each of its bytes back to the source.
-func (f formatString) innerTokens(seg literal.FmtStrSegment) ([]antlr.Token, [][2]int) {
-	inner := tokenizeContent(seg.Text)
+func (f formatString) innerTokens(
+	seg literal.FmtStrSegment,
+	cfg parser.Config,
+) ([]antlr.Token, [][2]int) {
+	inner := tokenizeContent(seg.Text, cfg)
 	runeStart := make([]int, 0, len(seg.Text)+1)
 	for i := range seg.Text {
 		runeStart = append(runeStart, i)
@@ -640,6 +654,7 @@ func plainStringTokens(t antlr.Token, prefixLen int) []lsp.Token {
 type fmtStrEmitter struct {
 	ctx     context.Context
 	docIR   ir.IR
+	cfg     parser.Config
 	text    string
 	at      []protocol.Position
 	bodyOff int
@@ -661,7 +676,7 @@ func (e *fmtStrEmitter) emit(a, b int, tt uint32) {
 
 // emitInner emits the classified tokens of the placeholder seg of f.
 func (e *fmtStrEmitter) emitInner(f formatString, seg literal.FmtStrSegment) {
-	inner, spans := f.innerTokens(seg)
+	inner, spans := f.innerTokens(seg, e.cfg)
 	for i, it := range inner {
 		if it.GetTokenType() == antlr.TokenEOF {
 			continue

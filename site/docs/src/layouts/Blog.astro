@@ -9,20 +9,27 @@
 // included in the file licenses/APL.txt.
 
 import { Text } from "@synnaxlabs/lyra/text";
+import type { MarkdownHeading } from "astro";
+import type { CollectionEntry } from "astro:content";
 
 import Article from "@/components/article/Article.astro";
 import DownloadButton from "@/components/desktop/DownloadButton.astro";
 import still from "@/components/hero/stills/console/visualize/hero.json";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
-import { outlined } from "@/util/outline";
+import { type Entry, outlined } from "@/util/outline";
 import { normalizeRoute } from "@/util/route";
 
+interface Props {
+    frontmatter: CollectionEntry<"blog">["data"] & { outline?: Record<string, Entry> };
+    headings: MarkdownHeading[];
+}
+
 const { headings, frontmatter } = Astro.props;
-const { title, heading, description, published, author, authorImage, authorLink } =
-    frontmatter;
+const { title, heading, description, author, authorImage, authorLink } = frontmatter;
+const published = frontmatter.published.toISOString().slice(0, 10);
 const route = normalizeRoute(Astro.url.pathname);
 // Flagged posts render on request, so a post stays readable when GitHub is down.
 const desktop = await Astro.locals.releases.latest("desktop").catch(() => null);

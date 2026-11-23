@@ -138,7 +138,7 @@ func (s *Server) renameTextEdits(
 	}
 	var (
 		channel = targetSym.Kind == symbol.KindChannel
-		cfg     = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+		cfg     = s.parserConfig()
 		lines   = newLineText(doc.Content)
 		edits   []protocol.TextEdit
 	)
@@ -173,7 +173,7 @@ func (s *Server) renameTextEdits(
 		return parser.ChannelText(newName, taken), true, nil
 	}
 	sites := channelSites(doc.Content, doc.isBlock(), cfg)
-	for _, t := range tokenizeContent(doc.Content) {
+	for _, t := range tokenizeContent(doc.Content, cfg) {
 		switch t.GetTokenType() {
 		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 			f, ok := parseFormatString(t)
@@ -184,7 +184,7 @@ func (s *Server) renameTextEdits(
 				if !seg.IsPlaceholder {
 					continue
 				}
-				inner, spans := f.innerTokens(seg)
+				inner, spans := f.innerTokens(seg, cfg)
 				innerSites := expressionSites(seg.Text, cfg)
 				for i, it := range inner {
 					if channel && !innerSites.Contains(it.GetStart()) {
