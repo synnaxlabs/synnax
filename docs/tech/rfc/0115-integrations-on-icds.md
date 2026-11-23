@@ -180,8 +180,8 @@ until 0.63.0. Each carries a migration from the version that shipped:
   so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
   no `fill_value`. A missing required float field in such a task then writes NaN with a
   warning, where v4 skipped the endpoint's group. A message has one timestamp field, so
-  a v4 endpoint with two keeps both fields but fails to configure. Its status tells the
-  user to split the endpoint into two, each with one timestamp.
+  a v4 endpoint with two keeps both fields but fails to configure. Its status names the
+  field to move, and the user splits the endpoint into two, each with one timestamp.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
