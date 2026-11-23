@@ -397,21 +397,22 @@ export const configureCommandChannel = async (
   write: Record<string, channel.Key>,
   { propertiesKey, channel: current, name, dataType, suits }: CommandChannelSpec,
 ): Promise<channel.Key> => {
-  let replaced: channel.Channel | null = null;
+  const replaced: channel.Channel[] = [];
   if (primitive.isNonZero(current)) {
     const ch = suits == null ? null : await retrieveChannel(client, current);
     if (suits == null || (ch != null && suits(ch))) {
       write[propertiesKey] = current;
       return current;
     }
-    replaced = ch;
+    if (ch != null) replaced.push(ch);
   }
   const stored = await retrieveChannel(client, write[propertiesKey]);
   if (stored != null) {
     if (suits == null || suits(stored)) return stored.key;
-    replaced ??= stored;
+    replaced.push(stored);
   }
-  if (replaced?.name === name) await moveCommandChannel(client, replaced);
+  const holder = replaced.find((ch) => ch.name === name);
+  if (holder != null) await moveCommandChannel(client, holder);
   const cmdCh = await createChannelWithIndex(client, name, dataType);
   write[propertiesKey] = cmdCh.key;
   return cmdCh.key;
