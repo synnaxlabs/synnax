@@ -26,6 +26,10 @@ const TAG = /^(console|core|driver|desktop)\/v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?
 export const tag = (product: Product, version: string): string =>
   `${product}/v${version}`;
 
+/** Returns the train of a version, such as `0.61` for `0.61.4`. */
+export const train = (version: string): string =>
+  version.split(".").slice(0, 2).join(".");
+
 /** Builds the download URL of an asset on a product release. */
 export const assetURL = (product: Product, version: string, asset: string): string =>
   `https://github.com/${REPO}/releases/download/${tag(product, version)}/${asset}`;
@@ -188,6 +192,21 @@ export class Releases {
   async documented(product: Product): Promise<string> {
     if (product === "desktop" || this.train == null) return await this.latest(product);
     return await this.onTrain(product, this.train);
+  }
+
+  /**
+   * Returns the newest stable release of a product on the train before the documented
+   * one, such as `0.61.4` when the docs describe `0.62`.
+   * @throws {Error} if the API is unreachable or lists no earlier train.
+   */
+  async previous(product: Product): Promise<string> {
+    const current = train(await this.documented(product));
+    const listed = await this.trains(product);
+    const index = listed.indexOf(current);
+    const earlier = index < 0 ? undefined : listed[index + 1];
+    if (earlier == null)
+      throw new Error(`GitHub lists no stable ${product} release before ${current}`);
+    return await this.onTrain(product, earlier);
   }
 
   /**

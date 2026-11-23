@@ -22,7 +22,7 @@ import {
   type Run,
   type System,
 } from "@/env";
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 
 const ENV = {
   SYNNAX_HOST: "core.env",

@@ -11,6 +11,7 @@ import { access, color, group, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Theming } from "@synnaxlabs/lyra/theming";
@@ -59,6 +60,9 @@ describe("Color.Field", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+    // `other` serves a cached read until its stream goes live, which can outlast a
+    // poll.
+    await waitForStreamLive(other.connection);
   });
 
   const renderField = async (fill?: color.Ref, fieldWrapper = wrapper) => {
