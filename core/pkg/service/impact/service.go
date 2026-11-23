@@ -130,7 +130,11 @@ func (s *Service) deleteGroups(
 	keys []group.Key,
 	opts ApplyOptions,
 ) error {
-	if err := pickWithoutEntry(opts.Picks, nil); err != nil {
+	picks, err := parsePicks(opts.Picks)
+	if err != nil {
+		return err
+	}
+	if err = pickWithoutEntry(picks, nil); err != nil {
 		return err
 	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
@@ -138,11 +142,14 @@ func (s *Service) deleteGroups(
 
 // pickWithoutEntry returns a validation error that names the smallest pick of picks
 // whose record no entry has, or nil when each has one.
-func pickWithoutEntry(picks map[string]Choice, entries set.Set[string]) error {
+func pickWithoutEntry(
+	picks map[resource.ID]Choice,
+	entries set.Set[resource.ID],
+) error {
 	var missing []string
 	for id := range picks {
 		if !entries.Contains(id) {
-			missing = append(missing, id)
+			missing = append(missing, id.String())
 		}
 	}
 	if len(missing) == 0 {
