@@ -116,6 +116,28 @@ TEST(Number, KeepsNegativeZero) {
     ASSERT_TRUE(std::signbit(n.to_float64()));
 }
 
+/// @brief it should multiply an integer by a factor.
+TEST(Number, MultipliesIntegerToInt64) {
+    ASSERT_EQ(Number(std::int64_t{-3}).to_int64_times(1000), -3000);
+}
+
+/// @brief it should refuse a product of an integer that an int64 does not hold.
+TEST(Number, RefusesProductPastInt64) {
+    ASSERT_FALSE(Number(std::int64_t{1} << 62).to_int64_times(2).has_value());
+}
+
+/// @brief it should truncate the product of a float toward zero.
+TEST(Number, TruncatesFloatProductToInt64) {
+    ASSERT_EQ(Number(-1.25).to_int64_times(2), -2);
+}
+
+/// @brief it should refuse an integer that 64 bits do not hold, though a double rounds
+/// it into range.
+TEST(Number, RefusesProductOfIntegerBelowInt64) {
+    const auto n = ASSERT_NIL_P(Number::parse("-9223372036854775809"));
+    ASSERT_FALSE(n.to_int64_times(1).has_value());
+}
+
 /// @brief it should convert a whole double to an exact integer.
 TEST(Number, ConvertsWholeDoubleToInteger) {
     const Number n(3.0);

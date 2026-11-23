@@ -83,7 +83,8 @@ func parseNumber(text []byte) (number, error) {
 	}, nil
 }
 
-// quotedSpace is the whitespace that parseQuoted trims from each end of its text.
+// quotedSpace is the whitespace that parseQuoted and parseUnix trim from each end of
+// their text.
 const quotedSpace = " \t\n\v\f\r"
 
 // parseQuoted parses text, the content of a JSON string, as C's strtod reads a whole
@@ -458,6 +459,30 @@ func (n number) within(lo int64, hi uint64) bool {
 	case floatNumber:
 		// float64(hi)+1 rounds to the first value past hi for every integer type.
 		return !n.outOfRange && n.f >= float64(lo) && n.f < float64(hi)+1
+	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
+}
+
+// int64Times returns n times factor, which is positive, truncated toward zero. ok is
+// false when an int64 does not hold the result.
+func (n number) int64Times(factor int64) (product int64, ok bool) {
+	switch n.kind {
+	case intNumber:
+		if n.i > math.MaxInt64/factor || n.i < math.MinInt64/factor {
+			return 0, false
+		}
+		return n.i * factor, true
+	case uintNumber:
+		if n.u > uint64(math.MaxInt64/factor) {
+			return 0, false
+		}
+		return int64(n.u) * factor, true
+	case floatNumber:
+		f := n.f * float64(factor)
+		if n.outOfRange || !(f >= -0x1p63 && f < 0x1p63) {
+			return 0, false
+		}
+		return int64(f), true
 	}
 	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }

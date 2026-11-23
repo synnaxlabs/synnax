@@ -155,18 +155,33 @@ func parseISO8601(text []byte) (telem.TimeStamp, error) {
 	return telem.NewTimeStamp(t), nil
 }
 
-// parseUnix parses text, decimal number text, as a count of format's units. Scaling the
-// text instead of a float64 keeps every digit down to the nanosecond.
+// parseUnix parses text, number text or the content of a JSON string, as a count of
+// format's units. It takes what parseQuoted takes. Scaling decimal text instead of a
+// float64 keeps every digit down to the nanosecond.
 func parseUnix(text []byte, format TimeFormat) (telem.TimeStamp, error) {
-	d, ok := parseDecimal(text, format.nanosExponent())
-	if !ok {
-		return 0, invalidNumber(text)
+	text = bytes.Trim(text, quotedSpace)
+	var (
+		nanos int64
+		fits  bool
+	)
+	if d, ok := parseDecimal(text, format.nanosExponent()); ok {
+		limit := uint64(math.MaxInt64)
+		if d.negative {
+			limit++
+		}
+		fits = !d.overflow && d.magnitude <= limit
+		nanos = int64(d.magnitude)
+		if d.negative {
+			nanos = int64(-d.magnitude)
+		}
+	} else {
+		n, err := parseQuoted(text)
+		if err != nil {
+			return 0, err
+		}
+		nanos, fits = n.int64Times(format.nanosPerUnit())
 	}
-	limit := uint64(math.MaxInt64)
-	if d.negative {
-		limit++
-	}
-	if d.overflow || d.magnitude > limit {
+	if !fits {
 		return 0, errors.Wrapf(
 			validate.ErrValidation,
 			"%s is out of range for a %s timestamp",
@@ -174,8 +189,5 @@ func parseUnix(text []byte, format TimeFormat) (telem.TimeStamp, error) {
 			format,
 		)
 	}
-	if d.negative {
-		return telem.TimeStamp(-d.magnitude), nil
-	}
-	return telem.TimeStamp(d.magnitude), nil
+	return telem.TimeStamp(nanos), nil
 }

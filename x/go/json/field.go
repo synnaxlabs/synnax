@@ -194,8 +194,9 @@ func NewDecoder(f Field) (*Decoder, error) {
 
 // Append appends the sample of raw, one JSON value, to dst. A variable-density sample
 // starts with its length.
-//   - A timestamp takes a string in ISO8601 format, and a number or a string holding
-//     one in a Unix format.
+//   - A timestamp takes a string in ISO8601 format. A Unix format takes a number, or a
+//     string that C's strtod reads whole as one after trimming whitespace from each
+//     end, and drops what is below a nanosecond.
 //   - A string takes a string, or the label of an enum. JSON takes any value,
 //     compacted but spelled as raw.
 //   - A UUID takes its string form.

@@ -97,7 +97,7 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 		return floatJSON(math.Float64frombits(telem.ByteOrder.Uint64(data)))
 	case telem.Float32T:
 		return floatJSON(float64(math.Float32frombits(telem.ByteOrder.Uint32(data))))
-	case telem.Int64T:
+	case telem.Int64T, telem.TimestampT:
 		return int64(telem.ByteOrder.Uint64(data))
 	case telem.Int32T:
 		return int32(telem.ByteOrder.Uint32(data))
@@ -105,7 +105,7 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 		return int16(telem.ByteOrder.Uint16(data))
 	case telem.Int8T:
 		return int8(data[0])
-	case telem.Uint64T, telem.TimestampT:
+	case telem.Uint64T:
 		return telem.ByteOrder.Uint64(data)
 	case telem.Uint32T:
 		return telem.ByteOrder.Uint32(data)

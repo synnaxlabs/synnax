@@ -37,8 +37,8 @@ constexpr std::uint64_t INT64_MIN_MAGNITUDE = INT64_MAX_VALUE + 1;
 /// @brief bounds the exponent parse_decimal reads. Any larger one overflows or
 /// truncates to zero.
 constexpr int MAX_EXPONENT = 1 << 20;
-/// @brief the whitespace that parse_quoted trims from each end of its text.
-constexpr std::string_view QUOTED_SPACE = " \t\n\v\f\r";
+/// @brief the whitespace that trim_space removes from each end of its text.
+constexpr std::string_view SPACE = " \t\n\v\f\r";
 
 char lower(const char c) {
     return c >= 'A' && c <= 'Z' ? static_cast<char>(c | 0x20) : c;
@@ -308,14 +308,14 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     return {std::move(n), errors::NIL};
 }
 
+std::string_view trim_space(std::string_view text) {
+    text.remove_prefix(std::min(text.find_first_not_of(SPACE), text.size()));
+    text.remove_suffix(text.size() - (text.find_last_not_of(SPACE) + 1));
+    return text;
+}
+
 std::pair<Number, errors::Error> Number::parse_quoted(const std::string_view text) {
-    auto trimmed = text;
-    trimmed.remove_prefix(
-        std::min(trimmed.find_first_not_of(QUOTED_SPACE), trimmed.size())
-    );
-    trimmed.remove_suffix(
-        trimmed.size() - (trimmed.find_last_not_of(QUOTED_SPACE) + 1)
-    );
+    const auto trimmed = trim_space(text);
     auto body = trimmed;
     const bool negative = has_sign(body) && body[0] == '-';
     if (has_sign(body)) body.remove_prefix(1);
@@ -403,6 +403,26 @@ std::optional<std::uint64_t> Number::to_uint64() const {
             return this->u;
         case Kind::Float:
             return static_cast<std::uint64_t>(this->f);
+    }
+    return std::nullopt;
+}
+
+std::optional<std::int64_t> Number::to_int64_times(const std::int64_t factor) const {
+    constexpr auto min = std::numeric_limits<std::int64_t>::min();
+    constexpr auto max = std::numeric_limits<std::int64_t>::max();
+    switch (this->kind) {
+        case Kind::Int:
+            if (this->i > max / factor || this->i < min / factor) return std::nullopt;
+            return this->i * factor;
+        case Kind::Uint:
+            if (this->u > static_cast<std::uint64_t>(max / factor)) return std::nullopt;
+            return static_cast<std::int64_t>(this->u) * factor;
+        case Kind::Float: {
+            const double f = this->f * static_cast<double>(factor);
+            if (this->out_of_range || !(f >= -0x1p63 && f < 0x1p63))
+                return std::nullopt;
+            return static_cast<std::int64_t>(f);
+        }
     }
     return std::nullopt;
 }
