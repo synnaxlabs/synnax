@@ -78,13 +78,15 @@ x::errors::Error Manager::open_streamer() {
     // monitor, and stop() all contend on mu.
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::framer::StreamerConfig{
-            .channels = {
-                this->channels.task_set.key,
-                this->channels.task_delete.key,
-                this->channels.task_cmd.key,
-                this->channels.control_state.key,
-                this->channels.rack_set.key,
-            }
+            .channels =
+                {
+                    this->channels.task_set.key,
+                    this->channels.task_delete.key,
+                    this->channels.task_cmd.key,
+                    this->channels.control_state.key,
+                    this->channels.rack_set.key,
+                },
+            .on_missed = [this] { this->missed = true; },
         }
     );
     if (open_err) return open_err;
@@ -126,8 +128,7 @@ void Manager::discard(const synnax::task::Key &key, const bool even_if_processin
     if (removed) this->statuses->drop(key);
 }
 
-x::errors::Error Manager::configure_initial_tasks() {
-    VLOG(1) << "configuring initial tasks";
+x::errors::Error Manager::sync_tasks(const bool known_kept) {
     auto [tasks, tasks_err] = this->rack.tasks.retrieve(
         synnax::task::Where{},
         synnax::task::RetrieveOptions{.include_status = true}
@@ -151,8 +152,14 @@ x::errors::Error Manager::configure_initial_tasks() {
             this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         }
         for (const auto &task: tasks) {
-            VLOG(1) << "queuing configure for task " << task;
+            const bool known = this->entries.contains(task.key);
             const auto entry = this->entry_for(task.key);
+            if (known && known_kept) {
+                std::lock_guard entry_lock{entry->mu};
+                entry->row = task;
+                continue;
+            }
+            VLOG(1) << "queuing configure for task " << task;
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = task;
@@ -164,6 +171,13 @@ x::errors::Error Manager::configure_initial_tasks() {
     this->cv.notify_all();
     for (const auto &key: gone)
         this->statuses->drop(key);
+    VLOG(1) << "queued " << queued << " tasks";
+    return x::errors::NIL;
+}
+
+x::errors::Error Manager::configure_initial_tasks() {
+    VLOG(1) << "configuring initial tasks";
+    if (const auto err = this->sync_tasks(false)) return err;
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -183,7 +197,6 @@ x::errors::Error Manager::configure_initial_tasks() {
             entry->deployed_hash = sy_task.config_hash;
         }
     }
-    VLOG(1) << "queued " << queued << " initial tasks";
     return x::errors::NIL;
 }
 
@@ -253,6 +266,27 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
         }
+        // The stream stays open, so the frames after the drop still apply.
+        if (this->missed) {
+            this->missed = false;
+            LOG(WARNING) << "the Core dropped task changes because the Driver fell "
+                            "behind. Reading the tasks, control state, and rack name "
+                            "again.";
+            // The bus filters local writes with the control mirror, so it is read
+            // first. A failed read or sync ends the run with no error, so the rack
+            // starts the next run, which reads both again, and never stops the
+            // Driver. The mirror stays as it was, since an empty one passes every
+            // writer. Transfers that the stream delivers after a read apply on top.
+            if (const auto err = this->read_control_states()) {
+                LOG(WARNING) << "failed to read control state after a miss: " << err;
+                break;
+            }
+            this->retrieve_rack_name();
+            if (const auto err = this->sync_tasks(true)) {
+                LOG(WARNING) << "failed to sync tasks after a miss: " << err;
+                break;
+            }
+        }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
@@ -260,17 +294,21 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     return c_err;
 }
 
-void Manager::retrieve_initial_control_states() {
+x::errors::Error Manager::read_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
-    if (err) {
+    if (err) return err;
+    this->control_states->set(states);
+    return x::errors::NIL;
+}
+
+void Manager::retrieve_initial_control_states() {
+    if (const auto err = this->read_control_states()) {
         // The mirror of an earlier run may hold control that ended during an outage.
         // An empty mirror treats every channel as uncontrolled, the Core arbitrates
         // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
         this->control_states->set({});
-        return;
     }
-    this->control_states->set(states);
 }
 
 void Manager::retrieve_rack_name() {
