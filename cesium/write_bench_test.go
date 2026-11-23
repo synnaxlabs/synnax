@@ -96,17 +96,36 @@ func BenchmarkCommit(b *testing.B) {
 	}
 }
 
+// openClockWriters opens one writer for each clock of keys, in which the keys of each
+// index start at the index.
+func openClockWriters(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	indexes, perIndex int,
+) []*cesium.Writer {
+	b.Helper()
+	writers := make([]*cesium.Writer, indexes)
+	for i := range writers {
+		group := keys[i*(perIndex+1) : (i+1)*(perIndex+1)]
+		w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+			Channels: group,
+			Clock:    group[0],
+			Start:    telem.SecondTS,
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
+		writers[i] = w
+	}
+	return writers
+}
+
 func benchmarkCommit(b *testing.B, db *cesium.DB, indexes, channels, samples int) {
 	b.Helper()
 	perIndex := channels / indexes
 	keys := createIndexedChannels(b, db, indexes, perIndex)
-	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-		Channels: keys,
-		Start:    telem.SecondTS,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
+	writers := openClockWriters(b, db, keys, indexes, perIndex)
 	data := telem.NewSeries(make([]float32, samples))
 	stamps := make([]telem.TimeStamp, samples)
 	start := telem.SecondTS
@@ -125,24 +144,33 @@ func benchmarkCommit(b *testing.B, db *cesium.DB, indexes, channels, samples int
 		for i := 0; i < len(series); i += perIndex + 1 {
 			series[i] = time
 		}
-		if _, _, err := w.Write(
-			b.Context(),
-			telem.MultiFrame(keys, series),
-			nil,
-		); err != nil {
-			b.Fatal(err)
+		for i, w := range writers {
+			lo, hi := i*(perIndex+1), (i+1)*(perIndex+1)
+			if _, _, err := w.Write(
+				b.Context(),
+				telem.MultiFrame(keys[lo:hi], series[lo:hi]),
+				nil,
+			); err != nil {
+				b.Fatal(err)
+			}
 		}
-		if _, _, err := w.Commit(b.Context(), nil); err != nil {
-			b.Fatal(err)
+		for _, w := range writers {
+			if _, _, err := w.Commit(b.Context(), nil); err != nil {
+				b.Fatal(err)
+			}
 		}
-		if err := w.Sync(); err != nil {
-			b.Fatal(err)
+		for _, w := range writers {
+			if err := w.Sync(); err != nil {
+				b.Fatal(err)
+			}
 		}
 		start += telem.TimeStamp(samples)
 	}
 	b.StopTimer()
-	if err := w.Close(); err != nil {
-		b.Error(err)
+	for _, w := range writers {
+		if err := w.Close(); err != nil {
+			b.Error(err)
+		}
 	}
 }
 
@@ -216,6 +244,7 @@ func openBenchWriter(
 	b.Helper()
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    telem.SecondTS,
 	})
 	if err != nil {

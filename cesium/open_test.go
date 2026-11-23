@@ -129,7 +129,7 @@ var _ = Describe("Open", func() {
 						Expect(ch.Key).To(Equal(key))
 						Expect(ch.IsIndex).To(BeTrue())
 
-						Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, db, 1*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
 						))).To(Succeed())
@@ -163,7 +163,7 @@ var _ = Describe("Open", func() {
 							Index:    indexKey,
 							DataType: telem.Int64T,
 						})).To(Succeed())
-						Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, db, 1*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{indexKey, key},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -189,7 +189,7 @@ var _ = Describe("Open", func() {
 						Expect(ch.DataType).To(Equal(telem.TimestampT))
 
 						By("Asserting that writes to the db still occurs normally")
-						Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, db, 11*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{key, indexKey},
 							[]telem.Series{
 								telem.NewSeriesV[int64](11, 12, 13, 14, 15),
@@ -259,7 +259,7 @@ var _ = Describe("Open after a crash", func() {
 						Index:    idx,
 					},
 				)).To(Succeed())
-				Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+				Expect(write(ctx, db, 1*telem.SecondTS, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
@@ -269,7 +269,7 @@ var _ = Describe("Open after a crash", func() {
 				w := DeferClose(MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
 					Start:    10 * telem.SecondTS,
-					Mode:     cesium.WriterModePersistStream,
+					Clock:    idx,
 				})))
 				mustWrite(ctx, w, telem.MultiFrame(
 					keys,

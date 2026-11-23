@@ -115,6 +115,7 @@ var _ = Describe("Pointer log writer check", func() {
 		GinkgoHelper()
 		return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    at * telem.SecondTS,
 		}))
 	}

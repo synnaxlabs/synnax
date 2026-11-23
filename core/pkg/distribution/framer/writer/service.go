@@ -96,10 +96,9 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream.
+	// Mode sets whether the writer persists its frames, streams them, or both.
 	//
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	// [OPTIONAL] - Defaults to ModePersistStream.
 	Mode Mode
 	// AutoIndex causes the writer to generate timestamps for any index channel in its
 	// Keys whose series is omitted from a Write frame. The first sample in each Write
@@ -125,7 +124,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        new(false),
-		Mode:                     cesium.WriterModePersistStream,
+		Mode:                     ModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
@@ -177,14 +176,6 @@ func (c Config) split(
 	return stored, leased, free
 }
 
-func (c Config) toStorage() cesium.WriterConfig {
-	return cesium.WriterConfig{
-		Channels: c.Keys.Uint32(),
-		Start:    c.Start,
-		Mode:     c.Mode,
-	}
-}
-
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
@@ -194,6 +185,12 @@ func (c Config) Validate() error {
 	v.NotNil("sync", c.Sync)
 	v.NotNil("err_on_unauthorized", c.ErrOnUnauthorized)
 	v.NotNil("auto_index", c.AutoIndex)
+	v.Ternaryf(
+		"mode",
+		c.Mode < ModePersistStream || c.Mode > ModeStreamOnly,
+		"unknown writer mode %d",
+		c.Mode,
+	)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -344,7 +341,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		cfg:      cfg,
 		claims:   newClaims(),
-		controls: newControls(),
+		controls: newControls(cfg.Instrumentation),
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},

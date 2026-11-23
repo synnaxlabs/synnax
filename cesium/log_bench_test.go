@@ -51,7 +51,7 @@ func BenchmarkSeekPointerLog(b *testing.B) {
 	for i := range stamps {
 		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
 	}
-	if err := db.Write(b.Context(), stamps[0], telem.MultiFrame(
+	if err := write(b.Context(), db, stamps[0], telem.MultiFrame(
 		keys,
 		[]telem.Series{
 			telem.NewSeriesV(stamps...),

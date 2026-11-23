@@ -139,6 +139,27 @@ func recordKey(id uint64) []byte {
 	return binary.BigEndian.AppendUint64([]byte("crash/"), id)
 }
 
+// write writes fr from start with one writer on the layer's clock, commits it, and
+// closes the writer.
+func (e *layerEngine) write(
+	ctx context.Context,
+	start telem.TimeStamp,
+	fr cesium.Frame,
+) error {
+	w, err := e.layer.TS.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: fr.KeysSlice(),
+		Clock:    layerIndex,
+		Start:    start,
+	})
+	if err != nil {
+		return err
+	}
+	if _, _, err = w.Write(ctx, fr, nil); err == nil {
+		_, _, err = w.Commit(ctx, nil)
+	}
+	return errors.Join(err, w.Close())
+}
+
 func (e *layerEngine) Commit(
 	ctx context.Context,
 	r crash.Record,
@@ -149,7 +170,7 @@ func (e *layerEngine) Commit(
 	for i := range stamps {
 		stamps[i] = start + telem.TimeStamp(i)
 	}
-	if err := e.layer.TS.Write(ctx, start, telem.MultiFrame(
+	if err := e.write(ctx, start, telem.MultiFrame(
 		[]cesium.ChannelKey{layerIndex, layerData},
 		[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(r.Payload)},
 	)); err != nil {

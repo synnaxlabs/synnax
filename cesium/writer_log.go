@@ -80,31 +80,35 @@ type logKey struct {
 	skipped bool
 }
 
-// openLogWriter opens a writer of cfg on the pointer log layout. The writer writes one
-// clock and the channels it times, the clock included. The caller holds db.mu.
+// openLogWriter opens a writer of cfg on the pointer log layout. The writer writes its
+// clock and the channels that the clock times. The caller holds db.mu.
 func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
+		clock:    cfg.Clock,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
-		unstored: cfg.Mode == WriterModeStreamOnly,
+		unstored: cfg.Unstored,
+	}
+	if clock, ok := db.channelOf(cfg.Clock); !ok {
+		return nil, channel.NewNotFoundError(cfg.Clock)
+	} else if !clock.IsIndex {
+		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
+			validate.ErrValidation,
+			"writer clock is not an index",
+		))
 	}
 	keys := make([]state.WriterKey, 0, len(cfg.Channels))
-	for i, key := range cfg.Channels {
+	for _, key := range cfg.Channels {
 		ch, ok := db.channelOf(key)
 		if !ok {
 			return nil, channel.NewNotFoundError(key)
 		}
-		clock := ch.Index
-		if ch.IsIndex {
-			clock = ch.Key
-		}
-		if i == 0 {
-			w.clock = clock
-		} else if clock != w.clock {
-			return nil, errors.Wrap(
-				errors.ErrUnsupported,
-				"a writer of the pointer log writes one clock",
-			)
+		if ch.Clock() != cfg.Clock {
+			return nil, channel.Wrap(key, errors.Wrapf(
+				validate.ErrValidation,
+				"channel is not timed by the writer clock <%d>",
+				cfg.Clock,
+			))
 		}
 		lk := &logKey{ch: ch, code: telem.CodeOf(ch.DataType)}
 		w.byKey[key] = lk
@@ -137,7 +141,7 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 		Keys:    keys,
 		Clock:   w.clock,
 		Start:   start,
-		Bounded: cfg.Mode == WriterModePersistOnly,
+		Bounded: cfg.Bounded,
 	}
 	stateKeys := make([]ChannelKey, len(keys))
 	for i, k := range keys {

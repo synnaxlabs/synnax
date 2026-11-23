@@ -498,29 +498,30 @@ var _ = Describe("Sparkplug B read entries", func() {
 			expectStored(ctx, data[0], 1, 9, 4, 5)
 		})
 
-		It("Should warn when another writer holds an outage", func(ctx SpecContext) {
-			idx, data := createIndexed(ctx, telem.Float64T)
-			node.setTags("", live(1))
-			t := start(ctx, readConfig(
-				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
-			))
-			expectStored(ctx, data[0], 1)
-			node.death()
-			node.setTags("", live(4))
-			node.birth()
-			expectStored(ctx, data[0], 1, 4)
-			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Keys:  channel.Keys{idx.Key(), data[0].Key()},
-				Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
-			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
-			node.data("", past(3))
-			expectWarning(ctx, t, ContainSubstring(
-				"failed to write historical values of tag plant/line1/temperature",
-			))
-			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 4.0)))
-		})
+		It(
+			"Should write a value into the outage of a writer that waits for its clock",
+			func(
+				ctx SpecContext,
+			) {
+				idx, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", live(1))
+				start(ctx, readConfig(
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				))
+				expectStored(ctx, data[0], 1)
+				node.death()
+				node.setTags("", live(4))
+				node.birth()
+				expectStored(ctx, data[0], 1, 4)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idx.Key(), data[0].Key()},
+					Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				node.data("", past(3))
+				expectStored(ctx, data[0], 1, 3, 4)
+			},
+		)
 
 		It("Should write a value once a writer leaves its outage",
 			func(ctx SpecContext) {

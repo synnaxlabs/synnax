@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
@@ -47,20 +48,133 @@ func (s *Service) newStorage(
 	if err != nil {
 		return nil, err
 	}
+	ws, err := s.clockWriters(cfg, channels)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	unlock := lockEntries(ws)
+	defer unlock()
 	g, transfers, err := s.controls.openGates(cfg, channels)
 	if err != nil {
 		release()
 		return nil, err
 	}
-	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	if err = join(ctx, s.cfg.TS, ws); err == nil {
+		err = s.openOwn(ctx, cfg, ws)
+	}
 	if err != nil {
-		g.release()
+		err = errors.Join(err, closeClocks(ws))
+		transfers = append(transfers, g.release()...)
+		followAll(ctx, s.cfg.TS, ws)
+		s.controls.notify(transfers)
 		release()
 		named, _ := s.controls.nameHolder(err)
 		return nil, named
 	}
 	s.controls.notify(transfers)
-	return s.newSession(w, cfg, autoIndex, release, g), nil
+	return s.newSession(ws, cfg, autoIndex, release, g), nil
+}
+
+// join adds each sharing handle of ws to the entry of its clock, and moves the writer
+// of each clock to its leader. It returns the error of a writer that a handle of ws
+// needed and that failed to open. The caller holds the entries' locks.
+func join(ctx context.Context, ts *cesium.DB, ws []*clockWriter) error {
+	for _, c := range ws {
+		if c.shares {
+			c.entry.members[c.member.subject] = c.member
+		}
+	}
+	followAll(ctx, ts, ws)
+	for _, c := range ws {
+		if c.shares && c.member.err != nil {
+			return c.member.err
+		}
+	}
+	return nil
+}
+
+// clockWriters returns the handle of the session of cfg on each clock of channels,
+// which are the stored channels of cfg. A session that persists and streams, and that
+// writes a clock, shares the clock's writer with the other sessions on it. The other
+// handles hold their own writer, which openOwn opens, and a handle whose session holds
+// a gate on the clock follows the clock's entry.
+func (s *Service) clockWriters(
+	cfg Config,
+	channels []cesium.Channel,
+) ([]*clockWriter, error) {
+	var (
+		clocks  []cesium.ChannelKey
+		keys    = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
+		byKey   = make(map[cesium.ChannelKey]cesium.Channel, len(channels))
+		ws      = make([]*clockWriter, 0, 1)
+		sharing = cfg.Mode == ModePersistStream
+	)
+	for _, ch := range channels {
+		clock := ch.Clock()
+		if _, ok := keys[clock]; !ok {
+			clocks = append(clocks, clock)
+		}
+		keys[clock] = append(keys[clock], ch.Key)
+		byKey[ch.Key] = ch
+	}
+	for _, clock := range clocks {
+		c := &clockWriter{
+			clock: clock,
+			member: &clockMember{
+				subject: cfg.ControlSubject.Key,
+				keys:    keys[clock],
+				start:   cfg.Start,
+				end:     cfg.Start,
+			},
+		}
+		if ch, writesClock := byKey[clock]; writesClock && cfg.Mode != ModePersistOnly {
+			entry, err := s.controls.clockEntry(ch)
+			if err != nil {
+				return nil, err
+			}
+			c.entry, c.shares = entry, sharing
+		}
+		ws = append(ws, c)
+	}
+	return ws, nil
+}
+
+// openOwn opens the writer of each handle of ws that does not share its clock's writer.
+// A failed open returns its error, and the caller closes the writers that opened.
+func (s *Service) openOwn(ctx context.Context, cfg Config, ws []*clockWriter) error {
+	for _, c := range ws {
+		if c.shares {
+			continue
+		}
+		w, err := s.cfg.TS.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: c.member.keys,
+			Clock:    c.clock,
+			Start:    cfg.Start,
+			Bounded:  cfg.Mode == ModePersistOnly,
+			Unstored: cfg.Mode == ModeStreamOnly,
+		})
+		if err != nil {
+			return err
+		}
+		c.own = w
+	}
+	return nil
+}
+
+// closeClocks closes the own writer of each handle of ws, and leaves each shared clock.
+// The caller holds the entries' locks.
+func closeClocks(ws []*clockWriter) error {
+	var err error
+	for _, c := range ws {
+		switch {
+		case c.own != nil:
+			err = errors.Join(err, c.own.Close())
+		case c.shares:
+			err = errors.Join(err, c.entry.leave(c.member))
+		}
+	}
+	return err
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one
