@@ -137,15 +137,41 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
     return x::errors::NIL;
 }
 
+namespace {
+/// @brief renames from to to, and fails with EEXIST when to exists. Sets errno to
+/// ENOTSUP when the file system has no such rename.
+int rename_exclusive(const char *from, const char *to) {
+#ifdef __APPLE__
+    return renamex_np(from, to, RENAME_EXCL);
+#else
+    return renameat2(AT_FDCWD, from, AT_FDCWD, to, RENAME_NOREPLACE);
+#endif
+}
+
+bool unsupported(const int err) {
+    return err == EINVAL || err == ENOTSUP || err == EOPNOTSUPP || err == ENOSYS ||
+           err == EPERM;
+}
+}
+
 x::errors::Error
 rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
-    // A link fails when to exists, where a rename would replace it.
-    if (link(from.c_str(), to.c_str()) != 0) {
-        if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
-        return errno_error("failed to link " + from.string());
+    if (rename_exclusive(from.c_str(), to.c_str()) == 0) return x::errors::NIL;
+    if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+    if (!unsupported(errno)) return errno_error("failed to rename " + from.string());
+    // A link also fails when to exists.
+    if (link(from.c_str(), to.c_str()) == 0) {
+        if (unlink(from.c_str()) != 0)
+            return errno_error("failed to remove " + from.string());
+        return x::errors::NIL;
     }
-    if (unlink(from.c_str()) != 0)
-        return errno_error("failed to remove " + from.string());
+    if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+    if (!unsupported(errno)) return errno_error("failed to link " + from.string());
+    // FAT and some network volumes have neither, so a racing create can win here.
+    std::error_code ec;
+    if (std::filesystem::exists(to, ec)) return x::errors::Error(EXISTS, to.string());
+    if (std::rename(from.c_str(), to.c_str()) != 0)
+        return errno_error("failed to rename " + from.string());
     return x::errors::NIL;
 }
 }

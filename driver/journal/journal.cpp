@@ -91,8 +91,6 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
                     "failed to stat " + cfg.path.string() + ": " + ec.message()
                 )
             };
-        // A crash during a create leaves its temp file.
-        if (auto err = remove_temps(cfg.path)) return {nullptr, err};
         const auto err = create_new(cfg.path, encode_header(cfg.magic, cfg.flags));
         if (err && !err.matches(EXISTS)) return {nullptr, err};
         created = !err;
@@ -100,6 +98,8 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     auto [file, err] = File::open(cfg.path);
     if (err) return {nullptr, err};
     if (err = file->lock(); err) return {nullptr, err};
+    // A crash during a create can leave its temp file, or a link to the file.
+    if (err = remove_temps(cfg.path); err) return {nullptr, err};
     auto [start, size_err] = file->size();
     if (size_err) return {nullptr, size_err};
     // create_new never leaves a short file, so a short file comes from elsewhere.
