@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeAlias
 
 from synnax import resource
@@ -18,7 +18,10 @@ from synnax.channel.types_gen import (
     Key as Key,
     Operation as Operation,
     Payload as Payload,
+    Where,
 )
+from synnax.exceptions import ValidationError
+from x import filter
 from x.lists import normalize
 
 _RESOURCE_TYPE = resource.ID(type="channel")
@@ -28,61 +31,92 @@ def _resource_id(key: Key) -> resource.ID:
     return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))
 
 
-@dataclass
-class NormalizedKeyResult:
-    single: bool
-    channels: list[Key]
+Lookup: TypeAlias = Key | str
+"""A channel named by its key, its name, or its path."""
+
+Params: TypeAlias = Lookup | Payload | Sequence[Lookup | Payload]
+
+_PATH_SEPARATOR = "."
+_MAX_KEY = 4294967295
+
+
+def to_lookups(params: Params) -> list[Lookup]:
+    """Returns each channel of params as a lookup, a payload as its key.
+
+    :raises ValidationError: If an integer does not fit a channel key.
+    """
+    lookups: list[Lookup] = []
+    for p in normalize(params):
+        if isinstance(p, Payload):
+            lookups.append(p.key)
+        elif isinstance(p, str):
+            lookups.append(p)
+        elif isinstance(p, int):
+            if not 0 <= p <= _MAX_KEY:
+                raise ValidationError(f"{p} is not a channel key")
+            lookups.append(p)
+        else:
+            raise TypeError(f"{p!r} is not a channel key, name, path, or payload")
+    return lookups
+
+
+def is_single(params: Params) -> bool:
+    """Returns whether params names one channel by key, name, or path."""
+    return isinstance(params, (Key, str))
 
 
 @dataclass
-class NormalizedNameResult:
-    single: bool
-    channels: list[str]
+class SplitLookups:
+    """The lookups of each kind, in the order given."""
+
+    keys: list[Key] = field(default_factory=list)
+    names: list[str] = field(default_factory=list)
+    paths: list[str] = field(default_factory=list)
 
 
-Params: TypeAlias = (
-    Key | str | Payload | Sequence[Key] | Sequence[str] | Sequence[Payload]
-)
+def split_lookups(lookups: list[Lookup]) -> SplitLookups:
+    """Splits lookups by kind. An integer is a key, a string that holds a '.' is a
+    path, and any other string is a name, digits included.
+    """
+    split = SplitLookups()
+    for lookup in lookups:
+        if isinstance(lookup, int):
+            split.keys.append(lookup)
+        elif _PATH_SEPARATOR in lookup:
+            split.paths.append(lookup)
+        else:
+            split.names.append(lookup)
+    return split
 
 
-def normalize_params(
-    channels: Params,
-) -> NormalizedKeyResult | NormalizedNameResult:
-    """Determine if a list of keys or names is a single key or name."""
-    normalized = normalize(channels)
-    if len(normalized) == 0:
-        return NormalizedKeyResult(single=False, channels=[])
-    single = isinstance(channels, (Key, str))
-    first = normalized[0]
-    if isinstance(first, str):
-        str_list = [s for s in normalized if isinstance(s, str)]
-        if len(str_list) != len(normalized):
-            raise TypeError(
-                "channel params must be all keys or all names, got a mix of both"
-            )
-        try:
-            return NormalizedKeyResult(
-                single=single,
-                channels=[Key(s) for s in str_list],
-            )
-        except (ValueError, TypeError):
-            return NormalizedNameResult(
-                single=single,
-                channels=str_list,
-            )
-    elif isinstance(first, Payload):
-        payload_list = [c.key for c in normalized if isinstance(c, Payload)]
-        if len(payload_list) != len(normalized):
-            raise TypeError(
-                "channel params must be all keys or all names, got a mix of both"
-            )
-        return NormalizedKeyResult(single=single, channels=payload_list)
-    key_list = [k for k in normalized if isinstance(k, int)]
-    if len(key_list) != len(normalized):
-        raise TypeError(
-            "channel params must be all keys or all names, got a mix of both"
+def lookup_where(lookups: list[Lookup]) -> Where:
+    """Returns the filter that looks up each channel in lookups. Lookups of several
+    kinds join in an or. An empty list selects no channel.
+    """
+    split = split_lookups(lookups)
+    branches: list[Where] = []
+    if split.keys or not lookups:
+        keys = split.keys
+        branches.append(
+            Where(key=filter.Set[Key](eq=keys[0]))
+            if len(keys) == 1
+            else Where(key=filter.Set[Key](in_=keys))
         )
-    return NormalizedKeyResult(single=single, channels=key_list)
+    if split.names:
+        names = split.names
+        branches.append(
+            Where(name=filter.String(eq=names[0]))
+            if len(names) == 1
+            else Where(name=filter.String(in_=names))
+        )
+    if split.paths:
+        paths = split.paths
+        branches.append(
+            Where(path=filter.Set[str](eq=paths[0]))
+            if len(paths) == 1
+            else Where(path=filter.Set[str](in_=paths))
+        )
+    return branches[0] if len(branches) == 1 else Where(or_=branches)
 
 
 def has_params(channels: Params | None) -> bool:

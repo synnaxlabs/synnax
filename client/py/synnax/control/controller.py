@@ -17,6 +17,8 @@ from typing import Any, Protocol, TypeAlias, overload, override
 import numpy as np
 
 from synnax import channel as channel_, framer
+from synnax.channel.payload import to_lookups
+from synnax.channel.retrieve import resolve
 from synnax.exceptions import UnexpectedError, ValidationError
 from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep
@@ -128,7 +130,7 @@ class Controller:
         self._retriever = retriever
         self._channels = {}
         if write is not None and channel_.has_params(write):
-            write_channels = channel_.retrieve_required(self._retriever, write)
+            write_channels = resolve(self._retriever, write)
             self._index(write_channels)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
@@ -155,9 +157,8 @@ class Controller:
         """Resolves an acquired channel locally, and any other channel from the Core."""
         if isinstance(ch, channel_.Payload):
             return ch
-        param = channel_.normalize_params(ch).channels[0]
-        pld = self._channels.get(param)
-        return pld if pld is not None else self._retriever.retrieve_one(param)
+        pld = self._channels.get(ch)
+        return pld if pld is not None else self._retriever.retrieve_one(ch)
 
     @property
     def _writer(self) -> framer.Writer:
@@ -400,7 +401,7 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = [self._resolve(ch) for ch in channel_.normalize_params(channels).channels]
+        res = [self._resolve(ch) for ch in to_lookups(channels)]
         return self.wait_until(
             lambda c: all(v.key in c.state for v in res), timeout=timeout
         )

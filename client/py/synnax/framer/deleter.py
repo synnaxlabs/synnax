@@ -41,13 +41,9 @@ class Deleter:
     @trace("debug")
     def delete(
         self,
-        channels: channel.Params,
+        keys: list[channel.Key],
+        names: list[str],
         tr: TimeRange,
     ) -> None:
-        normal = channel.normalize_params(channels)
-        req = _Request(bounds=tr)
-        if isinstance(normal, channel.NormalizedKeyResult):
-            req.keys = normal.channels
-        else:
-            req.names = normal.channels
+        req = _Request(keys=keys, names=names, bounds=tr)
         self._client.send("/frame/delete", req, _Response)

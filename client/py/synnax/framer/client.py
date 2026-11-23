@@ -18,7 +18,7 @@ from freighter import (
     StreamClient,
     UnaryClient,
 )
-from synnax.channel.retrieve import Retriever
+from synnax.channel.retrieve import Retriever, resolve
 from synnax.exceptions import ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
@@ -49,6 +49,8 @@ _FrameParams: TypeAlias = (
     | Sequence[channel.Payload]
     | list[str]
     | tuple[str, ...]
+    | list[channel.Key | str]
+    | tuple[channel.Key | str, ...]
 )
 
 
@@ -229,9 +231,9 @@ class Client:
     ) -> None:
         parsed_channels: channel.Params
         if isinstance(channels, Mapping):
-            parsed_channels = _params(list(channels.keys()))
+            parsed_channels = list(channels.keys())
         elif isinstance(channels, Frame):
-            parsed_channels = _params(channels.channels)
+            parsed_channels = list(channels.channels)
         elif isinstance(channels, FramePayload):
             parsed_channels = channels.keys
         elif is_dataframe(channels):
@@ -294,13 +296,13 @@ class Client:
         leaves out, after the requested channels. A channel with no data in the time
         range gives an empty series.
         """
-        normal = channel.normalize_params(channels)
+        single = isinstance(channels, (channel.Key, str))
         frame = self._reader.read(
-            tr, channels, reduction=reduction, timestamps_included=not normal.single
+            tr, channels, reduction=reduction, timestamps_included=not single
         )
-        if not normal.single:
+        if not isinstance(channels, (channel.Key, str)):
             return frame
-        return frame[normal.channels[0]]
+        return frame[channels]
 
     @deprecate_positional("dest", "reduction")
     def read_csv(
@@ -377,7 +379,6 @@ class Client:
         :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
         a sequence with one item.
         """
-        normal = channel.normalize_params(channels)
         aggregate = Frame()
         if n > 0:
             with self.open_iterator(
@@ -388,9 +389,9 @@ class Client:
                 i.seek_last()
                 i.prev(AUTO_SPAN)
                 aggregate.append(i.value)
-        if not normal.single:
+        if not isinstance(channels, (channel.Key, str)):
             return aggregate
-        return aggregate[normal.channels[0]]
+        return aggregate[channels]
 
     @deprecate_positional(
         "downsample_factor", "throttle_rate", "exclude_groups", "keep_alive"
@@ -460,22 +461,11 @@ class Client:
         Note that the time range is start-inclusive and end-exclusive.
         Also note that deleting all data in a channel does not delete the channel; to
         delete a channel, use client.channels.delete().
-        :param channels: channels to delete data from.
+        :param channels: channels to delete data from. An integer is a key, and a
+        string is a path or a name. A list may mix them.
         :param tr: time range to delete data from.
+        :raises NotFoundError: Naming every path that finds no channel.
         """
-        self._deleter.delete(channels, tr)
-
-
-def _params(
-    channels: Sequence[channel.Key | str | channel.Payload],
-) -> channel.Params:
-    keys = [c for c in channels if isinstance(c, channel.Key)]
-    if len(keys) == len(channels):
-        return keys
-    names = [c for c in channels if isinstance(c, str)]
-    if len(names) == len(channels):
-        return names
-    payloads = [c for c in channels if isinstance(c, channel.Payload)]
-    if len(payloads) == len(channels):
-        return payloads
-    raise TypeError("channel params must be all keys or all names, got a mix of both")
+        split = channel.split_lookups(channel.to_lookups(channels))
+        keys = split.keys + [ch.key for ch in resolve(self._channels, split.paths)]
+        self._deleter.delete(keys, split.names, tr)

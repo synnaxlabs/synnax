@@ -15,6 +15,7 @@ import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
 from console.notifications import click_past
+from x.lists import normalize
 
 
 class Spec(TypedDict, total=False):
@@ -443,12 +444,12 @@ class ChannelClient(ResourceClient):
         :param timeout: Maximum time to wait.
         :returns: True if all channels exist, False if timeout reached.
         """
-        normalized_names = sy.channel.normalize_params(names)
+        normalized_names = normalize(names)
         timeout_ms = int(sy.TimeSpan.from_seconds(timeout) / sy.TimeSpan.MILLISECOND)
 
         self.show_channels()
         try:
-            for name in normalized_names.channels:
+            for name in normalized_names:
                 self.tree.wait_for_name(self.ITEM_PREFIX, str(name), timeout=timeout_ms)
             return True
         except PlaywrightTimeoutError:
@@ -469,12 +470,12 @@ class ChannelClient(ResourceClient):
         :returns: True if successful, False otherwise.
         """
         try:
-            normalized_names = sy.channel.normalize_params(names)
-            normalized_new_names = sy.channel.normalize_params(new_names)
-            if len(normalized_names.channels) != len(normalized_new_names.channels):
+            normalized_names = normalize(names)
+            normalized_new_names = normalize(new_names)
+            if len(normalized_names) != len(normalized_new_names):
                 return False
             for old_name, new_name in zip(
-                normalized_names.channels, normalized_new_names.channels, strict=True
+                normalized_names, normalized_new_names, strict=True
             ):
                 self._rename_single_channel(
                     old_name=str(old_name), new_name=str(new_name)
@@ -494,8 +495,8 @@ class ChannelClient(ResourceClient):
 
     def delete(self, names: str | list[str] | tuple[str]) -> None:
         """Deletes one or more channels via console UI."""
-        normalized_names = sy.channel.normalize_params(names)
-        for name in normalized_names.channels:
+        normalized_names = normalize(names)
+        for name in normalized_names:
             self._delete_single_channel(str(name))
 
     def _delete_single_channel(self, name: str) -> None:

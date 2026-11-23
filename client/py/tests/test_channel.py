@@ -370,14 +370,15 @@ class TestChannel:
         for channel in channels:
             assert channel.name in names
 
-    def test_retrieve_bad_numeric_string(self, client: sy.Synnax) -> None:
-        ch1 = client.channels.create(
+    def test_retrieve_digit_text_as_a_name(self, client: sy.Synnax) -> None:
+        """Should read digit text as a name, never as the key it spells."""
+        other = client.channels.create(
             data_type=sy.DataType.FLOAT32, name=channel_name(), virtual=True
         )
-
-        # Should get first channel since the numeric string gets converted to a key
-        result_channel = client.channels.retrieve(str(ch1.key))
-        assert result_channel.name == ch1.name
+        named = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name=str(other.key), virtual=True
+        )
+        assert client.channels.retrieve(str(other.key)).key == named.key
 
     def test_retrieve_names_exactly(self, client: sy.Synnax) -> None:
         """Should match each name in a list exactly and never as a pattern"""
@@ -1068,7 +1069,7 @@ class TestChannelRetriever:
         with pytest.raises(
             sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
         ):
-            client.channels._retriever.retrieve_one(f"{prefix}_.*")
+            client.channels._retriever.retrieve_one(f"{prefix}_[ab]")
 
 
 @pytest.mark.framer

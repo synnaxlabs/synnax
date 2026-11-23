@@ -18,9 +18,12 @@ from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
     Params,
-    normalize_params,
+    is_single,
+    lookup_where,
+    split_lookups,
+    to_lookups,
 )
-from synnax.channel.retrieve import Retriever, params_where
+from synnax.channel.retrieve import Retriever, resolve
 from synnax.channel.types_gen import (
     CountLimitedResponse,
     Cursor,
@@ -36,7 +39,7 @@ from synnax.channel.types_gen import (
     resource_id,
 )
 from synnax.channel.writer import Writer
-from synnax.exceptions import MultipleFoundError, ValidationError
+from synnax.exceptions import ValidationError
 from synnax.resource import ID
 from synnax.telem import (
     CrudeDataType,
@@ -257,8 +260,14 @@ class Client:
         self._creator = creator
 
     def delete(self, channels: Params) -> None:
-        """Deletes on or more channels from the cluster"""
-        self._creator.delete(channels)
+        """Deletes the channels that channels names. An integer is a key, and a string
+        is a path or a name. A list may mix them.
+
+        :raises NotFoundError: Naming every path that finds no channel.
+        """
+        split = split_lookups(to_lookups(channels))
+        keys = split.keys + [ch.key for ch in resolve(self._retriever, split.paths)]
+        self._creator.delete(keys=keys, names=split.names)
 
     def retrieve_built_ins(self) -> list[Key]:
         """Retrieves the keys of the built-in channels, which Core services declare
@@ -468,7 +477,13 @@ class Client:
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key, ...] | list[str] | tuple[str, ...] | None = ...,
+        channel: list[Key]
+        | tuple[Key, ...]
+        | list[str]
+        | tuple[str, ...]
+        | list[Key | str]
+        | tuple[Key | str, ...]
+        | None = ...,
         *,
         key: filter.SetInput[Key] = ...,
         name: filter.StringInput = ...,
@@ -495,7 +510,13 @@ class Client:
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key, ...] | list[str] | tuple[str, ...] | None = ...,
+        channel: list[Key]
+        | tuple[Key, ...]
+        | list[str]
+        | tuple[str, ...]
+        | list[Key | str]
+        | tuple[Key | str, ...]
+        | None = ...,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
@@ -546,10 +567,11 @@ class Client:
         channel must match every field. A plain ``key`` or ``name``, or a single key
         or name as ``channel``, returns one channel.
 
-        :param channel: The key or name of one channel, or a list of keys or names. A
-            name matches exactly. To match a pattern, use where with a name regex. An
-            empty list retrieves no channels. To retrieve every channel, leave out
-            channel.
+        :param channel: The key, name, or path of one channel, or a list of them in
+            any mix. An integer is a key, a string that holds a '.' is a path, and any
+            other string is a name, digits included. A name matches exactly. To match a
+            pattern, use where with a name regex. An empty list retrieves no channels.
+            To retrieve every channel, leave out channel.
         :param key: Keeps channels with this key.
         :param name: Keeps channels with this name.
         :param leaseholder: Keeps channels whose leaseholder is this node.
@@ -586,15 +608,11 @@ class Client:
         :raises ValidationError: If a filter field is None, or if one channel is
             wanted beside a limit or a cursor.
         """
-        selected = Where()
-        positional = False
-        if channel is not None:
-            selected = params_where(channel)
-            positional = normalize_params(channel).single
+        lookups = [] if channel is None else to_lookups(channel)
+        positional = channel is not None and is_single(channel)
+        selected = None if channel is None else lookup_where(lookups)
         single = returns_one(fields, one or positional, limit=limit, after=after)
         flat = Where(
-            key=selected.key,
-            name=selected.name,
             leaseholder=(
                 None if node_key is None else filter.Set[node.Key](eq=node_key)
             ),
@@ -611,8 +629,19 @@ class Client:
                 )
             ),
         )
+        tree = request_where(
+            Where,
+            filter.merge(
+                where if selected is None else filter.merge(where, selected), flat
+            ),
+            fields,
+        )
+        # One name or path needs exactly one channel, so the Core refuses an ambiguous
+        # name. A strict where holds only the lookup.
+        strict = positional and isinstance(lookups[0], str) and tree == selected
         req = RetrieveRequest(
-            where=request_where(Where, filter.merge(where, flat), fields),
+            where=tree,
+            strict=strict,
             search_term=search_term,
             limit=limit,
             order=order,
@@ -624,8 +653,6 @@ class Client:
         sug = self._sugar(res)
         if not single:
             return sug
-        if channel is not None and positional and len(res) > 1:
-            raise _multiple_results_error(channel, res)
         return sole("channel", req, sug)
 
     @overload
@@ -689,26 +716,3 @@ class Client:
 
 def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:
     return [DataType(dt) for dt in data_types]
-
-
-def _multiple_results_error(
-    channel: Params,
-    results: list[Payload],
-) -> MultipleFoundError:
-    msg = f"""
-
-{len(results)} channels matching '{channel}' found. If you'd like to retrieve all
-of them, pass in '{channel}' as an array i.e. ['{channel}'] instead of {channel}.
-
-The channels found were:
-    """
-
-    # append a max of five results to the error message. If we have more than five,
-    # we'll just say "and x more" at the end.
-    for i in range(min(5, len(results))):
-        msg += f"{results[i]!s}, "
-
-    if len(results) > 5:
-        msg += f"and {len(results) - 5} more."
-
-    return MultipleFoundError(msg)

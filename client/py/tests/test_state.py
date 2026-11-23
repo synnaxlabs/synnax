@@ -23,7 +23,7 @@ def frame(ch: sy.channel.Payload, data: list[float]) -> sy.Frame:
 
 
 class TestState:
-    """Tests reading channel values from State by key, name and string key."""
+    """Tests reading channel values from State by key, name, and digit name."""
 
     @staticmethod
     def state() -> State:
@@ -39,9 +39,13 @@ class TestState:
         """Should return the series for a channel name."""
         assert self.state()["pressure"].to_numpy().tolist() == [1.5]
 
-    def test_by_numeric_string_key(self) -> None:
-        """Should read a numeric string as a channel key, not a name."""
-        assert self.state()["12"].to_numpy().tolist() == [1.5]
+    def test_by_numeric_string_name(self) -> None:
+        """Should read a numeric string as a channel name, never as a key."""
+        digits = sy.channel.Payload(key=99, name="12", data_type=sy.DataType.FLOAT32)
+        state = State([PRESSURE, digits])
+        state.update(frame(PRESSURE, [1.5]))
+        state.update(frame(digits, [2.5]))
+        assert state["12"].to_numpy().tolist() == [2.5]
 
     def test_by_attribute(self) -> None:
         """Should return the series for a channel name read as an attribute."""

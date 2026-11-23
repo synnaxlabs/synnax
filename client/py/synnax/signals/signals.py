@@ -13,6 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from synnax import channel, framer
+from synnax.channel.payload import split_lookups, to_lookups
+from synnax.channel.retrieve import resolve
 from synnax.state import Latest, State
 from x.params import deprecate_positional
 
@@ -52,11 +54,10 @@ class Registry:
         :param filter_f: Returns true when the handler should run.
         :returns: A decorator that returns the function unchanged.
         """
-        normal = channel.normalize_params(channels)
-        if isinstance(normal, channel.NormalizedKeyResult):
-            keys = set(normal.channels)
-        else:
-            keys = {ch.key for ch in self._channel_retriever.retrieve(channels)}
+        split = split_lookups(to_lookups(channels))
+        texts = split.names + split.paths
+        keys = set(split.keys)
+        keys |= {ch.key for ch in resolve(self._channel_retriever, texts)}
         self._channels.extend(keys)
 
         def decorator(

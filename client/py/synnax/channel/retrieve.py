@@ -10,34 +10,22 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
 from synnax.channel.payload import (
     Key,
-    NormalizedNameResult,
+    Lookup,
     Params,
     Payload,
-    normalize_params,
+    lookup_where,
+    split_lookups,
+    to_lookups,
 )
-from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
+from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse
 from synnax.exceptions import NotFoundError
 from synnax.util import sole
-from x import filter
-
-
-def params_where(channels: Params) -> Where:
-    """Returns a filter that selects the channels that channels names by key or
-    name. One key or name selects with eq, and a list with in.
-    """
-    normal = normalize_params(channels)
-    if isinstance(normal, NormalizedNameResult):
-        if normal.single:
-            return Where(name=filter.String(eq=normal.channels[0]))
-        return Where(name=filter.String(in_=normal.channels))
-    if normal.single:
-        return Where(key=filter.Set[Key](eq=normal.channels[0]))
-    return Where(key=filter.Set[Key](in_=normal.channels))
 
 
 class Retriever:
@@ -57,18 +45,25 @@ class Retriever:
 
     @trace("debug")
     def retrieve(self, channels: Params) -> list[Payload]:
-        if len(normalize_params(channels).channels) == 0:
+        """Returns every channel that channels names. A name can match several
+        channels.
+        """
+        lookups = to_lookups(channels)
+        if len(lookups) == 0:
             return []
-        return self.filter(RetrieveRequest(where=params_where(channels)))
+        return self.filter(RetrieveRequest(where=lookup_where(lookups)))
 
     @trace("debug")
-    def retrieve_one(self, param: Key | str) -> Payload:
+    def retrieve_one(self, param: Lookup) -> Payload:
         """Returns the one channel that param names.
 
         :raises NotFoundError: If no channel matches param.
-        :raises MultipleFoundError: If more than one channel matches param.
+        :raises MultipleFoundError: If several channels hold the name param.
         """
-        req = RetrieveRequest(where=params_where(param))
+        lookups = to_lookups(param)
+        req = RetrieveRequest(
+            where=lookup_where(lookups), strict=isinstance(lookups[0], str)
+        )
         return sole("channel", req, self.filter(req))
 
     @trace("debug")
@@ -77,15 +72,45 @@ class Retriever:
         return self._client.send("/channel/retrieve", req, RetrieveResponse).channels
 
 
-def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
-    normal = normalize_params(channels)
-    results = r.retrieve(channels)
-    found: set[Key | str]
-    if isinstance(normal, NormalizedNameResult):
-        found = {c.name for c in results}
-    else:
-        found = {c.key for c in results}
-    not_found: list[Key | str] = [p for p in normal.channels if p not in found]
-    if len(not_found) > 0:
-        raise NotFoundError(f"channels not found matching {json.dumps(not_found)}")
-    return results
+def _nfc(lookup: Lookup) -> Lookup:
+    return unicodedata.normalize("NFC", lookup) if isinstance(lookup, str) else lookup
+
+
+def match(r: Retriever, channels: Params) -> list[Payload | None]:
+    """Returns the channel of each lookup in channels, in order, from one strict
+    request, or None for a lookup that finds no channel. A channel matches a lookup by
+    its key, its name in NFC, or its path in NFC.
+
+    :raises MultipleFoundError: If several channels hold a name.
+    """
+    lookups = to_lookups(channels)
+    if len(lookups) == 0:
+        return []
+    split = split_lookups(lookups)
+    named = len(split.names) > 0 or len(split.paths) > 0
+    req = RetrieveRequest(
+        where=lookup_where(lookups), strict=named, include_path=len(split.paths) > 0
+    )
+    found: dict[Key | str, Payload] = {}
+    for ch in r.filter(req):
+        found[ch.key] = ch
+        if named:
+            found[_nfc(ch.name)] = ch
+            if ch.path is not None:
+                found[_nfc(ch.path)] = ch
+    return [found.get(_nfc(lookup)) for lookup in lookups]
+
+
+def resolve(r: Retriever, channels: Params) -> list[Payload]:
+    """Returns the channel of each lookup in channels, in order, from one strict
+    request, as match does.
+
+    :raises NotFoundError: Naming every lookup that finds no channel.
+    :raises MultipleFoundError: If several channels hold a name.
+    """
+    lookups = to_lookups(channels)
+    found = match(r, lookups)
+    missing = [lk for lk, ch in zip(lookups, found, strict=True) if ch is None]
+    if len(missing) > 0:
+        raise NotFoundError(f"channels not found matching {json.dumps(missing)}")
+    return [ch for ch in found if ch is not None]

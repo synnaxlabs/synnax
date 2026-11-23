@@ -14,13 +14,7 @@ from pydantic import BaseModel
 from alamos import Instrumentation, trace
 from freighter import Empty, UnaryClient
 from synnax import group as group_
-from synnax.channel.payload import (
-    Key,
-    NormalizedNameResult,
-    Params,
-    Payload,
-    normalize_params,
-)
+from synnax.channel.payload import Key, Payload
 from synnax.transport import send_batch
 from x import patch
 
@@ -84,12 +78,8 @@ class Writer:
         return self._client.send("/channel/create", req, _Response).channels
 
     @trace("debug")
-    def delete(self, channels: Params) -> None:
-        normal = normalize_params(channels)
-        if isinstance(normal, NormalizedNameResult):
-            req = _DeleteRequest(names=normal.channels)
-        else:
-            req = _DeleteRequest(keys=normal.channels)
+    def delete(self, keys: list[Key], names: list[str]) -> None:
+        req = _DeleteRequest(keys=keys, names=names)
         self._client.send("/channel/delete", req, Empty)
 
     @trace("debug")

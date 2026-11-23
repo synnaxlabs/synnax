@@ -871,22 +871,27 @@ class TestControllerChannelResolution:
                 ctrl.set_authority(cmd.name, authority=200)
             assert counter.count == 0
 
-    def test_access_by_numeric_string_key(
+    def test_access_by_numeric_string_name(
         self, counted_client: tuple[sy.Synnax, RetrieveCounter]
     ) -> None:
-        """Should treat a numeric string as a channel key, as JSON object keys are"""
+        """Should read a numeric string as a channel name, never as the key it
+        spells.
+        """
         client, counter = counted_client
-        cmd = client.channels.create(
+        other = client.channels.create(
             name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
         )
-        key = str(cmd.key)
+        name = str(other.key)
+        cmd = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT64
+        )
         with client.control.acquire(
             name="resolution", read=[cmd.key], write=[cmd.key]
         ) as ctrl:
             counter.count = 0
-            ctrl.set_authority({key: 200})
-            ctrl.set({key: 7.0})
-            assert_echoed(ctrl, key, 7.0)
+            ctrl.set_authority({name: 200})
+            ctrl.set({name: 7.0})
+            assert_echoed(ctrl, name, 7.0)
             assert counter.count == 0
 
     def test_unacquired_channel_by_name(self, client: sy.Synnax) -> None:

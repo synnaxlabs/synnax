@@ -8,15 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.channel.client import Channel, Client
-from synnax.channel.payload import (
-    Key,
-    NormalizedKeyResult,
-    NormalizedNameResult,
-    Params,
-    has_params,
-    normalize_params,
-)
-from synnax.channel.retrieve import Retriever, retrieve_required
+from synnax.channel.payload import Key, Params, has_params
+from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
     Cursor,
     Operation,
@@ -32,8 +25,6 @@ __all__ = [
     "Client",
     "Cursor",
     "Key",
-    "NormalizedKeyResult",
-    "NormalizedNameResult",
     "Operation",
     "Order",
     "Params",
@@ -43,6 +34,4 @@ __all__ = [
     "WhereInput",
     "Writer",
     "has_params",
-    "normalize_params",
-    "retrieve_required",
 ]
