@@ -113,9 +113,9 @@ describe("User", () => {
       // Fails the first create after the Core runs it, as a connection that drops
       // before the response headers arrive.
       const loseFirstResponse: Middleware = async (ctx, next) => {
-        const out = await next(ctx);
-        if (!ctx.target.endsWith("/user/create")) return out;
+        if (!ctx.target.endsWith("/user/create")) return await next(ctx);
         attempts += 1;
+        const out = await next(ctx);
         if (attempts === 1) throw new Unreachable({ message: "response lost" });
         return out;
       };
