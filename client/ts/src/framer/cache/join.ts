@@ -348,6 +348,7 @@ export class Joins {
   invalidate(
     ch: channel.Key | null = null,
     tr: TimeRange = TimeRange.MAX,
+    missed = false,
   ): Set<channel.Key> {
     if (ch == null) this.joins.forEach((j) => this.waitJoin(j));
     else {
@@ -356,7 +357,7 @@ export class Joins {
       if (m != null && open?.joined === true && open.range.overlapsWith(tr))
         this.waitMember(m);
     }
-    this.store.invalidate(ch, tr);
+    this.store.invalidate(ch, tr, missed);
     return this.drain();
   }
 

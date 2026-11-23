@@ -10,8 +10,9 @@
 import { type destructor, type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { isConnectionError, NotFoundError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import type { Cache } from "@/query/cache";
+import { isOffline } from "@/query/offline";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
 import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
 import type { Params } from "@/query/types";
@@ -108,7 +109,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
         await this.refetchWatched();
       }).catch((exc: unknown) => {
         // The refetch after the next reconnect fetches the uses again.
-        if (isConnectionError(exc)) return;
+        if (isOffline(exc)) return;
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
     }, REFETCH_DEBOUNCE);
@@ -119,10 +120,14 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     cfg.channels.forEach((channel) =>
       cache.listen({ channel, schema: z.unknown(), onChange }),
     );
-    // A reopened stream missed the changes made while it was down.
+    // Uses fetched before the stream went live may have missed a change. Only those
+    // held now refetch, since a later fetch reads them live.
     cache.onEpoch((epoch) => {
-      if (epoch > 1) onChange();
+      if (epoch === 0) return;
+      this.changes.count++;
+      if (store.keys().length > 0) this.refetch();
     });
+    cache.onMissed(onChange);
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),

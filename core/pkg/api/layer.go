@@ -81,6 +81,12 @@ type Transport struct {
 	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
 	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
 	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthOIDCLink links a provider account to the caller.
+	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
+	// AuthOIDCRetrieve lists provider links.
+	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
+	// AuthOIDCUnlink removes provider links and ends their sessions.
+	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -248,13 +254,13 @@ type Transport struct {
 	// NI DEVICE
 	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
 	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
-	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, nidevice.UpdateResponse]
 	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
 
 	// NI CHASSIS
 	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
-	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
+	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, nichassis.UpdateResponse]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
@@ -412,6 +418,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthKeyCreate,
 		t.AuthKeyRetrieve,
 		t.AuthKeyDelete,
+		t.AuthOIDCLink,
+		t.AuthOIDCRetrieve,
+		t.AuthOIDCUnlink,
 		t.AuthPasswordSet,
 
 		// USER
@@ -658,6 +667,19 @@ func (l *Layer) BindTo(t Transport) {
 		return l.Auth.RetrieveKeys(ctx, snap, req)
 	}))
 	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthOIDCLink.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareLinkOIDC,
+		l.Auth.LinkOIDC,
+	))
+	t.AuthOIDCRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.OIDCRetrieveRequest,
+	) (auth.OIDCRetrieveResponse, error) {
+		return l.Auth.RetrieveOIDCLinks(ctx, snap, req)
+	}))
+	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.Auth.UnlinkOIDC))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,
@@ -929,6 +951,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
+		OIDC:     cfg.Service.OIDC,
 		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,

@@ -26,7 +26,10 @@ type subscriber struct {
 	// accepts reports whether the streamer wants a response. It runs on the delta's
 	// goroutine, so it must be safe to call concurrently with the streamer.
 	accepts func(Response) bool
-	addr    address.Address
+	// missed receives a value for each dropped response. It holds one value, so drops
+	// that the streamer has not seen yet share one value.
+	missed chan struct{}
+	addr   address.Address
 	// dropping is true from the first dropped response until the buffer empties.
 	dropping bool
 }
@@ -34,6 +37,7 @@ type subscriber struct {
 // delta copies each relay response into the buffer of every subscriber that accepts
 // it. It never waits for a subscriber: a full buffer drops the response for that
 // subscriber alone, so a slow streamer does not delay the relay or other streamers.
+// Each drop notifies the subscriber's missed channel.
 type delta struct {
 	confluence.UnarySink[Response]
 	ins            alamos.Instrumentation
@@ -83,6 +87,10 @@ func (d *delta) send(res Response) {
 		select {
 		case s.responses <- res:
 		default:
+			select {
+			case s.missed <- struct{}{}:
+			default:
+			}
 			if !s.dropping {
 				s.dropping = true
 				d.ins.L.Warn(fmt.Sprintf(

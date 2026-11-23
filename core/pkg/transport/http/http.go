@@ -105,6 +105,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/key/delete",
 		),
+		AuthOIDCLink: unary[auth.OIDCLinkRequest, auth.OIDCLinkResponse](
+			router,
+			"/api/v1/auth/oidc/link",
+		),
+		AuthOIDCRetrieve: unary[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse](
+			router,
+			"/api/v1/auth/oidc/retrieve",
+		),
+		AuthOIDCUnlink: unary[auth.OIDCUnlinkRequest, struct{}](
+			router,
+			"/api/v1/auth/oidc/unlink",
+		),
 		AuthPasswordSet: unary[auth.PasswordSetRequest, auth.PasswordSetResponse](
 			router,
 			"/api/v1/auth/password/set",
@@ -589,7 +601,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/device/retrieve",
 		),
-		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, nidevice.UpdateResponse](
 			router,
 			"/api/v1/ni/device/update",
 		),
@@ -607,7 +619,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/chassis/retrieve",
 		),
-		NIChassisUpdate: unary[nichassis.UpdateRequest, struct{}](
+		NIChassisUpdate: unary[nichassis.UpdateRequest, nichassis.UpdateResponse](
 			router,
 			"/api/v1/ni/chassis/update",
 		),

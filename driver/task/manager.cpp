@@ -22,6 +22,9 @@
 
 namespace driver::task {
 namespace {
+/// @brief the most times that one deploy configures a task whose config hash moves.
+constexpr int MAX_CONFIGURES = 3;
+
 /// @returns the status that tells a command that a stop cancelled the start of task.
 synnax::task::Status cancelled_start_status(
     const synnax::task::Key &task,
@@ -75,13 +78,15 @@ x::errors::Error Manager::open_streamer() {
     // monitor, and stop() all contend on mu.
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::framer::StreamerConfig{
-            .channels = {
-                this->channels.task_set.key,
-                this->channels.task_delete.key,
-                this->channels.task_cmd.key,
-                this->channels.control_state.key,
-                this->channels.rack_set.key,
-            }
+            .channels =
+                {
+                    this->channels.task_set.key,
+                    this->channels.task_delete.key,
+                    this->channels.task_cmd.key,
+                    this->channels.control_state.key,
+                    this->channels.rack_set.key,
+                },
+            .on_missed = [this] { this->missed = true; },
         }
     );
     if (open_err) return open_err;
@@ -123,8 +128,7 @@ void Manager::discard(const synnax::task::Key &key, const bool even_if_processin
     if (removed) this->statuses->drop(key);
 }
 
-x::errors::Error Manager::configure_initial_tasks() {
-    VLOG(1) << "configuring initial tasks";
+x::errors::Error Manager::sync_tasks(const bool known_kept) {
     auto [tasks, tasks_err] = this->rack.tasks.retrieve(
         synnax::task::Where{},
         synnax::task::RetrieveOptions{.include_status = true}
@@ -148,8 +152,14 @@ x::errors::Error Manager::configure_initial_tasks() {
             this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         }
         for (const auto &task: tasks) {
-            VLOG(1) << "queuing configure for task " << task;
+            const bool known = this->entries.contains(task.key);
             const auto entry = this->entry_for(task.key);
+            if (known && known_kept) {
+                std::lock_guard entry_lock{entry->mu};
+                entry->row = task;
+                continue;
+            }
+            VLOG(1) << "queuing configure for task " << task;
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = task;
@@ -161,6 +171,13 @@ x::errors::Error Manager::configure_initial_tasks() {
     this->cv.notify_all();
     for (const auto &key: gone)
         this->statuses->drop(key);
+    VLOG(1) << "queued " << queued << " tasks";
+    return x::errors::NIL;
+}
+
+x::errors::Error Manager::configure_initial_tasks() {
+    VLOG(1) << "configuring initial tasks";
+    if (const auto err = this->sync_tasks(false)) return err;
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -180,7 +197,6 @@ x::errors::Error Manager::configure_initial_tasks() {
             entry->deployed_hash = sy_task.config_hash;
         }
     }
-    VLOG(1) << "queued " << queued << " initial tasks";
     return x::errors::NIL;
 }
 
@@ -190,6 +206,7 @@ void Manager::stop() {
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
     // method still needs access before shutting down.
     if (this->streamer != nullptr) this->streamer->close_send();
+    this->stopped.notify_all();
 }
 
 x::errors::Error Manager::run(const std::function<void()> &on_started) {
@@ -229,10 +246,13 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
-    this->retrieve_initial_control_states();
+    // A read from an earlier run can miss the transfers made while no stream ran.
+    this->control_states->outdate_reads();
+    this->read_control_states_or_retry();
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
+    bool sync_failed = false;
     do {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
@@ -250,24 +270,67 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
         }
+        // The stream stays open, so the frames after the drop still apply.
+        if (this->missed) {
+            this->missed = false;
+            LOG(WARNING) << "the Core dropped task changes because the Driver fell "
+                            "behind. Reading the tasks, control state, and rack name "
+                            "again.";
+            // The bus filters local writes with the control mirror, so it holds them
+            // while the mirror is read first. A failed read keeps the last mirror
+            // and leaves the read to the monitor loop. A failed sync ends the run with
+            // no error, so the rack starts the next run and never stops the Driver.
+            // Transfers that the stream delivers after a read apply on top.
+            this->control_states->hold();
+            this->read_control_states_or_retry();
+            this->retrieve_rack_name();
+            if (const auto err = this->sync_tasks(true)) {
+                LOG(WARNING) << "failed to sync tasks after a miss: " << err;
+                sync_failed = true;
+                break;
+            }
+        }
     } while (true);
-    std::lock_guard<std::mutex> lock{this->mu};
-    const auto c_err = this->streamer->close();
-    this->streamer = nullptr;
+    x::errors::Error c_err;
+    {
+        std::lock_guard<std::mutex> lock{this->mu};
+        c_err = this->streamer->close();
+        this->streamer = nullptr;
+    }
+    // The rack starts the next run at once, so a sync that keeps failing would spin.
+    if (sync_failed) {
+        std::unique_lock lock{this->mu};
+        this->stopped.wait_for(lock, this->poll_interval.chrono(), [this] {
+            return this->exit_early.load();
+        });
+    }
     return c_err;
 }
 
-void Manager::retrieve_initial_control_states() {
-    auto [states, err] = this->ctx->client->control.retrieve();
+namespace {
+/// @brief reads the cluster's control state into states.
+/// @returns whether the read replaced the mirror, which it does not when a hold, a
+/// stream restart, or a full log outdated it, and the error of a failed read.
+std::pair<bool, x::errors::Error>
+read_control(const synnax::Synnax &client, control::States &states) {
+    const auto read = states.begin_read();
+    auto [next, err] = client.control.retrieve();
     if (err) {
-        // The mirror of an earlier run may hold control that ended during an outage.
-        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
-        // every write, and transfers on the stream fill the mirror again.
-        LOG(WARNING) << "failed to retrieve initial control state: " << err;
-        this->control_states->set({});
-        return;
+        states.abandon(read);
+        return {false, err};
     }
-    this->control_states->set(states);
+    return {states.set(next, read), x::errors::NIL};
+}
+}
+
+void Manager::read_control_states_or_retry() {
+    // Only this thread outdates reads, so a read here fails or applies.
+    const auto err = read_control(*this->ctx->client, *this->control_states).second;
+    if (!err) return;
+    this->control_states->release();
+    LOG(WARNING) << "failed to read control state, so the local bus uses the last "
+                    "one read until a read succeeds: "
+                 << err;
 }
 
 void Manager::retrieve_rack_name() {
@@ -606,6 +669,16 @@ void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
+        // The read runs on its own thread, so a hung Core never delays the checks
+        // below or a close. It holds what it uses, so it can outlive the manager.
+        if (this->control_states->stale() && !this->control_reading->exchange(true))
+            std::thread([client = this->ctx->client,
+                         states = this->control_states,
+                         reading = this->control_reading] {
+                if (read_control(*client, *states).first)
+                    LOG(INFO) << "read control state again for the local bus";
+                reading->store(false);
+            }).detach();
         // Checked after the lock is released: a warning blocks on the network, and a
         // stuck Core is exactly when steps run late.
         std::vector<std::shared_ptr<Operation>> running;
@@ -733,13 +806,7 @@ void Manager::execute_op(
                 entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
-            LOG(INFO) << "configuring task " << tsk;
-            auto [driver_task, handled] = this->factory->configure_task(
-                this->ctx,
-                tsk,
-                op.cmd.key,
-                operation.token()
-            );
+            auto [driver_task, handled] = this->configure(tsk, op, entry, operation);
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->deployed_hash = driver_task != nullptr ? tsk.config_hash : "";
@@ -890,6 +957,94 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
                              " while the task was running. Start the task again.";
     }
     this->ctx->set_status(status);
+}
+
+std::pair<std::unique_ptr<Task>, bool> Manager::configure(
+    synnax::task::Task &tsk,
+    const Op &op,
+    const std::shared_ptr<Entry> &entry,
+    Operation &operation
+) {
+    const auto fail = [&](const std::string &variant,
+                          const std::string &message,
+                          const std::string &description) {
+        // A boot deploy has no command to answer. After a failed read, the next run
+        // deploys the task again.
+        if (op.cmd.key.empty()) return;
+        synnax::task::Status status;
+        status.owner = synnax::task::resource_id(tsk.key);
+        status.name = tsk.name;
+        status.variant = variant;
+        status.message = message;
+        status.description = description;
+        status.details.running = false;
+        status.details.config_hash = tsk.config_hash;
+        operation.answer(status);
+    };
+    for (int attempt = 1;; attempt++) {
+        LOG(INFO) << "configuring task " << tsk;
+        auto [built, handled] = this->factory->configure_task(
+            this->ctx,
+            tsk,
+            op.cmd.key,
+            operation.token()
+        );
+        if (built == nullptr) return {nullptr, handled};
+        // Read on every rack, since the rack client finds no task moved off its rack.
+        auto [stored, err] = this->ctx->client->tasks.retrieve(tsk.key);
+        if (!err && stored.config_hash == tsk.config_hash)
+            return {std::move(built), true};
+        built->stop(true);
+        // A REMOVE op follows the delete of the task.
+        if (err.matches(x::errors::NOT_FOUND)) return {nullptr, true};
+        if (err) {
+            LOG(WARNING) << "failed to check the config hash of task " << tsk << ": "
+                         << err;
+            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data);
+            return {nullptr, true};
+        }
+        if (stored.rack != this->rack.key) {
+            // The Driver of the new rack dropped the start, since it read the task
+            // before the move.
+            LOG(INFO) << "releasing task moved to another rack: " << tsk;
+            fail(
+                synnax::status::VARIANT_WARNING,
+                "Task moved to another rack",
+                "A save moved the task to another rack while the Driver configured it. "
+                "Start the task again."
+            );
+            this->clear_deploy(entry);
+            this->statuses->drop(tsk.key);
+            this->discard(tsk.key, true);
+            return {nullptr, true};
+        }
+        LOG(INFO) << "config of task " << tsk << " changed while it was configured";
+        tsk = std::move(stored);
+        const auto released = operation.change_config(tsk.name, tsk.config_hash);
+        if (!released.empty()) {
+            // Each start fetches the task again, which refuses a start pinned to the
+            // older config.
+            std::lock_guard lock{this->mu};
+            for (const auto &start: std::views::reverse(released))
+                this->op_queue.push_front(Op{Op::Type::DEPLOY, tsk.key, {}, start});
+        }
+        if (!op.cmd.pinned && attempt < MAX_CONFIGURES) continue;
+        if (op.cmd.pinned)
+            fail(
+                synnax::status::VARIANT_WARNING,
+                "Config changed",
+                "The task config changed while the Driver configured it. Review the "
+                "task, then start it again."
+            );
+        else
+            fail(
+                synnax::status::VARIANT_ERROR,
+                "Failed to configure task",
+                "The task config kept changing while the Driver configured it. Start "
+                "the task again."
+            );
+        return {nullptr, true};
+    }
 }
 
 void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation) {

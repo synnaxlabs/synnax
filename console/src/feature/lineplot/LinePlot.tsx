@@ -10,13 +10,13 @@
 import "@/feature/lineplot/LinePlot.css";
 
 import { lineplot, ranger } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   Access,
+  Channel,
   LinePlot as Base,
   Panel as PlutoPanel,
   Ranger,
@@ -35,24 +35,11 @@ import {
 import { type ReactElement, type RefObject, useRef, useState } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
-import {
-  type DownloadLine,
-  useDownloadAsCSV,
-} from "@/feature/lineplot/useDownloadAsCSV";
-import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
-import { useSetT0Modal } from "@/feature/lineplot/useSetT0Modal";
-import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
-import {
-  countHidden,
-  inScope,
-  type Item,
-  NONE_HIDDEN,
-  type Scope,
-  setItemVisible,
-  showOnly,
-  toggleSolo,
-  type Visibility,
-} from "@/feature/lineplot/visibility";
+import { CSV } from "@/feature/lineplot/csv";
+import { Hold } from "@/feature/lineplot/hold";
+import { T0 } from "@/feature/lineplot/t0";
+import { Visibility } from "@/feature/lineplot/visibility";
+import { Zoom } from "@/feature/lineplot/zoom";
 import { Sift } from "@/feature/sift";
 import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
@@ -66,7 +53,7 @@ const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
-  lines: DownloadLine[];
+  lines: CSV.DownloadLine[];
   range: Base.Range.MenuProps;
 }
 
@@ -74,7 +61,7 @@ const RangeAnnotationContextMenu = ({
   lines,
   range,
 }: RangeAnnotationContextMenuProps): ReactElement => {
-  const downloadAsCSV = useDownloadAsCSV();
+  const downloadAsCSV = CSV.useDownload();
   return (
     <Range.ContextMenu
       keys={[range.key]}
@@ -133,9 +120,10 @@ interface Compare {
   refs: ranger.Ref[];
   ranges: Base.RangeSpec[];
   hovered: Base.Hovered | null;
-  onItemVisibleChange: (item: Item, visible: boolean) => void;
-  onShowOnly: (item: Item) => void;
-  hiddenCount: number;
+  onItemVisibleChange: (item: Visibility.Item, visible: boolean) => void;
+  onIsolate: (item: Visibility.Item) => void;
+  hidden: Session.LinePlot.Hidden;
+  scope: Visibility.Scope;
   /** The key of the range the plot is zoomed to, if any. */
   zoomed: string | null;
   onShowAll: () => void;
@@ -148,8 +136,9 @@ interface CompareMenuItemsProps {
   editable: boolean;
 }
 
-// CompareMenuItems lists the actions on a range heading or a line of one range in the
-// legend, or on the line under the pointer.
+// CompareMenuItems lists the actions on what the user clicked: a range name or a
+// channel in the legend, or the line under the pointer. Off any range, it lists only
+// Show all.
 const CompareMenuItems = ({
   menuKey,
   compare: {
@@ -157,8 +146,9 @@ const CompareMenuItems = ({
     ranges,
     hovered,
     onItemVisibleChange,
-    onShowOnly,
-    hiddenCount,
+    onIsolate,
+    hidden,
+    scope,
     zoomed,
     onShowAll,
   },
@@ -167,13 +157,26 @@ const CompareMenuItems = ({
 }: CompareMenuItemsProps): ReactElement | null => {
   const { dispatch } = Base.useDispatch();
   const key = Base.useKey();
-  const setT0Modal = useSetT0Modal();
+  const setT0Modal = T0.useSetModal();
   const handleError = Status.useErrorHandler();
   const heading = ranges.find((r) => r.key === menuKey);
   const trace = heading == null ? Base.parseTraceKey(menuKey, ranges) : null;
-  const target = hovered ?? trace;
+  const pointed = heading == null && trace == null ? hovered : null;
+  const target = trace ?? pointed;
   const range = heading ?? ranges.find((r) => r.key === target?.range);
-  if (range?.zero == null) return null;
+  const showAll =
+    Visibility.countHidden(hidden) > 0 ? (
+      <Menu.Item itemKey="showAll" onClick={onShowAll}>
+        <Icon.Visible /> Show all
+      </Menu.Item>
+    ) : null;
+  if (range?.zero == null)
+    return showAll == null ? null : (
+      <>
+        {showAll}
+        <Menu.Divider />
+      </>
+    );
   const { zero } = range;
   const applyT0 = (t0: TimeStamp | undefined) =>
     dispatch({ key, actions: [lineplot.setRangeT0({ range: range.key, t0 })] });
@@ -187,6 +190,8 @@ const CompareMenuItems = ({
   const shown = timeRange.boundBy(new TimeRange(TimeStamp.ZERO, TimeStamp.now()));
   const zoomable = !shown.span.isZero;
   const t0Editable = editable && isKey;
+  const lineHidden =
+    target != null && Visibility.isLineHidden(hidden, target.line, scope);
   const handleSetT0 = () =>
     handleError(async () => {
       const t0 = await setT0Modal({
@@ -207,43 +212,15 @@ const CompareMenuItems = ({
     }, "Failed to zoom to range");
   return (
     <>
-      {hovered != null && editable && isKey && (
-        <Menu.Item itemKey="setT0Here" onClick={() => applyT0(hovered.time)}>
-          <Icon.Time /> Set T0 here
-        </Menu.Item>
-      )}
-      <Menu.Item
-        itemKey="showOnlyRange"
-        onClick={() => onShowOnly({ variant: "range", range: range.key })}
-      >
-        <Icon.Visible /> Show only this range
-      </Menu.Item>
-      {target != null && (
+      {target == null ? (
         <>
           <Menu.Item
-            itemKey="showOnlyLine"
-            onClick={() => onShowOnly({ variant: "line", line: target.line })}
+            itemKey="isolateRange"
+            onClick={() => onIsolate({ variant: "range", range: range.key })}
           >
-            <Icon.Visible /> Show only this channel
+            <Ranger.VisibleIcon /> Isolate
           </Menu.Item>
-          <Menu.Item
-            itemKey="hideLine"
-            onClick={() =>
-              onItemVisibleChange({ variant: "line", line: target.line }, false)
-            }
-          >
-            <Icon.Hidden /> Hide this channel in all ranges
-          </Menu.Item>
-        </>
-      )}
-      {hiddenCount > 0 && (
-        <Menu.Item itemKey="showAll" onClick={onShowAll}>
-          <Icon.Visible /> Show all
-        </Menu.Item>
-      )}
-      {heading != null && (zoomable || t0Editable) && (
-        <>
-          <Menu.Divider />
+          {showAll}
           {zoomable && (
             <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
               {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
@@ -251,17 +228,57 @@ const CompareMenuItems = ({
             </Menu.Item>
           )}
           {t0Editable && (
-            <>
-              <Menu.Item itemKey="setT0" onClick={handleSetT0}>
-                <Icon.Time /> Set T0...
-              </Menu.Item>
-              {range.customZero === true && (
-                <Menu.Item itemKey="resetT0" onClick={() => applyT0(undefined)}>
-                  <Icon.Reset /> Reset T0
-                </Menu.Item>
-              )}
-            </>
+            <Menu.Item itemKey="setT0" onClick={handleSetT0}>
+              <Icon.Time /> Set T0...
+            </Menu.Item>
           )}
+          {t0Editable && range.customZero === true && (
+            <Menu.Item itemKey="resetT0" onClick={() => applyT0(undefined)}>
+              <Icon.Reset /> Reset T0
+            </Menu.Item>
+          )}
+        </>
+      ) : (
+        <>
+          {pointed != null && t0Editable && (
+            <Menu.Item itemKey="setT0Here" onClick={() => applyT0(pointed.time)}>
+              <Icon.Time /> Set T0 here
+            </Menu.Item>
+          )}
+          <Menu.Item
+            itemKey="isolateTrace"
+            onClick={() =>
+              onIsolate({ variant: "trace", line: target.line, range: target.range })
+            }
+          >
+            <Channel.VisibleIcon /> Isolate in this range
+          </Menu.Item>
+          <Menu.Item
+            itemKey="isolateLine"
+            onClick={() => onIsolate({ variant: "line", line: target.line })}
+          >
+            <Channel.VisibleIcon /> Isolate in all ranges
+          </Menu.Item>
+          {lineHidden ? (
+            <Menu.Item
+              itemKey="showLine"
+              onClick={() =>
+                onItemVisibleChange({ variant: "line", line: target.line }, true)
+              }
+            >
+              <Channel.VisibleIcon /> Show in all ranges
+            </Menu.Item>
+          ) : (
+            <Menu.Item
+              itemKey="hideLine"
+              onClick={() =>
+                onItemVisibleChange({ variant: "line", line: target.line }, false)
+              }
+            >
+              <Channel.HiddenIcon /> Hide in all ranges
+            </Menu.Item>
+          )}
+          {showAll}
         </>
       )}
       <Menu.Divider />
@@ -270,7 +287,7 @@ const CompareMenuItems = ({
 };
 
 interface ContextMenuContentProps {
-  csvLines: DownloadLine[];
+  csvLines: CSV.DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
   breaks: pLineplot.BreakCounts;
@@ -295,7 +312,7 @@ const ContextMenuContent = ({
   const openCreateRange = Range.useCreateModal();
   const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleError = Status.useErrorHandler();
-  const downloadAsCSV = useDownloadAsCSV();
+  const downloadAsCSV = CSV.useDownload();
   const getTimeRange = async (): Promise<TimeRange> => {
     const bounds = await linePlotRef.current?.getXBounds(box.xBounds(selection));
     if (bounds == null) throw new Error("No bounds available");
@@ -397,33 +414,40 @@ const Internal = (): ReactElement => {
   const relative = FLAGS.compare && Base.isRelative(x1);
 
   const derived = Base.useLines();
-  const scope: Scope = {
+  const scope: Visibility.Scope = {
     ranges: ranges.filter((r) => r.zero != null).map((r) => r.key),
     lines: derived.map((d) => d.key),
   };
-  const hidden = inScope(Session.LinePlot.useSelectHidden(), scope);
-  const solo = Session.LinePlot.useSelectSolo();
+  const hidden = Visibility.inScope(Session.LinePlot.useSelectHidden(), scope);
+  const isolation = Session.LinePlot.useSelectIsolation();
   const { dispatch: dispatchPlot } = Base.useDispatch();
   const hoveredRef = useRef<Base.Hovered | null>(null);
-  const setVisibility = (next: Visibility) =>
+  const setVisibility = (next: Visibility.Visibility) =>
     dispatch(Session.LinePlot.setHidden({ key, ...next }));
-  const handleItemVisibleChange = (item: Item, itemVisible: boolean) =>
-    setVisibility(setItemVisible({ hidden, solo }, item, itemVisible, scope));
-  const handleShowOnly = (item: Item) =>
-    setVisibility(showOnly({ hidden, solo }, item, scope));
-  const handleLegendChange = (item: Item, itemVisible: boolean, isSolo: boolean) =>
-    isSolo
-      ? setVisibility(toggleSolo({ hidden, solo }, item, scope))
+  const handleItemVisibleChange = (item: Visibility.Item, itemVisible: boolean) =>
+    setVisibility(
+      Visibility.setItemVisible({ hidden, isolation }, item, itemVisible, scope),
+    );
+  const handleIsolate = (item: Visibility.Item) =>
+    setVisibility(Visibility.isolate({ hidden, isolation }, item, scope));
+  const handleLegendChange = (
+    item: Visibility.Item,
+    itemVisible: boolean,
+    isolated: boolean,
+  ) =>
+    isolated
+      ? setVisibility(Visibility.toggleIsolation({ hidden, isolation }, item, scope))
       : handleItemVisibleChange(item, itemVisible);
-  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, solo: null });
-  const handleLineVisibleChange = (lineKey: string, v: boolean, isSolo: boolean) => {
+  const handleShowAll = () =>
+    setVisibility({ hidden: Visibility.NONE_HIDDEN, isolation: null });
+  const handleLineVisibleChange = (lineKey: string, v: boolean, isolated: boolean) => {
     const trace = relative ? Base.parseTraceKey(lineKey, ranges) : null;
-    if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isSolo);
+    if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isolated);
     else if (trace != null)
-      handleLegendChange({ variant: "trace", ...trace }, v, isSolo);
+      handleLegendChange({ variant: "trace", ...trace }, v, isolated);
   };
-  const handleRangeVisibleChange = (range: string, v: boolean, isSolo: boolean) =>
-    handleLegendChange({ variant: "range", range }, v, isSolo);
+  const handleRangeVisibleChange = (range: string, v: boolean, isolated: boolean) =>
+    handleLegendChange({ variant: "range", range }, v, isolated);
   const handleRangeColorChange = (rangeKey: string, c: color.Color) => {
     const ref = refs.find((r) => Session.Range.keyOf(r) === rangeKey);
     if (ref == null) return;
@@ -434,17 +458,10 @@ const Internal = (): ReactElement => {
       ],
     });
   };
-  const hiddenCount = countHidden(hidden);
-  const legendFooter =
-    relative && hiddenCount > 0 ? (
-      <Button.Button variant="text" size="small" onClick={handleShowAll}>
-        {`Show all (${hiddenCount} hidden)`}
-      </Button.Button>
-    ) : undefined;
   const handleHoveredChange = (h: Base.Hovered | null) => {
     hoveredRef.current = h;
   };
-  const csvLines: DownloadLine[] = derived.map((d) => ({
+  const csvLines: CSV.DownloadLine[] = derived.map((d) => ({
     channels: { x: d.xChannel, y: d.yChannel },
   }));
 
@@ -461,8 +478,8 @@ const Internal = (): ReactElement => {
     location.BOTTOM_LEFT,
   );
 
-  useTriggerHold({ key, enabled: hasUpdatePermission });
-  useResetZoomOnRangeChange({ key });
+  Hold.useTrigger({ key, enabled: hasUpdatePermission });
+  Zoom.useResetOnRangeChange({ key });
 
   const handleViewportChange = useDebouncedCallback(
     ({ box: b, stage, mode }: Viewport.UseEvent) => {
@@ -545,8 +562,9 @@ const Internal = (): ReactElement => {
               ranges,
               hovered: keys.length === 0 ? menuHovered : null,
               onItemVisibleChange: handleItemVisibleChange,
-              onShowOnly: handleShowOnly,
-              hiddenCount,
+              onIsolate: handleIsolate,
+              hidden,
+              scope,
               zoomed,
               onShowAll: handleShowAll,
             }
@@ -579,7 +597,6 @@ const Internal = (): ReactElement => {
           onLineVisibleChange={handleLineVisibleChange}
           onRangeVisibleChange={handleRangeVisibleChange}
           onRangeColorChange={hasUpdatePermission ? handleRangeColorChange : undefined}
-          legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
           relativeDisabled={!FLAGS.compare}
           onZoomedChange={setZoomed}

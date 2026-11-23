@@ -34,7 +34,7 @@
       "lyra--center",
       "pluto-panel-mosaic--overlaid"
     ],
-    "console/src/feature/panel/MovePicker.css": ["lyra-modal__body"],
+    "console/src/feature/panel/movePicker/MovePicker.css": ["lyra-modal__body"],
     "console/src/feature/panel/Selector.css": ["lyra-btn"],
     "console/src/feature/project/Selector.css": [
       "lyra-avatar",
@@ -247,7 +247,6 @@
       "lyra-text--p"
     ],
     "site/docs/src/styles/pluto.css": [
-      "lyra--visible",
       "lyra-caret",
       "lyra-dialog__bg",
       "lyra-dialog__dialog",

@@ -119,7 +119,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			}
 		`
 		resp := MustGenerate(source, "x", loader, goPlugin)
-		ExpectContent(resp, "types.gen.go").ToContain(
+		ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
 			"func (c *Cfg) SetDefaults() {",
 			"c.Size = SizeOne",
 		)
@@ -767,6 +767,40 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should check the keys and values of a distinct map", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Port enum {
+					ain0 = "AIN0"
+				}
+
+				Level enum {
+					h1 = "h1"
+				}
+
+				Param struct {
+					level Level
+				}
+
+				Ports map<Port, uint32>
+
+				ParamsByName map<string, Param>
+
+				Holder struct {
+					ports  Ports
+					params ParamsByName
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				"func (h Holder) Validate() error {",
+				"for key := range h.Ports {",
+				`v.Ternaryf("ports", !key.IsValid(), "invalid ports key: %v", key)`,
+				`validate.PathedError(value.Validate(), "params", key)`,
+			)
+		})
+
 		It("Should not recurse into a distinct struct, which has no methods", func() {
 			source := `
 				@go output "core/pkg/service/x"
@@ -932,6 +966,166 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			ExpectContent(resp, "types.gen.go").ToContain(
 				`v.Finite("value", c.Value)`,
 				"if c.Limit != nil {\n\tv.Finite(\"limit\", *c.Limit)",
+			)
+		})
+
+		It("Should check that a field is less than another field", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+					low int32 {
+						@go validate lt high "low must be below high"
+					}
+					high int32
+					lower uint32 {
+						@go validate lt upper
+					}
+					upper uint32 {
+						@go name "UpperBound"
+					}
+				}
+
+				Holder struct extends Range {
+					name string
+				}
+
+				Shape union on kind {
+					ranged extends Range {
+						label string
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(r.Min < r.Max), "must be less than max")`,
+				`v.Ternary("low", !(r.Low < r.High), "low must be below high")`,
+				`v.Ternary("lower", !(r.Lower < r.UpperBound), "must be less than upper")`,
+				`v.Exec(h.Range.Validate)`,
+				`v.Exec(r.Range.Validate)`,
+			)
+		})
+
+		It("Should leave the lt check of a restated default to the embedded struct",
+			func() {
+				source := `
+					@go output "core/pkg/service/x"
+
+					Range struct {
+						min float64 {
+							@go validate lt max
+						}
+						max float64
+					}
+
+					Shape union on kind {
+						tuned extends Range {
+							min float64 = 2
+						}
+					}
+				`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(strings.Count(content, `v.Ternary("min"`)).To(Equal(1))
+				ExpectContent(
+					resp,
+					"types.gen.go",
+				).ToContain(`v.Exec(t.Range.Validate)`)
+			},
+		)
+
+		It("Should check that a string matches a pattern", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Device struct {
+					identifier string {
+						@go validate pattern "^$|^[a-z]+$" "lowercase only"
+					}
+					name string {
+						@go validate pattern "^[A-Z]"
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`"regexp"`,
+				"var validatePattern0 = regexp.MustCompile(\"^$|^[a-z]+$\")",
+				"var validatePattern1 = regexp.MustCompile(\"^[A-Z]\")",
+				"v.Ternary(\"identifier\", "+
+					"!validatePattern0.MatchString(string(d.Identifier)), "+
+					"\"lowercase only\")",
+				"v.Ternary(\"name\", "+
+					"!validatePattern1.MatchString(string(d.Name)), "+
+					"\"must match ^[A-Z]\")",
+			)
+		})
+
+		It("Should check a pattern in an inline variant once per regex", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Base struct {
+					name string {
+						@go validate pattern "^[a-z]+$"
+					}
+				}
+
+				Restated struct extends Base {
+					name string = "a"
+				}
+
+				Own struct extends Base {
+					name string = "a" {
+						@go validate pattern "^[A-Z]+$"
+					}
+				}
+
+				Shape union on kind {
+					labeled {
+						label string {
+							@go validate pattern "^[a-z]+$"
+						}
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(strings.Count(content, "regexp.MustCompile(")).To(Equal(2))
+			Expect(strings.Count(content, `v.Ternary("name"`)).To(Equal(2))
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"!validatePattern1.MatchString(string(o.Name))",
+				"!validatePattern0.MatchString(string(l.Label))",
+				"v.Exec(r.Base.Validate)",
+			)
+		})
+
+		It("Should check a restated field's own lt rule", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+				}
+
+				Child struct extends Range {
+					min float64 {
+						@go validate lt limit
+					}
+					limit float64
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(c.Min < c.Limit), "must be less than limit")`,
+				`v.Exec(c.Range.Validate)`,
 			)
 		})
 

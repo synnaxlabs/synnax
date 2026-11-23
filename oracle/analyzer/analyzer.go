@@ -108,6 +108,7 @@ func Analyze(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return table, diag
 }
@@ -145,6 +146,7 @@ func AnalyzeSeeded(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return diag
 }
@@ -2490,19 +2492,6 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 	}
 }
 
-// validateUnion checks the structural constraints on a discriminated union:
-//
-//   - At least one variant is declared.
-//   - Variant names (the JSON discriminator string values) are unique.
-//   - Each Extends target resolves to a struct type.
-//   - No two base structs contribute the same field name.
-//   - Each variant references a struct type.
-//   - Neither the base structs nor the variant structs redeclare the
-//     discriminator field; the union declaration owns it exclusively.
-//
-// Generic variant/base types are permitted but not yet type-checked: an open question
-// for a follow-up that introduces unions parameterized by a type argument applied to
-// every variant.
 // validateIntEnum reports an integer enum member that Go and C++ cannot hold in a
 // uint8, and two members that share a value.
 func validateIntEnum(c *analysisCtx, typ resolution.Type) {
@@ -2533,6 +2522,19 @@ func validateIntEnum(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
+// validateUnion checks the structural constraints on a discriminated union:
+//
+//   - At least one variant is declared.
+//   - Variant names (the JSON discriminator string values) are unique.
+//   - Each Extends target resolves to a struct type.
+//   - No two base structs contribute the same field name.
+//   - Each variant references a struct type.
+//   - Neither the base structs nor the variant structs redeclare the
+//     discriminator field; the union declaration owns it exclusively.
+//
+// Generic variant/base types are permitted but not yet type-checked: an open question
+// for a follow-up that introduces unions parameterized by a type argument applied to
+// every variant.
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {

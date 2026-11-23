@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/sift/device/scan";
 import { INTEGRATION, MAKE } from "@/feature/sift/device/types";
 import { Connect } from "@/feature/sift/device/useConnectModal";
-import { SCAN_TYPE } from "@/feature/sift/task/types";
 import type { Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {

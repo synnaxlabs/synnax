@@ -268,6 +268,68 @@ type ReadBinding = versions.ReadBinding
 // ReadMessage reads one message of an ICD.
 type ReadMessage = versions.ReadMessage
 
+// WriteValue is a fixed value that a write binding sends as its field. Its type is the
+// kind of the field.
+type WriteValue = versions.WriteValue
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant = versions.WriteValueVariant
+
+// FloatWriteValue is a fixed float.
+type FloatWriteValue = versions.FloatWriteValue
+
+// IntegerWriteValue is a fixed signed integer.
+type IntegerWriteValue = versions.IntegerWriteValue
+
+// UnsignedWriteValue is a fixed unsigned integer.
+type UnsignedWriteValue = versions.UnsignedWriteValue
+
+// StringWriteValue is a fixed string.
+type StringWriteValue = versions.StringWriteValue
+
+// BooleanWriteValue is a fixed boolean.
+type BooleanWriteValue = versions.BooleanWriteValue
+
+// TimestampWriteValue is a fixed timestamp.
+type TimestampWriteValue = versions.TimestampWriteValue
+
+// JSONWriteValue is a fixed JSON value.
+type JSONWriteValue = versions.JSONWriteValue
+
+// UuidWriteValue is a fixed UUID.
+type UuidWriteValue = versions.UuidWriteValue
+
+// BytesWriteValue is fixed bytes.
+type BytesWriteValue = versions.BytesWriteValue
+
+// WriteBaseBinding carries the parts every write binding shares.
+type WriteBaseBinding = versions.WriteBaseBinding
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding = versions.WriteBinding
+
+// WriteBindingVariant is implemented by every WriteBinding variant.
+type WriteBindingVariant = versions.WriteBindingVariant
+
+// WriteBindingType is the "type" value that selects a variant of WriteBinding.
+type WriteBindingType = versions.WriteBindingType
+
+const (
+	// ChannelWriteBindingType fills a field with the values of a command channel.
+	ChannelWriteBindingType WriteBindingType = versions.ChannelWriteBindingType
+	// ValueWriteBindingType fills a field with a fixed value.
+	ValueWriteBindingType WriteBindingType = versions.ValueWriteBindingType
+)
+
+// ChannelWriteBinding fills a field with the values of a command channel.
+type ChannelWriteBinding = versions.ChannelWriteBinding
+
+// ValueWriteBinding fills a field with a fixed value.
+type ValueWriteBinding = versions.ValueWriteBinding
+
+// WriteMessage sends one message of an ICD.
+type WriteMessage = versions.WriteMessage
+
 // BinaryBaseField carries the parts every binary field shares.
 type BinaryBaseField = versions.BinaryBaseField
 
