@@ -10,7 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
@@ -67,32 +67,27 @@ const SPIN: schematic.symbol.Look = {
   motion: { type: "spin", rate: 0.5 },
 };
 
-// createFrames builds a loop whose frames run only when a spec calls frame.
-const createFrames = () => {
-  let callback: FrameRequestCallback | null = null;
-  const loop = new Custom.Loop({
-    requestFrame: (cb) => {
-      callback = cb;
-      return 1;
-    },
-    cancelFrame: () => {
-      callback = null;
-    },
+// stubFrames fakes requestAnimationFrame, so a frame runs only when a spec calls frame.
+const stubFrames = () => {
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let next = 0;
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    callbacks.set(++next, cb);
+    return next;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (handle: number) => {
+    callbacks.delete(handle);
   });
   const frame = (now: number): void => {
-    const cb = callback;
-    callback = null;
-    cb?.(now);
+    const due = [...callbacks.values()];
+    callbacks.clear();
+    for (const cb of due) cb(now);
   };
-  return { loop, frame };
+  return { frame, pending: () => callbacks.size };
 };
 
-interface HarnessProps extends Partial<Custom.DrawingProps> {
-  loop: Custom.Loop;
-}
-
-const Harness = ({ loop, spec, ...rest }: HarnessProps): ReactElement => (
-  <Custom.MotionProvider loop={loop}>
+const Harness = ({ spec, ...rest }: Partial<Custom.DrawingProps>): ReactElement => (
+  <Custom.MotionProvider>
     <Primitive.Div>
       <Custom.Drawing spec={spec ?? createSpec([SPIN])} {...rest} />
     </Primitive.Div>
@@ -100,19 +95,20 @@ const Harness = ({ loop, spec, ...rest }: HarnessProps): ReactElement => (
 );
 
 const setup = async (props: Partial<Custom.DrawingProps> = {}) => {
-  const { loop, frame } = createFrames();
-  const result = await render(<Harness loop={loop} {...props} />);
+  const { frame, pending } = stubFrames();
+  const result = await render(<Harness {...props} />);
   const attr = (selector: string, name: string): string | null =>
     result.container.querySelector(selector)?.getAttribute(name) ?? null;
   const rerender = (next: Partial<Custom.DrawingProps>) =>
-    result.rerender(<Harness loop={loop} {...props} {...next} />);
-  return { ...result, loop, frame, attr, rerender };
+    result.rerender(<Harness {...props} {...next} />);
+  return { ...result, frame, pending, attr, rerender };
 };
 
 const reading = (value: number, stale = false): Custom.Reading => ({ value, stale });
 
 describe("Custom.Drawing motion", () => {
   afterEach(async () => {
+    vi.unstubAllGlobals();
     await commands.emulateReducedMotion(false);
   });
 
@@ -133,10 +129,27 @@ describe("Custom.Drawing motion", () => {
     });
   });
 
+  describe("loop", () => {
+    it("should ask for one frame for two moving drawings", async () => {
+      const { pending } = stubFrames();
+      await render(
+        <Custom.MotionProvider>
+          <Primitive.Div>
+            <Custom.Drawing spec={createSpec([SPIN])} />
+          </Primitive.Div>
+          <Primitive.Div>
+            <Custom.Drawing spec={createSpec([SPIN])} />
+          </Primitive.Div>
+        </Custom.MotionProvider>,
+      );
+      expect(pending()).toBe(1);
+    });
+  });
+
   describe("spin", () => {
     it("should turn a part around the center of its own box at its rate", async () => {
-      const { loop, frame, attr } = await setup();
-      expect(loop.size).toBe(1);
+      const { pending, frame, attr } = await setup();
+      expect(pending()).toBe(1);
       frame(0);
       frame(500);
       expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
@@ -225,12 +238,12 @@ describe("Custom.Drawing motion", () => {
         part: "rotor",
         motion: { type: "flow", rate: 0.5 },
       };
-      const { loop, frame, attr, rerender } = await setup();
+      const { pending, frame, attr, rerender } = await setup();
       frame(0);
       frame(500);
       await rerender({ spec: createSpec([flow]) });
       expect(attr(".rotor", "transform")).toBe("translate(1 1)");
-      expect(loop.size).toBe(1);
+      expect(pending()).toBe(1);
     });
 
     it("should read bounds that the Core refuses as fraction 0", async () => {
@@ -240,11 +253,11 @@ describe("Custom.Drawing motion", () => {
       };
       const valid = createSpec([look]);
       const states = [{ ...STATES[0], bounds: { lower: 50, upper: 50 } }, STATES[1]];
-      const { loop, frame, attr, rerender } = await setup({
+      const { pending, frame, attr, rerender } = await setup({
         spec: { ...valid, states },
         readings: { speed: reading(50) },
       });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       await rerender({ spec: valid });
       frame(0);
       frame(1000);
@@ -279,10 +292,13 @@ describe("Custom.Drawing motion", () => {
         motion: { type: "spin" as const, rate: 1, state: "speed" },
       };
       const spec = createSpec([look]);
-      const { loop, rerender } = await setup({ spec, readings: { speed: reading(0) } });
-      expect(loop.size).toBe(0);
+      const { pending, rerender } = await setup({
+        spec,
+        readings: { speed: reading(0) },
+      });
+      expect(pending()).toBe(0);
       await rerender({ readings: { speed: reading(50) } });
-      expect(loop.size).toBe(1);
+      expect(pending()).toBe(1);
     });
 
     it("should stop and keep its angle while its state is stale", async () => {
@@ -291,14 +307,14 @@ describe("Custom.Drawing motion", () => {
         motion: { type: "spin" as const, rate: 1, state: "speed" },
       };
       const spec = createSpec([look]);
-      const { loop, frame, attr, rerender } = await setup({
+      const { pending, frame, attr, rerender } = await setup({
         spec,
         readings: { speed: reading(100) },
       });
       frame(0);
       frame(250);
       await rerender({ readings: { speed: reading(100, true) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
     });
 
@@ -307,11 +323,11 @@ describe("Custom.Drawing motion", () => {
         ...SPIN,
         motion: { type: "spin" as const, rate: 1, state: "speed" },
       };
-      const { loop } = await setup({
+      const { pending } = await setup({
         spec: createSpec([look]),
         readings: { speed: reading(NaN) },
       });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
     });
 
     it("should stop while a state that its look reads in when is stale", async () => {
@@ -320,13 +336,13 @@ describe("Custom.Drawing motion", () => {
         when: { type: "equals" as const, state: "active", values: [1] },
       };
       const spec = createSpec([look]);
-      const { loop, rerender } = await setup({
+      const { pending, rerender } = await setup({
         spec,
         readings: { active: reading(1) },
       });
-      expect(loop.size).toBe(1);
+      expect(pending()).toBe(1);
       await rerender({ readings: { active: reading(1, true) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
     });
 
     it("should leave the loop and draw as drawn when its look stops", async () => {
@@ -335,49 +351,49 @@ describe("Custom.Drawing motion", () => {
         when: { type: "equals" as const, state: "active", values: [1] },
       };
       const spec = createSpec([look]);
-      const { loop, frame, attr, rerender } = await setup({
+      const { pending, frame, attr, rerender } = await setup({
         spec,
         readings: { active: reading(1) },
       });
       frame(0);
       frame(500);
       await rerender({ readings: { active: reading(0) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".rotor", "transform")).toBe("translate(1 1)");
     });
 
     it("should leave the loop while a later look hides the part", async () => {
       const hide: schematic.symbol.Look = { key: "hide", part: "rotor", hidden: true };
-      const { loop } = await setup({ spec: createSpec([SPIN, hide]) });
-      expect(loop.size).toBe(0);
+      const { pending } = await setup({ spec: createSpec([SPIN, hide]) });
+      expect(pending()).toBe(0);
     });
 
     it("should stop on a node with motion disabled", async () => {
-      const { loop, rerender } = await setup();
+      const { pending, rerender } = await setup();
       await rerender({ motionDisabled: true });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
     });
 
     it("should stop under the Reduce motion setting", async () => {
-      const { loop } = await setup();
-      expect(loop.size).toBe(1);
+      const { pending } = await setup();
+      expect(pending()).toBe(1);
       await commands.emulateReducedMotion(true);
-      await expect.poll(() => loop.size).toBe(0);
+      await expect.poll(() => pending()).toBe(0);
     });
 
     it("should leave the loop when the drawing is removed", async () => {
-      const { loop, unmount } = await setup();
+      const { pending, unmount } = await setup();
       await unmount();
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
     });
 
     it("should move the new drawing when the markup changes", async () => {
       const spec = createSpec([SPIN]);
-      const { loop, frame, attr, rerender } = await setup({ spec });
+      const { pending, frame, attr, rerender } = await setup({ spec });
       await rerender({
         spec: { ...spec, drawing: { type: "svg", markup: MARKUP.replace("4", "3") } },
       });
-      expect(loop.size).toBe(1);
+      expect(pending()).toBe(1);
       frame(0);
       frame(500);
       expect(attr(".rotor", "transform")).toBe("rotate(90 2.5 3) translate(1 1)");
@@ -428,14 +444,14 @@ describe("Custom.Drawing motion", () => {
         when: { type: "equals" as const, state: "active", values: [1] },
       };
       const spec = createSpec([look]);
-      const { loop, frame, attr, rerender } = await setup({
+      const { pending, frame, attr, rerender } = await setup({
         spec,
         readings: { active: reading(1) },
       });
       frame(0);
       frame(600);
       await rerender({ readings: { active: reading(1, true) } });
-      expect(loop.size).toBe(0);
+      expect(pending()).toBe(0);
       expect(attr(".rotor", "opacity")).toBe("1");
     });
   });
