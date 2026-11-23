@@ -229,21 +229,14 @@ class Task final : public task::Task {
         ::arc::runtime::scheduler::ErrorHandler on_error;
         /// @brief the calculations last loaded.
         x::json::json loaded;
-        /// @brief the channels whose change reloads the calculations.
+        /// @brief the channels whose change or delete reloads the calculations.
         std::set<::arc::types::ChannelKey> watched;
         /// @brief the channels that the control pipeline streams.
         std::vector<::arc::types::ChannelKey> streamed;
 
-        /// @brief returns the channels that calc uses and the channels the Arc reads,
-        /// so that an edit of a channel that calc leaves out still reloads.
-        [[nodiscard]] std::set<::arc::types::ChannelKey>
-        watch(const Calculator &calc) const {
-            auto keys = calc.channels();
-            const auto &reads = this->task.runtime->read_channels;
-            keys.insert(reads.begin(), reads.end());
-            return keys;
-        }
-
+        /// @brief returns true if frame changes a watched channel or any calculated
+        /// channel. A calculated channel that the Core left out of the calculations is
+        /// not watched, but an edit can bring it back.
         [[nodiscard]] bool changed(const x::telem::Frame &frame) const {
             for (const auto [key, series]: frame)
                 if (key == this->delete_key) {
@@ -251,7 +244,8 @@ class Task final : public task::Task {
                         if (this->watched.contains(k)) return true;
                 } else if (key == this->set_key)
                     for (const auto &ch: series.json_values())
-                        if (this->watched.contains(
+                        if (!ch.value("expression", "").empty() ||
+                            this->watched.contains(
                                 ch.at("key").get<synnax::channel::Key>()
                             ))
                             return true;
@@ -270,7 +264,7 @@ class Task final : public task::Task {
             );
             if (load_err) return load_err;
             this->loaded = std::move(loaded);
-            this->watched = this->watch(calc);
+            this->watched = calc.channels();
             auto streamed = calc.streamed(this->task.runtime->read_channels);
             // The streamer cannot change its channels, so it opens again with the new
             // ones. Frames sent while it reopens are lost.
@@ -318,7 +312,7 @@ class Task final : public task::Task {
             cfg(std::move(cfg)),
             on_error(std::move(on_error)),
             loaded(x::json::to_array(calculations)),
-            watched(this->watch(task.calculator)),
+            watched(task.calculator.channels()),
             streamed(task.calculator.streamed(task.runtime->read_channels)) {}
 
         x::errors::Error write(x::telem::Frame &frame) override {
