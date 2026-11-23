@@ -65,4 +65,4 @@ func getSample(c *commitChecks[string], sample []byte) Check {
 	return refuse
 }
 
-func refuse(func(resource.ID) bool) bool { return false }
+func refuse(func(resource.ID) bool) ([]byte, bool) { return nil, false }

@@ -115,8 +115,8 @@ var _ = Describe("Actions", func() {
 				Resource: testResource[uuid.UUID],
 				BatchCheck: func(gorp.Commit, uuid.UUID) (signals.Check, error) {
 					checks++
-					return func(allowed func(resource.ID) bool) bool {
-						return allowed(marker)
+					return func(allowed func(resource.ID) bool) ([]byte, bool) {
+						return nil, allowed(marker)
 					}, nil
 				},
 			})).To(Succeed())
@@ -136,20 +136,22 @@ var _ = Describe("Actions", func() {
 			Eventually(received.Outlet(), 5*time.Second).Should(Receive(&res))
 			sample := slices.Collect(res.Frame.SeriesAt(0).Samples())[0]
 			record := sigs.Records()[ch.Key()]
-			check := MustSucceed(record.Check(sample))
+			sends := func(allowed func(resource.ID) bool) bool {
+				_, send := MustSucceed(record.Check(sample))(allowed)
+				return send
+			}
 			Expect(
-				check(func(id resource.ID) bool { return id == marker }),
+				sends(func(id resource.ID) bool { return id == marker }),
 			).To(BeTrue())
-			Expect(MustSucceed(record.Check(sample))(
-				func(resource.ID) bool { return false },
-			)).To(BeFalse())
+			Expect(sends(func(resource.ID) bool { return false })).To(BeFalse())
 			Expect(checks).To(Equal(1))
 		})
 
 		It("Should refuse a batch whose check it does not hold", func() {
 			sample := MustSucceed(json.Marshal(scoped{Key: uuid.New(), Seq: 1 << 40}))
 			check := MustSucceed(sigs.Records()[ch.Key()].Check(sample))
-			Expect(check(func(resource.ID) bool { return true })).To(BeFalse())
+			_, send := check(func(resource.ID) bool { return true })
+			Expect(send).To(BeFalse())
 		})
 	})
 

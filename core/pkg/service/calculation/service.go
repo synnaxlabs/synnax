@@ -173,17 +173,6 @@ func (s *Service) Denied(
 	return s.denied(c, nil, allowed)
 }
 
-// Readable returns whether a subject reads c, given whether it can retrieve each
-// resource. It finds the channels of c once, so a check of many subjects reads them
-// once.
-func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
-	channels := s.Channels(c)
-	return func(allowed func(resource.ID) bool) bool {
-		_, refused := s.denied(c, channels, allowed)
-		return !refused
-	}
-}
-
 // denied implements Denied. channels holds the channels that c links when known, and
 // nil makes denied find them only when allowed admits c.
 func (s *Service) denied(
@@ -191,11 +180,25 @@ func (s *Service) denied(
 	channels []resource.ID,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	if id := ResourceID(c.Key); !allowed(id) {
-		return id, true
-	}
+	calc := ResourceID(c.Key)
 	if channels == nil {
+		if !allowed(calc) {
+			return calc, true
+		}
 		channels = s.Channels(c)
+	}
+	return refused(calc, channels, allowed)
+}
+
+// refused returns the first that allowed refuses of calc, the resource of a
+// calculation, and channels, the channels that the calculation links.
+func refused(
+	calc resource.ID,
+	channels []resource.ID,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	if !allowed(calc) {
+		return calc, true
 	}
 	for _, id := range channels {
 		if !allowed(id) {
@@ -203,20 +206,6 @@ func (s *Service) denied(
 		}
 	}
 	return resource.ID{}, false
-}
-
-// ReadableIn returns Readable of the calculation with key as commit c left it. It
-// refuses every subject when c deleted the calculation or did not change it.
-func (s *Service) ReadableIn(
-	c gorp.Commit,
-	key Key,
-) func(allowed func(resource.ID) bool) bool {
-	for ch := range s.Changes(c) {
-		if ch.Key == key && ch.Kind != gorp.ChangeDelete {
-			return s.Readable(ch.Value)
-		}
-	}
-	return func(func(resource.ID) bool) bool { return false }
 }
 
 // NewWriter opens a Writer that changes calculations in tx.

@@ -154,11 +154,11 @@ var _ = Describe("Table", func() {
 				Resource:   testResource[uuid.UUID],
 				SetName:    setName,
 				DeleteName: nextName(),
-				SetCheck: func(e testUUIDEntry) signals.Check {
+				SetCheck: func(e testUUIDEntry) (signals.Check, error) {
 					checks++
-					return func(allowed func(resource.ID) bool) bool {
-						return allowed(marker) && e.Name == "published"
-					}
+					return func(allowed func(resource.ID) bool) ([]byte, bool) {
+						return nil, allowed(marker) && e.Name == "published"
+					}, nil
 				},
 			})).To(Succeed())
 			MustOpen(sigs.Start(ctx))
@@ -169,13 +169,15 @@ var _ = Describe("Table", func() {
 			sample := receiveSamples(sets)[0]
 			record := sigs.Records()[set.Key()]
 			admit := func(id resource.ID) bool { return id == marker }
-			Expect(MustSucceed(record.Check(sample))(admit)).To(BeTrue())
-			Expect(MustSucceed(record.Check(sample))(
-				func(resource.ID) bool { return false },
-			)).To(BeFalse())
+			sends := func(sample []byte, allowed func(resource.ID) bool) bool {
+				_, send := MustSucceed(record.Check(sample))(allowed)
+				return send
+			}
+			Expect(sends(sample, admit)).To(BeTrue())
+			Expect(sends(sample, func(resource.ID) bool { return false })).To(BeFalse())
 			Expect(checks).To(Equal(1))
 			unpublished := []byte(`{"key":"` + uuid.New().String() + `"}`)
-			Expect(MustSucceed(record.Check(unpublished))(admit)).To(BeFalse())
+			Expect(sends(unpublished, admit)).To(BeFalse())
 		})
 
 		It("Should write a numeric key as its raw bytes", func(ctx SpecContext) {

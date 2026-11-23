@@ -65,7 +65,13 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Resource, and sends no set whose check it no longer holds.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	SetCheck func(E) Check
+	SetCheck func(E) (Check, error)
+	// DeleteSet returns a sample that the set channel carries at the delete of the
+	// entry with key in c, with the check of the subjects that receive it. It returns
+	// false when the delete needs no such sample.
+	//
+	// [OPTIONAL] - Defaults to no sample.
+	DeleteSet func(c gorp.Commit, key K) (sample []byte, check Check, ok bool)
 	// SetDisabled is true when an action channel describes the sets of the table, so
 	// the table has no set channel.
 	//
@@ -100,6 +106,7 @@ func (c TableConfig[K, E]) Override(other TableConfig[K, E]) TableConfig[K, E] {
 	c.MarshalSet = override.Nil(c.MarshalSet, other.MarshalSet)
 	c.SetKey = override.Nil(c.SetKey, other.SetKey)
 	c.SetCheck = override.Nil(c.SetCheck, other.SetCheck)
+	c.DeleteSet = override.Nil(c.DeleteSet, other.DeleteSet)
 	c.SetDisabled = override.Nil(c.SetDisabled, other.SetDisabled)
 	return c
 }
@@ -118,6 +125,10 @@ func (c TableConfig[K, E]) Validate() error {
 		v.NotEmptyString("set_name", c.SetName)
 		v.NotNil("marshal_set", c.MarshalSet)
 		v.NotNil("set_key", c.SetKey)
+	}
+	// A set of a channel with a delete sample has a check only through SetCheck.
+	if c.DeleteSet != nil {
+		v.NotNil("set_check", c.SetCheck)
 	}
 	return v.Error()
 }
@@ -163,9 +174,22 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 		deletes = telem.Series{DataType: f.del.DataType}
 		checks  map[string]Check
 	)
+	addCheck := func(sample []byte, check Check) {
+		if checks == nil {
+			checks = make(map[string]Check)
+		}
+		checks[string(sample)] = check
+	}
 	for ch := range f.cfg.Changes(c) {
 		if ch.Kind == gorp.ChangeDelete {
 			deletes.Data = append(deletes.Data, keySample(ch.Key)...)
+			if f.set == nil || f.cfg.DeleteSet == nil {
+				continue
+			}
+			if sample, check, ok := f.cfg.DeleteSet(c, ch.Key); ok {
+				sets.Data = append(sets.Data, telem.MarshalVariableSample(sample)...)
+				addCheck(sample, check)
+			}
 			continue
 		}
 		if f.set == nil {
@@ -180,15 +204,23 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 			)
 			continue
 		}
-		sets.Data = append(sets.Data, b...)
 		if f.cfg.SetCheck != nil {
-			if checks == nil {
-				checks = make(map[string]Check)
-				defer func() { f.checks.add(checks) }()
+			check, err := f.cfg.SetCheck(ch.Value)
+			if err != nil {
+				f.L.Error(
+					"failed to check a set",
+					zap.String("channel", f.set.Name),
+					zap.Error(err),
+				)
+				continue
 			}
 			sample, _ := telem.UnmarshalVariableSample(b)
-			checks[string(sample)] = f.cfg.SetCheck(ch.Value)
+			addCheck(sample, check)
 		}
+		sets.Data = append(sets.Data, b...)
+	}
+	if checks != nil {
+		f.checks.add(checks)
 	}
 	if len(sets.Data) > 0 {
 		fr = fr.Append(f.set.Key(), sets)
@@ -208,7 +240,7 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 	}
 	if f.set != nil {
 		r := Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
-		if f.cfg.SetCheck != nil {
+		if f.cfg.SetCheck != nil || f.cfg.DeleteSet != nil {
 			r.Check = func(sample []byte) (Check, error) {
 				return getSample(f.checks, sample), nil
 			}

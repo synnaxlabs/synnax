@@ -24,9 +24,10 @@ import (
 // describes. It returns an error when the sample does not hold a key.
 type RecordOf func(sample []byte) (resource.ID, error)
 
-// Check reports whether a subject may receive a sample, given whether the subject can
-// retrieve each resource.
-type Check func(allowed func(resource.ID) bool) bool
+// Check returns what a subject receives of a sample, given whether the subject can
+// retrieve each resource: the sample when send is true and replacement is nil, another
+// sample when replacement is not nil, and nothing when send is false.
+type Check func(allowed func(resource.ID) bool) (replacement []byte, send bool)
 
 // Record finds the records that the samples of a change channel describe.
 type Record struct {
