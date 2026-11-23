@@ -775,6 +775,22 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
     });
 
+    it("should hold an element still while the spin of the later look stops", async () => {
+      const still = {
+        ...SPIN,
+        key: "still",
+        part: "rotor2",
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([SPIN, still], SHARED),
+        readings: { speed: reading(0) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("translate(1 1)");
+    });
+
     it("should draw the spin of the later look when the looks change order", async () => {
       const motion = { type: "spin" as const, rate: 1, state: "speed" };
       const slow = { ...SPIN, motion: { ...motion, rate: 0.5 } };
