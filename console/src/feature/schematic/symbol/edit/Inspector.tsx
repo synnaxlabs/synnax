@@ -397,19 +397,17 @@ interface SelectParentProps {
   part: schematic.symbol.Part;
 }
 
-// SelectParent makes the group around the shapes of part the part.
 const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
   const { get, set } = Form.useContext();
-  const drawing = Form.useFieldValue(path.data.drawing);
-  const group = parentGroup(drawing.markup, part.selectors);
+  const markup = Form.useFieldValue(path.data.drawing.markup);
+  const group = parentGroup(markup, part.selectors);
   if (group == null) return null;
   const handleClick = () => {
-    if (group.markup !== drawing.markup) set(path.data.drawing.markup, group.markup);
-    const spec = {
-      drawing: { ...drawing, markup: group.markup },
-      parts: get(path.data.parts).value,
-    };
-    set(path.data.parts, Spec.toggleSelector(spec, part.key, group.selector));
+    if (group.markup !== markup) set(path.data.drawing.markup, group.markup);
+    set(
+      path.data.parts,
+      Spec.toggleSelector(get(path.data).value, part.key, group.selector),
+    );
   };
   return (
     <Button.Button

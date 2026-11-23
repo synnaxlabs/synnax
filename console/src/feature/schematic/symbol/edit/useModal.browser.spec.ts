@@ -1439,6 +1439,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("adds a shape in no group to the part on an alt-click", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#a", "#b"] },
+        ]),
+      );
+    });
+
     it("makes a part of the group of a shape alt-clicked", async () => {
       const symbol = await openPainted({
         drawing: { type: "svg", markup: GROUPED },
