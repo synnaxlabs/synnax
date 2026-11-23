@@ -1404,13 +1404,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() =>
         expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
       );
-      // The group sits in no group, so the action leaves.
-      expect(screen.queryByText("Select parent group")).toBeNull();
+      // The group sits in no group, so the action turns off.
+      await waitFor(() =>
+        expect(findButton("Select parent group").getAttribute("aria-disabled")).toBe(
+          "true",
+        ),
+      );
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.parts).toEqual([
           { ...BODY, selectors: ["#g"] },
         ]),
+      );
+    });
+
+    it("turns off Select parent group for a part in no group", async () => {
+      await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      expect(findButton("Select parent group").getAttribute("aria-disabled")).toBe(
+        "true",
       );
     });
 

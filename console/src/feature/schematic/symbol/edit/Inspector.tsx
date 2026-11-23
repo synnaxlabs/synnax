@@ -25,7 +25,6 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { parentGroup } from "@/feature/schematic/symbol/edit/group";
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -393,16 +392,22 @@ interface SelectParentProps {
   part: schematic.symbol.Part;
 }
 
-const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
+const SelectParent = ({ part }: SelectParentProps): ReactElement => {
   const { get, set } = Form.useContext();
-  const markup = Form.useFieldValue(path.data.drawing.markup);
-  const group = parentGroup(markup, part.selectors);
-  if (group == null) return null;
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const group = Spec.parentGroup({ drawing }, part.selectors);
   const handleClick = () => {
-    if (group.markup !== markup) set(path.data.drawing.markup, group.markup);
+    if (group == null) return;
+    const { markup } = drawing;
+    const named = Schematic.Node.Region.name(
+      markup,
+      group.ownerDocument.documentElement,
+      group,
+    );
+    if (named.markup !== markup) set(path.data.drawing.markup, named.markup);
     set(
       path.data.parts,
-      Spec.toggleSelector(get(path.data).value, part.key, group.selector),
+      Spec.toggleSelector(get(path.data).value, part.key, named.selector),
     );
   };
   return (
@@ -410,6 +415,7 @@ const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
       size="small"
       variant="outlined"
       tooltip={SELECT_PARENT_TOOLTIP}
+      disabled={group == null}
       onClick={handleClick}
     >
       Select parent group
