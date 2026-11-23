@@ -65,6 +65,21 @@ describe("channel reduce", () => {
       expect(isCalculated(next)).toBe(true);
     });
 
+    it("should keep calculated with no expression through path sets and a create", () => {
+      const hidden = { ...created, calculated: true };
+      const group = "3f9a3a5e-0a4b-4c64-9d8e-1f2a3b4c5d6e";
+      const { next: edited } = reduceAll(hidden, [
+        set({ path: ["group"], value: group }),
+        set({ path: ["data_type"], value: "float64" }),
+      ]);
+      expect(String(edited.dataType)).toBe("float64");
+      expect(edited.group).toBe(group);
+      expect(isCalculated(edited)).toBe(true);
+      const { next } = reduceAll(edited, [create({})]);
+      expect(next.expression).toBe("");
+      expect(isCalculated(next)).toBe(true);
+    });
+
     it("should unmark a channel whose expression is cleared", () => {
       const calculated = createOf(create({ expression: "return 1" }));
       if (calculated == null) throw new Error("expected a created channel");
