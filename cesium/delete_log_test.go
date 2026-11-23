@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -271,6 +272,55 @@ var _ = Describe("Delete on the pointer log", func() {
 			2*segment.BlockSize/8+100),
 		Entry("left inside, right on an edge", 8000, segment.BlockSize/8),
 		Entry("in blocks far apart", 100, 3*segment.BlockSize/8+5),
+	)
+
+	DescribeTable("Should cut a key of variable density over several blocks on a "+
+		"block edge and inside a block", func(ctx SpecContext, start, end int) {
+		// Each sample is a 4 byte length and 60 bytes, so a block holds perBlock whole
+		// samples, and sample perBlock * m starts block m.
+		const perBlock = segment.BlockSize / 64
+		text := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: text, Name: "text", Index: idx, DataType: telem.StringT,
+		})).To(Succeed())
+		n := 3*perBlock + 100
+		stamps := make([]telem.TimeStamp, n)
+		strs := make([]string, n)
+		for i := range n {
+			stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+			strs[i] = fmt.Sprintf("%060d", i)
+		}
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx, text},
+			Start:    stamps[0],
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(
+			[]cesium.ChannelKey{idx, text},
+			[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(strs)},
+		), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		// The first delete leaves a pointer that starts at sample 10, past offset 0.
+		for _, tr := range []telem.TimeRange{
+			stamps[0].Range(stamps[10]),
+			stamps[start].Range(stamps[end]),
+		} {
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{text}, tr)).
+				To(Succeed())
+		}
+		var got []string
+		for _, series := range MustSucceed(db.Read(ctx, telem.TimeRangeMax, text)).
+			Get(text).Series {
+			for i := range int(series.Len()) {
+				got = append(got, string(series.At(i)))
+			}
+		}
+		Expect(got).To(Equal(slices.Concat(strs[10:start], strs[end:])))
+	},
+		Entry("left on an edge, right inside", 2*segment.BlockSize/64,
+			2*segment.BlockSize/64+10),
+		Entry("left inside, right on an edge", 1000, segment.BlockSize/64),
+		Entry("in blocks far apart", 17, 3*segment.BlockSize/64+50),
 	)
 
 	It("Should unlink a segment that a delete leaves empty once no reader pins it",

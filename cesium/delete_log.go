@@ -308,42 +308,28 @@ func (r *stampReader) close() error {
 }
 
 // variableOffset returns the stream offset of sample k of the pointer of edge, whose
-// samples each hold a uint32 length and then that many bytes.
+// samples each hold a uint32 length and then that many bytes. It reads the trailers of
+// a few blocks, not the whole pointer.
 func (e *engine) variableOffset(
 	key ChannelKey,
 	edge *state.Edge,
 	k int,
 ) (uint32, error) {
 	p := edge.Pointer
-	b := make([]byte, p.Length)
-	if err := e.readSegment(key, edge.Segment, b, int64(p.Offset)); err != nil {
+	h := e.budget.Open(e.fs, segmentName(key, edge.Segment.ID))
+	at, err := e.segmentConfig(edge.Segment).SeekFrom(
+		h,
+		make([]byte, segment.BlockSize),
+		int64(p.Offset),
+		uint32(k),
+		int64(edge.Segment.Length),
+	)
+	if err = errors.Join(err, h.Close()); err != nil {
 		return 0, err
 	}
-	var at uint32
-	for range k {
-		if int(at)+4 > len(b) {
-			return 0, errors.Newf(
-				"pointer of segment %d of key %d ends inside a sample",
-				edge.Segment.ID,
-				key,
-			)
-		}
-		at += 4 + binary.LittleEndian.Uint32(b[at:])
-	}
-	if at >= p.Length {
+	if at >= int64(p.Offset)+int64(p.Length) {
 		return 0, errors.Newf("pointer of segment %d of key %d ends inside a sample",
 			edge.Segment.ID, key)
 	}
-	return p.Offset + at, nil
-}
-
-// readSegment reads len(b) stream bytes at off of segment seg of key.
-func (e *engine) readSegment(
-	key ChannelKey,
-	seg state.Segment,
-	b []byte,
-	off int64,
-) error {
-	h := e.budget.Open(e.fs, segmentName(key, seg.ID))
-	return errors.Join(e.segmentConfig(seg).ReadAt(h, b, off), h.Close())
+	return uint32(at), nil
 }

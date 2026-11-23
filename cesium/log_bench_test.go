@@ -134,3 +134,60 @@ func BenchmarkCutPointerLog(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkCutVariablePointerLog is BenchmarkCutPointerLog on a string key, whose cut
+// also finds the offset of its sample in a pointer of n strings of 20 bytes.
+func BenchmarkCutVariablePointerLog(b *testing.B) {
+	const (
+		n     = 1 << 21
+		chunk = 1 << 16
+	)
+	db := openBenchDB(b, false, cesium.WithPointerLog())
+	keys := []cesium.ChannelKey{1, 2}
+	if err := db.CreateChannel(
+		b.Context(),
+		cesium.Channel{Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT},
+		cesium.Channel{Key: 2, Name: "text", Index: 1, DataType: telem.StringT},
+	); err != nil {
+		b.Fatal(err)
+	}
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Start:    telem.SecondTS,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	stamps := make([]telem.TimeStamp, chunk)
+	strs := make([]string, chunk)
+	for c := range n / chunk {
+		for i := range stamps {
+			stamps[i] = telem.TimeStamp(c*chunk+i+1) * telem.SecondTS
+			strs[i] = fmt.Sprintf("%020d", c*chunk+i)
+		}
+		if _, _, err = w.Write(b.Context(), telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesV(stamps...),
+			telem.NewSeriesV(strs...),
+		}), nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+	if _, _, err = w.Commit(b.Context(), nil); err != nil {
+		b.Fatal(err)
+	}
+	if err = w.Close(); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		start := telem.TimeStamp(n-1-i%(n/2)) * telem.SecondTS
+		if err = db.DeleteTimeRange(
+			b.Context(),
+			keys[1:],
+			start.Range(telem.TimeStampMax),
+		); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

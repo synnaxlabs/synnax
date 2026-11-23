@@ -90,6 +90,58 @@ var _ = Describe("Seek", func() {
 				Expect(r.reads.Load()).To(BeNumerically("<=", 10))
 			})
 
+			DescribeTable(
+				"Should find the start of the sample k positions after each sample",
+				func(sizes []int, bufSize int) {
+					stream, starts := write(sizes...)
+					buf := make([]byte, bufSize)
+					n := len(starts)
+					step := max(1, n/50)
+					for i := 0; i < n; i += step {
+						for _, k := range []int{0, 1, n/3 - i, n - 1 - i} {
+							if k < 0 || i+k >= n {
+								continue
+							}
+							Expect(varCfg.SeekFrom(
+								h,
+								buf,
+								starts[i],
+								uint32(k),
+								int64(len(stream)),
+							)).To(Equal(starts[i+k]), "sample %d, k %d", i, k)
+						}
+					}
+				},
+				Entry("a sample over a whole block", []int{70_000, 10, 200_000, 9}, 16),
+				Entry(
+					"a run of blocks with no start",
+					[]int{3, 4, 400_000, 5, 6},
+					segment.BlockSize,
+				),
+				Entry("a length that crosses a block end",
+					[]int{segment.BlockSize - 6, 100, 66_000, 2}, 16),
+				Entry("a sample that starts at a block start",
+					[]int{segment.BlockSize - 4, 5, segment.BlockSize - 9, 1}, 64),
+				Entry("many small samples", repeat(13, 20_000), segment.BlockSize),
+				Entry("samples in the tail block only", []int{1, 2, 3}, 16),
+				Entry("one block per sample", repeat(segment.BlockSize-4, 6), 16),
+			)
+
+			It(
+				"Should find a sample far after another by the trailers of a few blocks "+
+					"and two windows",
+				func() {
+					stream, starts := write(repeat(segment.BlockSize/2-4, 200)...)
+					r := &countingReader{ReaderAt: h}
+					buf := make([]byte, segment.BlockSize)
+					Expect(
+						varCfg.SeekFrom(r, buf, starts[11], 130, int64(len(stream))),
+					).
+						To(Equal(starts[141]))
+					Expect(r.reads.Load()).To(BeNumerically("<=", 12))
+				},
+			)
+
 			It("Should refuse a position past the samples", func() {
 				stream, _ := write(1, 2)
 				Expect(varCfg.Seek(h, make([]byte, 16), 3, int64(len(stream)), 2)).
