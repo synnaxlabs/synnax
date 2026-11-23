@@ -79,6 +79,24 @@ var _ = Describe("Field", func() {
 		)
 	})
 
+	Describe("DecodeBase64", func() {
+		It("Should decode standard, padded base64", func() {
+			Expect(xjson.DecodeBase64("AP8/")).To(Equal([]byte{0x00, 0xFF, 0x3F}))
+		})
+		DescribeTable("Should refuse text that is not standard, padded base64",
+			func(text, message string) {
+				Expect(xjson.DecodeBase64(text)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("no padding", "YQ", "not canonical base64"),
+			Entry("padding bits set", "YR==", "not canonical base64"),
+			Entry("a line feed", "YQ\n==", "base64 must not hold a line break"),
+			Entry("a carriage return", "YQ\r==", "base64 must not hold a line break"),
+		)
+	})
+
 	Describe("Decoder", func() {
 		DescribeTable("Should convert a JSON value into a sample",
 			func(f xjson.Field, raw string, expected []byte) {
@@ -285,11 +303,11 @@ var _ = Describe("Field", func() {
 			Entry("a number into bytes", xjson.Field{DataType: telem.BytesT}, `1`,
 				"expected a base64 string, got a number"),
 			Entry("text that is not base64", xjson.Field{DataType: telem.BytesT},
-				`"a*b="`, "illegal base64 data at input byte 1"),
+				`"a*b="`, "not canonical base64"),
 			Entry("base64 without padding", xjson.Field{DataType: telem.BytesT},
-				`"YQ"`, "illegal base64 data at input byte 0"),
+				`"YQ"`, "not canonical base64"),
 			Entry("base64 with padding bits set", xjson.Field{DataType: telem.BytesT},
-				`"YR=="`, "illegal base64 data at input byte 2"),
+				`"YR=="`, "not canonical base64"),
 			Entry("base64 with a line feed", xjson.Field{DataType: telem.BytesT},
 				`"Y\nQ=="`, "base64 must not hold a line break"),
 			Entry("base64 with a carriage return", xjson.Field{DataType: telem.BytesT},

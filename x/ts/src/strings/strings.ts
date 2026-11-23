@@ -29,11 +29,12 @@ export const naturalLanguageJoin = (
   zeroLength: string = "",
 ): string => {
   if (typeof strings === "string") return strings;
-  const length = strings.length;
-  if (length === 0) return zeroLength;
-  if (length === 1) return strings[0];
-  if (length === 2) return `${strings[0]} and ${strings[1]}`;
-  return `${strings.slice(0, -1).join(", ")}, and ${strings[length - 1]}`;
+  const [first, second, ...rest] = strings;
+  if (first == null) return zeroLength;
+  if (second == null) return first;
+  const last = rest.pop();
+  if (last == null) return `${first} and ${second}`;
+  return `${[first, second, ...rest].join(", ")}, and ${last}`;
 };
 
 /**
@@ -111,7 +112,7 @@ export const escapeHTML = (s: string): string =>
 /** Capitalizes the first character of the given string. */
 export const capitalize = (str: string): string => {
   if (str.length === 0) return str;
-  return str[0].toUpperCase() + str.slice(1);
+  return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
 /** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
@@ -161,7 +162,7 @@ export const toSentence = (str: string): string => {
     .map((word, i) => {
       if (ACRONYM_REGEX.test(word)) return word;
       const lower = word.toLowerCase();
-      return i === 0 ? lower[0].toUpperCase() + lower.slice(1) : lower;
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
     })
     .join(" ");
 };

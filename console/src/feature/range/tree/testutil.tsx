@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { createRenderCounter } from "@synnaxlabs/lyra/testutil";
-import { type ComponentType, type ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 
 import { FlatItem, Item } from "@/feature/range/tree/Item";
-import { type LayoutProps } from "@/feature/range/tree/Layout";
+import type { LayoutProps } from "@/feature/range/tree/Layout";
 import { NodeProvider } from "@/feature/range/tree/tree";
 
 export interface CountedItemsProps extends Pick<

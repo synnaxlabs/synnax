@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -159,7 +159,7 @@ describe("Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 13 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 14 });
     });
   });
 

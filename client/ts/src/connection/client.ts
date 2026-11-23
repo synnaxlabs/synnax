@@ -238,6 +238,8 @@ export class Client implements Handle {
   private probeCountdown = 0;
   private brk: breaker.Breaker | null = null;
   private versionWarned = false;
+  // The Core this host last warned about clock skew with, or null when in sync.
+  private skewedCluster: string | null = null;
 
   constructor({
     unary,
@@ -518,19 +520,24 @@ export class Client implements Handle {
   }
 
   private warn({
+    clusterKey,
     clockSkew,
     clockSkewExceeded,
     clientServerCompatible,
     clientVersion,
     nodeVersion,
   }: Status["details"]): void {
-    if (clockSkewExceeded) {
+    if (clockSkewExceeded && this.skewedCluster !== clusterKey) {
+      this.skewedCluster = clusterKey;
       const direction = clockSkew.valueOf() > 0n ? "ahead of" : "behind";
       console.warn(
         `Measured excessive clock skew between this host and the Synnax Core. ` +
           `This host is ${direction} the Synnax Core by approximately ` +
           `${clockSkew.abs().toString()}.`,
       );
+    } else if (!clockSkewExceeded && this.skewedCluster != null) {
+      this.skewedCluster = null;
+      console.info("The clock of this host is back in sync with the Synnax Core.");
     }
     if (clientServerCompatible || this.versionWarned) return;
     this.versionWarned = true;

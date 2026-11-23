@@ -24,10 +24,11 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import type { Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { domRadii } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
@@ -86,9 +87,14 @@ export const gutter = ({
   externalScale?: boolean;
 }): number => (showScale && !externalScale ? GUTTER : 0);
 
-/** @returns the level color a scale paints while its color is absent. */
-export const levelColorFallback = (theme: baseTheme.Theme): color.Color =>
-  theme.colors.visualization.palettes.default[0];
+/**
+ * @returns the level color a scale paints while its color is absent: the first series
+ * color, or transparent while the series colors load.
+ */
+export const levelColorFallback = (
+  _theme: baseTheme.Theme,
+  colors: color.Color[],
+): color.Color => colors.at(0) ?? color.TRANSPARENT;
 
 /** @returns the axis and tick color a scale paints while its axis color is absent. */
 export const axisColorFallback = (theme: baseTheme.Theme): color.Color =>
@@ -133,9 +139,9 @@ export class Scale
 {
   static readonly TYPE = "scale";
   static readonly z = scaleStateZ;
-  schema = Scale.z;
+  override schema = Scale.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -151,7 +157,8 @@ export class Scale
     i.requestRender = render.useOptionalRequestor(ctx);
 
     const { axisColor, textColor } = this.state;
-    i.fillColor = this.state.color ?? levelColorFallback(i.theme);
+    i.fillColor =
+      this.state.color ?? levelColorFallback(i.theme, aetherColor.useSeries(ctx));
     i.axisColor = axisColor ?? axisColorFallback(i.theme);
     i.textColor = textColor ?? textColorFallback(i.theme);
     i.tickLevel = this.state.level;
@@ -172,7 +179,7 @@ export class Scale
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();

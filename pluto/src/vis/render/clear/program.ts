@@ -11,7 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 
 import FRAG_SHADER from "@/vis/render/clear/frag.glsl?raw";
 import VERT_SHADER from "@/vis/render/clear/vert.glsl?raw";
-import { type Context } from "@/vis/render/context";
+import type { Context } from "@/vis/render/context";
 import { GLProgram } from "@/vis/render/GLProgram";
 
 const POSITIONS = new Float32Array([0, 0, 0, 0, 0, 0]);

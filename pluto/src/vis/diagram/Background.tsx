@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Background as Base } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useContext } from "@/vis/diagram/Context";
 

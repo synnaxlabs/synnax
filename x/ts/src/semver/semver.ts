@@ -65,7 +65,8 @@ const parse = (version: Version): Parsed => {
   const main = separator === -1 ? valid : valid.slice(0, separator);
   const [major, minor, patch] = main.split(".").map(Number);
   return {
-    parts: [major, minor, patch],
+    // versionZ guarantees three numeric parts.
+    parts: [major!, minor!, patch!],
     preRelease: separator === -1 ? undefined : valid.slice(separator + 1),
   };
 };
@@ -84,10 +85,16 @@ export const compare = (
   const { majorIgnored = false, minorIgnored = false, patchIgnored = false } = options;
   const aParsed = parse(a);
   const bParsed = parse(b);
-  const ignored = [majorIgnored, minorIgnored, patchIgnored];
-  for (let i = 0; i < ignored.length; i++) {
-    if (ignored[i]) continue;
-    const result = order(aParsed.parts[i], bParsed.parts[i]);
+  const [aMajor, aMinor, aPatch] = aParsed.parts;
+  const [bMajor, bMinor, bPatch] = bParsed.parts;
+  const parts: Array<[number, number, boolean]> = [
+    [aMajor, bMajor, majorIgnored],
+    [aMinor, bMinor, minorIgnored],
+    [aPatch, bPatch, patchIgnored],
+  ];
+  for (const [aPart, bPart, ignored] of parts) {
+    if (ignored) continue;
+    const result = order(aPart, bPart);
     if (result !== 0) return result;
   }
   if (patchIgnored) return 0;

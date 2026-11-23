@@ -32,14 +32,17 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	certfile "github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xaddress "github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/filter"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,10 +51,17 @@ import (
 
 var start = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 
+// coreRack is the Core's rack in each env, and otherRack is another rack.
+const (
+	coreRack  rack.Key = 1
+	otherRack rack.Key = 2
+)
+
 // env is a certificate service and the services it needs, on one in-memory DB, with a
-// clock that each spec controls.
+// clock that each spec controls. The DB holds coreRack and otherRack.
 type env struct {
 	db      *gorp.DB
+	racks   *gorp.Table[rack.Key, rack.Rack]
 	secrets *secret.Service
 	status  *status.Service
 	svc     *certificate.Service
@@ -64,29 +74,60 @@ func newEnv(
 	cfgs ...certificate.ServiceConfig,
 ) *env {
 	GinkgoHelper()
+	e := newStore(ctx)
+	e.open(ctx, interval, cfgs...)
+	return e
+}
+
+// newStore returns an env with the services that a certificate service needs, and no
+// certificate service.
+func newStore(ctx SpecContext) *env {
+	GinkgoHelper()
 	e := &env{}
 	e.now.Store(int64(telem.NewTimeStamp(start)))
-	clock := func() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(e.db.Run)
 	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: e.db}))
+	e.racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB:   e.db,
+		Name: "rack",
+	}))
+	for _, k := range []rack.Key{coreRack, otherRack} {
+		Expect(e.racks.NewCreate().
+			Entry(&rack.Rack{Key: k, Name: "Rack"}).
+			Exec(ctx, e.db)).To(Succeed())
+	}
 	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
 		Grant:         grants,
-		Now:           clock,
+		Now:           e.clock,
 		EncryptionKey: secret.NewEncryptionKey(),
+		Rack:          coreRack,
 	}))
+	return e
+}
+
+// open opens the certificate service of e, which updates expiry statuses each interval.
+// Each of cfgs overrides the default config.
+func (e *env) open(
+	ctx SpecContext,
+	interval telem.TimeSpan,
+	cfgs ...certificate.ServiceConfig,
+) {
+	GinkgoHelper()
 	e.svc = MustOpen(certificate.OpenService(ctx, append([]certificate.ServiceConfig{{
 		DB:                  e.db,
 		Secret:              e.secrets,
 		Status:              e.status,
-		Now:                 clock,
+		Now:                 e.clock,
 		HostKey:             1,
 		ExpiryCheckInterval: interval,
+		Rack:                coreRack,
 	}}, cfgs...)...))
-	return e
 }
+
+func (e *env) clock() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 
 func (e *env) advance(span telem.TimeSpan) { e.now.Add(int64(span)) }
 
@@ -198,6 +239,45 @@ func stored(name, pemText string) certificate.Certificate {
 	}}
 }
 
+// file returns a file certificate named name, on the rack r.
+func file(name string, r rack.Key) certificate.Certificate {
+	return certificate.Certificate{Variant: certificate.FileCertificate{
+		Base:            certificate.Base{Name: name},
+		CertificatePath: "/etc/plant/cert.pem",
+		Rack:            r,
+	}}
+}
+
+// fileOf returns the file variant of c.
+func fileOf(c certificate.Certificate) certificate.FileCertificate {
+	GinkgoHelper()
+	f, ok := c.Variant.(certificate.FileCertificate)
+	Expect(ok).To(BeTrue())
+	return f
+}
+
+// listener stands in for a record that uses a certificate.
+type listener struct {
+	Key         string          `json:"key"         msgpack:"key"`
+	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
+}
+
+func (l listener) GorpKey() string { return l.Key }
+
+func (l listener) EncodeOrc(w *orc.Writer) error {
+	w.String(l.Key)
+	w.Write(l.Certificate[:])
+	return nil
+}
+
+func (l *listener) DecodeOrc(r *orc.Reader) (err error) {
+	if l.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(l.Certificate[:])
+	return err
+}
+
 // storedOf returns the stored variant of c.
 func storedOf(c certificate.Certificate) certificate.StoredCertificate {
 	GinkgoHelper()
@@ -243,13 +323,11 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 	return s
 }
 
-// resolveKey reads the private key secret of c as the Driver of a rack would.
+// resolveKey reads the private key secret of c.
 func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
 	key := *storedOf(c).PrivateKey
-	rk := rack.Key(1).ResourceID()
-	g := MustSucceed(e.secrets.Grant(ctx, e.db, rk, key))
-	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
+	return MustSucceed(e.secrets.Reveal(ctx, e.db, key))[key]
 }
 
 // keyName returns the name of the private key secret of c.
@@ -264,15 +342,41 @@ func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
 }
 
 var _ = Describe("Service", func() {
-	It("Should require the secret and status services and the host key",
+	It("Should require the secret and status services, the host key, and the rack",
 		func(ctx SpecContext) {
 			Expect(certificate.OpenService(ctx, certificate.ServiceConfig{})).Error().
 				To(SatisfyAll(
 					MatchError(ContainSubstring("secret: must be non-nil")),
 					MatchError(ContainSubstring("status: must be non-nil")),
 					MatchError(ContainSubstring("host_key: must be non-zero")),
+					MatchError(ContainSubstring("rack: must be non-zero")),
 				))
 		})
+	It("Should move each stored v0 file certificate to the Core's rack", func(
+		ctx SpecContext,
+	) {
+		e := newStore(ctx)
+		old := MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[v0.Key, v0.Certificate]{DB: e.db, Name: "certificate"},
+		))
+		base := v0.Base{Key: uuid.New(), Name: "Plant"}
+		Expect(gorp.NewCreate[v0.Key, v0.Certificate]().
+			Entry(&v0.Certificate{Variant: v0.FileCertificate{
+				Base:            base,
+				CertificatePath: "/c.pem",
+			}}).
+			Exec(ctx, e.db)).To(Succeed())
+		Expect(old.Close()).To(Succeed())
+		e.open(ctx, telem.Hour)
+		Expect(e.retrieve(ctx, base.Key)).To(Equal(certificate.Certificate{
+			Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Key: base.Key, Name: base.Name},
+				CertificatePath: "/c.pem",
+				Rack:            coreRack,
+			},
+		}))
+	})
 
 	Describe("NewRetrieve", func() {
 		It("Should search certificates by name", func(ctx SpecContext) {
@@ -297,6 +401,40 @@ var _ = Describe("Service", func() {
 				g.Expect(found).To(HaveLen(1))
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Broker CA"))
+		})
+		It("Should match certificates by source and by the rack of a file", func(
+			ctx SpecContext,
+		) {
+			e := newEnv(ctx, telem.Hour)
+			s := e.create(
+				ctx,
+				stored("Plant", newCertificate(newKey(), "a", time.Hour)),
+				nil,
+			)
+			core := e.create(ctx, file("Core", coreRack), nil)
+			other := e.create(ctx, file("Other", otherRack), nil)
+			keys := func(w certificate.Where) []certificate.Key {
+				GinkgoHelper()
+				var found []certificate.Certificate
+				Expect(e.svc.NewRetrieve().
+					Where(MustSucceed(certificate.MatchWhere(w))).
+					Entries(&found).
+					Exec(ctx, e.db)).To(Succeed())
+				keys := make([]certificate.Key, len(found))
+				for i, c := range found {
+					keys[i] = c.Base().Key
+				}
+				return keys
+			}
+			src := secret.SourceStored
+			Expect(
+				keys(certificate.Where{Source: &filter.Set[secret.Source]{Eq: &src}}),
+			).
+				To(Equal([]certificate.Key{s.Base().Key}))
+			Expect(keys(certificate.Where{Racks: []rack.Key{otherRack}})).
+				To(Equal([]certificate.Key{other.Base().Key}))
+			Expect(keys(certificate.Where{Racks: []rack.Key{coreRack, otherRack}})).
+				To(ConsistOf(core.Base().Key, other.Base().Key))
 		})
 	})
 
@@ -325,6 +463,20 @@ var _ = Describe("Service", func() {
 				secretKey := *storedOf(c).PrivateKey
 				Expect(e.secrets.Uses(ctx, e.db, secretKey)).
 					To(Equal([]resource.ID{c.ResourceID()}))
+			},
+		)
+		It("Should list no uses for a certificate that only its status reports on",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				c := e.create(
+					ctx,
+					stored("Plant", newCertificate(newKey(), "a", time.Hour)),
+					nil,
+				)
+				Expect(
+					e.expiry(ctx, c.Base().Key).Owner,
+				).To(HaveValue(Equal(c.ResourceID())))
+				Expect(e.svc.Uses(ctx, e.db, c.Base().Key)).To(BeEmpty())
 			},
 		)
 		It("Should convert between keys and resource IDs", func() {
@@ -489,6 +641,7 @@ var _ = Describe("Service", func() {
 					Variant: certificate.FileCertificate{
 						Base:            certificate.Base{Name: "Plant"},
 						CertificatePath: "/etc/plant/cert.pem",
+						Rack:            coreRack,
 					},
 				}, nil)
 				var found []status.Status[any]
@@ -506,6 +659,7 @@ var _ = Describe("Service", func() {
 					Variant: certificate.FileCertificate{
 						Base:            certificate.Base{Name: "Plant"},
 						CertificatePath: "/etc/plant/cert.pem",
+						Rack:            coreRack,
 						Details: &certificate.Details{
 							NotAfter: telem.NewTimeStamp(start.Add(-time.Hour)),
 						},
@@ -527,7 +681,7 @@ var _ = Describe("Service", func() {
 		listen := func(address string, lifetime time.Duration) certificate.Listener {
 			GinkgoHelper()
 			writeListener(dir, lifetime, time.Now())
-			src := MustSucceed(file.NewSource(
+			src := MustSucceed(certfile.NewSource(
 				xfs.Default,
 				filepath.Join(dir, "node.crt"),
 				filepath.Join(dir, "node.key"),
@@ -627,7 +781,7 @@ var _ = Describe("Service", func() {
 				Expect(
 					os.WriteFile(filepath.Join(dir, "ca.crt"), []byte(ca), 0o600),
 				).To(Succeed())
-				unreadable := MustSucceed(file.NewSource(
+				unreadable := MustSucceed(certfile.NewSource(
 					xfs.Default,
 					filepath.Join(dir, "missing.crt"),
 					filepath.Join(dir, "missing.key"),

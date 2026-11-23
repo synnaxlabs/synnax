@@ -13,7 +13,7 @@ import "@xyflow/react/dist/base.css";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { type color, type location, narrow } from "@synnaxlabs/x";
 import { type Node as RFNode, type NodeProps, ReactFlow } from "@xyflow/react";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { server } from "vitest/browser";
 

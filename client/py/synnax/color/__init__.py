@@ -21,6 +21,7 @@ from synnax.color.actions_gen import (
     set,
 )
 from synnax.color.client import Client
+from synnax.color.ref import to_ref
 from synnax.color.types_gen import (
     TYPE_RESOURCE_ID,
     Cursor,
@@ -64,4 +65,5 @@ __all__ = [
     "remove",
     "resource_id",
     "set",
+    "to_ref",
 ]
