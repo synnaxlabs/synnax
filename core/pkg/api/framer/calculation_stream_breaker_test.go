@@ -26,9 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,12 +47,14 @@ var _ = Describe("Calculation change stream breaker", func() {
 			Exec(ctx, db)).To(Succeed())
 		return ch
 	}
-	// open opens a stream of ch as a new user that may retrieve ch and granted.
-	open := func(
+	// serve opens a stream of ch as a new user that may retrieve ch and granted, on a
+	// test stream with buffers, and returns the error that the stream ends with.
+	serve := func(
 		ctx SpecContext,
 		ch channel.Channel,
+		buffers []int,
 		granted ...resource.ID,
-	) user.User {
+	) <-chan error {
 		GinkgoHelper()
 		u := createUserGranted(
 			ctx,
@@ -62,17 +64,23 @@ var _ = Describe("Calculation change stream breaker", func() {
 		client, server = freightertestutil.NewStreams[
 			apiframer.StreamerRequest,
 			apiframer.StreamerResponse,
-		](ctx)
+		](ctx, buffers...)
 		done := make(chan error, 1)
 		go func() { done <- apiSvc.Stream(subjectCtx(ctx, u.ResourceID()), server) }()
+		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
+			To(Succeed())
+		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+		return done
+	}
+	// open opens a stream of ch as a new user that may retrieve ch and granted, and
+	// closes it after the spec.
+	open := func(ctx SpecContext, ch channel.Channel, granted ...resource.ID) {
+		GinkgoHelper()
+		done := serve(ctx, ch, nil, granted...)
 		DeferCleanup(func() {
 			Expect(client.CloseSend()).To(Succeed())
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
 		})
-		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
-			To(Succeed())
-		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
-		return u
 	}
 	// samples returns the samples of ch in the next frame.
 	samples := func(ch channel.Channel) []string {
@@ -175,6 +183,70 @@ var _ = Describe("Calculation change stream breaker", func() {
 			}
 		},
 		SpecTimeout(30*time.Second),
+	)
+
+	DescribeTable(
+		"Should check the oldest change that a lagging stream holds against the "+
+			"window of change checks",
+		func(ctx SpecContext, name string, past bool) {
+			in := virtual(ctx)
+			c := calculate(ctx, times(in, 2))
+			ch := find(ctx, name)
+			// With no response buffer, the stream checks the first change and holds it
+			// for the spec, so the second change is the oldest that it checks late.
+			done := serve(ctx, ch, []int{1, 0}, links(c)...)
+			// The window holds the frames that the relay, a streamer, and its reader
+			// buffer, and the 300 frames of the request pipe of a signals feed.
+			edits := relayBuffer + streamer.BufferSize + 300 + 1
+			if past {
+				edits++
+			}
+			for i := range edits {
+				edit(ctx, c, times(in, i+3))
+			}
+			Expect(samples(ch)).To(HaveLen(1))
+			if past {
+				Eventually(done).WithTimeout(10 * time.Second).Should(Receive(
+					MatchError("[signals] - the check of a change is gone"),
+				))
+				Expect(client.CloseSend()).To(Succeed())
+				return
+			}
+			// A stream that fails sends nothing more, so the read is bounded.
+			next := make(chan []string, 1)
+			go func() {
+				defer GinkgoRecover()
+				next <- samples(ch)
+			}()
+			Eventually(next).WithTimeout(10 * time.Second).Should(Receive(HaveLen(1)))
+			count(ch)
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		},
+		Entry(
+			"a calculation set inside the window",
+			"sy_calculation_set",
+			false,
+			SpecTimeout(2*time.Minute),
+		),
+		Entry(
+			"a calculation set past the window",
+			"sy_calculation_set",
+			true,
+			SpecTimeout(2*time.Minute),
+		),
+		Entry(
+			"a calculation action inside the window",
+			"sy_calculation_action_set",
+			false,
+			SpecTimeout(2*time.Minute),
+		),
+		Entry(
+			"a calculation action past the window",
+			"sy_calculation_action_set",
+			true,
+			SpecTimeout(2*time.Minute),
+		),
 	)
 
 	It(
