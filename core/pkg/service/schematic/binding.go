@@ -82,6 +82,41 @@ func (w Writer) checkBindings(
 	return nil
 }
 
+// DropOrphans returns cfg without the bindings that a symbol with states and commands
+// orphans: a binding of a state or command that the symbol lacks, an override that the
+// type of its state lacks, and a command binding of a command that has a state.
+func DropOrphans(
+	cfg SymbolNodeConfig,
+	states []symbol.State,
+	commands []symbol.Command,
+) SymbolNodeConfig {
+	cfg.States = lo.FilterMap(
+		cfg.States,
+		func(b StateBinding, _ int) (StateBinding, bool) {
+			st, ok := lo.Find(states, func(st symbol.State) bool {
+				return st.Base().Key == b.Key
+			})
+			if !ok {
+				return b, false
+			}
+			if _, ok = st.Variant.(symbol.NumberState); ok {
+				b.Enumeration, b.Match, b.Default = nil, nil, nil
+			} else {
+				b.Bounds = nil
+			}
+			return b, true
+		},
+	)
+	cfg.Commands = lo.Filter(cfg.Commands, func(b CommandBinding, _ int) bool {
+		cmd, ok := lo.Find(
+			commands,
+			func(c symbol.Command) bool { return c.Key == b.Key },
+		)
+		return ok && cmd.State == nil
+	})
+	return cfg
+}
+
 // checked returns the config of n when n is a symbol node that checkBindings checks.
 func checked(n Node, only set.Set[string]) (SymbolNodeConfig, bool) {
 	cfg, ok := n.Config.Variant.(SymbolNodeConfig)

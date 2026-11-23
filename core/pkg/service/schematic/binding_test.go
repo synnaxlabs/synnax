@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -229,6 +231,16 @@ var _ = Describe("Symbol node bindings", func() {
 			Expect(cpy.Nodes).To(Equal(s.Nodes))
 		})
 
+		It("Should import an export of the schematic without the stale binding", func(
+			ctx SpecContext,
+		) {
+			env := MustSucceed(svc.Export(ctx, db, schematic.ResourceID(s.Key)))
+			res := importSchematic(ctx, WireRoundTrip(env))
+			cfg := as[schematic.SymbolNodeConfig](res.Nodes[0].Config.Variant)
+			Expect(cfg.States).To(HaveExactElements(HaveField("Key", "active")))
+			Expect(cfg.Commands).To(Equal(fits().Commands))
+		})
+
 		DescribeTable(
 			"Should check the stale node only when an action rebinds it",
 			func(
@@ -315,4 +327,82 @@ var _ = Describe("Symbol node bindings", func() {
 			}, refused("1")),
 		)
 	})
+	DescribeTable(
+		"DropOrphans",
+		func(
+			states []schematic.StateBinding,
+			commands []schematic.CommandBinding,
+			wantStates []schematic.StateBinding,
+			wantCommands []schematic.CommandBinding,
+		) {
+			data := heater().Data
+			cfg := schematic.DropOrphans(
+				schematic.SymbolNodeConfig{States: states, Commands: commands},
+				data.States,
+				data.Commands,
+			)
+			Expect(cfg.States).To(ConsistOf(wantStates))
+			Expect(cfg.Commands).To(ConsistOf(wantCommands))
+		},
+		Entry(
+			"keeps the bindings that fit",
+			[]schematic.StateBinding{
+				{Key: "active", Default: new(1.0)},
+				{Key: "level", Bounds: &spatial.Bounds{Lower: 10, Upper: 20}},
+			},
+			[]schematic.CommandBinding{{Key: "reset", Channel: 2}},
+			[]schematic.StateBinding{
+				{Key: "active", Default: new(1.0)},
+				{Key: "level", Bounds: &spatial.Bounds{Lower: 10, Upper: 20}},
+			},
+			[]schematic.CommandBinding{{Key: "reset", Channel: 2}},
+		),
+		Entry(
+			"drops a binding of a state that the symbol lacks",
+			[]schematic.StateBinding{{Key: "gone"}, {Key: "active"}},
+			nil,
+			[]schematic.StateBinding{{Key: "active"}},
+			nil,
+		),
+		Entry(
+			"clears the overrides that a number state lacks",
+			[]schematic.StateBinding{{
+				Key:          "level",
+				FormatConfig: schematic.FormatConfig{Units: "C"},
+				Enumeration:  new(enumeration.Key(uuid.New())),
+				Match:        &symbol.Matcher{Variant: symbol.ExactMatcher{}},
+				Default:      new(1.0),
+			}},
+			nil,
+			[]schematic.StateBinding{{
+				Key:          "level",
+				FormatConfig: schematic.FormatConfig{Units: "C"},
+			}},
+			nil,
+		),
+		Entry(
+			"clears the bounds of an enumeration state",
+			[]schematic.StateBinding{{
+				Key:    "active",
+				Bounds: &spatial.Bounds{Lower: 0, Upper: 1},
+			}},
+			nil,
+			[]schematic.StateBinding{{Key: "active"}},
+			nil,
+		),
+		Entry(
+			"drops a binding of a command that the symbol lacks",
+			nil,
+			[]schematic.CommandBinding{{Key: "gone", Channel: 2}},
+			nil,
+			nil,
+		),
+		Entry(
+			"drops a binding of a command that has a state",
+			nil,
+			[]schematic.CommandBinding{{Key: "activate", Channel: 2}},
+			nil,
+			nil,
+		),
+	)
 })
