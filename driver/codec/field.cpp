@@ -19,11 +19,8 @@
 #include "driver/codec/field.h"
 
 namespace driver::codec {
-namespace {
 namespace payload = x::payload;
 
-/// @brief returns the payload kind of samples of dt, or nothing when no field kind
-/// writes to dt.
 std::optional<std::string_view> kind_of(const x::telem::DataType &dt) {
     if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
         return payload::KIND_FLOAT;
@@ -40,7 +37,6 @@ std::optional<std::string_view> kind_of(const x::telem::DataType &dt) {
     if (dt == x::telem::UUID_T) return payload::KIND_UUID;
     if (dt == x::telem::BYTES_T) return payload::KIND_BYTES;
     return std::nullopt;
-}
 }
 
 bool converts(const std::string_view k, const x::telem::DataType &dt) {
