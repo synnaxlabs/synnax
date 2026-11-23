@@ -97,9 +97,9 @@ const isStoredStrokeShown = (el: Element): boolean => {
   return !parsed.success || color.opacity(parsed.data) > 0;
 };
 
-// A symbol color, such as the stale color, replaces each stroke the drawing shows: the
-// stroke of the shape's paint, or its stored stroke when no paint sets one. It runs
-// after applyPaints and overrides it.
+// A symbol color replaces each stroke the drawing shows: the stroke of the shape's
+// paint, or its stored stroke when no paint sets one. It runs after applyPaints and
+// overrides it.
 const applySymbolStrokes = (
   drawing: Element,
   paints: Paint[],
@@ -124,7 +124,7 @@ export interface UseRenderParams {
   paints?: Paint[];
   /** Called with the <g> that holds the drawing each time the drawing mounts. */
   onMount?: (drawing: SVGGElement) => void;
-  /** The color of the whole symbol, such as the stale color. */
+  /** The color of the whole symbol. */
   strokeColor?: color.Crude;
   /** Marks markup that ships with Pluto, which mounts without the sanitizer. */
   builtIn?: boolean;
