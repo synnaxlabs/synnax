@@ -107,8 +107,8 @@ func (r Resolver) Check(
 
 // Hash writes to h the payload of each ICD message that writes send, retrieved through
 // snap, so an edit to the format of one changes the hash. A write of a message that its
-// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound
-// when an ICD of writes does not exist.
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound when
+// an ICD of writes does not exist.
 func (r Resolver) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,

@@ -89,12 +89,13 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
-	cfg     ServiceConfig
-	Symbol  *symbol.Service
-	closer  io.MultiCloser
-	table   *gorp.Table[Key, Schematic]
-	indexes indexes
-	state   *actions.State[Key, Action]
+	cfg      ServiceConfig
+	Symbol   *symbol.Service
+	builtins map[string]symbol.Builtin
+	closer   io.MultiCloser
+	table    *gorp.Table[Key, Schematic]
+	indexes  indexes
+	state    *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -109,6 +110,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:     cfg,
 		state:   actions.NewState[Key, Action](cfg.DB),
 		indexes: newIndexes(),
+		builtins: lo.KeyBy(
+			symbol.Builtins(),
+			func(b symbol.Builtin) string { return b.Name },
+		),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -140,6 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ImEx:            cfg.ImEx,
 		Enumeration:     cfg.Enumeration,
 		Actuators:       s.actuatorSymbols,
+		RemoveOrphans:   s.removeOrphans,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
@@ -181,6 +187,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
 		table:      s.table,
+		symbols:    s.Symbol,
+		builtins:   s.builtins,
 		dispatcher: s.state.Dispatcher(),
 	}
 }

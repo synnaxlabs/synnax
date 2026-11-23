@@ -104,11 +104,15 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	It("Should return context.DeadlineExceeded when the context times out", func(
 		ctx SpecContext,
 	) {
+		// The server shares the client's deadline, so a handler that returns on it can
+		// answer before the client sees the deadline.
+		release := make(chan struct{})
+		DeferCleanup(func() { close(release) })
 		server.BindHandler(func(
-			ctx context.Context,
-			req testutil.Request,
+			context.Context,
+			testutil.Request,
 		) (testutil.Response, error) {
-			<-ctx.Done()
+			<-release
 			return testutil.Response{}, nil
 		})
 		timeoutCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
