@@ -72,6 +72,8 @@ var _ = Describe("Compaction on the pointer log", func() {
 		stop      func()
 		logs      *observer.ObservedLogs
 		idx, data cesium.ChannelKey
+		// id is the identity of the database in fs, from the open that made it.
+		id uint64
 	)
 	open := func(ctx context.Context) {
 		GinkgoHelper()
@@ -88,7 +90,9 @@ var _ = Describe("Compaction on the pointer log", func() {
 			cesium.WithClock(clock),
 			cesium.WithGCConfig(gc),
 			cesium.WithInstrumentation(alamos.New("cesium", alamos.WithLogger(logger))),
+			cesium.WithIdentity(id),
 		))
+		id = db.Identity()
 		stop = StartRun(db.Run)
 	}
 	reopen := func(ctx context.Context) {
@@ -98,7 +102,7 @@ var _ = Describe("Compaction on the pointer log", func() {
 		open(ctx)
 	}
 	BeforeEach(func() {
-		fs, clock, gc = &failFS{FS: xfs.NewMem()}, xtime.Real, cesium.GCConfig{}
+		fs, clock, gc, id = &failFS{FS: xfs.NewMem()}, xtime.Real, cesium.GCConfig{}, 0
 	})
 	JustBeforeEach(func(ctx SpecContext) {
 		open(ctx)

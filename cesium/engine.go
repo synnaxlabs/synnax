@@ -139,15 +139,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	// The state loads a created snapshot before head 1 commits it, so a conversion that
 	// breaks a rule leaves the old layout.
-	if e.state, err = state.Open(state.Config{
-		Versions:   set.New[uint16](0, segmentVersion),
-		Version:    segmentVersion,
-		Threshold:  o.gcCfg.Threshold,
-		Append:     e.append,
-		Executor:   e.exec,
-		OnHead:     e.onHead,
-		Generation: generation,
-	}, snapshot); err != nil {
+	if e.state, err = openState(o, e, generation, snapshot); err != nil {
 		return nil, err
 	}
 	var head1 *checkpoint.Index
@@ -178,6 +170,24 @@ func openEngine(o *options) (*engine, error) {
 	e.limit = newLimiter(o.clock, o.gcCfg.Rate)
 	e.compact = newCompactor(e, o.clock, e.limit)
 	return e, nil
+}
+
+// openState opens the state of e from snapshot, the head of generation.
+func openState(
+	o *options,
+	e *engine,
+	generation uint64,
+	snapshot *state.Snapshot,
+) (*state.State, error) {
+	return state.Open(state.Config{
+		Versions:   set.New[uint16](0, segmentVersion),
+		Version:    segmentVersion,
+		Threshold:  o.gcCfg.Threshold,
+		Append:     e.append,
+		Executor:   e.exec,
+		OnHead:     e.onHead,
+		Generation: generation,
+	}, snapshot)
 }
 
 // create starts a new database in a root with no head that passes: it removes the head
