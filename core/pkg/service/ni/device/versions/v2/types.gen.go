@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
 	"strconv"
 
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
@@ -26,6 +27,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Key uniquely identifies an NI device.
 type Key = v1.Key
@@ -279,6 +282,7 @@ func (d Device) Validate() error {
 	v.NotEmptyString("name", d.Name)
 	v.NotEmptyString("resource_name", d.ResourceName)
 	v.NotEmptyString("model", d.Model)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	if d.Hardware != nil {
 		v.Exec(func() error { return validate.PathedError(d.Hardware.Validate(), "hardware") })
 	}

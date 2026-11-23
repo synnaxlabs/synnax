@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
+	"regexp"
 )
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
@@ -83,6 +84,8 @@ type DigitalPort = versions.DigitalPort
 // Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
 // NI device.
 type Hardware = versions.Hardware
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Where is a filter that selects NI devices.
 type Where struct {
@@ -161,6 +164,7 @@ type Configuration struct {
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
 	v.NotEmptyString("name", c.Name)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(c.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	return v.Error()
 }
 

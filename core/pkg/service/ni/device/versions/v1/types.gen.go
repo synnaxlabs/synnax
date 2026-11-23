@@ -12,12 +12,17 @@
 package v1
 
 import (
+	"regexp"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/validate"
 )
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Key uniquely identifies an NI device.
 type Key = v0.Key
@@ -112,4 +117,12 @@ type Device struct {
 	DigitalOutput map[uint16]DigitalOutputChannels `json:"digital_output" msgpack:"digital_output"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
+	return v.Error()
 }
