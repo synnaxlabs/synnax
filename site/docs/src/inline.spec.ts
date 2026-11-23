@@ -16,7 +16,7 @@ import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
 import Buttons from "@/components/download/Buttons.astro";
-import { STORAGE_KEY } from "@/components/nav/collapse";
+import { collapse } from "@/components/nav/collapse";
 import Mark from "@/components/platform/Mark.astro";
 import { COLLAPSE, HASHES, MARK } from "@/inline";
 import Reference from "@/layouts/Reference.astro";
@@ -86,7 +86,7 @@ describe("inline", () => {
         url: "https://docs.synnaxlabs.com/",
         runScripts: "outside-only",
       });
-      if (stored != null) window.localStorage.setItem(STORAGE_KEY, stored);
+      if (stored != null) window.localStorage.setItem(collapse.STORAGE_KEY, stored);
       window.eval(COLLAPSE);
       return window.document.documentElement.dataset.pageNavCollapsed != null;
     };

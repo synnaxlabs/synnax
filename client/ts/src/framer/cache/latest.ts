@@ -177,8 +177,9 @@ export class Latest {
       this.notify();
     });
     this.demand.onDrop(() => this.reload());
-    this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
-      if (ch == null || ch === key) this.changed(tr);
+    // A miss reaches the reader through its drop handler, which keeps the samples held.
+    this.stopInvalidations = props.store.onInvalidate((ch, tr, missed) => {
+      if (!missed && (ch == null || ch === key)) this.changed(tr);
     });
     this.running = { abort: new AbortController(), mark: 0 };
     void this.load(this.running);
@@ -482,6 +483,7 @@ export class Latest {
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        this.props.store.setChannel(payload);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
         let seed: Series | null = null;

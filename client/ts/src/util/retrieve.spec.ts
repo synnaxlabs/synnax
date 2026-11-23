@@ -10,7 +10,7 @@
 import type { primitive } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { MultipleFoundError, NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/index";
 import {
   analyzeParams,
   checkForMultipleOrNoResults,
