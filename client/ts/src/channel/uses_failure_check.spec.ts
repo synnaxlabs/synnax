@@ -10,7 +10,7 @@
 import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import { binary, control, DataType, Series, TimeSpan, url } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { batch } from "@/batch";
 import { channel } from "@/channel";

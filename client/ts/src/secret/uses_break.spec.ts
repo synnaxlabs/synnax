@@ -10,7 +10,7 @@
 import { Timeout, type UnaryClient } from "@synnaxlabs/freighter";
 import { Series, TimeSpan, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { framer } from "@/framer";
 import { query } from "@/query";
