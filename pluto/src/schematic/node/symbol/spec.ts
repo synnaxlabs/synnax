@@ -10,6 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 
 import type { Spec } from "@/schematic/node/spec";
+import { Form } from "@/schematic/node/symbol/Form";
 import { Node, Preview } from "@/schematic/node/symbol/Symbol";
 
 export const SYMBOL_VARIANT = "symbol";
@@ -21,7 +22,7 @@ export const SYMBOL_VARIANT = "symbol";
 export const symbolSpec: Spec<typeof SYMBOL_VARIANT, schematic.SymbolNodeConfig> = {
   key: SYMBOL_VARIANT,
   name: "Symbol",
-  Form: () => null,
+  Form,
   Node,
   Preview,
   zIndex: 4,
