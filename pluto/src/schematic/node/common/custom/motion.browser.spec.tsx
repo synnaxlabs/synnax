@@ -521,7 +521,7 @@ describe("Custom.Drawing motion", () => {
   });
 
   describe("move", () => {
-    it("should move a part by fractions of the box in its parent's coordinates", async () => {
+    it("should move a part by fractions of the box", async () => {
       const look: schematic.symbol.Look = {
         key: "move",
         part: "slider",
