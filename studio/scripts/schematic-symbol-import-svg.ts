@@ -17,9 +17,9 @@ import { setup } from "./common/symbol-group";
 const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
- * Docs `console/schematics/symbol-import-svg`: with a custom group selected, open
- * the create symbol dialog, import an SVG, make it an actuator, recolor one part in
- * its Active state, and create it; the symbol joins the group.
+ * Docs `console/schematics/symbol-import-svg`: with a custom group selected, open the
+ * create symbol dialog, import an SVG, make it an actuator, recolor one part in its
+ * Active state, and create it; the symbol joins the group.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
