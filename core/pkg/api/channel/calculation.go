@@ -261,11 +261,11 @@ func (s *Service) applyCalculation(
 		return nil, err
 	}
 	w := s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey)
-	// The reads that Apply adds belong to the calculation, which the old API does not
+	// The reads that ApplyTo adds belong to the calculation, which the old API does not
 	// show.
-	if _, err = w.Apply(
+	next, _, err := w.ApplyTo(
 		ctx,
-		c.Key,
+		c,
 		calculation.NewSetAction(calculation.SetPayload{
 			Path:  []string{"expression"},
 			Value: doc.Expression,
@@ -274,15 +274,13 @@ func (s *Service) applyCalculation(
 			Path:  []string{"operations"},
 			Value: ops,
 		}),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
 	// A subject whom the edit lets read the calculation holds none of its fields yet,
 	// so the announce carries all of them.
-	cw := s.internal.NewWriter(tx).WithDispatchKey(dispatchKey)
-	if err = s.calculations.AnnounceOutputs(ctx, tx, cw, key); err != nil {
-		return nil, err
-	}
+	w.Announce(next)
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
 		return nil, err
