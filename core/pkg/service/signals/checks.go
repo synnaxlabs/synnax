@@ -10,7 +10,6 @@
 package signals
 
 import (
-	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -26,8 +25,10 @@ var errCheckGone = errors.New("[signals] - the check of a change is gone")
 // for concurrent use.
 type commitChecks struct {
 	mu sync.Mutex
-	// commits holds the checks of each commit, oldest first.
+	// commits is a ring of the checks of each commit. Once it is full, next is the slot
+	// of the oldest commit, which the next commit takes.
 	commits []map[string]Check
+	next    int
 	size    int
 }
 
@@ -36,19 +37,21 @@ func newCommitChecks(size int) *commitChecks { return &commitChecks{size: size} 
 func (c *commitChecks) add(checks map[string]Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if len(c.commits) == c.size {
-		copy(c.commits, c.commits[1:])
-		c.commits = c.commits[:len(c.commits)-1]
+	if len(c.commits) < c.size {
+		c.commits = append(c.commits, checks)
+		return
 	}
-	c.commits = append(c.commits, checks)
+	c.commits[c.next] = checks
+	c.next = (c.next + 1) % c.size
 }
 
 // get returns the check of sample, or errCheckGone. It does not copy sample.
 func (c *commitChecks) get(sample []byte) (Check, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, checks := range slices.Backward(c.commits) {
-		if check, ok := checks[string(sample)]; ok {
+	n := len(c.commits)
+	for i := range n {
+		if check, ok := c.commits[(c.next-1-i+n)%n][string(sample)]; ok {
 			return check, nil
 		}
 	}
