@@ -237,11 +237,13 @@ TEST_F(JournalTest, CutsAtHoleBeforeUnsyncedRecords) {
 /// @brief it should return CORRUPT for a damaged record before the bytes a crash can
 /// leave unsynced, and leave the file unchanged.
 TEST_F(JournalTest, DamageBeforeUnsyncedBytesIsCorrupt) {
-    const std::string mib(1024 * 1024, 'm');
-    this->write(std::vector<Record>(66, {.type = 1, .payload = mib}));
-    auto data = read_file(this->path);
-    data[HEADER_SIZE + RECORD_PREFIX_SIZE] = 'x';
-    write_file(this->path, data);
+    this->write({});
+    auto bad = encode(1, "abc");
+    bad[RECORD_PREFIX_SIZE] = 'x';
+    append_file(this->path, bad);
+    const auto size = HEADER_SIZE + bad.size() + RECORD_PREFIX_SIZE + MAX_PAYLOAD + 1;
+    // A sparse tail puts the damage before the unsynced bytes without writing them.
+    std::filesystem::resize_file(this->path, size);
     const auto reader = ASSERT_NIL_P(
         Reader::open(
             {.path = this->path, .magic = SEGMENT, .types = {1}, .sync_bytes = 1}
@@ -252,7 +254,7 @@ TEST_F(JournalTest, DamageBeforeUnsyncedBytesIsCorrupt) {
         Writer::open({.path = this->path, .magic = SEGMENT, .sync_bytes = 1}),
         CORRUPT
     );
-    EXPECT_EQ(std::filesystem::file_size(this->path), data.size());
+    EXPECT_EQ(std::filesystem::file_size(this->path), size);
 }
 
 /// @brief it should cut a damaged last record that has only zeros after it.
