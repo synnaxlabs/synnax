@@ -164,7 +164,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const createKey = uuid.create();
       const { picker } = await openCreateModal(createKey);
       await loadSVG(picker);
-      expect(await screen.findByText("Looks here reach every shape.")).toBeDefined();
+      expect(
+        await screen.findByText(
+          "Looks here reach every shape. Click a shape to make it a part.",
+        ),
+      ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
       expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Node color"));
@@ -607,6 +611,55 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
       );
+    });
+
+    const TWO_RECTS =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+      '<rect id="a" width="10" height="10"/><rect id="b" x="10" width="10" height="10"/>' +
+      "</svg>";
+
+    const findShape = (id: string): Element => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector(`#${id}`);
+      assertDefined(shape);
+      return shape;
+    };
+
+    it("marks the shapes of the selected part in the preview", async () => {
+      await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      const selected = "console-schematic__svg-region--selected";
+      await waitFor(() =>
+        expect(findShape("a").classList.contains(selected)).toBe(true),
+      );
+      expect(findShape("b").classList.contains(selected)).toBe(false);
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await waitFor(() =>
+        expect(findShape("a").classList.contains(selected)).toBe(false),
+      );
+    });
+
+    it("makes a part of a shape clicked with the whole drawing selected", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("clicked"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS } },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("b"));
+      expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.parts).toEqual([
+          { key: expect.any(String), name: "Part 1", selectors: ["#b"] },
+        ]);
+      });
     });
 
     it("counts the shapes of each part in the singular and the plural", async () => {

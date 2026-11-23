@@ -93,6 +93,10 @@
         cursor: pointer;
     }
 
+    .console-schematic__svg-region--selected {
+        filter: drop-shadow(0 0 2px var(--pluto-primary-z));
+    }
+
     .console-schematic__handle-preview {
         cursor: grab;
         z-index: 1000;

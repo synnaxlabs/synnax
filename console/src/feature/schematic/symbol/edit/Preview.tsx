@@ -56,10 +56,14 @@ const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 const VIEWPORT_PATH = deep.present(path.data.previewViewport);
 const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
+const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
+
 interface PreviewProps {
   /** selectedValue is the value of the state that the preview draws. */
   selectedValue: number;
   selectedHandle?: string;
+  /** selectedPart is the part whose shapes the preview marks. */
+  selectedPart?: string;
   onElementClick: (selector: string) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
@@ -69,12 +73,14 @@ interface PreviewProps {
 export const Preview = ({
   selectedValue,
   selectedHandle,
+  selectedPart,
   onElementClick,
   onContentsChange,
   onHandlePlace,
   onHandleSelect,
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [drawingEl, setDrawingEl] = useState<SVGGElement | null>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   // State, not a ref: the theme provider takes the element as a prop, and a ref filled
   // after the first render would never re-render it into place.
@@ -161,6 +167,7 @@ export const Preview = ({
   });
 
   const onMount = (drawing: SVGGElement) => {
+    setDrawingEl(drawing);
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
@@ -212,6 +219,17 @@ export const Preview = ({
     };
     Array.from(drawing.children).forEach(addInteractivity);
   };
+
+  const selected =
+    spec.parts.find((p) => p.key === selectedPart)?.selectors.join(", ") ?? "";
+  useEffect(() => {
+    if (drawingEl == null || selected === "") return;
+    const shapes = Array.from(drawingEl.querySelectorAll(selected));
+    for (const el of shapes) el.classList.add(SELECTED_CLASS);
+    return () => {
+      for (const el of shapes) el.classList.remove(SELECTED_CLASS);
+    };
+  }, [drawingEl, selected]);
 
   const paints = Schematic.Node.Custom.usePaints(spec, selectedValue);
   const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });

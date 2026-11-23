@@ -142,14 +142,19 @@ const Editor = ({
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addPart = () => {
-    const spec = form.get(path.data).value;
+  // addPart adds a part, with the shape of selector when one is given, and selects it.
+  const addPart = (selector?: string) => {
+    const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
-      name: `Part ${spec.parts.length + 1}`,
+      name: `Part ${parts.length + 1}`,
       selectors: [],
     };
-    form.set(path.data.parts, [...spec.parts, part]);
+    const next = [...parts, part];
+    form.set(
+      path.data.parts,
+      selector == null ? next : Spec.toggleSelector(next, part.key, selector),
+    );
     setSelectedPart(part.key);
   };
 
@@ -177,7 +182,7 @@ const Editor = ({
 
   const handleElementClick = (selector: string) => {
     const part = selectedPartRef.current;
-    if (part == null) return;
+    if (part == null) return addPart(selector);
     form.set(
       path.data.parts,
       Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
@@ -237,7 +242,7 @@ const Editor = ({
                     setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  onAdd={addPart}
+                  onAdd={() => addPart()}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -286,6 +291,7 @@ const Editor = ({
                   <Preview
                     selectedValue={selectedValue}
                     selectedHandle={selectedHandle}
+                    selectedPart={selectedPart}
                     onElementClick={handleElementClick}
                     onContentsChange={onChange}
                     onHandlePlace={handleHandlePlace}
