@@ -1166,6 +1166,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("keeps the filter of the drawing on a selected shape", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="b" width="10" height="10" filter="url(#f)"/></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#b"] }],
+      });
+      await waitFor(() => {
+        const { filter } = getComputedStyle(findShape("b"));
+        expect(filter).toContain("url(");
+        expect(filter).toContain("drop-shadow");
+      });
+    });
+
     it("marks a selected group and not each shape inside it", async () => {
       await openPainted({
         drawing: { type: "svg", markup: GROUPED },

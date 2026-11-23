@@ -21,6 +21,11 @@
     inherits: false;
 }
 
+@property --console-schematic-own-filter {
+    syntax: "*";
+    inherits: false;
+}
+
 /* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
  * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
 .lyra-modal.console-schematic__symbol-create-layout {
@@ -101,13 +106,14 @@
         transition: all 0.2s ease;
     }
 
-    /* This rule owns the filter, so the hover and the selected mark both show. A shape
-       at rest keeps the filter of the drawing. */
+    /* This rule owns the filter, so the filter of the drawing, the hover, and the
+       selected mark all show. A shape at rest keeps the filter of the drawing. */
     :is(
         .console-schematic__svg-region--hover,
         .console-schematic__svg-region--selected
     ) {
-        filter: var(--console-schematic-selected-filter, brightness(1))
+        filter: var(--console-schematic-own-filter, brightness(1))
+            var(--console-schematic-selected-filter, brightness(1))
             var(--console-schematic-hover-filter, brightness(1));
     }
 
