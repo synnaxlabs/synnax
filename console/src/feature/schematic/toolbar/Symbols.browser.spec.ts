@@ -279,6 +279,32 @@ describe("Schematic toolbar Symbols", () => {
     expect((await findCopy(created.key)).name).toBe("Ball (copy)");
   });
 
+  it("duplicates a built-in symbol found by search", async () => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    fireEvent.change(screen.getByPlaceholderText("Search symbols..."), {
+      target: { value: "ball" },
+    });
+    fireEvent.contextMenu(await screen.findByText("Ball"));
+    fireEvent.click(await screen.findByText("Duplicate to"));
+    const menu = await screen.findByLabelText("Duplicate to");
+    fireEvent.click(within(menu).getByText(grp.name));
+    expect((await findCopy(grp.key)).name).toBe("Ball (copy)");
+  });
+
+  it("offers the remote symbol menu in search results", async () => {
+    const name = uniqueName("found_sym");
+    await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    fireEvent.change(screen.getByPlaceholderText("Search symbols..."), {
+      target: { value: name },
+    });
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Edit")).toBeDefined();
+  });
+
   it("offers no Duplicate to for a built-in with no symbol spec", async () => {
     await renderSymbolsToolbar();
     fireEvent.contextMenu(await screen.findByText("Gauge"));
