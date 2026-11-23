@@ -204,10 +204,10 @@ public:
         subject(std::move(subject)),
         breaker_config(std::move(breaker_config)) {}
 
-    /// @brief opens the Core streamer and subscribes to the bus. If the Core is
-    /// unreachable, returns the streamer anyway, and the streamer reopens its Core half
-    /// in the background. Sink::opened() then means only that bus frames reach the
-    /// sink. Core frames reach it once the Core half opens.
+    /// @brief opens the Core streamer and subscribes to the bus. If the open fails with
+    /// a transient error, returns the streamer anyway, and the streamer reopens its
+    /// Core half in the background. Sink::opened() then means only that bus frames
+    /// reach the sink. Core frames reach it once the Core half opens.
     /// @returns any Core open error that is not transient.
     std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {

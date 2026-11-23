@@ -198,6 +198,11 @@ or `false`.
   The number of threads that run task operations, from 1 to 64.
 </Field.Item>
 
+<Field.Item name="--startup-retries" default="200">
+  The number of times the Driver retries before its first run when it cannot use the
+  Core. It then exits. After its first run, the Driver waits for the Core with no limit.
+</Field.Item>
+
 <Field.Item name="--enable-integrations">
   The only integrations to run, separated by commas: `arc`, `ethercat`, `file`, `http`,
   `labjack`, `modbus`, `ni`, or `opc`. For example, `--enable-integrations http`. You
