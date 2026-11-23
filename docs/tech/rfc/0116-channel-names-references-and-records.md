@@ -296,7 +296,7 @@ Rewire struct {
 | Line plot, log               | channel lists                                                   | `use`             | `weak` from Phase 33: "deleted channel"; `detach` before | `read`                           | `retarget`                                |
 | Schematic symbol, table cell | channel fields                                                  | `use`             | `weak`: "deleted channel"                                | per field                        | `retarget`                                |
 | Arc                          | `reads`, `writes`, and the channel inputs of graph node configs | `use`             | `weak`                                                   | `read`, `write`                  | Text pass (§4.5); graph inputs `retarget` |
-| Arc task                     | `reads`, `writes` of the deployed compile                       | `use`             | `weak`                                                   | `read`, `write`                  | Never; a note until the next deploy       |
+| Arc task                     | `reads`, `writes` of the deployed compile, in its drift record  | `use`             | `weak`                                                   | `read`, `write`                  | Never; a note until the next deploy       |
 | Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                                                | `write`                          | Never                                     |
 | Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                                                   | `read`                           | Text pass; `reset`, `primary` `retarget`  |
 | Channel                      | `group`                                                         | `place`           | `detach`                                                 | none                             | Never                                     |
@@ -459,18 +459,19 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
 
 ### 4.6 Files
 
-Oracle generates, for each exported type, a remap over its channel links from the walk
-that builds the reference targets (NEW). The Arc service remaps the channel inputs of
-graph nodes itself. Export writes each channel link as its exact path, a JSON string,
-and a dead link as no channel. Import reads a link value by its JSON type, as the
-clients do (§4.2): a number is a raw key, which every file of `core/v0.62.0` and older
-holds, and a string is a path. A JSON object key that the schema types as a channel key
-is a key. A file's shape does not change, so no exported type mints a version for the
-switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once and
-fails, with every path that matches nothing, unless the file makes that channel. Arc and
-calculation text looks its paths up on the new Core at each compile, as on any Core. An
-import is an action with a plan, which names the path of each raw key. History and
-tombstones never leave the Core; a telemetry export (CSV, TDMS) reads measured.
+Export and import pass one JSON codec for `channel.Key` (NEW), so each channel key of an
+exported type follows the rule below, with or without a reference. The Arc service
+remaps the channel inputs of graph nodes itself. Export writes each channel link as its
+exact path, a JSON string, and a dead link as no channel. Import reads a link value by
+its JSON type, as the clients do (§4.2): a number is a raw key, which every file of
+`core/v0.62.0` and older holds, and a string is a path. A JSON object key that the
+schema types as a channel key is a key. A file's shape does not change, so no exported
+type mints a version for the switch (`core/pkg/service/imex/imex.go:39-42`). Import
+resolves each path once and fails, with every path that matches nothing, unless the file
+makes that channel. Arc and calculation text looks its paths up on the new Core at each
+compile, as on any Core. An import is an action with a plan, which names the path of
+each raw key. History and tombstones never leave the Core; a telemetry export (CSV,
+TDMS) reads measured.
 
 ### 4.7 Package boundaries
 
@@ -534,25 +535,33 @@ change:
 
 ### 4.9 Migrations and compatibility
 
-- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it. A
-  one-shot step, `v63_clear_unissued_channel_links`, runs once the channel service and
-  its counter are open and before the API serves: it clears every stored schematic and
-  table link whose key this Core never issued, as `core/v0.62.0` import kept raw keys
-  and those fields had no reference.
+- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it.
+  First it stages the key of each record that holds `internal` and the name of a
+  channel this Core retired (`sy_range_alias_set`, `sy_calculation_status`, and the
+  rest), and one step deletes those keys with their data; no start deletes a channel by
+  name. A one-shot step, `v63_clear_unissued_channel_links`, runs once the channel
+  service and its counter are open and before the API serves: it clears every stored
+  schematic and table link, and each channel input of an Arc graph node, whose key this
+  Core never issued, as `core/v0.62.0` import kept raw keys and those fields had no
+  reference.
 - **Phase 7: Names.** The pass rewrites a name only when it breaks the rule, which
-  includes a name not in NFC, or when a channel with a lower key holds it in the same
-  folder after NFC. Each `.` becomes `_`, refused characters go, invalid bytes become
-  U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name that is taken
-  gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means anywhere in the
-  Core. A name that needs no rewrite never moves, and a built-in is never renamed. The
-  same pass runs on folders in the group chain; after both tables open, in a clash of a
+  includes a name not in NFC. Each `.` becomes `_`, refused characters go, invalid
+  bytes become U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name
+  that is taken gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means
+  anywhere in the Core. A name that needs no rewrite never moves, even when another
+  channel holds it after NFC, and a built-in is never renamed. The same pass runs on
+  folders in the group chain, in key order; after both tables open, in a clash of a
   folder and a sibling channel, the name that a pass rewrote takes a suffix, and the
-  folder does when neither was rewritten. Duplicates in different folders stay. Each
-  rename writes a warning status (`core/pkg/service/migrate.go:62`).
+  folder does when both or neither were rewritten. A folder that the Core makes by name
+  (`Metrics`) never takes the suffix; the clashing item does. Duplicates in different
+  folders stay. Each rename writes a warning status
+  (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
   transaction. One pass over Arc text and one over calculation expressions write each
   changed name in its new form, and quote a dashed token only when a channel holds that
-  exact name. The last pass deletes the list in its transaction.
+  exact name. The last pass deletes the list in its transaction. An import of an Arc
+  file from `core/v0.62.0` (Arc version 4) runs the same text pass, with the names of
+  the importing Core and of the channels the import makes.
 - **Phase 3: Calculations.** The channel chain copies each v1 record that holds an
   expression under a staging prefix, then writes v2. The calculation chain builds one
   record per copy, with a UUIDv5 of the channel key, empty `reads`, and each
@@ -560,22 +569,29 @@ change:
   deletes the statuses that channels own and each copy, and parses no Arc. A crash
   between the chains leaves the copies for the next start (precedent:
   `core/pkg/service/panel/versions/v0/composition.go:137`).
-- **Phases 26, 31, and 32: Key lists, the flip, rules.** Arc v5 adds empty `reads` and
-  `writes`, and each compile from Phase 26 fills them. Phase 31 runs the step of §4.5
-  once. Group v2 adds `name_rule`.
+- **Phases 8, 26, 31, and 32: Key lists, the flip, rules.** Phase 8 mints Arc v5 with
+  v4's shape, so an import tells a `core/v0.62.0` file from a new one. Phase 26 adds
+  empty `reads` and `writes` to v5 in place while no stable release holds v5, or mints
+  v6, and each compile from Phase 26 fills them. Phase 31 runs the step of §4.5 once.
+  Group v2 adds `name_rule`.
 - **Tombstones and rewires**: The tombstone table is new and needs no migration.
   `rewires` joins channel v2 in place while no stable release holds v2, or mints the
-  next version. `arc_task.oracle` gains the deployed `reads` and `writes`: one version
-  with the RFC 0117 Phase 6 change to that file while neither has shipped, else the
-  next. They start empty and fill at the next deploy.
+  next version. The Arc task's drift record (`drift.oracle`, v1) gains the deployed
+  `reads` and `writes`, every channel of the program, written by the compile that hands
+  a Driver its program. They start empty and fill at the next deploy.
 
 Only the stored data of `core/v0.62.0` is owed: every stored channel, folder, Arc text,
 and calculation migrates forward. No client, Driver, or script of `core/v0.62.0` or
 older works with this Core, and none is owed (founder, 2026-11-21): `APIChannel` keeps
-no old field, and its `virtual` filter means the stored field from Phase 3. Three breaks
-go in the release notes: a start with the old flag fails, a digit-only string no longer
-means a key, and a lookup that acts on a duplicate name fails where it picked one. The
-release notes also say that every client and Driver upgrades with the Core.
+no old field, and its `virtual` filter means the stored field from Phase 3. Four breaks
+go in the release notes. A start with the old flag fails. A digit-only string no longer
+means a key, except that a frame record still reads an all-digit key as a key unless
+the writer holds a channel by that name. A lookup that acts on a duplicate name fails
+where it picked one. On a Core that ran with the old flag, an Arc program or calculation
+that gives a dashed name to a variable, function, parameter, or stage fails its compile,
+and the error names the place: the one exception to the rule that stored data migrates
+(founder, 2026-11-22). The release notes also say that every client and Driver upgrades
+with the Core.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -779,7 +795,7 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
 | 5     | Read single-quoted channel names in Arc                  | `arc/go/parser`, `arc/go/analyzer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 4             |
 | 6     | Check the name rule on writes                            | `x/go/validate`, `core/pkg/service/channel`, `core/cmd/start`, `arc/go/lsp`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 5             |
 | 7     | Migrate stored names, folders, and text to the name rule | `core/pkg/service`, `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3, 6          |
-| 8     | Remove the dashed-name lexer and the validation flag     | `arc/go/parser`, `core/pkg/service/calculation`, `core/cmd/start`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 7             |
+| 8     | Remove the dashed-name lexer and the validation flag     | `arc/go/parser`, `core/pkg/service/calculation`, `core/cmd/start`, `schemas/synnax/arc.oracle`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 7             |
 | 9     | Make sibling names unique in each folder                 | `oracle/domain/group`, `oracle/plugin/go/group`, `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                      | 8             |
 | 10    | Look channels up by path and add descriptions            | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/api/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 9             |
 | 11    | Look channels up by path in the TS client                | `client/ts/src/channel`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 10            |
@@ -797,8 +813,8 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
 | 23    | Pick channels by path in Pluto                           | `pluto/src/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 11            |
 | 24    | Show one dialog for every impact plan                    | `console/src/feature/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 19            |
 | 25    | Name channels by path in Arc                             | `arc/go/parser`, `arc/go/symbol`, `arc/go/analyzer`, `core/pkg/service/channel/resolver`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 10            |
-| 26    | Store the keys of each compile on Arcs and calculations  | `schemas/synnax/arc.oracle`, `schemas/synnax/arc_task.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 3, 25         |
-| 27    | Show the used-by-nothing filter in the Console           | `console/src/flags.ts`, `console/src/feature/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 21, 26        |
+| 26    | Store the keys of each compile on Arcs and calculations  | `schemas/synnax/arc.oracle`, `schemas/synnax/drift.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 3, 25         |
+| 27    | Show the used-by-nothing filter in the Console           | `console/src/flags/flags.ts`, `console/src/feature/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 21, 26        |
 | 28    | Name channels by path in exported files                  | `oracle/plugin/go`, `core/pkg/service/imex`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 16, 25        |
 | 29    | Edit Arc and calculation text in rename plans            | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 18, 26        |
 | 30    | Route every channel rename through the impact service    | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/impact`, `scripts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 29            |
