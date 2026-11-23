@@ -34,14 +34,6 @@ func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v4.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Endpoints:   old.Endpoints,
-	}, nil
-}
-
 func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
 	return ReadEndpoint{
 		Key:         old.Key,
