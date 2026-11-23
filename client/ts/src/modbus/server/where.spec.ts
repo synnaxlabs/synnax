@@ -11,11 +11,11 @@ import { describe } from "vitest";
 
 import { modbus } from "@/modbus";
 import { matches, serverComputed } from "@/modbus/server/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("modbusServers", modbus.server.serverZ, modbus.server.whereZ),
+  vectors.itMatches(
+    vectors.read("modbusServers", modbus.server.serverZ, modbus.server.whereZ),
     matches,
     serverComputed,
   );
