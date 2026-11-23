@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <limits>
+#include <map>
 #include <set>
 #include <utility>
 
 #include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
 
+#include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
@@ -50,6 +53,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     std::vector<::synnax::http::ReadEndpoint> active;
     active.reserve(cfg.endpoints.size());
     for (auto &ep: cfg.endpoints) {
+        if (ep.disabled) continue;
         validate_request(ep, parser);
         size_t enabled_field_count = 0;
         for (const auto &field: ep.fields) {
@@ -216,6 +220,83 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
     return {std::move(cfg), x::errors::NIL};
+}
+
+std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
+    const synnax::Synnax &client,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+) {
+    std::set<synnax::icd::Key> icd_keys;
+    std::set<synnax::channel::Key> channel_keys;
+    for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
+        if (ep.icd.has_value()) icd_keys.insert(*ep.icd);
+        for (const auto &rm: ep.messages)
+            for (const auto &b: rm.bindings)
+                if (b.channel != 0) channel_keys.insert(b.channel);
+    }
+    auto [icds, icd_err] = client.icds.retrieve(
+        std::vector(icd_keys.begin(), icd_keys.end())
+    );
+    if (icd_err) return {std::vector<driver::icd::Reader>(), icd_err};
+    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
+    if (!channel_keys.empty()) {
+        // Skips missing keys, so the reader of each endpoint names the one it lacks.
+        auto [found, ch_err] = client.channels.retrieve(
+            synnax::channel::Where{
+                .key = std::vector(channel_keys.begin(), channel_keys.end())
+            }
+        );
+        if (ch_err) return {std::vector<driver::icd::Reader>(), ch_err};
+        for (auto &ch: found)
+            channels.emplace(ch.key, std::move(ch));
+    }
+    std::vector<driver::icd::Reader> readers;
+    readers.reserve(endpoints.size());
+    // Every endpoint writes into one frame, so no two may write one channel.
+    std::map<synnax::channel::Key, std::string> writers;
+    for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
+        const auto name = "endpoint " + ep.method + " " + ep.path;
+        if (!ep.icd.has_value() || ep.messages.empty())
+            return {
+                std::vector<driver::icd::Reader>(),
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name +
+                        " reads no messages. Open the task and pick a message for it."
+                ),
+            };
+        const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
+        if (ic == icds.end())
+            return {
+                std::vector<driver::icd::Reader>(),
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name + ": ICD " + ep.icd->to_string() + " does not exist"
+                ),
+            };
+        auto [reader, err] = driver::icd::Reader::create(ep.messages, *ic, channels);
+        if (err)
+            return {
+                std::vector<driver::icd::Reader>(),
+                x::errors::Error(err, name + ": " + err.data)
+            };
+        for (const auto key: reader.channels()) {
+            const auto [other, claimed] = writers.try_emplace(key, name);
+            if (!claimed)
+                return {
+                    std::vector<driver::icd::Reader>(),
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        other->second + " and " + name + " write to the same channel " +
+                            std::to_string(key)
+                    ),
+                };
+        }
+        readers.push_back(std::move(reader));
+    }
+    return {std::move(readers), x::errors::NIL};
 }
 
 ReadTaskSource::ReadTaskSource(

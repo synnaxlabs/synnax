@@ -25,14 +25,3 @@ func autoMigrateReadConfig(_ context.Context, old v0.ReadConfig) (ReadConfig, er
 		StartOffset:   old.StartOffset,
 	}, nil
 }
-
-func autoMigrateWriteConfig(_ context.Context, old v0.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Topic:       old.Topic,
-		RecordKey:   old.RecordKey,
-		Record:      old.Record,
-		Channels:    old.Channels,
-	}, nil
-}

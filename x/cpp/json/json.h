@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <map>
@@ -20,9 +21,11 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/mem/indirect.h"
 /// @brief general utilities for parsing configurations.
@@ -634,6 +637,17 @@ T Parser::parse_value(const std::string &path, const json &j) {
             map_result[map_key] = parse_value<V>(child_path, value);
         }
         return map_result;
+    } else if constexpr (std::is_same_v<T, std::vector<std::uint8_t>>) {
+        if (!j.is_string()) {
+            field_err(path, "expected a base64 string");
+            return T();
+        }
+        const auto [decoded, err] = base64::decode_strict(j.get<std::string>());
+        if (err) {
+            field_err(path, "expected padded, canonical base64");
+            return T();
+        }
+        return T(decoded.begin(), decoded.end());
     } else if constexpr (is_vector_v<T>) {
         using U = is_vector<T>::value_type;
         if (!j.is_array()) {
@@ -708,11 +722,14 @@ template<typename T>
 inline constexpr bool has_to_json_v = has_to_json<T>::value;
 
 /// @brief Converts a value to JSON. A value with a to_json() method has it called, a
-/// std::monostate becomes null, and any other value is assigned directly.
+/// std::monostate becomes null, bytes become standard, padded base64, and any other
+/// value is assigned directly.
 template<typename T>
 json to_json(const T &value) {
     if constexpr (std::is_same_v<T, std::monostate>)
         return nullptr;
+    else if constexpr (std::is_same_v<T, std::vector<std::uint8_t>>)
+        return base64::encode(std::string(value.begin(), value.end()));
     else if constexpr (has_to_json_v<T>)
         return value.to_json();
     else

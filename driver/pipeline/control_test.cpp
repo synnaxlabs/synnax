@@ -56,6 +56,36 @@ TEST(ControlPipeline, testHappyPath) {
     control.stop();
 }
 
+/// @brief it should report missed commands to the sink and keep running.
+TEST(ControlPipeline, ReportsMissedCommands) {
+    const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                nullptr,
+                x::errors::NIL
+            }}
+        )
+    );
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        streamer_factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        sink,
+        x::breaker::Config{}
+    );
+    control.start();
+    ASSERT_EVENTUALLY_GE(
+        streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    streamer_factory->config.on_missed();
+    ASSERT_EQ(sink->misses, 1);
+    ASSERT_NIL(sink->stop_err);
+    control.stop();
+}
+
 /// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(

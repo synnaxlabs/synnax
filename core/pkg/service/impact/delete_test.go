@@ -360,6 +360,34 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(exists(ctx, ch.Key())).To(BeTrue())
 		})
 
+		It("Should refuse a stale token with the new plan when a picked entry is gone",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, channel.Channel{})
+				tsk := createTask(ctx, ch.Key())
+				picks := map[string]impact.Choice{
+					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				}
+				picked := MustSucceed(layer.Impact.Plan(
+					ctx,
+					db,
+					deleteOf(ch.Key()),
+					impact.PlanOptions{Picks: picks},
+				))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return layer.Task.NewWriter(tx).Delete(ctx, tsk.Key, false)
+				})).To(Succeed())
+				_, err := apply(
+					ctx,
+					impact.ApplyOptions{Token: picked.Token, Picks: picks},
+					ch.Key(),
+				)
+				changed, ok := errors.AsType[impact.PlanChangedError](err)
+				Expect(ok).To(BeTrue(), "%v", err)
+				Expect(changed.Plan.Entries).To(BeEmpty())
+				Expect(exists(ctx, ch.Key())).To(BeTrue())
+			},
+		)
+
 		It("Should plan and apply a current token with no picks", func(
 			ctx SpecContext,
 		) {

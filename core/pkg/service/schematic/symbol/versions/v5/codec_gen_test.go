@@ -186,7 +186,7 @@ var _ = Describe("Codec", func() {
 				Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_7"}}),
 				Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_9"}}),
 				Hidden: new(bool(false)),
-				Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(12.5), State: new(string("test_13"))}}),
+				Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 12.5, State: new(string("test_13"))}}),
 				Blink:  new(v5.Blink{Period: telem.TimeSpan(16)}),
 			}),
 			Entry("zero values", v5.Look{
@@ -227,8 +227,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("spin variant", v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(1.5), State: new(string("test_2"))}}),
-			Entry("flow variant", v5.Motion{Variant: v5.FlowMotion{Rate: telem.Rate(1.5), State: new(string("test_2"))}}),
+			Entry("spin variant", v5.Motion{Variant: v5.SpinMotion{Rate: 1.5, State: new(string("test_2"))}}),
+			Entry("flow variant", v5.Motion{Variant: v5.FlowMotion{Rate: 1.5, State: new(string("test_2"))}}),
 			Entry("level variant", v5.Motion{Variant: v5.LevelMotion{State: "test_1", Side: spatial.OuterLocation("top")}}),
 			Entry("rotate variant", v5.Motion{Variant: v5.RotateMotion{
 				State: "test_1",
@@ -254,6 +254,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("entry variant", v5.Paint{Variant: v5.EntryPaint{State: "test_1"}}),
+			Entry("contrast variant", v5.Paint{Variant: v5.ContrastPaint{State: "test_1"}}),
 			Entry("node variant", v5.Paint{Variant: v5.NodePaint{}}),
 			Entry("color variant", v5.Paint{Variant: v5.ColorPaint{
 				Value: servicecolor.Ref{Variant: servicecolor.NamedRef{
@@ -291,6 +292,22 @@ var _ = Describe("Codec", func() {
 				Selectors: []string{},
 				Pivot:     new(spatial.XY{X: 5.5, Y: 6.5}),
 			}),
+		)
+	})
+	Describe("Ref", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.Ref) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.Ref
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("builtin variant", v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}),
+			Entry("custom variant", v5.Ref{Variant: v5.CustomRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}),
+			Entry("missing variant", v5.Ref{Variant: v5.MissingRef{Key: "test_1"}}),
 		)
 	})
 	Describe("Spec", func() {
@@ -345,7 +362,7 @@ var _ = Describe("Codec", func() {
 						Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_33"}}),
 						Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_35"}}),
 						Hidden: new(bool(false)),
-						Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(38.5), State: new(string("test_39"))}}),
+						Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 38.5, State: new(string("test_39"))}}),
 						Blink:  new(v5.Blink{Period: telem.TimeSpan(42)}),
 					},
 				},
@@ -512,7 +529,7 @@ var _ = Describe("Codec", func() {
 							Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_36"}}),
 							Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_38"}}),
 							Hidden: new(bool(true)),
-							Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(41.5), State: new(string("test_42"))}}),
+							Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 41.5, State: new(string("test_42"))}}),
 							Blink:  new(v5.Blink{Period: telem.TimeSpan(45)}),
 						},
 					},
@@ -703,7 +720,7 @@ func BenchmarkEncodeDecodeLook(b *testing.B) {
 		Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_7"}}),
 		Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_9"}}),
 		Hidden: new(bool(false)),
-		Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(12.5), State: new(string("test_13"))}}),
+		Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 12.5, State: new(string("test_13"))}}),
 		Blink:  new(v5.Blink{Period: telem.TimeSpan(16)}),
 	}
 	w := orc.NewWriter(0)
@@ -739,7 +756,7 @@ func BenchmarkEncodeDecodeMatcher(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeMotion(b *testing.B) {
-	seed := v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(1.5), State: new(string("test_2"))}}
+	seed := v5.Motion{Variant: v5.SpinMotion{Rate: 1.5, State: new(string("test_2"))}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -794,6 +811,23 @@ func BenchmarkEncodeDecodePart(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeRef(b *testing.B) {
+	seed := v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.Ref
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeSpec(b *testing.B) {
 	seed := v5.Spec{
 		Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
@@ -836,7 +870,7 @@ func BenchmarkEncodeDecodeSpec(b *testing.B) {
 				Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_33"}}),
 				Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_35"}}),
 				Hidden: new(bool(false)),
-				Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(38.5), State: new(string("test_39"))}}),
+				Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 38.5, State: new(string("test_39"))}}),
 				Blink:  new(v5.Blink{Period: telem.TimeSpan(42)}),
 			},
 		},
@@ -972,7 +1006,7 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 					Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_36"}}),
 					Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_38"}}),
 					Hidden: new(bool(true)),
-					Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(41.5), State: new(string("test_42"))}}),
+					Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 41.5, State: new(string("test_42"))}}),
 					Blink:  new(v5.Blink{Period: telem.TimeSpan(45)}),
 				},
 			},
@@ -1325,7 +1359,7 @@ func FuzzDecodeLook(f *testing.F) {
 			Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_7"}}),
 			Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_9"}}),
 			Hidden: new(bool(false)),
-			Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(12.5), State: new(string("test_13"))}}),
+			Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 12.5, State: new(string("test_13"))}}),
 			Blink:  new(v5.Blink{Period: telem.TimeSpan(16)}),
 		}
 		w := orc.NewWriter(0)
@@ -1414,7 +1448,7 @@ func FuzzDecodeMatcher(f *testing.F) {
 
 func FuzzDecodeMotion(f *testing.F) {
 	{
-		seed := v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(1.5), State: new(string("test_2"))}}
+		seed := v5.Motion{Variant: v5.SpinMotion{Rate: 1.5, State: new(string("test_2"))}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1422,7 +1456,7 @@ func FuzzDecodeMotion(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v5.Motion{Variant: v5.FlowMotion{Rate: telem.Rate(1.5), State: new(string("test_2"))}}
+		seed := v5.Motion{Variant: v5.FlowMotion{Rate: 1.5, State: new(string("test_2"))}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1486,6 +1520,14 @@ func FuzzDecodeMotion(f *testing.F) {
 func FuzzDecodePaint(f *testing.F) {
 	{
 		seed := v5.Paint{Variant: v5.EntryPaint{State: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Paint{Variant: v5.ContrastPaint{State: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1596,6 +1638,53 @@ func FuzzDecodePart(f *testing.F) {
 	})
 }
 
+func FuzzDecodeRef(f *testing.F) {
+	{
+		seed := v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Ref{Variant: v5.CustomRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Ref{Variant: v5.MissingRef{Key: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.Ref
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.Ref
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v5.Spec{
@@ -1639,7 +1728,7 @@ func FuzzDecodeSpec(f *testing.F) {
 					Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_33"}}),
 					Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_35"}}),
 					Hidden: new(bool(false)),
-					Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(38.5), State: new(string("test_39"))}}),
+					Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 38.5, State: new(string("test_39"))}}),
 					Blink:  new(v5.Blink{Period: telem.TimeSpan(42)}),
 				},
 			},
@@ -1892,7 +1981,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 						Fill:   new(v5.Paint{Variant: v5.EntryPaint{State: "test_36"}}),
 						Stroke: new(v5.Paint{Variant: v5.EntryPaint{State: "test_38"}}),
 						Hidden: new(bool(true)),
-						Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: telem.Rate(41.5), State: new(string("test_42"))}}),
+						Motion: new(v5.Motion{Variant: v5.SpinMotion{Rate: 41.5, State: new(string("test_42"))}}),
 						Blink:  new(v5.Blink{Period: telem.TimeSpan(45)}),
 					},
 				},

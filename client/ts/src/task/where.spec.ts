@@ -12,11 +12,11 @@ import { describe } from "vitest";
 import { task } from "@/task";
 import { LINES } from "@/task/where";
 import { matches, serverComputed } from "@/task/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("tasks", task.payloadZ(), task.whereZ),
+  vectors.itMatches(
+    vectors.read("tasks", task.payloadZ(), task.whereZ),
     (t, where) => matches(LINES, t, where),
     (where) => serverComputed(LINES, where),
   );

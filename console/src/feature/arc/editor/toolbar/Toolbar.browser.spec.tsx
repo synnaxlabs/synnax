@@ -14,9 +14,9 @@ import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
+import { Editor } from "@/feature/arc/editor";
 import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
@@ -28,6 +28,10 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const { Toolbar } = Editor.TABS[arc.TYPE_RESOURCE_ID.type];
+
+beforeAll(Toolbar.preload);
 
 const createGraphArc = async (graph: Partial<arc.graph.Graph> = {}) =>
   await client.arcs.create({
@@ -154,7 +158,6 @@ describe("arc editor toolbar", () => {
 
     it("shows an edit that another client makes to the selected node", async () => {
       const a = await renderNodeForm();
-      await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.arcs.retrieve(a.key);
       await act(async () => {
