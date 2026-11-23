@@ -22,22 +22,19 @@
  * a long error wraps in place, so the dialog keeps its width. The status keeps the
  * space of a message and two description lines while empty, so nothing moves.
  */
-.console-impact__band {
+.console-impact__status {
     flex: 1 1 auto;
     min-width: 0;
     padding-right: 3rem;
+    -webkit-user-select: text;
+    user-select: text;
     min-height: calc(
         var(--pluto-p-line-height) + 1rem + 2 * var(--pluto-small-line-height)
     );
 }
 
-.console-impact__status {
-    min-width: 0;
-    -webkit-user-select: text;
-    user-select: text;
-}
-
-.console-impact__entries {
+.console-impact__entries,
+.console-impact__failure {
     margin-top: 1rem;
 }
 
@@ -69,16 +66,17 @@
 
 /* the labels share a width, so the "Delete all too" check lines up with each row's */
 .console-impact__label {
-    min-width: 12rem;
+    min-width: 14rem;
 }
 
+/* the list's 1rem padding plus a row's own */
 .console-impact__all {
-    padding-inline: 1.5rem;
+    padding-inline: 2.5rem;
     height: 6rem;
 
     /* a scrolling list's rows end 1rem sooner, at its scrollbar */
     &.console-impact__all--scrolls {
-        padding-right: 2.5rem;
+        padding-right: 3.5rem;
     }
 }
 

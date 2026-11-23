@@ -587,13 +587,12 @@ const Dialog = ({
     );
   };
 
-  const shown = listing ? null : view;
-  const plan = shown?.plan;
   // A held spinner hides a failure until it ends, so the two never show together.
   const failure = listing || updating ? null : planError;
-  let status = footer;
-  if (status == null) status = failure;
-  if (updating) status = UPDATING;
+  // A failed plan leaves the records unknown, so its failure takes the list's place.
+  const shown = listing || failure != null ? null : view;
+  const plan = shown?.plan;
+  const status = updating ? UPDATING : footer;
   const empty =
     plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
 
@@ -620,6 +619,26 @@ const Dialog = ({
             message="Listing the records that this delete touches"
           />
         )}
+        {failure != null && (
+          <Flex.Box
+            y
+            align="start"
+            gap="medium"
+            role="alert"
+            className={CSS.BE("impact", "failure")}
+          >
+            <Status.Summary
+              variant="error"
+              message={failure.message}
+              description={failure.description}
+              center={false}
+            />
+            <Button.Button variant="outlined" onClick={handleRetry}>
+              <Icon.Refresh />
+              Try again
+            </Button.Button>
+          </Flex.Box>
+        )}
         {shown != null && shown.plan.entries.length > 0 && (
           <Entries
             view={shown}
@@ -643,15 +662,6 @@ const Dialog = ({
                 ? "1 record you cannot see."
                 : `${plan.hidden} records you cannot see.`}
             </Text.Text>
-            {hiddenBlocks && (
-              <Text.Text
-                id={`${hiddenID}-error`}
-                level="small"
-                className={CSS.BE("impact", "error")}
-              >
-                {plan.hidden === 1 ? "Uses the channel" : "Use the channel"}
-              </Text.Text>
-            )}
             <Input.Checkbox
               id={hiddenID}
               aria-labelledby={`${hiddenID}-count ${hiddenID}-label`}
@@ -667,32 +677,28 @@ const Dialog = ({
             >
               {plan.hidden === 1 ? "Delete it too" : "Delete them too"}
             </Text.Text>
+            {hiddenBlocks && (
+              <Text.Text
+                id={`${hiddenID}-error`}
+                level="small"
+                className={CSS.BE("impact", "error")}
+              >
+                {plan.hidden === 1 ? "Uses the channel" : "Use the channel"}
+              </Text.Text>
+            )}
           </Flex.Box>
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Nav.Bar.Start
-          x
-          align="center"
-          gap="large"
-          className={CSS.BE("impact", "band")}
-        >
-          {/* A live region stays mounted, so a screen reader reads each status. */}
-          <div role="status" className={CSS.BE("impact", "status")}>
-            {status != null && (
-              <Status.Summary
-                variant={status.variant}
-                message={status.message}
-                description={status.description}
-                center={false}
-              />
-            )}
-          </div>
-          {failure != null && (
-            <Button.Button variant="outlined" onClick={handleRetry}>
-              <Icon.Refresh />
-              Try again
-            </Button.Button>
+        {/* A live region stays mounted, so a screen reader reads each status. */}
+        <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
+          {status != null && (
+            <Status.Summary
+              variant={status.variant}
+              message={status.message}
+              description={status.description}
+              center={false}
+            />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End x align="center">
@@ -707,7 +713,7 @@ const Dialog = ({
           <Button.Button
             variant="filled"
             status={applying ? "loading" : "error"}
-            disabled={shown == null || failure != null || planning || updating}
+            disabled={shown == null || planning || updating}
             trigger={Triggers.SAVE}
             triggerIndicator
             onClick={() => void handleDelete()}
