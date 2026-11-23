@@ -417,30 +417,31 @@ func (s *Server) Completion(
 		return nil, nil
 	}
 
-	displayContent := doc.displayContent()
-
-	line, ok := lsp.GetLine(displayContent, params.Position.Line)
+	line, ok := lsp.GetLine(doc.displayContent(), params.Position.Line)
 	if !ok {
 		return &protocol.CompletionList{}, nil
 	}
 
-	if items, done := s.literalCompletions(ctx, doc, line, params.Position); done {
-		return &protocol.CompletionList{Items: items}, nil
+	items, done := s.literalCompletions(ctx, doc, line, params.Position)
+	if !done {
+		items = s.codeCompletions(ctx, doc, line, params.Position)
 	}
+	return &protocol.CompletionList{IsIncomplete: false, Items: items}, nil
+}
 
-	col := lsp.CharacterToByte(line, params.Position.Character)
+// codeCompletions returns the completions of the word before pos in code.
+func (s *Server) codeCompletions(
+	ctx context.Context,
+	doc *document,
+	line string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
+	col := lsp.CharacterToByte(line, pos.Character)
 	start := col
 	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
 		start--
 	}
-	prefix := line[start:col]
-
-	items := s.getCompletionItems(ctx, doc, prefix, params.Position)
-
-	return &protocol.CompletionList{
-		IsIncomplete: false,
-		Items:        items,
-	}, nil
+	return s.getCompletionItems(ctx, doc, line[start:col], pos)
 }
 
 // literalCompletions returns the completions of a cursor in a quoted channel name, in a
@@ -463,10 +464,9 @@ func (s *Server) literalCompletions(
 	}
 	scan := doc.names.scanOf(content)
 	at := fromUTF16In(line, pos)
-	place, quote, str := scan.at(scan.lines[pos.Line] + int(at.Character))
-	switch place {
+	cur := scan.at(int(pos.Line), int(at.Character))
+	switch cur.place {
 	case inQuote:
-		start := runeOffset(line, quote-scan.lines[pos.Line])
 		end := pos
 		if col < len(line) && line[col] == '\'' {
 			end.Character++
@@ -474,14 +474,23 @@ func (s *Server) literalCompletions(
 		replace := protocol.Range{
 			Start: toUTF16In(line, protocol.Position{
 				Line:      pos.Line,
-				Character: uint32(quote - scan.lines[pos.Line]),
+				Character: uint32(cur.quote),
 			}),
 			End: end,
 		}
-		return s.quotedChannels(ctx, doc, line[start+1:col], replace, nil), true
+		text := line[runeOffset(line, cur.quote)+1 : col]
+		return s.quotedChannels(ctx, doc, text, replace, nil), true
 	case inLiteral:
-		if str != nil {
-			return s.placeholderCompletions(ctx, doc, str, line, pos, at)
+		switch {
+		case cur.str != nil:
+			text := line[runeOffset(line, cur.str.start):runeOffset(line, cur.str.end)]
+			start := protocol.Position{Line: pos.Line, Character: uint32(cur.str.start)}
+			return s.placeholderCompletions(ctx, doc, text, start, line, pos, at)
+		case cur.multi:
+			text, start, closed := multiStringText(content, scan, int(pos.Line), at)
+			if closed {
+				return s.placeholderCompletions(ctx, doc, text, start, line, pos, at)
+			}
 		}
 		return nil, true
 	case inCode:
@@ -489,26 +498,63 @@ func (s *Server) literalCompletions(
 	return nil, false
 }
 
-// placeholderCompletions returns the completions of a cursor in the string str, as
-// literalCompletions does for its placeholders, and false for a cursor in placeholder
-// code outside a quoted name. at is the cursor's position in code points.
+// multiStringText returns the text of the multi-line string of content that holds the
+// cursor at at, from its prefix to its closing delimiter, and its start, and false when
+// the string does not close.
+func multiStringText(
+	content string,
+	scan *quoteScan,
+	line int,
+	at protocol.Position,
+) (string, protocol.Position, bool) {
+	startLine, startCol, endLine, endCol := scan.multiString(line, int(at.Character))
+	if endCol < 0 {
+		return "", protocol.Position{}, false
+	}
+	first, _ := lsp.GetLine(content, uint32(startLine))
+	from := runeOffset(first, startCol)
+	// A prefix is a word of r and f letters right before the delimiter.
+	word := from
+	for word > 0 && (first[word-1] == 'r' || first[word-1] == 'f') {
+		word--
+	}
+	if word > 0 && lsp.IsWordChar(first[word-1]) || from-word > 2 {
+		word = from
+	}
+	var b strings.Builder
+	b.WriteString(first[word:])
+	for l := startLine + 1; l <= endLine; l++ {
+		text, _ := lsp.GetLine(content, uint32(l))
+		if l == endLine {
+			text = text[:runeOffset(text, endCol)]
+		}
+		b.WriteByte('\n')
+		b.WriteString(text)
+	}
+	start := protocol.Position{
+		Line:      uint32(startLine),
+		Character: uint32(utf8.RuneCountInString(first[:word])),
+	}
+	return b.String(), start, true
+}
+
+// placeholderCompletions returns the completions of a cursor in the string literal text
+// that starts at start, as literalCompletions does, with the cursor in its placeholders
+// as in code, and each insert written for the literal. at is the cursor's position in
+// code points.
 func (s *Server) placeholderCompletions(
 	ctx context.Context,
 	doc *document,
-	str antlr.Token,
+	text string,
+	start protocol.Position,
 	line string,
 	pos, at protocol.Position,
 ) ([]protocol.CompletionItem, bool) {
-	f, ok := parseFormatString(str)
+	f, ok := parseFormatText(text, start)
 	closed := ok
 	if !ok {
 		// An unclosed name in a placeholder hides the placeholder's close, so the name
 		// closes at the cursor, which moves no position before it.
-		text := str.GetText()
-		start := protocol.Position{
-			Line:      uint32(str.GetLine() - 1),
-			Character: uint32(str.GetColumn()),
-		}
 		cut := slices.Index(textPositions(start, text), at)
 		if cut < 0 {
 			return nil, true
@@ -517,6 +563,7 @@ func (s *Server) placeholderCompletions(
 			return nil, true
 		}
 	}
+	escape := func(text string) (string, bool) { return literal.Escape(text, f.flags) }
 	b := slices.Index(f.at, at)
 	for _, seg := range f.segs {
 		if !seg.IsPlaceholder || b < f.bodyOff+seg.Offsets[0] ||
@@ -527,15 +574,19 @@ func (s *Server) placeholderCompletions(
 		for f.bodyOff+seg.Offsets[d] < b {
 			d++
 		}
-		place, quote, _ := scanQuotes(seg.Text).at(utf8.RuneCountInString(seg.Text[:d]))
-		switch place {
+		lineStart := strings.LastIndexByte(seg.Text[:d], '\n') + 1
+		cur := scanQuotes(seg.Text, newLineScanner()).at(
+			strings.Count(seg.Text[:d], "\n"),
+			utf8.RuneCountInString(seg.Text[lineStart:d]),
+		)
+		switch cur.place {
 		case inCode:
-			return nil, false
+			return escapeItems(s.codeCompletions(ctx, doc, line, pos), escape), true
 		case inLiteral:
 			return nil, true
 		case inQuote:
 		}
-		quote = runeOffset(seg.Text, quote)
+		quote := lineStart + runeOffset(seg.Text[lineStart:], cur.quote)
 		end := pos
 		if closed && d < len(seg.Text) && seg.Text[d] == '\'' {
 			end = toUTF16In(line, f.at[f.bodyOff+seg.Offsets[d+1]])
@@ -544,12 +595,42 @@ func (s *Server) placeholderCompletions(
 			Start: toUTF16In(line, f.at[f.bodyOff+seg.Offsets[quote]]),
 			End:   end,
 		}
-		escape := func(text string) (string, bool) {
-			return literal.Escape(text, f.flags)
-		}
 		return s.quotedChannels(ctx, doc, seg.Text[quote+1:d], replace, escape), true
 	}
 	return nil, true
+}
+
+// escapeItems writes the insert of each item for the literal that escape writes for,
+// and drops an item whose insert the literal cannot hold.
+func escapeItems(
+	items []protocol.CompletionItem,
+	escape func(string) (string, bool),
+) []protocol.CompletionItem {
+	kept := items[:0]
+	for _, item := range items {
+		switch edit := item.TextEdit.(type) {
+		case *protocol.TextEdit:
+			text, fits := escape(edit.NewText)
+			if !fits {
+				continue
+			}
+			edit.NewText = text
+		default:
+			insert, set := item.InsertText.Get()
+			if !set || insert == "" {
+				insert = item.Label
+			}
+			text, fits := escape(insert)
+			if !fits {
+				continue
+			}
+			if text != insert {
+				item.InsertText = protocol.NewOptional(text)
+			}
+		}
+		kept = append(kept, item)
+	}
+	return kept
 }
 
 // quotedChannels returns an item for each channel whose name starts with the decoded
