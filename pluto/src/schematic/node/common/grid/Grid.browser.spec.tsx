@@ -174,7 +174,7 @@ describe("Grid slot layout", () => {
     expect(moved?.getAttribute("draggable")).toBe("true");
     expect(moved?.style.cursor).toBe("grab");
     expect(fixed?.getAttribute("draggable")).toBeNull();
-    expect(fixed?.style.cursor).toBe("");
+    expect(fixed?.style.cursor).toBe("default");
   });
 
   it("should not render the center slot by default", () => {

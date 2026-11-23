@@ -241,7 +241,9 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
       {filtered.map(({ children, itemKey, fixed }) => (
         <Fragment key={itemKey}>
           {fixed === true
-            ? children
+            ? cloneElement(children, {
+                style: { ...children.props.style, cursor: "default" },
+              })
             : cloneElement(children, {
                 draggable: true,
                 onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
