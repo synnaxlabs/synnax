@@ -400,11 +400,11 @@ var _ = Describe("Symbol node bindings", func() {
 				return schematic.SymbolNodeConfig{
 					Spec: customRef(sym),
 					States: []schematic.StateBinding{{
-						Key:          "level",
-						FormatConfig: schematic.FormatConfig{Units: "C"},
-						Enumeration:  &enum.Key,
-						Match:        &symbol.Matcher{Variant: symbol.ExactMatcher{}},
-						Default:      new(1.0),
+						Key:         "level",
+						Units:       "C",
+						Enumeration: &enum.Key,
+						Match:       &symbol.Matcher{Variant: symbol.ExactMatcher{}},
+						Default:     new(1.0),
 					}},
 				}
 			},
