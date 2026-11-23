@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
+from collections.abc import Callable
 from typing import overload, override
 
 from pydantic import BaseModel
@@ -37,6 +39,8 @@ DEFAULT_KEEP_ALIVE = TimeSpan.SECOND * 5
 # jitter, three is a dead connection.
 _KEEP_ALIVE_DEADLINE_FACTOR = 3
 
+_logger = logging.getLogger(__name__)
+
 
 class _Request(BaseModel):
     keys: list[channel.Key]
@@ -44,11 +48,22 @@ class _Request(BaseModel):
     throttle_rate: float | None = None
     exclude_groups: list[int] = []
     keep_alive: TimeSpan = TimeSpan(0)
+    missed_requested: bool = False
 
 
 class _Response(BaseModel):
     frame: FramePayload
     keep_alive: bool = False
+    missed: bool = False
+
+
+def _report_missed(on_missed: Callable[[], None] | None) -> None:
+    _logger.warning(
+        "the Core dropped frames because the streamer fell behind; read faster or "
+        "stream fewer channels"
+    )
+    if on_missed is not None:
+        on_missed()
 
 
 class _Liveness:
@@ -137,8 +152,10 @@ class Streamer:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> None:
         validate_downsample_factor(downsample_factor)
+        self._on_missed = on_missed
         keep_alive = TimeSpan.from_seconds(keep_alive)
         self._liveness = _Liveness(keep_alive)
         self._adapter = adapter
@@ -154,6 +171,7 @@ class Streamer:
                 throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
                 keep_alive=keep_alive,
+                missed_requested=True,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
@@ -212,7 +230,9 @@ class Streamer:
                 if deadline_bound:
                     raise self._liveness.unreachable() from e
                 return None
-            if not res.keep_alive:
+            if res.missed:
+                _report_missed(self._on_missed)
+            elif not res.keep_alive:
                 return self._adapter.adapt(Frame(res.frame))
 
     def _receive(self, timeout: float | None) -> _Response:
@@ -302,8 +322,10 @@ class AsyncStreamer:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> None:
         validate_downsample_factor(downsample_factor)
+        self._on_missed = on_missed
         self._client = client
         self._adapter = adapter
         self._downsample_factor = downsample_factor
@@ -321,6 +343,7 @@ class AsyncStreamer:
                 throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
                 keep_alive=self._liveness.keep_alive,
+                missed_requested=True,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
@@ -337,7 +360,9 @@ class AsyncStreamer:
         """
         while True:
             res = await self._receive_with_deadline()
-            if not res.keep_alive:
+            if res.missed:
+                _report_missed(self._on_missed)
+            elif not res.keep_alive:
                 return self._adapter.adapt(Frame(res.frame))
 
     async def _receive_with_deadline(self) -> _Response:

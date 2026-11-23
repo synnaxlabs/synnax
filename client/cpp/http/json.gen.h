@@ -18,6 +18,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/key.h"
 #include "client/cpp/http/types.gen.h"
+#include "client/cpp/icd/json.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/json.gen.h"
@@ -96,6 +97,7 @@ inline x::json::json ReadField::to_json() const {
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
@@ -104,6 +106,11 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             std::vector<QueryParam>{}
         ),
         .body = parser.field<std::string>("body", ""),
+        .icd = parser.field<std::optional<::synnax::icd::Key>>("icd"),
+        .messages = parser.field<std::vector<::synnax::icd::ReadMessage>>(
+            "messages",
+            std::vector<::synnax::icd::ReadMessage>{}
+        ),
         .fields = parser.field<std::vector<ReadField>>(
             "fields",
             std::vector<ReadField>{}
@@ -115,11 +122,14 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
 inline x::json::json ReadEndpoint::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key;
+    j["disabled"] = this->disabled;
     j["method"] = this->method;
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
     j["query_params"] = x::json::to_array(this->query_params);
     j["body"] = this->body;
+    if (this->icd.has_value()) j["icd"] = this->icd->to_json();
+    j["messages"] = x::json::to_array(this->messages);
     j["fields"] = x::json::to_array(this->fields);
     j["index"] = this->index;
     return j;

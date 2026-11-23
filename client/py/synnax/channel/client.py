@@ -218,6 +218,7 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            concurrency=self.concurrency,
             group=self.group,
         )
 

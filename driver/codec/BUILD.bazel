@@ -19,6 +19,7 @@ cc_library(
         "field.h",
         "json.cpp",
         "match.cpp",
+        "text.cpp",
     ],
     hdrs = [
         "binary.h",
@@ -26,6 +27,7 @@ cc_library(
         "bits.h",
         "errors.h",
         "json.h",
+        "text.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -35,6 +37,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/json:read",
         "//x/cpp/payload",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],
@@ -47,6 +50,7 @@ cc_test(
         "bits_test.cpp",
         "decode_fixture_test.cpp",
         "json_test.cpp",
+        "text_test.cpp",
     ],
     data = ["//core/pkg/service/icd:decode_fixtures"],
     deps = [

@@ -9,8 +9,7 @@
 
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 import { badRequest, notFound } from "@/server/errors";
 import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";

@@ -18,10 +18,11 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError, isConnectionError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
+import { isOffline } from "@/query/offline";
 import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
@@ -130,9 +131,12 @@ export class Cache {
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly downObserver = new observe.Observer<void>();
+  private readonly missedObserver = new observe.Observer<void>();
   private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
+  private reconciling: Promise<void> | null = null;
+  private reconcileQueued = false;
   private unmaintained = false;
   /** Whether the change stream is live, so tables may drop records. */
   private _live = false;
@@ -287,6 +291,7 @@ export class Cache {
     return {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      onMissed: (callback) => this.onMissed(callback),
       epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
@@ -295,9 +300,8 @@ export class Cache {
   }
 
   /**
-   * Ensures the change stream is open, opening it on first call. Callers that
-   * populate or read tables await this first so no change is missed between a
-   * fetch and the stream opening.
+   * Ensures the change stream is open, opening it on first call. Each open reconciles
+   * the records cached before it, so a caller need not await this before a fetch.
    * @throws {AccessDeniedError} if the caller cannot stream the mirrored
    * channels. Answers stop being maintained until a later call succeeds.
    */
@@ -331,19 +335,18 @@ export class Cache {
         // Both run before the stream's first frame.
         onOpen: () => {
           if (this.streamer !== streamer) return;
-          this.clearPendingDeletes();
           this.unmaintained = false;
-          this._live = true;
-          this.epochCount = 1;
-          this.epochObserver.notify(this.epochCount);
-          this.trim();
+          this.goLive();
         },
         onReopen: () => {
+          if (this.streamer === streamer) this.goLive();
+        },
+        // The stream stays open, so the epoch holds: changes sent after the drop
+        // still arrive.
+        onMissed: () => {
           if (this.streamer !== streamer) return;
-          this.clearPendingDeletes();
-          this._live = true;
-          this.bumpEpoch();
-          this.trim();
+          this.scheduleReconcile();
+          this.missedObserver.notify();
         },
         onDead: (error) => {
           if (this.streamer !== streamer) return;
@@ -367,8 +370,8 @@ export class Cache {
   }
 
   /**
-   * The connection epoch: 0 before streaming starts, 1 once live, incremented
-   * on every reconnect. Changes may have been missed between epochs.
+   * The connection epoch: 0 before streaming starts, incremented each time the stream
+   * goes live. Changes may have been missed between epochs.
    */
   get epoch(): number {
     return this.epochCount;
@@ -388,6 +391,15 @@ export class Cache {
   }
 
   /**
+   * Subscribes to misses: the Core dropped changes for the stream because it fell
+   * behind. The stream stays open and the epoch holds, so changes sent after the drop
+   * still arrive. Returns a destructor that unsubscribes.
+   */
+  onMissed(callback: () => void): destructor.Destructor {
+    return this.missedObserver.onChange(callback);
+  }
+
+  /**
    * Subscribes to the change stream going down: a drop that starts a reconnect, a
    * failure that ends it, a reset, or a close. No change made while it is down ever
    * arrives. Returns a destructor that unsubscribes.
@@ -403,8 +415,8 @@ export class Cache {
 
   /**
    * Re-checks every cached entry against the cluster: refreshes entries that
-   * still exist and tombstones entries that vanished. Runs after every
-   * reconnect for tables that declare a fetch.
+   * still exist and tombstones entries that vanished. Runs each time the stream goes
+   * live and after every miss, for tables that declare a fetch.
    */
   private async reconcile(): Promise<void> {
     await Promise.all(
@@ -413,8 +425,7 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
-          // The next reopen reconciles again, so an unreachable cluster is churn.
-          if (isConnectionError(exc)) return;
+          if (isOffline(exc)) return;
           this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
         }
       }),
@@ -450,14 +461,36 @@ export class Cache {
     this.tables.forEach(({ clearPendingDeletes }) => clearPendingDeletes());
   }
 
-  private bumpEpoch(): void {
+  /**
+   * Bumps the epoch and reconciles every table. Records fetched before the stream went
+   * live, or while it was down, may have missed a change.
+   */
+  private goLive(): void {
+    this.clearPendingDeletes();
+    this._live = true;
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
-    this.reconcile().catch((exc: unknown) =>
-      this.onError(
-        new Error("failed to reconcile caches after reconnect", { cause: exc }),
-      ),
-    );
+    this.scheduleReconcile();
+    this.trim();
+  }
+
+  // Runs one reconcile at a time. A request during a reconcile runs one more after it,
+  // since the running one can have fetched before the change that the request reports.
+  private scheduleReconcile(): void {
+    if (this.reconciling != null) {
+      this.reconcileQueued = true;
+      return;
+    }
+    this.reconciling = this.reconcile()
+      .catch((exc: unknown) =>
+        this.onError(new Error("failed to reconcile caches", { cause: exc })),
+      )
+      .finally(() => {
+        this.reconciling = null;
+        if (!this.reconcileQueued) return;
+        this.reconcileQueued = false;
+        this.scheduleReconcile();
+      });
   }
 
   /**

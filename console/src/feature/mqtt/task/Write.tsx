@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt } from "@synnaxlabs/client";
+import { channel, type icd, mqtt, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,14 +19,11 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { use, useFromConfig } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
-import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { Device } from "@/feature/mqtt/device";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
+import { namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,
@@ -48,39 +45,43 @@ import {
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
+import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
-/** The name deploying gives the command channel of a plain target. */
-const commandChannelName = (devName: string, topic: string): string =>
-  `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}_cmd`;
+/** The name deploying gives a tag's command channel while it has none. */
+const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
+  `${sparkplugChannelName(devName, target)}_cmd`;
 
-/** The name deploying gives a target's command channel while it has none. */
-const defaultCommandName = (devName: string, target: WriteTarget): string =>
-  target.type === "plain"
-    ? commandChannelName(devName, target.topic)
-    : `${sparkplugChannelName(devName, target)}_cmd`;
+interface TagChannelNameProps {
+  itemKey: string;
+  target: SparkplugWriteTarget;
+}
 
-/** A plain target holds its channel in a field; a Sparkplug B target is the field. */
-const channelPaths = (path: deep.Path<WriteTarget>, type: WriteTarget["type"]) => {
-  if (type === "plain") {
-    const { channel } = deep.variant(path, "type", "plain");
-    return { key: channel.channel, name: channel.name };
-  }
-  const target = deep.variant(path, "type", "sparkplug");
-  return { key: target.channel, name: target.name };
+const TagChannelName = ({ itemKey, target }: TagChannelNameProps) => {
+  const device = Device.useFromConfig();
+  return (
+    <Task.ChannelName
+      channel={target.channel}
+      namePath={deep.variant(root.config.targets[itemKey], "type", "sparkplug").name}
+      defaultName={device == null ? undefined : defaultCommandName(device.name, target)}
+      skipped={target.disabled}
+      id={Task.getChannelNameID(itemKey)}
+      level="small"
+      weight={450}
+      color={9}
+      overflow="fade"
+    />
+  );
 };
 
 const TargetItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.targets[itemKey];
   const target = PForm.useFieldValue(path);
-  const device = useFromConfig();
-  const paths = channelPaths(path, target.type);
-  const channelKey = PForm.useFieldValue(paths.key);
   return (
     <Select.Item
       {...props}
@@ -93,24 +94,21 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
         <EntryLabel path={path} />
         <Task.EnabledCheckbox path={path.disabled} />
       </Flex.Box>
-      <Task.ChannelName
-        channel={channelKey}
-        namePath={paths.name}
-        defaultName={
-          device == null ? undefined : defaultCommandName(device.name, target)
-        }
-        skipped={target.disabled}
-        id={Task.getChannelNameID(itemKey)}
-        level="small"
-        weight={450}
-        color={9}
-        overflow="fade"
-      />
+      {target.type === "sparkplug" && (
+        <TagChannelName itemKey={itemKey} target={target} />
+      )}
     </Select.Item>
   );
 };
 
 const targetItem = Component.renderProp(TargetItem);
+
+// A plain target has no one command channel to rename.
+const contextMenuItems = (props: Task.ContextMenuItemProps<WriteTarget>) => {
+  const target = props.channels.find(({ key }) => key === props.keys[0]);
+  if (target?.type !== "sparkplug") return null;
+  return Task.readChannelContextMenuItem(props);
+};
 
 const EMPTY_TARGETS = <Empty.Action message="No targets" />;
 
@@ -146,61 +144,33 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
   );
 };
 
-const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
-  path,
-  deviceName,
-}) => {
-  const channelKey = PForm.useFieldValue(path.channel.channel);
-  const topic = PForm.useFieldValue(path.topic);
-  const disabled = PForm.useFieldValue(path.disabled);
-  return (
-    <Task.ChannelNameField
-      channel={channelKey}
-      namePath={path.channel.name}
-      defaultName={commandChannelName(deviceName, topic)}
-      skipped={disabled}
-    />
-  );
-};
+interface PlainTargetPaneProps {
+  path: deep.Path<PlainWriteTarget>;
+}
 
-const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => {
-  const topic = PForm.useFieldValue(path.topic);
-  return (
-    <PForm.Sections>
-      <PForm.Section title="Publish">
-        <PForm.TextField
-          path={path.topic}
-          label="Topic"
-          padHelpText={false}
-          inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
-        />
-        <QoSField path={path.qos} />
-        <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
-      </PForm.Section>
-      <Task.Payload.ChannelSections
-        path={path.channel}
-        pointerPlaceholder="Empty sends the bare value"
-      >
-        <PlainChannelNameField path={path} deviceName={deviceName} />
-      </Task.Payload.ChannelSections>
-      <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
-    </PForm.Sections>
-  );
-};
+const PlainTargetPane = ({ path }: PlainTargetPaneProps) => (
+  <PForm.Sections>
+    <PForm.Section title="Publish">
+      <PForm.TextField
+        path={path.topic}
+        label="Topic"
+        padHelpText={false}
+        inputProps={TOPIC_INPUT_PROPS}
+      />
+      <QoSField path={path.qos} />
+      <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
+    </PForm.Section>
+  </PForm.Sections>
+);
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
-// A target added by name has no topic yet, so its pane opens on the topic.
-const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
   const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       {type === "plain" ? (
-        <PlainTargetPane
-          path={deep.variant(path, "type", "plain")}
-          deviceName={deviceName}
-        />
+        <PlainTargetPane path={deep.variant(path, "type", "plain")} />
       ) : (
         <SparkplugTargetPane
           path={deep.variant(path, "type", "sparkplug")}
@@ -211,14 +181,6 @@ const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
   );
 };
 
-/** Creates a target that publishes to a topic, at the pointer of a browsed field. */
-const createTarget = (topic: string, leaf?: Leaf): PlainWriteTarget => {
-  const target = mqtt.plainWriteTargetZ.parse({ type: "plain", topic });
-  if (leaf == null) return target;
-  const { pointer, dataType, type: jsonType } = leaf;
-  return { ...target, channel: { ...target.channel, pointer, dataType, jsonType } };
-};
-
 const createSparkplugTarget = (tag?: SparkplugTag): SparkplugWriteTarget => {
   const target = mqtt.sparkplugWriteTargetZ.parse({ type: "sparkplug" });
   if (tag == null) return target;
@@ -226,25 +188,18 @@ const createSparkplugTarget = (tag?: SparkplugTag): SparkplugWriteTarget => {
   return { ...target, ...tagID, tagType: toSparkplugDataType(dataType) };
 };
 
-const DISCOVER_KIND: Kind<WriteTarget> = {
+const DISCOVER_KIND: Kind<SparkplugWriteTarget> = {
   title: "Add targets",
-  hint: "Select the values to write. Each one becomes a target.",
+  hint: "Select the tags to write. Each one becomes a target.",
   noun: "target",
-  single: true,
-  create: ({ topics, tags }) => [
-    ...[...topics].map(([topic, { leaves, pointers }]) =>
-      createTarget(
-        topic,
-        leaves.find((l) => pointers.has(l.pointer)),
-      ),
-    ),
-    ...[...tags.values()].map((t) => createSparkplugTarget(t)),
-  ],
-  createTopic: (topic) => createTarget(topic),
+  create: ({ tags }) => [...tags.values()].map((t) => createSparkplugTarget(t)),
   createTag: () => createSparkplugTarget(),
 };
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
+
+const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
+  binding.type === "channel" ? { ...binding, channel: 0 } : binding;
 
 const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
   targets
@@ -255,30 +210,31 @@ const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[]
         : {
             ...target,
             key: id.create(),
-            channel: { ...target.channel, channel: 0 },
-            fields: target.fields.map((f) => ({ ...f, key: id.create() })),
+            message: {
+              ...target.message,
+              bindings: target.message.bindings.map(unbind),
+            },
           },
     );
 
-const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const discover = useDiscoverModal();
 
   const handleAdd = async () => {
-    const added = await discover({ device, entries: targets.value() });
+    const tags = targets.value().filter((t) => t.type === "sparkplug");
+    const added = await discover({ device, entries: tags });
     if (added == null) return;
     targets.push(added);
     setSelected([added[0].key]);
   };
 
-  const resolve = (target: WriteTarget): Partial<WriteTarget> => {
-    const { write } = device.properties;
-    if (target.type === "sparkplug")
-      return { channel: write[sparkplugPropertiesKey(target)] ?? 0 };
-    return { channel: { ...target.channel, channel: write[target.topic] ?? 0 } };
-  };
+  const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
+    target.type === "sparkplug"
+      ? { channel: device.properties.write[sparkplugPropertiesKey(target)] ?? 0 }
+      : null;
 
   const current = selected.at(0);
   const currentPath = current == null ? null : root.config.targets[current];
@@ -300,7 +256,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           }
           createChannels={duplicateTargets}
           listItem={targetItem}
-          contextMenuItems={Task.readChannelContextMenuItem}
+          contextMenuItems={contextMenuItems}
           resolve={resolve}
           selected={selected}
           onSelect={setSelected}
@@ -326,51 +282,79 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 };
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
+
+/**
+ * Gives each channel binding of target a command channel that its field takes: the one
+ * it has, the one that dev stores for its field, or a new one. A new channel takes the
+ * data type of the binding, or the default of its field when the binding names none or
+ * one that the field no longer takes. Updates the write properties of dev in place.
+ */
+const configureBindings = async (
+  client: Synnax,
+  dev: Device.Device,
+  target: PlainWriteTarget,
+): Promise<void> => {
+  const bindings = target.message.bindings.filter(
+    (b): b is icd.ChannelWriteBinding => b.type === "channel",
+  );
+  if (bindings.length === 0) return;
+  const messages = await ICD.retrieveMessages(client, [target.icd]);
+  const fields = ICD.jsonFields(
+    messages.get(target.icd)?.find(({ key }) => key === target.message.message),
+  );
+  const prefix = namePrefix(dev.name, target.topic);
+  for (const binding of bindings) {
+    const field = fields.find(({ key }) => key === binding.field);
+    // The Core rejects a binding to a field that the message lacks.
+    if (field == null) continue;
+    const { dataType = "" } = binding;
+    const suited = dataType !== "" && ICD.encodes(field, dataType);
+    binding.channel = await Task.configureCommandChannel(client, dev.properties.write, {
+      propertiesKey: `${target.topic}#${binding.field}`,
+      channel: binding.channel,
+      name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
+      dataType: ICD.bindingDataType(suited ? binding : {}, field),
+      suits: (ch) => ICD.encodes(field, ch.dataType.toString()),
+    });
+  }
+};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        const { channel: field, topic } = target;
-        field.channel = await Task.configureCommandChannel(
-          client,
-          dev.properties.write,
-          {
-            propertiesKey: topic,
-            channel: field.channel,
-            name: primitive.isNonZero(field.name)
-              ? field.name
-              : defaultCommandName(dev.name, target),
-            dataType: field.dataType,
-          },
-        );
-      } else
-        target.channel = await Task.configureCommandChannel(
-          client,
-          dev.properties.write,
-          {
-            propertiesKey: sparkplugPropertiesKey(target),
-            channel: target.channel,
-            name: primitive.isNonZero(target.name)
-              ? target.name
-              : defaultCommandName(dev.name, target),
-            dataType: fromSparkplugDataType(target.tagType),
-          },
-        );
+        await configureBindings(client, dev, target);
+        continue;
+      }
+      target.channel = await Task.configureCommandChannel(
+        client,
+        dev.properties.write,
+        {
+          propertiesKey: sparkplugPropertiesKey(target),
+          channel: target.channel,
+          name: primitive.isNonZero(target.name)
+            ? target.name
+            : defaultCommandName(dev.name, target),
+          dataType: fromSparkplugDataType(target.tagType),
+        },
+      );
     }
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

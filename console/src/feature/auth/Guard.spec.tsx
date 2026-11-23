@@ -287,6 +287,7 @@ describe("connection guard permissions", () => {
       preloadedState: {
         [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
       },
+      skipPermissionLoad: true,
     });
     // A Core that stays unreachable fails the permissions load.
     await proxy.sever();

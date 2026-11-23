@@ -12,17 +12,17 @@ import { describe, expect, it } from "vitest";
 import { channel } from "@/channel";
 import { createLines } from "@/channel/where";
 import { matches, serverComputed } from "@/channel/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  const vectors = readVectors("channels", channel.payloadZ, channel.whereZ);
+  const table = vectors.read("channels", channel.payloadZ, channel.whereZ);
   // The internal records of the vectors are the built-in channels.
   const builtIns = new Set(
-    vectors.records.filter(([, ch]) => ch.internal).map(([, ch]) => ch.key),
+    table.records.filter(([, ch]) => ch.internal).map(([, ch]) => ch.key),
   );
   const lines = createLines(() => builtIns);
-  itMatchesVectors(
-    vectors,
+  vectors.itMatches(
+    table,
     (c, where) => matches(lines, c, where),
     (where) => serverComputed(lines, where),
   );

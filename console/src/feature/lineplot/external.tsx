@@ -25,7 +25,7 @@ const TAB_TYPE = lineplot.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
-const TAB: Panel.Tab = {
+const TAB = {
   Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
@@ -48,8 +48,8 @@ const TAB: Panel.Tab = {
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = {
+export const TABS = {
   [TAB_TYPE]: TAB,
-};
+} satisfies Panel.Tabs;
