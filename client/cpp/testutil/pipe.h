@@ -99,7 +99,7 @@ class CorePipe {
 
         /// @brief sends the client an RST_STREAM with INTERNAL_ERROR for each open
         /// stream.
-        void reset() {
+        void reset_streams() {
             std::lock_guard lock{this->mu};
             for (const auto id: this->open) {
                 const std::array<uint8_t, 13> frame{
@@ -176,7 +176,8 @@ class CorePipe {
 
     /// @brief forwards the frames from the Core to the client one whole frame at a
     /// time, so a reset never lands inside a frame.
-    static void pump_frames(const Socket from, const std::shared_ptr<Connection> conn) {
+    static void
+    pump_frames(const Socket from, const std::shared_ptr<Connection> &conn) {
         std::array<uint8_t, BUFFER_SIZE> buf{};
         std::vector<uint8_t> pending;
         while (true) {
@@ -265,7 +266,7 @@ public:
     void reset() {
         std::lock_guard lock{this->mu};
         for (const auto &conn: this->connections)
-            conn->reset();
+            conn->reset_streams();
     }
 
     /// @brief cuts every connection and refuses new ones until resume.
