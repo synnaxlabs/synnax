@@ -37,4 +37,15 @@ var _ = Describe("Escape", func() {
 		Entry("snake_case identifier", "my_variable"),
 		Entry("empty string", ""),
 	)
+
+	DescribeTable("EscapeField should escape keywords and BaseModel attributes",
+		func(input, expected string) {
+			Expect(keywords.EscapeField(input)).To(Equal(expected))
+		},
+		Entry("a keyword", "from", "from_"),
+		Entry("an ABCMeta method", "register", "register_"),
+		Entry("a deprecated v1 method", "json", "json_"),
+		Entry("a model method", "model_dump", "model_dump_"),
+		Entry("a regular field", "channel", "channel"),
+	)
 })

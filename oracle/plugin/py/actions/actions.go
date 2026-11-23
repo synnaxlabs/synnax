@@ -99,7 +99,7 @@ func (p *Plugin) generateFile(
 			Payload:  casing.TypePascal(action.Name) + "Payload",
 			Envelope: casing.VariantTypeName("Action", snake),
 			Type:     snake,
-			Field:    keywords.Escape(snake),
+			Field:    keywords.EscapeField(snake),
 			Doc:      doc.Get(action.Domains),
 		}
 		fp.Reserve(a.Payload)

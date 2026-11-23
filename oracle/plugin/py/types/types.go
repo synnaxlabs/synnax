@@ -2427,9 +2427,9 @@ func typeParamList(params []typeParamData) string {
 }
 
 // fieldName returns the Python attribute name for a schema field: its snake_case wire
-// key, escaped when it collides with a Python keyword.
+// key, escaped when it collides with a Python keyword or a BaseModel attribute.
 func fieldName(name string) string {
-	return keywords.Escape(casing.FieldSnake(name))
+	return keywords.EscapeField(casing.FieldSnake(name))
 }
 
 func toScreamingSnake(s string) string {

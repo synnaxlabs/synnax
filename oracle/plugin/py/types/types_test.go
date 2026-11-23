@@ -2760,6 +2760,29 @@ var _ = Describe("Python Types Plugin", func() {
 						`model_config = ConfigDict(populate_by_name=True)`,
 					)
 			})
+
+			DescribeTable("Should escape a field that shadows a BaseModel attribute",
+				func(field string) {
+					source := `
+					@py output "out"
+
+					Example struct {
+						` + field + ` string
+						name string
+					}
+				`
+					resp := MustGenerate(source, "example", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							field+`_: str = Field(alias="`+field+`")`,
+							`name: str`,
+							`model_config = ConfigDict(populate_by_name=True)`,
+						)
+				},
+				Entry("an ABCMeta method", "register"),
+				Entry("a deprecated v1 method", "validate"),
+				Entry("a model attribute", "model_config"),
+			)
 		})
 
 		Context("field name casing", func() {
