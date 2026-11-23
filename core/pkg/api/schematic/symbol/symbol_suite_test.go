@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
@@ -128,6 +129,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
+		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
+			DB: db,
+		})),
 	}))
 	symbolSvc = schematicSvc.Symbol
 	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
