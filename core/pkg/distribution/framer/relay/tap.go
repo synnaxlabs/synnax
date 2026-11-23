@@ -40,6 +40,30 @@ type demand struct {
 	// could be dropped before the demand propagates. nil for demands that need no
 	// acknowledgment.
 	ack chan struct{}
+	// state is the state of the entity's demands. nil for a removal.
+	state *demandState
+}
+
+// demandState lets an entity withdraw its demands without waiting for the tapper. Its
+// state moves once, from pending to applied or to withdrawn.
+type demandState struct{ v atomic.Int32 }
+
+const (
+	demandPending int32 = iota
+	demandApplied
+	demandWithdrawn
+)
+
+// apply marks the demands applied and reports whether the tapper must apply them.
+func (s *demandState) apply() bool {
+	s.v.CompareAndSwap(demandPending, demandApplied)
+	return s.v.Load() == demandApplied
+}
+
+// withdraw reports whether the tapper never applied a demand of the entity. When it
+// returns true, the tapper skips the entity's queued demands.
+func (s *demandState) withdraw() bool {
+	return s.v.CompareAndSwap(demandPending, demandWithdrawn)
 }
 
 // tap is a tap into the storage engine or the free write pipeline. A tap streams the
@@ -94,6 +118,12 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 }
 
 func (t *tapper) sink(ctx context.Context, d demand) error {
+	if !d.removed && !d.state.apply() {
+		if d.ack != nil {
+			close(d.ack)
+		}
+		return nil
+	}
 	stored, free := t.updateDemands(d)
 	if err := t.updateTaps(ctx, stored, free); err != nil {
 		return err

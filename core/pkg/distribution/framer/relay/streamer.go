@@ -143,10 +143,13 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
-		if err := s.relay.sendDemand(
-			ctx,
-			demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack},
-		); err != nil {
+		state := &demandState{}
+		if err := s.relay.sendDemand(ctx, demand{
+			addr:  s.addr,
+			keys:  s.keys.Load().Slice(),
+			ack:   ack,
+			state: state,
+		}); err != nil {
 			return err
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
@@ -157,7 +160,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			s.missedRequested,
 		)
 		if err != nil {
-			s.relay.removeDemand(s.addr)
+			s.relay.removeDemand(s.addr, state)
 			return err
 		}
 		dropped := false
@@ -167,14 +170,14 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			if !dropped {
 				disconnect()
 			}
-			s.relay.removeDemand(s.addr)
+			s.relay.removeDemand(s.addr, state)
 		}()
 		if s.sendOpenAck {
 			if err := s.awaitOpenAck(ctx, ack); err != nil {
 				return err
 			}
 		}
-		err = s.forward(ctx, sub)
+		err = s.forward(ctx, sub, state)
 		dropped = errors.Is(err, errDropped)
 		return err
 	}, o.Signal...)
@@ -218,6 +221,7 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 func (s *streamer) forward(
 	ctx context.Context,
 	sub *subscriber,
+	state *demandState,
 ) error {
 	responses, missed := sub.responses, sub.missed
 	// pendingAcks holds the ack channels of key updates the tapper has not applied
@@ -261,7 +265,7 @@ func (s *streamer) forward(
 			// The keys must change before the demand, so the delta accepts frames for
 			// an added channel as soon as the relay taps it.
 			s.setKeys(req.Keys)
-			d := demand{addr: s.addr, keys: req.Keys}
+			d := demand{addr: s.addr, keys: req.Keys, state: state}
 			if req.AckRequested {
 				d.ack = make(chan struct{})
 				pendingAcks = append(pendingAcks, d.ack)
@@ -271,6 +275,12 @@ func (s *streamer) forward(
 			}
 		case r, ok := <-responses:
 			if !ok {
+				// The select can take the closed responses before a pending signal.
+				if len(missed) > 0 {
+					if err := s.sendMissed(ctx, sub); err != nil {
+						return err
+					}
+				}
 				return errDropped
 			}
 			// A frame buffered before a key update can hold channels the streamer no

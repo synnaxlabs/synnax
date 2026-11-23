@@ -230,9 +230,14 @@ func (r *Relay) sendDemand(ctx context.Context, d demand) error {
 	}
 }
 
-// removeDemand tells the tapper that the entity at addr demands no channels. It
-// returns once the tapper takes the demand, or once the relay stops.
-func (r *Relay) removeDemand(addr address.Address) {
+// removeDemand tells the tapper that the entity at addr, whose demands share state,
+// demands no channels. It returns at once when the tapper has applied none of the
+// entity's demands. Otherwise it returns once the tapper takes the removal, or once
+// the relay stops.
+func (r *Relay) removeDemand(addr address.Address, state *demandState) {
+	if state.withdraw() {
+		return
+	}
 	select {
 	case r.demands.Inlet() <- demand{addr: addr, removed: true}:
 	case <-r.stopped:
