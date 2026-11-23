@@ -9,9 +9,10 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useNow } from "@/hooks/useNow";
+import { ClockProvider, useNow } from "@/hooks";
 
 describe("useNow", () => {
   beforeEach(() => {
@@ -73,5 +74,15 @@ describe("useNow", () => {
       vi.advanceTimersToNextTimer();
     });
     expect(result.current.equals(at)).toBe(true);
+  });
+
+  it("should read the time from the nearest clock provider", () => {
+    const fixed = new TimeStamp(new Date(2020, 5, 1, 9));
+    const clock = () => fixed;
+    const { result } = renderHook(() => useNow(() => null), {
+      wrapper: ({ children }) =>
+        createElement(ClockProvider, { value: clock }, children),
+    });
+    expect(result.current).toBe(fixed);
   });
 });

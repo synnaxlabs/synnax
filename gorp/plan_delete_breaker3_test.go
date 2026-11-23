@@ -91,7 +91,7 @@ var _ = Describe("Planned delete breaker 3", func() {
 					},
 				}),
 			},
-			OnDetach: func(ctx context.Context, tx gorp.Tx, t b2Task) error {
+			OnRewrite: func(ctx context.Context, tx gorp.Tx, t b2Task) error {
 				if onDetach == nil {
 					return nil
 				}
@@ -365,7 +365,7 @@ var _ = Describe("Planned delete breaker 3", func() {
 			Expect(channelExists(ctx, 1)).To(BeTrue())
 		})
 
-		It("Should fail like a fresh walk when the OnDetach of a planned holder "+
+		It("Should fail like a fresh walk when the OnRewrite of a planned holder "+
 			"finds nothing", func(ctx SpecContext) {
 			Expect(tasks.NewCreate().
 				Entry(&b2Task{Key: "p", Plotted: []uint32{1}}).
@@ -454,7 +454,7 @@ var _ = Describe("Planned delete breaker 3", func() {
 				Expect(retrievePlot(ctx, "p").Plotted).To(BeEmpty())
 			})
 
-		It("Should refuse with a holder that an OnDetach hook of another delete "+
+		It("Should refuse with a holder that an OnRewrite hook of another delete "+
 			"writes after the plan", func(ctx SpecContext) {
 			Expect(tasks.NewCreate().
 				Entry(&b2Task{Key: "p2", Plotted: []uint32{2}}).

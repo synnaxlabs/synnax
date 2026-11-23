@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Notifications } from "@/platform/notifications";
+import type { Notifications } from "@/platform/notifications";
 
 /**
  * The notification rule for channel statuses, which only calculated channels have. A

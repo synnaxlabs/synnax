@@ -10,7 +10,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useMapData } from "@/list/useMapData";
+import { List } from "@/list";
 
 interface TestItem {
   key: string;
@@ -21,7 +21,7 @@ interface TestItem {
 describe("useMapData", () => {
   describe("setItem functionality", () => {
     it("should set a single item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -33,7 +33,7 @@ describe("useMapData", () => {
     });
 
     it("should set multiple items", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const items: TestItem[] = [
         { key: "1", name: "Apple", value: 10 },
@@ -49,7 +49,7 @@ describe("useMapData", () => {
     });
 
     it("should update existing item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const originalItem: TestItem = { key: "1", name: "Apple", value: 10 };
       const updatedItem: TestItem = { key: "1", name: "Green Apple", value: 15 };
@@ -70,7 +70,7 @@ describe("useMapData", () => {
 
   describe("deleteItem functionality", () => {
     it("should delete a single item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -88,7 +88,7 @@ describe("useMapData", () => {
     });
 
     it("should delete multiple items", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const items: TestItem[] = [
         { key: "1", name: "Apple", value: 10 },
@@ -110,7 +110,7 @@ describe("useMapData", () => {
     });
 
     it("should handle deleting non-existent item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       act(() => {
         result.current.deleteItem("nonexistent");
@@ -122,19 +122,19 @@ describe("useMapData", () => {
 
   describe("getItem functionality", () => {
     it("should return undefined for non-existent item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       expect(result.current.getItem("nonexistent")).toBeUndefined();
     });
 
     it("should handle undefined key", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       expect(result.current.getItem(undefined)).toBeUndefined();
     });
 
     it("should get multiple items by array of keys", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const items: TestItem[] = [
         { key: "1", name: "Apple", value: 10 },
@@ -151,7 +151,7 @@ describe("useMapData", () => {
     });
 
     it("should filter out non-existent items when getting multiple", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -164,7 +164,7 @@ describe("useMapData", () => {
     });
 
     it("should return empty array for empty key array", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const retrieved = result.current.getItem([]);
       expect(retrieved).toEqual([]);
@@ -173,7 +173,7 @@ describe("useMapData", () => {
 
   describe("hasItem functionality", () => {
     it("should return true for existing item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -185,13 +185,13 @@ describe("useMapData", () => {
     });
 
     it("should return false for non-existing item", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       expect(result.current.hasItem("nonexistent")).toBe(false);
     });
 
     it("should return false after item is deleted", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -211,7 +211,7 @@ describe("useMapData", () => {
 
   describe("subscribe functionality", () => {
     it("should notify listener when subscribed item changes", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const listener = vi.fn();
 
@@ -231,7 +231,7 @@ describe("useMapData", () => {
     });
 
     it("should notify listener when subscribed item is deleted", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const item: TestItem = { key: "1", name: "Apple", value: 10 };
 
@@ -255,7 +255,7 @@ describe("useMapData", () => {
     });
 
     it("should notify a listener on each key it subscribed to", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
       const listener = vi.fn();
       const unsubscribeFirst = result.current.subscribe(listener, "1");
       const unsubscribeSecond = result.current.subscribe(listener, "2");
@@ -270,7 +270,7 @@ describe("useMapData", () => {
     });
 
     it("should notify a listener once when several of its keys change", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
       const listener = vi.fn();
       result.current.subscribe(listener, "1");
       result.current.subscribe(listener, "2");
@@ -284,7 +284,7 @@ describe("useMapData", () => {
     });
 
     it("should not notify listener for different key", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const listener = vi.fn();
 
@@ -304,7 +304,7 @@ describe("useMapData", () => {
     });
 
     it("should handle unsubscription", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const listener = vi.fn();
 
@@ -332,7 +332,7 @@ describe("useMapData", () => {
     });
 
     it("should notify multiple listeners for same key", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const listener1 = vi.fn();
       const listener2 = vi.fn();
@@ -361,7 +361,7 @@ describe("useMapData", () => {
   describe("edge cases", () => {
     it("should handle different key types", () => {
       const { result: numberResult } = renderHook(() =>
-        useMapData<number, { key: number; value: string }>(),
+        List.useMapData<number, { key: number; value: string }>(),
       );
 
       const numberItem = { key: 1, value: "first" };
@@ -375,7 +375,7 @@ describe("useMapData", () => {
     });
 
     it("should handle bulk operations", () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const { result } = renderHook(() => List.useMapData<string, TestItem>());
 
       const items: TestItem[] = Array.from({ length: 100 }, (_, i) => ({
         key: `item-${i}`,
@@ -402,7 +402,9 @@ describe("useMapData", () => {
     });
 
     it("should maintain referential stability", () => {
-      const { result, rerender } = renderHook(() => useMapData<string, TestItem>());
+      const { result, rerender } = renderHook(() =>
+        List.useMapData<string, TestItem>(),
+      );
 
       const initialSetItem = result.current.setItem;
       const initialDeleteItem = result.current.deleteItem;

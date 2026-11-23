@@ -16,7 +16,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";

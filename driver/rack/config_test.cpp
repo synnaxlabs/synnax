@@ -180,6 +180,41 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     );
 }
 
+/// @brief it should add a File Browser to the rack only when the file integration is
+/// on.
+TEST_F(RackConfigTest, FileBrowserFollowsIntegration) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    for (const bool on: {false, true}) {
+        const auto rack = ASSERT_NIL_P(client->racks.create("file_rack"));
+        Config cfg;
+        if (on) cfg.integrations = {file::INTEGRATION_NAME};
+        const auto factory = cfg.new_factory(
+            client,
+            std::make_shared<x::thread::rt::Manager>()
+        );
+        x::breaker::Breaker cancel;
+        cancel.start();
+        auto tasks = factory->configure_initial_tasks(
+            std::make_shared<task::MockContext>(client),
+            rack,
+            cancel
+        );
+        cancel.stop();
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+        if (!on) {
+            ASSERT_OCCURRED_AS_P(
+                rack.tasks.retrieve(file::TASK_NAME),
+                x::errors::NOT_FOUND
+            );
+            continue;
+        }
+        const auto browser = ASSERT_NIL_P(rack.tasks.retrieve(file::TASK_NAME));
+        EXPECT_EQ(browser.type, file::TASK_TYPE);
+        EXPECT_TRUE(browser.internal);
+    }
+}
+
 /// @brief it should load rack key from persisted state file.
 TEST_F(RackConfigTest, LoadRackFromPersistedState) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
@@ -584,6 +619,21 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
     ASSERT_EQ(cfg.manager.worker_count, 8);
     ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
+}
+
+/// @brief it should load the secrets folder from the config file as an absolute path.
+TEST_F(RackConfigTest, LoadSecretsDirFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/secrets-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"secrets_dir": "secrets"})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
+    ASSERT_EQ(cfg.secrets_dir, std::filesystem::current_path() / "secrets");
 }
 
 /// @brief it should load connection parameters from command line arguments.

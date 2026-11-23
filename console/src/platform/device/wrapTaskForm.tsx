@@ -11,7 +11,7 @@ import { device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Access } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import {
   NoneSelected,

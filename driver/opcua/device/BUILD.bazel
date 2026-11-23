@@ -20,6 +20,7 @@ cc_library(
         "//client/cpp/errors",
         "//driver/opcua/connection",
         "//driver/opcua/types",
+        "//driver/secret",
         "//x/cpp/errors",
         "//x/cpp/json",
     ],

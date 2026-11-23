@@ -40,6 +40,71 @@ struct Clock {
     std::function<void(telem::TimeSpan)> sleep;
 };
 
+/// @brief estimates the most one sleep step takes, as the mean plus one standard
+/// deviation of the measured steps (Welford's online algorithm). It starts at
+/// RESOLUTION, so a sleep longer than one step measures a step.
+///
+/// After WARM_UP steps, it holds back a step longer than OUTLIER_FACTOR times the
+/// estimate (a stall). It adds the stall only when the next stall comes within
+/// OUTLIER_WINDOW steps and within OUTLIER_FACTOR of its size, and then adds both. An
+/// isolated stall is never added, so it cannot raise the estimate past every wait and
+/// stop the timer from measuring steps.
+class StepEstimator {
+    /// @brief steps added as measured before the estimate can hold one back.
+    static constexpr double WARM_UP = 16;
+    /// @brief multiple of the estimate past which a step is held back, and the most
+    /// two stalls can differ in size and still confirm each other.
+    static constexpr double OUTLIER_FACTOR = 4;
+    /// @brief steps within which a second stall confirms a held one.
+    static constexpr int OUTLIER_WINDOW = 10000;
+
+    /// @brief doubles, so a sum of squared nanoseconds cannot overflow.
+    double mean = static_cast<double>(RESOLUTION.nanoseconds());
+    double m2 = 0;
+    double count = 1;
+    telem::TimeSpan value = RESOLUTION;
+    std::optional<double> held;
+    int since_outlier = OUTLIER_WINDOW;
+    double last_outlier = 0;
+
+    void push(const double ns) {
+        const double delta = ns - this->mean;
+        this->mean += delta / this->count;
+        this->m2 += delta * (ns - this->mean);
+        const double stddev = std::sqrt(this->m2 / this->count);
+        this->value = telem::TimeSpan(static_cast<int64_t>(this->mean + stddev));
+        this->count++;
+    }
+
+public:
+    /// @brief adds the measured duration of one step to the estimate.
+    void add(const telem::TimeSpan &step) {
+        const auto ns = static_cast<double>(step.nanoseconds());
+        const auto cutoff = OUTLIER_FACTOR *
+                            static_cast<double>(this->value.nanoseconds());
+        if (this->count <= WARM_UP || ns <= cutoff) {
+            this->push(ns);
+            this->since_outlier = std::min(this->since_outlier + 1, OUTLIER_WINDOW);
+            return;
+        }
+        const bool confirmed = this->since_outlier < OUTLIER_WINDOW &&
+                               ns <= OUTLIER_FACTOR * this->last_outlier &&
+                               this->last_outlier <= OUTLIER_FACTOR * ns;
+        if (!confirmed)
+            this->held = ns;
+        else {
+            if (this->held) this->push(*this->held);
+            this->held.reset();
+            this->push(ns);
+        }
+        this->since_outlier = 0;
+        this->last_outlier = ns;
+    }
+
+    /// @brief returns the most one step is expected to take.
+    [[nodiscard]] telem::TimeSpan estimate() const { return this->value; }
+};
+
 class Timer {
 public:
     Timer() = default;
@@ -134,7 +199,7 @@ public:
     }
 
 private:
-    /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
+    /// @brief Fine-grained sleep calibrated by a StepEstimator.
     void precise_sleep(const telem::TimeSpan &dur) {
         this->sleep_while(dur, [] { return true; });
     }
@@ -150,17 +215,9 @@ private:
         while (true) {
             if (!running()) return;
             const auto start = hs_clock::now();
-            if (telem::TimeSpan(end - start) <= sleep_estimate) break;
+            if (telem::TimeSpan(end - start) <= this->estimator.estimate()) break;
             this->step(RESOLUTION);
-            const auto curr_end = hs_clock::now();
-            const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
-                                        .count();
-            const telem::TimeSpan delta = elapsed_ns - sleep_mean;
-            sleep_mean += delta / sleep_count;
-            sleep_M2 += delta * (elapsed_ns - sleep_mean);
-            const auto stddev = std::sqrt((sleep_M2 / sleep_count).nanoseconds());
-            sleep_estimate = sleep_mean + static_cast<int64_t>(stddev);
-            sleep_count++;
+            this->estimator.add(telem::TimeSpan(hs_clock::now() - start));
         }
         while (end > hs_clock::now())
             if (!running()) return;
@@ -194,16 +251,7 @@ private:
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.
     ImplPtr impl = make_impl();
-
-    /// @brief Welford's algorithm state: the most one step is expected to take. It
-    /// starts at one step, so a sleep longer than one step measures a step.
-    telem::TimeSpan sleep_estimate = RESOLUTION;
-    /// @brief Welford's algorithm state: running mean of step durations.
-    telem::TimeSpan sleep_mean = RESOLUTION;
-    /// @brief Welford's algorithm state: sum of squared deviations.
-    telem::TimeSpan sleep_M2 = telem::TimeSpan::ZERO();
-    /// @brief Welford's algorithm state: sample count.
-    int64_t sleep_count = 1;
+    StepEstimator estimator;
 };
 
 /// @brief the host clocks that a loop reads: steady time to wait on and wall time to

@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Card } from "@/feature/range/toolbar/Card";
+import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
+import { createTestRange, rangeColorBeside } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -32,7 +34,7 @@ const createAgo = async (
   parent?: ranger.Key,
 ): Promise<ranger.Range> => {
   const now = TimeStamp.now();
-  return await client.ranges.create({
+  return await createTestRange(client, {
     name,
     parent,
     timeRange: new TimeRange(
@@ -92,7 +94,7 @@ describe("range/toolbar/Card", () => {
   });
 
   it("should show no end or total for a planned range with no end", async () => {
-    const rng = await client.ranges.create({
+    const rng = await createTestRange(client, {
       name: uniqueName("planned"),
       timeRange: new TimeRange(TimeStamp.now().add(TimeSpan.HOUR), TimeStamp.MAX),
     });
@@ -123,12 +125,41 @@ describe("range/toolbar/Card", () => {
 
   it("should show the labels of the range", async () => {
     const rng = await createAgo(uniqueName("labeled"), TimeSpan.minutes(1), null);
-    const lbl = await client.labels.create({
+    const lbl = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     await client.labels.label(rng.resourceID, [lbl.key]);
     await renderCard(rng);
     expect(await screen.findByText(lbl.name)).toBeTruthy();
+  });
+
+  it("should paint the named colors of the range, children, and labels", async () => {
+    const [own, child, tag] = await client.colors.create(
+      ["#111111", "#222222", "#333333"].map((light) => ({
+        name: uniqueName("color"),
+        light,
+      })),
+    );
+    const rng = await createTestRange(client, {
+      color: { type: "named", key: own.key },
+    });
+    const sub = await createTestRange(client, {
+      name: uniqueName("child"),
+      parent: rng.key,
+      color: { type: "named", key: child.key },
+    });
+    const lbl = await createTestLabel(client, {
+      name: uniqueName("label"),
+      color: { type: "named", key: tag.key },
+    });
+    await client.labels.label(rng.resourceID, [lbl.key]);
+    await renderCard(rng);
+    const name = await screen.findByText(rng.name);
+    await waitFor(() => expect(rangeColorBeside(name)).toBe("#111111"));
+    const childName = await screen.findByText(sub.name);
+    await waitFor(() => expect(rangeColorBeside(childName)).toBe("#222222"));
+    const labelName = await screen.findByText(lbl.name);
+    await waitFor(() => expect(dotColorBeside(labelName)).toBe("#333333"));
   });
 });

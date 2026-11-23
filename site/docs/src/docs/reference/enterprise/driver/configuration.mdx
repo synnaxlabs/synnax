@@ -1,0 +1,269 @@
+---
+title: "Configure a standalone Driver"
+description:
+  "Set the connection, task, and integration parameters of a standalone Driver with its
+  state file, a configuration file, environment variables, or flags."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A standalone Driver reads its parameters from five sources. A source higher in the list
+overrides the sources below it:
+
+1. Command line flags. See the
+   [CLI reference](/reference/enterprise/driver/cli-reference).
+2. [Environment variables](#environment-variables).
+3. A [configuration file](#configuration-file).
+4. The [state file](#state-file), which `synnax-driver login` writes.
+5. The defaults.
+
+The parameter flags and the configuration file apply only to
+`synnax-driver start --standalone`. The service always starts with the same command. To
+configure the service, use `login` and, except on Windows, the
+[environment file](#environment-file). On Linux, run `login` once, also when the
+environment file holds the connection: `login` creates the state file, and the service
+user cannot.
+
+<Divider.Divider x />
+
+## State file
+
+The state file holds the connection parameters and the API key that `login` saves. Only
+its owner and the administrators can read it. On Windows and macOS, while the service is
+installed, every command uses the path of the computer, so run each command with admin
+rights. Without the service, commands use the path of the user.
+
+| Operating system   | Path                                                               |
+| ------------------ | ------------------------------------------------------------------ |
+| Linux, NI Linux RT | `/var/lib/synnax-driver/persisted-state.json`                      |
+| Windows, service   | `C:\ProgramData\synnax-driver\persisted-state.json`                |
+| Windows            | `%LOCALAPPDATA%\synnax-driver\persisted-state.json`                |
+| macOS, service     | `/Library/Application Support/synnax-driver/persisted-state.json`  |
+| macOS              | `~/Library/Application Support/synnax-driver/persisted-state.json` |
+
+`install` moves the login and the OPC UA certificates in the path of the user to the
+path of the computer, when the path of the computer holds no login yet.
+
+The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
+path. The service always uses the default path.
+
+On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
+missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
+change the mode or owner of a state directory or state file that exists. When root runs
+`start` or `clear` at the default path on Linux and a `synnax` user exists, they give a
+state directory that they create to root and the `synnax` group with mode `0751`, and a
+state file that they create to the `synnax` user with mode `0600`, as `install` does.
+`start`, `login`, and `clear` fail when:
+
+- Other users can read the state file. To fix it, run `chmod 600` on the file. In
+  Kubernetes, `fsGroup` with the default `fsGroupChangePolicy` makes the file readable
+  by the group at each mount. Set the policy to `OnRootMismatch`, or remove `fsGroup`,
+  then run `chmod 600` on the file once.
+- A different user owns the state file. The user that runs the Driver must own it. When
+  root runs the Driver, the `synnax` user can also own it.
+- The state directory or the state file is a symbolic link, such as a file in a mounted
+  Kubernetes Secret.
+
+The Driver does not examine the mode of the state directory. A relative `--state-file`
+path starts at the working directory.
+
+Only `install` and `login` change the owners and modes of existing paths, and only when
+root runs them:
+
+- At the default path on Linux, when a `synnax` user exists, they give the directory to
+  root and the `synnax` group with mode `0751`. They give the state file to the `synnax`
+  user with mode `0600`. They create the `opcua` directory if it is missing and give it
+  to the `synnax` user with mode `0700`.
+- At the default path without a `synnax` user, such as on macOS, they set a state
+  directory that root owns to `0700`. They replace a state file that another user owns
+  with a copy that root owns, with mode `0600`.
+- At a `--state-file` path on Linux, when a `synnax` user exists, `login` gives only the
+  state file to the `synnax` user with mode `0600`. It does not change its directory.
+
+A root `login` makes the checks above before it makes these changes. It makes the
+changes also when a check fails, and then fails.
+
+On macOS without the service, run `login` without `sudo` if the Driver runs as your
+user: a `sudo` login leaves the state file, and a state directory that it creates, to
+root, and `start` fails until you give them back with `chown`.
+
+From Driver 0.61.0 to 0.61.4, `start`, `login`, and `clear` also change the owners and
+modes of existing paths at each run. They set the state file to mode `0600` at any path,
+and at the default path they also change the directory. They replace the values that a
+setup step, such as an init container, gives these paths.
+
+To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
+start.
+
+<Divider.Divider x />
+
+## Environment variables
+
+The Driver reads each parameter from a variable named `SYNNAX_DRIVER_` and the key in
+upper case. The integrations and the secrets folder have no variable.
+
+```bash
+SYNNAX_DRIVER_HOST=10.0.0.45
+SYNNAX_DRIVER_PORT=9090
+SYNNAX_DRIVER_API_KEY=syk_...
+SYNNAX_DRIVER_SECURE=false
+SYNNAX_DRIVER_CORRECT_SKEW=true
+SYNNAX_DRIVER_OP_TIMEOUT=60
+SYNNAX_DRIVER_POLL_INTERVAL=1
+SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
+SYNNAX_DRIVER_WORKER_COUNT=4
+```
+
+To learn what each parameter does, see [Parameters](#parameters).
+
+### Environment file
+
+On Linux, NI Linux Real-Time, and macOS, the service and `login` read
+`/etc/synnax/driver.env`. Write one `KEY=value` on each line, with no `export`. `login`
+uses the file only for variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not
+read the `SYNNAX_DRIVER_` variables. On macOS, `login` reads the file only while the
+service is installed.
+
+`install` creates the file. Only root can read it, so edit it and run `login` as root:
+with `sudo` on Linux and macOS, and as `admin` on NI Linux Real-Time. Restart the
+service after you edit the file.
+
+`start --standalone` does not read the file. For a Driver in a terminal, export the
+variables in the shell:
+
+```bash
+export SYNNAX_DRIVER_WORKER_COUNT=8
+synnax-driver start --standalone
+```
+
+<Divider.Divider x />
+
+## Configuration file
+
+Give a JSON file to `start --standalone` with the `--config` flag. Each key is optional.
+The file cannot hold comments.
+
+```json
+{
+  "connection": {
+    "host": "10.0.0.45",
+    "port": 9090,
+    "api_key": "syk_...",
+    "secure": false
+  },
+  "timing": {
+    "correct_skew": true
+  },
+  "manager": {
+    "op_timeout": 60,
+    "poll_interval": 1,
+    "shutdown_timeout": 30,
+    "worker_count": 4
+  },
+  "integrations": ["arc", "ethercat", "file", "http", "labjack", "modbus", "ni", "opc"],
+  "secrets_dir": "/etc/synnax/secrets"
+}
+```
+
+The `integrations` list replaces the default list.
+
+A Driver with no API key logs in once with `username` and `password`, creates a rack and
+its API key, and saves the key in the state file. An upgraded Driver that saved a rack
+before does this at its first start and keeps its rack. If that user cannot create
+racks, the Driver keeps logging in with the password and tries again at each start. Once
+a key is saved, the Driver ignores a username and password and logs a warning.
+
+<Divider.Divider x />
+
+## Parameters
+
+<Field.List>
+
+<Field.Item name="host" default="localhost">
+  The host of the Core.
+</Field.Item>
+
+<Field.Item name="port" default="9090">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="api_key" default='""'>
+  The API key of the Driver's rack. The Driver logs in as that rack.
+</Field.Item>
+
+<Field.Item name="username" default="synnax">
+  The username to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
+</Field.Item>
+
+<Field.Item name="password" default="seldon">
+  The password to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
+</Field.Item>
+
+<Field.Item name="secure" default="false">
+  Connect to the Core over TLS. With `ca_cert` set and `secure` not set, the Driver uses
+  TLS. With `ca_cert` set and `secure` false in the same source, the Driver fails to
+  connect.
+</Field.Item>
+
+<Field.Item name="ca_cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Without it, the Driver uses the system trust store. `secure` and `ca_cert` go
+  together: the first source that sets either one, in the order command line,
+  environment, config file, and saved state, gives both. When the Driver enrolls, it
+  saves both with the API key, so a CA stays in use after you remove it from a higher
+  source. To stop using a saved CA, set `secure` in a higher source, run `login` again,
+  or run [`clear`](/reference/enterprise/driver/cli-reference#clear).
+</Field.Item>
+
+<Field.Item name="correct_skew" default="true">
+  Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of
+  the computer.
+</Field.Item>
+
+<Field.Item name="clock_skew_threshold" default="1000000000">
+  The difference between the clock of the computer and the clock of the Core, in
+  nanoseconds, above which the rack status shows the warning [Clock out of sync with the
+  Core](/reference/enterprise/troubleshooting#clock-out-of-sync-with-the-core). In the
+  configuration file, it goes in `connection`.
+</Field.Item>
+
+<Field.Item name="op_timeout" default="60">
+  The number of seconds that one step of a task operation, such as a start, can run
+  before the task status warns "Still working after" that time. The operation keeps
+  running.
+</Field.Item>
+
+<Field.Item name="poll_interval" default="1">
+  The number of seconds between two checks for task operations that have not finished.
+</Field.Item>
+
+<Field.Item name="shutdown_timeout" default="30">
+  The number of seconds that the Driver waits for task operations when it stops.
+</Field.Item>
+
+<Field.Item name="worker_count" default="4">
+  The number of threads that run task operations. Use a value from 1 to 64.
+</Field.Item>
+
+<Field.Item name="integrations" default="all">
+  The device integrations to run: `arc`, `ethercat`, `file`, `http`, `labjack`,
+  `modbus`, `ni`, and `opc`. The default is every integration that the Driver for your
+  platform has. Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no
+  `labjack` or `modbus`.
+</Field.Item>
+
+<Field.Item name="secrets_dir">
+  The folder of the Driver's file secrets and certificate keys. The `file` integration
+  shows only the names of the files in it, never their contents. A relative path starts
+  from the folder that the Driver starts in. Set it only in the configuration file.
+</Field.Item>
+
+</Field.List>
+
+For a boolean environment variable, use `true` or `false`.

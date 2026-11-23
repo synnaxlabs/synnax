@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type FormProps } from "@/schematic/node/spec";
+import type { FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
+
+/** The name of the symbol. */
+export const NAME = "State indicator";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
 
@@ -74,7 +77,12 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
       <StateIndicatorTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.StateMappingForm path={path.options} showColor />
+      <Form.States
+        enumeration={path.enumeration}
+        options={path.options}
+        label={path.label.label}
+        symbolName={NAME}
+      />
     </Tabs.Content>
   </Properties.Tabs>
 );

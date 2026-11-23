@@ -377,7 +377,7 @@ export abstract class Node implements Component {
   /** Removes this node from every provider's subscriber set and drops its own. For a
    * {@link Composite}, the child-first delete recursion has already torn down (and
    * unsubscribed) descendants before this runs. */
-  private unsubscribeAll(): void {
+  protected unsubscribeAll(): void {
     for (const [key, provider] of this.ctxSubscriptions)
       provider.ctxSubscribers.get(key)?.delete(this);
     this.ctxSubscriptions.clear();
@@ -437,8 +437,8 @@ export abstract class Node implements Component {
  *
  * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
  *   implements HandlersFromSchema<typeof buttonMethodsZ> {
- *   schema = stateZ;
- *   methods = buttonMethodsZ;
+ *   override schema = stateZ;
+ *   override methods = buttonMethodsZ;
  *   onMouseDown(): void { ... }
  *   onMouseUp(): number { return 42; }
  * }
@@ -535,6 +535,7 @@ export abstract class Leaf<
    * {@link Composite} must not call this. */
   _updateState({ path, state }: UpdateStateParams): void {
     if (this.deleted) return;
+    const first = this._state == null;
     try {
       this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(this.updateStateSpan);
@@ -551,6 +552,8 @@ export abstract class Leaf<
       this.runAfterUpdate();
       endSpan();
     } catch (e) {
+      // A component whose first update fails never joins the tree.
+      if (first) this.unsubscribeAll();
       throw newTreeError(e, `${this.toString()}.updateState`);
     }
   }
@@ -646,7 +649,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(params: UpdateStateParams): void {
+  override _updateState(params: UpdateStateParams): void {
     const { path, type, create } = params;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
@@ -687,7 +690,7 @@ export abstract class Composite<
     this._children.clear();
   }
 
-  _delete(path: readonly string[]): void {
+  override _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
       this.clearChildren();
@@ -762,7 +765,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private readonly comms: WorkerComms;
   private readonly registry: ComponentRegistry;
 
-  schema = aetherRootState;
+  override schema = aetherRootState;
 
   constructor({
     worker = wrapWorkerScope(),

@@ -16,7 +16,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import {
   createBaseProps,
