@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, query, Synnax } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { type destructor, scheduler, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +23,7 @@ type Data = {
   name: string;
 };
 
-const CLIENT = new Synnax({ ...TEST_CLIENT_PARAMS, cache: false });
+const CLIENT = new Synnax({ ...testClientParams(), cache: false });
 
 type RetrieveMock = ReturnType<
   typeof vi.fn<(params: flux.RetrieveParams<Query>) => Promise<Data>>

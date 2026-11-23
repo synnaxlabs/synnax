@@ -9,7 +9,7 @@
 
 import "@/input/Switch.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
   act,
@@ -21,16 +21,13 @@ import {
   type RenderResult,
   screen,
 } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 import { Provider } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
+import { Portal } from "@/platform/portal";
+import { createTestPortal } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -39,6 +36,8 @@ import {
   createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
+
+const PORTAL = createTestPortal().client;
 
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
@@ -51,9 +50,11 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
   const Base = createSynnaxWrapper({ client: null, connectionStatus });
   const InnerWrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
     <Base>
-      <Provider store={store}>
-        <Session.Modals.Context>{children}</Session.Modals.Context>
-      </Provider>
+      <Portal.Provider client={PORTAL}>
+        <Provider store={store}>
+          <Session.Modals.Context>{children}</Session.Modals.Context>
+        </Provider>
+      </Portal.Provider>
     </Base>
   );
   InnerWrapper.displayName = "Wrapper";
@@ -62,8 +63,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 
 /**
  * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
- * wrapper (with a null client, since modals never touch the Core), a Redux Provider
- * backing the error Boundary, and the per-window modal store Provider.
+ * wrapper (with a null client, since modals never touch the Core), a portal that cannot
+ * be reached, a Redux Provider backing the error Boundary, and the per-window modal
+ * store Provider.
  */
 export const Wrapper = createWrapper();
 
@@ -130,6 +132,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   analytics?: Analytics.Sink;
   /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** Wraps the hook but not the modal stack, such as a context that the hook reads. */
+  provider?: FC<PropsWithChildren>;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -161,6 +165,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     onCaughtError,
     analytics = Analytics.NOOP,
     extra,
+    provider: HookProvider,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -172,7 +177,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     <Console>
       <Analytics.Provider sink={analytics}>
         <Triggers.Provider>
-          {children}
+          {HookProvider == null ? children : <HookProvider>{children}</HookProvider>}
           <Modals.Stack />
           {extra}
         </Triggers.Provider>

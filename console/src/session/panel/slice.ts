@@ -9,7 +9,7 @@
 
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { NotFoundError, panel, query } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { Drift } from "@synnaxlabs/drift";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";

@@ -14,8 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
@@ -755,7 +756,9 @@ var _ = Describe("Path actions", func() {
 		It("Should remove a field from a cell config", func() {
 			state := create2x2()
 			text := asText(textCfg(""))
-			text.FillColor = new(MustSucceed(color.Parse("#ff0000")))
+			text.FillColor = &color.Ref{
+				Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse("#ff0000"))},
+			}
 			state.Rows[0].Cells[0].Config = table.CellConfig{Variant: text}
 			next := MustSucceed(table.Reduce(state, table.NewRemoveAction(
 				table.RemovePayload{Path: configPath(), Key: "fill_color"},

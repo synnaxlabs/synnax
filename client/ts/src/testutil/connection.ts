@@ -9,7 +9,7 @@
 
 import { observe, type TimeSpan } from "@synnaxlabs/x";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 
 /**
  * Resolves once the handle's change stream is live, so every later cluster write

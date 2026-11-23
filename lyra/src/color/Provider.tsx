@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { z } from "zod";
 
 import { context } from "@/context";
@@ -30,13 +30,14 @@ export const contextStateZ = z.object({ frequent: frequentZ });
 export interface ContextState extends z.infer<typeof contextStateZ> {}
 
 export interface ContextValue extends ContextState {
+  presets: color.Color[];
   updateFrequent: (color: color.Color) => void;
 }
 
 export const ZERO_CONTEXT_STATE: ContextState = { frequent: {} };
 
 const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: { ...ZERO_CONTEXT_STATE, updateFrequent: () => undefined },
+  defaultValue: { ...ZERO_CONTEXT_STATE, presets: [], updateFrequent: () => undefined },
   displayName: "Color.Context",
 });
 export { useContext };
@@ -72,11 +73,14 @@ export interface ProviderProps extends PropsWithChildren<{}> {
   /** The color state. Set it, with `onChange`, to let the caller own it. */
   value?: ContextState;
   onChange?: (state: ContextState) => void;
+  /** Colors that every picker below offers after the theme colors. */
+  presets?: color.Crude[];
 }
 
 export const Provider = ({
   value: controlled,
   onChange,
+  presets = [],
   children,
 }: ProviderProps): ReactElement => {
   const [value, setValue] = state.usePurePassthrough({
@@ -103,7 +107,7 @@ export const Provider = ({
     setValue({ ...prev, frequent: nextFreq });
   };
 
-  const memoValue = { ...value, updateFrequent };
+  const memoValue = { ...value, presets: presets.map(color.construct), updateFrequent };
   return <Context value={memoValue}>{children}</Context>;
 };
 
@@ -111,6 +115,9 @@ export const useFrequent = (): color.Color[] => {
   const { frequent } = useContext();
   return Object.keys(frequent).map((hex) => color.construct(hex));
 };
+
+/** @returns the presets of the nearest {@link Provider}. */
+export const usePresets = (): color.Color[] => useContext().presets;
 
 export const useFrequentUpdater = (): ((color: color.Color) => void) => {
   const { updateFrequent } = useContext();

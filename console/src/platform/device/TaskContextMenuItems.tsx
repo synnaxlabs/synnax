@@ -9,14 +9,14 @@
 
 import { type device, query, task } from "@synnaxlabs/client";
 import { Access, Device } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import {
   type ConfigureManyParams,
   useConfigureMany,
 } from "@/platform/device/useConfigureMany";
 import { Task } from "@/platform/task";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface TaskContextMenuItemConfig {
   itemKey: string;

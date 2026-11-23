@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type text } from "@synnaxlabs/x";
+import type { text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Icon } from "@/icon";
@@ -81,6 +81,20 @@ describe("Text", () => {
       const el = getByText("A label far wider than its box").element();
       expect(computed(el, "overflow-x")).toBe("hidden");
       expect(el.scrollWidth).toBeGreaterThan(el.clientWidth);
+    });
+  });
+
+  describe("line clamp", () => {
+    it("should wrap a word wider than its box instead of clipping it", async () => {
+      const word = "hot_fire_3_lox_tank_pressurization_second_attempt";
+      const { getByText } = await renderThemed(
+        <div style={{ width: "10rem" }}>
+          <Text.Text lineClamp={2}>{word}</Text.Text>
+        </div>,
+      );
+      const el = getByText(word).element();
+      expect(el.scrollWidth).toBe(el.clientWidth);
+      expect(el.scrollHeight).toBeGreaterThan(el.clientHeight);
     });
   });
 });

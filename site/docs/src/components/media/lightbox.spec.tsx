@@ -19,9 +19,9 @@ import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
 import { REDUCED_MOTION } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [ID] = Object.keys(versions);
+const [ID] = Object.keys(videos);
 
 let dialogHTML = "";
 let duration = 10;
@@ -160,9 +160,37 @@ describe("lightbox", () => {
     });
 
     it("should caption an image with its text alternative", () => {
-      show(renderToString(<Media.Image id="still" alt="The plot toolbar" />));
+      show(
+        '<picture class="docs-picture">' +
+          '<img class="docs-image" src="still.webp" alt="The plot toolbar">' +
+          "</picture>",
+      );
       find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("The plot toolbar");
+    });
+
+    it("should size an expanded image to the viewport, up to its width", () => {
+      const sized = '="min(100vw, 732px)"';
+      show(
+        '<picture class="docs-picture">' +
+          `<source type="image/avif" srcset="a.avif 640w, b.avif 2560w" sizes${sized}>` +
+          `<img class="docs-image" src="a.webp" srcset="a.webp 640w" sizes${sized} ` +
+          'width="1600" height="1000" alt="">' +
+          "</picture>",
+      );
+      const img = find<HTMLImageElement>(".docs-image");
+      img.click();
+      const stage = find(".docs-lightbox__stage");
+      expect(
+        [...stage.querySelectorAll("source, img")].map((el) =>
+          el.getAttribute("sizes"),
+        ),
+      ).toEqual(["min(100vw, 1600px)", "min(100vw, 1600px)"]);
+      dialog().dispatchEvent(new Event("close"));
+      expect(img.getAttribute("sizes")).toBe("min(100vw, 732px)");
+      expect(document.querySelector("article source")?.getAttribute("sizes")).toBe(
+        "min(100vw, 732px)",
+      );
     });
 
     it("should return the video to the page when the close button is clicked", () => {

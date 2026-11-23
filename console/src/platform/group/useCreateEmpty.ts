@@ -14,7 +14,7 @@ import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
 import { placement } from "@/platform/group/placement";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {
   /** The node to create the group under. */

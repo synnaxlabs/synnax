@@ -47,6 +47,14 @@ type ActionConfig[K gorp.Key, A any] struct {
 	//
 	// [OPTIONAL] - Defaults to no table.
 	Table string
+	// BatchChecks returns the lookup of the check of each batch that the transaction of
+	// c attached, by the key of its entry and its number. It runs once for each commit
+	// with batches. A streamer sends a batch only to a subject that passes its check,
+	// in
+	// place of a check of Resource.
+	//
+	// [OPTIONAL] - Defaults to a check of Resource.
+	BatchChecks func(c gorp.Commit) func(key K, seq uint64) (Check, bool)
 }
 
 // Validate checks that the required fields of c are set.
@@ -68,9 +76,10 @@ func (p *Provider) PublishActions[K gorp.Key, A any](
 		return err
 	}
 	f := &actionFeed[K, A]{
-		cfg: cfg,
-		L:   p.cfg.L,
-		ch:  channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
+		cfg:    cfg,
+		L:      p.cfg.L,
+		ch:     channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
+		checks: newCommitChecks(p.checkCommits),
 	}
 	return p.add(ctx, f, &f.ch)
 }
@@ -80,6 +89,8 @@ type actionFeed[K gorp.Key, A any] struct {
 	cfg ActionConfig[K, A]
 	L   *alamos.Logger
 	ch  channel.Channel
+	// checks holds the check of each batch, by the bytes of its sample.
+	checks *commitChecks
 }
 
 func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
@@ -88,6 +99,15 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 		f.check(c, batches)
 	}
 	samples := telem.Series{DataType: telem.JSONT}
+	var (
+		checks map[string]Check
+		lookup func(K, uint64) (Check, bool)
+	)
+	if f.cfg.BatchChecks != nil && len(batches) > 0 {
+		checks = make(map[string]Check, len(batches))
+		lookup = f.cfg.BatchChecks(c)
+		defer func() { f.checks.add(checks) }()
+	}
 	for _, batch := range batches {
 		b, err := json.Marshal(batch)
 		if err != nil {
@@ -98,6 +118,18 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 			)
 			continue
 		}
+		if checks != nil {
+			check, ok := lookup(batch.Key, batch.Seq)
+			if !ok {
+				f.L.DPanic(
+					"an action batch has no check",
+					zap.String("channel", f.ch.Name),
+					zap.Uint64("seq", batch.Seq),
+				)
+				continue
+			}
+			checks[string(b)] = check
+		}
 		samples.Data = append(samples.Data, telem.MarshalVariableSample(b)...)
 	}
 	if len(samples.Data) == 0 {
@@ -107,9 +139,11 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 }
 
 func (f *actionFeed[K, A]) records() map[channel.Key]Record {
-	return map[channel.Key]Record{
-		f.ch.Key(): {Of: recordOf(unmarshalKey[K], f.cfg.Resource)},
+	r := Record{Of: recordOf(unmarshalKey[K], f.cfg.Resource)}
+	if f.cfg.BatchChecks != nil {
+		r.Check = func(sample []byte) (Check, error) { return f.checks.get(sample) }
 	}
+	return map[channel.Key]Record{f.ch.Key(): r}
 }
 
 // check reports each create or update in c of a record of the table of f that has no
