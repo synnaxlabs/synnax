@@ -534,7 +534,7 @@ TEST(TextEncoder, RefuseConflictingFields) {
         message("cmd", {at("a", 4000000000)}),
         "message cmd: field a: position 4000000000 is past the last position 65535"
     );
-    EXPECT_NIL(TextEncoder::create(message("cmd", {at("a", 65535)})).second);
+    ASSERT_NIL_P(TextEncoder::create(message("cmd", {at("a", 65535)})));
     assert_encoder_refuses(
         message("cmd", {at("a", 0)}, "$SET"),
         "message cmd: field a: the prefix fills position 0"
