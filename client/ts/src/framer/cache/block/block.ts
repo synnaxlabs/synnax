@@ -313,6 +313,44 @@ export class Raw implements Block {
   }
 
   /**
+   * Drops the samples from the alignment on, and moves the coverage end back to at, so
+   * reads fetch the block again from there.
+   * @param alignment - The block alignment of the first sample to drop.
+   * @param at - The time of the sample at the alignment. Kept samples are before it.
+   */
+  truncate(alignment: bigint, at: TimeStamp): void {
+    this.split(alignment, at);
+    this._fetched = this._fetched.filter((s) => s.alignment < alignment);
+    const newest = this._fetched.at(-1);
+    if (newest?.timeRange.end.after(at) === true)
+      this._fetched[this._fetched.length - 1] = derive(newest, {
+        timeRange: new TimeRange(newest.timeRange.start, at),
+      });
+    this.coveredEnd = at;
+    this.coveredCount = offsetOf(alignment);
+    this.sealed = false;
+  }
+
+  /**
+   * @returns the block offset of the first index sample stamped at or after t, or null
+   * when the block's samples cannot tell it. Call it only on a block of an index
+   * channel.
+   */
+  indexOffset(t: TimeStamp): number | null {
+    if (!t.after(this.coveredStart)) return null;
+    if (!this.joined && this.coveredEnd.before(t)) return null;
+    const live = this.buffer?.leadingBuffer;
+    const series = (live == null ? this._fetched : [...this._fetched, live]).filter(
+      (s) => s.length > 0,
+    );
+    const v = t.valueOf();
+    const after = series.find((s) => BigInt(s.data[s.length - 1]) >= v);
+    if (after != null) return offsetOf(after.alignment) + search(after, v);
+    const last = series.at(-1);
+    return last == null ? null : offsetOf(last.alignment) + last.length;
+  }
+
+  /**
    * Adds the series of a fetch from coveredEnd. Samples the block already holds win.
    * @param series - The fetch's series in block alignment.
    * @param coveredEnd - The end of the span the fetch answers for.

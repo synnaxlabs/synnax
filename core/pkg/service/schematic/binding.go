@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -84,12 +85,14 @@ func (w Writer) checkBindings(
 
 // dropOrphans returns cfg without the bindings that a symbol with states and commands
 // orphans: a binding of a state or command that the symbol lacks, an override that the
-// type of its state lacks, and a command binding of a command that has a state.
+// type of its state lacks, and a command binding of a command that has a state. It
+// also reports whether it dropped any.
 func dropOrphans(
 	cfg SymbolNodeConfig,
 	states []symbol.State,
 	commands []symbol.Command,
-) SymbolNodeConfig {
+) (SymbolNodeConfig, bool) {
+	dropped := false
 	cfg.States = lo.FilterMap(
 		cfg.States,
 		func(b StateBinding, _ int) (StateBinding, bool) {
@@ -97,16 +100,21 @@ func dropOrphans(
 				return st.Base().Key == b.Key
 			})
 			if !ok {
+				dropped = true
 				return b, false
 			}
 			if _, ok = st.Variant.(symbol.NumberState); ok {
+				dropped = dropped || b.Enumeration != nil || b.Match != nil ||
+					b.Default != nil
 				b.Enumeration, b.Match, b.Default = nil, nil, nil
 			} else {
+				dropped = dropped || b.Bounds != nil
 				b.Bounds = nil
 			}
 			return b, true
 		},
 	)
+	n := len(cfg.Commands)
 	cfg.Commands = lo.Filter(cfg.Commands, func(b CommandBinding, _ int) bool {
 		cmd, ok := lo.Find(
 			commands,
@@ -114,7 +122,44 @@ func dropOrphans(
 		)
 		return ok && cmd.State == nil
 	})
-	return cfg
+	return cfg, dropped || len(cfg.Commands) != n
+}
+
+// removeOrphans drops, in tx, the bindings that sym orphans from each node that draws
+// sym, through a set node action for each node that it changes.
+func (s *Service) removeOrphans(
+	ctx context.Context,
+	tx gorp.Tx,
+	sym symbol.Symbol,
+) error {
+	var using []Schematic
+	if err := s.table.NewRetrieve().
+		Where(s.indexes.nodesConfigSpecKey.Filter(sym.Key)).
+		Entries(&using).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	w := s.NewWriter(tx)
+	for _, sc := range using {
+		var acts []Action
+		for _, n := range sc.Nodes {
+			cfg, ok := n.Config.Variant.(SymbolNodeConfig)
+			if !ok || cfg.Spec.Variant != (symbol.CustomRef{Key: sym.Key}) {
+				continue
+			}
+			if cfg, ok = dropOrphans(cfg, sym.Data.States, sym.Data.Commands); ok {
+				n.Config.Variant = cfg
+				acts = append(acts, NewSetNodeAction(SetNodePayload{Node: n}))
+			}
+		}
+		if len(acts) == 0 {
+			continue
+		}
+		if _, err := w.Apply(ctx, sc.Key, acts...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checked returns the config of n when n is a symbol node that checkBindings checks.
