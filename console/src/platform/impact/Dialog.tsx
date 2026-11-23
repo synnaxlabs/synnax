@@ -134,7 +134,7 @@ const hiddenBlockedOf = (hidden: number): FooterStatus => ({
     hidden === 1
       ? "A record you cannot see blocks the delete"
       : "Records you cannot see block the delete",
-  description: `Check "${hidden === 1 ? "Delete it too" : "Delete them too"}", or cancel.`,
+  description: `Check "${PICK_LABEL}", or cancel.`,
 });
 
 /** A plan with the records it names, as the dialog shows it. */
@@ -215,6 +215,65 @@ const useSpinner = (loading: boolean): boolean => {
   return shownAt != null;
 };
 
+/** The label of every check that deletes a blocking record too. */
+const PICK_LABEL = "Delete too";
+
+interface PickProps {
+  label: string;
+  /** nameID is the id of the text that names the record, read before the label. */
+  nameID?: string;
+  picked: boolean;
+  indeterminate?: boolean;
+  /** mark says why the record blocks, after a delete that did not pick it. */
+  mark?: string;
+  onChange: (picked: boolean) => void;
+}
+
+const Pick = ({
+  label,
+  nameID,
+  picked,
+  indeterminate,
+  mark,
+  onChange,
+}: PickProps): ReactElement => {
+  const id = useId();
+  // The check's name and description hold the label and mark, so a screen reader reads
+  // each once, on the check.
+  return (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
+      {mark != null && (
+        <Text.Text
+          id={`${id}-mark`}
+          level="small"
+          aria-hidden
+          className={CSS.BE("impact", "error")}
+        >
+          {mark}
+        </Text.Text>
+      )}
+      <Input.Checkbox
+        id={id}
+        aria-labelledby={nameID == null ? `${id}-label` : `${nameID} ${id}-label`}
+        aria-describedby={mark == null ? undefined : `${id}-mark`}
+        value={picked}
+        indeterminate={indeterminate}
+        onChange={onChange}
+      />
+      <Text.Text
+        el="label"
+        id={`${id}-label`}
+        htmlFor={id}
+        level="small"
+        aria-hidden
+        className={CSS.BE("impact", "label")}
+      >
+        {label}
+      </Text.Text>
+    </Flex.Box>
+  );
+};
+
 interface EntryProps {
   row: Row;
   index: number;
@@ -253,35 +312,37 @@ const Entry = ({
       </Text.Text>
       {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
       {entry.effect === "restrict" && (
-        <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
-          {unpicked && (
-            <Text.Text
-              id={`${id}-error`}
-              level="small"
-              className={CSS.BE("impact", "error")}
-            >
-              Uses the channel
-            </Text.Text>
-          )}
-          <Input.Checkbox
-            id={id}
-            aria-labelledby={`${id}-name ${id}-label`}
-            aria-describedby={unpicked ? `${id}-error` : undefined}
-            value={picked}
-            onChange={(v) => onPick([key], v)}
-          />
-          <Text.Text
-            el="label"
-            id={`${id}-label`}
-            htmlFor={id}
-            level="small"
-            className={CSS.BE("impact", "label")}
-          >
-            Delete too
-          </Text.Text>
-        </Flex.Box>
+        <Pick
+          label={PICK_LABEL}
+          nameID={`${id}-name`}
+          picked={picked}
+          mark={unpicked ? "Uses the channel" : undefined}
+          onChange={(v) => onPick([key], v)}
+        />
       )}
     </List.Item>
+  );
+};
+
+interface HiddenProps {
+  count: number;
+  /** pick is the check for the records, absent when the user picks nothing for them. */
+  pick?: Omit<PickProps, "label" | "nameID" | "indeterminate">;
+}
+
+/** A row for the records of a group that the user cannot see. */
+const Hidden = ({ count, pick }: HiddenProps): ReactElement => {
+  const id = useId();
+  return (
+    <Flex.Box x align="center" gap="medium" className={CSS.BE("impact", "hidden")}>
+      <span className={CSS.BE("impact", "icon")}>
+        <Icon.Hidden />
+      </span>
+      <Text.Text id={`${id}-name`} grow>
+        {count === 1 ? "1 record you cannot see" : `${count} records you cannot see`}
+      </Text.Text>
+      {pick != null && <Pick label={PICK_LABEL} nameID={`${id}-name`} {...pick} />}
+    </Flex.Box>
   );
 };
 
@@ -305,7 +366,6 @@ const Group = ({
   pickable,
   onPick,
 }: GroupProps): ReactElement => {
-  const allID = useId();
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
@@ -330,9 +390,9 @@ const Group = ({
             scrolls && CSS.BEM("impact", "all", "scrolls"),
           )}
         >
-          <Input.Checkbox
-            id={allID}
-            value={pickedCount === rows.length}
+          <Pick
+            label="Delete all too"
+            picked={pickedCount === rows.length}
             indeterminate={pickedCount > 0 && pickedCount < rows.length}
             onChange={(v) =>
               onPick(
@@ -341,14 +401,6 @@ const Group = ({
               )
             }
           />
-          <Text.Text
-            el="label"
-            htmlFor={allID}
-            level="small"
-            className={CSS.BE("impact", "label")}
-          >
-            Delete all too
-          </Text.Text>
         </Flex.Box>
       )}
       {open && (
@@ -433,7 +485,6 @@ const Dialog = ({
   close,
 }: Modals.ContentProps<DialogParams, impact.Plan>): ReactElement => {
   const client = Synnax.use();
-  const hiddenID = useId();
   const [picks, setPicks] = useState<Picks>({});
   const [hidden, setHidden] = useState(false);
   const [view, setView] = useState<View | null>(null);
@@ -523,8 +574,8 @@ const Dialog = ({
         message: blockedOf(blockers.length),
         description:
           blockers.length === 1
-            ? "Delete it too, or cancel."
-            : "Delete each one too, or cancel.",
+            ? `Check "${PICK_LABEL}", or cancel.`
+            : `Check "${PICK_LABEL}" on each one, or cancel.`,
       });
       return;
     }
@@ -647,45 +698,26 @@ const Dialog = ({
             onPick={handlePick}
           />
         )}
+        {plan != null && plan.hidden > 0 && (
+          <Hidden
+            count={plan.hidden}
+            pick={{
+              picked: hidden,
+              mark: hiddenBlocks
+                ? plan.hidden === 1
+                  ? "Uses the channel"
+                  : "Use the channel"
+                : undefined,
+              onChange: handleHidden,
+            }}
+          />
+        )}
         {plan != null && plan.kept > 0 && (
           <Text.Text level="small" color={9}>
             {plan.kept === 1
               ? "1 more record keeps a link and does not change."
               : `${plan.kept} more records keep a link and do not change.`}
           </Text.Text>
-        )}
-        {plan != null && plan.hidden > 0 && (
-          <Flex.Box x align="center" gap="small">
-            <Text.Text level="small" id={`${hiddenID}-count`}>
-              {plan.hidden === 1
-                ? "1 record you cannot see."
-                : `${plan.hidden} records you cannot see.`}
-            </Text.Text>
-            <Input.Checkbox
-              id={hiddenID}
-              aria-labelledby={`${hiddenID}-count ${hiddenID}-label`}
-              aria-describedby={hiddenBlocks ? `${hiddenID}-error` : undefined}
-              value={hidden}
-              onChange={handleHidden}
-            />
-            <Text.Text
-              el="label"
-              id={`${hiddenID}-label`}
-              htmlFor={hiddenID}
-              level="small"
-            >
-              {plan.hidden === 1 ? "Delete it too" : "Delete them too"}
-            </Text.Text>
-            {hiddenBlocks && (
-              <Text.Text
-                id={`${hiddenID}-error`}
-                level="small"
-                className={CSS.BE("impact", "error")}
-              >
-                {plan.hidden === 1 ? "Uses the channel" : "Use the channel"}
-              </Text.Text>
-            )}
-          </Flex.Box>
         )}
       </Modal.Body>
       <Modal.Footer>

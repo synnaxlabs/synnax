@@ -305,7 +305,7 @@ describe("channel/tree", () => {
       await clickDelete();
       await screen.findByText("Uses the channel");
       await screen.findByText("1 record blocks the delete");
-      screen.getByText("Delete it too, or cancel.");
+      screen.getByText('Check "Delete too", or cancel.');
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
       fireEvent.click(
         screen.getByRole("checkbox", { name: `${task.name} Delete too` }),
@@ -380,14 +380,14 @@ describe("channel/tree", () => {
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       fireEvent.click(await screen.findByText("Delete"));
-      await screen.findByText("1 record you cannot see.");
+      await screen.findByText("1 record you cannot see");
       expect(screen.queryByText("Blocks the delete")).toBeNull();
       await clickDelete();
       const blocked = "A record you cannot see blocks the delete";
       await screen.findByText(blocked);
-      screen.getByText('Check "Delete it too", or cancel.');
+      screen.getByText('Check "Delete too", or cancel.');
       const hidden = screen.getByRole("checkbox", {
-        name: "1 record you cannot see. Delete it too",
+        name: "1 record you cannot see Delete too",
       });
       expect(hidden).toHaveAccessibleDescription("Uses the channel");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
@@ -468,7 +468,7 @@ describe("channel/tree", () => {
       });
       fireEvent.click(await screen.findByText("Delete"));
       const hidden = await screen.findByRole("checkbox", {
-        name: "1 record you cannot see. Delete it too",
+        name: "1 record you cannot see Delete too",
       });
       // The plan needs retrieve on the channel, so losing it fails the next plan.
       await client.access.policies.delete(retrieve.key);
