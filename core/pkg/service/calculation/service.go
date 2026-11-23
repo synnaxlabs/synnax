@@ -68,18 +68,33 @@ type Service struct {
 	state    *actions.State[Key, Action]
 	channels *channel.Service
 	// checks holds the check of each action batch that a transaction attaches.
-	checks *gorp.Attachment[batchCheck]
+	checks *gorp.Attachment[batchCheck[Key]]
 	// outputChecks holds the check of each channel action batch that announces the
 	// calculation fields of an output.
-	outputChecks *gorp.Attachment[outputCheck]
+	outputChecks *gorp.Attachment[batchCheck[channel.Key]]
 }
 
-// batchCheck is the check of one action batch, from the calculation as the batch
-// leaves it.
-type batchCheck struct {
-	key   Key
-	seq   uint64
+// batchCheck checks one action batch by the calculation as the batch leaves it.
+type batchCheck[K comparable] struct {
+	id    batchID[K]
 	check StreamCheck
+}
+
+// batchID names one action batch by the key of its entry and its number.
+type batchID[K comparable] struct {
+	key K
+	seq uint64
+}
+
+// checksOf returns the check of each batch in attached, by its ID.
+func checksOf[K comparable](
+	attached []batchCheck[K],
+) map[batchID[K]]StreamCheck {
+	byBatch := make(map[batchID[K]]StreamCheck, len(attached))
+	for _, b := range attached {
+		byBatch[b.id] = b.check
+	}
+	return byBatch
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -93,8 +108,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes:      newIndexes(),
 		state:        actions.NewState[Key, Action](cfg.DB),
 		channels:     cfg.Channel,
-		checks:       gorp.NewAttachment[batchCheck](),
-		outputChecks: gorp.NewAttachment[outputCheck](),
+		checks:       gorp.NewAttachment[batchCheck[Key]](),
+		outputChecks: gorp.NewAttachment[batchCheck[channel.Key]](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -241,21 +256,11 @@ func refused(
 func (s *Service) BatchChecks(
 	c gorp.Commit,
 ) func(key Key, seq uint64) (StreamCheck, bool) {
-	attached := s.checks.Of(c)
-	byBatch := make(map[batchID]StreamCheck, len(attached))
-	for _, b := range attached {
-		byBatch[batchID{key: b.key, seq: b.seq}] = b.check
-	}
+	byBatch := checksOf(s.checks.Of(c))
 	return func(key Key, seq uint64) (StreamCheck, bool) {
-		check, ok := byBatch[batchID{key: key, seq: seq}]
+		check, ok := byBatch[batchID[Key]{key: key, seq: seq}]
 		return check, ok
 	}
-}
-
-// batchID names one action batch.
-type batchID struct {
-	key Key
-	seq uint64
 }
 
 // DeleteChecks returns the lookup of the check of each calculation that c deleted, by
