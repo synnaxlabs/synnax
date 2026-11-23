@@ -9,8 +9,7 @@
 
 import { and, desc, eq, inArray, lt, type SQL } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 
 /** listForLicense returns a license's audit events, newest first. */
 export const listForLicense = async (

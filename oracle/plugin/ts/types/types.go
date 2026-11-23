@@ -2569,7 +2569,10 @@ var primitiveZodTypes = map[string]primitiveMapping{
 		schema:   "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))",
 		xImports: []xImport{{name: "record", submodule: "record"}},
 	},
-	"bytes": {schema: "z.instanceof(Uint8Array)"},
+	"bytes": {
+		schema:   "binary.bytesZ",
+		xImports: []xImport{{name: "binary", submodule: "binary"}},
+	},
 }
 
 const (
@@ -2600,7 +2603,7 @@ var primitiveZodSchemaTypes = map[string]string{
 	"time_range_bounded": "typeof TimeRange.boundedZ",
 	"data_type":          "typeof DataType.z",
 	"record":             "z.ZodType",
-	"bytes":              "z.ZodType<Uint8Array>",
+	"bytes":              "typeof binary.bytesZ",
 }
 
 func primitiveToZodSchemaType(primitive string) string {
@@ -2796,6 +2799,9 @@ func (p *Plugin) applyValidation(
 	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
 	}
+	if effectiveType == "bytes" {
+		zodType = applyBytesRules(zodType, rules, data)
+	}
 	if isNumber {
 		zodType = applyNumberRules(zodType, rules, fieldName)
 	}
@@ -2858,6 +2864,23 @@ func validationType(
 		}
 	}
 	return effectiveType
+}
+
+// applyBytesRules bounds the decoded byte count, not the length of the base64 text.
+func applyBytesRules(
+	zodType string,
+	rules *validation.Rules,
+	data *templateData,
+) string {
+	if rules.MinLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.minBytes(%d))", zodType, *rules.MinLength)
+	}
+	if rules.MaxLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.maxBytes(%d))", zodType, *rules.MaxLength)
+	}
+	return zodType
 }
 
 func applyStringRules(

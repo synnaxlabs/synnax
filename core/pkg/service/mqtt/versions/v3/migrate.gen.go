@@ -19,25 +19,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateEdgeConfig(_ context.Context, old v2.EdgeConfig) (EdgeConfig, error) {
-	return EdgeConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Group:       old.Group,
-		EdgeNode:    old.EdgeNode,
-		Authority:   old.Authority,
-		Tags:        old.Tags,
-	}, nil
-}
-
-func autoMigrateReadConfig(_ context.Context, old v2.ReadConfig) (ReadConfig, error) {
-	return ReadConfig{
-		PersistConfig: old.PersistConfig,
-		Device:        old.Device,
-		Entries:       old.Entries,
-	}, nil
-}
-
 func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
 	targets, err := lo.MapErr(old.Targets, func(v v2.WriteTarget, _ int) (WriteTarget, error) {
 		return MigrateWriteTarget(ctx, v)

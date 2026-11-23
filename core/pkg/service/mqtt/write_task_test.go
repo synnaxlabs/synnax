@@ -113,7 +113,8 @@ var _ = Describe("Write task", func() {
 	}
 
 	// send writes fr to keys until check passes, because a streamer misses the frames
-	// written before it connects.
+	// written before it connects. Each write takes a copy, because the writer sets the
+	// alignment of each series in the frame it gets.
 	send := func(
 		ctx context.Context,
 		keys channel.Keys,
@@ -128,7 +129,7 @@ var _ = Describe("Write task", func() {
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
 		e := Eventually(func(g Gomega) {
-			g.Expect(w.Write(fr)).To(BeTrue())
+			g.Expect(w.Write(fr.ShallowCopy())).To(BeTrue())
 			check(g)
 		})
 		if len(intervals) > 0 {

@@ -117,25 +117,45 @@ func newRouter(messages []JSONMessage) (*router, error) {
 				match.Base().Pointer,
 			)
 		}
-		taken, value, typed := r.claimMatch(match, i, rounded)
-		if !typed {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "message %s: match type is required", m.Name,
-			)
-		}
-		if taken >= 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"messages %s and %s match the same value %s",
-				messages[taken].Name,
-				m.Name,
-				value,
-			)
+		if err := r.claim(messages, i, rounded); err != nil {
+			return nil, err
 		}
 	}
 	r.ruled = first >= 0
-	// A present rule at or above the pointer of another rule meets every document that
-	// the other rule meets.
+	if err := r.checkPresent(messages, first); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// claim routes the value that the match rule of message i meets to it. It returns an
+// error when the rule has no type or another message already claimed the value.
+func (r *router) claim(
+	messages []JSONMessage, i int, rounded map[float64]integer,
+) error {
+	m := messages[i]
+	taken, value, typed := r.claimMatch(*m.Payload.Match, i, rounded)
+	if !typed {
+		return errors.Wrapf(
+			validate.ErrValidation, "message %s: match type is required", m.Name,
+		)
+	}
+	if taken >= 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"messages %s and %s match the same value %s",
+			messages[taken].Name,
+			m.Name,
+			value,
+		)
+	}
+	return nil
+}
+
+// checkPresent returns an error when a present rule sits at or above the pointer of
+// another rule, since it meets every document that the other rule meets. first is the
+// first message with a value rule.
+func (r *router) checkPresent(messages []JSONMessage, first int) error {
 	for k, p := range r.present {
 		other, at := -1, xjson.Pointer(nil)
 		if r.ruled && within(r.pointer, p.pointer) {
@@ -147,7 +167,7 @@ func newRouter(messages []JSONMessage) (*router, error) {
 			}
 		}
 		if other >= 0 {
-			return nil, errors.Wrapf(
+			return errors.Wrapf(
 				validate.ErrValidation,
 				"messages %s and %s both match a value at %q",
 				messages[min(other, p.message)].Name,
@@ -156,7 +176,7 @@ func newRouter(messages []JSONMessage) (*router, error) {
 			)
 		}
 	}
-	return r, nil
+	return nil
 }
 
 // within reports whether inner is outer or a pointer into the value at outer.

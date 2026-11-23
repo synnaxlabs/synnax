@@ -336,23 +336,56 @@ var _ = Describe("LiftMessage", func() {
 		Expect(read.Bindings[0].Field).To(Equal(jsonFields(msg)[0].Base().Key))
 	})
 
-	It("Should name a field after its pointer and keep names unique", func() {
-		named := func(key, name, pointer string) v0.InlineField {
-			f := inlineField(telem.Float64T)
-			f.Key, f.Name, f.Pointer = key, name, pointer
-			return f
+	Describe("Field names", func() {
+		// lift returns the names that a lift gives fields of each name and pointer.
+		lift := func(fields ...[2]string) []string {
+			inline := make([]v0.InlineField, len(fields))
+			for i, f := range fields {
+				inline[i] = inlineField(telem.Float64T)
+				inline[i].Name, inline[i].Pointer = f[0], f[1]
+			}
+			msg, _ := v0.LiftMessage(inline, "", found, "e", note)
+			names := make([]string, 0, len(fields))
+			for _, f := range jsonFields(msg) {
+				names = append(names, f.Base().Name)
+			}
+			return names
 		}
-		msg, _ := v0.LiftMessage([]v0.InlineField{
-			named("f1", "", "/out/flow"),
-			named("f2", "level", "/a"),
-			named("f3", "level", "/b"),
-			named("f4", "", ""),
-		}, "", found, "e", note)
-		names := make([]string, 0, 4)
-		for _, f := range jsonFields(msg) {
-			names = append(names, f.Base().Name)
-		}
-		Expect(names).To(Equal([]string{"out/flow", "level", "level (2)", "value"}))
+
+		DescribeTable("Should name a field with no name by its pointer",
+			func(pointer, name string) {
+				Expect(lift([2]string{"", pointer})).To(Equal([]string{name}))
+			},
+			Entry("a top-level pointer", "/level", "level"),
+			Entry("a nested pointer", "/motor/speed", "motor_speed"),
+			Entry("escaped tokens", "/a~1b/c~0d", "a/b_c~d"),
+			Entry("the whole document", "", "value"),
+			Entry("a pointer to an empty key", "/", "value"),
+			Entry("a malformed pointer", "/a~2", "a~2"),
+		)
+
+		It("Should keep the name of a named field", func() {
+			Expect(lift([2]string{"flow", "/level"})).To(Equal([]string{"flow"}))
+		})
+
+		It("Should number each name that is taken", func() {
+			Expect(lift(
+				[2]string{"", "/out/flow"},
+				[2]string{"level", "/a"},
+				[2]string{"level", "/b"},
+				[2]string{"", ""},
+				[2]string{"value", "/x"},
+			)).To(Equal([]string{"out_flow", "level", "level_2", "value", "value_2"}))
+		})
+
+		It("Should number a name that is taken as a channel name", func() {
+			Expect(lift(
+				[2]string{"a b", ""},
+				[2]string{"a_b", ""},
+				[2]string{"", "/1st"},
+				[2]string{"_1st", ""},
+			)).To(Equal([]string{"a b", "a_b_2", "1st", "_1st_2"}))
+		})
 	})
 
 	It("Should note each change at the path of its field", func() {

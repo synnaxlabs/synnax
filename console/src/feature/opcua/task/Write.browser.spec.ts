@@ -275,19 +275,19 @@ describe("Write structure members", () => {
     const motor = createVariableNode();
     const valve = createVariableNode("float32");
     const root = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [motor, valve] },
     });
     await renderWrite({ client, taskKey: draft.key });
     await root.answered;
     const members = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [createMember(motor, "Speed", "float64")] },
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(valve.name, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(valve.name, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,

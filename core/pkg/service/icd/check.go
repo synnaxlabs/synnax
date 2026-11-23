@@ -118,37 +118,9 @@ func (c *checker) checkMessage(path []string, m Message) {
 	)
 	switch p := m.Payload.Variant.(type) {
 	case BinaryPayload:
-		binary := make(map[FieldKey]BinaryField, len(p.Fields))
-		for i, f := range p.Fields {
-			if f.Variant == nil {
-				untyped.Add(i)
-				continue
-			}
-			c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
-			binary[f.Base().Key] = f
-		}
-		for i, f := range p.Fields {
-			if f.Variant != nil && f.Base().Multiplexor != nil {
-				c.checkMultiplexor(pathOf(path, "fields", strconv.Itoa(i)), f, binary)
-			}
-		}
-		c.checkOverlaps(pathOf(path, "fields"), p.Fields)
-		c.checkIdentifier(path, p, binary)
+		c.checkBinaryPayload(path, p, untyped)
 	case TextPayload:
-		for i, f := range p.Fields {
-			fieldPath := pathOf(path, "fields", strconv.Itoa(i))
-			switch v := f.Variant.(type) {
-			case nil:
-				untyped.Add(i)
-			case TaggedTextField:
-				if v.Tag == "" {
-					c.addf(pathOf(fieldPath, "tag"), "tag is required")
-				}
-			}
-			if d := f.Base().Default; d != nil && !xmath.Finite(*d) {
-				c.addf(pathOf(fieldPath, "default"), "default must be finite")
-			}
-		}
+		c.checkTextFields(path, p, untyped)
 	case JSONPayload:
 		if p.Match != nil {
 			c.checkMatch(pathOf(path, "match"), *p.Match)
@@ -157,6 +129,67 @@ func (c *checker) checkMessage(path []string, m Message) {
 	case nil:
 		return
 	}
+	c.checkFieldBases(path, bases, untyped, unscaled)
+}
+
+// checkBinaryPayload adds the indices of fields with no encoding to untyped.
+func (c *checker) checkBinaryPayload(
+	path []string, p BinaryPayload, untyped set.Set[int],
+) {
+	binary := make(map[FieldKey]BinaryField, len(p.Fields))
+	for i, f := range p.Fields {
+		if f.Variant == nil {
+			untyped.Add(i)
+			continue
+		}
+		c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
+		binary[f.Base().Key] = f
+	}
+	for i, f := range p.Fields {
+		if f.Variant != nil && f.Base().Multiplexor != nil {
+			c.checkMultiplexor(pathOf(path, "fields", strconv.Itoa(i)), f, binary)
+		}
+	}
+	c.checkOverlaps(pathOf(path, "fields"), p.Fields)
+	c.checkIdentifier(path, p, binary)
+}
+
+// checkTextFields adds the indices of fields with no type to untyped.
+func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[int]) {
+	for i, f := range p.Fields {
+		fieldPath := pathOf(path, "fields", strconv.Itoa(i))
+		switch v := f.Variant.(type) {
+		case nil:
+			untyped.Add(i)
+		case TaggedTextField:
+			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
+		}
+		if d := f.Base().Default; d != nil && !xmath.Finite(*d) {
+			c.addf(pathOf(fieldPath, "default"), "default must be finite")
+		}
+	}
+}
+
+// textSpace is the text that the Driver trims from around each item of a line.
+const textSpace = " \t\r"
+
+// checkTag refuses a tag that the Driver cannot match in an item of a line split on
+// delimiter.
+func (c *checker) checkTag(path []string, tag, delimiter string) {
+	switch {
+	case tag == "":
+		c.addf(path, "tag is required")
+	case delimiter != "" && strings.Contains(tag, delimiter):
+		c.addf(path, "the tag contains the delimiter %q", delimiter)
+	case strings.IndexByte(textSpace, tag[0]) >= 0:
+		c.addf(path, "the tag starts with whitespace")
+	}
+}
+
+// checkFieldBases checks the keys, names, and scaling of every typed field in bases.
+func (c *checker) checkFieldBases(
+	path []string, bases []BaseField, untyped, unscaled set.Set[int],
+) {
 	keys := make(set.Set[FieldKey], len(bases))
 	names := make(set.Set[string], len(bases))
 	for i, b := range bases {

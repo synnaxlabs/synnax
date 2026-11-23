@@ -200,13 +200,18 @@ Add a target, or enable one.
 <Problem.Item message={"target ...: channel ... does not exist"}>
 <Problem.Cause>
 
-The command channel of a target was deleted.
+The command channel of a target was deleted, or a channel binding of a plain target has
+no channel (`channel` is 0).
 
 </Problem.Cause>
 <Problem.Fix>
 
-Remove the target, then add it again with **Add targets**. The Console creates a new
-command channel when you start the task.
+For a Sparkplug B tag, remove the target, then add it again with **Add targets**. The
+Console creates a new command channel when you start the task.
+
+For a plain target, start the task in the Console. The Console creates a command channel
+for each binding that has no channel. When a channel was deleted, bind its field to an
+existing command channel in Python.
 
 </Problem.Fix>
 </Problem.Item>

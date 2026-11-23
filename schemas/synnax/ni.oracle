@@ -518,6 +518,7 @@ MinMaxVal struct {
     min_val float64 = 0 {
         @default group "range"
         @doc value     "is the minimum expected value, in scaled units."
+        @go validate   lt max_val "Minimum value must be less than maximum value"
     }
     max_val float64 = 1 {
         @default group "range"

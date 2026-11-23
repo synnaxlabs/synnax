@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
@@ -132,9 +133,11 @@ func (s *Service) Stores() []config.Store {
 
 // readServiceConfig returns the config of the read task config service.
 func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
+	channels := icd.ReadChannels(cfg.Channel)
 	resolver := readResolver{
 		icds:     cfg.ICD,
-		channels: icd.ReadChannels(cfg.Channel),
+		channels: channels,
+		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}
 	return config.ServiceConfig[ReadConfig]{

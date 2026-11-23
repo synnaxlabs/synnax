@@ -32,6 +32,7 @@ Device struct {
     name           string                             {
         @doc value         "is a human-readable name for the device."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -61,10 +62,11 @@ Device struct {
         @ref on_delete cascade
     }
     identifier     string = "" {
-        @doc value """
+        @doc value   """
             is the prefix of the device's channel names. The device is unconfigured
             while it is empty.
         """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
     analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."
@@ -237,10 +239,11 @@ Configuration struct {
         @validate required
     }
     identifier     string = "" {
-        @doc value """
+        @doc value   """
             is the prefix of the device's channel names. The device is unconfigured
             while it is empty.
         """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
     analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."

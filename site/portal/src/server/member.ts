@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 import {
   ADMIN_ROLE,
   type Directory,

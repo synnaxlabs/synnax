@@ -37,11 +37,13 @@ trap 'docker kill "$name" > /dev/null 2>&1 || true' INT TERM EXIT
 # The image joins every action key, so the remote cache never serves a tool that a host
 # build linked against a newer glibc. NI Linux Real-Time ships an older libstdc++ than
 # GCC 13, so binaries link libstdc++ and libgcc statically. Bazel's toolchain names
-# -lstdc++ itself, so -static-libstdc++ alone has no effect.
+# -lstdc++ itself, so -static-libstdc++ alone has no effect. An -O3 compile of a Driver
+# file takes up to 2 GB, so eight at once fill the 16 GB of an Ubuntu build bot. Bazel
+# rates a compile at a fixed small amount of memory, so only --jobs limits them.
 docker run --rm --init --name "$name" --user "$(id -u):$(id -g)" \
     --env HOME="$root" --env USER=runner \
     --volume "$PWD:$PWD" --volume "$root:$root" --workdir "$PWD" "$image" \
-    bazel --output_user_root="$root/bazel" "$command" \
+    bazel --output_user_root="$root/bazel" "$command" --jobs=4 \
     --action_env=BUILD_IMAGE="$key" --host_action_env=BUILD_IMAGE="$key" \
     --repo_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm --linkopt=-static-libgcc "$@" &
 wait $!

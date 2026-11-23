@@ -95,6 +95,18 @@ th,
     font-weight: var(--pluto-p-weight);
 }
 
+/* Undoes the browser's centered popover box, so a popover keeps the place and box its
+   own rules give it. */
+[popover] {
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    overflow: visible;
+    color: inherit;
+    background-color: transparent;
+}
+
 @keyframes fade-in-zoom {
     0% {
         opacity: 0;

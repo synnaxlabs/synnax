@@ -454,6 +454,28 @@ describe("Enumeration.Settings", () => {
     expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
   });
 
+  it("should keep the users and Replace while the replace runs", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    const user = await createSelectUser(from.key);
+    await renderEnumerations();
+    const dialog = await openDelete(from.name);
+    expect(
+      await within(await dialog.findByLabelText("Users")).findByText(user.name),
+    ).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    // The replace stays in flight until the Core's answer is released.
+    const { release } = holdResponses(client, "/enumeration/replace");
+    await clickWhenEnabled(dialog, "Replace");
+    expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
+    expect(within(dialog.getByLabelText("Users")).getByText(user.name)).toBeTruthy();
+    expect(dialog.getByText(/Each of these moves/)).toBeTruthy();
+    release();
+    await waitForDialogToClose();
+    await expect
+      .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
+      .toMatchObject({ variant: "select", enumeration: to.key });
+  });
+
   it("should delete every checked enumeration from the menu of one", async () => {
     const checked = [await createEnumeration(), await createEnumeration()];
     await renderEnumerations();

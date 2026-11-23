@@ -19,10 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { use, useFromConfig } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
-import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { Device } from "@/feature/mqtt/device";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { namePrefix } from "@/feature/mqtt/task/entries";
@@ -53,7 +50,7 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 /** The name deploying gives a tag's command channel while it has none. */
 const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
@@ -65,7 +62,7 @@ interface TagChannelNameProps {
 }
 
 const TagChannelName = ({ itemKey, target }: TagChannelNameProps) => {
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   return (
     <Task.ChannelName
       channel={target.channel}
@@ -210,7 +207,7 @@ const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[]
         : { ...target, key: id.create() },
     );
 
-const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
   const targets = PForm.useFieldListUtils(root.config.targets);
@@ -275,21 +272,21 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 };
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
 
 /**
  * Gives each channel binding of target with channel 0 a command channel: the one that
  * dev stores for its field, or a new one. A new channel takes the data type of the
- * binding, or the default of its field's kind when the binding names none. Updates the
- * write properties of dev in place.
+ * binding, or the default of its field when the binding names none. Updates the write
+ * properties of dev in place.
  */
 const configureBindings = async (
   client: Synnax,
-  dev: Device,
+  dev: Device.Device,
   target: PlainWriteTarget,
 ): Promise<void> => {
   const unbound = target.message.bindings.filter(
@@ -310,7 +307,7 @@ const configureBindings = async (
       propertiesKey: `${target.topic}#${binding.field}`,
       channel: binding.channel,
       name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
-      dataType: ICD.bindingDataType(binding, field.type),
+      dataType: ICD.bindingDataType(binding, field),
     });
   }
 };
@@ -319,7 +316,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
@@ -342,7 +342,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

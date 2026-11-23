@@ -14,6 +14,7 @@ bazel_dep(name = "abseil-cpp", version = "20260817.0")
 # Nothing loads apple_support. It registers the macOS C++ toolchain, which accepts the
 # Xcode 27 SDK that the rules_cc default rejects. Other modules bring it in today.
 bazel_dep(name = "apple_support", version = "2.12.0")
+bazel_dep(name = "asio", version = "1.34.2.bcr.1")
 
 # The one TLS library. gRPC, curl, and cpp-httplib all use it by default. This is a
 # minimum: versions after it declare ASN1_STRING_get_length, which curl 8.23.0 also

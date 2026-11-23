@@ -188,6 +188,15 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
+		It("Should reject a null read entry", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"entries": []any{nil},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("entries.0.type: required"),
+			))
+		})
+
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
@@ -428,7 +437,7 @@ var _ = Describe("Service", func() {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdEntry("plant/x", f.ic, read)}
 			}, "entries.0.messages.0.bindings.0.channel",
-				"only the index field can write to index channel"),
+				"because only the index field can. Move field ts into its own message"),
 			Entry("a channel that two entries write", func(f format) []map[string]any {
 				return []map[string]any{
 					icdEntry(
@@ -462,6 +471,25 @@ var _ = Describe("Service", func() {
 				}
 			}, "entries.1.channel", "is also written by "+
 				"entries.0.messages.0.bindings.0.channel"),
+			Entry("a channel that a later entry also writes",
+				func(f format) []map[string]any {
+					return []map[string]any{
+						{
+							"key":       "tag",
+							"type":      "sparkplug",
+							"group":     "plant",
+							"edge_node": "line1",
+							"tag":       "temp",
+							"channel":   f.value.Key(),
+						},
+						icdEntry(
+							"plant/a",
+							f.ic,
+							readMessage(f.m, binding(f.m, 1, f.value)),
+						),
+					}
+				}, "entries.1.messages.0.bindings.0.channel", "is also written by "+
+					"entries.0.channel"),
 		)
 
 		Describe("Import", func() {
@@ -838,6 +866,21 @@ var _ = Describe("Service", func() {
 				))
 			},
 		)
+
+		It("Should reject a null binding", func(ctx SpecContext) {
+			_, _, target := createSetpoint(ctx)
+			message, ok := target["message"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			bindings, ok := message["bindings"].([]any)
+			Expect(ok).To(BeTrue())
+			message["bindings"] = append(bindings, nil)
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("targets.0.message.bindings.1.type: required"),
+			))
+		})
 
 		Describe("Fixed values", func() {
 			// fixedTarget returns a target that sends the value field from a channel

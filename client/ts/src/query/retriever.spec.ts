@@ -209,7 +209,9 @@ describe("Retriever", () => {
 
     it("serves a cached entry without a network fetch", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
-      const client = new Client(newCache(), fetchKeys, async () => []);
+      const cache = newCache();
+      const client = new Client(cache, fetchKeys, async () => []);
+      await cache.ensureStreaming();
       client.store.set([thing("a")]);
       const result = await client.retrieve({ key: "a" });
       expect(result).toEqual(thing("a"));
@@ -344,7 +346,9 @@ describe("Retriever", () => {
       const fetchRequest = vi.fn(async (req: Request) =>
         [thing("a", 5), thing("b", 9)].filter((t) => t.size >= (req.minSize ?? 0)),
       );
-      const client = new Client(newCache(), async () => [], fetchRequest);
+      const cache = newCache();
+      const client = new Client(cache, async () => [], fetchRequest);
+      await cache.ensureStreaming();
       const results = await client.retrieve({ minSize: 6 });
       expect(results).toEqual([thing("b", 9)]);
       expect(client.store.get("b")).toEqual(thing("b", 9));
@@ -355,7 +359,9 @@ describe("Retriever", () => {
       const fetchRequest = vi.fn(
         async () => await new Promise<Thing[]>((resolve) => (release = resolve)),
       );
-      const client = new Client(newCache(), async () => [], fetchRequest);
+      const cache = newCache();
+      const client = new Client(cache, async () => [], fetchRequest);
+      await cache.ensureStreaming();
       const pending = client.retrieve({ minSize: 1 });
       await vi.waitFor(() => expect(fetchRequest).toHaveBeenCalledTimes(1));
       client.store.set([{ ...thing("a"), name: "renamed" }]);

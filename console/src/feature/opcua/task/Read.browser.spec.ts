@@ -114,7 +114,7 @@ const retrieveChannels = async (key: string) =>
   (await client.tasks.retrieve({ key, schemas: OPCUA.Task.READ_SCHEMAS })).config
     .channels;
 
-const createFolder = (): OPCUA.Task.ScannedNode => {
+const createFolder = (): OPCUA.Device.ScannedNode => {
   const name = uniqueName("Line").replace(/_/g, "");
   return {
     key: `ns=1;s=${name}`,
@@ -130,13 +130,13 @@ const createFolder = (): OPCUA.Task.ScannedNode => {
 // Renders a draft whose device sits on a running rack, with a browser that lists only
 // the node.
 const renderWithNode = async (
-  node: OPCUA.Task.ScannedNode,
+  node: OPCUA.Device.ScannedNode,
   channels: OPCUA.Task.ReadChannel[],
 ) => {
   const { scan, device } = await createScannedDevice(client);
   const draft = await createDraft(client, createReadConfig(device.key, channels));
   const root = await answerNextCommand(client, scan, {
-    type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+    type: OPCUA.Device.BROWSE_COMMAND_TYPE,
     data: { channels: [node] },
   });
   const statuses: Status.NotificationSpec[] = [];
@@ -516,7 +516,7 @@ describe("Read", () => {
           name: "motor_time",
         },
         {
-          key: OPCUA.Task.nodeIdentity({ nodeId, field: "Speed" }),
+          key: OPCUA.Device.nodeIdentity({ nodeId, field: "Speed" }),
           nodeName: `${motor}.Speed`,
           nodeId,
           field: "Speed",
@@ -536,7 +536,7 @@ describe("Read", () => {
     const { scan, draft, statuses, device } = await renderWithNode(folder, [held]);
     const pressure = `${folder.nodeId}.Tank.Pressure`;
     const search = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       data: {
         channels: [
           {
@@ -562,7 +562,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     const { args } = await search.answered;
     expect(args).toMatchObject({ device: device.key, nodeId: folder.nodeId });
     expect(args).not.toHaveProperty("connection");
@@ -610,14 +610,14 @@ describe("Read", () => {
       path,
     });
     await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       data: {
         channels: [variable(["Tank", "Pressure"]), variable(["Tank_Pressure"])],
         truncated: false,
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     fireEvent.click(await screen.findByRole("button", { name: "Add" }));
     await waitFor(async () =>
       expect((await retrieveChannels(draft.key)).map((ch) => ch.nodeName)).toEqual([
@@ -635,14 +635,14 @@ describe("Read", () => {
     const secondNode = createFolder();
     const draft = await createDraft(client, createReadConfig(first.device.key, []));
     const firstRoot = await answerNextCommand(client, first.scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [firstNode] },
     });
     await renderRead({ client, taskKey: draft.key });
     await firstRoot.answered;
     await screen.findByText(firstNode.name);
     const secondRoot = await answerNextCommand(client, second.scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [secondNode] },
     });
     fireEvent.click(await findDialogTriggerByText(first.device.name));
@@ -659,7 +659,7 @@ describe("Read", () => {
     const held = createReadChannel();
     const draft = await createDraft(client, createReadConfig(first.device.key, [held]));
     const root = await answerNextCommand(client, first.scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [folder] },
     });
     const statuses: Status.NotificationSpec[] = [];
@@ -672,17 +672,17 @@ describe("Read", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     let search: task.Command;
     try {
-      await dragNode(folder.name, held.nodeName);
+      await dragNode(folder.name, held);
       search = await awaitCommand(
         streamer,
         first.scan.key,
-        OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+        OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       );
     } finally {
       streamer.close();
     }
     const secondRoot = await answerNextCommand(client, second.scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [] },
     });
     fireEvent.click(await findDialogTriggerByText(first.device.name));
@@ -724,10 +724,10 @@ describe("Read", () => {
     const held = createReadChannel();
     const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       data: { channels: [], truncated: false, skipped: [] },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -747,14 +747,14 @@ describe("Read", () => {
     const held = createReadChannel();
     const { scan } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: true,
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -769,14 +769,14 @@ describe("Read", () => {
     const held = createReadChannel();
     const { scan } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: false,
         skipped: ["ns=1;s=A: Access denied.", "ns=1;s=B: Access denied."],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -791,11 +791,11 @@ describe("Read", () => {
     const held = createReadChannel();
     const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_VARIABLES_COMMAND_TYPE,
       variant: "error",
       message: "Failed to browse",
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -817,7 +817,7 @@ describe("Read", () => {
     const held = createReadChannel();
     const { scan, draft } = await renderWithNode(node, [held]);
     const read = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
       data: { node, nodeClass: "Variable", browseName: node.name, readable: true },
     });
     fireEvent.click(await screen.findByText(node.name));
@@ -876,13 +876,13 @@ describe("Read structure members", () => {
     const draft = await createDraft(client, createReadConfig(device.key, [held]));
     const motor = createVariableNode();
     const root = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: { channels: [motor] },
     });
     await renderRead({ client, taskKey: draft.key });
     await root.answered;
     const members = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      type: OPCUA.Device.BROWSE_COMMAND_TYPE,
       data: {
         channels: [
           createMember(motor, "Speed", "float64"),
@@ -892,9 +892,9 @@ describe("Read structure members", () => {
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(`${motor.name}.Torque`, held.nodeName);
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(`${motor.name}.Torque`, held);
+    await dragNode(`${motor.name}.Speed`, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,
