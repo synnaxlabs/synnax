@@ -595,6 +595,14 @@ var _ = Describe("ValidateSpec", func() {
 			To(MatchError(ContainSubstring("invalid format spec")))
 	})
 
+	It("rejects a precision above one million", func() {
+		Expect(literal.FmtStrValidateSpec(".1000000f", types.F64())).To(Succeed())
+		Expect(literal.FmtStrValidateSpec(".1000001f", types.F64())).
+			To(MatchError(ContainSubstring("exceeds")))
+		Expect(literal.FmtStrValidateSpec("99999999999999999999.2f", types.F64())).
+			To(MatchError(ContainSubstring("exceeds")))
+	})
+
 	It("errors on an unconstrained type variable", func() {
 		Expect(literal.FmtStrValidateSpec("d", types.Variable("T", nil))).
 			To(MatchError(ContainSubstring("cannot format type")))

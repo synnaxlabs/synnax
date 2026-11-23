@@ -466,6 +466,7 @@ TEST(StrModule, FormatF32MatchesGoFmtSprintf) {
     EXPECT_EQ(call_format<float>(f, "call_format_f32", 1e-7f, "G"), "1E-07");
 }
 
+/// @brief it should keep float output that is longer than 128 bytes.
 TEST(StrModule, FormatF64KeepsOutputLongerThanOneHundredTwentyEightBytes) {
     StrModuleFixture f;
     char expected[512];
