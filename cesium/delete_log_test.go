@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/binary"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -241,6 +243,35 @@ var _ = Describe("Delete on the pointer log", func() {
 		Expect(series[0]).To(telem.MatchSeriesDataV("a"))
 		Expect(series[1]).To(telem.MatchSeriesDataV("dddd"))
 	})
+
+	DescribeTable(
+		"Should cut a pointer of several blocks of stamps on a block edge and "+
+			"inside a block",
+		func(ctx SpecContext, start, end int) {
+			// perBlock is the number of stamps in a block of a clock segment.
+			const perBlock = segment.BlockSize / 8
+			seconds := make([]telem.TimeStamp, 3*perBlock+1000)
+			for i := range seconds {
+				seconds[i] = telem.TimeStamp(i + 1)
+			}
+			// The series of write scales its stamps in place.
+			write(ctx, slices.Clone(seconds)...)
+			Expect(db.DeleteTimeRange(ctx, keys, span(seconds[start], seconds[end]))).
+				To(Succeed())
+			want := make([]int64, 0, len(seconds))
+			for i, s := range seconds {
+				if i < start || i >= end {
+					want = append(want, int64(s))
+				}
+			}
+			Expect(values(ctx, data)).To(Equal(want))
+			Expect(values(ctx, idx)).To(Equal(want))
+		},
+		Entry("left on an edge, right inside", 2*segment.BlockSize/8,
+			2*segment.BlockSize/8+100),
+		Entry("left inside, right on an edge", 8000, segment.BlockSize/8),
+		Entry("in blocks far apart", 100, 3*segment.BlockSize/8+5),
+	)
 
 	It("Should unlink a segment that a delete leaves empty once no reader pins it",
 		func(ctx SpecContext) {
