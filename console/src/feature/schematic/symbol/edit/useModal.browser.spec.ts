@@ -290,6 +290,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, handle };
     };
 
+    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("unzoomed"));
+      const { previewViewport: _, ...data } = payload.data;
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data,
+        group: grp.key,
+      });
+      expect(symbol.data.previewViewport).toBeUndefined();
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
+          zoom: 1.2,
+          position: { x: 0, y: 0 },
+        }),
+      );
+    });
+
     it("saves a new region and its color on a symbol with no state", async () => {
       const { symbol, handle } = await openEditModal();
       const item = handle.baseElement.querySelector<HTMLElement>(
