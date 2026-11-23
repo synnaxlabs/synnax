@@ -33,6 +33,7 @@ import {
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
+import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -59,13 +60,20 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
+  const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const createParams = (): Schematic.AddNodeProps => ({
     key: id.create(),
-    config: { variant },
+    config:
+      FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant) && spec != null
+        ? {
+            variant: "symbol",
+            spec: { type: "builtin", name: variant },
+            label: { label: spec.label ?? spec.name },
+          }
+        : { variant },
   });
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
-  const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
@@ -133,9 +141,15 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const createParams = (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
+  const createParams = (): Schematic.AddNodeProps => ({
     key: id.create(),
-    config: { variant, specKey: itemKey },
+    config: FLAGS.symbolNodes
+      ? {
+          variant: "symbol",
+          spec: { type: "custom", key: itemKey },
+          label: { label: symbol?.name },
+        }
+      : { variant, specKey: itemKey },
   });
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
