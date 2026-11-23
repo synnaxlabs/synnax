@@ -11,12 +11,12 @@ import { type Context, Timeout, Unreachable } from "@synnaxlabs/freighter";
 import { errors, id, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { errorsMiddleware } from "@/errors";
 import {
   AccessDeniedError,
   AuthError,
   ContiguityError,
   ControlError,
-  errorsMiddleware,
   ExpiredLicenseError,
   InvalidLicenseError,
   InvalidTokenError,
