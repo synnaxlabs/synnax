@@ -21,7 +21,7 @@ import {
   type ControlPosition,
   NodeResizeControl,
   ResizeControlVariant,
-  useStore,
+  useNodesStore,
 } from "@xyflow/react";
 import {
   Children,
@@ -41,7 +41,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { selectNode } from "@/vis/diagram/util";
+import { Diagram } from "@/vis/diagram";
 
 type DraggableElement = ReactElement<{
   style?: CSSProperties;
@@ -177,7 +177,7 @@ const RESIZE_CONTROLS: {
 const RESIZE_OVERLAY_CLASS = CSS.B("resize-overlay");
 
 const reflowPane = (nodeKey: string) => {
-  const node = selectNode(nodeKey);
+  const node = Diagram.selectNode(nodeKey);
   const nearestDiagram = node.closest(".react-flow__pane");
   if (nearestDiagram != null) triggerReflow(nearestDiagram as HTMLElement);
 };
@@ -289,7 +289,7 @@ export const Grid: FC<GridProps> = ({
     reflowPane(nodeKey);
   }, [editable, nodeKey]);
   // Non-draggable symbols are grouped; their rotate and resize affordances hide too.
-  const locked = useStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
+  const locked = useNodesStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
   const resizeOverlayStyle: CSSProperties = { cursor: resizeCursor ?? undefined };
   const { items, body } = splitChildren(children);

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { patch } from "@synnaxlabs/x";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -18,7 +18,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/group/actions.gen";
-import { type Group } from "@/group/types.gen";
+import type { Group } from "@/group/types.gen";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.
 const documentZ = z.object({ name: z.string() });

@@ -15,10 +15,10 @@ import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Primitive } from "@/schematic/node/common/primitive";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { ButtonProps } from "@/schematic/node/common/toggle/Button";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 

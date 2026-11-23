@@ -137,6 +137,21 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+// RetrieveBuiltinsResponse holds the built-in symbols.
+type RetrieveBuiltinsResponse struct {
+	// Builtins are the symbols that the Core ships, with their states and commands.
+	Builtins []symbol.Builtin `json:"builtins" msgpack:"builtins"`
+}
+
+// RetrieveBuiltins returns the symbols that the Core ships. Any signed-in subject can
+// read them.
+func (s *Service) RetrieveBuiltins(
+	context.Context,
+	struct{},
+) (RetrieveBuiltinsResponse, error) {
+	return RetrieveBuiltinsResponse{Builtins: symbol.Builtins()}, nil
+}
+
 // DeleteRequest carries the keys of the symbols to delete.
 type DeleteRequest struct {
 	// Keys identify the symbols to delete.

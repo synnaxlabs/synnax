@@ -921,8 +921,9 @@ var _ = Describe("Variable-length channel", func() {
 					)).To(Succeed())
 
 					Expect(
-						dataDB.Delete(
+						deleteRange(
 							ctx,
+							dataDB,
 							(302 * telem.SecondTS).Range(304*telem.SecondTS),
 						),
 					).To(Succeed())
@@ -967,8 +968,9 @@ var _ = Describe("Variable-length channel", func() {
 					)).To(Succeed())
 
 					Expect(
-						gcDB.Delete(
+						deleteRange(
 							ctx,
+							gcDB,
 							(502 * telem.SecondTS).Range(504*telem.SecondTS),
 						),
 					).To(Succeed())

@@ -94,9 +94,13 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: {
     name: "",
     data: {
-      svg: "",
-      states: [],
+      drawing: { type: "svg", markup: "" },
+      parts: [],
       handles: [],
+      states: [],
+      commands: [],
+      looks: [],
+      interactions: [],
       variant: "static",
       scale: 1,
       strokeScaled: false,

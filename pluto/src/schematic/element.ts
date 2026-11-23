@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
-import { type color } from "@synnaxlabs/x";
+import type { theme } from "@synnaxlabs/lyra/theme";
+import type { color } from "@synnaxlabs/x";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
@@ -33,7 +33,9 @@ export const colorFallback = (
   key: Node.ColorKey,
   variant: schematic.ElementConfigType,
   theme: theme.Theme,
+  series: color.Color[],
 ): color.Color =>
   (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
     theme,
+    series,
   );

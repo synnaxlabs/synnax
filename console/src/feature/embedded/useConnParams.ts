@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SynnaxParams } from "@synnaxlabs/client";
+import type { SynnaxParams } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { useStatus } from "@/feature/embedded/Provider";
-import { type Connection } from "@/feature/embedded/supervisor";
+import type { Connection } from "@/feature/embedded/supervisor";
 
 /** The name of the embedded Core record. */
 export const NAME = "Synnax";

@@ -159,7 +159,7 @@ class Codec:
         ref_align = None
         byte_array_size = start_offset + _FLAGS_SIZE + _SEQ_NUM_SIZE
 
-        if len(sorted_keys) != len(self._curr_state.keys):
+        if sorted_keys != self._curr_state.keys:
             flg.all_channels_present = False
             byte_array_size += len(sorted_keys) * _KEY_SIZE
 

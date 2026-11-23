@@ -9,7 +9,7 @@
 
 import "@/modal/Footer.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Nav } from "@/nav";
