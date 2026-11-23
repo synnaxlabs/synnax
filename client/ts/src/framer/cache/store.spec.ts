@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { alignmentOf, type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
 import { UnexpectedError } from "@/index";
 import { ManualClock } from "@/testutil";
@@ -45,7 +45,7 @@ const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
   ...overrides,
 });
 
-const BLOCK = tileRange({ level: RAW_LEVEL, index: 100 });
+const BLOCK = grid.tileRange({ level: RAW_LEVEL, index: 100 });
 
 // Returns a piece of float32 values at the block offset, stamped one second apart from
 // the start of raw block 100.

@@ -10,7 +10,7 @@
 import type { bounds } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { buildInsertionPlan } from "@/framer/cache/insertion";
+import { insertion } from "@/framer/cache/insertion";
 
 const plan = (
   removeBefore: number,
@@ -19,7 +19,7 @@ const plan = (
   deleteInBetween: number,
 ) => ({ removeBefore, removeAfter, insertInto, deleteInBetween });
 
-describe("buildInsertionPlan", () => {
+describe("buildPlan", () => {
   const SPECS: Array<
     [string, bounds.Crude[], bounds.Crude, ReturnType<typeof plan> | null]
   > = [
@@ -95,12 +95,12 @@ describe("buildInsertionPlan", () => {
   ];
   SPECS.forEach(([name, ordered, value, expected]) => {
     it(`should ${name}`, () => {
-      expect(buildInsertionPlan(ordered, value)).toEqual(expected);
+      expect(insertion.buildPlan(ordered, value)).toEqual(expected);
     });
   });
 
   it("should plan bigint bounds", () => {
-    expect(buildInsertionPlan<bigint>([[0n, 10n]], [5n, 15n])).toEqual(
+    expect(insertion.buildPlan<bigint>([[0n, 10n]], [5n, 15n])).toEqual(
       plan(5, 0, 1, 0),
     );
   });

@@ -10,7 +10,10 @@
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { test } from "vitest";
 
-import { choose, indexes, level, pointLimit, type Position } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
+
+// Reading the namespace once keeps its export getters out of the measured calls.
+const { choose, indexes, level, pointLimit } = grid;
 
 // A line source runs each of these several times per frame.
 
@@ -38,13 +41,15 @@ test("grid", async ({ bench }) => {
   );
 });
 
-const SLOTS = indexes(HOUR, HOUR_LEVEL).map((index) => ({ level: HOUR_LEVEL, index }));
+const SLOTS = grid
+  .indexes(HOUR, HOUR_LEVEL)
+  .map((index) => ({ level: HOUR_LEVEL, index }));
 
-const positions = (l: number, from: number, count: number): Position[] =>
+const positions = (l: number, from: number, count: number): grid.Position[] =>
   Array.from({ length: count }, (_, i) => ({ level: l, index: from + i }));
 
 // below returns every tile depth levels finer than the slots.
-const below = (depth: number): Position[] =>
+const below = (depth: number): grid.Position[] =>
   positions(HOUR_LEVEL - depth, SLOTS[0].index * 2 ** depth, SLOTS.length * 2 ** depth);
 
 // The held tiles of a view settled at its level, of a zoom in that waits on the new

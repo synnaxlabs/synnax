@@ -121,7 +121,7 @@ const overlaps = (spans: Span[], span: Span): boolean => {
  * Holds the index samples that time a data channel's samples. A data sample shares its
  * alignment with the index sample written with it.
  */
-export class IndexStamps {
+export class Index {
   // series is sorted by alignment, and no two series overlap.
   private series: Series[] = [];
 
