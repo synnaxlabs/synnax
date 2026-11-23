@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v1"
-import "schemas/synnax/versions/ethercat/v3"
 import "schemas/synnax/versions/ethercat_master/v0"
 import "schemas/synnax/versions/rack/v3"
 import "schemas/synnax/versions/status/v2"
@@ -86,10 +85,106 @@ ReadBinding struct {
         @doc value "is whether the channel holds the calibrated samples of the entry."
     }
     channel    channel.Key {
-        @doc value "is the channel that holds the samples of the entry."
+        @doc value         "is the channel that holds the samples of the entry."
+        @validate required
     }
 
     @doc value  "is the channel that a slave maps for one input entry."
+    @go marshal
+}
+
+StartupParameterBase struct {
+    index     uint16 {
+        @doc value "is the CoE object dictionary index of the object."
+    }
+    sub_index uint8  {
+        @doc value "is the CoE object dictionary sub-index of the object."
+    }
+    name      string = "" {
+        @doc value "is what the parameter sets, for display."
+    }
+
+    @doc value  "carries the fields that every startup parameter shares."
+    @go marshal
+}
+
+StartupParameter union on data_type extends StartupParameterBase {
+    int8 {
+        value int8 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a int8 value."
+    }
+    int16 {
+        value int16 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a int16 value."
+    }
+    int32 {
+        value int32 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a int32 value."
+    }
+    int64 {
+        value int64 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a int64 value."
+    }
+    uint8 {
+        value uint8 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a uint8 value."
+    }
+    uint16 {
+        value uint16 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a uint16 value."
+    }
+    uint32 {
+        value uint32 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a uint32 value."
+    }
+    uint64 {
+        value uint64 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a uint64 value."
+    }
+    float32 {
+        value float32 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a float32 value."
+    }
+    float64 {
+        value float64 {
+            @doc value "is the value written to the object."
+        }
+
+        @doc value "writes a float64 value."
+    }
+
+    @doc value  """
+        is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+        moves to SAFE-OP. Its data type sets the size of the write and the type of its
+        value.
+    """
     @go marshal
 }
 
@@ -100,8 +195,9 @@ WriteBinding struct {
     sub_index uint8       {
         @doc value "is the CoE object dictionary sub-index of the output entry."
     }
-    command   channel.Key = 0 {
-        @doc value "is the channel that commands the entry. 0 is no channel."
+    command   channel.Key {
+        @doc value         "is the channel that commands the entry."
+        @validate required
     }
     state     channel.Key = 0 {
         @doc value "is the channel that holds the state of the entry. 0 is no channel."
@@ -116,10 +212,10 @@ Slave struct {
         @doc value "uniquely identifies the slave."
         @key
     }
-    rack               rack.Key                    {
+    rack               rack.Key            {
         @doc value "is the key of the rack the slave is connected to."
     }
-    name               string                      {
+    name               string              {
         @doc value         "is a human-readable name for the slave."
         @validate required
     }
@@ -129,31 +225,32 @@ Slave struct {
         """
         @validate max 9007199254740991
     }
-    vendor_id          uint32                      {
+    vendor_id          uint32              {
         @doc value "is the EtherCAT vendor ID of the slave."
     }
-    product_code       uint32                      {
+    product_code       uint32              {
         @doc value "is the product code of the slave."
     }
-    revision           uint32                      {
+    revision           uint32              {
         @doc value "is the revision number of the slave."
     }
-    master             ethercat_master.Key         {
+    master             ethercat_master.Key {
         @doc value "is the master on whose bus the slave sits."
     }
     pdos               PDOs = {} {
         @doc value "are the PDO entries that the scan found on the slave."
     }
     identifier         string = "" {
-        @doc value """
+        @doc value   """
             is the prefix of the slave's channel names. The slave is unconfigured while
             it is empty.
         """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
     disabled           bool = false {
         @doc value "is whether the Driver leaves the slave out of the tasks it runs."
     }
-    startup_parameters ethercat.StartupParameter[] = [] {
+    startup_parameters StartupParameter[] = [] {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
     }
     read_index         channel.Key = 0 {
@@ -168,7 +265,7 @@ Slave struct {
     write_bindings     WriteBinding[] = [] {
         @doc value "are the channels of the output entries."
     }
-    status             Status?                     {
+    status             Status?             {
         @doc value  "is the current operational status of the slave."
         @go marshal omit
     }

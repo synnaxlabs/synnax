@@ -47,10 +47,17 @@ describe("slaveZ", () => {
       },
       readBindings: [{ index: 0x6000, subIndex: 0x11, channel: 7 }],
       writeBindings: [{ index: 0x7000, subIndex: 1, command: 8 }],
+      startupParameters: [
+        { index: 0x8000, subIndex: 1, dataType: "uint16", value: 500 },
+      ],
     });
     expect(slave.pdos.inputs[0].pdoName).toEqual("");
     expect(slave.readBindings[0].scaled).toBe(false);
     expect(slave.writeBindings[0].state).toEqual(0);
+    expect(slave.startupParameters[0]).toMatchObject({
+      dataType: "uint16",
+      value: 500,
+    });
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -58,6 +65,18 @@ describe("slaveZ", () => {
     ["no master", { master: undefined }],
     ["no vendor ID", { vendorId: undefined }],
     ["no revision", { revision: undefined }],
+    [
+      "a write binding without a command",
+      { writeBindings: [{ index: 0x7000, subIndex: 1 }] },
+    ],
+    [
+      "a startup value that the data type cannot hold",
+      {
+        startupParameters: [
+          { index: 0x8000, subIndex: 1, dataType: "uint8", value: 256 },
+        ],
+      },
+    ],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(ethercat.slave.slaveZ.safeParse({ ...SLAVE, ...change }).success).toBe(

@@ -31,6 +31,74 @@ type PDOs = versions.PDOs
 // ReadBinding is the channel that a slave maps for one input entry.
 type ReadBinding = versions.ReadBinding
 
+// StartupParameterBase carries the fields that every startup parameter shares.
+type StartupParameterBase = versions.StartupParameterBase
+
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+// the slave moves to SAFE-OP. Its data type sets the size of the write and the type of
+// its value.
+type StartupParameter = versions.StartupParameter
+
+// StartupParameterVariant is implemented by every StartupParameter variant.
+type StartupParameterVariant = versions.StartupParameterVariant
+
+// StartupParameterType is the "data_type" value that selects a variant of
+// StartupParameter.
+type StartupParameterType = versions.StartupParameterType
+
+const (
+	// Int8StartupParameterType writes a int8 value.
+	Int8StartupParameterType StartupParameterType = versions.Int8StartupParameterType
+	// Int16StartupParameterType writes a int16 value.
+	Int16StartupParameterType StartupParameterType = versions.Int16StartupParameterType
+	// Int32StartupParameterType writes a int32 value.
+	Int32StartupParameterType StartupParameterType = versions.Int32StartupParameterType
+	// Int64StartupParameterType writes a int64 value.
+	Int64StartupParameterType StartupParameterType = versions.Int64StartupParameterType
+	// Uint8StartupParameterType writes a uint8 value.
+	Uint8StartupParameterType StartupParameterType = versions.Uint8StartupParameterType
+	// Uint16StartupParameterType writes a uint16 value.
+	Uint16StartupParameterType StartupParameterType = versions.Uint16StartupParameterType
+	// Uint32StartupParameterType writes a uint32 value.
+	Uint32StartupParameterType StartupParameterType = versions.Uint32StartupParameterType
+	// Uint64StartupParameterType writes a uint64 value.
+	Uint64StartupParameterType StartupParameterType = versions.Uint64StartupParameterType
+	// Float32StartupParameterType writes a float32 value.
+	Float32StartupParameterType StartupParameterType = versions.Float32StartupParameterType
+	// Float64StartupParameterType writes a float64 value.
+	Float64StartupParameterType StartupParameterType = versions.Float64StartupParameterType
+)
+
+// Int8StartupParameter writes a int8 value.
+type Int8StartupParameter = versions.Int8StartupParameter
+
+// Int16StartupParameter writes a int16 value.
+type Int16StartupParameter = versions.Int16StartupParameter
+
+// Int32StartupParameter writes a int32 value.
+type Int32StartupParameter = versions.Int32StartupParameter
+
+// Int64StartupParameter writes a int64 value.
+type Int64StartupParameter = versions.Int64StartupParameter
+
+// Uint8StartupParameter writes a uint8 value.
+type Uint8StartupParameter = versions.Uint8StartupParameter
+
+// Uint16StartupParameter writes a uint16 value.
+type Uint16StartupParameter = versions.Uint16StartupParameter
+
+// Uint32StartupParameter writes a uint32 value.
+type Uint32StartupParameter = versions.Uint32StartupParameter
+
+// Uint64StartupParameter writes a uint64 value.
+type Uint64StartupParameter = versions.Uint64StartupParameter
+
+// Float32StartupParameter writes a float32 value.
+type Float32StartupParameter = versions.Float32StartupParameter
+
+// Float64StartupParameter writes a float64 value.
+type Float64StartupParameter = versions.Float64StartupParameter
+
 // WriteBinding is the pair of channels that a slave maps for one output entry.
 type WriteBinding = versions.WriteBinding
 

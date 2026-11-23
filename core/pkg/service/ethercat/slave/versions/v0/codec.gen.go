@@ -13,9 +13,9 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	ethercat "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -258,7 +258,7 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.StartupParameters = make([]ethercat.StartupParameter, n)
+			s.StartupParameters = make([]StartupParameter, n)
 			for i := range s.StartupParameters {
 				if err = s.StartupParameters[i].DecodeOrc(r); err != nil {
 					return err
@@ -315,6 +315,201 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sp StartupParameter) EncodeOrc(w *orc.Writer) error {
+	switch v := sp.Variant.(type) {
+	case Int8StartupParameter:
+		w.String("int8")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int8(int8(v.Value))
+	case Int16StartupParameter:
+		w.String("int16")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int16(int16(v.Value))
+	case Int32StartupParameter:
+		w.String("int32")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int32(int32(v.Value))
+	case Int64StartupParameter:
+		w.String("int64")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int64(int64(v.Value))
+	case Uint8StartupParameter:
+		w.String("uint8")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint8(uint8(v.Value))
+	case Uint16StartupParameter:
+		w.String("uint16")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint16(uint16(v.Value))
+	case Uint32StartupParameter:
+		w.String("uint32")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint32(uint32(v.Value))
+	case Uint64StartupParameter:
+		w.String("uint64")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint64(uint64(v.Value))
+	case Float32StartupParameter:
+		w.String("float32")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float32(float32(v.Value))
+	case Float64StartupParameter:
+		w.String("float64")
+		if err := v.StartupParameterBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.Value))
+	default:
+		return errors.Newf("StartupParameter: nil or unknown variant %T", sp.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sp *StartupParameter) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "int8":
+		var v Int8StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Int8(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "int16":
+		var v Int16StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Int16(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "int32":
+		var v Int32StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Int32(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "int64":
+		var v Int64StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Int64(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "uint8":
+		var v Uint8StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Uint8(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "uint16":
+		var v Uint16StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Uint16(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "uint32":
+		var v Uint32StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Uint32(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "uint64":
+		var v Uint64StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Uint64(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "float32":
+		var v Float32StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Float32(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	case "float64":
+		var v Float64StartupParameter
+		if err := v.StartupParameterBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Float64(); err != nil {
+			return err
+		}
+		sp.Variant = v
+	default:
+		return errors.Newf("StartupParameter: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (spb StartupParameterBase) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(spb.Index))
+	w.Uint8(uint8(spb.SubIndex))
+	w.String(spb.Name)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (spb *StartupParameterBase) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if spb.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if spb.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	if spb.Name, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }

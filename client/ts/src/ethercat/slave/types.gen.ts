@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ethercatMaster } from "@/ethercat/master";
-import * as ethercat from "@/ethercat/types.gen";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
@@ -49,9 +48,20 @@ export const readBindingZ = z.object({
   /** calibrated is whether the channel holds the calibrated samples of the entry. */
   calibrated: z.boolean().default(false),
   /** channel is the channel that holds the samples of the entry. */
-  channel: channel.keyZ,
+  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
+
+/** StartupParameterBase carries the fields that every startup parameter shares. */
+export const startupParameterBaseZ = z.object({
+  /** index is the CoE object dictionary index of the object. */
+  index: zod.uint16,
+  /** subIndex is the CoE object dictionary sub-index of the object. */
+  subIndex: zod.uint8,
+  /** name is what the parameter sets, for display. */
+  name: z.string().default(""),
+});
+export interface StartupParameterBase extends z.infer<typeof startupParameterBaseZ> {}
 
 /** WriteBinding is the pair of channels that a slave maps for one output entry. */
 export const writeBindingZ = z.object({
@@ -59,8 +69,8 @@ export const writeBindingZ = z.object({
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the output entry. */
   subIndex: zod.uint8,
-  /** command is the channel that commands the entry. 0 is no channel. */
-  command: channel.keyZ.default(0),
+  /** command is the channel that commands the entry. */
+  command: channel.keyZ.refine((v) => v !== 0, "command is required"),
   /** state is the channel that holds the state of the entry. 0 is no channel. */
   state: channel.keyZ.default(0),
 });
@@ -77,6 +87,155 @@ export const pdOsZ = z.object({
   outputs: pdoEntryZ.array().default(() => []),
 });
 export interface PDOs extends z.infer<typeof pdOsZ> {}
+
+/** Int8StartupParameter writes a int8 value. */
+export const int8StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("int8"),
+  /** value is the value written to the object. */
+  value: zod.int8,
+});
+export interface Int8StartupParameter extends z.infer<typeof int8StartupParameterZ> {}
+
+/** Int16StartupParameter writes a int16 value. */
+export const int16StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("int16"),
+  /** value is the value written to the object. */
+  value: zod.int16,
+});
+export interface Int16StartupParameter extends z.infer<typeof int16StartupParameterZ> {}
+
+/** Int32StartupParameter writes a int32 value. */
+export const int32StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("int32"),
+  /** value is the value written to the object. */
+  value: z.int32(),
+});
+export interface Int32StartupParameter extends z.infer<typeof int32StartupParameterZ> {}
+
+/** Int64StartupParameter writes a int64 value. */
+export const int64StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("int64"),
+  /** value is the value written to the object. */
+  value: z.number(),
+});
+export interface Int64StartupParameter extends z.infer<typeof int64StartupParameterZ> {}
+
+/** Uint8StartupParameter writes a uint8 value. */
+export const uint8StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("uint8"),
+  /** value is the value written to the object. */
+  value: zod.uint8,
+});
+export interface Uint8StartupParameter extends z.infer<typeof uint8StartupParameterZ> {}
+
+/** Uint16StartupParameter writes a uint16 value. */
+export const uint16StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("uint16"),
+  /** value is the value written to the object. */
+  value: zod.uint16,
+});
+export interface Uint16StartupParameter extends z.infer<
+  typeof uint16StartupParameterZ
+> {}
+
+/** Uint32StartupParameter writes a uint32 value. */
+export const uint32StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("uint32"),
+  /** value is the value written to the object. */
+  value: z.uint32(),
+});
+export interface Uint32StartupParameter extends z.infer<
+  typeof uint32StartupParameterZ
+> {}
+
+/** Uint64StartupParameter writes a uint64 value. */
+export const uint64StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("uint64"),
+  /** value is the value written to the object. */
+  value: z.number(),
+});
+export interface Uint64StartupParameter extends z.infer<
+  typeof uint64StartupParameterZ
+> {}
+
+/** Float32StartupParameter writes a float32 value. */
+export const float32StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("float32"),
+  /** value is the value written to the object. */
+  value: z.number(),
+});
+export interface Float32StartupParameter extends z.infer<
+  typeof float32StartupParameterZ
+> {}
+
+/** Float64StartupParameter writes a float64 value. */
+export const float64StartupParameterZ = startupParameterBaseZ.extend({
+  dataType: z.literal("float64"),
+  /** value is the value written to the object. */
+  value: z.number(),
+});
+export interface Float64StartupParameter extends z.infer<
+  typeof float64StartupParameterZ
+> {}
+
+export const STARTUP_PARAMETER_TYPES = [
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float32",
+  "float64",
+] as const;
+export const startupParameterTypeZ = z.enum(STARTUP_PARAMETER_TYPES);
+export type StartupParameterType = z.infer<typeof startupParameterTypeZ>;
+
+/**
+ * StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+ * the slave moves to SAFE-OP. Its data type sets the size of the write and the type of
+ * its value.
+ */
+export const startupParameterZ = z.discriminatedUnion("dataType", [
+  int8StartupParameterZ,
+  int16StartupParameterZ,
+  int32StartupParameterZ,
+  int64StartupParameterZ,
+  uint8StartupParameterZ,
+  uint16StartupParameterZ,
+  uint32StartupParameterZ,
+  uint64StartupParameterZ,
+  float32StartupParameterZ,
+  float64StartupParameterZ,
+]);
+export type StartupParameter =
+  | Int8StartupParameter
+  | Int16StartupParameter
+  | Int32StartupParameter
+  | Int64StartupParameter
+  | Uint8StartupParameter
+  | Uint16StartupParameter
+  | Uint32StartupParameter
+  | Uint64StartupParameter
+  | Float32StartupParameter
+  | Float64StartupParameter;
+
+export const STARTUP_PARAMETER_SCHEMAS: {
+  [K in StartupParameterType]: z.ZodType<Extract<StartupParameter, { dataType: K }>>;
+} = {
+  int8: int8StartupParameterZ,
+  int16: int16StartupParameterZ,
+  int32: int32StartupParameterZ,
+  int64: int64StartupParameterZ,
+  uint8: uint8StartupParameterZ,
+  uint16: uint16StartupParameterZ,
+  uint32: uint32StartupParameterZ,
+  uint64: uint64StartupParameterZ,
+  float32: float32StartupParameterZ,
+  float64: float64StartupParameterZ,
+};
 
 /** StatusDetails identifies the slave and rack that a status pertains to. */
 export const statusDetailsZ = z.object({
@@ -118,7 +277,7 @@ export const slaveZ = z.object({
   /** disabled is whether the Driver leaves the slave out of the tasks it runs. */
   disabled: z.boolean().default(false),
   /** startupParameters are the CoE objects the Driver writes to the slave in PRE-OP. */
-  startupParameters: ethercat.startupParameterZ.array().default(() => []),
+  startupParameters: startupParameterZ.array().default(() => []),
   /** readIndex is the index channel of the channels that the slave reads into. */
   readIndex: channel.keyZ.default(0),
   /**

@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
-from synnax.ethercat import master as master_, types_gen
+from synnax.ethercat import master as master_
 from synnax.resource import ID
 from x import telem
 
@@ -61,7 +61,21 @@ class ReadBinding(BaseModel):
     sub_index: int = Field(ge=0, le=255)
     scaled: bool = False
     calibrated: bool = False
-    channel: channel_.Key = Field(ge=0, le=4294967295)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class StartupParameterBase(BaseModel):
+    """Carries the fields that every startup parameter shares.
+
+    Attributes:
+        index: Is the CoE object dictionary index of the object.
+        sub_index: Is the CoE object dictionary sub-index of the object.
+        name: Is what the parameter sets, for display.
+    """
+
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    name: str = ""
 
 
 class WriteBinding(BaseModel):
@@ -70,13 +84,13 @@ class WriteBinding(BaseModel):
     Attributes:
         index: Is the CoE object dictionary index of the output entry.
         sub_index: Is the CoE object dictionary sub-index of the output entry.
-        command: Is the channel that commands the entry. 0 is no channel.
+        command: Is the channel that commands the entry.
         state: Is the channel that holds the state of the entry. 0 is no channel.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command: channel_.Key = Field(gt=0, le=4294967295)
     state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
@@ -103,6 +117,93 @@ class PDOs(BaseModel):
     inputs: list[PDOEntry] = Field(default_factory=list)
     outputs: list[PDOEntry] = Field(default_factory=list)
 
+
+class Int8StartupParameter(StartupParameterBase):
+    """Writes a int8 value."""
+
+    data_type: Literal["int8"] = "int8"
+    value: int = Field(ge=-128, le=127)
+
+
+class Int16StartupParameter(StartupParameterBase):
+    """Writes a int16 value."""
+
+    data_type: Literal["int16"] = "int16"
+    value: int = Field(ge=-32768, le=32767)
+
+
+class Int32StartupParameter(StartupParameterBase):
+    """Writes a int32 value."""
+
+    data_type: Literal["int32"] = "int32"
+    value: int = Field(ge=-2147483648, le=2147483647)
+
+
+class Int64StartupParameter(StartupParameterBase):
+    """Writes a int64 value."""
+
+    data_type: Literal["int64"] = "int64"
+    value: int = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class Uint8StartupParameter(StartupParameterBase):
+    """Writes a uint8 value."""
+
+    data_type: Literal["uint8"] = "uint8"
+    value: int = Field(ge=0, le=255)
+
+
+class Uint16StartupParameter(StartupParameterBase):
+    """Writes a uint16 value."""
+
+    data_type: Literal["uint16"] = "uint16"
+    value: int = Field(ge=0, le=65535)
+
+
+class Uint32StartupParameter(StartupParameterBase):
+    """Writes a uint32 value."""
+
+    data_type: Literal["uint32"] = "uint32"
+    value: int = Field(ge=0, le=4294967295)
+
+
+class Uint64StartupParameter(StartupParameterBase):
+    """Writes a uint64 value."""
+
+    data_type: Literal["uint64"] = "uint64"
+    value: int = Field(ge=0, le=18446744073709551615)
+
+
+class Float32StartupParameter(StartupParameterBase):
+    """Writes a float32 value."""
+
+    data_type: Literal["float32"] = "float32"
+    value: float
+
+
+class Float64StartupParameter(StartupParameterBase):
+    """Writes a float64 value."""
+
+    data_type: Literal["float64"] = "float64"
+    value: float
+
+
+# Is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+# moves to SAFE-OP. Its data type sets the size of the write and the type of its
+# value.
+StartupParameter = Annotated[
+    Int8StartupParameter
+    | Int16StartupParameter
+    | Int32StartupParameter
+    | Int64StartupParameter
+    | Uint8StartupParameter
+    | Uint16StartupParameter
+    | Uint32StartupParameter
+    | Uint64StartupParameter
+    | Float32StartupParameter
+    | Float64StartupParameter,
+    Field(discriminator="data_type"),
+]
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
@@ -144,7 +245,7 @@ class Slave(BaseModel):
     pdos: PDOs = Field(default_factory=lambda: PDOs())
     identifier: str = ""
     disabled: bool = False
-    startup_parameters: list[types_gen.StartupParameter] = Field(default_factory=list)
+    startup_parameters: list[StartupParameter] = Field(default_factory=list)
     read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     write_state_index: channel_.Key = Field(
         default=channel_.Key(0), ge=0, le=4294967295
