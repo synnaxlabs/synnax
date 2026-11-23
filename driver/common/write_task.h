@@ -187,6 +187,14 @@ public:
     }
 };
 
+/// @brief the warning a write task shows when the Core dropped commands sent to it. It
+/// holds until the task restarts or another warning replaces it.
+inline const Warning MISSED_COMMANDS{
+    .message = "Missed commands",
+    .description = "The task fell behind, so the Core dropped commands sent to it. "
+                   "Check the state of the outputs, and send the commands again.",
+};
+
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
 class WriteTask final : public driver::task::Task {
@@ -207,12 +215,16 @@ class WriteTask final : public driver::task::Task {
         /// @brief true while the status shows the warning or temporary error of the
         /// latest write.
         bool write_warned = false;
+        /// @brief true while the status shows MISSED_COMMANDS. A clean write does not
+        /// clear it, so the operator sees it.
+        bool missed_shown = false;
 
         /// @brief shows warning as the task status, or clears the warning status when
         /// warning is empty. Logs a warning that differs from the last one. Requires
         /// logged_mu.
         void show_locked(const Warning &warning) {
             if (warning.empty()) {
+                if (this->missed_shown) return;
                 this->logged_warning = {};
                 this->p.state.clear_warning();
                 return;
@@ -221,6 +233,7 @@ class WriteTask final : public driver::task::Task {
                 LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
                              << warning.description;
             this->logged_warning = warning;
+            this->missed_shown = warning == MISSED_COMMANDS;
             this->p.state.send_warning(warning.message, warning.description);
         }
 
@@ -233,6 +246,7 @@ class WriteTask final : public driver::task::Task {
             std::lock_guard lock(this->logged_mu);
             this->logged_warning = {};
             this->write_warned = false;
+            this->missed_shown = false;
         }
 
         /// @brief shows the held warning of the internal sink. An empty held warning
@@ -268,6 +282,11 @@ class WriteTask final : public driver::task::Task {
             this->show_held();
         }
 
+        void missed() override {
+            std::lock_guard lock(this->logged_mu);
+            this->show_locked(MISSED_COMMANDS);
+        }
+
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
@@ -275,6 +294,7 @@ class WriteTask final : public driver::task::Task {
             std::lock_guard lock(this->logged_mu);
             if (err) {
                 this->logged_warning = {};
+                this->missed_shown = false;
                 this->write_warned = err.matches(errors::TEMPORARY_HARDWARE_ERROR);
                 if (this->write_warned)
                     this->p.state.send_warning("Failed to write commands", err.data);

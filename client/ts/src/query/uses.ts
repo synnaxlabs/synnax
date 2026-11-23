@@ -10,8 +10,9 @@
 import { type destructor, type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import type { Cache } from "@/query/cache";
+import { isOffline } from "@/query/offline";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
 import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
 import type { Params } from "@/query/types";
@@ -123,6 +124,8 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   private named: Set<string> | "all" = new Set();
   /** The members of each maintained query that asks for uses. */
   private readonly watchers = new Set<() => readonly K[]>();
+  /** The keys of records that this client is creating and the table does not hold. */
+  private readonly creating = new Set<K>();
   private readonly refetch: () => void;
 
   constructor(cfg: UsesConfig<K, R, Q>) {
@@ -135,7 +138,10 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     store.hold({ held: () => this.watched() });
     // A record created again under a deleted key reads its uses again.
     table.subscribe((event) => {
-      if (event.variant !== "delete") return;
+      if (event.variant === "set") {
+        this.creating.delete(event.key);
+        return;
+      }
       store.evict(event.key);
       if (this.deletes.inFlight > 0) this.deletes.at.set(event.key, ++this.deletes.seq);
     });
@@ -152,7 +158,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
         await this.refetchWatched();
       }).catch((exc: unknown) => {
         // The refetch after the next reconnect fetches the uses again.
-        if (isConnectionError(exc)) return;
+        if (isOffline(exc)) return;
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
     }, REFETCH_DEBOUNCE);
@@ -163,10 +169,16 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       this.refetch();
     };
     listenReferenceChanges(cache, cfg.type, onChange);
-    // A reopened stream missed the changes made while it was down.
+    // Uses fetched before the stream went live may have missed a change. Only those
+    // held now refetch, since a later fetch reads them live.
     cache.onEpoch((epoch) => {
-      if (epoch > 1) onChange("all");
+      if (epoch === 0) return;
+      this.changes.count++;
+      if (store.keys().length === 0) return;
+      this.named = "all";
+      this.refetch();
     });
+    cache.onMissed(() => onChange("all"));
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),
@@ -230,11 +242,17 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
 
   /**
    * Records that the records with the keys have no uses, since this client is creating
-   * them. A query that asks for uses then lists them with no fetch.
+   * them. A query that asks for uses then lists them with no fetch. The uses stay held
+   * until the table holds the records.
    * @returns a destructor that restores the uses that the client held before.
    */
   created(keys: K[]): destructor.Destructor {
-    return this.store.set(keys.map((key) => ({ key, uses: [] })));
+    keys.forEach((key) => this.creating.add(key));
+    const restore = this.store.set(keys.map((key) => ({ key, uses: [] })));
+    return () => {
+      keys.forEach((key) => this.creating.delete(key));
+      restore();
+    };
   }
 
   /**
@@ -255,7 +273,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   }
 
   private watched(): Set<K> {
-    const watched = new Set<K>();
+    const watched = new Set<K>(this.creating);
     this.watchers.forEach((members) => members().forEach((key) => watched.add(key)));
     return watched;
   }

@@ -27,13 +27,7 @@ import { describe, expect, it } from "vitest";
 import type { channel } from "@/channel";
 import type { framer } from "@/framer";
 import { RAW_LEVEL, rawTile } from "@/framer/cache/block";
-import {
-  level as tileLevel,
-  pointLimit as tilePointLimit,
-  tileAt,
-  tileRange,
-  tileSpan,
-} from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Points, type PointsProps } from "@/framer/cache/points";
@@ -70,7 +64,7 @@ const isTile = (tr: TimeRange): boolean => {
   const level = Math.log2(Number(tr.span.valueOf() / TimeSpan.MILLISECOND.valueOf()));
   return (
     Number.isInteger(level) &&
-    tileRange({ level, tile: tileAt(tr.start, level) }).equals(tr)
+    grid.tileRange({ level, tile: grid.tileAt(tr.start, level) }).equals(tr)
   );
 };
 
@@ -198,10 +192,10 @@ describe("Points", () => {
       });
       const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
       const span = TimeSpan.minutes(2);
-      const level = tileLevel(new TimeRange(START, START.add(span)));
-      const tile = tileRange({
+      const level = grid.level(new TimeRange(START, START.add(span)));
+      const tile = grid.tileRange({
         level,
-        tile: tileAt(START.add(span.mult(2)), level),
+        tile: grid.tileAt(START.add(span.mult(2)), level),
       });
       const limitAt = (end: TimeStamp): framer.PointsLimit => ({
         ...TILED,
@@ -573,9 +567,9 @@ describe("Points", () => {
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         const view = new TimeRange(START, core.now());
-        const level = tileLevel(view);
-        const coarsest = tilePointLimit({
-          tile: { level, tile: tileAt(START, level) },
+        const level = grid.level(view);
+        const coarsest = grid.pointLimit({
+          tile: { level, tile: grid.tileAt(START, level) },
           view,
           points: TILED.count,
           drawn: "min_max",
@@ -804,7 +798,7 @@ describe("Points", () => {
       const points = subscribe(core.data[0].key, window, TILED);
       try {
         await expect.poll(() => raw.length, POLL).toBeGreaterThan(0);
-        const edge = core.now().sub(tileSpan(RAW_LEVEL).mult(2));
+        const edge = core.now().sub(grid.tileSpan(RAW_LEVEL).mult(2));
         raw.forEach((tr) =>
           expect(tr.start.valueOf()).toBeGreaterThanOrEqual(edge.valueOf()),
         );
@@ -828,7 +822,7 @@ describe("Points", () => {
       });
       const window = dynamicWindow(TimeSpan.days(30));
       const points = subscribe(core.data[0].key, window, TILED);
-      const block = tileSpan(RAW_LEVEL);
+      const block = grid.tileSpan(RAW_LEVEL);
       try {
         for (let i = 0; i < 8; i++) {
           await expect.poll(() => points.value().status.variant, POLL).toBe("success");
@@ -1273,8 +1267,8 @@ describe("Points", () => {
       });
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
-        const level = tileLevel(view);
-        const last = tileRange({ level, tile: tileAt(bound.end, level) });
+        const level = grid.level(view);
+        const last = grid.tileRange({ level, tile: grid.tileAt(bound.end, level) });
         const { upper } = points.value().series.bounds;
         expect(upper).toBeGreaterThan(Number(bound.end.valueOf()));
         expect(upper).toBeLessThan(Number(last.end.valueOf()));
@@ -1313,11 +1307,11 @@ describe("Points", () => {
     });
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
-    const level = tileLevel(new TimeRange(START, START.add(span)));
-    const at = tileAt(START, level) + 1;
-    const { start } = tileRange({ level, tile: at });
+    const level = grid.level(new TimeRange(START, START.add(span)));
+    const at = grid.tileAt(START, level) + 1;
+    const { start } = grid.tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
-    const pointLimit = tilePointLimit({
+    const pointLimit = grid.pointLimit({
       tile: { level, tile: at },
       view: home,
       points: TILED.count,
@@ -1385,7 +1379,7 @@ describe("Points", () => {
         .series.series.filter((s) => s.alignmentMultiple > 1n)
         .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange))
         .slice(-2);
-      expect(cut.timeRange.span.lessThan(tileSpan(RAW_LEVEL))).toBe(true);
+      expect(cut.timeRange.span.lessThan(grid.tileSpan(RAW_LEVEL))).toBe(true);
       const ratio = Number(cut.alignmentMultiple) / Number(whole.alignmentMultiple);
       expect(ratio).toBeGreaterThan(0.9);
     } finally {
@@ -1398,11 +1392,11 @@ describe("Points", () => {
     const { store, subscribe, unsubscribe, close } = createPoints(core);
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
-    const level = tileLevel(new TimeRange(START, START.add(span)));
-    const at = tileAt(START, level) + 1;
-    const { start } = tileRange({ level, tile: at });
+    const level = grid.level(new TimeRange(START, START.add(span)));
+    const at = grid.tileAt(START, level) + 1;
+    const { start } = grid.tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
-    const pointLimit = tilePointLimit({
+    const pointLimit = grid.pointLimit({
       tile: { level, tile: at },
       view: home,
       points: TILED.count,
@@ -1424,7 +1418,7 @@ describe("Points", () => {
       const shift = TimeSpan.seconds(1);
       const shifted = new TimeRange(home.start.add(shift), home.end.add(shift));
       // The cut keeps the whole tile's key, so only the cut check stops the pin.
-      const cutLimit = tilePointLimit({
+      const cutLimit = grid.pointLimit({
         tile: { level, tile: at, start: shifted.start },
         view: shifted,
         points: TILED.count,
