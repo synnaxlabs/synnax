@@ -11,6 +11,7 @@ package v5
 
 import (
 	"context"
+	"encoding/json/v2"
 	"math"
 
 	"github.com/samber/lo"
@@ -31,12 +32,16 @@ import (
 // dropped; they live on the Console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
-func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
+func MigrateLinePlot(
+	ctx context.Context,
+	old v0.LinePlot,
+	opts ...json.Options,
+) (LinePlot, error) {
 	out, err := autoMigrateLinePlot(ctx, old)
 	if err != nil {
 		return LinePlot{}, err
 	}
-	d, err := legacy.MigrateData(old.Data)
+	d, err := legacy.MigrateData(old.Data, opts...)
 	if err != nil {
 		return LinePlot{}, err
 	}
@@ -158,4 +163,10 @@ func migrateRules(in []legacy.Rule) []Rule {
 }
 
 // Migration lifts stored line plots from the v0 blob layout to the typed v5 shape.
-var Migration = migrate.NewEntry("v55_lift_typed_lineplot", MigrateLinePlot)
+var Migration = migrate.NewEntry(
+	"v55_lift_typed_lineplot",
+	// A stored line plot holds channel keys, so it decodes with no link options.
+	func(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
+		return MigrateLinePlot(ctx, old)
+	},
+)

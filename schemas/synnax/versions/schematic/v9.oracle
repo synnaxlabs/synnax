@@ -984,5 +984,5 @@ Schematic struct {
     """
     @go imex
     @go marshal
-    @go migrate
+    @go migrate decodes
 }

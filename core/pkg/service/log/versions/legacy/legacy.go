@@ -16,6 +16,8 @@
 package legacy
 
 import (
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy/v1"
@@ -37,16 +39,16 @@ type ChannelEntry = v1.ChannelEntry
 // walks the per-step Migrate functions forward to Data. A nil blob and a blob without a
 // version field both fall through to v0 and walk the full chain. Enum strings outside
 // their closed sets flow through untouched for the latest-Log lift to default.
-func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
+func MigrateData(blob msgpack.EncodedJSON, opts ...json.Options) (Data, error) {
 	version, err := imex.PeekVersion(blob, "log data")
 	if err != nil {
 		return Data{}, err
 	}
 	switch version {
 	case v1.Version:
-		return imex.DecodeBlob[v1.Data](blob, "log data", version)
+		return imex.DecodeBlob[v1.Data](blob, "log data", version, opts...)
 	case v0.Version:
-		d, err := imex.DecodeBlob[v0.Data](blob, "log data", version)
+		d, err := imex.DecodeBlob[v0.Data](blob, "log data", version, opts...)
 		if err != nil {
 			return Data{}, err
 		}

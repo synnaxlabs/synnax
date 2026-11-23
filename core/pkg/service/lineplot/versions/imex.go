@@ -64,7 +64,11 @@ func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, er
 	if err = imex.RequireFields(body, "a line plot", "axes", "channels"); err != nil {
 		return LinePlot{}, err
 	}
-	lp5, err := v5.MigrateLinePlot(ctx, v0.LinePlot{Name: env.Name, Data: body})
+	lp5, err := v5.MigrateLinePlot(
+		ctx,
+		v0.LinePlot{Name: env.Name, Data: body},
+		env.DecodeOptions()...,
+	)
 	if err != nil {
 		return LinePlot{}, err
 	}

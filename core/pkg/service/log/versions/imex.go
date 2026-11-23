@@ -62,7 +62,11 @@ func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (Log, error) 
 	if err = imex.RequireFields(body, "a log", "channels"); err != nil {
 		return Log{}, err
 	}
-	l2, err := v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
+	l2, err := v2.MigrateLog(
+		ctx,
+		v0.Log{Name: env.Name, Data: body},
+		env.DecodeOptions()...,
+	)
 	if err != nil {
 		return Log{}, err
 	}

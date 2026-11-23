@@ -375,6 +375,7 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateMigrate(c, types)
 	validateKeyTypes(c, types)
 	validateFieldOmits(c, types)
 	validateImportPlacement(c)

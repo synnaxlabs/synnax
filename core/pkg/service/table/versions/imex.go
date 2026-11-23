@@ -64,5 +64,5 @@ func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (Table, error
 	if err != nil {
 		return Table{}, err
 	}
-	return liftFirst(ctx, t1)
+	return liftFirst(ctx, t1, env.DecodeOptions()...)
 }

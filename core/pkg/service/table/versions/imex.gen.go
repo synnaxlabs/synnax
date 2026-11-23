@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -32,14 +33,13 @@ const Latest = v7.Version
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
-	ctx = imex.DecodeContext(ctx, env)
 	switch env.Version {
 	case v1.Version:
 		t1, err := env.Decode[v1.Table]()
 		if err != nil {
 			return Table{}, err
 		}
-		t2, err := v2.MigrateTable(ctx, t1)
+		t2, err := v2.MigrateTable(ctx, t1, env.DecodeOptions()...)
 		if err != nil {
 			return Table{}, err
 		}
@@ -162,8 +162,8 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 
 // liftFirst lifts the first exported Table shape to the current shape. A decoder
 // of an older shape builds the first exported shape and enters the ladder here.
-func liftFirst(ctx context.Context, t1 v1.Table) (Table, error) {
-	t2, err := v2.MigrateTable(ctx, t1)
+func liftFirst(ctx context.Context, t1 v1.Table, opts ...json.Options) (Table, error) {
+	t2, err := v2.MigrateTable(ctx, t1, opts...)
 	if err != nil {
 		return Table{}, err
 	}
