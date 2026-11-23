@@ -1099,4 +1099,28 @@ TEST(BinaryEncoder, EncodeWithoutAllocating) {
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
     EXPECT_EQ(payload, (Bytes{0xE8, 0x03}));
 }
+
+/// @brief it should check a sample of a binding as encode does, and report which fields
+/// have a default.
+TEST(BinaryEncoder, CheckSample) {
+    const auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
+    auto w = field<icd::UnsignedBinaryField>("w", 8, 4);
+    w.default_ = 1;
+    const BinaryMessage m{
+        .name = "frame",
+        .payload = {.fields = {v, w}},
+        .bindings = {
+            {.field = w.key, .data_type = x::telem::UINT8_T},
+            {.field = v.key, .data_type = x::telem::UINT8_T},
+        },
+    };
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(std::uint8_t{15})));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(std::uint8_t{16})));
+    const auto err = enc.check(0, x::telem::SampleValue(std::uint8_t{16}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field w: 16 is out of range for 4 bits");
+    EXPECT_TRUE(enc.has_default(0));
+    EXPECT_FALSE(enc.has_default(1));
+}
 }

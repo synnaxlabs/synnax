@@ -685,6 +685,7 @@ BinaryEncoder::create(const BinaryMessage &m) {
             );
     }
     BinaryEncoder enc;
+    enc.bound.resize(m.bindings.size());
     std::map<icd::FieldKey, std::size_t> index;
     for (const auto &f: m.payload.fields) {
         const auto &b = icd::base(f);
@@ -700,7 +701,10 @@ BinaryEncoder::create(const BinaryMessage &m) {
                 "field " + b.name + ": the field ends past the " +
                 std::to_string(*length) + "-byte payload"
             );
-        if (found != bound.end()) field.binding = static_cast<int>(found->second);
+        if (found != bound.end()) {
+            field.binding = static_cast<int>(found->second);
+            enc.bound[found->second] = enc.fields.size();
+        }
         if (id != nullptr && id->field == b.key)
             field.fallback = static_cast<std::uint64_t>(
                 static_cast<std::int64_t>(id->value)
@@ -766,6 +770,13 @@ x::errors::Error BinaryEncoder::encode(
         if (err) return wrap(err, "field " + f.name);
         f.bits.write(payload.data(), r);
     }
+    return x::errors::NIL;
+}
+
+x::errors::Error
+BinaryEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) const {
+    const auto &f = this->fields[this->bound[binding]];
+    if (const auto err = f.raw(v).second) return wrap(err, "field " + f.name);
     return x::errors::NIL;
 }
 }

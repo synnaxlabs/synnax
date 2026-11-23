@@ -204,6 +204,8 @@ class BinaryEncoder {
     std::vector<std::size_t> mux_fields;
     /// @brief raw holds the raw value of each multiplexor in the last encode.
     std::vector<std::int64_t> raw;
+    /// @brief bound holds the index in fields of the field of each binding.
+    std::vector<std::size_t> bound;
     std::size_t length = 0;
 
 public:
@@ -229,5 +231,16 @@ public:
         std::span<const x::telem::Series> samples,
         std::vector<std::uint8_t> &payload
     );
+
+    /// @brief returns the error that encode returns when binding holds v and its field
+    /// is selected, or NIL when the field of binding can hold v.
+    [[nodiscard]] x::errors::Error
+    check(std::size_t binding, const x::telem::SampleValue &v) const;
+
+    /// @brief returns true when the field of binding has a default, which encode writes
+    /// for an empty series.
+    [[nodiscard]] bool has_default(std::size_t binding) const {
+        return this->fields[this->bound[binding]].fallback.has_value();
+    }
 };
 }
