@@ -410,6 +410,11 @@ func storedConfig() v0.ReadConfig {
 }
 
 var _ = Describe("MigrateWriteConfig", func() {
+	It("Should store the shape that v0 stored under the same table name", func() {
+		Expect(v1.WriteConfig{}.CustomTypeName()).
+			To(Equal(v0.WriteConfig{}.CustomTypeName()))
+	})
+
 	It("Should keep every field of the config and add no targets", func(
 		ctx SpecContext,
 	) {
