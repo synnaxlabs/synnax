@@ -17,7 +17,10 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from alamos import NOOP
+from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import RetrieveRequest
+from synnax.framer.adapter import WriteFrameAdapter
 from tests.channel import RetrieveCounter
 from x.strings import random_name
 
@@ -151,6 +154,60 @@ class TestWriterLookupCheck:
             for i in range(3):
                 w.write(pd.DataFrame({ch.name: [float(i)], "notes": [0.0]}))
             assert counter.count == 0
+
+
+@pytest.mark.framer
+class TestWriterHeldCheck:
+    def test_refuse_a_name_that_two_held_channels_share(self) -> None:
+        """Should refuse a record keyed by a name that two held channels share, as
+        stored data from before unique names can hold.
+        """
+        held = [
+            sy.channel.Payload(
+                key=1, name="tank", data_type=sy.DataType.FLOAT64, path="a.tank"
+            ),
+            sy.channel.Payload(
+                key=2, name="tank", data_type=sy.DataType.FLOAT64, path="b.tank"
+            ),
+        ]
+
+        class Stub(Retriever):
+            def __init__(self) -> None:
+                self.instrumentation = NOOP
+
+            def filter(self, req: RetrieveRequest) -> list[sy.channel.Payload]:
+                return list(held)
+
+        adapter = WriteFrameAdapter(retriever=Stub())
+        adapter.update(["a.tank", "b.tank"])
+        with pytest.raises(
+            sy.ValidationError, match='The writer holds 2 channels named "tank"'
+        ):
+            adapter.adapt_dict_keys({"tank": 1.0})
+
+    def test_skip_a_dataframe_column_of_an_unopened_channel(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should skip a DataFrame column that names a channel the writer did not
+        open, or refuse it when err_on_extra_chans is set.
+        """
+        a, _ = in_group(client)
+        b, _ = in_group(client)
+        df = pd.DataFrame({a.name: [1.0], b.name: [2.0]})
+        with client.open_streamer([a.key, b.key]) as s:
+            with client.open_writer(
+                start=sy.TimeStamp.now(), channels=[a.key], err_on_extra_chans=False
+            ) as w:
+                w.write(df)
+            fr = s.read(timeout=5)
+            assert fr is not None
+            assert a.key in fr.channels
+            assert b.key not in fr.channels
+        with client.open_writer(start=sy.TimeStamp.now(), channels=[a.key]) as w:
+            with pytest.raises(
+                sy.ValidationError, match=f"Channel {b.name} was not provided"
+            ):
+                w.write(df)
 
 
 @pytest.mark.control
