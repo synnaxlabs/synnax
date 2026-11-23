@@ -53,6 +53,8 @@ type DraggableElement = ReactElement<{
 export interface ItemProps {
   itemKey: string;
   location: location.Location;
+  /** fixed keeps the item in its location, so an edit cannot drag it. */
+  fixed?: boolean;
   onLocationChange?: (loc: location.Location) => void;
   children: DraggableElement;
 }
@@ -236,14 +238,16 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
       gap="tiny"
       {...dropProps}
     >
-      {filtered.map(({ children, itemKey }) => (
+      {filtered.map(({ children, itemKey, fixed }) => (
         <Fragment key={itemKey}>
-          {cloneElement(children, {
-            draggable: true,
-            onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
-            onDragEnd,
-            style: { ...children.props.style, cursor: "grab" },
-          })}
+          {fixed === true
+            ? children
+            : cloneElement(children, {
+                draggable: true,
+                onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
+                onDragEnd,
+                style: { ...children.props.style, cursor: "grab" },
+              })}
         </Fragment>
       ))}
     </Flex.Box>
