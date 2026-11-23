@@ -37,6 +37,7 @@ import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
+import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -939,7 +940,7 @@ describe("Kafka read form", () => {
       { name: "gone", note: "Message not found", change: removeMessage },
       {
         name: "not JSON",
-        note: "The format of this message is not JSON. Open it to change its format.",
+        note: "The format of this message is not JSON. Open it in the editor to change its format.",
         change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
           await client.icds.dispatch(
             key,
@@ -1925,6 +1926,41 @@ describe("Kafka read form", () => {
       );
       const { messages } = await client.icds.retrieve({ key: rec.icd });
       expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should read a message of another ICD with each of its fields", async () => {
+      const pressure = createField("pressure", "float");
+      const mode = createField("mode", "string");
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [pressure, mode] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickMessageFormat("Any key", message.name, shared.name);
+      await waitFor(async () =>
+        expect((await retrieveRecords(draft.key))[0]).toMatchObject({
+          icd: shared.key,
+          messages: [
+            {
+              message: message.key,
+              bindings: [
+                { field: pressure.key, channel: 0 },
+                { field: mode.key, channel: 0 },
+              ],
+            },
+          ],
+        }),
+      );
+      await screen.findByRole("treeitem", { name: /^pressure/ });
+      await screen.findByRole("treeitem", { name: /^mode/ });
     });
   });
 

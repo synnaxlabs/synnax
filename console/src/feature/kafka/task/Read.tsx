@@ -347,6 +347,8 @@ interface RecordDetailsProps {
   onAddField: () => void;
   /** Adds a message to the record, for values that its messages do not cover. */
   onAddMessage: () => void;
+  /** Reads a message of an ICD instead of the one message that the record reads. */
+  onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
 }
 
 /**
@@ -360,6 +362,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   device,
   onAddField,
   onAddMessage,
+  onFormatChange,
 }) => {
   const isPreview = Task.useIsPreview();
   const reads = PForm.useFieldValue(path.messages);
@@ -390,6 +393,9 @@ const RecordDetails: FC<RecordDetailsProps> = ({
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
           />
+          {reads.length === 1 && (
+            <ICD.MessageFormatField path={path} onChange={onFormatChange} />
+          )}
         </PForm.Section>
         {reads.length === 1 && (
           <MessageSections
@@ -443,6 +449,7 @@ const Records: FC<RecordsProps> = ({
     currentGroup,
     addField,
     addMessage,
+    setMessage,
   } = ICD.Tree.use({
     groups: {
       path: root.config.topics,
@@ -684,6 +691,7 @@ const Records: FC<RecordsProps> = ({
           device={device}
           onAddField={() => addField(rec.key, 0)}
           onAddMessage={() => addMessage(rec.key)}
+          onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
         />
       );
   }
