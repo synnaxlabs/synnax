@@ -14,7 +14,7 @@ import z from "zod";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { DisconnectedError, NotFoundError } from "@/index";
+import { DisconnectedError, MissingCredentialsError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
@@ -441,18 +441,20 @@ describe("openStreamer", () => {
       await closeStreamer();
     });
 
-    it("should not report connectivity failures from listeners", async () => {
+    it("should not report offline failures from listeners", async () => {
       let callCount = 0;
       const onChange = vi.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1) throw new Unreachable({ message: "cannot reach cluster" });
-        throw new DisconnectedError("cluster unreachable");
+        if (callCount === 2) throw new DisconnectedError("cluster unreachable");
+        throw new MissingCredentialsError();
       });
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
         new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -463,7 +465,7 @@ describe("openStreamer", () => {
         }),
       );
 
-      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+      await expect.poll(() => onChange.mock.calls.length).toBe(3);
       await sleep.sleep(TimeSpan.milliseconds(50));
       expect(onError).not.toHaveBeenCalled();
       await closeStreamer();
