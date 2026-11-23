@@ -84,7 +84,7 @@ export const Preview = ({
   const zoom = Form.useField(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.use().dark;
+  const { dark: isDark, colors } = Base.use();
   // The toggle holds until the app theme changes.
   const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
   if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
@@ -213,7 +213,13 @@ export const Preview = ({
     Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const paints = Schematic.Node.Custom.usePaints(spec, selectedValue);
+  // A schematic node gives the node color, so the preview draws a sample of it.
+  const paints = Schematic.Node.Custom.usePaints(
+    spec,
+    selectedValue,
+    undefined,
+    colors.primary.z,
+  );
   const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
   const dims = Schematic.Node.Region.measure(spec.drawing.markup);
 
