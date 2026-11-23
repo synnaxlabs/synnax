@@ -457,6 +457,7 @@ export default class Synnax extends framer.Client {
       writer: chCreator,
       cache,
       batch: this.batch,
+      outputs: this.calculations.outputs,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
