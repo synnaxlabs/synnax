@@ -461,8 +461,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("names the field and the kind in the tooltip of a paint", async () => {
-      const { fill } = await openPainted({});
-      fireEvent.pointerEnter(fill);
+      await openPainted({});
+      fireEvent.pointerEnter(screen.getByLabelText("Fill"));
       const tip = await waitFor(() => {
         const el = document.querySelector<HTMLElement>(".lyra-tooltip");
         assertDefined(el);
