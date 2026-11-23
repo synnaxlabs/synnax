@@ -506,12 +506,14 @@ protected:
     BaseReadTaskSource(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
+        std::shared_ptr<secret::Reader> reader,
         ReadTaskConfig cfg
     ):
         cfg(std::move(cfg)),
         connector(
             std::move(client),
             std::move(pool),
+            std::move(reader),
             this->cfg.device_key,
             "[opc.read] "
         ),
@@ -552,9 +554,15 @@ public:
     ArrayReadTaskSource(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
+        std::shared_ptr<secret::Reader> reader,
         ReadTaskConfig cfg
     ):
-        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
+        BaseReadTaskSource(
+            std::move(client),
+            std::move(pool),
+            std::move(reader),
+            std::move(cfg)
+        ),
         array_size(std::get<::synnax::opcua::ArraySampling>(this->cfg.sampling).size),
         sample_clock(this->cfg.sample_rate / this->array_size) {}
 
@@ -686,9 +694,15 @@ public:
     UnaryReadTaskSource(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
+        std::shared_ptr<secret::Reader> reader,
         ReadTaskConfig cfg
     ):
-        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
+        BaseReadTaskSource(
+            std::move(client),
+            std::move(pool),
+            std::move(reader),
+            std::move(cfg)
+        ),
         timer(this->cfg.sample_rate),
         samples(this->cfg.channels.size()) {
         for (const auto &idx: this->cfg.index_keys)

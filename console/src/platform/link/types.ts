@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource, type Synnax } from "@synnaxlabs/client";
+import type { resource, Synnax } from "@synnaxlabs/client";
 
 // Links have the form synnax://cluster/<cluster-key> for a cluster or
 // synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource.

@@ -13,11 +13,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { View as PView } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
 import { CSS } from "@/platform/css";
-import { type View } from "@/platform/view/context";
+import type { View } from "@/platform/view/context";
 
 const frameID = (key: view.Key): string => CSS.B(`view-icon-picker-${key}`);
 

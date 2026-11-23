@@ -32,12 +32,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       {
         name: "Pressurization",
         timeRange: new TimeRange(ago(110), ago(80)),
-        color: "#3B7DDB",
+        color: { type: "fixed", value: "#3B7DDB" },
       },
       {
         name: "Hold",
         timeRange: new TimeRange(ago(65), ago(20)),
-        color: "#F18F01",
+        color: { type: "fixed", value: "#F18F01" },
       },
     ]);
     const { page } = session;
@@ -65,7 +65,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(strip);
     const box = await strip.boundingBox();
     if (box == null) throw new Error("the range strip is not on screen");
-    // The plot spans the 120 seconds of the range, and Hold runs from 60 to 105 of them.
+    // The plot spans the 120 seconds of the range. Hold runs from second 60 to 105.
     const bar = { x: box.x + box.width * 0.7, y: box.y + 14 };
 
     session.startRecording();

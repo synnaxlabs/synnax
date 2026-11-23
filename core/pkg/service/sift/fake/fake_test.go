@@ -11,6 +11,7 @@ package fake_test
 
 import (
 	"context"
+	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -114,6 +115,14 @@ var _ = Describe("Server", func() {
 		It("Should return a local address", func() {
 			open(fake.Config{})
 			Expect(server.Address()).To(HavePrefix("127.0.0.1:"))
+		})
+
+		It("Should return the address of the config", func() {
+			lis := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+			address := lis.Addr().String()
+			Expect(lis.Close()).To(Succeed())
+			open(fake.Config{Address: address})
+			Expect(server.Address()).To(Equal(address))
 		})
 	})
 

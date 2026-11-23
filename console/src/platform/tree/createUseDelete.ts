@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flux } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { Flux } from "@synnaxlabs/pluto";
+import type { record } from "@synnaxlabs/x";
 
 import { Modals } from "@/platform/modals";
-import { type ContextMenuProps } from "@/platform/tree/types";
+import type { ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;

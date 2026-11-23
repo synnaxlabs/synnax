@@ -43,6 +43,7 @@ import (
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -319,6 +320,17 @@ var _ = Describe("HTTP", func() {
 			Entry("frame read", "/api/v1/frame/read"),
 		)
 
+		It("Should list the accepted methods without a session", func() {
+			status, body := post("/api/v1/auth/methods", "", struct{}{})
+			Expect(status).To(Equal(http.StatusOK), string(body))
+			var res apiauth.MethodsResponse
+			Expect(json.Unmarshal(body, &res)).To(Succeed())
+			Expect(res.Methods).To(Equal([]auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodPassword,
+			}))
+		})
+
 		DescribeTable(
 			"Should reach an ungated endpoint while no license is active",
 			func(path string, body func() any) {
@@ -499,7 +511,9 @@ var _ = Describe("HTTP", func() {
 			cookie := loginWithCookie("localhost:9090")
 			headers := withCookie("localhost:9090", cookie)
 			headers[fiber.HeaderAccept] = "text/csv"
-			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{})
+			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+			})
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
 		})

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The offset of each byte of a canonical UUID in its text.
-const BYTE_OFFSETS = [0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34];
+// The offset of each byte of a canonical UUID in its text, from the last byte to the
+// first.
+const BYTE_OFFSETS = [34, 32, 30, 28, 26, 24, 21, 19, 16, 14, 11, 9, 6, 4, 2, 0];
 
 /**
  * Orders canonical lower case UUIDs as the Core stores them: byte by byte, from the
@@ -18,8 +19,8 @@ const BYTE_OFFSETS = [0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34]
  * if they are equal.
  */
 export const uuids = (a: string, b: string): number => {
-  for (let i = BYTE_OFFSETS.length - 1; i >= 0; i--)
-    for (let j = BYTE_OFFSETS[i]; j < BYTE_OFFSETS[i] + 2; j++) {
+  for (const offset of BYTE_OFFSETS)
+    for (let j = offset; j < offset + 2; j++) {
       const diff = a.charCodeAt(j) - b.charCodeAt(j);
       if (diff !== 0) return Math.sign(diff);
     }

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import z from "zod/v4";
+import { z } from "zod";
 
 export const configZ = z.object({
   type: z.literal("status.set"),

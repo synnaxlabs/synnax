@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 import { type $ZodType, type $ZodTypeDef, getDiscriminatedOption } from "zod/v4/core";
 
 import { deep } from "@/deep";
@@ -98,10 +98,10 @@ const walk = (
   values: unknown,
   found: Discriminator[],
 ): $ZodType | NotFound => {
-  if (index >= parts.length) return schema;
+  const part = parts[index];
+  if (part == null) return schema;
   schema = unwrap(schema);
   const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
-  const part = parts[index];
   switch (def.type) {
     case "unknown":
     case "any":

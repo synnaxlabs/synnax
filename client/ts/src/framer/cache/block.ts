@@ -9,9 +9,9 @@
 
 import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type Dynamic } from "@/framer/cache/dynamic";
+import type { Dynamic } from "@/framer/cache/dynamic";
 import { tileAt, tileRange } from "@/framer/cache/grid";
 import { buildInsertionPlan } from "@/framer/cache/insertion";
 
@@ -329,7 +329,7 @@ export class RawBlock implements Block {
   /**
    * @returns the series whose samples overlap tr in time order, the stream's buffer
    * last. The buffer's span ends at its last stamped write, not at its open end.
-   * @param index - The block of the channel's index with the same index. When given,
+   * @param index - The block of the channel's index with the same tile. When given,
    * the series end at the end of tr.
    */
   seriesIn(tr: TimeRange, index?: RawBlock): Series[] {

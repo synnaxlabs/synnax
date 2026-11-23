@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 /**
  * A higher-order component that removes specified props from a wrapped component. This

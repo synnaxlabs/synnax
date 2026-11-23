@@ -11,8 +11,8 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";

@@ -9,8 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateRead } from "@/feature/modbus/task/Read";
-import { useCreateWrite } from "@/feature/modbus/task/Write";
+import { useCreateRead, useCreateWrite } from "@/feature/modbus/task/create";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
