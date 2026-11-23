@@ -30,8 +30,7 @@ import {
   NotCachedError,
   NotFoundError,
 } from "@/errors";
-import type { query } from "@/query";
-import { keyedZ, Table } from "@/query/table";
+import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -192,7 +191,7 @@ export interface ControllerParams<
   Action,
 > {
   /** The table holding the documents this controller dispatches over. */
-  store: Table<Key, State>;
+  store: query.Table<Key, State>;
   /** Reports listener errors that have no caller to throw to. */
   onError: (error: Error) => void;
   /**
@@ -315,8 +314,8 @@ interface Prepared<Action> {
  * session-local and dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
-  private readonly docs: Table<Key, State>;
-  private readonly undos: Table<Key, UndoState<Action>>;
+  private readonly docs: query.Table<Key, State>;
+  private readonly undos: query.Table<Key, UndoState<Action>>;
   private readonly params: Required<
     Omit<
       ControllerParams<Key, State, Action>,
@@ -369,7 +368,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
     // be pure waste, so equality is disabled.
-    this.undos = new Table<Key, UndoState<Action>>({
+    this.undos = new query.Table<Key, UndoState<Action>>({
       onError: this.params.onError,
       equal: () => false,
     });
@@ -1273,7 +1272,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         );
       },
       onInvalid: (raw) => {
-        const keyed = keyedZ.safeParse(raw);
+        const keyed = query.keyedZ.safeParse(raw);
         if (keyed.success) this.refetch(keyed.data.key as Key);
       },
     };
