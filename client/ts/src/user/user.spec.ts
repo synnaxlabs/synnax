@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
 import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
@@ -21,6 +22,7 @@ import {
   createTestUser,
   expectDeleted,
   expectLive,
+  FAST_RETRY,
   holdResponses,
   TEST_CREDENTIALS,
   waitForStreamLive,
@@ -103,6 +105,28 @@ describe("User", () => {
         await expect(
           client.users.create({ key: userOne.key, name: "test", role: empty.key }),
         ).rejects.toThrow(ValidationError));
+    });
+    test("keeps its key when it retries after a lost response", async () => {
+      let attempts = 0;
+      // Fails the first create after the Core runs it, as a connection that drops
+      // before the response headers arrive.
+      const loseFirstResponse: Middleware = async (ctx, next) => {
+        const out = await next(ctx);
+        if (!ctx.target.endsWith("/user/create")) return out;
+        attempts += 1;
+        if (attempts === 1) throw new Unreachable({ message: "response lost" });
+        return out;
+      };
+      const local = createTestClient({
+        retry: FAST_RETRY,
+        onRetry: () => {},
+        middleware: [loseFirstResponse],
+      });
+      const name = id.create();
+      const created = await local.users.create({ name, role: empty.key });
+      expect(attempts).toEqual(2);
+      const named = (await client.users.retrieve({})).filter((u) => u.name === name);
+      expect(named.map((u) => u.key)).toEqual([created.key]);
     });
   });
   describe("Retrieve", () => {
