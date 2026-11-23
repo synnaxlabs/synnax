@@ -9,8 +9,8 @@
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { start } from "@/components/nav/onThisPage";
-import { Tabs } from "@/components/tabs";
+import { onThisPage } from "@/components/nav/onThisPage";
+import { sync } from "@/components/tabs/sync";
 
 // Mirrors the markup of the article and of Outline.astro.
 const PAGE = `
@@ -56,7 +56,7 @@ const indicator = (): HTMLElement =>
   document.querySelector(".on-this-page-indicator") as HTMLElement;
 
 describe("on this page", () => {
-  beforeAll(() => start());
+  beforeAll(() => onThisPage.start());
 
   describe("tabbed headings", () => {
     it("should hide entries for headings in hidden tab panels", () => {
@@ -70,7 +70,7 @@ describe("on this page", () => {
         document.querySelectorAll<HTMLElement>('[role="tabpanel"]');
       python.hidden = true;
       typescript.hidden = false;
-      document.dispatchEvent(new CustomEvent(Tabs.CHANGE_EVENT));
+      document.dispatchEvent(new CustomEvent(sync.CHANGE_EVENT));
       expect(shown()).toEqual(["create", "typescript", "delete"]);
     });
   });

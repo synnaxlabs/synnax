@@ -11,8 +11,8 @@ import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
-import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/errors";
 import { icd } from "@/icd";
+import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();

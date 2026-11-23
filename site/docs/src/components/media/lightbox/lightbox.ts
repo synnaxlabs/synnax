@@ -9,7 +9,7 @@
 
 import { bounds } from "@synnaxlabs/x";
 
-import { REDUCED_MOTION, TOUCH } from "@/components/media/video";
+import { playback } from "@/components/media/playback";
 
 type Media = HTMLImageElement | HTMLVideoElement;
 
@@ -101,7 +101,7 @@ export const start = (): void => {
   let expanded: Expanded | null = null;
   let frame = 0;
 
-  const still = (): boolean => window.matchMedia(REDUCED_MOTION).matches;
+  const still = (): boolean => window.matchMedia(playback.REDUCED_MOTION).matches;
   const dialog = (): HTMLDialogElement =>
     query<HTMLDialogElement>(document, ".docs-lightbox");
 
@@ -282,7 +282,7 @@ export const start = (): void => {
     if (
       target instanceof HTMLVideoElement &&
       target.parentElement?.matches(".docs-video") === true &&
-      !window.matchMedia(TOUCH).matches
+      !window.matchMedia(playback.TOUCH).matches
     ) {
       open(target);
       return;
