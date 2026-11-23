@@ -16,6 +16,12 @@
         border-top: var(--console-divider);
     }
 
+    .console-mqtt-discover__format {
+        flex-shrink: 0;
+        padding: 2rem 2rem 1rem;
+        border-top: var(--console-divider);
+    }
+
     .console-mqtt-discover__raw {
         padding: 2rem 2.5rem 3rem;
     }

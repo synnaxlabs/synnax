@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, ICD as PICD } from "@synnaxlabs/pluto";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 
@@ -26,6 +26,7 @@ import {
   suit,
   type TreeField,
 } from "@/platform/icd/read";
+import { Unbind } from "@/platform/icd/Unbind";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -91,26 +92,6 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({
   );
 };
 
-interface UnbindProps {
-  path: deep.Target<channel.Key>;
-  field: icd.JSONField;
-  channel: channel.Key;
-}
-
-/**
- * Unbinds a channel that the field can no longer convert to, so deploying creates a new
- * one.
- */
-const Unbind = ({ path, field, channel: key }: UnbindProps) => {
-  const { set } = PForm.useContext();
-  const dataType = Channel.useResultDataType({ key }).data?.toString();
-  const { type, scale, offset } = field;
-  useEffect(() => {
-    if (dataType != null && !converts({ type, scale, offset }, dataType)) set(path, 0);
-  }, [dataType, type, scale, offset]);
-  return null;
-};
-
 export interface SuitReadProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
@@ -149,8 +130,8 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
       <Unbind
         key={b.field}
         path={readPath.bindings[i].channel}
-        field={field}
         channel={b.channel}
+        takes={(dataType) => converts(field, dataType)}
       />
     );
   });
