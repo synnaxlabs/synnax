@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeAll } from "vitest";
-
-import { loadLanguage } from "@/input/time/suggest";
-
-/**
- * Loads the time inputs' phrase parser before each spec file. Otherwise the load can
- * finish during a test and update every mounted time input outside act. Call it once
- * from a setup file.
- */
-export const preloadTimeLanguage = (): void => beforeAll(loadLanguage);
+export * as Component from "@/select/component/Size";
