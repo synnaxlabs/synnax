@@ -318,9 +318,12 @@ func defaultInvariantViolation(
 			// safe.
 			return "", false
 		}
-		if len(form.Values) > 0 && form.Values[0].Name != ev.Variant.Name {
-			return "an integer-enum default that is not the zeroth member leaves the " +
-				"zeroth member (the zero value) as a valid, distinct value", true
+		hasZero := lo.ContainsBy(form.Values, func(v resolution.EnumValue) bool {
+			return v.IntValue() == 0
+		})
+		if hasZero && ev.Variant.IntValue() != 0 {
+			return "an integer-enum default other than 0 leaves the member with " +
+				"value 0 (the zero value) as a valid, distinct value", true
 		}
 	case resolution.ValueKindString,
 		resolution.ValueKindInt,
