@@ -360,6 +360,17 @@ describe("Region.paint", () => {
     });
   });
 
+  it("should skip a shape in a clip path of a group", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><g id="g">' +
+      '<clipPath id="c"><rect fill="#000000" /></clipPath>' +
+      '<rect stroke="#ff0000" fill="#0000ff" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
   it("should read a use that a selector names", () => {
     const used =
       '<svg xmlns="http://www.w3.org/2000/svg"><defs><rect id="t"/></defs>' +

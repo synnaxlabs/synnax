@@ -203,7 +203,7 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   });
 };
 
-// GRAPHICS selects each SVG element that draws: the shapes, text, use, and image.
+// GRAPHICS selects each SVG element that draws.
 const GRAPHICS = [...VISUAL_ELEMENTS, "use", "image"].join(",");
 
 /**
