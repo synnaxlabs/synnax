@@ -340,6 +340,16 @@ describe("Region.paint", () => {
     });
   });
 
+  it("should return the paint of the first shape of a group in document order", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><g id="g">' +
+      '<rect stroke="#ff0000" fill="#0000ff" /><path fill="#00ff00" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
   it("should return transparent when no selector matches", () => {
     expect(Region.paint(SVG, ["#missing"])).toEqual({
       stroke: color.TRANSPARENT,

@@ -39,11 +39,11 @@ const iterElements = (
   fn: (el: SVGElement, paint: Paint) => void,
 ) =>
   paints.forEach((paint) => {
-    const shapes =
+    const elements =
       paint.selectors == null
         ? Region.collectVisualElements(drawing)
-        : Region.shapes(drawing, paint.selectors);
-    shapes.forEach((el) => fn(el, paint));
+        : Region.graphics(drawing, paint.selectors);
+    elements.forEach((el) => fn(el, paint));
   });
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
@@ -105,11 +105,15 @@ const applySymbolStrokes = (
   paints: Paint[],
   symbolColor: color.Crude | undefined,
 ) => {
-  const paintStrokes = new Map<Element, color.Color>();
+  const paintStrokes = new Map<SVGElement, color.Color>();
   iterElements(paints, drawing, (el, { stroke }) => {
     if (stroke != null) paintStrokes.set(el, stroke);
   });
-  Region.collectVisualElements(drawing).forEach((el) => {
+  const elements = new Set([
+    ...Region.collectVisualElements(drawing),
+    ...paintStrokes.keys(),
+  ]);
+  elements.forEach((el) => {
     const paintStroke = paintStrokes.get(el);
     const shown =
       paintStroke != null ? color.opacity(paintStroke) > 0 : isStoredStrokeShown(el);

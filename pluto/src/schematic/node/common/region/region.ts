@@ -203,25 +203,30 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   });
 };
 
+// GRAPHICS selects each SVG element that draws: the shapes, text, use, and image.
+const GRAPHICS = [...VISUAL_ELEMENTS, "use", "image"].join(",");
+
 /**
- * @returns the shapes that selectors match in root, in selector order. A selector that
- * matches a group stands for each shape inside it.
+ * @returns the elements that selectors match in root, in selector order. A selector
+ * that matches a group stands for each element inside it that draws, in document order.
  */
-export const shapes = (root: Element, selectors: string[]): SVGElement[] =>
+export const graphics = (root: Element, selectors: string[]): SVGElement[] =>
   selectors.flatMap((s) =>
     Array.from(root.querySelectorAll<SVGElement>(s)).flatMap((el) =>
-      el.tagName === "g" ? collectVisualElements(el) : [el],
+      el.tagName === "g"
+        ? Array.from(el.querySelectorAll<SVGElement>(GRAPHICS)).filter(isRendered)
+        : [el],
     ),
   );
 
 /**
  * Returns the colors a normalized SVG paints a region with when the region sets none:
- * the stroke and fill attributes of the first shape the selectors match. A missing
- * shape or attribute reads as transparent.
+ * the stroke and fill attributes of the first element that {@link graphics} returns. A
+ * missing element or attribute reads as transparent.
  */
 export const paint = (svg: string, selectors: string[]): ColorPair => {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  const [el] = shapes(doc.documentElement, selectors);
+  const [el] = graphics(doc.documentElement, selectors);
   if (el == null) return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
   return {
     stroke: normalizeColor(el.getAttribute("stroke")),
