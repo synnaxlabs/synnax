@@ -457,6 +457,32 @@ TEST_F(DeadlineTest, UnaryFailsAtPoolTimeout) {
     ASSERT_OCCURRED_AS(err, TIMEOUT);
 }
 
+/// @brief it should fail a unary call with TIMEOUT at the deadline the caller gives,
+/// before the unary timeout of the pool.
+TEST_F(DeadlineTest, UnaryFailsAtCallerDeadline) {
+    this->service.delay = std::chrono::seconds(10);
+    const auto pool = std::make_shared<Pool>(
+        ::grpc::InsecureChannelCredentials(),
+        Keepalive{},
+        std::chrono::seconds(60)
+    );
+    auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, this->target);
+    auto sent = std::async(std::launch::async, [&client] {
+        auto mes = test::Message();
+        return client.send(
+            "",
+            mes,
+            std::chrono::system_clock::now() + std::chrono::milliseconds(300)
+        );
+    });
+    const auto status = sent.wait_for(std::chrono::seconds(5));
+    // Cancels a call that the deadline did not end.
+    this->server->Shutdown(std::chrono::system_clock::now());
+    const auto err = sent.get().second;
+    EXPECT_EQ(status, std::future_status::ready);
+    ASSERT_OCCURRED_AS(err, TIMEOUT);
+}
+
 /// @brief it should give each attempt of a retried unary call the full unary timeout
 /// of the pool.
 TEST_F(DeadlineTest, RetryGetsFullPoolTimeout) {

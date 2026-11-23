@@ -376,7 +376,7 @@ void Outbox::run() {
             skip = this->is_replaced(call);
         }
         if (skip) {
-            this->commit();
+            this->commit(call.seq);
             continue;
         }
         const auto err = this->send(call);
@@ -400,7 +400,7 @@ void Outbox::run() {
             ++this->dropped_count;
             LOG(WARNING) << "[outbox] dropped a call the Core rejected: " << err;
         }
-        this->commit();
+        this->commit(call.seq);
     }
 }
 
@@ -426,9 +426,11 @@ x::errors::Error Outbox::send(const Call &call) const {
     return err;
 }
 
-void Outbox::commit() {
+void Outbox::commit(const std::uint64_t seq) {
     std::lock_guard lock(this->mu);
-    // A compaction can move the call to a new segment.
+    // A compaction can drop a replaced call while the send thread skips it, and it
+    // can move a call to a new segment.
+    if (this->calls.empty() || this->calls.front().seq != seq) return;
     const auto done = std::move(this->calls.front());
     this->calls.pop_front();
     this->queued_bytes -= done.size;

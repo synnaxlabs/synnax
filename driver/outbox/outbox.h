@@ -197,8 +197,8 @@ class Outbox {
     /// @returns false when the outbox stops.
     bool wait_retry(std::size_t failures);
     x::errors::Error send(const Call &call) const;
-    /// @brief takes the first call off the queue once it is sent or dropped.
-    void commit();
+    /// @brief takes the call with seq off the queue once it is sent or dropped.
+    void commit(std::uint64_t seq);
     void run_syncs();
     /// @brief closes the segments that left the tail, syncs the tail, opens a spare,
     /// compacts, and saves the offset when due. stopping closes the tail and the
