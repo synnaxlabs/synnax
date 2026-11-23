@@ -239,18 +239,19 @@ export const removePart = (spec: Spec, part: string): Spec => ({
 });
 
 /**
- * @returns the part that holds the shape of selector, itself or through the nearest
- * group around it that a part holds.
+ * @returns the part that holds the shape of selector: the shape itself, a shape inside
+ * it such as the span of a text, or the nearest group around it.
  */
 export const owner = (
   spec: Pick<Spec, "drawing" | "parts">,
   selector: string,
 ): schematic.symbol.Part | undefined => {
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const shape = doc.querySelector(selector);
+  if (shape == null) return undefined;
   const around: Element[] = [];
-  for (let el = doc.querySelector(selector); el != null; el = el.parentElement)
-    around.push(el);
-  for (const el of around) {
+  for (let el = shape.parentElement; el != null; el = el.parentElement) around.push(el);
+  for (const el of [shape, ...shape.querySelectorAll("*"), ...around]) {
     const found = spec.parts.find((p) => p.selectors.some((s) => el.matches(s)));
     if (found != null) return found;
   }
@@ -269,10 +270,10 @@ const holds = (doc: Document, outer: string, inner: string): boolean => {
 
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
- * already did. A shape belongs to one part, so every part drops the selectors of shapes
- * inside the shape of selector, and the other parts drop selector. A shape inside a
- * group that part holds takes the group out of part, and a shape inside a group that
- * another part holds stays there, so the parts stay the same.
+ * already did. A shape belongs to one part, and selector covers the shapes inside its
+ * shape, so every part drops their selectors, and the other parts drop selector. A
+ * shape inside a group that part holds takes the group out of part, and a shape inside
+ * a group that another part holds stays there, so the parts stay the same.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -281,12 +282,13 @@ export const toggleSelector = (
 ): schematic.symbol.Part[] => {
   const target = spec.parts.find((p) => p.key === part);
   if (target == null) return spec.parts;
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const covered = (s: string): boolean => s === selector || holds(doc, selector, s);
   if (target.selectors.includes(selector))
     return spec.parts.map((p) => ({
       ...p,
-      selectors: p.selectors.filter((s) => s !== selector),
+      selectors: p.selectors.filter((s) => !covered(s)),
     }));
-  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
   const around = target.selectors.filter((s) => holds(doc, s, selector));
   if (around.length > 0)
     return spec.parts.map((p) =>
@@ -297,7 +299,7 @@ export const toggleSelector = (
   if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
     return spec.parts;
   return spec.parts.map((p) => {
-    const rest = p.selectors.filter((s) => s !== selector && !holds(doc, selector, s));
+    const rest = p.selectors.filter((s) => !covered(s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
   });
 };
