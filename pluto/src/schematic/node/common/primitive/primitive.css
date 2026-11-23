@@ -345,6 +345,5 @@
            height to center the text in. */
         min-height: 1lh;
         color: var(--pluto-gray-l10);
-        font-variant-numeric: tabular-nums;
     }
 }

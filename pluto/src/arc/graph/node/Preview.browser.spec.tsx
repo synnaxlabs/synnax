@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { renderThemed, treatment } from "@synnaxlabs/lyra/styletest";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { describe, expect, it } from "vitest";
+import type { FC, PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { resolveSpec } from "@/arc/graph/node/registry";
+import { Node } from "@/arc/graph/node";
+import { createAsyncSynnaxWrapper } from "@/testutil";
+
+const client = createTestClient();
 
 const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 
@@ -28,12 +33,20 @@ const textElements = (root: Element): Element[] => {
 };
 
 describe("Arc graph node previews", () => {
-  it.each(["constant", "stable_for", "add", "gt"])(
+  // A sink names its channel through a query.
+  let Wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
+    Wrapper = await createAsyncSynnaxWrapper({ client });
+  });
+
+  it.each(["constant", "stable_for", "add", "gt", "write"])(
     "should draw every label of a %s node in the text font",
     async (type) => {
-      const spec = resolveSpec(type);
+      const spec = Node.resolveSpec(type);
       const { container } = await renderThemed(
-        <spec.Preview config={spec.defaultConfig(THEME)} />,
+        <Wrapper>
+          <spec.Preview config={spec.defaultConfig(THEME)} />
+        </Wrapper>,
       );
       const elements = textElements(container);
       expect(elements).not.toHaveLength(0);
