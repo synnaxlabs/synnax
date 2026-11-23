@@ -83,7 +83,7 @@ describe("traceResizeLoops", () => {
     );
   });
 
-  it("should name an element whose client size a callback changed", async () => {
+  it("should name an element whose content size a callback changed", async () => {
     const element = box(root, "bordered", 20);
     element.style.boxSizing = "border-box";
     element.style.width = "20px";
@@ -92,7 +92,7 @@ describe("traceResizeLoops", () => {
     });
     await frames(3);
     expect(reports.length).toBeGreaterThan(0);
-    expect(reports[0]).toContain("div.bordered changed its client size from 20x20");
+    expect(reports[0]).toContain("div.bordered changed its content size from 20x20");
   });
 
   it("should name an element observed again after a callback", async () => {
@@ -115,6 +115,41 @@ describe("traceResizeLoops", () => {
     expect(reports.length).toBeGreaterThan(0);
     expect(reports[0]).toContain("div.above began to be observed after a callback");
     expect(reports[0]).toContain("resizeLoop.browser.spec");
+  });
+
+  it("should name an element whose padding a callback changed", async () => {
+    const element = box(root, "padded", 20);
+    element.style.boxSizing = "border-box";
+    element.style.width = "20px";
+    observe(element, () => {
+      const padded = element.style.padding === "2px";
+      element.style.padding = padded ? "0px" : "2px";
+    });
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toMatch(
+      /div\.padded changed its content size from (20x20|16x16)/,
+    );
+  });
+
+  it("should leave out a deep element observed after a callback", async () => {
+    grow(box(root, "grower", 10));
+    const deep = box(box(root, "parent", 20), "deep", 10);
+    const deeper = box(box(deep, "below", 10), "deeper", 5);
+    const late = new ResizeObserver(() => {});
+    onTestFinished(() => late.disconnect());
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      queueMicrotask(() => late.observe(deeper));
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    for (const report of reports) expect(report).not.toContain("div.deeper");
   });
 
   it("should name an observed element that a callback took off the page", async () => {

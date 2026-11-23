@@ -16,7 +16,7 @@ const COMPONENTS = 3;
 interface Size {
   width: number;
   height: number;
-  /** The client size, which a scrollbar or a border changes inside the layout box. */
+  /** The content size, which a scrollbar, a border, or padding changes. */
   inner: string;
 }
 
@@ -25,7 +25,11 @@ interface Size {
 // layout box keeps it. A callback that changes a scale reads as a resize.
 const measure = (element: Element): Size => {
   const { width, height } = element.getBoundingClientRect();
-  return { width, height, inner: `${element.clientWidth}x${element.clientHeight}` };
+  const style = getComputedStyle(element);
+  const x = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const y = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const inner = `${element.clientWidth - x}x${element.clientHeight - y}`;
+  return { width, height, inner };
 };
 
 const callerStack = (): string =>
@@ -110,14 +114,15 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   // microtasks of a callback end before the next callback starts.
   let late: (() => void) | null = null;
   let frame: CSSNumberish | null = null;
-  let delivered = false;
+  // The depth of the shallowest target of the last callback in the frame.
+  let delivered: number | null = null;
 
   // Every callback and the loop error of one rendering update share a timeline time.
   const enterFrame = (): void => {
     const now = document.timeline.currentTime;
     if (now === frame) return;
     frame = now;
-    delivered = false;
+    delivered = null;
     changes.length = 0;
     late = null;
   };
@@ -155,7 +160,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       const same = after.width === size.width && after.height === size.height;
       if (same && after.inner === size.inner) continue;
       const resize = same
-        ? `its client size from ${size.inner} to ${after.inner}`
+        ? `its content size from ${size.inner} to ${after.inner}`
         : `from ${formatSize(size)} to ${formatSize(after)}`;
       record(`${label(element)} changed ${resize} ${callback} created at:\n${origin}`);
       before.set(element, after);
@@ -170,8 +175,8 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   ): void => {
     enterFrame();
     closeLate();
-    delivered = true;
     const shallowest = Math.min(...entries.map((e) => depth(e.target)));
+    delivered = shallowest;
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
       if (element.isConnected) before.set(element, measure(element));
@@ -204,7 +209,11 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       // The first delivery of a target observed after a callback in the same frame
       // counts as a resize, so a shallow target ends the frame in a loop error.
       if (!this.targets.has(target)) {
-        if (delivered && document.timeline.currentTime === frame) {
+        if (
+          delivered != null &&
+          document.timeline.currentTime === frame &&
+          depth(target) <= delivered
+        ) {
           const cause = "began to be observed after a callback, at:";
           record(`${label(target)} ${cause}\n${callerStack()}`);
         }
