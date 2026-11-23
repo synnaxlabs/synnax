@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -206,7 +208,7 @@ var _ = Describe("Symbol nodes", func() {
 						Spec:   customRef(sym),
 						States: []schematic.StateBinding{{Key: "active"}},
 						Commands: []schematic.CommandBinding{
-							{Key: "reset", Channel: 2},
+							{Key: "reset", Channel: ch1},
 						},
 					}),
 					symbolNode(
@@ -239,7 +241,7 @@ var _ = Describe("Symbol nodes", func() {
 			Expect(cfg.States).To(HaveLen(1))
 			Expect(cfg.States[0].Key).To(Equal("active"))
 			Expect(cfg.Commands).To(Equal([]schematic.CommandBinding{
-				{Key: "reset", Channel: 2},
+				{Key: "reset", Channel: ch1},
 			}))
 		})
 
@@ -267,5 +269,60 @@ var _ = Describe("Symbol nodes", func() {
 			Exec(ctx, db)).To(Succeed())
 		cfg := as[schematic.SymbolNodeConfig](res.Nodes[0].Config.Variant)
 		Expect(cfg.States[0].FormatConfig).To(BeZero())
+	})
+})
+
+var _ = Describe("Symbol node channel bindings", func() {
+	bound := func(state, command, written channel.Key) schematic.Schematic {
+		return schematic.Schematic{
+			Project: &proj.Key,
+			Name:    "bound",
+			Nodes: []schematic.Node{symbolNode("n", schematic.SymbolNodeConfig{
+				Spec: builtinRef("valve"),
+				States: []schematic.StateBinding{{
+					Key: "active",
+					Source: &schematic.Source{Variant: schematic.ChannelSource{
+						Key:     &state,
+						Command: &command,
+					}},
+				}},
+				Commands: []schematic.CommandBinding{{Key: "reset", Channel: written}},
+			})},
+		}
+	}
+
+	It("Should list a node as a reader of its state's channel and a writer of its "+
+		"command channels", func(ctx SpecContext) {
+		s := bound(ch1, ch2, ch3)
+		createSchematic(ctx, &s)
+		holder := gorp.NewTarget("schematic", s.Key)
+		Expect(channelSvc.Uses(ctx, db, []channel.Key{ch1, ch2, ch3})).To(Equal(
+			[][]channel.Use{
+				{{Holder: holder, Direction: channel.DirectionRead}},
+				{{Holder: holder, Direction: channel.DirectionWrite}},
+				{{Holder: holder, Direction: channel.DirectionWrite}},
+			},
+		))
+	})
+
+	It("Should keep the binding keys of a node when their channels are deleted", func(
+		ctx SpecContext,
+	) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
+		s := bound(keys[0], keys[1], keys[2])
+		createSchematic(ctx, &s)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)
+		})).To(Succeed())
+		var stored schematic.Schematic
+		Expect(svc.NewRetrieve().
+			Where(schematic.MatchKeys(s.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		cfg := as[schematic.SymbolNodeConfig](stored.Nodes[0].Config.Variant)
+		source := as[schematic.ChannelSource](cfg.States[0].Source.Variant)
+		Expect(*source.Key).To(Equal(keys[0]))
+		Expect(*source.Command).To(Equal(keys[1]))
+		Expect(cfg.Commands[0].Channel).To(Equal(keys[2]))
 	})
 })
