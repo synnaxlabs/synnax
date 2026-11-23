@@ -35,9 +35,9 @@ from synnax.opcua.server.types_gen import (
     StatusDetails,
     UsernameAuth,
     ValidationDisabledServerTrust,
-    Write,
     Where,
     WhereInput,
+    Write,
     resource_id,
 )
 
@@ -69,8 +69,8 @@ __all__ = [
     "StatusDetails",
     "UsernameAuth",
     "ValidationDisabledServerTrust",
-    "Write",
     "Where",
     "WhereInput",
+    "Write",
     "resource_id",
 ]
