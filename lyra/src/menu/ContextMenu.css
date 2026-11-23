@@ -11,7 +11,6 @@
 
 .lyra-menu-context {
     position: fixed;
-    z-index: 8;
 
     /* The menu keeps its width while it filters. */
     min-width: min(32rem, 100vw);

@@ -10,16 +10,13 @@
 import { channel, mqtt } from "@synnaxlabs/client";
 import { json } from "@synnaxlabs/x";
 
+import type { Device } from "@/feature/mqtt/device";
 import { createLeaves, createRawLeaf, type Leaf } from "@/feature/mqtt/task/leaves";
 import {
   fromSparkplugDataType,
   toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
-import type {
-  BrowsedTopic,
-  SparkplugReadEntry,
-  SparkplugTag,
-} from "@/feature/mqtt/task/types";
+import type { SparkplugReadEntry, SparkplugTag } from "@/feature/mqtt/task/types";
 
 /** The prefix configure gives the channels of a topic's fields. */
 export const namePrefix = (devName: string, topic: string): string =>
@@ -42,7 +39,7 @@ export const pointerLabel = (pointer: string): string =>
 
 /** @returns the sample of a browsed topic at a pointer, or null when it has none. */
 export const sampleAt = (
-  { payload, fields }: BrowsedTopic,
+  { payload, fields }: Device.BrowsedTopic,
   pointer: string,
 ): string | null => {
   const field = fields.find((f) => f.pointer === pointer);
@@ -54,7 +51,7 @@ export const sampleAt = (
  * The values a browsed topic offers. A payload that is not JSON offers itself as one
  * string.
  */
-export const leavesOf = ({ payload, fields }: BrowsedTopic): Leaf[] => {
+export const leavesOf = ({ payload, fields }: Device.BrowsedTopic): Leaf[] => {
   const leaves = createLeaves(fields);
   if (leaves.length > 0 || payload === "") return leaves;
   return [createRawLeaf()];

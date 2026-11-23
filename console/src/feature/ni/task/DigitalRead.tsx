@@ -14,11 +14,9 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, errors, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
+import { Channel } from "@/feature/ni/task/channel";
 import { digitalHardwareZ } from "@/feature/ni/task/checks";
-import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import { PORT_LINE_COLUMNS, PortLineCells } from "@/feature/ni/task/PortLine";
 import { digitalInputName } from "@/feature/ni/task/ports";
@@ -37,7 +35,7 @@ const root = deep.path<Task.Values<DigitalReadSchemas>>();
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -48,7 +46,7 @@ const Properties = () => (
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = root.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const skipped = Task.useSkipped(
     root.config.channels,
     itemKey,
@@ -71,7 +69,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   PForm.useCheck(root.config, digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
     dev == null
@@ -89,7 +87,7 @@ const Form: FC = () => {
             device={dev}
             direction="input"
             create={(channels, placement) =>
-              createNextDIChannel(channels, placement, dev)
+              Channel.createNextDI(channels, placement, dev)
             }
             name={digitalInputName}
           />
@@ -97,7 +95,7 @@ const Form: FC = () => {
   return (
     <Task.Views.List<DIChannel>
       path={root.config.channels}
-      createChannel={(channels, copy) => createNextDIChannel(channels, { copy }, dev)}
+      createChannel={(channels, copy) => Channel.createNextDI(channels, { copy }, dev)}
       listItem={listItem}
       columns={PORT_LINE_COLUMNS}
       checkable
@@ -114,7 +112,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
@@ -170,7 +168,8 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    if (modified)
+      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);

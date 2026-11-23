@@ -40,19 +40,20 @@ func (e warningError) Error() string {
 }
 
 const (
-	// SkipHold is how long a read task warns after it last skips a bad item.
+	// SkipHold is the default time that a task warns after it last skips a bad item.
 	SkipHold = 5 * time.Second
 	// skipRefresh is the shortest time between two changes of a skip warning, so that
 	// a burst of bad items writes about one status each second.
 	skipRefresh = time.Second
 )
 
-// Skips counts the items that a read task reads and the bad items that it skips. It
-// gives a warning that holds the counts and the last reason, and that clears itself
-// SkipHold after the last skip. The warning data holds the counts as stats.read and
+// Skips counts the items that a task reads and the bad items that it skips. It gives a
+// warning that holds the counts and the last reason, and that clears itself a hold time
+// after the last skip. The warning data holds the counts as stats.read and
 // stats.skipped. Skips is not safe for concurrent use.
 type Skips struct {
 	noun          string
+	hold          time.Duration
 	read, skipped uint64
 	// description is why the last item was skipped and where it was.
 	description string
@@ -64,9 +65,12 @@ type Skips struct {
 	shown     uint64
 }
 
-// NewSkips returns Skips that name the items with noun, such as "record". The warning
-// adds an "s" to noun for any count other than one.
-func NewSkips(noun string) *Skips { return &Skips{noun: noun} }
+// NewSkips returns Skips that name the items with noun, such as "record", and warn for
+// hold after the last skip. The warning adds an "s" to noun for any count other than
+// one.
+func NewSkips(noun string, hold time.Duration) *Skips {
+	return &Skips{noun: noun, hold: hold}
+}
 
 // Read counts an item read. Count each skipped item as read too.
 func (s *Skips) Read() { s.read++ }
@@ -75,11 +79,11 @@ func (s *Skips) Read() { s.read++ }
 func (s *Skips) Skip(now time.Time, description string) {
 	s.skipped++
 	s.description = description
-	s.until = now.Add(SkipHold)
+	s.until = now.Add(s.hold)
 }
 
-// Warning returns the warning to show at now, or nil when the last skip was SkipHold
-// or more ago. It returns the same warning until skipRefresh passes.
+// Warning returns the warning to show at now, or nil when the last skip was the hold
+// time or more ago. It returns the same warning until skipRefresh passes.
 func (s *Skips) Warning(now time.Time) *Warning {
 	if !now.Before(s.until) {
 		s.warning = nil

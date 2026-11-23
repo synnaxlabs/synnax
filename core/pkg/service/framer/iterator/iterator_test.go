@@ -110,6 +110,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
+		It(
+			"Should stop the iterator when the open context ends",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     "canceled",
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
+				openCtx, cancel := context.WithCancel(ctx)
+				iter := MustSucceed(iteratorSvc.Open(openCtx, iterator.Config{
+					Keys:   []channel.Key{ch.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				cancel()
+				Eventually(iter.Error).Should(MatchError(context.Canceled))
+				Expect(iter.SeekFirst()).To(BeFalse())
+				Expect(iter.Close()).To(MatchError(context.Canceled))
+				Expect(iter.Close()).To(Succeed())
+			},
+		)
+
 		Describe("Calculations", func() {
 			var (
 				indexCh *channel.Channel
