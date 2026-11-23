@@ -56,7 +56,7 @@ import {
   TYPE_RESOURCE_ID,
   type Use,
 } from "@/channel/types.gen";
-import { createLines } from "@/channel/where";
+import { createLines, holdsVirtual } from "@/channel/where";
 import {
   compareCursors,
   cursor,
@@ -297,6 +297,8 @@ export interface ClientConfig {
   writer: Writer;
   cache: query.Cache;
   batch: batch.Client;
+  /** The table of the calculation that writes each channel, by the channel's key. */
+  outputs: Pick<query.Table<Key>, "subscribeBatch" | "version">;
 }
 
 /**
@@ -411,7 +413,14 @@ export class Client extends query.Retriever<
             ? null
             : matches(lines, ch, query.where),
         serverComputed: (query) => serverComputed(lasting, query.where),
-        triggers: [uses.trigger],
+        triggers: [
+          uses.trigger,
+          // Only the Core checks a virtual line, and a channel crosses it when a
+          // calculation starts or stops writing it.
+          query.trigger(cfg.outputs, (event, query: RetrieveRequest) =>
+            holdsVirtual(query.where) ? [event.key] : null,
+          ),
+        ],
       },
       compose: (ch, query) =>
         (query as RetrieveRequest).includeUses === true

@@ -13,9 +13,11 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import type { z } from "zod";
 
 import { batch } from "@/batch";
+import { calculation } from "@/calculation";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { query } from "@/query";
+import { status } from "@/status";
 import { NO_OUTPUTS, PushStreamer, testCoreAddress } from "@/testutil";
 
 const FAILED: channel.Payload = {
@@ -72,6 +74,7 @@ const createFake = async () => {
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
+  const statuses = new status.Client({ unary, cache });
   const coreURL = new url.URL(testCoreAddress());
   const channels = new channel.Client({
     framer: new framer.Client({
@@ -85,6 +88,7 @@ const createFake = async () => {
     writer: new channel.Writer(unary),
     cache,
     batch: new batch.Client(unary),
+    outputs: new calculation.Client({ unary, cache, statuses }).outputs,
   });
   await cache.ensureStreaming();
   const change = (...keys: channel.Key[]): void =>
