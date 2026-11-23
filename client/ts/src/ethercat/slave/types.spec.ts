@@ -54,6 +54,7 @@ describe("slaveZ", () => {
         { index: 0x8000, subIndex: 1, dataType: "uint16", value: 500 },
       ],
       opMode: { index: 0, assignActivate: 0x300, sync0Cycle: 1000 },
+      switchedAt: 5,
     });
     expect(slave.pdos.inputs[0].pdoName).toEqual("");
     expect(slave.readBindings[0].scaled).toBe(false);
@@ -63,6 +64,7 @@ describe("slaveZ", () => {
       value: 500,
     });
     expect(slave.opMode?.sync0Cycle).toEqual(1000);
+    expect(slave.switchedAt?.nanoseconds).toEqual(5);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [

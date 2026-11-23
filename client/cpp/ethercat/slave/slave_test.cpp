@@ -71,6 +71,7 @@ TEST(Slave, RoundTrips) {
         {.name = "DC", .assign_activate = 0x300, .sync0_shift = x::telem::TimeSpan(-5)}
     );
     s.op_mode = OpModeChoice{.index = 0, .assign_activate = 0x300};
+    s.switched_at = x::telem::TimeStamp(5);
     x::json::Parser parser(s.to_json());
     const auto parsed = Slave::parse(parser);
     ASSERT_NIL(parser.error());
@@ -81,6 +82,7 @@ TEST(Slave, RoundTrips) {
     ASSERT_EQ(parsed.write_bindings[0].state, 0);
     ASSERT_EQ(parsed.op_modes[0].sync0_shift, x::telem::TimeSpan(-5));
     ASSERT_EQ(parsed.op_mode.value_or(OpModeChoice{}).assign_activate, 0x300);
+    ASSERT_EQ(parsed.switched_at, x::telem::TimeStamp(5));
 }
 
 /// @brief it should parse the startup parameter variant that its data type names and
