@@ -1820,6 +1820,34 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should unbind a channel when the same edit drops the data type of its binding", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("count"),
+        dataType: DataType.INT64,
+        virtual: true,
+      });
+      const count = createField("count", "integer");
+      const entry = await createEntry({
+        fields: [count],
+        bound: { [count.key]: ch.key },
+      });
+      const [read] = entry.messages;
+      const binding = { field: count.key, channel: ch.key, dataType: "int64" };
+      const { draft } = await renderRead({
+        entries: [{ ...entry, messages: [{ ...read, bindings: [binding] }] }],
+      });
+      await selectField("count");
+      await screen.findByDisplayValue(ch.name);
+      const scale = await screen.findByLabelText("Scale");
+      fireEvent.change(scale, { target: { value: "0.5" } });
+      fireEvent.blur(scale);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: count.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
     it("should stop reading the time of a field that is no longer a timestamp", async () => {
       const timeCh = await createTimeChannel();
       const time = createTimeField();
