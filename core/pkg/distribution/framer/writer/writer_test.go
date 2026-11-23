@@ -13,10 +13,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -24,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -31,6 +35,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Writer", func() {
@@ -796,6 +803,85 @@ var _ = Describe("Writer", func() {
 					}
 				}
 				Expect(fr.Get(data.Key()).Len()).To(Equal(fr.Get(idx.Key()).Len()))
+			},
+		)
+		It(
+			"Should drop with a warning the samples that the next holder of a clock "+
+				"cannot take",
+			func(ctx SpecContext) {
+				core, logs := observer.New(zapcore.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				// A handoff on the pointer log does not move uncommitted samples.
+				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+					InMemory:          new(true),
+					PointerLogEnabled: new(true),
+					Random:            rand.NewPCG(1, 2),
+				}))
+				DeferCleanup(StartRun(st.Run))
+				host := testutil.NewNode(ctx, distribution.LayerConfig{
+					Storage:         st,
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				})
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "untaken_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "untaken",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
+				open := func(key string, authority control.Authority) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject:   control.Subject{Key: key},
+						Keys:             keys,
+						Start:            10 * telem.SecondTS,
+						Authorities:      []control.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				write := func(w *writer.Writer, at ...telem.TimeStamp) {
+					GinkgoHelper()
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(at...),
+						telem.NewSeries(make([]int64, len(at))),
+					}))).To(BeTrue())
+				}
+				holder := open("holder", 100)
+				write(holder, 10, 11, 12, 13)
+				taker := open("taker", 200)
+				warnings := logs.FilterMessage(
+					"dropped the uncommitted samples that the next holder of a clock " +
+						"could not take",
+				).All()
+				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].ContextMap()).To(HaveKeyWithValue(
+					"clock",
+					uint32(idx.Key()),
+				))
+				Expect(warnings[0].ContextMap()["error"]).To(ContainSubstring(
+					"1970-01-01T00:00:10Z - :13.000000001",
+				))
+				_, authorized := MustSucceed2(holder.Commit())
+				Expect(authorized).To(BeFalse(), "the commit reports the drop")
+				write(taker, 14)
+				Expect(MustCommit(taker)).To(Equal(14*telem.SecondTS + 1))
+				Expect(taker.Close()).To(Succeed())
+				Expect(holder.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   channel.Keys{data.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				Expect(iter.Value().Get(data.Key()).Len()).To(Equal(int64(1)))
+				Expect(iter.Close()).To(Succeed())
 			},
 		)
 		Describe("Lost control of the index", func() {

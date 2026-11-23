@@ -341,7 +341,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		cfg:      cfg,
 		claims:   newClaims(),
-		controls: newControls(),
+		controls: newControls(cfg.Instrumentation),
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},

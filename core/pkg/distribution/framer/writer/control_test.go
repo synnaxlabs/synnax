@@ -350,9 +350,9 @@ var _ = Describe("Control moved from Cesium", func() {
 							MustSucceed(low.Commit(ctx)),
 						).To(Equal(14*telem.SecondTS + 1))
 						Expect(low.Close()).To(Succeed())
-						// The handoff to high dropped the uncommitted 12 and 13.
+						// The uncommitted 12 and 13 moved to high and back.
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						Expect(f.Get(idx).Len()).To(Equal(int64(3)))
+						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
 					},
 				)
 				It(

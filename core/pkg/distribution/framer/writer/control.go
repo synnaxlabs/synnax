@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/control"
@@ -44,6 +45,7 @@ func (r *region) Key() channel.Key { return r.key }
 // life of the service, and notifies handlers of every control transfer. A delete of a
 // channel drops its controller.
 type controls struct {
+	ins     alamos.Instrumentation
 	updates observe.Observer[ControlUpdate]
 	byKey   map[channel.Key]*controlled
 	mu      sync.Mutex
@@ -72,13 +74,15 @@ func (cs *controls) clockEntry(ch cesium.Channel) (*clockEntry, error) {
 			clock:   ch.Key,
 			ctl:     ctl,
 			members: make(map[string]*clockMember),
+			ins:     cs.ins,
 		}
 	}
 	return ctl.clock, nil
 }
 
-func newControls() *controls {
+func newControls(ins alamos.Instrumentation) *controls {
 	return &controls{
+		ins:     ins,
 		updates: observe.New[ControlUpdate](),
 		byKey:   make(map[channel.Key]*controlled),
 	}

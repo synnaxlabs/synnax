@@ -27,7 +27,8 @@ var _ = Describe("Writer control moved from Cesium", func() {
 			BeforeEach(func(ctx SpecContext) { db = mustOpenDBOnFS(ctx, openFS()) })
 
 			It(
-				"Should drop the uncommitted samples of a writer that loses its clock",
+				"Should hand the uncommitted samples of a writer that loses its clock to "+
+					"the next holder",
 				func(ctx SpecContext) {
 					ix, x, iy, y := GenerateChannelKey(), GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey()
@@ -90,11 +91,11 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, x)).Get(x).Len(),
 					).
 						To(BeZero())
-					// The handoff of iy dropped the uncommitted samples of a.
+					// The handoff of iy moved the uncommitted samples of a to b.
 					Expect(
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, y)).Get(y).Len(),
 					).
-						To(Equal(int64(1)))
+						To(Equal(int64(3)))
 					Expect(
 						a.Commit(ctx),
 					).Error().
@@ -415,9 +416,11 @@ var _ = Describe("Writer control moved from Cesium", func() {
 							db.Read(ctx, telem.TimeRangeMax, key),
 						).Get(key).
 							Series
-						// The handoff dropped the uncommitted samples of w1.
+						// The handoff moved the uncommitted samples of w1 to w2.
 						Expect(series).To(HaveLen(1))
 						Expect(series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+							10*telem.SecondTS,
+							11*telem.SecondTS,
 							12*telem.SecondTS,
 							13*telem.SecondTS,
 						))
