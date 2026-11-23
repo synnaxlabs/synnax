@@ -74,7 +74,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...field,
     value: Spec.effective({ looks }, part, f, at),
     inherited: part == null ? undefined : Spec.effective({ looks }, undefined, f, at),
-    own: Spec.effective({ looks: looks.filter((l) => l.part === part) }, part, f, at),
+    own: Spec.own({ looks }, part, f, at),
     onChange: (v) => set(path.data, Spec.setOwn(get(path.data).value, part, f, v, at)),
   };
 };
