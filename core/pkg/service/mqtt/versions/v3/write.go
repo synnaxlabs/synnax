@@ -255,7 +255,7 @@ func inlineWrite(t InlineTarget) icd.InlineWrite {
 	}
 	return icd.InlineWrite{
 		Target:  "topic " + t.Topic,
-		Channel: icd.InlineChannel(t.Channel),
+		Channel: icd.InlineChannelField(t.Channel),
 		Fields:  fields,
 	}
 }

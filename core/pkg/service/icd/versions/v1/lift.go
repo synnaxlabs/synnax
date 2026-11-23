@@ -35,13 +35,15 @@ type InlineWrite struct {
 	// Target names where the write sends its messages, such as "topic a/b", in notes.
 	Target string
 	// Channel is the field that sends the commands of a channel.
-	Channel InlineChannel
+	Channel InlineChannelField
 	// Fields are the fields that send a fixed or generated value.
 	Fields []InlineWriteField
 }
 
-// InlineChannel is the field of an inline write that sends the commands of a channel.
-type InlineChannel struct {
+// InlineChannelField is the field of an inline write that sends the commands of a
+// channel. It holds the fields of each stored channel field, in order, so a config
+// converts its own to it.
+type InlineChannelField struct {
 	// Pointer is the JSON Pointer to the value of the field.
 	Pointer string
 	// JSONType is the JSON type that the write sent each command as.
@@ -171,7 +173,7 @@ func writeBase(taken set.Set[string], pointer string) JSONBaseField {
 // change to what the field sends.
 func liftChannel(
 	ctx context.Context,
-	old InlineChannel,
+	old InlineChannelField,
 	ch v0.Channel,
 	exists bool,
 	base JSONBaseField,

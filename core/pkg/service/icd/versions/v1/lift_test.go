@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// liftedVariant returns the variant of f, which must be a T.
-func liftedVariant[T icd.JSONFieldVariant](f icd.JSONField) T {
+// variantOf returns the variant of f, which must be a T.
+func variantOf[T icd.JSONFieldVariant](f icd.JSONField) T {
 	GinkgoHelper()
 	v, ok := f.Variant.(T)
 	return MustBeOk(v, ok)
@@ -36,8 +36,8 @@ func liftedFields(msg icd.Message) []icd.JSONField {
 }
 
 // valueChannel returns a channel field at /value that sends channel 7 as a number.
-func valueChannel() icd.InlineChannel {
-	return icd.InlineChannel{
+func valueChannel() icd.InlineChannelField {
+	return icd.InlineChannelField{
 		Pointer:  "/value",
 		JSONType: payload.JSONTypeNumber,
 		Channel:  7,
@@ -61,7 +61,7 @@ var _ = Describe("LiftWrite", func() {
 	// and returns the fields of its message, the write, and each note.
 	lift := func(
 		ctx SpecContext,
-		ch icd.InlineChannel,
+		ch icd.InlineChannelField,
 		fields ...icd.InlineWriteField,
 	) ([]icd.JSONField, icd.WriteMessage, []note) {
 		GinkgoHelper()
@@ -183,7 +183,7 @@ var _ = Describe("LiftWrite", func() {
 		format := payload.TimeFormatUnixMs
 		ch.TimeFormat = &format
 		f, _, _ := lift(ctx, ch)
-		Expect(liftedVariant[icd.TimestampJSONField](f[0]).TimeFormat).
+		Expect(variantOf[icd.TimestampJSONField](f[0]).TimeFormat).
 			To(Equal(payload.TimeFormatUnixMs))
 	})
 
@@ -191,7 +191,7 @@ var _ = Describe("LiftWrite", func() {
 		func(ctx SpecContext) {
 			found[7] = v0.Channel{Name: "valve_cmd", DataType: telem.TimestampT}
 			f, _, _ := lift(ctx, valueChannel())
-			Expect(liftedVariant[icd.TimestampJSONField](f[0]).TimeFormat).
+			Expect(variantOf[icd.TimestampJSONField](f[0]).TimeFormat).
 				To(Equal(payload.TimeFormatISO8601))
 		},
 	)
@@ -206,7 +206,7 @@ var _ = Describe("LiftWrite", func() {
 				{Label: "HALF", Value: 0.5},
 			}
 			f, _, _ := lift(ctx, ch)
-			Expect(liftedVariant[icd.IntegerJSONField](f[0]).EnumValues).To(Equal(
+			Expect(variantOf[icd.IntegerJSONField](f[0]).EnumValues).To(Equal(
 				[]payload.IntegerEntry{{Label: "OPEN", Value: 1}},
 			))
 		},
@@ -264,13 +264,13 @@ var _ = Describe("LiftWrite", func() {
 			},
 		)
 		Expect(f).To(HaveLen(5))
-		Expect(*liftedVariant[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
+		Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
 		Expect(
-			*liftedVariant[icd.FloatJSONField](f[2]).Default,
+			*variantOf[icd.FloatJSONField](f[2]).Default,
 		).To(Equal(payload.Float(2.5)))
-		Expect(*liftedVariant[icd.BooleanJSONField](f[3]).Default).To(BeTrue())
+		Expect(*variantOf[icd.BooleanJSONField](f[3]).Default).To(BeTrue())
 		Expect(
-			*liftedVariant[icd.JSONJSONField](f[4]).Default,
+			*variantOf[icd.JSONJSONField](f[4]).Default,
 		).To(MatchJSON(`{"max":10}`))
 		Expect(f[1].Base().Name).To(Equal("mode"))
 		Expect(f[1].Base().Pointer).To(Equal("/mode"))
@@ -306,7 +306,7 @@ var _ = Describe("LiftWrite", func() {
 			TimeFormat:    payload.TimeFormatUnixNs,
 			Default:       now,
 		}))
-		Expect(liftedVariant[icd.TimestampJSONField](f[3]).TimeFormat).
+		Expect(variantOf[icd.TimestampJSONField](f[3]).TimeFormat).
 			To(Equal(payload.TimeFormatISO8601))
 		Expect(write.Bindings).To(HaveLen(1))
 	})
@@ -320,7 +320,7 @@ var _ = Describe("LiftWrite", func() {
 				Generator:  payload.GeneratorTypeTimestamp,
 				TimeFormat: &format,
 			})
-			Expect(liftedVariant[icd.TimestampJSONField](f[1]).TimeFormat).
+			Expect(variantOf[icd.TimestampJSONField](f[1]).TimeFormat).
 				To(Equal(payload.TimeFormatISO8601))
 			Expect(notes).To(Equal([]note{{
 				path:   "targets.0.fields.0",
