@@ -1224,6 +1224,21 @@ TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     EXPECT_EQ(current.certificate, old.certificate);
 }
 
+/// @brief it should save the Driver certificate as a file certificate on the rack.
+TEST_F(TestScanTask, testScanSavesDriverCertificate) {
+    ctx->set_rack_name(rack.name);
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    ASSERT_EQ(scan(scanner, secured_device(secured_config())).size(), 1);
+    const auto current = ASSERT_NIL_P(store->current());
+    const auto records = ASSERT_NIL_P(
+        client->certificates.retrieve(synnax::certificate::Where{.racks = rack.key})
+    );
+    ASSERT_EQ(records.size(), 1);
+    const auto &file = std::get<synnax::certificate::FileCertificate>(records[0]);
+    EXPECT_EQ(file.name, rack.name + " Driver certificate");
+    EXPECT_EQ(file.certificate_path, store->cert_path(current).string());
+}
+
 /// @brief it should keep the scanned devices and report a failed renewal as a partial
 /// scan failure.
 TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {

@@ -120,7 +120,8 @@ Scanner::Scanner(
     task(std::move(task)),
     conn_pool(std::move(conn_pool)),
     store(std::move(store)),
-    reader(std::move(reader)) {}
+    reader(std::move(reader)),
+    records(this->store, this->ctx->client, this->task.rack) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -136,6 +137,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     for (const auto &dev: *scan_ctx.devices | std::views::values)
         devices.push_back(dev);
     const auto renew_err = this->renew_certificate(devices);
+    const auto records_err = this->records.sync(this->ctx->rack_name());
     for (auto &dev: devices)
         if (const auto err = this->check_device_health(dev); err)
             LOG(WARNING) << SCAN_LOG_PREFIX << "health check failed for " << dev.name
@@ -146,6 +148,14 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             x::errors::Error(
                 common::PARTIAL_SCAN_ERROR,
                 "Failed to renew the Driver certificate: " + renew_err.data
+            )
+        };
+    if (records_err)
+        return {
+            devices,
+            x::errors::Error(
+                common::PARTIAL_SCAN_ERROR,
+                "Failed to save the Driver certificate in the Core: " + records_err.data
             )
         };
     return {devices, x::errors::NIL};

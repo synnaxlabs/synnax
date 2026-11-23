@@ -57,6 +57,16 @@ public:
     /// @returns the next identity, or nothing if renewal has not started.
     std::pair<std::optional<Identity>, x::errors::Error> next();
 
+    /// @returns the identities in order of issue: the current one, then the next.
+    /// Makes no identity and switches none.
+    std::pair<std::vector<Identity>, x::errors::Error> list();
+
+    /// @returns the directory of the certificate files.
+    [[nodiscard]] std::filesystem::path certs_dir() const;
+
+    /// @returns the path of the certificate file of id.
+    [[nodiscard]] std::filesystem::path cert_path(const Identity &id) const;
+
     /// @brief issues the next identity if the current one expires inside the
     /// renewal window and no next identity exists.
     x::errors::Error renew();
@@ -85,7 +95,6 @@ private:
     /// @returns the URI of the current identity, which stays the same across
     /// renewals, or a new URI if there is none.
     [[nodiscard]] std::string application_uri() const;
-    [[nodiscard]] std::filesystem::path cert_path(const Identity &id) const;
     [[nodiscard]] std::filesystem::path key_path(const Identity &id) const;
 };
 }

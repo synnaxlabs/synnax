@@ -24,6 +24,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/opcua/certificate/records.h"
 #include "driver/opcua/certificate/store.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/opcua.h"
@@ -131,6 +132,8 @@ private:
     std::shared_ptr<connection::Pool> conn_pool;
     std::shared_ptr<certificate::Store> store;
     std::shared_ptr<secret::Reader> reader;
+    /// @brief only scan() uses it, since commands run on another thread.
+    certificate::Records records;
     ScanTaskConfig cfg;
     /// @brief only scan() reads or writes it, since commands run on another thread.
     Renewal renewal;
