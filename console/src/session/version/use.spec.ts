@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +17,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; tauriVersion: string } =
   tauriVersion: "9.9.9",
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -52,7 +52,7 @@ describe("Version.use", () => {
       const nodeVersion = await retrieveNodeVersion();
       const { wrapper } = await createConnectedConsoleWrapper({
         client: null,
-        connParams: TEST_CLIENT_PARAMS,
+        connParams: testClientParams(),
       });
       const { result } = renderHook(() => Version.use(), { wrapper });
       await waitFor(() => expect(result.current).toBe(nodeVersion));
@@ -78,7 +78,7 @@ describe("Version.use", () => {
       const nodeVersion = await retrieveNodeVersion();
       const { wrapper } = await createConnectedConsoleWrapper({
         client: null,
-        connParams: TEST_CLIENT_PARAMS,
+        connParams: testClientParams(),
       });
       const { result } = renderHook(
         () => ({

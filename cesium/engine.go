@@ -58,7 +58,7 @@ type engine struct {
 	// checkpointer writes once it runs, or zero.
 	switched uint64
 	// ready is closed once the orphan pass is done. A writer waits for it before it
-	// creates a segment file.
+	// creates a segment file, and lockRoot before a call that removes files.
 	ready chan struct{}
 	// unstored gives out the alignment numbers of unstored writers, from
 	// telem.LeadingDomain.
@@ -71,12 +71,6 @@ type engine struct {
 	stored   set.Set[ChannelKey]
 	shutdown sync.Once
 	closeErr error
-	// keys holds the key of each segment that the state may give back as dead, so that
-	// reap can name its file.
-	keys struct {
-		sync.Mutex
-		of map[uint64]ChannelKey
-	}
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -106,7 +100,6 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.readers.New = func() any { return segment.NewReader() }
-	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -265,28 +258,14 @@ func (e *engine) onHead(
 	e.ckpt.Head(generation, s)
 }
 
-// named records the key of segment id, so that reap can name its file.
-func (e *engine) named(id uint64, key ChannelKey) {
-	e.keys.Lock()
-	e.keys.of[id] = key
-	e.keys.Unlock()
-}
-
 // reap unlinks the file of each segment that left the state.
 func (e *engine) reap() error {
-	ids, err := e.state.TakeDead()
+	dead, err := e.state.TakeDead()
 	if err != nil {
 		return err
 	}
-	e.keys.Lock()
-	defer e.keys.Unlock()
-	for _, id := range ids {
-		key, ok := e.keys.of[id]
-		if !ok {
-			return errors.Newf("no key of dead segment %d", id)
-		}
-		delete(e.keys.of, id)
-		if err = e.fs.Remove(segmentName(key, id)); err != nil {
+	for _, d := range dead {
+		if err = e.fs.Remove(segmentName(d.Key, d.Segment)); err != nil {
 			return err
 		}
 	}
@@ -366,7 +345,6 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
 			named[segmentName(ch.Key, seg.ID)] = seg
-			e.named(seg.ID, ch.Key)
 		}
 	}
 	infos, err := e.fs.List("")

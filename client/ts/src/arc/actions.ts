@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type crdt, patch, type record } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
@@ -25,7 +25,7 @@ import {
   setNodeInputs,
   setNodePosition,
 } from "@/arc/actions.gen";
-import { type ir } from "@/arc/ir";
+import type { ir } from "@/arc/ir";
 import {
   type Arc,
   arcZ,

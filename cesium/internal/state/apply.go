@@ -42,7 +42,7 @@ type core struct {
 	keysChanged bool
 	// dead holds the segments that left the state with a file left to unlink once no
 	// reader pins it.
-	dead []uint64
+	dead []Dead
 	keys set.Set[uint32]
 }
 
@@ -243,7 +243,22 @@ func (c *core) seal(r *log.Seal) error {
 	if s.vis.Sealed && s.vis.Length == s.dur.length {
 		s.dur.pointers = s.vis.Pointers
 	}
+	c.bury(s)
 	return nil
+}
+
+// bury takes s out of the state when it is sealed in the durable view with no durable
+// pointer, and gives it to TakeDead: its file holds no live byte. It reads only the
+// durable view, so replay and the owner bury the same segments.
+func (c *core) bury(s *segState) {
+	if !s.dur.sealed || len(s.dur.pointers) > 0 {
+		return
+	}
+	ch := c.channels[s.key]
+	ch.remove(s.vis.ID)
+	delete(c.segments, s.vis.ID)
+	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key})
+	ch.publish()
 }
 
 func (c *core) drop(key uint32) error {
@@ -269,6 +284,7 @@ func (c *core) restart() {
 	for _, s := range c.segments {
 		if s.dur.created && !s.dur.sealed {
 			s.dur.sealed = true
+			c.bury(s)
 		}
 	}
 }

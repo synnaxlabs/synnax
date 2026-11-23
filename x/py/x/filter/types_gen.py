@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypedDict, TypeVar
+from typing import Any, TypedDict, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -91,7 +91,7 @@ class BoolDict(TypedDict, total=False):
 type BoolInput = bool | BoolDict | Bool
 
 
-class Set(BaseModel, Generic[T]):
+class Set[T](BaseModel):
     """Selects values that only compare for equality, such as keys, enum values, and
     UUIDs. A value must match every operator that is set.
 
@@ -122,7 +122,7 @@ SetDict = TypedDict(
 type SetInput[T] = T | list[T] | SetDict[T] | Set[T]
 
 
-class Ordered(BaseModel, Generic[T]):
+class Ordered[T](BaseModel):
     """Selects numbers and times. A value must match every operator that is set.
 
     Attributes:
@@ -160,7 +160,7 @@ OrderedDict = TypedDict(
 type OrderedInput[T] = T | list[T] | OrderedDict[T] | Ordered[T]
 
 
-class Contains(BaseModel, Generic[T]):
+class Contains[T](BaseModel):
     """Selects arrays by the elements they hold.
 
     Attributes:
@@ -178,7 +178,7 @@ class Contains(BaseModel, Generic[T]):
 
 
 # ContainsDict is the dict form of Contains.
-class ContainsDict(TypedDict, Generic[T], total=False):
+class ContainsDict[T](TypedDict, total=False):
     any: list[T]
 
 

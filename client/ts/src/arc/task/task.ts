@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/arc/types.gen";
-import { type task } from "@/task";
+import type { task } from "@/task";
 
 /** The type of the task that runs an Arc. */
 export const TYPE = "arc";

@@ -465,38 +465,11 @@ func shapeOf(ref resolution.TypeRef, table *resolution.Table) (shape, error) {
 		}
 		return shapeOf(target, table)
 	case resolution.DistinctForm:
-		base := resolution.SubstituteTypeRef(
-			form.Base,
-			resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
-		)
-		sh, err := shapeOf(base, table)
-		if err != nil {
-			return shape{}, err
-		}
-		if sh.kind == shapeNested {
-			return shape{}, errors.Newf(
-				"%s: a distinct struct type has no generated methods",
-				typ.QualifiedName,
-			)
-		}
-		sh.converted = true
-		return sh, nil
+		return distinctShape(typ, form, ref, table)
 	case resolution.EnumForm:
 		return shape{kind: shapeEnum, intEnum: form.IsIntEnum}, nil
 	case resolution.StructForm:
-		if form.IsGeneric() {
-			return shape{}, errors.Newf(
-				"%s: content hashing does not support a generic struct",
-				typ.QualifiedName,
-			)
-		}
-		if omit.IsSkipped(typ, "go") {
-			return shape{}, errors.Newf(
-				"%s: content hashing does not support a hand-written struct",
-				typ.QualifiedName,
-			)
-		}
-		return shape{kind: shapeNested, typ: typ}, nil
+		return structShape(typ, form)
 	case resolution.UnionForm:
 		return shape{kind: shapeNested, typ: typ}, nil
 	default:
@@ -506,6 +479,49 @@ func shapeOf(ref resolution.TypeRef, table *resolution.Table) (shape, error) {
 			form,
 		)
 	}
+}
+
+// distinctShape returns the shape of the Go value of ref, a reference to the distinct
+// type typ.
+func distinctShape(
+	typ resolution.Type,
+	form resolution.DistinctForm,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (shape, error) {
+	base := resolution.SubstituteTypeRef(
+		form.Base,
+		resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
+	)
+	sh, err := shapeOf(base, table)
+	if err != nil {
+		return shape{}, err
+	}
+	if sh.kind == shapeNested {
+		return shape{}, errors.Newf(
+			"%s: a distinct struct type has no generated methods",
+			typ.QualifiedName,
+		)
+	}
+	sh.converted = true
+	return sh, nil
+}
+
+// structShape returns the shape of the Go value of the struct typ.
+func structShape(typ resolution.Type, form resolution.StructForm) (shape, error) {
+	if form.IsGeneric() {
+		return shape{}, errors.Newf(
+			"%s: content hashing does not support a generic struct",
+			typ.QualifiedName,
+		)
+	}
+	if omit.IsSkipped(typ, "go") {
+		return shape{}, errors.Newf(
+			"%s: content hashing does not support a hand-written struct",
+			typ.QualifiedName,
+		)
+	}
+	return shape{kind: shapeNested, typ: typ}, nil
 }
 
 // hashable is the set of primitives that HashContent writes.

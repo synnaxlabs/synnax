@@ -19,7 +19,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Errors, type Flux, Mosaic, Panel, Synnax } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Color,
+  Errors,
+  type Flux,
+  Mosaic,
+  Panel,
+  Synnax,
+} from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -171,7 +179,9 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
   const icon = Panel.useIcon({ key: tabKey });
-  const color = Panel.useColor({ key: tabKey });
+  const resolve = Color.useResolve();
+  const ref = Panel.useColor({ key: tabKey });
+  const color = resolve(ref);
   const draft = Panel.useDraft({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();

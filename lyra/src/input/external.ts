@@ -22,6 +22,7 @@ export * from "@/input/Text";
 export * from "@/input/time/DateTime";
 export * from "@/input/time/Effect";
 export { formatInstant } from "@/input/time/grammar";
-export type { Bound } from "@/input/time/suggest";
+export { type Bound, type Language, suggestTimeRange } from "@/input/time/suggest";
 export * from "@/input/time/TimeSpan";
+export * from "@/input/time/useLanguage";
 export * from "@/input/types";

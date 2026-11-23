@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type SystemLayer } from "@/components/IndustrialScene";
+import type { SystemLayer } from "@/components/IndustrialScene";
 import { SystemDemo } from "@/components/SystemDemo";
 
 // These tests exercise the controls and state transitions independently of the scene.

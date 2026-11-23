@@ -11,6 +11,7 @@ import { observe, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
+import { createReduceAll } from "@/actions/actions";
 import {
   Controller,
   type Frame,
@@ -18,7 +19,7 @@ import {
   type SendDispatch,
 } from "@/actions/controller";
 import { batch } from "@/batch";
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, NotCachedError } from "@/errors";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -148,9 +149,11 @@ const prime = (
 
 describe("actions.Controller", () => {
   describe("dispatch", () => {
-    it("returns false and sends nothing when the doc is not cached", async () => {
+    it("throws and sends nothing when the doc is not cached", async () => {
       const { controller, send } = setupStore();
-      expect(await controller.dispatch("missing", [set("a", 1)])).toBe(false);
+      await expect(controller.dispatch("missing", [set("a", 1)])).rejects.toThrow(
+        NotCachedError,
+      );
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -940,13 +943,23 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(false);
     });
 
-    it("returns false from commit when the doc is not cached", async () => {
-      const { controller, send } = setupStore();
-      const tx = controller.transaction("missing");
-      tx.add({ type: "set", key: "a", value: 1 });
-      const ok = await tx.commit();
-      expect(ok).toBe(false);
+    it("throws when the doc is not cached", () => {
+      const { controller } = setupStore();
+      expect(() => controller.transaction("missing")).toThrow(NotCachedError);
+    });
+
+    it("aborts the transaction when an add finds the doc no longer cached", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k");
+      tx.add(set("a", 1));
+      docs.delete("k");
+      expect(() => tx.add(set("b", 2))).toThrow(NotCachedError);
+      expect(await tx.commit()).toBe(false);
       expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBeUndefined();
+      expect(controller.hasPending("k")).toBe(false);
+      expect(controller.hasUndo("k")).toBe(false);
     });
 
     it("subsequent commits return false and do not re-send", async () => {
@@ -1229,6 +1242,36 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("overlaid", () => {
+    it("reports a doc with a pending dispatch as overlaid", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      prime(docs, "other", { a: 0 });
+      expect([...docs.overlaid()]).toEqual([]);
+      await controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+    });
+
+    it("drops the doc once the echo of its dispatch settles it", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+
+    it("drops the doc once the Core refuses its dispatch", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+  });
+
   describe("applyRemote", () => {
     it("applies foreign actions and stamps targets as remote-touched", async () => {
       const { docs, controller } = setupStore();
@@ -1410,6 +1453,19 @@ describe("actions.Controller", () => {
       calls[0].resolve();
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("tells the doc's subscribers when the echo of the first pending dispatch arrives", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      const events: string[] = [];
+      docs.subscribe((event) => events.push(event.variant), "k");
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      expect(events).toEqual(["set"]);
+      calls[0].resolve();
+      await dispatched;
     });
 
     it("applies the actions that the Core adds to the echo of a dispatch", async () => {
@@ -1750,6 +1806,44 @@ describe("actions.Controller", () => {
       controller.applyRemote("k", 1, dispatchKey, [create]);
       expect(docs.get("j")).toEqual({ key: "j", values: { a: 1 } });
       expect(docs.get("k")).toEqual({ key: "k", values: { a: 1 } });
+    });
+
+    it("settles an echo whose added action edits an object that a dispatched one adds", async () => {
+      interface Plot {
+        ranges: Array<{ key: string; color?: string }>;
+      }
+      type PlotAction =
+        | { type: "add"; range: { key: string } }
+        | { type: "color"; key: string; color: string };
+      const reduce = createReduceAll<Plot, PlotAction>((draft, a) => {
+        if (a.type === "add") draft.ranges.push(a.range);
+        else {
+          const range = draft.ranges.find(({ key }) => key === a.key);
+          if (range != null) range.color = a.color;
+        }
+        return { inverse: [], targets: ["ranges"] };
+      });
+      const errors: Error[] = [];
+      const onError = (error: Error) => errors.push(error);
+      const docs = new Table<string, Plot>({ onError, fetch: async () => [] });
+      const epochs = new observe.Observer<number>();
+      const color: PlotAction = { type: "color", key: "r", color: "#f00" };
+      const controller = new Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError,
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [color],
+      });
+      epochs.notify(1);
+      docs.set("k", { ranges: [] });
+      await controller.dispatch("k", [{ type: "add", range: { key: "r" } }]);
+      const settled = controller.settled("k");
+      await vi.advanceTimersByTimeAsync(10_000);
+      await settled;
+      expect(errors).toEqual([]);
+      expect(docs.get("k")?.ranges).toEqual([{ key: "r", color: "#f00" }]);
     });
 
     const invalid: Action = { type: "invalid" };
