@@ -52,6 +52,8 @@ var (
 	importer *recordingImporter
 	root     user.User
 	logSvc   *log.Service
+	// channelSvc creates the channels of specs that need more than ch.
+	channelSvc *channel.Service
 	// ch is a channel that imported logs use, and chName is its name.
 	ch     channel.Key
 	chName string
@@ -101,7 +103,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group: groupSvc,
 		ImEx:  imexSvc,
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
 		DB:      db,
