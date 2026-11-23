@@ -710,7 +710,7 @@ var _ = Describe("Writer", func() {
 			var (
 				host        testutil.Node
 				keys        channel.Keys
-				both, index frameOf
+				both, index frameBuilder
 			)
 			BeforeEach(func(ctx SpecContext) {
 				host = testutil.NewNode(ctx)
@@ -778,7 +778,7 @@ var _ = Describe("Writer", func() {
 				"Should keep data and its index consistent after a refused commit",
 				func(
 					ctx SpecContext,
-					after func(w1, w2 *writer.Writer, both, index frameOf),
+					after func(w1, w2 *writer.Writer, both, index frameBuilder),
 					idxLen, dataLen int64,
 				) {
 					w1 := openFirst(ctx)
@@ -790,7 +790,7 @@ var _ = Describe("Writer", func() {
 				},
 				Entry(
 					"commit the index and the data after control comes back",
-					func(w1, w2 *writer.Writer, _, _ frameOf) {
+					func(w1, w2 *writer.Writer, _, _ frameBuilder) {
 						Expect(w2.Close()).To(Succeed())
 						_, authorized := MustSucceed2(w1.Commit())
 						Expect(authorized).To(BeTrue())
@@ -800,7 +800,7 @@ var _ = Describe("Writer", func() {
 				),
 				Entry(
 					"commit the index and the data after a refused write",
-					func(w1, w2 *writer.Writer, both, _ frameOf) {
+					func(w1, w2 *writer.Writer, both, _ frameBuilder) {
 						Expect(w1.Write(both([]int64{5}, 14))).To(BeFalse())
 						Expect(w2.Close()).To(Succeed())
 						_, authorized := MustSucceed2(w1.Commit())
@@ -811,7 +811,7 @@ var _ = Describe("Writer", func() {
 				),
 				Entry(
 					"commit the data on a retry after a refused write",
-					func(w1, w2 *writer.Writer, both, index frameOf) {
+					func(w1, w2 *writer.Writer, both, index frameBuilder) {
 						Expect(w1.Write(both([]int64{5}, 20))).To(BeFalse())
 						Expect(w2.Write(index(nil, 14))).To(BeTrue())
 						MustSucceed2(w2.Commit())
@@ -824,7 +824,7 @@ var _ = Describe("Writer", func() {
 				),
 				Entry(
 					"commit the data on a retry after another writer commits the index",
-					func(w1, w2 *writer.Writer, _, index frameOf) {
+					func(w1, w2 *writer.Writer, _, index frameBuilder) {
 						Expect(w2.Write(index(nil, 14))).To(BeTrue())
 						MustSucceed2(w2.Commit())
 						Expect(w2.Close()).To(Succeed())
@@ -836,7 +836,7 @@ var _ = Describe("Writer", func() {
 				),
 				Entry(
 					"commit the data with a later write",
-					func(w1, w2 *writer.Writer, both, index frameOf) {
+					func(w1, w2 *writer.Writer, both, index frameBuilder) {
 						Expect(w2.Write(index(nil, 14))).To(BeTrue())
 						MustSucceed2(w2.Commit())
 						Expect(w2.Close()).To(Succeed())
@@ -1530,5 +1530,5 @@ func freeWriterScenario(ctx context.Context) scenario {
 	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
 }
 
-// frameOf builds a frame of the given data values at the given seconds.
-type frameOf = func(values []int64, seconds ...telem.TimeStamp) frame.Frame
+// frameBuilder builds a frame of the given data values at the given seconds.
+type frameBuilder = func(values []int64, seconds ...telem.TimeStamp) frame.Frame
