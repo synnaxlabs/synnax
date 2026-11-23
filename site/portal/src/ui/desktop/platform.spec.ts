@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { installable } from "@/ui/desktop/platform";
+import { Desktop } from "@/ui/desktop";
 
 const AGENTS = {
   mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/18.0 Safari/605.1.15",
@@ -21,14 +21,14 @@ const AGENTS = {
 
 describe("installable", () => {
   it("should accept a Mac and a Windows PC", () => {
-    expect(installable(AGENTS.mac)).toBe(true);
-    expect(installable(AGENTS.windows)).toBe(true);
+    expect(Desktop.installable(AGENTS.mac)).toBe(true);
+    expect(Desktop.installable(AGENTS.windows)).toBe(true);
   });
 
   it("should refuse a phone, Linux, and an unknown browser", () => {
-    expect(installable(AGENTS.iphone)).toBe(false);
-    expect(installable(AGENTS.android)).toBe(false);
-    expect(installable(AGENTS.linux)).toBe(false);
-    expect(installable("")).toBe(false);
+    expect(Desktop.installable(AGENTS.iphone)).toBe(false);
+    expect(Desktop.installable(AGENTS.android)).toBe(false);
+    expect(Desktop.installable(AGENTS.linux)).toBe(false);
+    expect(Desktop.installable("")).toBe(false);
   });
 });

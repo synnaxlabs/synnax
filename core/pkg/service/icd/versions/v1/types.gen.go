@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"uuid"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -1844,3 +1845,477 @@ type ReadBinding = v0.ReadBinding
 
 // ReadMessage reads one message of an ICD.
 type ReadMessage = v0.ReadMessage
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant interface {
+	isWriteValueVariant()
+}
+
+// FloatWriteValue is a fixed float.
+type FloatWriteValue struct {
+	// Value is the raw value, before scale and offset.
+	Value payload.Float `json:"value" msgpack:"value"`
+}
+
+func (FloatWriteValue) isWriteValueVariant() {}
+
+// IntegerWriteValue is a fixed signed integer.
+type IntegerWriteValue struct {
+	// Value is the raw value, before scale and offset.
+	Value payload.Integer `json:"value" msgpack:"value"`
+}
+
+func (IntegerWriteValue) isWriteValueVariant() {}
+
+// UnsignedWriteValue is a fixed unsigned integer.
+type UnsignedWriteValue struct {
+	// Value is the raw value, before scale and offset.
+	Value payload.Unsigned `json:"value" msgpack:"value"`
+}
+
+func (UnsignedWriteValue) isWriteValueVariant() {}
+
+// StringWriteValue is a fixed string.
+type StringWriteValue struct {
+	// Value is the string.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (StringWriteValue) isWriteValueVariant() {}
+
+// BooleanWriteValue is a fixed boolean.
+type BooleanWriteValue struct {
+	// Value is the boolean.
+	Value bool `json:"value" msgpack:"value"`
+}
+
+func (BooleanWriteValue) isWriteValueVariant() {}
+
+// TimestampWriteValue is a fixed timestamp.
+type TimestampWriteValue struct {
+	// Value is the timestamp.
+	Value telem.TimeStamp `json:"value" msgpack:"value"`
+}
+
+func (TimestampWriteValue) isWriteValueVariant() {}
+
+// JSONWriteValue is a fixed JSON value.
+type JSONWriteValue struct {
+	// Value is the JSON text of the value.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (JSONWriteValue) isWriteValueVariant() {}
+
+// UuidWriteValue is a fixed UUID.
+type UuidWriteValue struct {
+	// Value is the UUID.
+	Value uuid.UUID `json:"value" msgpack:"value"`
+}
+
+func (UuidWriteValue) isWriteValueVariant() {}
+
+// BytesWriteValue is fixed bytes.
+type BytesWriteValue struct {
+	// Value is the base64 text of the value.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (BytesWriteValue) isWriteValueVariant() {}
+
+// WriteValue is a fixed value that a write binding sends as its field. Its type is the
+// kind of the field.
+type WriteValue struct {
+	Variant WriteValueVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case FloatWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			FloatWriteValue
+		}{Type: payload.KindFloat, FloatWriteValue: v})
+	case IntegerWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			IntegerWriteValue
+		}{Type: payload.KindInteger, IntegerWriteValue: v})
+	case UnsignedWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			UnsignedWriteValue
+		}{Type: payload.KindUnsigned, UnsignedWriteValue: v})
+	case StringWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			StringWriteValue
+		}{Type: payload.KindString, StringWriteValue: v})
+	case BooleanWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			BooleanWriteValue
+		}{Type: payload.KindBoolean, BooleanWriteValue: v})
+	case TimestampWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			TimestampWriteValue
+		}{Type: payload.KindTimestamp, TimestampWriteValue: v})
+	case JSONWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			JSONWriteValue
+		}{Type: payload.KindJSON, JSONWriteValue: v})
+	case UuidWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			UuidWriteValue
+		}{Type: payload.KindUUID, UuidWriteValue: v})
+	case BytesWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			BytesWriteValue
+		}{Type: payload.KindBytes, BytesWriteValue: v})
+	default:
+		return errors.Newf("WriteValue: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type payload.Kind `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case payload.KindFloat:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			FloatWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FloatWriteValue
+	case payload.KindInteger:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			IntegerWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IntegerWriteValue
+	case payload.KindUnsigned:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			UnsignedWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnsignedWriteValue
+	case payload.KindString:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			StringWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringWriteValue
+	case payload.KindBoolean:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			BooleanWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BooleanWriteValue
+	case payload.KindTimestamp:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			TimestampWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TimestampWriteValue
+	case payload.KindJSON:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			JSONWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JSONWriteValue
+	case payload.KindUUID:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			UuidWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UuidWriteValue
+	case payload.KindBytes:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			BytesWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BytesWriteValue
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteValue: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteValue) Type() payload.Kind {
+	switch u.Variant.(type) {
+	case FloatWriteValue:
+		return payload.KindFloat
+	case IntegerWriteValue:
+		return payload.KindInteger
+	case UnsignedWriteValue:
+		return payload.KindUnsigned
+	case StringWriteValue:
+		return payload.KindString
+	case BooleanWriteValue:
+		return payload.KindBoolean
+	case TimestampWriteValue:
+		return payload.KindTimestamp
+	case JSONWriteValue:
+		return payload.KindJSON
+	case UuidWriteValue:
+		return payload.KindUUID
+	case BytesWriteValue:
+		return payload.KindBytes
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteValue) Validate() error {
+	v := validate.New("WriteValue")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
+// WriteBaseBinding carries the parts every write binding shares.
+type WriteBaseBinding struct {
+	// Field is the key of the message field to fill.
+	Field FieldKey `json:"field" msgpack:"field"`
+}
+
+// WriteBindingType is the "type" value that selects a variant of WriteBinding.
+type WriteBindingType string
+
+const (
+	// ChannelWriteBindingType fills a field with the values of a command channel.
+	ChannelWriteBindingType WriteBindingType = "channel"
+	// ValueWriteBindingType fills a field with a fixed value.
+	ValueWriteBindingType WriteBindingType = "value"
+)
+
+// WriteBindingVariant is implemented by every WriteBinding variant.
+type WriteBindingVariant interface {
+	isWriteBindingVariant()
+}
+
+// ChannelWriteBinding fills a field with the values of a command channel.
+type ChannelWriteBinding struct {
+	WriteBaseBinding
+	// Channel is the command channel whose values the field sends. 0 means that a
+	// client creates the channel on configure.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the command channel that a client creates for the
+	// field. Absent takes float64 for a scaled field and the default of the field's
+	// kind for any other. The Core ignores it once the channel exists.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+}
+
+func (ChannelWriteBinding) isWriteBindingVariant() {}
+
+// ValueWriteBinding fills a field with a fixed value.
+type ValueWriteBinding struct {
+	WriteBaseBinding
+	// Value is the fixed value that the field sends.
+	Value WriteValue `json:"value" msgpack:"value"`
+}
+
+func (ValueWriteBinding) isWriteBindingVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (va ValueWriteBinding) Validate() error {
+	v := validate.New("ValueWriteBinding")
+	v.Exec(func() error { return validate.PathedError(va.Value.Validate(), "value") })
+	return v.Error()
+}
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding struct {
+	Variant WriteBindingVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteBinding) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ChannelWriteBinding:
+		return json.MarshalEncode(enc, struct {
+			Type WriteBindingType `json:"type"`
+			ChannelWriteBinding
+		}{Type: ChannelWriteBindingType, ChannelWriteBinding: v})
+	case ValueWriteBinding:
+		return json.MarshalEncode(enc, struct {
+			Type WriteBindingType `json:"type"`
+			ValueWriteBinding
+		}{Type: ValueWriteBindingType, ValueWriteBinding: v})
+	default:
+		return errors.Newf("WriteBinding: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteBinding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteBindingType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ChannelWriteBindingType:
+		var v struct {
+			Type WriteBindingType `json:"type"`
+			ChannelWriteBinding
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ChannelWriteBinding
+	case ValueWriteBindingType:
+		var v struct {
+			Type WriteBindingType `json:"type"`
+			ValueWriteBinding
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValueWriteBinding
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteBinding: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteBinding) Type() WriteBindingType {
+	switch u.Variant.(type) {
+	case ChannelWriteBinding:
+		return ChannelWriteBindingType
+	case ValueWriteBinding:
+		return ValueWriteBindingType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteBinding) Validate() error {
+	v := validate.New("WriteBinding")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case ValueWriteBinding:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteBinding) Base() WriteBaseBinding {
+	switch variant := u.Variant.(type) {
+	case ChannelWriteBinding:
+		return variant.WriteBaseBinding
+	case ValueWriteBinding:
+		return variant.WriteBaseBinding
+	}
+	return WriteBaseBinding{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteBinding) SetBase(base WriteBaseBinding) {
+	switch variant := u.Variant.(type) {
+	case ChannelWriteBinding:
+		variant.WriteBaseBinding = base
+		u.Variant = variant
+	case ValueWriteBinding:
+		variant.WriteBaseBinding = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteBinding: cannot set the base of variant %T", variant))
+	}
+}
+
+// WriteMessage sends one message of an ICD.
+type WriteMessage struct {
+	// Message is the key of the ICD message to send.
+	Message MessageKey `json:"message" msgpack:"message"`
+	// Bindings are the fields that command channels or fixed values fill. Each other
+	// field sends its default.
+	Bindings []WriteBinding `json:"bindings" msgpack:"bindings"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteMessage) Validate() error {
+	v := validate.New("WriteMessage")
+	for i := range w.Bindings {
+		v.Exec(func() error { return validate.PathedError(w.Bindings[i].Validate(), "bindings", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

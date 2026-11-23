@@ -9,7 +9,7 @@
 
 import { map } from "@synnaxlabs/x";
 
-import type { Action } from "@/access/action/types.gen";
+import type { access } from "@/access/action";
 import { allowRequest } from "@/access/enforce";
 import type { policy } from "@/access/policy";
 import type { query } from "@/query";
@@ -19,7 +19,7 @@ import { user } from "@/user";
 /** A permission question: may the subject apply the action to the objects? */
 export interface GrantedQuery {
   objects: resource.ID | resource.ID[];
-  action: Action;
+  action: access.Action;
 }
 
 /** The user a question asks about. Its role selects the policies that answer it. */

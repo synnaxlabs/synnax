@@ -86,11 +86,11 @@ describe("StringDisplay", () => {
       expect(getAllByText("Size")).toHaveLength(2);
     });
 
-    it("should render the telemetry controls", () => {
-      const { getByText } = renderForm();
+    it("should render the telemetry controls with no stale color", () => {
+      const { getByText, queryByText } = renderForm();
       expect(getByText("Channel")).toBeDefined();
-      expect(getByText("Color")).toBeDefined();
       expect(getByText("Timeout")).toBeDefined();
+      expect(queryByText("Color")).toBeNull();
     });
   });
 

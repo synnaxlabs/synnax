@@ -60,7 +60,8 @@ describe("Color.Field", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
+    // `other` serves a cached read until its stream goes live, which can outlast a
+    // poll.
     await waitForStreamLive(other.connection);
   });
 
