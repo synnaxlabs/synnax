@@ -500,6 +500,16 @@ TEST(testGRPC, testErrFromStatusKeepsPayloadType) {
     ASSERT_EQ(err.data, "bad key");
 }
 
+/// @brief it should keep the type of a payload that comes with any status code, as a
+/// Core panic does.
+TEST(testGRPC, testErrFromStatusKeepsPayloadTypeOfAnyCode) {
+    const auto err = priv::err_from_status(
+        ::grpc::Status(::grpc::StatusCode::INTERNAL, "sy.internal---panic")
+    );
+    ASSERT_EQ(err.type, x::errors::INTERNAL.type);
+    ASSERT_EQ(err.data, "panic");
+}
+
 /// @brief it should map a status with no payload to the freighter error of its code.
 TEST(testGRPC, testErrFromStatusMapsCodes) {
     const std::vector<std::pair<::grpc::StatusCode, x::errors::Error>> cases = {

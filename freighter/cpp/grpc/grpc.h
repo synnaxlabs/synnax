@@ -34,7 +34,7 @@ const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
     const auto &msg = status.error_message();
-    if (msg.find("---") != std::string::npos) return x::errors::Error(msg);
+    if (msg.contains("---")) return x::errors::Error(msg);
     switch (status.error_code()) {
         case ::grpc::StatusCode::UNAVAILABLE:
             return {UNREACHABLE, msg};
