@@ -17,6 +17,7 @@ from examples.http_sim import HTTPSim
 
 import synnax as sy
 from synnax import http
+from tests.driver.http_task import create_read_endpoint
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     DriverTask,
@@ -35,7 +36,7 @@ class HTTPInvalidConfig(SimulatorCase):
 
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
-        2. No enabled fields — all fields disabled.
+        2. No messages — an endpoint that reads no ICD messages.
         3. Nonexistent channel key — Synnax channel that doesn't exist.
         4. Invalid JSON pointer — pointer to a path that doesn't exist (runtime).
         5. Duplicate channel — two tasks using the same channel.
@@ -49,7 +50,7 @@ class HTTPInvalidConfig(SimulatorCase):
 
     def run(self) -> None:
         self.test_nonexistent_device()
-        self.test_no_enabled_fields()
+        self.test_no_messages()
         self.test_nonexistent_channel_key()
         self.test_invalid_json_pointer()
         self.test_duplicate_channel()
@@ -63,20 +64,21 @@ class HTTPInvalidConfig(SimulatorCase):
             device="nonexistent_device_key_12345",
             rate=10,
             endpoints=[
-                http.ReadEndpoint(
+                create_read_endpoint(
+                    self.client,
                     path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer="/temperature",
-                            channel=create_channel(
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name="temperature", pointer="/temperature"
+                            ),
+                            create_channel(
                                 self.client,
                                 name="http_inv_dev_ch",
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                        )
                     ],
                 ),
             ],
@@ -84,35 +86,20 @@ class HTTPInvalidConfig(SimulatorCase):
         message = assert_configure_rejected(self.client, task, "nonexistent device")
         self.log(f"  Correctly rejected (nonexistent device): {message}")
 
-    def test_no_enabled_fields(self) -> None:
-        """Configure a read task with all fields disabled."""
-        self.log("Testing: No enabled fields")
-        idx = create_index(self.client, "http_inv_no_fields_idx")
+    def test_no_messages(self) -> None:
+        """Start a read task whose endpoint reads no ICD messages."""
+        self.log("Testing: No messages")
         task = sy.http.ReadTask(
-            name="HTTP No Enabled Fields Test",
+            name="HTTP No Messages Test",
             device=self.device.key,
             rate=10,
-            endpoints=[
-                http.ReadEndpoint(
-                    path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer="/temperature",
-                            channel=create_channel(
-                                self.client,
-                                name="http_inv_no_fields_ch",
-                                data_type=sy.DataType.FLOAT64,
-                                index=idx.key,
-                            ),
-                            data_type=sy.DataType.FLOAT64,
-                            disabled=True,
-                        ),
-                    ],
-                ),
-            ],
+            endpoints=[http.ReadEndpoint(path="/api/v1/data", method="GET")],
         )
-        self._assert_deploy_fails(task, "no enabled fields")
+        message = assert_start_rejected(self.client, task, "no messages")
+        assert "reads no messages" in message, (
+            f"Rejection should say the endpoint reads no messages, got {message!r}"
+        )
+        self.log(f"  Correctly rejected (no messages): {message}")
 
     def test_nonexistent_channel_key(self) -> None:
         """Save a read task with a Synnax channel key that doesn't exist. The Core
@@ -123,15 +110,16 @@ class HTTPInvalidConfig(SimulatorCase):
             device=self.device.key,
             rate=10,
             endpoints=[
-                http.ReadEndpoint(
+                create_read_endpoint(
+                    self.client,
                     path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer="/temperature",
-                            channel=999999999,
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name="temperature", pointer="/temperature"
+                            ),
+                            999999999,
+                        )
                     ],
                 ),
             ],
@@ -151,20 +139,21 @@ class HTTPInvalidConfig(SimulatorCase):
             device=self.device.key,
             rate=10,
             endpoints=[
-                http.ReadEndpoint(
+                create_read_endpoint(
+                    self.client,
                     path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer="/nonexistent/deeply/nested/field",
-                            channel=create_channel(
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name="field", pointer="/nonexistent/deeply/nested/field"
+                            ),
+                            create_channel(
                                 self.client,
                                 name="http_inv_ptr_ch",
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                        )
                     ],
                 ),
             ],
@@ -188,15 +177,16 @@ class HTTPInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 rate=10,
                 endpoints=[
-                    http.ReadEndpoint(
+                    create_read_endpoint(
+                        self.client,
                         path="/api/v1/data",
-                        method="GET",
-                        fields=[
-                            http.ReadField(
-                                pointer="/temperature",
-                                channel=shared_ch_key,
-                                data_type=sy.DataType.FLOAT64,
-                            ),
+                        bindings=[
+                            (
+                                sy.icd.FloatJSONField(
+                                    name="temperature", pointer="/temperature"
+                                ),
+                                shared_ch_key,
+                            )
                         ],
                     ),
                 ],
