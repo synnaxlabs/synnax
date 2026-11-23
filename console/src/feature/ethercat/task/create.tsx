@@ -10,7 +10,7 @@
 import type { ethercat } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import type { SlaveDevice } from "@/feature/ethercat/device/types";
+import type { Device } from "@/feature/ethercat/device";
 import { createSlaveChannels } from "@/feature/ethercat/task/configure";
 import {
   createEntryReadChannel,
@@ -31,7 +31,7 @@ import { Task } from "@/platform/task";
 
 /** @returns a channel on the entry, calibrated when the Driver calibrates the entry. */
 export const createSlaveReadChannel = (
-  { key, properties }: SlaveDevice,
+  { key, properties }: Device.SlaveDevice,
   entry: ethercat.PDOEntry,
 ): EntryReadChannel => ({
   ...createEntryReadChannel(key, entry),
@@ -39,7 +39,7 @@ export const createSlaveReadChannel = (
 });
 
 export const createSlaveWriteChannel = (
-  { key }: SlaveDevice,
+  { key }: Device.SlaveDevice,
   entry: ethercat.PDOEntry,
 ) => createEntryWriteChannel(key, entry);
 

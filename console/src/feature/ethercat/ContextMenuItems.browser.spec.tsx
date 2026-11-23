@@ -55,7 +55,7 @@ const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
 const Items = (props: Omit<Device.ContextMenuItemsProps, "onConfigure">) => {
   const configure = Device.useConfigureModal();
   return (
-    <EtherCAT.Device.ContextMenuItems
+    <EtherCAT.ContextMenuItems
       {...props}
       onConfigure={(deviceKey) =>
         configure({ deviceKey, hardware: EtherCAT.Device.HARDWARE })
