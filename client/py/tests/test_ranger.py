@@ -616,7 +616,7 @@ class TestRangeClient:
             """Should read a pattern as an exact name and find no channel"""
             prefix = two_channels[0].name.removesuffix("_1")
             with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
-                rng[f"{prefix}_[ab]"].to_numpy()
+                rng[f"{prefix}_[12]"].to_numpy()
 
     @pytest.mark.ranger
     class TestRangeKV:
