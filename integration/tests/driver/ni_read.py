@@ -1016,7 +1016,7 @@ class NICounterReadFrequency(NICounterReadTaskCase):
                 units="Hz",
                 edge="Rising",
                 meas_method="LowFreq1Ctr",
-                meas_time=0.001,
+                meas_time=1 * sy.TimeSpan.MILLISECOND,
                 divisor=4,
             ),
         ]

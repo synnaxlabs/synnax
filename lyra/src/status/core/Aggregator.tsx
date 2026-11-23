@@ -20,8 +20,8 @@ import {
   createErrorHandler,
   type ErrorHandler,
   type Log,
-} from "@/status/errorHandler";
-import { create, type Status } from "@/status/status";
+} from "@/status/core/errorHandler";
+import { create, type Status } from "@/status/core/status";
 
 interface Received {
   status: Status;
