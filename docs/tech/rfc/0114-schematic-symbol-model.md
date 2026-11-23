@@ -261,21 +261,22 @@ as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 Looks apply in order, and a later look wins on each field it sets. On `motion`, a later
 look wins on each motion kind, so motions of different kinds on one part all apply, such
 as a `move` and a `spin`, or a `level` and a `flow`. Pluto moves an element by its
-`move`, then turns it about the pivot by the sum of its `rotate` and `spin` angles. Look
-fields are optional, so an absent field, such as `hidden`, means that the look does not
-set it, as `switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last
-state's looks and adds the stale indicator. Pluto then draws pending, hover, pressed,
-and the hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and
-other indicators on top of the looks. Only a number state drives motion, and the Core
-refuses a motion whose `state` names an enumeration state. A number state drives motion
-as a fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data
-and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while
-a state that their look reads, in `when` or `state`, is stale or unknown, under the
-operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
-these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
-transition. While its state is stale, it keeps its last fraction. While it is unknown,
-it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
-blink stays under three flashes per second.
+`move`, then turns it by its `rotate` and its `spin`, each about the pivot of its part.
+When parts select one element, a later look wins on each motion kind of the element, as
+it does on paint. Look fields are optional, so an absent field, such as `hidden`, means
+that the look does not set it, as `switched bool?` does in `schemas/x/color.oracle`.
+Stale data keeps the last state's looks and adds the stale indicator. Pluto then draws
+pending, hover, pressed, and the hold fill. A symbol stores no indicators: Pluto draws
+the stale, unknown, and other indicators on top of the looks. Only a number state drives
+motion, and the Core refuses a motion whose `state` names an enumeration state. A number
+state drives motion as a fraction of its bounds, clamped to 0 to 1. A number state is
+unknown for no data and NaN, but not for a value outside its bounds. `spin`, `flow`, and
+`blink` stop while a state that their look reads, in `when` or `state`, is stale or
+unknown, under the operating system's Reduce motion setting, and on a node with
+`motion_disabled`. Under these two settings, a `level`, `rotate`, or `move` jumps to
+each new fraction with no transition. While its state is stale, it keeps its last
+fraction. While it is unknown, it draws fraction 0, which is `from` or an empty `level`,
+with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
