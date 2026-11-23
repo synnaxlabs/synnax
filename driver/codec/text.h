@@ -26,13 +26,13 @@
 #include "driver/codec/binding.h"
 
 namespace driver::codec {
-/// @brief TextMessage is a text message and the fields to decode from its lines.
+/// @brief TextMessage is a text message and the fields of its lines that take samples.
 struct TextMessage {
     /// @brief name identifies the message in errors.
     std::string name;
     /// @brief payload is the layout of the message's lines.
     synnax::icd::TextPayload payload;
-    /// @brief bindings name the fields to decode, in sample order.
+    /// @brief bindings name the fields that take samples, in sample order.
     std::vector<Binding> bindings;
 };
 
@@ -200,7 +200,7 @@ public:
     /// line holds an item for each position up to the last delimited field, with the
     /// prefix in the first items and an empty item where no field is. A tagged field
     /// comes after them as its tag and value. A value is the shortest decimal text that
-    /// reads back as the sample, at the precision of its channel.
+    /// reads back as the sample, at the precision of its channel when unscaled.
     /// @param samples holds one series for each binding, in binding order. Each holds
     /// the field's sample at index 0 and has the data type of its binding, or is empty
     /// for a field that takes its default.

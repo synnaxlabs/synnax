@@ -457,7 +457,8 @@ TEST(TextEncoder, EncodeNumbers) {
     EXPECT_EQ(encode(m, series_of(x::telem::Series(1234567.0))), "1234567");
 }
 
-/// @brief it should remove the scale and offset from a sample.
+/// @brief it should remove the scale and offset from a sample, and write a scaled
+/// float32 sample at float64 precision so that the scale keeps its digits.
 TEST(TextEncoder, EncodeScaled) {
     auto f = at("a", 0);
     f.scale = 0.5;
@@ -466,21 +467,11 @@ TEST(TextEncoder, EncodeScaled) {
     const auto line = encode(m, series_of(x::telem::Series(20.0)));
     EXPECT_EQ(line, "20");
     assert_decodes(m, line, {20});
-    auto doubled = f;
-    doubled.scale = 2;
-    doubled.offset = 0;
-    const auto narrow = message("cmd", {doubled}, "", x::telem::FLOAT32_T);
-    EXPECT_EQ(encode(narrow, series_of(x::telem::Series(2.2F))), "1.1");
-    auto tiny = f;
-    tiny.scale = 1e-40;
-    tiny.offset = 0;
-    EXPECT_EQ(
-        encode(
-            message("cmd", {tiny}, "", x::telem::FLOAT32_T),
-            series_of(x::telem::Series(1.0F))
-        ),
-        "1e+40"
-    );
+    auto shifted = f;
+    shifted.scale = 1;
+    shifted.offset = -1e6;
+    const auto narrow = message("cmd", {shifted}, "", x::telem::FLOAT32_T);
+    EXPECT_EQ(encode(narrow, series_of(x::telem::Series(0.001F))), "1000000.001");
 }
 
 /// @brief it should write the default of a field with no binding or no sample.
