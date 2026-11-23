@@ -40,7 +40,8 @@ export const moves = ({ motion, blink }: schematic.symbol.Look): boolean =>
 // One flash is one period, so a blink stays under three flashes a second.
 const MIN_BLINK_PERIOD = TimeSpan.milliseconds(400).milliseconds;
 const BLINK_DIM = 0.2;
-const TRANSITION_MS = 200;
+// The duration of --pluto-modal-animation.
+const TRANSITION_MS = 150;
 
 type Kind = schematic.symbol.MotionType | "blink";
 type Of<K extends Kind> = K extends "blink"
