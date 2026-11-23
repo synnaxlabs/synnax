@@ -102,9 +102,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
       </Button.Button>
     );
 
-  // SY-6750 drops the cast.
-  const C =
-    Schematic.ELEMENT_REGISTRY[variant as keyof typeof Schematic.ELEMENT_REGISTRY];
+  const C = Schematic.ELEMENT_REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,
