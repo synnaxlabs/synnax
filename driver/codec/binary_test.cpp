@@ -364,17 +364,25 @@ TEST(Binary, DecodeCascadedMultiplexors) {
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
 }
 
-/// @brief it should reject a payload too short for its multiplexors.
+/// @brief it should reject a payload too short for a multiplexor, and name the first
+/// multiplexor that does not fit.
 TEST(Binary, RejectShortForMultiplexors) {
-    const auto mode = field<icd::UnsignedBinaryField>("mode", 8, 8);
-    auto a = field<icd::UnsignedBinaryField>("a", 0, 8);
-    a.multiplexor = mode.key;
+    const auto bank = field<icd::UnsignedBinaryField>("bank", 0, 8);
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 16, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = bank.key;
     a.multiplex_values = {1};
     a.default_ = 0;
-    auto dec = ASSERT_NIL_P(Binary::create({multiplexed({mode, a}, {a.key})}));
-    const auto [message, err] = dec.decode(std::vector<std::uint8_t>{1});
+    auto b = field<icd::UnsignedBinaryField>("b", 8, 8);
+    b.multiplexor = mode.key;
+    b.multiplex_values = {1};
+    b.default_ = 0;
+    auto dec = ASSERT_NIL_P(
+        Binary::create({multiplexed({bank, mode, a, b}, {a.key, b.key})})
+    );
+    const auto [message, err] = dec.decode(std::vector<std::uint8_t>{1, 0});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the payload has 1 bytes and its multiplexors need 2");
+    EXPECT_EQ(err.data, "field mode: the payload has 2 bytes and the field needs 3");
 }
 
 /// @brief it should refuse a multiplexor that is not a field of the message.
