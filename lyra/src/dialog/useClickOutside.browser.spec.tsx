@@ -37,8 +37,7 @@ const Owner = ({ onClickOutside, dialog }: OwnerProps): ReactElement => {
 };
 Owner.displayName = "Owner";
 
-// The test fires events at fixed coordinates, so the owner and the viewport need
-// fixed rects.
+// The test fires events at fixed points, so the owner and viewport need fixed rects.
 const renderOwner = (onClickOutside: () => void, dialog = false) => {
   const c = render(
     <>
