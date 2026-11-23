@@ -37,7 +37,7 @@ __lazy_modules__ = [
     "synnax.task",
     "synnax.telem",
     "synnax.timing",
-    "synnax.user.payload",
+    "synnax.user",
     "synnax.view",
     "x",
     "x.color",
@@ -160,7 +160,7 @@ from synnax.telem import (
     elapsed_seconds,
 )
 from synnax.timing import Loop, Timer, poll, sleep
-from synnax.user.payload import User
+from synnax.user import User
 from synnax.version import VERSION
 from synnax.view import View
 from x import filter as filter
