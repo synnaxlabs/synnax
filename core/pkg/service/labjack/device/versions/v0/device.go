@@ -12,6 +12,7 @@ package v0
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ gorp.Entry[Key] = Device{}
@@ -26,4 +27,18 @@ func (d Device) GorpKey() Key { return d.Key }
 // ResourceID returns the resource ID of the device.
 func (d Device) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeLabjackDevice, Key: d.Key.String()}
+}
+
+// ValidatePorts returns a validation error when the ports of d are for another model
+// than d.
+func (d Device) ValidatePorts() error {
+	v := validate.New("device")
+	v.Ternaryf(
+		"ports",
+		d.Ports.Model() != d.Model,
+		"are for %s, not %s",
+		d.Ports.Model(),
+		d.Model,
+	)
+	return v.Error()
 }

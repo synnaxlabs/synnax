@@ -50,6 +50,21 @@ var _ = Describe("Device", func() {
 		Expect(device().Validate()).To(Succeed())
 	})
 
+	Describe("ValidatePorts", func() {
+		It("Should accept the ports of the device's model", func() {
+			Expect(device().ValidatePorts()).To(Succeed())
+		})
+
+		It("Should reject the ports of another model", func() {
+			d := device()
+			d.Ports = v0.Ports{Variant: v0.T4Ports{}}
+			Expect(d.ValidatePorts()).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("ports: are for t4, not t7")),
+			))
+		})
+	})
+
 	DescribeTable("Should reject an invalid device",
 		func(change func(*v0.Device), message string) {
 			d := device()
