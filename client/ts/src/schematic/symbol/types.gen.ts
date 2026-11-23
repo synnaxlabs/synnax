@@ -544,7 +544,7 @@ export interface Command extends z.infer<typeof commandZ> {}
 
 /**
  * Look is paint, visibility, or motion on a part. A later look wins on each field that
- * it sets.
+ * it sets. On motion, it replaces only an earlier motion of the same kind.
  */
 export const lookZ = z.object({
   /** key is the look identifier. */
