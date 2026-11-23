@@ -316,7 +316,7 @@ TEST(Reader, DropsPartialFrameWhenIdle) {
 TEST(Reader, ReadsFramesAfterInvalidFrame) {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
-    auto r = Reader(codec::framing::cobs(), cfg.create());
+    auto r = ASSERT_NIL_P(Reader::create(codec::framing::cobs(), cfg.create()));
     Memory t;
     t.push(std::vector<std::uint8_t>{0x05, 0x01, 0x00, 0x01, 0x02, 0x07, 0x00});
     x::telem::Frame fr;
@@ -449,6 +449,30 @@ TEST(Reader, RejectsQueryThatFramingCannotHold) {
         "the framing cannot hold the poll query: the frame has 3 bytes, not the fixed "
         "length of 2"
     );
+}
+
+/// @brief it should refuse a poll rate that is not above 0 Hz, or whose period is
+/// shorter than 1 ns.
+TEST(Reader, RejectsPollRateOutOfRange) {
+    for (const auto &[hz, text]: std::vector<std::pair<double, std::string>>{
+             {0, "0 Hz"},
+             {-1, "-1 Hz"},
+             {2e9, "2e+09 Hz"},
+         }) {
+        Config cfg{synnax::icd::BinaryPayload{}};
+        cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+        const auto err = Reader::create(
+                             ASSERT_NIL_P(codec::framing::fixed(2)),
+                             cfg.create(),
+                             Poll{.query = {1, 2}, .rate = x::telem::Rate(hz)}
+        )
+                             .second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        ASSERT_EQ(
+            err.data,
+            "the poll rate must be above 0 Hz and at most 1 GHz, not " + text
+        );
+    }
 }
 
 /// @brief it should keep a partial frame until reads have waited READ_TIMEOUT in all,

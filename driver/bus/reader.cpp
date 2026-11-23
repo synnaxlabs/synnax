@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -48,6 +49,15 @@ std::pair<Reader, x::errors::Error> Reader::create(
 ) {
     Reader r(std::move(framer), std::move(messages), std::move(now));
     if (!poll.has_value()) return {std::move(r), x::errors::NIL};
+    if (const auto hz = poll->rate.hz(); !(hz > 0) || hz > 1e9) {
+        std::ostringstream text;
+        text << "the poll rate must be above 0 Hz and at most 1 GHz, not "
+             << poll->rate;
+        return {
+            Reader{},
+            x::errors::Error(driver::errors::CONFIGURATION_ERROR, text.str()),
+        };
+    }
     if (const auto err = r.framer->encode(poll->query, r.query))
         return {
             Reader{},

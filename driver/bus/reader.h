@@ -96,7 +96,8 @@ public:
     /// @param messages reads each frame into the channels of its message.
     /// @param poll is the query to send at its rate, or nothing.
     /// @param now is the steady clock that schedules the query.
-    /// @returns CONFIGURATION_ERROR when the framing cannot hold the poll query.
+    /// @returns CONFIGURATION_ERROR when the poll rate is not above 0 Hz, is above
+    /// 1 GHz, or the framing cannot hold the poll query.
     static std::pair<Reader, x::errors::Error> create(
         std::unique_ptr<codec::framing::Framer> framer,
         icd::Reader messages,
