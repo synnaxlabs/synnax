@@ -24,7 +24,6 @@ import { telemTest } from "@/telem/aether/testutil";
 import { createSynnaxWrapper } from "@/testutil";
 import { input } from "@/vis/input/aether";
 import { canvasTest } from "@/vis/render/testutil";
-import { Staleness } from "@/vis/staleness";
 import { stringValue } from "@/vis/stringValue/aether";
 
 describe("Input.Symbol staleness", () => {
@@ -58,14 +57,12 @@ describe("Input.Symbol staleness", () => {
     const [reading] = core.data;
     const screen = await render(
       <Wrapper>
-        <Staleness.Provider badged>
-          <ReactFlowProvider>
-            <Haul.Provider>
-              {node("reading", reading.key)}
-              {node("idle", 0)}
-            </Haul.Provider>
-          </ReactFlowProvider>
-        </Staleness.Provider>
+        <ReactFlowProvider>
+          <Haul.Provider>
+            {node("reading", reading.key)}
+            {node("idle", 0)}
+          </Haul.Provider>
+        </ReactFlowProvider>
       </Wrapper>,
     );
     await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true));
