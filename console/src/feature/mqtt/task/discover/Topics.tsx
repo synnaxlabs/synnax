@@ -156,14 +156,21 @@ const takenBy = (
 
 /**
  * @returns the pointer of the timestamp that a pick of the topic takes with it. A topic
- * that the task reads keeps the index of its read.
+ * whose message in the task has fields keeps the index of its read.
  */
 const indexOf = ({ topic, index }: ListedTopic, taken: Taken, indexed: boolean) =>
-  indexed && !taken.has(topic) ? index : undefined;
+  indexed && (taken.get(topic)?.size ?? 0) === 0 ? index : undefined;
+
+/**
+ * @returns the index that a pick takes only with other values. A topic whose only value
+ * is its index, such as a heartbeat, can pick the index alone.
+ */
+const lockedIndex = (leaves: Leaf[], index?: string): string | undefined =>
+  leaves.length > 1 ? index : undefined;
 
 /** @returns the leaves of the topic that a pick can take. */
 const freeLeaves = (t: ListedTopic, taken: Taken, indexed: boolean): Leaf[] => {
-  const index = indexOf(t, taken, indexed);
+  const index = lockedIndex(t.leaves, indexOf(t, taken, indexed));
   return t.leaves.filter(
     (l) => l.pointer !== index && taken.get(t.topic)?.has(l.pointer) !== true,
   );
@@ -233,12 +240,13 @@ const TopicValues = ({
 }: TopicValuesProps) => {
   const [raw, setRaw] = useState(false);
   const { leaves } = topic;
+  const locked = lockedIndex(leaves, index);
   const free = leaves
-    .filter((l) => l.pointer !== index && !taken.has(l.pointer))
+    .filter((l) => l.pointer !== locked && !taken.has(l.pointer))
     .map((l) => l.pointer);
   const values = leaves.map((l): ICD.Picker.Value => {
     let lock: ICD.Picker.Lock | undefined;
-    if (l.pointer === index) lock = ICD.Picker.INDEX;
+    if (l.pointer === locked) lock = ICD.Picker.INDEX;
     else if (taken.has(l.pointer)) lock = ICD.Picker.TAKEN;
     return {
       key: l.pointer,

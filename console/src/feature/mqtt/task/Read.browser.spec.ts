@@ -506,6 +506,72 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should lock the index of a topic whose message has no fields", async () => {
+    const { dev, draft } = await renderRead({ fields: [] });
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "time")).getByText("Index");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record count" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([
+        { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+        { pointer: "/count", type: "integer" },
+      ]);
+      expect(entry.messages[0].index).toBe(fields[0].key);
+    });
+  });
+
+  it("should lock the index of a topic whose message is gone", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const { dev, draft } = await renderRead({
+      entries: [entry],
+      beforeRender: () => removeMessage(entry),
+    });
+    await screen.findByText("Message not found");
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "time")).getByText("Index");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record count" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([{ pointer: "/time" }, { pointer: "/count" }]);
+      expect(read.index).toBe(fields[0].key);
+    });
+  });
+
+  it("should pick the index of a topic whose only value is its index", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            ...TIMED_TOPIC,
+            payload: '{"time": 1763900000000000000}',
+            fields: [TIMED_TOPIC.fields[0]],
+          },
+        ],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    expect((await findValue(dialog, "time")).queryByText("Index")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([
+        { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      ]);
+      expect(entry.messages[0].index).toBe(fields[0].key);
+    });
+  });
+
   it("should focus the topic of a topic added by name", async () => {
     await renderRead();
     const dialog = await openAddData();

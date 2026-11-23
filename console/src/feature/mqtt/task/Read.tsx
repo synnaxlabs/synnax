@@ -237,9 +237,14 @@ interface AddTopicsResult {
   added: PlainReadEntry[];
   /**
    * The bindings that each held entry gains, by entry key. An entry whose message is
-   * gone reads the new one.
+   * gone reads the new one. An entry whose message had no fields gains the index.
    */
-  held: { key: string; message?: icd.MessageKey; bindings: icd.ReadBinding[] }[];
+  held: {
+    key: string;
+    message?: icd.MessageKey;
+    index?: icd.FieldKey;
+    bindings: icd.ReadBinding[];
+  }[];
 }
 
 /** @returns the bindings of the fields of a draft that the message reads. */
@@ -316,6 +321,7 @@ const addTopics = async ({
         const appended = appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
+          index: draft.index,
           bindings: bind(draft, appended, message.key),
         });
         continue;
@@ -333,7 +339,13 @@ const addTopics = async ({
             bindings,
           }),
         );
-      else result.held.push({ key: entry.key, message: created.key, bindings });
+      else
+        result.held.push({
+          key: entry.key,
+          message: created.key,
+          index: draft.index,
+          bindings,
+        });
     }
   });
   for (const [key, pending] of actions) await client.icds.dispatch(key, pending);
@@ -706,11 +718,19 @@ const Entries: FC<EntriesProps> = ({
     push([...added, ...tags]);
     for (const { messages } of added) made.current.add(messages[0].message);
     for (const { message } of grown) if (message != null) made.current.add(message);
-    grown.forEach(({ key, message, bindings }) => {
+    grown.forEach(({ key, message, index, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
-      if (message != null) ctx.set(read, icd.readMessageZ.parse({ message, bindings }));
-      else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+      if (message != null)
+        ctx.set(read, icd.readMessageZ.parse({ message, index, bindings }));
+      else {
+        const { value } = ctx.get(read);
+        ctx.set(read, {
+          ...value,
+          index: index ?? value.index,
+          bindings: [...value.bindings, ...bindings],
+        });
+      }
     });
     const firstAddition = additions[0];
     const firstKey = isDraft(firstAddition)
