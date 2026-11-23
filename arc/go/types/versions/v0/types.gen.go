@@ -11,6 +11,12 @@
 
 package v0
 
+import (
+	"strconv"
+
+	"github.com/synnaxlabs/x/validate"
+)
+
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
 type Kind uint8
@@ -19,56 +25,67 @@ type Kind uint8
 
 const (
 	// KindInvalid marks a type that Arc cannot represent.
-	KindInvalid Kind = iota
+	KindInvalid Kind = 0
 	// KindU8 is an unsigned 8-bit integer.
-	KindU8
+	KindU8 Kind = 1
 	// KindU16 is an unsigned 16-bit integer.
-	KindU16
+	KindU16 Kind = 2
 	// KindU32 is an unsigned 32-bit integer.
-	KindU32
+	KindU32 Kind = 3
 	// KindU64 is an unsigned 64-bit integer.
-	KindU64
+	KindU64 Kind = 4
 	// KindI8 is a signed 8-bit integer.
-	KindI8
+	KindI8 Kind = 5
 	// KindI16 is a signed 16-bit integer.
-	KindI16
+	KindI16 Kind = 6
 	// KindI32 is a signed 32-bit integer.
-	KindI32
+	KindI32 Kind = 7
 	// KindI64 is a signed 64-bit integer.
-	KindI64
+	KindI64 Kind = 8
 	// KindF32 is a 32-bit float.
-	KindF32
+	KindF32 Kind = 9
 	// KindF64 is a 64-bit float.
-	KindF64
+	KindF64 Kind = 10
 	// KindString is a text string.
-	KindString
+	KindString Kind = 11
 	// KindChan is a channel of the element type.
-	KindChan
+	KindChan Kind = 12
 	// KindSeries is an array of the element type.
-	KindSeries
+	KindSeries Kind = 13
 	// KindVariable is a generic type parameter.
-	KindVariable
+	KindVariable Kind = 14
 	// KindNumericConstant constrains a type parameter to any numeric type.
-	KindNumericConstant
+	KindNumericConstant Kind = 15
 	// KindIntegerConstant constrains a type parameter to an integer literal, which can
 	// resolve to any numeric type.
-	KindIntegerConstant
+	KindIntegerConstant Kind = 16
 	// KindFloatConstant constrains a type parameter to any floating-point type.
-	KindFloatConstant
+	KindFloatConstant Kind = 17
 	// KindExactIntegerFloatConstant constrains a type parameter to a float literal that
 	// holds an exact integer, which can resolve to any numeric type.
-	KindExactIntegerFloatConstant
+	KindExactIntegerFloatConstant Kind = 18
 	// KindFunction is a function type.
-	KindFunction
+	KindFunction Kind = 19
 	// KindSequence is a state machine.
-	KindSequence
+	KindSequence Kind = 20
 	// KindStage is a stage within a sequence.
-	KindStage
+	KindStage Kind = 21
 	// KindVarRef is a reference to the variable of a node.
-	KindVarRef
+	KindVarRef Kind = 22
 	// KindBool is a boolean.
-	KindBool
+	KindBool Kind = 23
 )
+
+// IsValid reports whether k is one of the defined Kind
+// values.
+func (k Kind) IsValid() bool {
+	switch k {
+	case KindInvalid, KindU8, KindU16, KindU32, KindU64, KindI8, KindI16, KindI32, KindI64, KindF32, KindF64, KindString, KindChan, KindSeries, KindVariable, KindNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant, KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
+		return true
+	default:
+		return false
+	}
+}
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection uint8
@@ -77,14 +94,25 @@ type ChanDirection uint8
 
 const (
 	// ChanDirectionNone has no direction set.
-	ChanDirectionNone ChanDirection = iota
+	ChanDirectionNone ChanDirection = 0
 	// ChanDirectionRead reads from the channel.
-	ChanDirectionRead
+	ChanDirectionRead ChanDirection = 1
 	// ChanDirectionWrite writes to the channel.
-	ChanDirectionWrite
+	ChanDirectionWrite ChanDirection = 2
 	// ChanDirectionReadWrite reads from and writes to the channel.
-	ChanDirectionReadWrite
+	ChanDirectionReadWrite ChanDirection = 3
 )
+
+// IsValid reports whether c is one of the defined ChanDirection
+// values.
+func (c ChanDirection) IsValid() bool {
+	switch c {
+	case ChanDirectionNone, ChanDirectionRead, ChanDirectionWrite, ChanDirectionReadWrite:
+		return true
+	default:
+		return false
+	}
+}
 
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
@@ -94,6 +122,22 @@ type FunctionProperties struct {
 	Outputs Params `json:"outputs" msgpack:"outputs"`
 	// Config contains configuration parameter definitions.
 	Config Params `json:"config" msgpack:"config"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FunctionProperties) Validate() error {
+	v := validate.New("FunctionProperties")
+	for i := range f.Inputs {
+		v.Exec(func() error { return validate.PathedError(f.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range f.Outputs {
+		v.Exec(func() error { return validate.PathedError(f.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	for i := range f.Config {
+		v.Exec(func() error { return validate.PathedError(f.Config[i].Validate(), "config", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -116,6 +160,22 @@ type Type struct {
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Type) Validate() error {
+	v := validate.New("Type")
+	v.Ternaryf("kind", !t.Kind.IsValid(), "invalid kind: %v", t.Kind)
+	v.Ternaryf("chan_direction", !t.ChanDirection.IsValid(), "invalid chan_direction: %v", t.ChanDirection)
+	v.Exec(t.FunctionProperties.Validate)
+	if t.Elem != nil {
+		v.Exec(func() error { return validate.PathedError(t.Elem.Validate(), "elem") })
+	}
+	if t.Constraint != nil {
+		v.Exec(func() error { return validate.PathedError(t.Constraint.Validate(), "constraint") })
+	}
+	return v.Error()
+}
+
 // Param is a named, typed parameter with optional default value.
 type Param struct {
 	// Name is the parameter name.
@@ -124,6 +184,14 @@ type Param struct {
 	Type Type `json:"type" msgpack:"type"`
 	// Value is an optional default value.
 	Value any `json:"value" msgpack:"value"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Param) Validate() error {
+	v := validate.New("Param")
+	v.Exec(func() error { return validate.PathedError(p.Type.Validate(), "type") })
+	return v.Error()
 }
 
 // Params is a collection of named, typed parameters for function inputs, outputs, or

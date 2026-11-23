@@ -11,7 +11,7 @@ import { DataType, id, math, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();

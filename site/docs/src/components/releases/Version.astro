@@ -1,0 +1,32 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Product, train } from "@/util/releases";
+
+export interface Props {
+    /** Defaults to the Core. */
+    product?: Product;
+    /** Shows the newest release on the train before the documented one. */
+    previous?: boolean;
+    /** Shows only the major and minor version, such as `0.62`. */
+    train?: boolean;
+    /** Shows the version as inline code. */
+    code?: boolean;
+}
+
+const { product = "core", previous = false, code = false } = Astro.props;
+const { releases } = Astro.locals;
+const version = previous
+    ? await releases.previous(product)
+    : await releases.documented(product);
+const text = Astro.props.train ? train(version) : version;
+---
+
+{code ? <code data-short>{text}</code> : text}

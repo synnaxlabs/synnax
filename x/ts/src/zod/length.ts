@@ -30,3 +30,17 @@ export const maxLength = (max: number): z.core.$ZodCheck<string> =>
     (value) => codePoints(value) <= max,
     `must be at most ${max} characters long`,
   );
+
+/** @returns a check for `.check()` that rejects bytes with fewer than `min` bytes. */
+export const minBytes = (min: number): z.core.$ZodCheck<Uint8Array> =>
+  z.refine<Uint8Array>(
+    (value) => value.length >= min,
+    `must be at least ${min} bytes long`,
+  );
+
+/** @returns a check for `.check()` that rejects bytes with more than `max` bytes. */
+export const maxBytes = (max: number): z.core.$ZodCheck<Uint8Array> =>
+  z.refine<Uint8Array>(
+    (value) => value.length <= max,
+    `must be at most ${max} bytes long`,
+  );
