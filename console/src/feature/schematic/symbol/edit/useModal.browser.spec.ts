@@ -678,6 +678,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(blink.checked).toBe(true);
       expect(blink.disabled).toBe(true);
       expect(findButton("None").getAttribute("aria-disabled")).toBe("true");
+      expect(screen.getByLabelText<HTMLInputElement>("Motion rate").disabled).toBe(
+        true,
+      );
     });
 
     it("clears the own blink and motion of a part under those of the drawing", async () => {
@@ -1101,6 +1104,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.parts).toEqual([BODY]),
       );
+    });
+
+    it("marks a selected group and not each shape inside it", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("g")).filter).toContain("drop-shadow"),
+      );
+      expect(getComputedStyle(findShape("c")).filter).not.toContain("drop-shadow");
     });
 
     it("keeps the mark of a filled selected shape under the pointer", async () => {
