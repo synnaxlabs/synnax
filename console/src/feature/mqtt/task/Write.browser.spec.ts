@@ -503,7 +503,7 @@ describe("MQTT Write form", () => {
       return { dialog, draft, scanner };
     };
 
-    it("should add a picked topic only once a message format is picked", async () => {
+    it("should add a whole picked topic only once a message format is picked", async () => {
       const setpoint = createField("setpoint", "float");
       const { ic, message } = await createFormat([setpoint]);
       const { dev, draft } = await renderWrite();
@@ -511,13 +511,21 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       const topic = {
         topic: "plant/valve/set",
-        payload: '{"setpoint": 1}',
-        fields: [{ pointer: "/setpoint", type: "number", sample: "1" }],
+        payload: '{"setpoint": 1, "mode": "auto"}',
+        fields: [
+          { pointer: "/setpoint", type: "number", sample: "1" },
+          { pointer: "/mode", type: "string", sample: '"auto"' },
+        ],
         retained: true,
       };
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Record mode",
+      });
+      expect(mode.checked).toBe(true);
+      dialog.getByText("1 topic selected");
       const add = () => dialog.getByRole("button", { name: "Add 1 target" });
       expect(add().getAttribute("aria-disabled")).toBe("true");
       await pickMessageFormat("Select message format", message.name, ic.name);

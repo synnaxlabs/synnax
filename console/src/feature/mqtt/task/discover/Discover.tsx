@@ -54,8 +54,8 @@ export interface Kind<E> {
   noun: string;
   /** Names what one picked tag adds. Defaults to noun. */
   tagNoun?: string;
-  /** Each topic takes one value, and a topic that the task holds takes none. */
-  single?: boolean;
+  /** Each pick is a whole topic, and a topic that the task holds takes none. */
+  whole?: boolean;
   /**
    * Each entry from a topic sends one message, which the dialog picks under the topics.
    * Nothing adds from a topic until it is picked.
@@ -90,12 +90,15 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
 
   const picked = (): E[] => kind.create(picks, entries);
 
-  const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
+  const entryCount =
+    kind.whole === true
+      ? topicPicks.size
+      : math.sum([...topicPicks.values()].map((p) => p.pointers.size));
   const parts: string[] = [];
-  if (values > 0) {
-    const topics = pluralize("topic", topicPicks.size, true);
-    parts.push(`${pluralize("value", values, true)} from ${topics}`);
-  }
+  const topics = pluralize("topic", topicPicks.size, true);
+  if (kind.whole === true && entryCount > 0) parts.push(topics);
+  else if (entryCount > 0)
+    parts.push(`${pluralize("value", entryCount, true)} from ${topics}`);
   if (tagPicks.size > 0) parts.push(pluralize("Sparkplug B tag", tagPicks.size, true));
   const summary = parts.length === 0 ? null : `${parts.join(" and ")} selected`;
 
@@ -115,7 +118,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
           <TopicPicker
             device={device}
             entries={entries}
-            single={kind.single}
+            whole={kind.whole}
             value={topicPicks}
             onChange={setTopicPicks}
             onAddByName={(topic) => close([...picked(), createTopic(topic, picks)])}
@@ -136,11 +139,11 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
       )}
       <ICD.Picker.Footer
         counts={[
-          [noun, values],
+          [noun, entryCount],
           [tagNoun, tagPicks.size],
         ]}
         idle={mode === "sparkplug" ? tagNoun : noun}
-        disabled={needsFormat && values > 0}
+        disabled={needsFormat && entryCount > 0}
         onAdd={() => close(picked())}
         onCancel={() => close()}
       >

@@ -243,7 +243,7 @@ const DISCOVER_KIND: Kind<WriteTarget> = {
   hint: "Select the topics to write. Each one becomes a target.",
   tagHint: "Select the tags to write. Each one becomes a target.",
   noun: "target",
-  single: true,
+  whole: true,
   formatRequired: true,
   create: ({ topics, tags, format }) => [
     ...[...topics.keys()].map((topic) => createPlainTarget(topic, format)),
