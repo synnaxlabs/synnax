@@ -9,25 +9,37 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, http, type Synnax } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http, icd, type Synnax } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import type { Tree } from "@synnaxlabs/lyra/tree";
+import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { DataType, deep, errors, id, primitive, unique, uuid } from "@synnaxlabs/x";
 import {
   createContext,
+  type Dispatch,
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
   useContext,
+  useRef,
+  useState,
 } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import { type Properties, SCHEMAS } from "@/feature/http/device/types";
+import { DEFAULT_READ_NAME } from "@/feature/http/task/create";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
@@ -36,9 +48,11 @@ import {
   type ReadField,
   type ReadSchemas,
 } from "@/feature/http/task/types";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
+import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -64,6 +78,16 @@ const Properties = () => (
 
 const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 
+/** What the form reads of the device of the task. */
+interface TaskDevice {
+  name: string;
+  properties: Properties;
+}
+
+/** @returns the prefix of the channel names that deploying creates for a path. */
+const endpointPrefix = (deviceName: string, path: string): string =>
+  channel.escapeInvalidName(deviceName) + channel.escapeInvalidName(path);
+
 /** The name configure gives a field's channel when the field carries none. */
 const defaultChannelName = (devName: string, epPath: string, pointer: string): string =>
   channel.escapeInvalidName(devName) + channel.escapeInvalidName(epPath + pointer);
@@ -71,7 +95,7 @@ const defaultChannelName = (devName: string, epPath: string, pointer: string): s
 /** @returns how deploying names and indexes the channels of an endpoint. */
 const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
   fields: ep.fields,
-  namePrefix: `${channel.escapeInvalidName(deviceName)}${channel.escapeInvalidName(ep.path)}`,
+  namePrefix: endpointPrefix(deviceName, ep.path),
   indexKey: ep.index,
   indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
 });
@@ -80,7 +104,7 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
 const planEndpoint = async (
   client: Synnax,
   namer: Task.Namer,
-  dev: { name: string; properties: Properties },
+  dev: TaskDevice,
   ep: ReadEndpoint,
 ): Promise<Task.ReadChannelPlan> =>
   await Task.planReadChannels({
@@ -122,7 +146,7 @@ const sharedPlan = (
  */
 const planEndpoints = async (
   client: Synnax,
-  dev: { name: string; properties: Properties },
+  dev: TaskDevice,
   endpoints: ReadEndpoint[],
   signal?: AbortSignal,
 ): Promise<Task.ReadChannelPlan[]> => {
@@ -315,51 +339,61 @@ const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
-const EndpointDetails: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
+interface RequestSectionProps {
+  path: deep.Path<ReadEndpoint>;
+  actions?: ReactNode;
+}
+
+/** The request that polls an endpoint. */
+const RequestSection: FC<RequestSectionProps> = ({ path, actions }) => {
   const method = PForm.useFieldValue(path.method);
   return (
-    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.B("endpoint-form")}>
-        <PForm.Section title="Request">
-          <MethodSelect path={path} />
-          <PForm.TextField
-            path={path.path}
-            label="Path"
-            padHelpText={false}
-            inputProps={PATH_INPUT_PROPS}
-          />
-          {method === "POST" && (
-            <PForm.TextField
-              path={path.body}
-              label="Body"
-              padHelpText={false}
-              inputProps={REQUEST_BODY_INPUT_PROPS}
-            />
-          )}
-          <PlatformForm.KeyValueEditor
-            path={path.queryParams}
-            resourceName="parameter"
-            label="Query parameters"
-            keyField="parameter"
-            keyPlaceholder="limit"
-            valuePlaceholder="100"
-          />
-          <PlatformForm.KeyValueEditor
-            path={path.headers}
-            resourceName="header"
-            label="Headers"
-            keyField="name"
-            keyPlaceholder="Content-Type"
-            valuePlaceholder="application/json"
-          />
-        </PForm.Section>
-        <PForm.Section title="Timestamp">
-          <TimestampFields path={path} />
-        </PForm.Section>
-      </PForm.Sections>
-    </Flex.Box>
+    <PForm.Section title="Request" actions={actions}>
+      <MethodSelect path={path} />
+      <PForm.TextField
+        path={path.path}
+        label="Path"
+        padHelpText={false}
+        inputProps={PATH_INPUT_PROPS}
+      />
+      {method === "POST" && (
+        <PForm.TextField
+          path={path.body}
+          label="Body"
+          padHelpText={false}
+          inputProps={REQUEST_BODY_INPUT_PROPS}
+        />
+      )}
+      <PlatformForm.KeyValueEditor
+        path={path.queryParams}
+        resourceName="parameter"
+        label="Query parameters"
+        keyField="parameter"
+        keyPlaceholder="limit"
+        valuePlaceholder="100"
+      />
+      <PlatformForm.KeyValueEditor
+        path={path.headers}
+        resourceName="header"
+        label="Headers"
+        keyField="name"
+        keyPlaceholder="Content-Type"
+        valuePlaceholder="application/json"
+      />
+    </PForm.Section>
   );
 };
+
+const EndpointDetails: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => (
+  <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+    <PForm.Sections className={CSS.B("endpoint-form")}>
+      <RequestSection path={path} />
+      <PForm.Section title="Timestamp">
+        <TimestampFields path={path} />
+      </PForm.Section>
+    </PForm.Sections>
+  </Flex.Box>
+);
 
 interface FieldPaneProps {
   endpoint: deep.Path<ReadEndpoint>;
@@ -474,6 +508,591 @@ const Form: FC = () => {
   );
 };
 
+/** An endpoint that reads the messages of an ICD. */
+interface ICDEndpoint extends ReadEndpoint {
+  icd: icd.Key;
+}
+
+const readsICD = (ep: ReadEndpoint): ep is ICDEndpoint => ep.icd != null;
+
+/**
+ * @returns the path of an endpoint that reads an ICD. Nothing checks it at run time.
+ */
+const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
+
+/**
+ * The prefix of the names of the channels that deploying creates for a message. A
+ * message after the first adds its name to the prefix of the endpoint.
+ */
+const messagePrefix = (
+  deviceName: string,
+  path: string,
+  read: number,
+  name: string,
+): string => {
+  const prefix = endpointPrefix(deviceName, path);
+  return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
+};
+
+/** @returns the key of the device properties that store the channels of a message. */
+const storedKey = (path: string, message: icd.MessageKey): string =>
+  `${path}#${message}`;
+
+/** @returns the channels that enabled endpoints bind. The Core skips disabled ones. */
+const writtenChannels = (endpoints: ReadEndpoint[]): Set<channel.Key> => {
+  const written = new Set(
+    endpoints
+      .filter(({ disabled }) => !disabled)
+      .flatMap(({ messages }) =>
+        messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
+      ),
+  );
+  written.delete(0);
+  return written;
+};
+
+/**
+ * @returns a name for a new message of an endpoint, after its method and path, that no
+ * message in taken has. A taken name gets a number, such as `GET /status 2`.
+ */
+const messageName = (
+  { method, path }: Pick<ReadEndpoint, "method" | "path">,
+  taken: icd.Message[],
+): string => {
+  const names = new Set(taken.map(({ name }) => name));
+  const base = `${method} ${path}`.trim();
+  let name = base;
+  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+  return name;
+};
+
+/** @returns the name of the ICD of a task named name. */
+const icdName = (name: string): string =>
+  name.trim() === "" ? DEFAULT_READ_NAME : name;
+
+/** @returns the prefix of the channel names of a message, current with its name. */
+const usePrefix = (
+  deviceName: string,
+  path: deep.Path<ICDEndpoint>,
+  read: number,
+): string => {
+  const formats = ICD.useFormats();
+  const epPath = PForm.useFieldValue(path.path);
+  const icdKey = PForm.useFieldValue(path.icd);
+  const message = PForm.useFieldValue(path.messages[read].message);
+  const name = PForm.useFieldValue(PICD.formPath.messages[message].name, {
+    optional: true,
+    ctx: formats.get(icdKey),
+  });
+  return messagePrefix(deviceName, epPath, read, name ?? "");
+};
+
+const EndpointItem = (props: Tree.ItemRenderProps<string>) => {
+  const path = root.config.endpoints[props.itemKey];
+  const disabled = PForm.useFieldValue(path.disabled, { optional: true });
+  if (disabled == null) return null;
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<EndpointLabel path={path} />}
+      off={disabled}
+    >
+      <Task.EnabledCheckbox path={path.disabled} />
+    </Task.Views.TreeGroupItem>
+  );
+};
+
+/** @returns the props that the panels of a message of an endpoint share. */
+const useMessageProps = (
+  device: TaskDevice,
+  path: deep.Path<ICDEndpoint>,
+  read: number,
+): Omit<ICD.MessageSectionsProps, "format"> => {
+  const { index, bindings } = PForm.useFieldValue(path.messages[read]);
+  const prefix = usePrefix(device.name, path, read);
+  return {
+    path,
+    read,
+    prefix,
+    // A new index field keeps the channel of the old one.
+    indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
+    sourceLabel: "Poll time",
+    missingDescription:
+      "The ICD no longer has this message. Add a message to the endpoint, then remove this one.",
+  };
+};
+
+interface MessagePanelProps {
+  path: deep.Path<ICDEndpoint>;
+  /** The index of the message in the endpoint's reads. */
+  read: number;
+  format: ICD.FormatForm;
+  device: TaskDevice;
+}
+
+const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
+  const props = useMessageProps(device, path, read);
+  return <ICD.MessageSections {...props} format={format} />;
+};
+
+interface MessageDetailsProps extends MessagePanelProps {
+  onAddField: () => void;
+}
+
+const MessageDetails = ({
+  device,
+  path,
+  read,
+  format,
+  onAddField,
+}: MessageDetailsProps) => {
+  const props = useMessageProps(device, path, read);
+  return (
+    <ICD.MessageDetails
+      {...props}
+      format={format}
+      matchTitle="Responses"
+      anyLabel="Any response"
+      onAddField={onAddField}
+    />
+  );
+};
+
+interface ICDFieldDetailsProps extends MessagePanelProps {
+  field: ICD.TreeField;
+}
+
+const ICDFieldDetails = ({ device, ...rest }: ICDFieldDetailsProps) => {
+  const prefix = usePrefix(device.name, rest.path, rest.read);
+  return <ICD.FieldDetails {...rest} prefix={prefix} />;
+};
+
+interface ICDEndpointDetailsProps {
+  /** The key of the endpoint. */
+  endpoint: string;
+  /** The open form of the ICD of the endpoint. Absent when the endpoint reads none. */
+  format?: ICD.FormatForm;
+  device: TaskDevice;
+  /** Adds a field to the message of an endpoint that reads one. */
+  onAddField: () => void;
+  /** Adds a message to the endpoint, for responses that its messages do not cover. */
+  onAddMessage: () => void;
+}
+
+/**
+ * The request of an endpoint. An endpoint that reads one message also shows its
+ * timestamp, which each message of an endpoint that reads several shows on its own.
+ */
+const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
+  endpoint,
+  format,
+  device,
+  onAddField,
+  onAddMessage,
+}) => {
+  const isPreview = Task.useIsPreview();
+  const path = root.config.endpoints[endpoint];
+  const reads = PForm.useFieldValue(path.messages);
+  const encoding = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+    { optional: true, ctx: format },
+  );
+  return (
+    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+      <PForm.Sections className={CSS.B("endpoint-form")}>
+        <RequestSection
+          path={path}
+          actions={
+            !isPreview && (
+              <>
+                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
+                <Button.Button variant="text" size="small" onClick={onAddMessage}>
+                  <Icon.Add />
+                  Add message
+                </Button.Button>
+              </>
+            )
+          }
+        />
+        {format != null && reads.length === 1 && (
+          <MessageSections
+            path={icdPath(endpoint)}
+            read={0}
+            format={format}
+            device={device}
+          />
+        )}
+      </PForm.Sections>
+    </Flex.Box>
+  );
+};
+
+interface EndpointsProps {
+  device: TaskDevice;
+  /** The key of each selected tree item. */
+  selected: string[];
+  onSelect: Dispatch<SetStateAction<string[]>>;
+  expanded: string[];
+  onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that the task made. */
+  made: RefObject<Set<string>>;
+}
+
+/** The endpoints of the task as a tree, beside the details of the selected item. */
+const Endpoints: FC<EndpointsProps> = ({
+  device,
+  selected,
+  onSelect,
+  expanded,
+  onExpand,
+  made,
+}) => {
+  const client = PSynnax.use();
+  const ctx = PForm.useContext();
+  const handleError = Status.useErrorHandler();
+  const formats = ICD.useFormats();
+  const { push } = PForm.useFieldList(root.config.endpoints);
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const stored = device.properties.read;
+  const { tree, handleSelect, contextMenu, renderItem, current, addField, addMessage } =
+    ICD.Tree.use({
+      sources: root.config.endpoints,
+      sourceOf: (ep) => (readsICD(ep) ? ep : null),
+      pathOf: icdPath,
+      SourceItem: EndpointItem,
+      // Starting reuses the channel that the device stores for the field's pointer,
+      // unless an enabled endpoint reads it.
+      bindingOf: (key, read, { key: field, pointer }) => {
+        const { path, messages } = ctx.get(icdPath(key)).value;
+        const ch =
+          stored[storedKey(path, messages[read].message)]?.channels[pointer] ?? 0;
+        const written = writtenChannels(ctx.get(root.config.endpoints).value);
+        return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+      },
+      messageName: (key, held) =>
+        messageName(ctx.get(root.config.endpoints[key]).value, held),
+      made,
+      selected,
+      onSelect,
+      expanded,
+      onExpand,
+    });
+
+  /**
+   * @returns ep reading a new message with no fields, in the ICD that the most
+   * endpoints read, or in a new ICD named after the task when no endpoint reads one.
+   */
+  const withMessage = async (ep: ReadEndpoint): Promise<ICDEndpoint> => {
+    if (client == null) throw new DisconnectedError();
+    const home = ICD.mostRead(ctx.get(root.config.endpoints).value.filter(readsICD));
+    const format = home == null ? undefined : ICD.formatOf(formats, home);
+    const held = format?.value().messages ?? [];
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: messageName(ep, held),
+      payload: { format: "json", fields: [] },
+    };
+    let icdKey: icd.Key;
+    if (home == null || format == null) {
+      const name = icdName(ctx.get(root.name).value);
+      icdKey = (await client.icds.create({ name, messages: [message] })).key;
+    } else {
+      icdKey = home;
+      format.insert(PICD.formPath.messages, message, held.at(-1)?.key);
+    }
+    made.current.add(message.key);
+    return {
+      ...ep,
+      icd: icdKey,
+      messages: [icd.readMessageZ.parse({ message: message.key })],
+    };
+  };
+
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const adding = useRef(false);
+  const runAdd = (add: () => Promise<void>, message: string) =>
+    handleError(async () => {
+      if (adding.current) return;
+      adding.current = true;
+      try {
+        await add();
+      } catch (e) {
+        adding.current = false;
+        throw errors.fromUnknown(e);
+      }
+      adding.current = false;
+    }, message);
+
+  const handleAdd = () =>
+    runAdd(async () => {
+      const ep = await withMessage(http.readEndpointZ.parse({}));
+      push(ep);
+      onSelect([ep.key]);
+      tree.expand(ep.key);
+    }, "Failed to add endpoint");
+
+  const handleAddMessage = (key: string) => {
+    const path = root.config.endpoints[key];
+    const ep = ctx.get(path).value;
+    if (readsICD(ep)) {
+      addMessage(key);
+      return;
+    }
+    runAdd(async () => ctx.set(path, await withMessage(ep)), "Failed to add message");
+  };
+
+  const ep =
+    current == null ? undefined : endpoints.find(({ key }) => key === current.source);
+  const format = ep != null && readsICD(ep) ? formats.get(ep.icd) : undefined;
+  let details = null;
+  let title = null;
+  let detailsPath: deep.Target<unknown> | null = null;
+  if (ep != null && format != null && current?.kind === "field") {
+    const read = icdPath(ep.key).messages[current.read];
+    const i = ep.messages[current.read].bindings.findIndex(
+      ({ field }) => field === current.field.key,
+    );
+    detailsPath = i < 0 ? read : read.bindings[i];
+    title = (
+      <Text.Text level="p" weight={500} overflow="fade">
+        {current.field.name}
+      </Text.Text>
+    );
+    details = (
+      <ICDFieldDetails
+        key={selected[0]}
+        path={icdPath(ep.key)}
+        read={current.read}
+        field={current.field}
+        format={format}
+        device={device}
+      />
+    );
+  } else if (ep != null && format != null && current?.kind === "message") {
+    detailsPath = icdPath(ep.key).messages[current.read];
+    title = <ICD.MessageLabel path={icdPath(ep.key)} read={current.read} />;
+    details = (
+      <MessageDetails
+        key={selected[0]}
+        path={icdPath(ep.key)}
+        read={current.read}
+        format={format}
+        device={device}
+        onAddField={() => addField(ep.key, current.read)}
+      />
+    );
+  } else if (ep != null) {
+    detailsPath = root.config.endpoints[ep.key];
+    title = <EndpointLabel path={root.config.endpoints[ep.key]} />;
+    details = (
+      <ICDEndpointDetails
+        key={ep.key}
+        endpoint={ep.key}
+        format={format}
+        device={device}
+        onAddField={() => addField(ep.key, 0)}
+        onAddMessage={() => handleAddMessage(ep.key)}
+      />
+    );
+  }
+  return (
+    <Task.Views.Panes
+      listTitle="Endpoints"
+      list={
+        <Task.Views.TreeList
+          {...tree}
+          onSelect={handleSelect}
+          menu={contextMenu}
+          emptyMessage="No endpoints"
+          addLabel="Add endpoint"
+          onAdd={handleAdd}
+        >
+          {renderItem}
+        </Task.Views.TreeList>
+      }
+      detailsPath={detailsPath}
+      title={title ?? undefined}
+    >
+      {details ?? (
+        <Flex.Box y grow align="center" justify="center">
+          <Text.Text status="disabled">
+            Select an endpoint or field to configure
+          </Text.Text>
+        </Flex.Box>
+      )}
+    </Task.Views.Panes>
+  );
+};
+
+/** A message that an endpoint reads. */
+type BoundMessage = ICD.BoundMessage<ICDEndpoint>;
+
+/** @returns the key of the device properties that store the channels of a message. */
+const storedKeyOf = ({ source, read }: BoundMessage): string =>
+  storedKey(source.path, source.messages[read].message);
+
+/** @returns the prefix of the names of the channels that a message creates. */
+const prefixOf = (deviceName: string, { source, read, message }: BoundMessage) =>
+  messagePrefix(deviceName, source.path, read, message.name);
+
+/**
+ * Plans the channels of each message, in deploy order with one namer. A message plans
+ * with the channels that earlier ones keep added to written, so it leaves a stored
+ * channel that another binding writes. Reads from the Core alone. Throws between
+ * messages once signal aborts.
+ */
+const planMessages = async (
+  client: Synnax,
+  dev: TaskDevice,
+  bound: BoundMessage[],
+  written: Set<channel.Key>,
+  signal?: AbortSignal,
+): Promise<ICD.MessagePlan[]> => {
+  const namer = Task.createNamer(client);
+  const plans: ICD.MessagePlan[] = [];
+  for (const b of bound) {
+    signal?.throwIfAborted();
+    const plan = await ICD.planMessage(
+      client,
+      namer,
+      b,
+      prefixOf(dev.name, b),
+      dev.properties.read[storedKeyOf(b)],
+      written,
+    );
+    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    plans.push(plan);
+  }
+  return plans;
+};
+
+interface MessagePlansProps extends PropsWithChildren {
+  device: TaskDevice;
+}
+
+/**
+ * Plans the channels of every message that the task reads, together and as deploying
+ * plans them, for the tree and the panes.
+ */
+const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const messages = ICD.useMessages();
+  const bound = endpoints
+    .filter(readsICD)
+    .filter(({ disabled }) => !disabled)
+    .flatMap((source) =>
+      source.messages.flatMap((read, r): BoundMessage[] => {
+        const message = ICD.messageOf(messages, source, r);
+        if (message == null) return [];
+        const fields = ICD.readFields(ICD.jsonFields(message), read);
+        return [{ source, read: r, message, fields }];
+      }),
+    );
+  const sources = bound.map((b) => ({
+    key: b.source.key,
+    position: b.read,
+    read: b.source.messages[b.read],
+    message: b.message,
+    prefix: prefixOf(device.name, b),
+    props: device.properties.read[storedKeyOf(b)],
+  }));
+  const plans = Task.useChannelPlans(
+    sources,
+    async (client, signal) =>
+      await planMessages(client, device, bound, writtenChannels(endpoints), signal),
+  );
+  const reads = bound.map(({ source, read }, i): ICD.PlannedRead => ({
+    path: icdPath(source.key),
+    read,
+    plan: plans[i],
+  }));
+  return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
+};
+
+const ICDContent = ({ device }: { device: TaskDevice }) => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<string[]>(() =>
+    ICD.Tree.initialExpanded(endpoints),
+  );
+  const made = useRef(new Set<string>());
+  const reading = endpoints.filter(readsICD);
+  const body = (
+    <MessagePlans device={device}>
+      <Endpoints
+        device={device}
+        selected={selected}
+        onSelect={setSelected}
+        expanded={expanded}
+        onExpand={setExpanded}
+        made={made}
+      />
+      {reading.flatMap(({ key, messages }) =>
+        messages.map(({ message }, read) => (
+          <ICD.SuitRead key={`${key}/${message}`} path={icdPath(key)} read={read} />
+        )),
+      )}
+    </MessagePlans>
+  );
+  return unique.unique(reading.map((ep) => ep.icd)).reduceRight(
+    (child, key) => (
+      <ICD.WithFormat key={key} icdKey={key}>
+        {child}
+      </ICD.WithFormat>
+    ),
+    body,
+  );
+};
+
+/** The endpoints of the task, each with the messages of its ICD that it reads. */
+const ICDForm: FC = () => {
+  const dev = useFromConfig();
+  if (dev == null)
+    return (
+      <Flex.Box y grow align="center" justify="center">
+        <Text.Text status="disabled">Select a device to configure endpoints</Text.Text>
+      </Flex.Box>
+    );
+  return <ICDContent device={dev} />;
+};
+
+/** Gives each field that an enabled endpoint reads a channel, and binds it. */
+const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
+  client,
+  config,
+) => {
+  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const enabled = config.endpoints.filter(readsICD).filter(({ disabled }) => !disabled);
+  const messages = await ICD.retrieveMessages(
+    client,
+    enabled.map((ep) => ep.icd),
+  );
+  // Every format is checked before any channel is created.
+  const bound = enabled.flatMap((ep) =>
+    ep.messages.map((_, read) =>
+      ICD.boundMessage(messages, ep, read, `endpoint ${ep.method} ${ep.path}`),
+    ),
+  );
+  // A deploy that fails partway keeps the channels it made for the next one.
+  const before = deep.copy(dev.properties);
+  try {
+    const plans = await planMessages(
+      client,
+      dev,
+      bound,
+      writtenChannels(config.endpoints),
+    );
+    for (const [i, b] of bound.entries())
+      await ICD.applyMessage(client, b, plans[i], {
+        read: dev.properties.read,
+        key: storedKeyOf(b),
+      });
+  } finally {
+    await Device.setProperties(client, dev, before, SCHEMAS);
+  }
+  return [config, dev.rack];
+};
+
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
@@ -499,9 +1118,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
 export const Read = Task.wrapForm({
   Properties,
-  Form,
+  Form: FLAGS.icds ? ICDForm : Form,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "http_read",
-  onConfigure,
+  onConfigure: FLAGS.icds ? configureICD : onConfigure,
 });
