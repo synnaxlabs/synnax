@@ -535,6 +535,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("shows the paint that the whole drawing gives a part with none", async () => {
+      await openPainted({ looks: [{ key: "node", fill: { type: "node" } }] });
+      const fill = screen.getByLabelText("Fill");
+      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+    });
+
     it("clears the paint of a part at the value when Drawing is picked", async () => {
       const symbol = await openPainted({
         states: [createState()],
@@ -660,6 +666,52 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           { key: expect.any(String), name: "Part 1", selectors: ["#b"] },
         ]);
       });
+    });
+
+    it("selects the whole drawing again when the selected part is removed", async () => {
+      const { symbol, handle } = await openEditModal(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<rect id="a" width="10" height="10"/></svg>',
+      );
+      // The inspector heading repeats the name, so the row is the match in the list.
+      const row = (name: string): HTMLElement => {
+        const item = screen
+          .getAllByText(name)
+          .map((el) => el.closest<HTMLElement>(".console-schematic-part-list-item"))
+          .find((el) => el != null);
+        assertDefined(item);
+        return item;
+      };
+      fireEvent.click(getIconButton(row("Part 1"), "close"));
+      await waitFor(() => expect(screen.queryByText("Part 1")).toBeNull());
+      expect(row("Whole drawing").classList.contains("lyra--selected")).toBe(true);
+      const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
+      assertDefined(shape);
+      fireEvent.click(shape);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([]),
+      );
+    });
+
+    it("counts the looks of a part beside its shapes", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("looked"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: {
+          ...payload.data,
+          parts: [{ key: "one", name: "One", selectors: ["#a"] }],
+          looks: [{ key: "l", part: "one", hidden: true }],
+        },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 
     it("counts the shapes of each part in the singular and the plural", async () => {

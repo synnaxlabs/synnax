@@ -147,7 +147,7 @@ const Editor = ({
     const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
-      name: `Part ${parts.length + 1}`,
+      name: Spec.nextPartName(parts),
       selectors: [],
     };
     const next = [...parts, part];
