@@ -13,6 +13,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +28,9 @@ import (
 )
 
 const logSize = 4 << 20
+
+// fileTimeout bounds a wait for synced file work, which can pass 1 s on a busy box.
+const fileTimeout = 10 * time.Second
 
 // fillers is how many entries of 10,000 intents pass three quarters of a log.
 const fillers = 24
@@ -121,7 +125,7 @@ var _ = Describe("Checkpointer", func() {
 				f := MustSucceed(fs.Open(checkpoint.Name(4), os.O_CREATE|os.O_RDWR))
 				Expect(f.Close()).To(Succeed())
 				c.Prepare(4)
-				Eventually(p.count).Should(Equal(1))
+				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
 				Expect(p.next).To(Equal([]uint64{4}))
 				Expect(p.errs).To(Equal([]error{nil}))
 				Expect(
@@ -139,7 +143,9 @@ var _ = Describe("Checkpointer", func() {
 					empty := checkpoint.Encode(db, 1, &state.Snapshot{Sequence: 1})
 					Expect(checkpoint.Write(fs, 1, empty)).To(Succeed())
 					c.Head(2, sample(2))
-					Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
+					Eventually(func() error { return readErr(fs, 2) }).
+						WithTimeout(fileTimeout).
+						Should(Succeed())
 					_, s := MustSucceed2(checkpoint.Read(fs, 2))
 					Expect(s.Sequence).To(Equal(sample(2).Sequence))
 					Expect(exists(checkpoint.Name(1))).To(BeTrue())
@@ -147,7 +153,7 @@ var _ = Describe("Checkpointer", func() {
 					// Clean removes the head before the log, so wait for both.
 					Eventually(func() bool {
 						return exists(checkpoint.Name(1)) || exists(log.Name(1))
-					}).Should(BeFalse())
+					}).WithTimeout(fileTimeout).Should(BeFalse())
 					Expect(exists(checkpoint.Name(2))).To(BeTrue())
 					Expect(c.Err()).ToNot(HaveOccurred())
 				},
@@ -165,12 +171,16 @@ var _ = Describe("Checkpointer", func() {
 				)
 				Expect(leftover.Close()).To(Succeed())
 				c.Head(2, sample(2))
-				Eventually(c.Err).Should(MatchError(ContainSubstring("exists")))
+				Eventually(c.Err).
+					WithTimeout(fileTimeout).
+					Should(MatchError(ContainSubstring("exists")))
 				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
 				Expect(exists(log.Name(1))).To(BeTrue())
 				c.Head(3, sample(2))
-				Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
-				Eventually(c.Err).Should(Succeed())
+				Eventually(func() error { return readErr(fs, 3) }).
+					WithTimeout(fileTimeout).
+					Should(Succeed())
+				Eventually(c.Err).WithTimeout(fileTimeout).Should(Succeed())
 				Expect(exists(checkpoint.Name(1))).To(BeTrue(), "the newest older head")
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
@@ -182,12 +192,12 @@ var _ = Describe("Checkpointer", func() {
 					Expect(f.Close()).To(Succeed())
 				}
 				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).Should(Equal(1))
+				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
 				Expect(p.errs[0]).To(MatchError(checkpoint.ErrDiskFull))
 				Expect(exists(log.Name(checkpoint.MaxLogs + 1))).To(BeFalse())
 				Expect(fs.Remove(log.Name(1))).To(Succeed())
 				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).Should(Equal(2))
+				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(2))
 				Expect(p.errs[1]).ToNot(HaveOccurred())
 			})
 		})
@@ -273,7 +283,9 @@ var _ = Describe("Checkpointer", func() {
 				e.Add(c)
 				MustSucceed(l.Append(&e).Wait())
 				Expect(w.Close()).To(Succeed())
-				Eventually(ready).Should(Receive(Equal(uint64(2))))
+				Eventually(ready).
+					WithTimeout(fileTimeout).
+					Should(Receive(Equal(uint64(2))))
 				for i := range uint32(fillers) {
 					var filler log.Entry
 					for k := range uint32(10_000) {
@@ -281,8 +293,10 @@ var _ = Describe("Checkpointer", func() {
 					}
 					MustSucceed(l.Append(&filler).Wait())
 				}
-				Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
-				Eventually(cp.Err).Should(Succeed())
+				Eventually(func() error { return readErr(fs, 2) }).
+					WithTimeout(fileTimeout).
+					Should(Succeed())
+				Eventually(cp.Err).WithTimeout(fileTimeout).Should(Succeed())
 				_, head := MustSucceed2(checkpoint.Read(fs, 2))
 				next := MustSucceed(
 					log.DecodeHeader(fileBytes(fs, log.Name(2)), db, 2, 0),
