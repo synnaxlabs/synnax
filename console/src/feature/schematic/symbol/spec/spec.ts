@@ -144,10 +144,18 @@ export const setOwn = <F extends Field>(
     return { ...spec, looks: looks.with(i, { ...looks[i], [field]: v }) };
   const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
   if (value != null) look.when = { type: "equals", state: STATE, values: [value] };
+  // The new look replaces field on the look that target owns, which would otherwise
+  // keep a motion of another kind running.
+  const rest = looks.flatMap((l, k): Look[] => {
+    if (k !== i) return [l];
+    const cleared = { ...l, [field]: undefined };
+    return setsNothing(cleared) ? [] : [cleared];
+  });
+  const at = Math.max(slot(rest, look), rest.findLastIndex(hides) + 1);
   return {
     ...spec,
     states: value == null ? spec.states : withActive(spec.states),
-    looks: looks.toSpliced(Math.max(slot(looks, look), last + 1), 0, look),
+    looks: rest.toSpliced(at, 0, look),
   };
 };
 
