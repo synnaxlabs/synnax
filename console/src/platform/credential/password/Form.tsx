@@ -19,6 +19,7 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { Session } from "@/session";
 
 /** Receives the result of a change, or null once the user types again. */
 export type MessageHandler = (message: string | null) => void;
@@ -83,15 +84,22 @@ const CreateForm = ({
 
 interface RenameFormProps {
   password: auth.password.Password;
+  /** Whether the password is the logged-in user's. */
+  own: boolean;
   onMessage: MessageHandler;
 }
 
-const RenameForm = ({ password, onMessage }: RenameFormProps): ReactElement => {
+const RenameForm = ({ password, own, onMessage }: RenameFormProps): ReactElement => {
   const [saved, setSaved] = useState(password.username);
   const [username, setUsername] = useState(password.username);
+  const dispatch = Session.useDispatch();
+  const core = Session.Core.useSelectSelected();
   const rename = Credential.Password.useRename({
     afterSuccess: () => {
       setSaved(username);
+      // The next login reads the username of the stored Core.
+      if (own && core != null && core.username !== "")
+        dispatch(Session.Core.set({ ...core, username }));
       onMessage("Successfully changed username");
     },
   });
@@ -198,6 +206,8 @@ const Passwords = ({
   onMessage,
 }: PasswordsProps): ReactElement | null => {
   const passwords = Credential.Password.useResult({ subject });
+  const { data: currentKey } = User.useResultKey({});
+  const own = currentKey === subject.key;
   // A rename needs update on the user, even for the user's own password.
   const canRename = Access.useUpdateGranted(subject);
   if (passwords.variant === "error")
@@ -207,7 +217,9 @@ const Passwords = ({
     return <CreateForm subject={subject} onCreate={onCreate} onMessage={onMessage} />;
   return (
     <>
-      {canRename && <RenameForm password={passwords.data[0]} onMessage={onMessage} />}
+      {canRename && (
+        <RenameForm password={passwords.data[0]} own={own} onMessage={onMessage} />
+      )}
       <SetForm subject={subject} onMessage={onMessage} />
     </>
   );

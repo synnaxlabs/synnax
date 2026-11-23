@@ -125,13 +125,15 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
 export const useRegisterModal = Modals.create(Register);
 
 /**
- * Reports whether the subject may register a user. Registering creates the user, then
- * gives it a password, which needs update on the user. It deletes the user when the
- * password fails, which needs delete.
+ * Reports whether the subject may register a user. Registering creates the user. On a
+ * Core that accepts passwords, the form can also give the user a password, which needs
+ * update on the user, and deletes the user when the password fails, which needs delete.
  */
 export const useRegisterGranted = (): boolean => {
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
   const create = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   const update = Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
   const remove = Access.useDeleteGranted(user.TYPE_RESOURCE_ID);
-  return create && update && remove;
+  return create && (!password || (update && remove));
 };

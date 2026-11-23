@@ -9,6 +9,7 @@
 
 import { type Synnax, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientAs,
   createTestUser,
@@ -18,7 +19,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { createScriptClient } from "@/feature/embedded/testutil";
 import { User } from "@/feature/user";
+import { answerMethods } from "@/platform/core/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -116,6 +119,27 @@ describe("User.ProfileSettings", () => {
     await expect(
       createTestClientAs(username, next).auth.sessions.retrieve(),
     ).resolves.toBeDefined();
+  });
+
+  it("should hide the password card when the Core refuses passwords", async () => {
+    answerMethods(["api_key"]);
+    const { as } = await loginAs("Engineer");
+    await renderAs(as, <User.ProfileSettings />);
+    await screen.findByText("Name");
+    await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
+  });
+
+  it("should offer a user with no password to create one", async () => {
+    const { key: role } = await createEmptyRole(client);
+    const created = await client.users.create({ name: uniqueName("user"), role });
+    const { token } = await client.auth.apiKeys.create({
+      subject: user.resourceID(created.key),
+      name: uniqueName("key"),
+    });
+    const as = createScriptClient(token);
+    await renderAs(as, <User.ProfileSettings />);
+    expect(await screen.findByText("Create password")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
   });
 });
 
