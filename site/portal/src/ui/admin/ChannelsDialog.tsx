@@ -15,7 +15,7 @@ import { deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 import { z } from "zod";
 
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import type { Account } from "@/server/directory";
 import { DESKTOP_CHANNELS, desktopCap } from "@/server/license/limits";
 import { post } from "@/ui/api";
@@ -24,19 +24,21 @@ import { Modal } from "@/ui/modal";
 const CAPS = ["default", "limited", "unlimited"] as const;
 type Cap = (typeof CAPS)[number];
 
-const schema = z.object({ cap: z.enum(CAPS), channels: z.number() }).check((ctx) => {
-  const { cap, channels } = ctx.value;
-  if (cap !== "limited") return;
-  if (!Number.isInteger(channels) || channels < 1)
-    ctx.issues.push({
-      code: "custom",
-      message: "Use a whole number of at least 1",
-      path: ["channels"],
-      input: channels,
-    });
-});
+const channelsSchema = z
+  .object({ cap: z.enum(CAPS), channels: z.number() })
+  .check((ctx) => {
+    const { cap, channels } = ctx.value;
+    if (cap !== "limited") return;
+    if (!Number.isInteger(channels) || channels < 1)
+      ctx.issues.push({
+        code: "custom",
+        message: "Use a whole number of at least 1",
+        path: ["channels"],
+        input: channels,
+      });
+  });
 
-const path = deep.path<z.infer<typeof schema>>();
+const path = deep.path<z.infer<typeof channelsSchema>>();
 
 const capOf = (desktopChannels: number | null): Cap => {
   if (desktopChannels == null) return "default";
@@ -44,14 +46,17 @@ const capOf = (desktopChannels: number | null): Cap => {
 };
 
 /** bodyOf reads the form into the body of the route, where "" is the default. */
-const bodyOf = ({ cap, channels }: z.infer<typeof schema>): { channels: string } => {
+const bodyOf = ({
+  cap,
+  channels,
+}: z.infer<typeof channelsSchema>): { channels: string } => {
   if (cap === "default") return { channels: "" };
   return { channels: cap === "unlimited" ? "0" : String(channels) };
 };
 
 export interface ChannelsDialogProps {
   account: Account;
-  personal: Organization;
+  personal: schema.Organization;
   /** Loads the page again after a save. */
   reload: () => void;
 }
@@ -78,7 +83,7 @@ const Content = ({ account, personal, reload }: ChannelsDialogProps): ReactEleme
       cap: capOf(personal.desktopChannels),
       channels: desktopCap(personal),
     },
-    schema,
+    schema: channelsSchema,
   });
   const cap = Form.useFieldValue(path.cap, { ctx: methods });
   return (

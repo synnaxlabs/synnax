@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"fmt"
+	"regexp"
 	"slices"
 
 	"github.com/samber/lo"
@@ -426,7 +428,7 @@ func getPath(t resolution.Type, lang string) string {
 }
 
 // validateLengthRules errors on a min_length or max_length rule on a field whose type
-// is not a string, such as a uuid, a number, or an array.
+// is not a string or bytes, such as a uuid, a number, or an array.
 func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		form, ok := t.Form.(resolution.StructForm)
@@ -447,9 +449,10 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 					typeRef = inherited.Type
 				}
 			}
-			if resolution.PrimitiveBase(typeRef, table) != "string" {
+			if base := resolution.PrimitiveBase(typeRef, table); base != "string" &&
+				base != "bytes" {
 				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
-					"%s.%s has a length rule, but its type is not a string",
+					"%s.%s has a length rule, but its type is not a string or bytes",
 					t.QualifiedName, f.Name,
 				))
 			}
@@ -481,6 +484,135 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 			}
 		}
 	}
+}
+
+// validateComparisonRules errors on a `@go validate` rule that is not lt <field> or
+// pattern "<regex>", on one outside a struct field, on an lt rule in a generic struct
+// or whose field and compared field are not two required numbers of one type in the
+// same struct, and on a pattern rule outside a required string or with a bad regex.
+func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		var problems []string
+		if _, set := t.Domains["go"].Expressions.Find("validate"); set {
+			problems = append(problems, t.QualifiedName+
+				" has a @go validate rule, but only a struct field can have one")
+		}
+		if form, ok := t.Form.(resolution.StructForm); ok {
+			problems = append(problems, structComparisonProblems(t, form, table)...)
+		}
+		for _, p := range problems {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil, "%s", p))
+		}
+	}
+}
+
+// structComparisonProblems returns the problems of the @go validate rules on the fields
+// of t.
+func structComparisonProblems(
+	t resolution.Type,
+	form resolution.StructForm,
+	table *resolution.Table,
+) []string {
+	var problems []string
+	fields := resolution.UnifiedFields(t, table)
+	for _, f := range fields {
+		name := t.QualifiedName + "." + f.Name
+		_, declared := form.Field(f.Name)
+		if m := validation.Matches(f.Domains, "go"); m != nil {
+			switch {
+			case len(form.TypeParams) > 0:
+				problems = append(problems, fmt.Sprintf(
+					"%s has a pattern rule, but %s is generic", name, t.QualifiedName,
+				))
+			case declared:
+				problems = append(problems, matchProblems(name, f, *m, table)...)
+			}
+			continue
+		}
+		lt := validation.LessThan(f.Domains, "go")
+		if lt == nil {
+			if _, set := f.Domains["go"].Expressions.Find("validate"); set && declared {
+				problems = append(problems, name+" has a @go validate rule, but only "+
+					`lt <field> and pattern "<regex>" are supported`)
+			}
+			continue
+		}
+		if len(form.TypeParams) > 0 {
+			problems = append(problems, fmt.Sprintf(
+				"%s has an lt rule, but %s is generic", name, t.QualifiedName,
+			))
+			continue
+		}
+		prefix := name + " is less than " + lt.Field + ", but "
+		other, ok := lo.Find(fields, func(o resolution.Field) bool {
+			return o.Name == lt.Field
+		})
+		switch {
+		case lt.Field == f.Name:
+			problems = append(problems, prefix+"a field cannot be less than itself")
+		case !ok:
+			problems = append(problems, fmt.Sprintf(
+				"%s%s has no field %s", prefix, t.QualifiedName, lt.Field,
+			))
+		case !isRequiredNumber(f, table) || !isRequiredNumber(other, table):
+			problems = append(problems, prefix+"both must be required numbers")
+		case typeName(f.Type, table) != typeName(other.Type, table):
+			problems = append(problems, prefix+"the two have different types")
+		}
+	}
+	return problems
+}
+
+const patternArgsProblem = ` has a pattern rule, but it takes a "regex" and an ` +
+	`optional "message"`
+
+// matchProblems returns the problems of the pattern rule m on the field f named name.
+func matchProblems(
+	name string,
+	f resolution.Field,
+	m validation.Match,
+	table *resolution.Table,
+) []string {
+	if f.Optional || resolution.PrimitiveBase(f.Type, table) != "string" {
+		return []string{name + " has a pattern rule, but only a required string can"}
+	}
+	expr, _ := f.Domains["go"].Expressions.Find("validate")
+	for _, v := range expr.Values[1:] {
+		if v.Kind != resolution.ValueKindString {
+			return []string{name + patternArgsProblem}
+		}
+	}
+	if m.Pattern == "" || len(expr.Values) > 3 {
+		return []string{name + patternArgsProblem}
+	}
+	if _, err := regexp.Compile(m.Pattern); err != nil {
+		return []string{
+			fmt.Sprintf("%s has a pattern rule that is not valid: %v", name, err),
+		}
+	}
+	return nil
+}
+
+func isRequiredNumber(f resolution.Field, table *resolution.Table) bool {
+	return !f.Optional &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(f.Type, table))
+}
+
+// typeName returns the name of the type that ref stands for once its aliases resolve.
+func typeName(ref resolution.TypeRef, table *resolution.Table) string {
+	for visited := set.New[string](); !visited.Contains(ref.Name); {
+		visited.Add(ref.Name)
+		t, ok := ref.Resolve(table)
+		if !ok {
+			break
+		}
+		alias, isAlias := t.Form.(resolution.AliasForm)
+		if !isAlias {
+			return t.QualifiedName
+		}
+		ref = alias.Target
+	}
+	return ref.Name
 }
 
 // validatePatternRules errors on a field or a type that sets a pattern rule when its

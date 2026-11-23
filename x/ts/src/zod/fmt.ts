@@ -82,7 +82,8 @@ export const formatValue = (input: unknown, options: FormatOptions = {}): unknow
       for (const [k, val] of Object.entries(v)) out[k] = walk(val, depth + 1);
       return out;
     }
-    if (v instanceof Date) return v.toISOString();
+    if (v instanceof Date)
+      return Number.isNaN(v.getTime()) ? "Invalid Date" : v.toISOString();
     if (v instanceof Error) return `[Error: ${v.message}]`;
     try {
       return `[${Object.prototype.toString.call(v)}]`;

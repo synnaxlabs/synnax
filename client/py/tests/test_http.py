@@ -254,6 +254,8 @@ class TestHTTPReadTask:
         assert ep.query_params == []
         assert ep.body == ""
         assert ep.index == ""
+        assert ep.icd is None
+        assert ep.messages == []
 
     def test_read_config_defaults(self) -> None:
         """Test that ReadConfig has correct defaults."""

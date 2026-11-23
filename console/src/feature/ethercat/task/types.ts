@@ -7,23 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device, ethercat, type task } from "@synnaxlabs/client";
-import { DataType, id, primitive, unique } from "@synnaxlabs/x";
+import { channel, ethercat, type task } from "@synnaxlabs/client";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Address, findInput } from "@/feature/ethercat/device/settings";
-import { onlyReaderOf } from "@/feature/ethercat/device/setup";
-import type {
-  ReadBinding,
-  SlaveDevice,
-  SlaveProperties,
-  WriteBinding,
-} from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
+import { READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/types";
 import { Task } from "@/platform/task";
 
-export const PREFIX = "ethercat";
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
+export { devicesOf, PREFIX, READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/types";
 
 export type ReadChannel = ethercat.ReadChannel;
 
@@ -34,8 +26,6 @@ export type WriteChannel = ethercat.WriteChannel;
 export const WRITE_CHANNEL_SCHEMAS = ethercat.WRITE_CHANNEL_SCHEMAS;
 
 export type Channel = ReadChannel | WriteChannel;
-
-export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = ethercat.readConfigZ;
 
@@ -79,8 +69,6 @@ export const READ_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
-
-export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = ethercat.writeConfigZ;
 
@@ -132,20 +120,6 @@ export const writeChannelsOf = (config: unknown): channel.Key[] => {
     .filter(primitive.isNonZero);
 };
 
-const devicesZ = z.object({ channels: z.array(z.object({ device: z.string() })) });
-
-/**
- * @returns the keys of the slaves that the channels of a read or write task config use,
- * or none when the config does not hold channels.
- */
-export const devicesOf = (config: unknown): device.Key[] => {
-  const parsed = devicesZ.safeParse(config);
-  if (!parsed.success) return [];
-  return unique
-    .unique(parsed.data.channels.map(({ device }) => device))
-    .filter((key) => key !== "");
-};
-
 export type EntryReadChannel = ethercat.EntryReadChannel;
 
 export type EntryWriteChannel = ethercat.EntryWriteChannel;
@@ -170,12 +144,12 @@ export const DIRECTIONS: Record<PDOType, string> = {
 };
 
 /** @returns a key that is unique to the address among the entries of a slave. */
-export const addressKey = ({ index, subIndex }: Address): string =>
+export const addressKey = ({ index, subIndex }: Device.Settings.Address): string =>
   `${index}_${subIndex}`;
 
 const isAt =
-  ({ index, subIndex }: Address) =>
-  (b: Address): boolean =>
+  ({ index, subIndex }: Device.Settings.Address) =>
+  (b: Device.Settings.Address): boolean =>
     b.index === index && b.subIndex === subIndex;
 
 /** @returns whether the read channel scales its samples. */
@@ -186,13 +160,13 @@ const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
  * physical values: the slave sends integers there, and its catalog calibrates them.
  */
 export const isCalibrated = (
-  { pdos, settings }: SlaveProperties,
-  address: Address,
+  { pdos, settings }: Device.SlaveProperties,
+  address: Device.Settings.Address,
 ): boolean => {
   const entry = entryAt(pdos.inputs, address);
   if (entry == null || !new DataType(entry.dataType).isInteger) return false;
   const at = isAt(address);
-  const input = findInput(settings, address);
+  const input = Device.Settings.findInput(settings, address);
   return input?.entries.some((e) => at(e) && e.calibration != null) === true;
 };
 
@@ -210,7 +184,7 @@ export type DataTypes = Map<number, string>;
 const isReadBinding = (
   ch: EntryReadChannel,
   dataTypes: DataTypes,
-): ((b: ReadBinding) => boolean) => {
+): ((b: Device.ReadBinding) => boolean) => {
   const at = isAt(ch);
   const scaled = isScaled(ch);
   const dataType = readDataType(ch);
@@ -227,7 +201,7 @@ const isReadBinding = (
  * channel.
  */
 export const readChannelOf = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): number =>
@@ -239,7 +213,7 @@ export const readChannelOf = (
  * or a deleted one. Adds the data type of the channel to dataTypes.
  */
 export const bindReadChannel = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryReadChannel,
   key: number,
   dataTypes: DataTypes,
@@ -266,7 +240,7 @@ export const bindReadChannel = (
  * else nothing.
  */
 export const readNameSuffix = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): string => {
@@ -286,19 +260,19 @@ export const readNameSuffix = (
 };
 
 /** The Synnax channel of an output entry: its command or its state. */
-type WriteRole = keyof Pick<WriteBinding, "command" | "state">;
+type WriteRole = keyof Pick<Device.WriteBinding, "command" | "state">;
 
 /** @returns the channel that the slave maps for the role at the address, or 0. */
 export const writeChannelOf = (
-  slave: SlaveDevice,
-  address: Address,
+  slave: Device.SlaveDevice,
+  address: Device.Settings.Address,
   role: WriteRole,
 ): number => slave.properties.write.channels.find(isAt(address))?.[role] ?? 0;
 
 /** Maps the role at the address to the Synnax channel with the key on the slave. */
 export const bindWriteChannel = (
-  slave: SlaveDevice,
-  address: Address,
+  slave: Device.SlaveDevice,
+  address: Device.Settings.Address,
   role: WriteRole,
   key: number,
 ): void => {
@@ -319,7 +293,7 @@ export const bindWriteChannel = (
 /** @returns every Synnax channel that the slave maps. */
 export const mappedChannels = ({
   properties: { read, write },
-}: SlaveDevice): number[] =>
+}: Device.SlaveDevice): number[] =>
   [
     ...read.channels.map(({ channel }) => channel),
     ...write.channels.flatMap(({ command, state }) => [command, state]),
@@ -341,17 +315,17 @@ const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
  * the inputs that only another program reads.
  */
 export const usableEntries = (
-  props: SlaveProperties,
+  props: Device.SlaveProperties,
   pdoType: PDOType,
 ): ethercat.PDOEntry[] =>
   uniqueEntries(props.pdos[pdoType]).filter(
-    (e) => pdoType === "outputs" || onlyReaderOf(props, e) == null,
+    (e) => pdoType === "outputs" || Device.Setup.onlyReaderOf(props, e) == null,
   );
 
 /** @returns the entry at the address, or undefined if the slave has none there. */
 export const entryAt = (
   entries: ethercat.PDOEntry[],
-  address: Address,
+  address: Device.Settings.Address,
 ): ethercat.PDOEntry | undefined => entries.find(isAt(address));
 
 /** @returns the entry label, e.g. "Channel 2 › Input", or the name alone. */
@@ -364,7 +338,7 @@ export const getEntryLabel = ({ name, pdoName }: ethercat.PDOEntry): string =>
  */
 export const getUnresolvedMessage = (
   pdo: string,
-  { name, properties }: Pick<SlaveDevice, "name" | "properties">,
+  { name, properties }: Pick<Device.SlaveDevice, "name" | "properties">,
   pdoType: PDOType,
 ): string => {
   const direction = DIRECTIONS[pdoType];
@@ -459,7 +433,7 @@ export const getPortLabel = (ch: Channel): string => {
 export const getEntryChannelName = (
   identifier: string,
   entries: ethercat.PDOEntry[],
-  address: Address,
+  address: Device.Settings.Address,
 ): string => {
   const entry = entryAt(entries, address);
   if (entry == null)
@@ -482,7 +456,7 @@ export const getEntryChannelName = (
  * readNameSuffix returns, unless it already ends in it.
  */
 export const readChannelName = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): string => {
@@ -500,7 +474,7 @@ export const readChannelName = (
 
 /** The names deploying the task gives a write channel's command and state channels. */
 export const writeChannelNames = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryWriteChannel,
 ): { cmd: string; state: string } => {
   const base = getEntryChannelName(
