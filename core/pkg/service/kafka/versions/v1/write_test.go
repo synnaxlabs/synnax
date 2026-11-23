@@ -90,6 +90,11 @@ func writeConfig(channels ...v0.WriteChannel) v0.WriteConfig {
 }
 
 var _ = Describe("MigrateWriteConfig", func() {
+	It("Should store the shape that v0 stored under the same table name", func() {
+		Expect(v1.WriteConfig{}.CustomTypeName()).
+			To(Equal(v0.WriteConfig{}.CustomTypeName()))
+	})
+
 	It("Should move the channels, topic, record key, and record of a config inline",
 		func(ctx SpecContext) {
 			old := writeConfig(writeChannel("c1", 7))
