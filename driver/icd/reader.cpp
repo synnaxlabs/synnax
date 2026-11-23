@@ -127,6 +127,20 @@ x::errors::Error check_selections(
     return x::errors::NIL;
 }
 
+/// @brief returns the series of fr for key, after adding an empty series of dt that
+/// holds cap samples when fr has none.
+x::telem::Series &series(
+    x::telem::Frame &fr,
+    const synnax::channel::Key key,
+    const x::telem::DataType &dt,
+    const std::size_t cap
+) {
+    for (std::size_t i = 0; i < fr.size(); i++)
+        if ((*fr.channels)[i] == key) return (*fr.series)[i];
+    fr.emplace(key, x::telem::Series(dt, cap));
+    return fr.series->back();
+}
+
 /// @brief Decoded holds the codec messages of each format of a reader.
 struct Decoded {
     std::vector<codec::BinaryMessage> binary;
@@ -306,7 +320,8 @@ std::pair<Reader, x::errors::Error> Reader::create(
 std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const std::span<const std::uint8_t> payload,
     const x::telem::TimeStamp received,
-    x::telem::Frame &fr
+    x::telem::Frame &fr,
+    const std::size_t cap
 ) {
     const auto [i, err] = std::visit(
         [&]<typename D>(D &d) {
@@ -338,19 +353,17 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     for (std::size_t g = 0; g < m.indexes.size(); g++) {
         if (!this->present[g]) continue;
         const auto &[key, field] = m.indexes[g];
-        fr.emplace(
-            key,
-            x::telem::Series(
+        series(fr, key, x::telem::TIMESTAMP_T, cap)
+            .write(
                 field.has_value() ? samples[*field].at<x::telem::TimeStamp>(0)
                                   : received
-            )
-        );
+            );
     }
     for (std::size_t k = 0; k < samples.size(); k++) {
         if (k == m.index_field || samples[k].empty()) continue;
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
-        fr.emplace(m.channels[k], samples[k].deep_copy());
+        series(fr, m.channels[k], samples[k].data_type(), cap).write(samples[k]);
     }
     return {msg, x::errors::NIL};
 }

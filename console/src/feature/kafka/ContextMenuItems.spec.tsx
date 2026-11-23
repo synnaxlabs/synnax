@@ -13,8 +13,8 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Modbus } from "@/feature/modbus";
-import { createModbusDevice } from "@/feature/modbus/testutil";
+import { Kafka } from "@/feature/kafka";
+import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
 import {
   createBaseProps,
@@ -27,11 +27,11 @@ import { createTestStore, resolveFocusedTab } from "@/testutil";
 const client = createTestClient();
 
 const renderItems = async () => {
-  const dev = await createModbusDevice(client);
+  const dev = await createKafkaDevice(client);
   const propsStore = await createTestStore();
   const resource = createDeviceResource(dev);
   const handle = await renderMenuItem(
-    <Modbus.Device.ContextMenuItems
+    <Kafka.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
@@ -39,33 +39,30 @@ const renderItems = async () => {
     />,
     { client },
   );
-  const proj = await client.projects.create({
-    name: uniqueName("proj"),
-  });
+  const proj = await client.projects.create({ name: uniqueName("proj") });
   handle.store.dispatch(Session.Project.select(proj.key));
   return { ...handle, dev };
 };
 
-describe("Modbus.Device.ContextMenuItems", () => {
-  it("should create a write task draft bound to the device", async () => {
-    const { store, dev } = await renderItems();
-    fireEvent.click(await screen.findByText("Create write task"));
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
-    const created = await client.tasks.retrieve({ key: tab.resource.key });
-    expect(created.type).toBe(Modbus.Task.WRITE_TYPE);
-    expect(created.config).toMatchObject({ device: dev.key });
-  });
-
-  it("should create a read task draft bound to the device", async () => {
+describe("Kafka.ContextMenuItems", () => {
+  it("should create read and write task drafts bound to the cluster", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
-    const created = await client.tasks.retrieve({ key: tab.resource.key });
-    expect(created.type).toBe(Modbus.Task.READ_TYPE);
-    expect(created.config).toMatchObject({ device: dev.key });
+    const readTab = await resolveFocusedTab(store, client);
+    if (readTab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(readTab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
+    const read = await client.tasks.retrieve({ key: readTab.resource.key });
+    expect(read.type).toBe(Kafka.Task.READ_TYPE);
+    expect(read.config).toMatchObject({ device: dev.key });
+    fireEvent.click(screen.getByText("Create write task"));
+    const writeTab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.key !== readTab.resource.key,
+    );
+    if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
+    const write = await client.tasks.retrieve({ key: writeTab.resource.key });
+    expect(write.type).toBe(Kafka.Task.WRITE_TYPE);
+    expect(write.config).toMatchObject({ device: dev.key });
   });
 });

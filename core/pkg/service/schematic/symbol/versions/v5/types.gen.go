@@ -994,8 +994,9 @@ type MotionVariant interface {
 
 // SpinMotion turns a part around its pivot.
 type SpinMotion struct {
-	// Rate is the turns each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the turns each second at the upper bound of the state. A negative rate
+	// turns the part the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1011,14 +1012,15 @@ func (s *SpinMotion) SetDefaults() {
 // schema constraints.
 func (s SpinMotion) Validate() error {
 	v := validate.New("SpinMotion")
-	v.GreaterThanEq("rate", s.Rate, 0)
+	v.Finite("rate", s.Rate)
 	return v.Error()
 }
 
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
-	// Rate is the cycles each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the cycles each second at the upper bound of the state. A negative rate
+	// moves the dashes the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1034,7 +1036,7 @@ func (f *FlowMotion) SetDefaults() {
 // schema constraints.
 func (f FlowMotion) Validate() error {
 	v := validate.New("FlowMotion")
-	v.GreaterThanEq("rate", f.Rate, 0)
+	v.Finite("rate", f.Rate)
 	return v.Error()
 }
 

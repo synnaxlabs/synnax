@@ -361,7 +361,7 @@ const createScanTask = async (dev: device.Device) => {
   await startRackHeartbeat(client, rck);
   return await rck.createTask({
     name: uniqueName("kafka_scan"),
-    type: Kafka.Task.SCAN_TYPE,
+    type: Kafka.Device.SCAN_TYPE,
     config: {},
   });
 };
@@ -699,7 +699,7 @@ describe("Kafka read form", () => {
         await dialog.findByRole("checkbox", { name: "Record /temperature" }),
       );
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
@@ -750,7 +750,7 @@ describe("Kafka read form", () => {
           await dialog.findByRole("checkbox", { name: `Record ${pointer}` }),
         );
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
@@ -1185,7 +1185,7 @@ describe("Kafka read form", () => {
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       await dialog.findByText("1 field selected");
       const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
+        type: Kafka.Device.SCAN_TYPE,
         rack: dev.rack,
         one: true,
       });
