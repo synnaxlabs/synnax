@@ -27,13 +27,15 @@ var errCheckGone = errors.New("[signals] - the check of a change is gone")
 type commitChecks struct {
 	mu sync.Mutex
 	// commits holds the checks of each commit, oldest first.
-	commits []map[string]Check
+	commits []map[string]check
 	size    int
 }
 
 func newCommitChecks(size int) *commitChecks { return &commitChecks{size: size} }
 
-func (c *commitChecks) add(checks map[string]Check) {
+// add adds the checks of one commit and drops the oldest commit past the size. It keeps
+// the bytes of each key, so the caller must never write them again.
+func (c *commitChecks) add(checks map[string]check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.commits) == c.size {
@@ -44,7 +46,7 @@ func (c *commitChecks) add(checks map[string]Check) {
 }
 
 // get returns the check of sample, or errCheckGone. It does not copy sample.
-func (c *commitChecks) get(sample []byte) (Check, error) {
+func (c *commitChecks) get(sample []byte) (check, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, checks := range slices.Backward(c.commits) {

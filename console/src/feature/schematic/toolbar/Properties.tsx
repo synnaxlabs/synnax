@@ -24,7 +24,6 @@ import {
   Direction,
   type Properties as PProperties,
   Schematic,
-  Staleness,
 } from "@synnaxlabs/pluto";
 import {
   box,
@@ -594,13 +593,8 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
-          )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) => selection.setColor("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
-          palettesHidden={selection.valueOnly("stalenessColor")}
         />
       )}
       {selection.has("precision") && (

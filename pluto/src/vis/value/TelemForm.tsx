@@ -73,7 +73,7 @@ export const TelemForm = (): ReactElement => {
         </Input.Item>
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Form.Section>
     </>
   );

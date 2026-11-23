@@ -94,14 +94,20 @@ func storeV062Metrics(
 	folders ...groupv1.Group,
 ) {
 	GinkgoHelper()
-	markApplied(
+	markAppliedBefore(
 		ctx,
 		n.DB,
 		"Channel",
 		channelversions.Migrations,
 		"v63_channel_name_rule",
 	)
-	markApplied(ctx, n.DB, "Group", groupversions.Migrations, "v63_folder_name_rule")
+	markAppliedBefore(
+		ctx,
+		n.DB,
+		"Group",
+		groupversions.Migrations,
+		"v63_folder_name_rule",
+	)
 	prefix := fmt.Sprintf("sy_node_%s_metrics_", n.Identity.HostKey)
 	idx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
 		Name:     prefix + "time",
@@ -356,14 +362,14 @@ var _ = Describe("Name upgrade breaker round 2", func() {
 
 	It("Should delete a stored retired channel and its storage", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
-		markApplied(
+		markAppliedBefore(
 			ctx,
 			n.DB,
 			"Channel",
 			channelversions.Migrations,
 			"v63_channel_name_rule",
 		)
-		markApplied(
+		markAppliedBefore(
 			ctx,
 			n.DB,
 			"Group",

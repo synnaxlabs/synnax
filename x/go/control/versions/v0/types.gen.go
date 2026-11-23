@@ -19,7 +19,18 @@ type Concurrency uint8
 
 const (
 	// ConcurrencyExclusive allows one subject to act on the resource at a time.
-	ConcurrencyExclusive Concurrency = iota
+	ConcurrencyExclusive Concurrency = 0
 	// ConcurrencyShared allows many subjects to act on the resource at once.
-	ConcurrencyShared
+	ConcurrencyShared Concurrency = 1
 )
+
+// IsValid reports whether c is one of the defined Concurrency
+// values.
+func (c Concurrency) IsValid() bool {
+	switch c {
+	case ConcurrencyExclusive, ConcurrencyShared:
+		return true
+	default:
+		return false
+	}
+}

@@ -12,27 +12,23 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, Density } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
-import { MENU_PROPS, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import {
-  BYTE_ORDERS,
-  type ByteOrder,
-  byteOrderOf,
-  swapsOf,
-} from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 
-type Order = "device" | ByteOrder;
+type Order = "device" | Device.ByteOrder;
 
 // A word has no word order, so its one swap reverses its bytes.
-const WORD_ORDERS: ByteOrder[] = ["ABCD", "DCBA"];
+const WORD_ORDERS: Device.ByteOrder[] = ["ABCD", "DCBA"];
 
 const orderOf = (
   multiWord: boolean,
   swapBytes: boolean,
   swapWords: boolean,
-): ByteOrder =>
-  multiWord ? byteOrderOf({ swapBytes, swapWords }) : swapBytes ? "DCBA" : "ABCD";
+): Device.ByteOrder =>
+  multiWord
+    ? Device.byteOrderOf({ swapBytes, swapWords })
+    : swapBytes
+      ? "DCBA"
+      : "ABCD";
 
 interface Swapped {
   bytesSwapped?: boolean;
@@ -55,7 +51,7 @@ export const ByteOrderField = ({
   path,
   dataType,
 }: ByteOrderFieldProps): ReactElement => {
-  const connection = useFromConfig()?.properties.connection;
+  const connection = Device.useFromConfig()?.properties.connection;
   const ctx = Form.useContext();
   const { bytesSwapped: bytesPath, wordsSwapped: wordsPath } = deep.widen(path);
   const bytesSwapped = Form.useFieldValue(bytesPath, { optional: true });
@@ -75,7 +71,7 @@ export const ByteOrderField = ({
       ctx.set(wordsPath, undefined);
       return;
     }
-    const { swapBytes, swapWords } = swapsOf(next);
+    const { swapBytes, swapWords } = Device.swapsOf(next);
     ctx.set(bytesPath, swapBytes);
     ctx.set(wordsPath, multiWord ? swapWords : undefined);
   };
@@ -86,15 +82,15 @@ export const ByteOrderField = ({
       preview={ctx.mode === "preview"}
       allowNone={false}
       resourceName="byte order"
-      triggerProps={SHADOW_TRIGGER_PROPS}
-      dialogProps={MENU_PROPS}
+      triggerProps={Device.SHADOW_TRIGGER_PROPS}
+      dialogProps={Device.MENU_PROPS}
     >
       <Select.Item<Order> itemKey="device">
-        <ByteOrderOption order={device} size={size} device />
+        <Device.ByteOrderOption order={device} size={size} device />
       </Select.Item>
-      {(multiWord ? BYTE_ORDERS : WORD_ORDERS).map((order) => (
+      {(multiWord ? Device.BYTE_ORDERS : WORD_ORDERS).map((order) => (
         <Select.Item<Order> key={order} itemKey={order}>
-          <ByteOrderOption order={order} size={size} />
+          <Device.ByteOrderOption order={order} size={size} />
         </Select.Item>
       ))}
     </Select.Simple>

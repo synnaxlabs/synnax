@@ -60,12 +60,13 @@ var _ = Describe("Writer", func() {
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
-			Fills: func(
+			AnnounceLinked: func(
 				ctx context.Context,
 				tx gorp.Tx,
+				w channel.Writer,
 				keys ...channel.Key,
-			) (map[channel.Key]channel.Fill, error) {
-				return svc.Fills(ctx, tx, keys...)
+			) error {
+				return svc.AnnounceOutputs(ctx, tx, w, keys...)
 			},
 		}))
 		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })
@@ -108,6 +109,25 @@ var _ = Describe("Writer", func() {
 			}
 		}
 		return created
+	}
+	// announcedOf returns, by channel, each expression that the batches of rec set, in
+	// order.
+	announcedOf := func(
+		rec *acttestutil.Recorder[channel.Key, channel.Action],
+	) map[channel.Key][]string {
+		GinkgoHelper()
+		announced := make(map[channel.Key][]string)
+		for _, batch := range rec.Snapshot() {
+			for _, a := range batch.Actions {
+				if a.Set == nil || !slices.Equal(a.Set.Path, []string{"expression"}) {
+					continue
+				}
+				expression, ok := a.Set.Value.(string)
+				Expect(ok).To(BeTrue())
+				announced[batch.Key] = append(announced[batch.Key], expression)
+			}
+		}
+		return announced
 	}
 	retrieve := func(ctx SpecContext, output channel.Key) []calculation.Calculation {
 		GinkgoHelper()
@@ -279,9 +299,10 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Fills", func() {
+	Describe("Announcements", func() {
 		It(
-			"Should fill the create of a stored output that a create links to an index",
+			"Should announce the calculation of a stored output that a create links to "+
+				"an index, and hold none in its create",
 			func(
 				ctx SpecContext,
 			) {
@@ -316,13 +337,81 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(again.Key()).To(Equal(stored.Key()))
 				Expect(again.LocalIndex).ToNot(BeZero())
-				Expect(
-					createdOf(rec)[stored.Key()].Expression,
-				).To(Equal("return wide * 2"))
+				Expect(createdOf(rec)[stored.Key()].Expression).To(BeEmpty())
+				Expect(announcedOf(rec)[stored.Key()]).
+					To(Equal([]string{"return wide * 2"}))
 			},
 		)
 
-		It("Should fill nothing for a channel that no calculation writes", func(
+		It(
+			"Should announce the calculation of an existing output once, with the "+
+				"dispatch key",
+			func(ctx SpecContext) {
+				createVirtual(ctx, "wide")
+				output := createVirtual(ctx, "doubled")
+				rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+				DeferCleanup(channels.Actions().OnChange(rec.Record))
+				c := calculation.Calculation{
+					Output:     output.Key(),
+					Expression: "return wide * 2",
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).WithDispatchKey("dk").Create(ctx, &c)
+				})).To(Succeed())
+				Expect(announcedOf(rec)[output.Key()]).
+					To(Equal([]string{"return wide * 2"}))
+				Expect(rec.Snapshot()).To(ContainElement(SatisfyAll(
+					HaveField("Key", output.Key()),
+					HaveField("DispatchKey", "dk"),
+				)))
+			},
+		)
+
+		It("Should announce that a deleted calculation writes its output no more", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "wide")
+			output := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     output.Key(),
+				Expression: "return wide * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+			DeferCleanup(channels.Actions().OnChange(rec.Record))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			Expect(announcedOf(rec)).To(Equal(map[channel.Key][]string{
+				output.Key(): {""},
+			}))
+		})
+
+		It("Should announce nothing for an edit that keeps the output", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "wide")
+			output := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     output.Key(),
+				Expression: "return wide * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+			DeferCleanup(channels.Actions().OnChange(rec.Record))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return wide * 3",
+					},
+				))
+				return err
+			})).To(Succeed())
+			Expect(announcedOf(rec)).To(BeEmpty())
+		})
+
+		It("Should announce nothing for a channel that no calculation writes", func(
 			ctx SpecContext,
 		) {
 			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
@@ -331,6 +420,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				createdOf(rec)[plain.Key()],
 			).To(Equal(channel.Created{Channel: plain}))
+			Expect(announcedOf(rec)).To(BeEmpty())
 		})
 	})
 
@@ -374,7 +464,8 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should fill the create of the output, and not the create of its index",
+			"Should hold no calculation in the creates of the output and its index, and "+
+				"announce it for the output",
 			func(
 				ctx SpecContext,
 			) {
@@ -392,10 +483,28 @@ var _ = Describe("Writer", func() {
 				created := createdOf(rec)
 				Expect(created).To(HaveLen(2))
 				output := created[c.Output]
-				Expect(output.Expression).To(Equal("return wide * 2"))
-				Expect(output.Operations).To(Equal([]channel.Operation{
-					{Type: channel.OperationTypeAvg, Duration: telem.Second},
-				}))
+				Expect(output.Expression).To(BeEmpty())
+				Expect(output.Operations).To(BeEmpty())
+				Expect(
+					announcedOf(rec)[c.Output],
+				).To(Equal([]string{"return wide * 2"}))
+				Expect(rec.Snapshot()).To(ContainElement(SatisfyAll(
+					HaveField("Key", c.Output),
+					HaveField(
+						"Actions",
+						ContainElement(HaveField("Set", HaveValue(Equal(
+							channel.SetPayload{
+								Path: []string{"operations"},
+								Value: []channel.Operation{
+									{
+										Type:     channel.OperationTypeAvg,
+										Duration: telem.Second,
+									},
+								},
+							},
+						)))),
+					),
+				)))
 				index := created[output.Index()]
 				Expect(index.IsIndex).To(BeTrue())
 				Expect(index.Expression).To(BeEmpty())
