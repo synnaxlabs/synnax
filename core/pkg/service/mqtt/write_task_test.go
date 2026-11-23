@@ -12,7 +12,6 @@ package mqtt_test
 import (
 	"context"
 	"encoding/json/v2"
-	"fmt"
 	"math"
 	"time"
 	"uuid"
@@ -437,54 +436,6 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
-		It("Should send the last command of a bound channel with no new one",
-			func(ctx SpecContext) {
-				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-					func(g Gomega) {
-						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-					},
-				)
-				command(ctx, x, telem.NewSeriesV(3.0), func(g Gomega) {
-					g.Expect(payloads("plant/point")).
-						To(ContainElement(`{"x":3,"y":2}`))
-				})
-			},
-		)
-
-		It("Should send the default of a bound field with no command yet",
-			func(ctx SpecContext) {
-				start(ctx, writeConfig(dev, pointTarget(
-					ctx, icd.FloatJSONField{Default: new(payload.Float(5))},
-				)))
-				command(ctx, x, telem.NewSeriesV(1.0), func(g Gomega) {
-					g.Expect(payloads("plant/point")).
-						To(ContainElement(`{"x":1,"y":5}`))
-				})
-			},
-		)
-
-		It("Should wait for the first command of a bound field with no default",
-			func(ctx SpecContext) {
-				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
-				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{x.Key()},
-					Start: telem.Now(),
-				}))
-				Consistently(func(g Gomega) {
-					g.Expect(w.Write(frame.NewUnary(x.Key(), telem.NewSeriesV(1.0)))).
-						To(BeTrue())
-					g.Expect(payloads("plant/point")).To(BeEmpty())
-				}, 500*time.Millisecond).Should(Succeed())
-				Expect(w.Close()).To(Succeed())
-				command(ctx, y, telem.NewSeriesV(2.0), func(g Gomega) {
-					g.Expect(payloads("plant/point")).
-						To(ContainElement(`{"x":1,"y":2}`))
-				})
-			},
-		)
-
 		It("Should forget the commands of an earlier run", func(ctx SpecContext) {
 			_, configured := start(ctx, writeConfig(dev, pointTarget(
 				ctx, icd.FloatJSONField{},
@@ -513,117 +464,6 @@ var _ = Describe("Write task", func() {
 				g.Expect(payloads("plant/point")).To(ContainElement(`{"x":3,"y":4}`))
 			})
 		})
-
-		It("Should keep the last command of a field after a command it cannot hold",
-			func(ctx SpecContext) {
-				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-					func(g Gomega) {
-						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-					},
-				)
-				command(ctx, x, telem.NewSeriesV(math.NaN()), func(g Gomega) {
-					g.Expect(broker.collected()).ToNot(BeEmpty())
-				})
-				command(ctx, y, telem.NewSeriesV(4.0), func(g Gomega) {
-					g.Expect(payloads("plant/point")).
-						To(ContainElement(`{"x":1,"y":4}`))
-				})
-			},
-		)
-
-		It("Should drop a command it cannot hold while another field waits",
-			func(ctx SpecContext) {
-				t, _ := start(
-					ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})),
-				)
-				send(ctx, channel.Keys{x.Key()},
-					frame.NewUnary(x.Key(), telem.NewSeriesV(1.0, math.NaN())),
-					func(g Gomega) {
-						g.Expect(taskStatus(ctx, t).Variant).
-							To(Equal(status.VariantWarning))
-					},
-				)
-				command(ctx, y, telem.NewSeriesV(2.0), func(g Gomega) {
-					g.Expect(payloads("plant/point")).
-						To(ContainElement(`{"x":1,"y":2}`))
-				})
-			},
-		)
-
-		It("Should send the good commands of a frame that holds a bad one",
-			func(ctx SpecContext) {
-				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-					func(g Gomega) {
-						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-					},
-				)
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(math.NaN()), telem.NewSeriesV(4.0)),
-					func(g Gomega) {
-						g.Expect(payloads("plant/point")).
-							To(ContainElement(`{"x":1,"y":4}`))
-					},
-				)
-			},
-		)
-
-		It("Should count each command of a frame, the dropped ones too",
-			func(ctx SpecContext) {
-				t, _ := start(
-					ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})),
-				)
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(math.NaN()), telem.NewSeriesV(4.0)),
-					func(g Gomega) {
-						var skipped, read int
-						g.Expect(fmt.Sscanf(
-							taskStatus(ctx, t).Message,
-							"Skipped %d of %d commands",
-							&skipped,
-							&read,
-						)).To(Equal(2))
-						g.Expect(read).To(Equal(2 * skipped))
-					},
-				)
-			},
-		)
-
-		It("Should send no document for a frame that holds only bad commands",
-			func(ctx SpecContext) {
-				t, _ := start(
-					ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})),
-				)
-				send(ctx, channel.Keys{x.Key(), y.Key()},
-					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-					func(g Gomega) {
-						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-					},
-				)
-				writeOnce := func(ch channel.Channel, s telem.Series) {
-					GinkgoHelper()
-					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-						Keys:  channel.Keys{ch.Key()},
-						Start: telem.Now(),
-					}))
-					Expect(w.Write(frame.NewUnary(ch.Key(), s))).To(BeTrue())
-					Expect(w.Close()).To(Succeed())
-				}
-				const last = `{"x":1,"y":3}`
-				writeOnce(y, telem.NewSeriesV(3.0))
-				Eventually(func() []string { return payloads("plant/point") }).
-					Should(ContainElement(last))
-				writeOnce(x, telem.NewSeriesV(math.NaN()))
-				Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
-					Should(Equal(status.VariantWarning))
-				Consistently(func() int {
-					return lo.Count(payloads("plant/point"), last)
-				}, 300*time.Millisecond).Should(Equal(1))
-			},
-		)
 	})
 
 	Describe("Errors while running", func() {

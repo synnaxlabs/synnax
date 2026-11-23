@@ -48,12 +48,12 @@ var (
 	id       = jsonField("id", icd.UuidJSONField{})
 	setpoint = jsonMessage("Setpoint", temp, mode, limit)
 	tagged   = jsonMessage("Tagged", id)
-	frame    = icd.Message{
+	binary   = icd.Message{
 		Key:     uuid.New(),
 		Name:    "Frame",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
 	}
-	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, frame}}
+	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, binary}}
 )
 
 const valueKey channel.Key = 2
@@ -264,7 +264,7 @@ var _ = Describe("Write", func() {
 				"does not exist in ICD Plant",
 			),
 			Entry("a message that is not JSON",
-				writeOf(frame, bind(temp)),
+				writeOf(binary, bind(temp)),
 				"message Frame is not a JSON message",
 			),
 			Entry("a message with no bindings",
