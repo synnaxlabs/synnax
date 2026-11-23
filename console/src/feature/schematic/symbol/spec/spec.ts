@@ -192,6 +192,34 @@ export const setVariesByValue = (
   return setOwn(cleared, target, field, first);
 };
 
+const CLIP_STYLE = /(^|;)\s*clip-path\s*:/;
+
+const clipped = (el: Element): boolean =>
+  el.hasAttribute("clip-path") || CLIP_STYLE.test(el.getAttribute("style") ?? "");
+
+/**
+ * @returns the keys of the parts with a level motion and a shape that has its own
+ * clip-path. Level draws by setting the clip-path, so it would replace that one.
+ */
+export const levelClips = (
+  spec: Pick<Spec, "drawing" | "parts" | "looks">,
+): string[] => {
+  const levels = new Set(
+    spec.looks.flatMap((l) =>
+      l.motion?.type === "level" && l.part != null ? [l.part] : [],
+    ),
+  );
+  if (levels.size === 0) return [];
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  return spec.parts
+    .filter(
+      (p) =>
+        levels.has(p.key) &&
+        p.selectors.some((s) => Array.from(doc.querySelectorAll(s)).some(clipped)),
+    )
+    .map((p) => p.key);
+};
+
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,

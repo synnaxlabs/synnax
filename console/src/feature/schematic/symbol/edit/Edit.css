@@ -234,6 +234,10 @@
         padding: 2rem;
     }
 
+    .console-schematic-inspector__rate {
+        width: 10rem;
+    }
+
     .console-schematic-inspector__value {
         padding-left: 3rem;
         flex-wrap: wrap;

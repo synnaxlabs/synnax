@@ -9,16 +9,19 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import type { schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import type { color } from "@synnaxlabs/x";
+import { type bounds, type color, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
@@ -170,6 +173,77 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   );
 };
 
+const VisibleControl = (): ReactElement => {
+  const { value, onChange, label, at } = useScope<"hidden">("VisibleControl");
+  return (
+    <Input.Checkbox
+      aria-label={label}
+      value={value !== true}
+      onChange={(shown) => onChange(shown ? (at == null ? undefined : false) : true)}
+    />
+  );
+};
+
+const BLINK: schematic.symbol.Blink = { period: TimeSpan.SECOND.nanoseconds };
+
+const BlinkControl = (): ReactElement => {
+  const { value, onChange, label } = useScope<"blink">("BlinkControl");
+  return (
+    <Input.Checkbox
+      aria-label={label}
+      value={value != null}
+      onChange={(on) => onChange(on ? BLINK : undefined)}
+    />
+  );
+};
+
+type MotionKind = "none" | "spin" | "flow";
+const RATE_BOUNDS: bounds.Bounds = { lower: 0, upper: Infinity };
+
+const MotionControl = (): ReactElement => {
+  const { value, onChange, label } = useScope<"motion">("MotionControl");
+  const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
+  const handleKindChange = (kind: MotionKind) => {
+    if (kind === "none") return onChange(undefined);
+    onChange(
+      moving == null
+        ? schematic.symbol.motionZ.parse({ type: kind })
+        : { ...moving, type: kind },
+    );
+  };
+  return (
+    <Flex.Box x align="center" gap="small">
+      {moving != null && (
+        <Input.Numeric
+          aria-label={`${label} rate`}
+          size="small"
+          value={moving.rate}
+          onChange={(rate) => onChange({ ...moving, rate })}
+          bounds={RATE_BOUNDS}
+          showDragHandle={false}
+          endContent="/s"
+          className={CSS.BE("schematic-inspector", "rate")}
+        />
+      )}
+      <Select.Buttons<MotionKind>
+        value={value == null ? "none" : moving?.type}
+        onChange={handleKindChange}
+        size="small"
+      >
+        <Select.Item itemKey="none" size="small">
+          None
+        </Select.Item>
+        <Select.Item itemKey="spin" size="small">
+          Spin
+        </Select.Item>
+        <Select.Item itemKey="flow" size="small">
+          Flow
+        </Select.Item>
+      </Select.Buttons>
+    </Flex.Box>
+  );
+};
+
 export interface InspectorProps {
   part: Spec.Target;
   /** preview is the value that the canvas draws. */
@@ -179,11 +253,16 @@ export interface InspectorProps {
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
-  const markup = Form.useFieldValue(path.data.drawing.markup);
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const looks = Form.useFieldValue(path.data.looks);
   const values = useValues();
   const part = parts.find((p) => p.key === key);
   const drawn =
-    part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
+    part == null
+      ? undefined
+      : Schematic.Node.Region.paint(drawing.markup, part.selectors);
+  const clipped =
+    part != null && Spec.levelClips({ drawing, parts, looks }).includes(part.key);
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
@@ -204,6 +283,24 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
         <Property field="stroke" label="Stroke" icon={<Icon.StrokeColor />}>
           <PaintControl drawingColor={drawn?.stroke} />
         </Property>
+        <Divider.Divider x />
+        <Property field="hidden" label="Visible" icon={<Icon.Visible />}>
+          <VisibleControl />
+        </Property>
+        <Property field="blink" label="Blink" icon={<Icon.Dot />}>
+          <BlinkControl />
+        </Property>
+        <Property field="motion" label="Motion" icon={<Icon.Rotate />}>
+          <MotionControl />
+        </Property>
+        {clipped && (
+          <Status.Summary
+            level="small"
+            variant="error"
+            message="Level motion replaces a clip-path"
+            description="A shape in this part has its own clip-path, which level motion would replace. Remove the clip-path from the drawing or the motion from the part to save."
+          />
+        )}
       </Flex.Box>
     </InspectorContext>
   );

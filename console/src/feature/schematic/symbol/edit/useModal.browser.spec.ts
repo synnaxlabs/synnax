@@ -209,6 +209,53 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    // createWithPart opens the editor on a new drawing with one new part, Part 1.
+    const createWithPart = async () => {
+      const createKey = uuid.create();
+      const { picker } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("moving_symbol") },
+      });
+      return createKey;
+    };
+
+    const savedLooks = async (createKey: string) => {
+      const created = await client.schematics.symbols.retrieve(createKey);
+      const part = created.data.parts[0].key;
+      return created.data.looks.filter((l) => l.part === part);
+    };
+
+    it("saves a hidden part that blinks", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByLabelText("Visible"));
+      fireEvent.click(screen.getByLabelText("Blink"));
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ hidden: true, blink: { period: 1e9 } }),
+        ]),
+      );
+    });
+
+    it("saves a spin at the rate that its field shows whole", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      expect(rate.value).toBe("0.5");
+      expect(rate.classList.contains("lyra--cut")).toBe(false);
+      fireEvent.change(rate, { target: { value: "2" } });
+      fireEvent.blur(rate);
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "spin", rate: 2 } }),
+        ]),
+      );
+    });
+
     it("adds a placeable handle at the symbol center", async () => {
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
@@ -527,6 +574,39 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           value: { type: "fixed", value: GREEN },
         });
       });
+    });
+
+    it("blocks the save while a level motion would replace a clip-path", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect id="a" width="10" height="10" clip-path="inset(1px)"/></svg>',
+        },
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [
+          {
+            key: "level",
+            part: "body",
+            motion: { type: "level", state: "tank", side: "bottom" },
+          },
+        ],
+      });
+      const reason = "Level motion replaces a clip-path";
+      expect(screen.getByText(reason)).toBeDefined();
+      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("None"));
+      await waitFor(() =>
+        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
+      );
+      expect(screen.queryByText(reason)).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
+      );
     });
 
     it("counts the shapes of each part in the singular and the plural", async () => {

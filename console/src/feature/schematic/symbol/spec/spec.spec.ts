@@ -400,6 +400,45 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("levelClips", () => {
+    const LEVEL: schematic.symbol.Motion = {
+      type: "level",
+      state: "fill",
+      side: "bottom",
+    };
+    const drawn = (shape: string): schematic.symbol.Spec["drawing"] => ({
+      type: "svg",
+      markup: `<svg xmlns="http://www.w3.org/2000/svg">${shape}<rect id="seat"/></svg>`,
+    });
+
+    it("should return a part with a level motion and a shape with a clip-path", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelClips(spec)).toEqual(["body"]);
+    });
+
+    it("should count a clip-path in the style of a shape", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" style="fill: red; clip-path: inset(0)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelClips(spec)).toEqual(["body"]);
+    });
+
+    it("should return no part when the clipped part has no level motion", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          { key: "a", part: "body", motion: { type: "spin", rate: 1 } },
+          { key: "b", part: "seat", motion: LEVEL },
+        ],
+      });
+      expect(Spec.levelClips(spec)).toEqual([]);
+    });
+  });
+
   describe("removePart", () => {
     it("should remove the part and the looks on it", () => {
       const spec = createSpec({
