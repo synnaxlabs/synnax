@@ -223,15 +223,9 @@ Field groups per make:
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
-- **Modbus server**: identity `rack`, `name`, `connection` (a union on `transport`, TCP
-  or RTU), and `requests` (RFC 0091 §2.0); configuration `reads` and `writes`. A read
-  binds a register (`type`, `address`, and an optional `data_type` and `bit`) to an
-  index channel and a channel, and is unique on its register and index. A write binds a
-  register to a command channel, and is unique on its register. Durations are
-  `telem.TimeSpan` (`connection.timeout`, `requests.delay`), not millisecond integers.
-  The connect form writes the identity group; the task forms write the configuration
-  group. Its `StatusDetails` hold `connected` and the request counts as `stats` (RFC
-  0091 §2.7).
+- **Modbus server**: identity `connection` (TCP `host` is a hostname or IP) and
+  `requests`; configuration `reads` (register and index, unique) and `writes` (register,
+  unique). Durations are `TimeSpan`; `baud_rate` is an enum of the nine rates.
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
