@@ -402,6 +402,29 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).not.toContain("div.deep");
   });
 
+  it("should start a pass at an observer created after the last one", async () => {
+    const cause = box(nest(root, 3), "cause", 10);
+    observe(cause, () => {});
+    const first = box(nest(root, 1), "first", 10);
+    const second = box(nest(root, 6), "second", 10);
+    let armed = false;
+    // The browser delivers the second box in the next pass, as the first is shallower.
+    observe(first, () => {
+      if (armed) second.style.height = "20px";
+    });
+    observe(second, () => {
+      if (!armed) return;
+      armed = false;
+      cause.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    first.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.cause changed");
+  });
+
   it("should count depth through shadow roots and slots", async () => {
     const shallow = box(root, "shallow", 10);
     observe(shallow, () => {});

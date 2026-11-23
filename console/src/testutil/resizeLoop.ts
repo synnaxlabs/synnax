@@ -55,11 +55,24 @@ const callerStack = (): string =>
     .slice(0, STACK_FRAMES)
     .join("\n");
 
+interface Observation {
+  box: ResizeObserverBoxOptions;
+  /** The number of observations made before this one. */
+  order: number;
+  /** The size that the browser last reported. */
+  reported: Size;
+}
+
 interface Pass {
+  /** The browser gathers only targets deeper than this. */
+  floor: number;
+  /** The sizes of the observed elements when the browser gathered the pass. */
+  sizes: Map<Element, Size>;
+  /** The number of observations made before the browser gathered the pass. */
+  observations: number;
+  called: Set<ResizeObserver>;
   /** The depth of the shallowest target delivered in the pass. */
   shallowest: number;
-  /** The creation order of the last observer called in the pass. */
-  last: number;
 }
 
 interface Change {
@@ -73,6 +86,8 @@ interface Context {
   targets: string;
   during: Pass;
 }
+
+const ZERO: Size = { width: 0, height: 0, inner: "0x0", frame: "" };
 
 const formatSize = ({ width, height }: Size): string => `${width}x${height}`;
 
@@ -154,7 +169,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   let late: (() => void) | null = null;
   let frame: CSSNumberish | null = null;
   let pass: Pass | null = null;
-  let created = 0;
+  let observations = 0;
 
   // Every callback and the loop error of one rendering update share a timeline time.
   const enterFrame = (): void => {
@@ -171,15 +186,37 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     late = null;
   };
 
-  // Whether a box that some observer watches on the element changed.
-  const resized = (element: Element, before: Size, after: Size): boolean => {
+  const changed = (
+    box: ResizeObserverBoxOptions,
+    before: Size,
+    after: Size,
+  ): boolean => {
     const border = before.width !== after.width || before.height !== after.height;
-    const content =
-      before.inner !== after.inner || (border && before.frame === after.frame);
-    for (const box of observed.get(element)?.values() ?? [])
-      if (box === "border-box" ? border : content) return true;
-    return false;
+    if (box === "border-box") return border;
+    return before.inner !== after.inner || (border && before.frame === after.frame);
   };
+
+  // Whether a box that some observer watches on the element changed.
+  const resized = (element: Element, before: Size, after: Size): boolean =>
+    [...(observed.get(element)?.values() ?? [])].some((box) =>
+      changed(box, before, after),
+    );
+
+  // Whether the browser found a target of the entries changed when it gathered the
+  // pass. If it did, the observer of the entries belongs to that pass.
+  const gatheredIn = (
+    current: Pass,
+    targets: Map<Element, Observation>,
+    entries: ResizeObserverEntry[],
+  ): boolean =>
+    entries.some(({ target }) => {
+      const observation = targets.get(target);
+      if (observation == null || observation.order >= current.observations)
+        return false;
+      if (depth(target) <= current.floor) return false;
+      const size = current.sizes.get(target) ?? ZERO;
+      return changed(observation.box, observation.reported, size);
+    });
 
   const check = (before: Map<Element, Size>, context: Context, phase: string): void => {
     const { origin, targets, during } = context;
@@ -214,25 +251,41 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   const trace = (
     callback: ResizeObserverCallback,
     origin: string,
-    order: number,
+    targets: Map<Element, Observation>,
     entries: ResizeObserverEntry[],
     observer: ResizeObserver,
   ): void => {
     enterFrame();
     closeLate();
-    // The browser calls each observer at most once per pass, in the order they were
-    // created.
-    if (pass == null || order <= pass.last) pass = { shallowest: Infinity, last: -1 };
-    pass.last = order;
+    const before = new Map<Element, Size>();
+    for (const element of observed.keys())
+      if (element.isConnected) before.set(element, measure(element));
+    // The browser gathers the changed targets of every observer before a pass, then
+    // calls each observer with any at most once. No script runs between a pass and the
+    // gathering of the next.
+    if (
+      pass == null ||
+      pass.called.has(observer) ||
+      !gatheredIn(pass, targets, entries)
+    )
+      pass = {
+        floor: pass?.shallowest ?? 0,
+        sizes: new Map(before),
+        observations,
+        called: new Set(),
+        shallowest: Infinity,
+      };
+    pass.called.add(observer);
     pass.shallowest = Math.min(pass.shallowest, ...entries.map((e) => depth(e.target)));
+    for (const { target } of entries) {
+      const observation = targets.get(target);
+      if (observation != null) observation.reported = before.get(target) ?? ZERO;
+    }
     const context: Context = {
       origin,
       targets: entries.map((e) => label(e.target)).join(", "),
       during: pass,
     };
-    const before = new Map<Element, Size>();
-    for (const element of observed.keys())
-      if (element.isConnected) before.set(element, measure(element));
     try {
       callback(entries, observer);
     } finally {
@@ -250,13 +303,12 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
 
   class Traced implements ResizeObserver {
     private readonly observer: ResizeObserver;
-    private readonly targets = new Map<Element, ResizeObserverBoxOptions>();
+    private readonly targets = new Map<Element, Observation>();
 
     constructor(callback: ResizeObserverCallback) {
       const origin = callerStack();
-      const order = created++;
       this.observer = new Native((entries) =>
-        trace(callback, origin, order, entries, this),
+        trace(callback, origin, this.targets, entries, this),
       );
     }
 
@@ -264,13 +316,13 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       const box = options?.box ?? "content-box";
       // The browser ignores a target observed again with the same box. A new target or
       // box reports its first size, so a shallow one ends the frame in a loop error.
-      if (this.targets.get(target) !== box) {
+      if (this.targets.get(target)?.box !== box) {
         if (pass != null && document.timeline.currentTime === frame) {
           const cause = "began to be observed after a callback, at:";
           const text = `${label(target)} ${cause}\n${callerStack()}`;
           changes.push({ text, depth: depth(target), pass });
         }
-        this.targets.set(target, box);
+        this.targets.set(target, { box, order: observations++, reported: ZERO });
         const boxes = observed.get(target) ?? new Map();
         boxes.set(this, box);
         observed.set(target, boxes);
