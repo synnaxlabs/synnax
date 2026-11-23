@@ -17,14 +17,8 @@ import {
 } from "@synnaxlabs/x";
 
 import { ValidationError } from "@/errors";
-import {
-  DEFAULT_DEBOUNCE,
-  DEFAULT_TEARDOWN_GRACE,
-  hash,
-  type SpaceHooks,
-  startStreaming,
-  type Trigger,
-} from "@/query/query";
+import { hash, type Trigger } from "@/query/query";
+import { space } from "@/query/space";
 import { isChange, type Keyed, type Table, type TableEvent } from "@/query/table";
 import type { Data, FetchOptions, Params } from "@/query/types";
 
@@ -210,7 +204,7 @@ export class Lists<
 > {
   private readonly entries = new Map<string, Entry<Q, K, D, V, C>>();
   private readonly config: ListsConfig<Q, D, K, V, C, O>;
-  private readonly hooks: SpaceHooks & { onError: (error: Error) => void };
+  private readonly hooks: space.Hooks & { onError: (error: Error) => void };
   private readonly detachEpoch?: destructor.Destructor;
   private readonly detachMissed?: destructor.Destructor;
   private readonly release: destructor.Destructor;
@@ -218,10 +212,10 @@ export class Lists<
   private readonly clock: () => TimeStamp;
   private sweepTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(config: ListsConfig<Q, D, K, V, C, O>, hooks: SpaceHooks = {}) {
+  constructor(config: ListsConfig<Q, D, K, V, C, O>, hooks: space.Hooks = {}) {
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
-    this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.grace = hooks.teardownGrace ?? space.DEFAULT_TEARDOWN_GRACE;
     this.clock = hooks.clock ?? (() => TimeStamp.now());
     this.release = config.table.hold({
       held: () => this.held(),
@@ -370,7 +364,7 @@ export class Lists<
     options?: FetchOptions,
   ): Promise<Window<D, C>> {
     entry.limit = Math.max(entry.limit, limit ?? Infinity);
-    void startStreaming(this.hooks, (exc) => this.report(exc));
+    void space.startStreaming(this.hooks, (exc) => this.report(exc));
     return await this.enqueue(entry, async () => {
       if (!this.trusted(entry) || (entry.ranked && this.searchShort(entry)))
         await this.replace(entry, options);
@@ -626,7 +620,7 @@ export class Lists<
     limit: number | undefined,
     handler: WindowHandler<D, C>,
   ): destructor.Destructor {
-    void startStreaming(this.hooks, (exc) => this.report(exc));
+    void space.startStreaming(this.hooks, (exc) => this.report(exc));
     // A refetch sizes the window to the largest limit a reader asked for.
     entry.limit = Math.max(entry.limit, limit ?? Infinity);
     entry.handlers.set(handler, limit);
@@ -761,7 +755,7 @@ export class Lists<
       entry.refetchTimer = undefined;
       // A failed refetch leaves the window in place, and the next read fetches it.
       this.enqueue(entry, async () => await this.replace(entry)).catch(() => undefined);
-    }, DEFAULT_DEBOUNCE.milliseconds);
+    }, space.DEFAULT_DEBOUNCE.milliseconds);
   }
 
   private clearRefetch(entry: Entry<Q, K, D, V, C>): void {
