@@ -179,8 +179,8 @@ The decoder produces canonical bytes (`0x00` or `0x01`) unconditionally. The in-
 
 Each language's Freighter frame codec gains one branch for `BoolT`: Go at
 `core/pkg/distribution/framer/codec/codec.go`, TypeScript at
-`client/ts/src/framer/codec.ts`, Python at `client/py/synnax/framer/codec.py`, and C++
-at `client/cpp/framer/codec.cpp`. The frame codec already dispatches on
+`client/ts/src/framer/codec/codec.ts`, Python at `client/py/synnax/framer/codec.py`, and
+C++ at `client/cpp/framer/codec.cpp`. The frame codec already dispatches on
 `DataType.IsVariable()` for the length-prefixed variable-length types introduced in
 RFC 0035. `BoolT` is a second dispatch arm in the same codec, distinct from both the
 fixed-density raw-bytes path and the variable-length length-prefixed path.
@@ -260,7 +260,7 @@ in `core/pkg/distribution/framer/codec/codec.go`.
 **TypeScript** (`x/ts/src/telem/telem.ts`). A new `DataType.BOOLEAN` instance annotated
 with density 1. The `TypedArray` backing is `Uint8Array`; the public client surface
 returns and accepts `boolean[]`. Conversion happens in the series accessor. The
-Freighter frame codec branch lives in `client/ts/src/framer/codec.ts`.
+Freighter frame codec branch lives in `client/ts/src/framer/codec/codec.ts`.
 
 **Python** (`x/py/x/telem/telem.py`). A new `DataType.BOOLEAN` entry mapped to
 `np.bool_`. NumPy's `bool_` is already one byte, so the in-memory mapping is
