@@ -11,8 +11,8 @@ package arc_test
 
 import (
 	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -97,6 +97,8 @@ var _ = Describe("Graph Arc channel links access check", func() {
 	It("Should not name a channel that the exporter cannot retrieve", func(
 		ctx SpecContext,
 	) {
-		Expect(exportFile(ctx)).ToNot(ContainSubstring(ch.Name))
+		file := exportFile(ctx)
+		Expect(file).ToNot(ContainSubstring(ch.Name))
+		Expect(file).To(ContainSubstring(`"channel":%d`, ch.Key()))
 	})
 })
