@@ -349,3 +349,76 @@ Where filter Broker {
     @doc value         "is a filter that selects MQTT brokers."
     @go request_output "core/pkg/api/mqtt/broker"
 }
+
+Identity struct {
+    rack       rack.Key       {
+        @doc value         "is the key of the rack that connects to the broker."
+        @validate required
+    }
+    name       string         {
+        @doc value         "is a human-readable name for the broker."
+        @validate required
+    }
+    host       string         {
+        @doc value         "is the hostname or IP address of the broker."
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate required
+    }
+    port       uint16?        {
+        @doc value    """
+            is the TCP port. Absent takes 1883, or 8883 when the transport is TLS.
+        """
+        @validate min 1
+    }
+    transport  Transport = tcp {
+        @doc value "is the transport that the Core connects to the broker over."
+    }
+    auth       Auth = none {
+        @doc value "holds the credentials that the Core connects to the broker with."
+    }
+    client_id  string?        {
+        @doc value           """
+            is the MQTT client ID. Absent derives one from the key of the broker.
+        """
+        @validate min_length 1
+    }
+    keep_alive telem.TimeSpan = 30000000000 {
+        @doc value    "is the keep alive interval, in whole seconds."
+        @ts type      telem.NumericTimeSpan
+        @validate max 65535000000000
+        @validate min 1000000000
+    }
+    sparkplug  Sparkplug = {} {
+        @doc value "configures how the Core takes part in a Sparkplug B system."
+    }
+
+    @doc value "holds the broker fields that the connect form owns."
+}
+
+Configuration struct {
+    reads         Read[] = [] {
+        @doc value "bind the values that read tasks receive to channels."
+    }
+    writes        Write[] = [] {
+        @doc value "bind the channels whose commands write tasks publish."
+    }
+    edge_commands EdgeCommand[] = [] {
+        @doc value "bind the tags that the Core publishes as an edge node to channels."
+    }
+
+    @doc value "holds the broker fields that the task forms own."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields of the broker that the connect form owns."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the bindings of the broker. A client sends the whole group, because
+            a field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a broker."
+}

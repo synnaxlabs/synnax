@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -42,6 +43,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -120,10 +123,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		ImEx: imex.NewService(),
 	}))
+	secrets := secrettestutil.OpenService(
+		ctx,
+		db,
+		secret.ServiceConfig{EncryptionKey: secret.NewEncryptionKey()},
+	)
 	mqttSvc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
 		ICD:     icdSvc,
+		Status:  statusSvc,
+		Secret:  secrets,
+		Certificate: MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
+			DB:      db,
+			Secret:  secrets,
+			Status:  statusSvc,
+			Rack:    rackSvc.EmbeddedKey,
+			HostKey: 1,
+		})),
+		Rack: rackSvc,
 	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,

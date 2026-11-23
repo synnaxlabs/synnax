@@ -173,10 +173,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
 
 	// MQTT BROKER
+	t.MQTTBrokerCreate = noop.UnaryServer[
+		mqttbroker.CreateRequest,
+		mqttbroker.CreateResponse,
+	]{}
 	t.MQTTBrokerRetrieve = noop.UnaryServer[
 		mqttbroker.RetrieveRequest,
 		mqttbroker.RetrieveResponse,
 	]{}
+	t.MQTTBrokerUpdate = noop.UnaryServer[mqttbroker.UpdateRequest, struct{}]{}
+	t.MQTTBrokerDelete = noop.UnaryServer[mqttbroker.DeleteRequest, struct{}]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

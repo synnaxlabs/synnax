@@ -200,6 +200,11 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/retrieve",
 			),
 			Entry(
+				"unary MQTT broker create",
+				http.MethodPost,
+				"/api/v1/mqtt/broker/create",
+			),
+			Entry(
 				"unary MQTT broker retrieve",
 				http.MethodPost,
 				"/api/v1/mqtt/broker/retrieve",
@@ -218,6 +223,16 @@ var _ = Describe("HTTP", func() {
 				"unary OPC UA server delete",
 				http.MethodPost,
 				"/api/v1/opcua/server/delete",
+			),
+			Entry(
+				"unary MQTT broker update",
+				http.MethodPost,
+				"/api/v1/mqtt/broker/update",
+			),
+			Entry(
+				"unary MQTT broker delete",
+				http.MethodPost,
+				"/api/v1/mqtt/broker/delete",
 			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
