@@ -409,7 +409,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     return {msg, x::errors::NIL};
 }
 
-std::span<const codec::JSON::Failure> Reader::failures() const {
+std::span<const codec::Failure> Reader::failures() const {
     const auto *json = std::get_if<codec::JSON>(&this->decoder);
     if (json == nullptr || !this->last.has_value()) return {};
     return json->failures(*this->last);

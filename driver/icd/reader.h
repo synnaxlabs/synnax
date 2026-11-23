@@ -125,6 +125,6 @@ public:
     /// @brief returns the fields of the last read that its decoder could not decode, by
     /// position in the bindings of the message that it returned. Empty after a read
     /// that returned no message or an error, and for a format other than JSON.
-    [[nodiscard]] std::span<const codec::JSON::Failure> failures() const;
+    [[nodiscard]] std::span<const codec::Failure> failures() const;
 };
 }
