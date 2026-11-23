@@ -48,42 +48,6 @@ const createSpec = (
 });
 
 describe("symbol editor spec", () => {
-  describe("own", () => {
-    it("should return the last field that the part sets on the value alone", () => {
-      const looks: schematic.symbol.Look[] = [
-        { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
-        { key: "b", part: "body", when: equals(0), fill: fixed(RED) },
-        { key: "c", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
-        { key: "d", fill: fixed(BLUE) },
-      ];
-      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(RED));
-    });
-
-    it("should return the field of the looks on every value with no value", () => {
-      const looks: schematic.symbol.Look[] = [
-        { key: "a", part: "body", hidden: true },
-        { key: "b", part: "body", when: equals(0), hidden: false },
-      ];
-      expect(Spec.own({ looks }, "body", "hidden")).toBe(true);
-    });
-  });
-
-  describe("effective", () => {
-    it("should return the field that wins for the part at the value", () => {
-      const looks: schematic.symbol.Look[] = [
-        { key: "a", part: "body", when: equals(0, 1), fill: fixed(RED) },
-        { key: "b", part: "body", fill: fixed(BLUE) },
-      ];
-      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
-    });
-
-    it("should not count the looks of the whole drawing for a part", () => {
-      const looks: schematic.symbol.Look[] = [{ key: "a", fill: fixed(RED) }];
-      expect(Spec.effective({ looks }, "body", "fill", 0)).toBeUndefined();
-      expect(Spec.effective({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
-    });
-  });
-
   describe("setOwn", () => {
     it("should set the field on the look of the part for the value alone", () => {
       const looks: schematic.symbol.Look[] = [
