@@ -113,10 +113,11 @@ var _ = Describe("Writer", func() {
 	It("Should fail the requests that wait for a Reserve that the log refuses for "+
 		"room, and let no commit name its values", func() {
 		start(head(5, 3))
-		a.refuse(errors.Wrap(log.ErrFull, "no room"))
+		full := errors.New("log file is full")
+		a.refuse(errors.Wrap(full, "no room"))
 		w := open(clockWriter(0, false, 1))
-		Expect(w.NewAlignment()).Error().To(MatchError(log.ErrFull))
-		Expect(w.NewSegment(1)).Error().To(MatchError(log.ErrFull))
+		Expect(w.NewAlignment()).Error().To(MatchError(full))
+		Expect(w.NewSegment(1)).Error().To(MatchError(full))
 		Expect(w.Commit(commit(1, 3, 0, 100, 100, slot(5, 8)))).To(SatisfyAll(
 			MatchError(state.ErrRefused),
 			MatchError(ContainSubstring("alignment number 3, not from 1 to below the "+

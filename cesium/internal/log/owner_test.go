@@ -508,11 +508,10 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
-				Expect(l.Append(commitEntry(n)).Wait()).Error().To(SatisfyAll(
-					MatchError(log.ErrFull),
-					MatchError(ContainSubstring("does not fit in log 3")),
-				))
-				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrFull)))
+				Expect(l.Append(commitEntry(n)).Wait()).Error().
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Expect(hook.refusals()).To(HaveLen(1))
 			})
@@ -547,7 +546,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
 				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
-					To(MatchError(log.ErrFull))
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
@@ -562,7 +561,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
-					To(MatchError(log.ErrFull))
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 			})
 
 			DescribeTable(
