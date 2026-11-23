@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentType } from "react";
+import type { ComponentType } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -18,8 +18,8 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { Sift } from "@/feature/sift";
-import { type Device as PlatformDevice } from "@/platform/device";
-import { type Task } from "@/platform/task";
+import type { Device as PlatformDevice } from "@/platform/device";
+import type { Task } from "@/platform/task";
 
 /**
  * The menu items of an integration. Its device items call its tasks, whose forms use

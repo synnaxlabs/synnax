@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { blockActivation, isInputOrContentEditable } from "@/util/event";
+import { blockActivation, isInputOrContentEditable } from "@/util";
 
 const event = (key: string) => {
   let prevented = false;

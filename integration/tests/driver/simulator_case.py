@@ -129,7 +129,7 @@ class SimulatorCase(HardwareCase):
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
         rack = self.client.racks.retrieve(name=self.rack_name)
-        device_instance = sim_cls.create_device(rack.key)
+        device_instance = sim_cls.create_device(self.client, rack.key)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)
             # A sim device only exists for its sim, so one found here is a leftover from

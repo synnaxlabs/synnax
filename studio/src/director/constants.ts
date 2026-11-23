@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SpringParams } from "@/director/spring";
-import { type Format, type Tilt } from "@/film";
+import type { SpringParams } from "@/director/spring";
+import type { Format, Tilt } from "@/film";
 
 /**
  * Tuning constants for the Screen Studio look. Sources: Screen Studio's landing

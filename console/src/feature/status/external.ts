@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Explorer } from "@/feature/status/explorer";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 
 export * from "@/feature/status/commands";
 export * from "@/feature/status/explorer";

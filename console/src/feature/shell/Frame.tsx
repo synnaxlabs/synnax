@@ -11,7 +11,7 @@ import "@/feature/shell/Shell.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Nebula } from "@synnaxlabs/lyra/nebula";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Nav, type NavProps } from "@/feature/shell/Nav";
 import { CSS } from "@/platform/css";

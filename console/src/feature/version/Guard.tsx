@@ -127,21 +127,26 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
   );
 };
 
+export interface GuardProps extends PropsWithChildren {
+  /** The location of the page, which the guard reloads. */
+  location: Pick<Location, "origin" | "reload">;
+}
+
 /**
  * Renders the mismatch screen instead of its children while the last check of the Core
  * reports a different minor version than the Console. The screen lifts once a check
  * reports a matching version. A page that the selected Core served reloads instead,
  * because the Core serves the Console that matches it.
  */
-export const Guard = ({ children }: PropsWithChildren): ReactNode => {
+export const Guard = ({ children, location }: GuardProps): ReactNode => {
   const { clientVersion, nodeVersion, clientServerCompatible } =
     Synnax.useConnectionStatus().details;
   const selected = Session.Core.useSelectSelected();
   const mismatched = nodeVersion != null && !clientServerCompatible;
-  const reloads = selected != null && Core.servesPage(selected);
+  const reloads = selected != null && Core.servesPage(selected, location.origin);
   useEffect(() => {
-    if (mismatched && reloads) window.location.reload();
-  }, [mismatched, reloads]);
+    if (mismatched && reloads) location.reload();
+  }, [mismatched, reloads, location]);
   if (!mismatched) return children;
   if (reloads) return null;
   return <Mismatch clientVersion={clientVersion} nodeVersion={nodeVersion} />;

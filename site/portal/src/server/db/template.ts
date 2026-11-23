@@ -12,7 +12,7 @@ import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { type TestProject } from "vitest/node";
+import type { TestProject } from "vitest/node";
 
 declare module "vitest" {
   export interface ProvidedContext {
