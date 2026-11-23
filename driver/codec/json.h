@@ -45,6 +45,25 @@ struct JSONMessage {
 /// @brief JSON decodes documents that each belong to one of several JSON messages into
 /// samples. It is not safe for concurrent use.
 class JSON {
+public:
+    /// @brief Options changes how the decoder treats a value it cannot decode.
+    struct Options {
+        /// @brief nan_filled is true when a float field takes NaN for a value that is
+        /// missing or does not convert, in place of failing the document. A field with
+        /// a default still takes its default for a missing value.
+        bool nan_filled = false;
+    };
+
+    /// @brief Fill is a field of a decode that took NaN in place of its value.
+    struct Fill {
+        /// @brief binding is the position of the field in the bindings of its message.
+        std::size_t binding = 0;
+        /// @brief error is why the value did not convert, or NIL when the document has
+        /// no value for the field.
+        x::errors::Error error;
+    };
+
+private:
     /// @brief Integer is the value of an integer or unsigned match rule.
     struct Integer {
         /// @brief bits holds the value in two's complement.
@@ -129,6 +148,9 @@ class JSON {
         std::optional<x::telem::Series> fallback;
         /// @brief generate, when set, appends a new sample in place of fallback.
         void (*generate)(x::telem::Series &dst) = nullptr;
+        /// @brief nan holds the NaN sample used for a value that the field cannot
+        /// decode, or nothing when such a value fails the document.
+        std::optional<x::telem::Series> nan;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
@@ -144,6 +166,8 @@ class JSON {
         /// field.
         std::size_t first_value = 0;
         std::vector<x::telem::Series> samples;
+        /// @brief filled holds the fields of the last decode that took NaN.
+        std::vector<Fill> filled;
 
         /// @brief decodes the value of each field in values into samples.
         x::errors::Error
@@ -167,7 +191,7 @@ public:
     /// field of its message, or a field does not convert to the data type of its
     /// binding.
     static std::pair<JSON, x::errors::Error>
-    create(const std::vector<JSONMessage> &messages);
+    create(const std::vector<JSONMessage> &messages, const Options &opts);
 
     /// @brief finds the message that doc belongs to and decodes one sample for each of
     /// its bindings into its samples.
@@ -175,7 +199,7 @@ public:
     /// to no message.
     /// @returns VALIDATION when doc is not JSON, it meets two match rules, or a value
     /// does not convert. A conversion error names the field, and also the message when
-    /// the decoder holds more than one.
+    /// the decoder holds more than one. A field that takes NaN returns no error.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
@@ -185,6 +209,12 @@ public:
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields of the last decode of message that took NaN, in
+    /// binding order. They are unspecified after a decode that does not return message.
+    [[nodiscard]] const std::vector<Fill> &filled(const std::size_t message) const {
+        return this->messages[message].filled;
     }
 };
 }
