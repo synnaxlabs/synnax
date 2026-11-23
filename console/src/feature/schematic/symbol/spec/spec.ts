@@ -264,8 +264,8 @@ export const owner = (
 /**
  * @returns parts in which part selects selector, or no longer selects it when it
  * already did. A shape belongs to one part, so every part drops the selectors of shapes
- * inside the shape of selector, and the other parts drop selector. A part that holds a
- * group around the shape already has it, so the parts stay the same.
+ * inside the shape of selector, and the other parts drop selector. A shape inside a
+ * group that a part holds stays in that part, so the parts stay the same.
  */
 export const toggleSelector = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -280,7 +280,8 @@ export const toggleSelector = (
       selectors: p.selectors.filter((s) => s !== selector),
     }));
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
-  if (target.selectors.some((s) => holds(doc, s, selector))) return spec.parts;
+  if (spec.parts.some((p) => p.selectors.some((s) => holds(doc, s, selector))))
+    return spec.parts;
   return spec.parts.map((p) => {
     const rest = p.selectors.filter((s) => s !== selector && !holds(doc, selector, s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };

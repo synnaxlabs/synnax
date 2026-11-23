@@ -557,6 +557,11 @@ describe("symbol editor spec", () => {
       const parts = Spec.toggleSelector(grouped, "body", "#g");
       expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toBe(parts);
     });
+
+    it("should keep the parts when another part holds a group around the shape", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "seat", "#seat")).toBe(parts);
+    });
   });
 
   describe("setVariant", () => {
