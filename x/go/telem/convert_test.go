@@ -133,7 +133,6 @@ var _ = Describe("Convert", func() {
 	DescribeTable("Should fail on a sample out of the range of the data type",
 		func(s telem.Series, dt telem.DataType, msg string) {
 			Expect(telem.Convert(s, dt)).Error().To(SatisfyAll(
-				MatchError(telem.ErrOutOfRange),
 				MatchError(ContainSubstring(msg)),
 				BeAssignableToTypeOf(telem.OutOfRangeError{}),
 			))
@@ -202,7 +201,6 @@ var _ = Describe("Convert", func() {
 		It("Should fail on a sample out of range", func() {
 			Expect(telem.ValueAs[uint8](telem.NewSeriesV[int16](300), 0)).Error().
 				To(SatisfyAll(
-					MatchError(telem.ErrOutOfRange),
 					MatchError(ContainSubstring(
 						"value 300 of an int16 series is out of range of uint8",
 					)),

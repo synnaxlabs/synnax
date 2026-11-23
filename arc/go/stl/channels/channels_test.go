@@ -939,9 +939,8 @@ var _ = Describe("Channel", func() {
 				channelState.Ingest(fr)
 				_, errs := next(ctx, source)
 				Expect(errs).To(ConsistOf(SatisfyAll(
-					MatchError(telem.ErrOutOfRange),
 					MatchError(ContainSubstring(
-						"channel pressure (10): value 300 of an int16 series is out of range "+
+						"channel pressure (10): value 300 of an int16 series is out of range " +
 							"of uint8",
 					)),
 				)))

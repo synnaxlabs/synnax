@@ -453,7 +453,7 @@ var _ = Describe("Reduce", func() {
 				whole := telem.NewMultiSeries(parts)
 				size := uint32(whole.Len())
 				expected := reduce(telem.Series{
-					DataType: whole.DataType(),
+					DataType: parts[0].DataType,
 					Data: lo.FlatMap(parts, func(p telem.Series, _ int) []byte {
 						return p.Data
 					}),

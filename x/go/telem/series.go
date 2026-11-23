@@ -474,9 +474,9 @@ func (m MultiSeries) Len() int64 {
 	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
 }
 
-// DataType returns the data type of the multi series. If the multi series is empty, the
-// data type is UnknownT. It panics when the series hold different data types.
-func (m MultiSeries) DataType() DataType {
+// dataType returns the data type of the multi series, or UnknownT when it is empty. It
+// panics when the series hold different data types.
+func (m MultiSeries) dataType() DataType {
 	if len(m.Series) == 0 {
 		return UnknownT
 	}
@@ -496,7 +496,7 @@ func (m MultiSeries) Data() []byte {
 	if len(m.Series) == 0 {
 		return nil
 	}
-	m.DataType()
+	m.dataType()
 	data := make([]byte, 0, m.Len())
 	for _, s := range m.Series {
 		data = append(data, s.Data...)

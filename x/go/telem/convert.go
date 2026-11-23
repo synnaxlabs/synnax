@@ -14,16 +14,12 @@ import (
 	"math"
 	"strings"
 
-	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
-// ErrOutOfRange is the cause of each OutOfRangeError.
-var ErrOutOfRange = errors.New("sample out of range")
-
 // OutOfRangeError is returned by Convert and ValueAs for a sample that a data type
-// cannot hold. It wraps ErrOutOfRange.
+// cannot hold.
 type OutOfRangeError struct {
 	// Value is the sample.
 	Value any
@@ -42,9 +38,6 @@ func (e OutOfRangeError) Error() string {
 		e.To,
 	)
 }
-
-// Unwrap returns ErrOutOfRange.
-func (e OutOfRangeError) Unwrap() error { return ErrOutOfRange }
 
 // ConversionError is returned by Convert and ValueAs when the samples of one data type
 // do not convert to another.
