@@ -179,38 +179,3 @@ export const Diagram = Base.create({
   connectionLine: Component.renderProp(Edge.ConnectionLine),
   Provider,
 });
-
-export const nodeChangesToActions = (
-  changes: Base.NodeChange[],
-): schematic.Action[] => {
-  const actions: schematic.Action[] = [];
-  changes.forEach((ch) => {
-    switch (ch.type) {
-      case "position":
-        actions.push(schematic.setNodePosition({ key: ch.key, position: ch.position }));
-        return;
-      case "remove":
-        actions.push(schematic.removeNode({ key: ch.key }));
-        break;
-      case "select":
-        break;
-    }
-  });
-  return actions;
-};
-
-export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Action[] =>
-  changes.flatMap((ch) => {
-    switch (ch.type) {
-      case "add":
-        return [
-          schematic.addEdge({
-            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
-          }),
-        ];
-      case "remove":
-        return [schematic.removeEdge({ key: ch.key })];
-      default:
-        return [];
-    }
-  });
