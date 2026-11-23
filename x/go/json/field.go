@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -525,7 +526,12 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		return strconv.AppendBool(dst, n.float() != 0), nil
 	case String:
 		dst = append(dst, '"')
-		return append(n.appendText(dst), '"'), nil
+		if dt == telem.Float32T {
+			dst = xstrconv.AppendFloat(dst, n.f, 32)
+		} else {
+			dst = n.appendText(dst)
+		}
+		return append(dst, '"'), nil
 	case Number:
 		return appendJSONNumber(dst, n)
 	}
