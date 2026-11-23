@@ -14,6 +14,7 @@ package rack
 import (
 	"context"
 	"slices"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -56,7 +57,7 @@ func newIndexes() indexes {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
 		}),
@@ -66,7 +67,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *Rack) []role.Key {
-				return []role.Key{e.Role}
+				return unsafe.Slice(&e.Role, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Rack](

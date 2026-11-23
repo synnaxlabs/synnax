@@ -165,7 +165,7 @@ var _ = Describe("@ref", func() {
 					`Table:    "rack",`,
 					"OnDelete: gorp.Restrict,",
 					"Targets: func(e *Device) []rack.Key {",
-					"return []rack.Key{e.Rack}",
+					"return unsafe.Slice(&e.Rack, 1)",
 					"func (i indexes) references() []gorp.Reference[Key, Device]",
 					`const tableName = "device"`,
 					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
@@ -319,7 +319,7 @@ var _ = Describe("@ref", func() {
 				"OnDelete: gorp.Cascade,",
 				"Acyclic:  true,",
 				"if e.Parent == nil {",
-				"return []Key{*e.Parent}",
+				"return unsafe.Slice(e.Parent, 1)",
 			)
 	})
 
@@ -1604,7 +1604,7 @@ var _ = Describe("@ref", func() {
 				ToContain(
 					`Name:     "spare",`,
 					"OnDelete: gorp.Weak,",
-					"return []rack.Key{e.Spare}",
+					"return unsafe.Slice(&e.Spare, 1)",
 				).
 				ToNotContain("Detach:", "Tag:")
 		})

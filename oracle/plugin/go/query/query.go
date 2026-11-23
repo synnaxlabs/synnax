@@ -314,6 +314,10 @@ func (r retrieveInfo) needsSlices() bool {
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
+// needsUnsafe reports whether a generated Targets returns a slice over the entry's
+// own field.
+func (r retrieveInfo) needsUnsafe() bool { return lo.SomeBy(r.Refs, refInfo.AliasesField) }
+
 // needsSet reports whether the generated code calls the set package.
 func (r retrieveInfo) needsSet() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
@@ -414,6 +418,9 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsUnsafe) {
+		imps.AddExternal("unsafe")
 	}
 	if lo.SomeBy(infos, retrieveInfo.needsSet) {
 		imps.AddInternal(
@@ -1065,14 +1072,22 @@ func newIndexes() indexes {
 				if e.{{$ref.GoName}} == nil {
 					return nil
 				}
+{{- if $ref.AliasesField}}
+				return unsafe.Slice(e.{{$ref.GoName}}, 1)
+{{- else}}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "*e.%s" $ref.GoName) -}} }
-{{- else if $ref.Zero}}
+{{- end}}
+{{- else}}
+{{- if $ref.Zero}}
 				if e.{{$ref.GoName}} == {{$ref.ZeroOperand}} {
 					return nil
 				}
-				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
+{{- end}}
+{{- if $ref.AliasesField}}
+				return unsafe.Slice(&e.{{$ref.GoName}}, 1)
 {{- else}}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
+{{- end}}
 {{- end}}
 			},
 {{- if $ref.Detaches}}

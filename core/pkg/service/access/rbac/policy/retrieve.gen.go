@@ -13,6 +13,7 @@ package policy
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -49,7 +50,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Targets: func(e *Policy) []role.Key {
-				return []role.Key{e.Role}
+				return unsafe.Slice(&e.Role, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Policy](

@@ -13,6 +13,7 @@ package directory
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/compare"
@@ -60,7 +61,7 @@ func newIndexes() indexes {
 				if e.Parent == nil {
 					return nil
 				}
-				return []Key{*e.Parent}
+				return unsafe.Slice(e.Parent, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Directory](

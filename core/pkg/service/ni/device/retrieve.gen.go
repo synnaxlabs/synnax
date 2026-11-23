@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -62,7 +63,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 		}),
 		chassis: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, chassis.Key]{
@@ -74,7 +75,7 @@ func newIndexes() indexes {
 				if e.Chassis == nil {
 					return nil
 				}
-				return []chassis.Key{*e.Chassis}
+				return unsafe.Slice(e.Chassis, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](

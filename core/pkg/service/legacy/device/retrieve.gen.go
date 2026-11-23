@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -59,7 +60,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
@@ -72,7 +73,7 @@ func newIndexes() indexes {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
 		}),
@@ -87,7 +88,7 @@ func newIndexes() indexes {
 				if e.Parent == nil {
 					return nil
 				}
-				return []Key{*e.Parent}
+				return unsafe.Slice(e.Parent, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](

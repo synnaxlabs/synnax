@@ -14,6 +14,7 @@ package log
 import (
 	"context"
 	"slices"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -64,7 +65,7 @@ func newIndexes() indexes {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
 		}),
@@ -77,7 +78,7 @@ func newIndexes() indexes {
 				if e.Project == nil {
 					return nil
 				}
-				return []project.Key{*e.Project}
+				return unsafe.Slice(e.Project, 1)
 			},
 		}),
 		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{

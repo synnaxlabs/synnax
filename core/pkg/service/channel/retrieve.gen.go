@@ -13,6 +13,7 @@ package channel
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -55,7 +56,7 @@ func newIndexes() indexes {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
 		}),

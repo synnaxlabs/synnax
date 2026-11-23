@@ -12,6 +12,7 @@
 package task
 
 import (
+	"unsafe"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -37,7 +38,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *Config) []arc.Key {
-				return []arc.Key{e.ArcKey}
+				return unsafe.Slice(&e.ArcKey, 1)
 			},
 		}),
 	}

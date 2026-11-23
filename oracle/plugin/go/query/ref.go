@@ -72,6 +72,10 @@ type refInfo struct {
 	EmptyHoldersTracked bool
 }
 
+// AliasesField reports whether the reference's Targets returns a slice over the
+// entry's own field: a key of one table, held by a field that is not an array.
+func (r refInfo) AliasesField() bool { return !r.IsID && !r.IsSlice }
+
 // HoldsNone reports whether an entry can hold no target through the field.
 func (r refInfo) HoldsNone() bool { return r.IsOptional || r.IsSlice || r.Zero != "" }
 

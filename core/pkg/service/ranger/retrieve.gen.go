@@ -14,6 +14,7 @@ package ranger
 import (
 	"context"
 	"slices"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -82,7 +83,7 @@ func newIndexes() indexes {
 				if e.Parent == nil {
 					return nil
 				}
-				return []Key{*e.Parent}
+				return unsafe.Slice(e.Parent, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Range](

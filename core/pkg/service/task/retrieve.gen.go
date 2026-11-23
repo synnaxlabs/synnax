@@ -12,6 +12,8 @@
 package task
 
 import (
+	"unsafe"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/compare"
@@ -50,7 +52,7 @@ func newIndexes() indexes {
 				if e.Rack == 0 {
 					return nil
 				}
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Task](
