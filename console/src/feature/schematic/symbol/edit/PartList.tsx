@@ -66,6 +66,10 @@ const PartListItem = ({
     part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
   const paint = (field: "stroke" | "fill", label: string) => {
     const value = Spec.effective({ looks }, target, field, selectedValue);
+    const inherited =
+      target == null
+        ? undefined
+        : Spec.effective({ looks }, undefined, field, selectedValue);
     const own = Spec.effective(
       { looks: looks.filter((l) => l.part === target) },
       target,
@@ -76,7 +80,8 @@ const PartListItem = ({
       <Paint
         aria-label={label}
         value={value}
-        inherited={target != null && value != null && own == null}
+        inherited={inherited}
+        own={own}
         onChange={(v) =>
           set(
             path.data,
