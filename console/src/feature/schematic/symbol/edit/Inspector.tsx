@@ -109,11 +109,19 @@ interface PropertyProps extends PropsWithChildren {
   field: Spec.Field;
   label: string;
   icon: ReactElement;
+  /** wide puts the control for every value under the label. */
+  wide?: boolean;
 }
 
 // Property shows its control once for every value, or once for each value when the
 // field varies by state. A symbol with one value has one control.
-const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
+const Property = ({
+  field,
+  label,
+  icon,
+  wide = false,
+  children,
+}: PropertyProps): ReactElement => {
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
@@ -131,6 +139,9 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
     setSplit(next);
   };
   const name = label.toLowerCase();
+  const control = varies ? null : (
+    <FieldContext value={{ field, label }}>{children}</FieldContext>
+  );
   return (
     <Flex.Box y gap="small">
       <Flex.Box x align="center" justify="between">
@@ -139,7 +150,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
           {label}
         </Text.Text>
         <Flex.Box x align="center" gap="small">
-          {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
+          {!wide && control}
           {several && (
             <Button.Toggle
               size="small"
@@ -156,6 +167,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
           )}
         </Flex.Box>
       </Flex.Box>
+      {wide && control}
       {varies &&
         values.values.map((v) => (
           <Flex.Box
@@ -444,7 +456,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
             <Property field="blink" label="Blink" icon={<Icon.Dot />}>
               <BlinkControl />
             </Property>
-            <Property field="motion" label="Motion" icon={<Icon.Rotate />}>
+            <Property field="motion" label="Motion" icon={<Icon.Rotate />} wide>
               <MotionControl />
             </Property>
             {issue != null && (

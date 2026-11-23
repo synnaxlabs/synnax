@@ -885,6 +885,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("fits the motion picker and its By state button in the inspector", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      const inspector = document.querySelector(".console-schematic-inspector");
+      assertDefined(inspector);
+      const header = screen.getByText("Motion").parentElement;
+      assertDefined(header);
+      const right = inspector.getBoundingClientRect().right;
+      for (const el of [within(header).getByText("By state"), findButton("Flow")])
+        expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
+    });
+
     it("shows a motion that follows a value and replaces it with a loop", async () => {
       const level: schematic.symbol.Look = {
         key: "level",
