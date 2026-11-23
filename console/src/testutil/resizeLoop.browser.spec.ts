@@ -83,6 +83,40 @@ describe("traceResizeLoops", () => {
     );
   });
 
+  it("should name an element whose client size a callback changed", async () => {
+    const element = box(root, "bordered", 20);
+    element.style.boxSizing = "border-box";
+    element.style.width = "20px";
+    observe(element, () => {
+      element.style.border = `${element.clientWidth === 20 ? 2 : 0}px solid`;
+    });
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.bordered changed its client size from 20x20");
+  });
+
+  it("should name an element observed again after a callback", async () => {
+    const above = box(root, "above", 10);
+    const deep = box(box(box(root, "outer", 10), "middle", 10), "inner", 5);
+    const shallow = new ResizeObserver(() => {});
+    shallow.observe(above);
+    onTestFinished(() => shallow.disconnect());
+    let observedAgain = false;
+    // A MutationObserver that observes the elements above a list again does this.
+    observe(deep, () => {
+      if (observedAgain) return;
+      observedAgain = true;
+      queueMicrotask(() => {
+        shallow.disconnect();
+        shallow.observe(above);
+      });
+    });
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.above began to be observed after a callback");
+    expect(reports[0]).toContain("resizeLoop.browser.spec");
+  });
+
   it("should report nothing for a resize outside a callback", async () => {
     const element = box(root, "still", 10);
     observe(element, () => {});
