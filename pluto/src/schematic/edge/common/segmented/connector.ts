@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { box, direction, location, xy } from "@synnaxlabs/x";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -625,8 +625,7 @@ export const updateSegmentsForPositionChanges = ({
   const deltas = new Map<string, xy.XY>();
   for (const change of changes) {
     const node = nodes.find((n) => n.key === change.key);
-    if (node != null)
-      deltas.set(change.key, xy.translation(node.position, change.newPos));
+    if (node != null) deltas.set(change.key, xy.sub(change.newPos, node.position));
   }
   const updates: EdgeSegmentUpdate[] = [];
   for (const edge of edges) {

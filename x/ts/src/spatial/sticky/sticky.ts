@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type z from "zod";
-
+import { type StickyXY, stickyXYZ } from "@/spatial/base";
 import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
-import { type StickyXY, stickyXYZ } from "@/spatial/types.gen";
 import { xy as base } from "@/spatial/xy";
 
 export const xyZ = stickyXYZ;
 export type XY = StickyXY;
-
-export const completeXYZ = stickyXYZ.required({ root: true, units: true });
-export type CompleteXY = z.infer<typeof completeXYZ>;
 
 interface ToCSSReturn extends Partial<Record<location.Outer, string>> {}
 

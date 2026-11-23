@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   type Aggregation,
@@ -15,6 +15,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   type direction,
   type MultiSeries,
@@ -23,6 +24,7 @@ import {
   type Series,
   type SeriesDigest,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -31,6 +33,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { theming } from "@/theming/aether";
 import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
 import {
   bridgeVertices,
@@ -49,6 +52,19 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
+  /**
+   * Lines with one tooltip group list under one heading in a tooltip, such as the lines
+   * of one channel across ranges.
+   */
+  tooltipGroup: z.string().optional(),
+  /** The name of the line in its tooltip group, such as its range. */
+  tooltipLabel: z.string().optional(),
+  /**
+   * Lines with one group draw one signal across the windows of their sources, such as
+   * the lines of one channel across ranges. On a time axis they split the time between
+   * them, so each time draws from one line.
+   */
+  group: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
@@ -59,6 +75,15 @@ export const stateZ = z.object({
     .default(1 / 2),
   /** True when the line reports no loading while it has no data. */
   loadingHidden: z.boolean().default(false),
+  /**
+   * The x value that the line draws at zero, such as the start of a range on an axis
+   * that shows time from each range's zero. Undefined draws x as is.
+   */
+  zero: TimeStamp.z.optional(),
+  /** True when the line draws over the other lines of its axis. */
+  raised: z.boolean().default(false),
+  /** Fades the line toward the background. The legend and tooltip do not fade. */
+  opacity: z.number().min(0).max(1).default(1),
 });
 
 // A zoom waits this long for its span to hold before the line's sources read for it.
@@ -102,6 +127,8 @@ export interface FindResult {
   value: xy.XY;
   color: color.Color;
   label?: string;
+  tooltipGroup?: string;
+  tooltipLabel?: string;
   units?: string;
   bounds: bounds.Bounds;
 }
@@ -110,8 +137,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
-  /** True when the bounds end at the newest sample and move as samples arrive. */
-  rolling?: boolean;
+  /** Set when the bounds end at the newest sample. */
+  edge?: telem.Edge;
 }
 
 export interface LineProps {
@@ -122,6 +149,11 @@ export interface LineProps {
   region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
   dataToDecimalScale: scale.XY;
+  /**
+   * The span of x, in axis values, that the line reads and draws. The line finds no
+   * point outside it. Defaults to every value.
+   */
+  span?: bounds.Bounds;
 }
 
 interface TranslationBufferCacheEntry {
@@ -149,8 +181,15 @@ export class GLProgram extends render.GLProgram {
     this.translationBufferCache = new Map();
   }
 
-  bindState({ strokeWidth, color }: ParsedState): number {
-    this.uniformColor("u_color", color);
+  bindState(
+    { strokeWidth, color: c, opacity }: ParsedState,
+    background: color.Color,
+  ): number {
+    // The program draws with no blending, so a faded line is an opaque color.
+    this.uniformColor(
+      "u_color",
+      opacity === 1 ? c : color.over(c, background, opacity),
+    );
     return this.attrStrokeWidth(strokeWidth);
   }
 
@@ -325,17 +364,22 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
-  // loaded is true once both sources leave loading, until either source changes.
+  // loaded is true once both sources leave loading, until either source or spec
+  // changes.
   loaded?: boolean;
-  // drawn holds the ops of the last render.
+  // drawn holds the ops of the last render, xBounds the bounds of its x data, and
+  // groupSize the size that reduced them.
   drawn: DrawOperation[];
+  xBounds: bounds.Bounds;
+  groupSize: number;
+  background: color.Color;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
-  schema: typeof stateZ = stateZ;
+  override schema: typeof stateZ = stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const createOptions: telem.CreateOptions = {
       onStatusChange: status.useAdder(ctx),
@@ -343,12 +387,23 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
+    const { x, y } = this.state;
+    const prev = this.prevState;
+    if (
+      i.xTelem !== xTelem ||
+      i.yTelem !== yTelem ||
+      !deep.equal(x, prev.x) ||
+      !deep.equal(y, prev.y)
+    )
+      i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
+    i.background = theming.use(ctx).colors.gray.l0;
     i.reducer ??= new Reducer();
     i.drawn ??= [];
+    i.xBounds ??= bounds.INVALID;
+    i.groupSize ??= 1;
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -356,7 +411,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     clearTimeout(i.settleTimer);
     i.xTelem.cleanup?.();
@@ -375,9 +430,40 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return this.internal.loadingState === "fetching";
   }
 
+  /** True when the line draws over the other lines of its axis. */
+  get raised(): boolean {
+    return this.state.raised;
+  }
+
+  // shift is the amount that the axis value of a sample is less than its x value.
+  private get shift(): number {
+    const { zero } = this.state;
+    return zero == null ? 0 : Number(zero.valueOf());
+  }
+
+  // absolute returns props whose scale maps the x value of a sample instead of its axis
+  // value, so the line reads and draws its sources as if its axis had no shift.
+  private absolute(props: LineProps): LineProps {
+    const { shift } = this;
+    if (shift === 0) return props;
+    const s = props.dataToDecimalScale;
+    const span = props.span ?? bounds.INFINITE;
+    return {
+      ...props,
+      dataToDecimalScale: s.translate(s.x.dim(-shift), 0),
+      span: { lower: span.lower + shift, upper: span.upper + shift },
+    };
+  }
+
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
+    const b = x.data[0];
+    const { shift } = this;
+    return {
+      bounds: { lower: b.lower - shift, upper: b.upper - shift },
+      loading: isLoading(x),
+      edge: x.edge,
+    };
   }
 
   /**
@@ -386,8 +472,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * source's full bounds are used instead.
    * @returns the y bounds of this line's samples inside the window.
    */
-  yBounds(xWindow: bounds.Bounds): DataBounds {
+  yBounds(axisWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
+    const { shift } = this;
+    const xWindow = {
+      lower: axisWindow.lower + shift,
+      upper: axisWindow.upper + shift,
+    };
     const valueProps = { extremesKept: true, bounds: xWindow };
     const y = yTelem.value(valueProps);
     const [b, yData] = y.data;
@@ -399,10 +490,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     };
   }
 
-  findByXValue(props: LineProps, target: number): FindResult {
+  findByXValue(props: LineProps, axisTarget: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = this.read(view(props));
-    const [, xData] = xTelem.value(valueProps).data;
+    const { shift } = this;
+    const target = axisTarget + shift;
+    const absolute = this.absolute(props);
+    const span = absolute.span ?? bounds.INFINITE;
+    const valueProps = this.read(view(absolute), span);
+    const [xBounds, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -412,18 +507,31 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (valid) [index, series] = [v, i];
       return valid;
     });
+    // A target past every sample takes the last one, and reaches decides.
+    if (index === -1) {
+      series = xData.series.findLastIndex((x) => x.length > 0);
+      if (series !== -1) index = xData.series[series].length - 1;
+    }
     const { key } = this;
-    const { color, label } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel } = this.state;
     const result = {
       key,
       color,
       label,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
     };
 
-    if (index === -1 || series === -1 || !this.state.visible) return result;
+    if (
+      index === -1 ||
+      series === -1 ||
+      !this.state.visible ||
+      !bounds.contains(span, target)
+    )
+      return result;
 
     const xSeries = xData.series[series];
     const [, yData] = yTelem.value(valueProps).data;
@@ -438,7 +546,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       },
     );
     if (ySeries == null) return result;
-    result.value.x = safelyGetDataValue(series, index, xData);
+    const x = safelyGetDataValue(series, index, xData);
+    if (!bounds.contains(span, x) || !reaches(absolute, xBounds, target, x))
+      return result;
+    result.value.x = x - shift;
 
     result.value.y = Number(ySeries.atAlignment(alignment, true));
 
@@ -456,26 +567,31 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * the y bounds of every point drawn. The value of a point the line reduced has
    * float32 precision.
    */
-  findDrawnByXValue(props: LineProps, target: number): FindResult {
-    const { key } = this;
-    const { color, label, visible } = this.state;
+  findDrawnByXValue(props: LineProps, axisTarget: number): FindResult {
+    const { key, shift } = this;
+    const { color, label, tooltipGroup, tooltipLabel, visible } = this.state;
     const result: FindResult = {
       key,
       color,
       label,
+      tooltipGroup,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
     };
     const { drawn } = this.internal;
-    const found = visible ? nearest(drawn, target) : null;
+    const target = axisTarget + shift;
+    const absolute = this.absolute(props);
+    const span = absolute.span ?? bounds.INFINITE;
+    const found =
+      visible && bounds.contains(span, target) ? nearest(drawn, target, span) : null;
     if (found == null) return result;
     const [{ x, y, xOffset, yOffset }, i] = found;
-    result.value = {
-      x: Number(x.at(xOffset + i, true)),
-      y: Number(y.at(yOffset + i, true)),
-    };
-    result.bounds = bounds.max(
+    const foundX = Number(x.at(xOffset + i, true));
+    if (!reaches(absolute, this.internal.xBounds, target, foundX)) return result;
+    result.value = { x: foundX - shift, y: Number(y.at(yOffset + i, true)) };
+    result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
     result.position = props.dataToDecimalScale.pos(result.value);
@@ -485,7 +601,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   // read returns the value props of the view. A zoom gives the sources points only once
   // its span holds, so a fast zoom does not read the spans it passes through. A pan
   // reads at once.
-  private read({ bounds: b, width }: View): telem.ValueProps {
+  private read({ bounds: b, width }: View, span: bounds.Bounds): telem.ValueProps {
     const { internal: i } = this;
     const zoom = Math.ceil(Math.log2(bounds.span(b)));
     if (zoom !== i.zoom) {
@@ -496,31 +612,43 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
         i.requestRender("data");
       }, ZOOM_SETTLE.milliseconds);
     }
-    if (i.settleTimer != null) return { bounds: b };
+    if (i.settleTimer != null) return { bounds: b, span };
     const perGroup = POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
-    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
+    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup, span };
   }
 
-  render(props: LineProps): void {
+  render(axisProps: LineProps): void {
     const { internal: i } = this;
     if (this.deleted) return;
+    const props = this.absolute(axisProps);
+    const span = props.span ?? bounds.INFINITE;
     if (!this.state.visible) {
       i.loadingState = undefined;
+      i.drawn = [];
       return;
     }
     const { xTelem, yTelem, lineCtx: ctx, reducer } = i;
     const { groupsPerColumn, loadingHidden } = this.state;
     const { dataToDecimalScale } = props;
     const v = view(props);
-    const valueProps = this.read(v);
+    const valueProps = this.read(v, span);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
+    // A line whose span holds no time draws nothing, as when another line of its group
+    // draws all of its window. Its sources still read the span, so they fetch no tiles.
+    if (!(span.lower < span.upper)) {
+      i.loadingState = undefined;
+      i.drawn = [];
+      return;
+    }
+    i.xBounds = x.data[0];
     i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
     if (!isLoading(x) && !isLoading(y)) i.loaded = true;
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn);
+    const size = groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
+    i.groupSize = size;
     const cut =
       x.sorted === true && bounds.isFinite(v.bounds)
         ? inView(full, v.bounds, size)
@@ -539,23 +667,36 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       props: props.region,
       ops: digests(ops),
     }));
-    const clearProg = prog.setAsActive();
-    const instances = prog.bindState(this.state);
-    const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
-    ops.forEach((op) => {
-      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
-      prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances);
-    });
-    clearProg();
-    const bridges = bridgeVertices(ops, dataToDecimalScale);
-    if (bridges.length === 0) return;
-    const bridgeProg = ctx.getProgram(DataType.FLOAT32);
-    const clearBridgeProg = bridgeProg.setAsActive();
-    const bridgeInstances = bridgeProg.bindState(this.state);
-    bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
-    bridgeProg.segments(bridges, bridgeInstances);
-    clearBridgeProg();
+    // A tile that crosses an edge of the span reads whole, so the clip stops the line
+    // at the edge.
+    const clearClip = bounded(span)
+      ? ctx.renderCtx.scissor(clip(props, span), xy.ZERO, ["gl"])
+      : undefined;
+    try {
+      const clearProg = prog.setAsActive();
+      const instances = prog.bindState(this.state, this.internal.background);
+      const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
+      ops.forEach((op) => {
+        const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
+        prog.bindScale(scaleTransform, regionTransform);
+        prog.draw(op, instances);
+      });
+      clearProg();
+      const bridges = bridgeVertices(ops, dataToDecimalScale);
+      if (bridges.length > 0) {
+        const bridgeProg = ctx.getProgram(DataType.FLOAT32);
+        const clearBridgeProg = bridgeProg.setAsActive();
+        const bridgeInstances = bridgeProg.bindState(
+          this.state,
+          this.internal.background,
+        );
+        bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
+        bridgeProg.segments(bridges, bridgeInstances);
+        clearBridgeProg();
+      }
+    } finally {
+      clearClip?.();
+    }
   }
 }
 
@@ -568,22 +709,44 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
   };
 };
 
-// Returns the op and op index of the sample whose x is nearest target. The x samples of
-// each op must ascend.
+// bounded is true when span has a finite edge.
+const bounded = ({ lower, upper }: bounds.Bounds): boolean =>
+  Number.isFinite(lower) || Number.isFinite(upper);
+
+// clip returns the part of the region that span covers, in pixels.
+const clip = (
+  { region, dataToDecimalScale: { x } }: LineProps,
+  span: bounds.Bounds,
+): box.Box => {
+  const toPixel = (v: number): number =>
+    box.left(region) + x.pos(v) * box.width(region);
+  const left = bounds.clamp(box.xBounds(region), toPixel(span.lower));
+  const right = bounds.clamp(box.xBounds(region), toPixel(span.upper));
+  return box.construct(
+    { x: left, y: box.top(region) },
+    { x: Math.max(left, right), y: box.bottom(region) },
+  );
+};
+
+// Returns the op and op index of the sample in span whose x is nearest target. The x
+// samples of each op must ascend.
 const nearest = (
   ops: DrawOperation[],
   target: number,
+  span: bounds.Bounds,
 ): [DrawOperation, number] | null => {
   let found: [DrawOperation, number] | null = null;
   let distance = Infinity;
   for (const op of ops) {
     const { x, xOffset, count } = op;
+    const first = Math.max(0, x.binarySearch(span.lower) - xOffset);
+    const end = Math.min(count, x.binarySearch(span.upper) - xOffset);
     const after = bounds.clamp(
-      { lower: 0, upper: count },
+      { lower: first, upper: end },
       x.binarySearch(target) - xOffset,
     );
     for (const i of [after - 1, after]) {
-      if (i < 0 || i >= count) continue;
+      if (i < first || i >= end) continue;
       const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
       if (Number.isNaN(d) || d >= distance) continue;
       found = [op, i];
@@ -591,6 +754,24 @@ const nearest = (
     }
   }
   return found;
+};
+
+// HOVER_DISTANCE is how far in pixels a found point may sit from a target outside the
+// line's window, so a short range stays easy to point at when zoomed out.
+const HOVER_DISTANCE = 12;
+
+// reaches is true if a line has a value at target: target is inside xBounds, the bounds
+// of the line's x data (its window when x is time), or x, the x of the point found, is
+// within HOVER_DISTANCE pixels of it.
+const reaches = (
+  { dataToDecimalScale: { x: scale }, region }: LineProps,
+  xBounds: bounds.Bounds,
+  target: number,
+  x: number,
+): boolean => {
+  if (target >= xBounds.lower && target <= xBounds.upper) return true;
+  const pixels = Math.abs(scale.pos(x) - scale.pos(target)) * box.width(region);
+  return pixels <= HOVER_DISTANCE;
 };
 
 /**

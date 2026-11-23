@@ -9,10 +9,10 @@
 
 import "@/feature/arc/editor/SelectPerformance.css";
 
-import { type arc } from "@synnaxlabs/client";
+import type { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

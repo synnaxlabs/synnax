@@ -9,7 +9,7 @@
 
 import "@/select/Item.css";
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type ReactElement,
@@ -101,6 +101,8 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
       />
     );
   const handleSelect = (_: K, e: MouseEvent<HTMLElement>): void => {
+    // A click in a name under edit moves the caret, so the item ignores it.
+    if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
     if (hasModifier(e)) onSelect();
     else onActivate?.();
   };

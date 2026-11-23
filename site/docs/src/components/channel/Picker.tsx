@@ -9,7 +9,7 @@
 
 import { Tabs as BaseTabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Tabs } from "@/components/tabs";
 

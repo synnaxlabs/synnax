@@ -71,8 +71,8 @@ class TestStart:
     def test_start_and_stop(
         self, binary: Path, first_port: int, tmp_path: Path
     ) -> None:
-        """Should start Cores on the ports after the first, with NI off, and stop
-        them."""
+        """Should start Cores on the ports after the first, each with its own secrets
+        folder and NI off, and stop them."""
         first = SynnaxConnection(port=first_port)
         processes = cores.start(
             binary=binary, first=first, count=2, log_dir=tmp_path / "cores"
@@ -84,6 +84,9 @@ class TestStart:
             assert f"-l localhost:{first_port + 1}" in log
             assert "--username synnax --password seldon" in log
             assert "--disable-integrations ni" in log
+            secrets = processes[0]._data / "secrets"
+            assert secrets.is_dir()
+            assert f"--secrets-dir {secrets}" in log
         finally:
             cores.stop(processes)
         assert all(p._popen.returncode == 0 for p in processes)

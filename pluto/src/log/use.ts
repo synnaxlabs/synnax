@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type log as clientLog } from "@synnaxlabs/client";
+import type { log as clientLog } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { box, type optional, TimeSpan } from "@synnaxlabs/x";
+import { box, type color as xcolor, type optional, TimeSpan } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { log } from "@/log/aether";
 
 // Formatting the entry cap takes seconds on a slow machine.
@@ -41,6 +42,7 @@ export interface UseProps
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
+        | "channelColors"
         | "position"
       >,
       "visible"
@@ -96,6 +98,12 @@ export const use = ({
   if (retrievedChannels != null)
     for (const ch of retrievedChannels) types[String(ch.key)] = String(ch.dataType);
   const channelDataTypes = types;
+  const resolve = Color.useResolve();
+  const channelColors: Record<string, xcolor.Color> = {};
+  for (const e of channels) {
+    const c = resolve(e.color);
+    if (c != null) channelColors[String(e.channel)] = c;
+  }
 
   const memoProps = useMemoDeepEqual({
     font,
@@ -108,6 +116,7 @@ export const use = ({
     timeZone,
     channelNames,
     channelDataTypes,
+    channelColors,
     channels,
     ...(hold != null && { scrolling: hold }),
   });

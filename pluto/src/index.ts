@@ -62,23 +62,3 @@ export { Line } from "@/vis/line";
 export { Properties } from "@/vis/properties";
 export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
-export {
-  type CrudeDataType,
-  type CrudeDensity,
-  type CrudeRate,
-  type CrudeSize,
-  type CrudeTimeSpan,
-  type CrudeTimeStamp,
-  DataType,
-  Density,
-  MultiSeries,
-  Rate,
-  Series,
-  type TelemValue,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  type TimestampFormat,
-  type TimeZone,
-  type TypedArray,
-} from "@synnaxlabs/x";

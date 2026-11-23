@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -136,6 +137,9 @@ public:
         std::vector<uint16_t> sii;
         /// @brief what sii_read returns for the slave, when not 0.
         int sii_result = 0;
+        /// @brief how many sii_read calls ran past the end of sii, which IgH logs as a
+        /// kernel error.
+        mutable size_t sii_overreads = 0;
         /// @brief the DC sync that the config sets up, or nullopt for none.
         std::optional<DC> dc;
         bool online = true;
@@ -194,6 +198,9 @@ public:
     };
 
     mutable std::vector<Slave> slaves;
+    /// @brief guards the slaves, as the contract specs run send() on a cycle thread
+    /// while the test thread polls the states of the slaves.
+    mutable std::mutex mu;
     /// @brief the domains, in creation order.
     mutable std::vector<Domain> domains;
     x::errors::Error check_device_err = x::errors::NIL;
@@ -311,6 +318,7 @@ public:
     }
 
     int master_reset(ec_master_t *) const override {
+        std::lock_guard lock(this->mu);
         this->resets++;
         if (this->reset_result < 0) return this->reset_result;
         for (auto &slave: this->slaves)
@@ -366,6 +374,7 @@ public:
         uint16_t position,
         ec_slave_info_t *info
     ) const override {
+        std::lock_guard lock(this->mu);
         if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
         auto &slave = this->slaves[position];
@@ -398,6 +407,7 @@ public:
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const override {
+        std::lock_guard lock(this->mu);
         auto &slave = this->slave(sc);
         if (slave.state_unreadable) return -EIO;
         if (this->scanning) {
@@ -675,7 +685,11 @@ public:
     ) const override {
         const auto &slave = this->slaves.at(position);
         if (slave.sii_result != 0) return slave.sii_result;
-        if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
+        if (words.empty()) return -EINVAL;
+        if (offset + words.size() > slave.sii.size()) {
+            slave.sii_overreads++;
+            return -EINVAL;
+        }
         std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
         return 0;
     }

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/secret/Settings.css";
-
-import { certificate, secret } from "@synnaxlabs/client";
+import { certificate, type resource, secret } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -21,14 +19,33 @@ import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CertificatesMenu, SecretsMenu } from "@/feature/secret/ContextMenu";
-import { type SelectCertificate, UsedByPopover } from "@/feature/secret/UsedBy";
 import { CSS } from "@/platform/css";
 import { Secret as PlatformSecret } from "@/platform/secret";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
+/** Shows a certificate that uses a secret. */
+export interface SelectCertificate {
+  (key: certificate.Key): void;
+}
+
+const NO_USES: resource.ID[] = [];
+
+/** Every secret's uses, read in one request that a deleted secret cannot fail. */
+const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
+
+/**
+ * Returns the IDs of the resources that use the secret and that the caller can read, or
+ * undefined while they load or after their read fails.
+ */
+const useUses = (key: secret.Key): resource.ID[] | undefined => {
+  const { data } = Secret.useResultMultiple(ALL_USES);
+  if (data == null) return undefined;
+  return data.find((s) => s.key === key)?.uses ?? NO_USES;
+};
+
 const SECRET_COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
-  { name: "Value", width: "1.5fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
+  { name: "Value", width: "minmax(24rem, 1.5fr)" },
   { name: "Used by", width: "14rem" },
 ];
 
@@ -85,6 +102,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
   const itemClass = PlatformSettings.useItemClass(itemKey);
+  const uses = useUses(itemKey);
   if (s == null) return null;
   return (
     <Select.Item<secret.Key>
@@ -111,10 +129,12 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           </Text.Text>
         </List.Cell>
         <List.Cell>
-          <UsedByPopover
-            secretKey={itemKey}
+          <PlatformSettings.UsedBy
+            itemKey={itemKey}
+            kind="secret"
+            uses={uses}
             anchor={element}
-            onSelectCertificate={onSelectCertificate}
+            selects={{ certificate: onSelectCertificate }}
           />
         </List.Cell>
       </List.Cells>
@@ -153,7 +173,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
 };
 
 const CERTIFICATE_COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Validity", width: "34rem" },
 ];
 

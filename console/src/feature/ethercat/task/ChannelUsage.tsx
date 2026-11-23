@@ -13,11 +13,11 @@ import { channel, query } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, License } from "@synnaxlabs/pluto";
-import { type deep, primitive, unique } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type deep, math, primitive, strings, unique } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
-import { type IndexOptions } from "@/feature/ethercat/task/configure";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
+import type { IndexOptions } from "@/feature/ethercat/task/configure";
 import {
   type Channel as TaskChannel,
   type DataTypes,
@@ -100,13 +100,10 @@ const creationsOf = (
     return creations;
   });
 
-const countText = (count: number, noun: string): string =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
-
 const createsText = (data: number, indexes: number): string => {
   const parts: string[] = [];
-  if (data > 0) parts.push(countText(data, "channel"));
-  if (indexes > 0) parts.push(countText(indexes, "time channel"));
+  if (data > 0) parts.push(strings.count(data, "channel"));
+  if (indexes > 0) parts.push(strings.count(indexes, "time channel"));
   return parts.length === 0 ? "no channels" : parts.join(" and ");
 };
 
@@ -155,16 +152,16 @@ export const ChannelUsage = ({
   if (inUse == null && count.variant !== "error") return null;
   const held = new Set((named ?? []).map(({ name }) => name));
   const created = creations.filter(({ name }) => !held.has(name));
-  const data = created.reduce((n, c) => n + c.data, 0);
-  const indexes = created.reduce((n, c) => n + c.indexes, 0);
+  const data = math.sum(created.map((c) => c.data));
+  const indexes = math.sum(created.map((c) => c.indexes));
   const cap = license.data?.license?.channels ?? 0;
   let message = `Start creates ${createsText(data, indexes)}`;
   if (inUse == null) message += ".";
-  else if (cap === 0) message += `, ${countText(inUse, "channel")} in use.`;
-  else message += `, ${inUse} of ${countText(cap, "channel")} in use.`;
+  else if (cap === 0) message += `, ${strings.count(inUse, "channel")} in use.`;
+  else message += `, ${inUse} of ${strings.count(cap, "channel")} in use.`;
   const over = cap === 0 || inUse == null ? 0 : inUse + data + indexes - cap;
   if (over > 0)
-    message += ` Delete ${countText(over, "channel")} before you start the task.`;
+    message += ` Delete ${strings.count(over, "channel")} before you start the task.`;
   return (
     <Text.Text
       level="small"

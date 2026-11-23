@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Shrinks to 30rem beside its label before it wraps under it. */
 .console-user-settings__name {
-    width: 50rem;
+    flex: 1 1 30rem;
+    max-width: 50rem;
 }

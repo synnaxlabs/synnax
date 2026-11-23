@@ -9,11 +9,11 @@
 
 import "@/arc/graph/Editor.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
@@ -40,7 +40,7 @@ import { Diagram as BaseDiagram } from "@/vis/diagram";
 const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {
   minZoom: 0.5,
   maxZoom: 0.9,
-  padding: 0.1,
+  padding: "4.5%",
 };
 
 const SNAP_GRID: xy.Couple = [2, 2];

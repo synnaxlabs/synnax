@@ -12,8 +12,8 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { type z } from "zod";
+import type { ReactElement } from "react";
+import type { z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { onlyReaderOf } from "@/feature/ethercat/device/setup";

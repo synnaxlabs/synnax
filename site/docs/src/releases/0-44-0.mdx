@@ -1,23 +1,18 @@
 ---
-title: "Version 0.44 release notes"
+title: "Embedded Console"
+version: "0.44.0"
+npmVersion: "0.44.1"
+date: "Aug 11, 2025"
 ---
 
 import { Hero } from "@/components/hero";
-import { Image } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
+import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.44.0"
-    npmVersion="0.44.1"
-    date="Aug 11, 2025"
-    title="Embedded Console"
->
 
 <Hero.Hero
   image="releases/0-44-0/thumbnail"
@@ -26,6 +21,7 @@ export const components = mdxOverrides;
   layout="bleed"
   tone="deep"
   palette="teal-blue"
+  alt="The Console in a web browser with three line plots"
 />
 
 Synnax v0.44 introduces an embedded Console into the Synnax Core, which can be used in
@@ -63,7 +59,8 @@ easier to export data from Synnax for analysis.
     id="releases/0-44-0/csv"
     extension="webp"
     themed={false}
-    style={{ width: 350 }}
+    style={{ width: "350px" }}
+    alt="The range overview with the CSV export button"
   />
 </Flex.Box>
 
@@ -78,7 +75,8 @@ The line plot legend now separates lines into groups by their corresponding y-ax
     id="releases/0-44-0/legend"
     extension="webp"
     themed={false}
-    style={{ width: 100 }}
+    style={{ width: "100px" }}
+    alt="A line plot legend that groups lines by Y axis"
   />
 </Flex.Box>
 
@@ -136,5 +134,3 @@ console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
 - Fixed an issue where the Palette would not properly switch between search and command
   modes when closed and re-opened.
 - Added drag and drop importing and exporting of tasks.
-
-</Release>

@@ -24,9 +24,9 @@ interface InternalState {
 
 export class Annotation extends aether.Leaf<typeof annotationStateZ, InternalState> {
   static readonly TYPE = "range-annotation";
-  schema = annotationStateZ;
+  override schema = annotationStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theming.use(ctx));
   }

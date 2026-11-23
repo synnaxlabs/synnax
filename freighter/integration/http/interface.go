@@ -34,8 +34,7 @@ func (t testError) Error() string {
 }
 
 func encodeTestError(_ *errors.Codec, err error) (errors.Payload, bool) {
-	var errTest testError
-	ok := errors.As(err, &errTest)
+	errTest, ok := errors.AsType[testError](err)
 	if !ok {
 		return errors.Payload{}, false
 	}

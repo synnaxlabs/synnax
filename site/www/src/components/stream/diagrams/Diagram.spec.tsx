@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render, screen } from "@testing-library/react";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ZERO_CALC_STATE } from "@/components/stream/calcTimeline";

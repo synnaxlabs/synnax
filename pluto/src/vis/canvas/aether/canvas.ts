@@ -20,24 +20,35 @@ export const canvasStateZ = z.object({
   region: box.box,
   bootstrap: z.boolean().default(false),
   bootstrapped: z.boolean().default(false),
+  gpuMissing: z.boolean().default(false),
   // We set all of these to ay because nodejs can't identify OffscreenCanvas
   // and polyfilling causes more problems than it solves
   glCanvas: z.any().optional(),
   upper2dCanvas: z.any().optional(),
   lower2dCanvas: z.any().optional(),
+  // Set in place of the canvases for the bitmap handoff, which posts frames to it.
+  framePort: z.custom<MessagePort>().optional(),
   os: runtime.osZ,
+});
+
+const createCanvases = () => ({
+  glCanvas: new OffscreenCanvas(0, 0),
+  lower2dCanvas: new OffscreenCanvas(0, 0),
+  upper2dCanvas: new OffscreenCanvas(0, 0),
 });
 
 export class Canvas extends aether.Composite<typeof canvasStateZ> {
   static readonly TYPE = "Canvas";
 
-  schema = canvasStateZ;
+  override schema = canvasStateZ;
   renderCtx: render.Context | null = null;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     if (this.renderCtx == null) {
       if (!this.state.bootstrap) return;
-      const { glCanvas, lower2dCanvas, upper2dCanvas, os } = this.state;
+      const { os, framePort } = this.state;
+      const { glCanvas, lower2dCanvas, upper2dCanvas } =
+        framePort == null ? this.state : createCanvases();
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases",
@@ -48,18 +59,27 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         lower2dCanvas as OffscreenCanvas,
         upper2dCanvas as OffscreenCanvas,
         os,
+        framePort,
       );
-      line.Context.create(ctx, this.renderCtx);
+      if (this.renderCtx != null) line.Context.create(ctx, this.renderCtx);
+      // Without a render context, no frame will ever use the port.
+      else framePort?.close();
       this.setState((p) => ({
         ...p,
         bootstrap: false,
         bootstrapped: true,
+        gpuMissing: this.renderCtx == null,
         glCanvas: undefined,
         lower2dCanvas: undefined,
         upper2dCanvas: undefined,
+        framePort: undefined,
       }));
     } else this.renderCtx.update(ctx);
-    this.renderCtx.resize(this.state.region, this.state.dpr);
+    this.renderCtx?.resize(this.state.region, this.state.dpr);
+  }
+
+  override afterDelete(): void {
+    this.renderCtx?.close();
   }
 }
 

@@ -15,9 +15,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import resource as resource_
+from synnax import color as color_, resource as resource_
 from synnax.panel.types_gen import Panel, Tab, TabKey, View
-from x import color as color_, patch, spatial
+from x import patch, spatial
 
 
 class CreatePayload(BaseModel):
@@ -35,9 +35,11 @@ class SetIconPayload(BaseModel):
 
 
 class SetColorPayload(BaseModel):
-    """Sets the color of the panel's icon. Null lets the theme pick it."""
+    """Sets the color of the panel's icon, a named color or a fixed color. Null lets the
+    theme pick it.
+    """
 
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
 
 
 class InsertTabsPayload(BaseModel):

@@ -54,6 +54,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(
     modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
+  // float32 sits below the list's visible end, so filter to it.
+  await session.hold(400);
+  await session.type("float32");
   await selectItem(session, "float32");
   await session.click(modal.getByText("Select channel", { exact: true }).first(), {
     text: true,

@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { assert, describe, expect, it } from "vitest";
 
+import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
-import { Frame } from "@/lineplot/Frame";
+import { Rule } from "@/lineplot/rule";
 import { rule } from "@/lineplot/rule/aether";
-import { Rule } from "@/lineplot/rule/Rule";
-import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const RULE_PATH = [
   "alamos",
   "status",
   "synnax",
   "theming",
+  "series",
   "telem",
   "staleness",
   "render",
@@ -32,14 +33,11 @@ const RULE_PATH = [
 
 const POINTER = { pointerId: 1, button: 0, isPrimary: true };
 
-// Moves are coalesced and delivered on the next animation frame.
-const frame = async (): Promise<void> =>
-  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-
 const drag = async (el: Element, dy: number): Promise<void> => {
   fireEvent.pointerDown(el, { ...POINTER, clientX: 0, clientY: 0 });
   fireEvent.pointerMove(window, { ...POINTER, clientX: 0, clientY: dy });
-  await act(frame);
+  // Moves are coalesced and delivered on the next animation frame.
+  await act(scheduler.nextFrame);
   fireEvent.pointerUp(window, { ...POINTER, clientX: 0, clientY: dy });
 };
 
@@ -48,18 +46,18 @@ const RemountableViewport = (): ReactElement => {
   return (
     <>
       <button onClick={() => setKey((k) => k + 1)}>remount</button>
-      <Viewport key={key} />
+      <LinePlot.Viewport key={key} />
     </>
   );
 };
 
 // The rule mounts before the viewport, as in a line plot.
-const setup = async (viewport: ReactElement = <Viewport />) => {
+const setup = async (viewport: ReactElement = <LinePlot.Viewport />) => {
   const rendered = render(
-    <Frame aetherKey="plot">
-      <Rule aetherKey="rule" position={1} color="#ff0000" />
+    <LinePlot.Frame aetherKey="plot">
+      <Rule.Rule aetherKey="rule" position={1} color="#ff0000" />
       {viewport}
-    </Frame>,
+    </LinePlot.Frame>,
     { render: true, registry: lineplot.REGISTRY },
   );
   const leaf = await waitFor(() => {

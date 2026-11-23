@@ -9,11 +9,11 @@
 
 import "@/schematic/node/valves/Solenoid.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
-import { type Primitive } from "@/schematic/node/common/primitive";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/valves/Solenoid.svg?raw";
 

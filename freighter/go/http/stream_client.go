@@ -130,11 +130,11 @@ func (s *streamClient[RQ, RS]) Stream(
 				ctx.Done(),
 			)
 			msg, err := core.receiveRaw()
-			if err != nil {
-				return oCtx, err
+			if err == nil && msg.Type != WSMessageTypeOpen {
+				err = s.errs.Decode(msg.Err)
 			}
-			if msg.Type != WSMessageTypeOpen {
-				return oCtx, s.errs.Decode(msg.Err)
+			if err != nil {
+				return oCtx, errors.Combine(err, core.close())
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
