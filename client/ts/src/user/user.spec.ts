@@ -10,6 +10,7 @@
 import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
 import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 
 import { role } from "@/access/role";
 import { AccessDeniedError, AuthError, NotFoundError, ValidationError } from "@/index";
@@ -24,6 +25,7 @@ import {
   expectLive,
   FAST_RETRY,
   holdResponses,
+  spyOnSend,
   TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
@@ -106,7 +108,7 @@ describe("User", () => {
           client.users.create({ key: userOne.key, name: "test", role: empty.key }),
         ).rejects.toThrow(ValidationError));
     });
-    test("keeps its key when it retries after a lost response", async () => {
+    test("should not create a second user when it retries a create", async () => {
       let attempts = 0;
       // Fails the first create after the Core runs it, as a connection that drops
       // before the response headers arrive.
@@ -122,11 +124,17 @@ describe("User", () => {
         onRetry: () => {},
         middleware: [loseFirstResponse],
       });
+      const send = spyOnSend(local);
       const name = id.create();
-      const created = await local.users.create({ name, role: empty.key });
+      await expect(local.users.create({ name, role: empty.key })).rejects.toThrow(
+        ValidationError,
+      );
       expect(attempts).toEqual(2);
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/user/create") ?? [];
+      const { users } = z.object({ users: user.userZ.array() }).parse(req);
       const named = (await client.users.retrieve({})).filter((u) => u.name === name);
-      expect(named.map((u) => u.key)).toEqual([created.key]);
+      expect(named.map((u) => u.key)).toEqual([users[0].key]);
     });
   });
   describe("Retrieve", () => {
