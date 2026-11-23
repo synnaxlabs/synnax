@@ -306,16 +306,15 @@ is dead code and gets deleted — a cast that forces the branch tests a lie. Cor
 
 ## Rule 8: Timeouts are global; wait on signals, never sleep
 
-`asyncUtilTimeout: 5000` (setuptests) and `testTimeout: 15_000` (vite config) are
-configured globally. Never add a local `const TIMEOUT = { timeout: 5000 }`, a per-call
-timeout option (including `expect.poll(fn, { timeout })`), or a per-test `}, 15000)`
-bump. `expect.poll` and `waitFor` run fine on their defaults: the full console suite
-passes at vitest's default 1s poll timeout even under shared-cluster load, so a custom
-poll timeout is almost always cargo-cult noise. If a timeout genuinely must change,
-raise it globally in the config, never inline. Fixed sleeps (`setTimeout`, `sleep(50)`)
-are banned in specs. Wait on the real signal (store state, server round-trip, terminal
-status) via `waitFor`, or flush the microtask chain with `await act(async () => {})` for
-genuinely synchronous-after-flush negatives.
+`asyncUtilTimeout: 5000` (setuptests), `expect.poll.timeout: 5000`, and
+`testTimeout: 15_000` (vite config) are configured globally. Never add a local
+`const TIMEOUT = { timeout: 5000 }`, a per-call timeout option (including
+`expect.poll(fn, { timeout })`), or a per-test `}, 15000)` bump. `expect.poll` and
+`waitFor` run on these defaults. If a timeout genuinely must change, raise it globally
+in the config, never inline. Fixed sleeps (`setTimeout`, `sleep(50)`) are banned in
+specs. Wait on the real signal (store state, server round-trip, terminal status) via
+`waitFor`, or flush the microtask chain with `await act(async () => {})` for genuinely
+synchronous-after-flush negatives.
 
 ## Rule 9: Query by role and text; structural selectors are last resort
 
