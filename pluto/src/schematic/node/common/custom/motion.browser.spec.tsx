@@ -9,6 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { commands } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -113,6 +114,23 @@ const reading = (value: number, stale = false): Custom.Reading => ({ value, stal
 describe("Custom.Drawing motion", () => {
   afterEach(async () => {
     await commands.emulateReducedMotion(false);
+  });
+
+  describe("provider", () => {
+    it("should throw for a spec whose looks move outside a MotionProvider", () => {
+      expect(() =>
+        renderToStaticMarkup(<Custom.Drawing spec={createSpec([SPIN])} />),
+      ).toThrow("Custom.Drawing draws motion only inside a Custom.MotionProvider");
+    });
+
+    it("should draw a still spec outside a MotionProvider", async () => {
+      const { container } = await render(
+        <Primitive.Div>
+          <Custom.Drawing spec={createSpec([])} />
+        </Primitive.Div>,
+      );
+      expect(container.querySelector(".rotor")).not.toBeNull();
+    });
   });
 
   describe("spin", () => {
@@ -462,6 +480,17 @@ describe("Custom.Drawing motion", () => {
       frame(200);
       expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
       expect(loop.size).toBe(0);
+    });
+
+    it("should slide on the curve of the modal animation", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
     });
 
     it("should jump to a new fraction on a node with motion disabled", async () => {
