@@ -12,12 +12,12 @@ import { text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Primitive } from "@/schematic/node/common/primitive";
-import { SIZE_LEVELS } from "@/schematic/node/common/size";
+import { size as nodeSize } from "@/schematic/node/common/size";
 
 describe("READOUT_LEVELS", () => {
   it.each(Component.SIZES)("should set a %s readout below its field's text", (size) =>
     expect(text.LEVELS.indexOf(Primitive.READOUT_LEVELS[size])).toBeGreaterThan(
-      text.LEVELS.indexOf(SIZE_LEVELS[size]),
+      text.LEVELS.indexOf(nodeSize.LEVELS[size]),
     ),
   );
 });
