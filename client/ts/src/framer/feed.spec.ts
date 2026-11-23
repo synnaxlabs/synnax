@@ -22,8 +22,8 @@ import {
 } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
-import type { channel } from "@/channel";
-import type { framer } from "@/framer";
+import { channel } from "@/channel";
+import { framer } from "@/framer";
 import { UnexpectedError, UnsupportedError } from "@/index";
 import {
   createTestClient,
