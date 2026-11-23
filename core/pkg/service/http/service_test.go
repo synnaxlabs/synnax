@@ -14,10 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,6 +33,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
 			DB:      db,
 			Channel: channelSvc,
+			ICD:     icdSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -47,6 +51,13 @@ var _ = Describe("Service", func() {
 		It("Should reject a config missing the channel service", func(ctx SpecContext) {
 			Expect(http.OpenService(ctx, http.ServiceConfig{DB: db})).Error().
 				To(MatchError(ContainSubstring("channel: must be non-nil")))
+		})
+
+		It("Should reject a config missing the ICD service", func(ctx SpecContext) {
+			Expect(http.OpenService(ctx, http.ServiceConfig{
+				DB:      db,
+				Channel: channelSvc,
+			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
 		})
 	})
 
@@ -151,6 +162,64 @@ var _ = Describe("Service", func() {
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
+	})
+
+	Describe("Import", func() {
+		It("Should move the fields of a v4 config into an ICD named after its task",
+			func(ctx SpecContext) {
+				idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+				value := createChannel(ctx, telem.Float32T, idx)
+				data := MustSucceed(svc.Read.Normalize(ctx, db, 4, msgpack.EncodedJSON{
+					"endpoints": []any{map[string]any{
+						"key":    "ep",
+						"method": "POST",
+						"path":   "/values",
+						"index":  "t",
+						"fields": []any{
+							map[string]any{
+								"key":       "t",
+								"channel":   idx.Key(),
+								"pointer":   "/t",
+								"data_type": "timestamp",
+							},
+							map[string]any{
+								"key":       "p",
+								"channel":   value.Key(),
+								"pointer":   "/p",
+								"data_type": "float32",
+							},
+						},
+					}},
+				}))
+				key := MustSucceed(tasks.Create(ctx, svc.Read, data))
+				stored := MustSucceed(svc.Read.Read(ctx, db, key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				var cfg http.ReadConfig
+				Expect(stored.Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg.Endpoints).To(HaveLen(1))
+				ep := cfg.Endpoints[0]
+				Expect(ep.Fields).To(HaveLen(2))
+				var ic icd.ICD
+				Expect(icdSvc.NewRetrieve().
+					Where(icd.MatchKeys(*ep.ICD)).
+					Entry(&ic).
+					Exec(ctx, db)).To(Succeed())
+				Expect(ic.Name).To(Equal("http_read"))
+				Expect(ic.Messages).To(HaveLen(1))
+				m := ic.Messages[0]
+				Expect(m.Name).To(Equal("POST /values"))
+				fields := as[icd.JSONPayload](m.Payload.Variant).Fields
+				index := fields[0].Base().Key
+				Expect(ep.Messages).To(Equal([]icd.ReadMessage{{
+					Message: m.Key,
+					Index:   &index,
+					Bindings: []icd.ReadBinding{
+						{Field: index, Channel: idx.Key()},
+						{Field: fields[1].Base().Key, Channel: value.Key()},
+					},
+				}}))
+			},
+		)
 	})
 
 	DescribeTable("Should reject a scan config whose rate is not positive",

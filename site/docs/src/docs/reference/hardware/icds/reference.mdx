@@ -655,6 +655,24 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter the text that comes before the value, such as `T=`.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={'the tag contains the delimiter "<delimiter>"'}>
+  <Problem.Cause>
+    The tag of a tagged field holds the delimiter of its message. The Driver splits each
+    line on the delimiter, so no item of the line can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>
+    Remove the delimiter from the tag, or enter a different delimiter.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"the tag starts with whitespace"}>
+  <Problem.Cause>
+    The tag of a tagged field starts with a space, a tab, or a carriage return. The
+    Driver removes these from the start of each item, so no item can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Binary fields

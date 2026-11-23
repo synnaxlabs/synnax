@@ -233,6 +233,15 @@ Paint union on type {
 
         @doc value "is the color of the current entry of a state."
     }
+    contrast {
+        state string {
+            @doc value """
+                is the key of the state whose current entry color the paint reads on.
+            """
+        }
+
+        @doc value "is black or white, whichever reads on the entry color of a state."
+    }
     node {
         @doc value "is the color that the node sets."
     }
@@ -250,20 +259,28 @@ Paint union on type {
 
 Motion union on type {
     spin {
-        rate  telem.Rate = 0.5 {
-            @doc value "is the turns each second at the upper bound of the state."
+        rate  float64 = 0.5 {
+            @doc value       """
+                is the turns each second at the upper bound of the state. A negative
+                rate turns the part the other way.
+            """
+            @validate finite
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 
         @doc value "turns a part around its pivot."
     }
     flow {
-        rate  telem.Rate = 0.5 {
-            @doc value "is the cycles each second at the upper bound of the state."
+        rate  float64 = 0.5 {
+            @doc value       """
+                is the cycles each second at the upper bound of the state. A negative
+                rate moves the dashes the other way.
+            """
+            @validate finite
         }
-        state string?    {
+        state string? {
             @doc value "is the key of the number state that sets the speed."
         }
 

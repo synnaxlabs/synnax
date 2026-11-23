@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -17,7 +18,7 @@ import svg from "@/schematic/node/process/Agitator.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [{ key: "4", position: { x: 0.5, y: 0.01 }, orientation: "top" }],
@@ -31,7 +32,7 @@ export const Agitator = ({
 }: Props): ReactElement => (
   <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

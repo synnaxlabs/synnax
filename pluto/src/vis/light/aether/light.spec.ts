@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { light } from "@/vis/light/aether";
 
 interface SetupOptions {

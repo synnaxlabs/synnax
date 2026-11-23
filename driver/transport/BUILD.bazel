@@ -12,7 +12,9 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "transport",
+    srcs = ["connection.cpp"],
     hdrs = [
+        "connection.h",
         "errors.h",
         "transport.h",
     ],
@@ -20,6 +22,7 @@ cc_library(
     deps = [
         "//driver/errors",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
         "@asio//:asio_no_openssl",
     ],
@@ -27,10 +30,14 @@ cc_library(
 
 cc_test(
     name = "transport_test",
-    srcs = ["transport_test.cpp"],
+    srcs = [
+        "connection_test.cpp",
+        "transport_test.cpp",
+    ],
     deps = [
         ":transport",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
         "//x/cpp/testutil",
         "@asio//:asio_no_openssl",
