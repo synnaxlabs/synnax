@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Telem } from "@/schematic/node/common/telem";
 import {
   bindSpec,
+  commanded,
   dataMissing,
   sources,
   stale,
@@ -62,7 +63,7 @@ describe("bindSpec", () => {
 });
 
 describe("stateChannels", () => {
-  it("should list each channel that a state reads once", () => {
+  it("should list each channel that a state reads or commands once", () => {
     expect(
       stateChannels([
         { key: "active", source: { type: "channel", key: 1 } },
@@ -70,7 +71,7 @@ describe("stateChannels", () => {
         { key: "other", source: { type: "channel" } },
         { key: "again", source: { type: "channel", key: 1, command: 2 } },
       ]),
-    ).toEqual([1]);
+    ).toEqual([1, 2]);
   });
 });
 
@@ -146,5 +147,21 @@ describe("dataMissing", () => {
     ["a local source", { key: "active", source: { type: "local", value: 1 } }],
   ] as const)("should be false for a state with %s", (_, binding) => {
     expect(dataMissing([binding], {})).toBe(false);
+  });
+});
+
+describe("commanded", () => {
+  it("should give the value of the command channel of each state", () => {
+    const bindings: Pick<schematic.StateBinding, "key" | "source">[] = [
+      { key: "active", source: { type: "channel", key: 1, command: 2 } },
+      { key: "level", source: { type: "channel", key: 3, command: 4 } },
+      { key: "local", source: { type: "local", value: 1 } },
+    ];
+    const readings = {
+      1: { value: 1, stale: false },
+      2: { value: 0, stale: true },
+      4: { value: null, stale: false },
+    };
+    expect(commanded(bindings, readings)).toEqual(new Map([["active", 0]]));
   });
 });

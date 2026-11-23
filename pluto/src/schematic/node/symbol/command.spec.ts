@@ -16,6 +16,7 @@ import { bindSpec } from "@/schematic/node/symbol/bind";
 import {
   clickable,
   commandChannels,
+  commandsOf,
   fixedValue,
   interactionAt,
   pick,
@@ -113,6 +114,21 @@ describe("command", () => {
     });
   });
 
+  describe("commandsOf", () => {
+    it("should list the commands of an interaction in its order", () => {
+      expect(commandsOf(VALVE, CLICK)).toEqual([DEACTIVATE, ACTIVATE]);
+    });
+
+    it("should throw for a command that the spec does not have", () => {
+      const fire: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "x",
+        command: "x",
+      };
+      expect(() => commandsOf(VALVE, fire)).toThrow("symbol has no command x");
+    });
+  });
+
   describe("clickable", () => {
     it("should keep an interaction whose commands have a target", () => {
       expect(clickable(VALVE, createBindings({ states: [localState(0)] }))).toEqual([
@@ -149,29 +165,38 @@ describe("command", () => {
 
   describe("pick", () => {
     const value = (v: number) => new Map([["active", v]]);
+    const NONE = new Map<string, number>();
 
     it.each([
       ["open", 0, ACTIVATE],
       ["close", 1, DEACTIVATE],
     ])("should send %s when the state equals the other command", (_, v, command) => {
-      expect(pick(VALVE, VALVE, CLICK, value(v))).toEqual(command);
+      expect(pick(VALVE, VALVE, CLICK, value(v), NONE)).toEqual(command);
     });
 
     it("should match the state value with the node's match", () => {
       const bound = bindSpec(VALVE, [
         { key: "active", match: { type: "within", bounds: { lower: 4, upper: 6 } } },
       ]);
-      expect(pick(VALVE, bound, CLICK, value(5))).toEqual(DEACTIVATE);
-      expect(pick(VALVE, bound, CLICK, value(1))).toEqual(ACTIVATE);
+      expect(pick(VALVE, bound, CLICK, value(5), NONE)).toEqual(DEACTIVATE);
+      expect(pick(VALVE, bound, CLICK, value(1), NONE)).toEqual(ACTIVATE);
+    });
+
+    it("should send nothing when the command channel differs from the state", () => {
+      expect(pick(VALVE, VALVE, CLICK, value(1), value(0))).toBeUndefined();
+    });
+
+    it("should send when the command channel agrees with the state", () => {
+      expect(pick(VALVE, VALVE, CLICK, value(1), value(1))).toEqual(DEACTIVATE);
     });
 
     it("should send nothing when the state has no value", () => {
-      expect(pick(VALVE, VALVE, CLICK, new Map())).toBeUndefined();
+      expect(pick(VALVE, VALVE, CLICK, NONE, NONE)).toBeUndefined();
     });
 
     it("should send nothing when the value equals neither command", () => {
       const bound = bindSpec(VALVE, [{ key: "active", match: { type: "exact" } }]);
-      expect(pick(VALVE, bound, CLICK, value(2))).toBeUndefined();
+      expect(pick(VALVE, bound, CLICK, value(2), NONE)).toBeUndefined();
     });
 
     it("should send the command of a fire interaction", () => {
@@ -181,7 +206,7 @@ describe("command", () => {
         key: "pulse",
         command: "pulse",
       };
-      expect(pick(spec, spec, fire, new Map())).toEqual(PULSE);
+      expect(pick(spec, spec, fire, NONE, NONE)).toEqual(PULSE);
     });
   });
 

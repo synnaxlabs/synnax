@@ -58,8 +58,14 @@ export const commandChannels = (
 export const sinks = (channels: channel.Key[]): Record<string, telem.NumberSinkSpec> =>
   Object.fromEntries(channels.map((ch) => [ch, Telem.numberSink(ch)]));
 
-const commandKeys = (interaction: schematic.symbol.Interaction): string[] =>
-  interaction.type === "fire" ? [interaction.command] : interaction.commands;
+/** @returns the commands that interaction sends, in its order. */
+export const commandsOf = (
+  spec: schematic.symbol.Spec,
+  interaction: schematic.symbol.Interaction,
+): schematic.symbol.Command[] =>
+  (interaction.type === "fire" ? [interaction.command] : interaction.commands).map(
+    (key) => find(spec.commands, key, "command"),
+  );
 
 /**
  * @returns the interactions of spec that take clicks: each of their commands writes a
@@ -70,10 +76,9 @@ export const clickable = (
   bindings: Bindings,
 ): schematic.symbol.Interaction[] =>
   spec.interactions.filter((i) =>
-    commandKeys(i).every((key) => {
-      const command = find(spec.commands, key, "command");
-      return command.value.type === "fixed" && target(command, bindings) != null;
-    }),
+    commandsOf(spec, i).every(
+      (c) => c.value.type === "fixed" && target(c, bindings) != null,
+    ),
   );
 
 /**
@@ -105,25 +110,27 @@ export const fixedValue = (command: schematic.symbol.Command): number => {
 
 /**
  * @returns the command that a click on interaction sends, or undefined when the value
- * of a `next` state equals neither command. symbol matches the command values, and
- * bound, with the bindings of the node applied, matches the state value.
+ * of a `next` state equals neither command, or differs from the value of its command
+ * channel. symbol matches the command values, and bound, with the bindings of the node
+ * applied, matches the state value.
  */
 export const pick = (
   symbol: schematic.symbol.Spec,
   bound: schematic.symbol.Spec,
   interaction: schematic.symbol.Interaction,
   value: ReadonlyMap<string, number>,
+  commanded: ReadonlyMap<string, number>,
 ): schematic.symbol.Command | undefined => {
   if (interaction.type === "fire")
     return find(symbol.commands, interaction.command, "command");
-  const [a, b] = interaction.commands.map((key) =>
-    find(symbol.commands, key, "command"),
-  );
+  const [a, b] = commandsOf(symbol, interaction);
   if (a.state == null) throw new NotFoundError(`next command ${a.key} has no state`);
   const v = value.get(a.state);
   if (v == null) return undefined;
   const matchedValue = Custom.matched(find(bound.states, a.state, "state"), v);
   const state = find(symbol.states, a.state, "state");
+  const c = commanded.get(a.state);
+  if (c != null && Custom.matched(state, c) !== matchedValue) return undefined;
   if (matchedValue === Custom.matched(state, fixedValue(a))) return b;
   if (matchedValue === Custom.matched(state, fixedValue(b))) return a;
   return undefined;

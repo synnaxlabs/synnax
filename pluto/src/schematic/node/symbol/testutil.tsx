@@ -11,7 +11,7 @@ import { type channel, schematic } from "@synnaxlabs/client";
 import type { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { render, type RenderResult } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import type { FC, PropsWithChildren } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { type Mock, vi } from "vitest";
 import { z } from "zod";
 
@@ -99,23 +99,38 @@ export const createWrapper = ({
   });
 };
 
+type Config = Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">;
+
+export interface TestNodeProps {
+  config: Config;
+  onConfigChange?: NodeProps["onConfigChange"];
+}
+
+/** TestNode draws one symbol node with config, inside a React Flow provider. */
+export const TestNode = ({
+  config,
+  onConfigChange = vi.fn(),
+}: TestNodeProps): ReactElement => (
+  <ReactFlowProvider>
+    <symbolSpec.Node
+      nodeKey="s1"
+      selected={false}
+      onConfigChange={onConfigChange}
+      config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
+    />
+  </ReactFlowProvider>
+);
+
 const LocalWrapper = createWrapper();
 
 /** @returns the render of one symbol node with config. */
 export const renderNode = (
-  config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
+  config: Config,
   Wrapper: FC<PropsWithChildren> = LocalWrapper,
-  onConfigChange: NodeProps["onConfigChange"] = vi.fn(),
+  onConfigChange?: NodeProps["onConfigChange"],
 ): RenderResult =>
   render(
     <Wrapper>
-      <ReactFlowProvider>
-        <symbolSpec.Node
-          nodeKey="s1"
-          selected={false}
-          onConfigChange={onConfigChange}
-          config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
-        />
-      </ReactFlowProvider>
+      <TestNode config={config} onConfigChange={onConfigChange} />
     </Wrapper>,
   );

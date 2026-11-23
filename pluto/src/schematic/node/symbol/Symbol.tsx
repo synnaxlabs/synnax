@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { MouseEvent, ReactElement } from "react";
+import { state } from "@synnaxlabs/x";
+import { type MouseEvent, type ReactElement, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -26,6 +29,7 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import {
   bindSpec,
+  commanded,
   dataMissing,
   sources,
   stale,
@@ -35,6 +39,7 @@ import {
 import {
   clickable,
   commandChannels,
+  commandsOf,
   fixedValue,
   interactionAt,
   pick,
@@ -143,6 +148,42 @@ const Drawn = ({
 
 const DEFAULT_CONTROL = Control.stateConfigZ.parse({});
 
+interface CommandMenuProps {
+  commands: schematic.symbol.Command[];
+  anchor: HTMLElement;
+  onSelect: (command: schematic.symbol.Command) => void;
+  onClose: () => void;
+}
+
+const CommandMenu = ({
+  commands,
+  anchor,
+  onSelect,
+  onClose,
+}: CommandMenuProps): ReactElement => (
+  <Dialog.Frame
+    anchor={anchor}
+    visible
+    onVisibleChange={(next) => {
+      if (!state.resolve(next, true)) onClose();
+    }}
+  >
+    <Menu.Dialog aria-label="Commands">
+      <Menu.Menu
+        onChange={Object.fromEntries(commands.map((c) => [c.key, () => onSelect(c)]))}
+      >
+        {commands.map((c) => (
+          <Menu.Item key={c.key} itemKey={c.key}>
+            {c.name}
+          </Menu.Item>
+        ))}
+      </Menu.Menu>
+    </Menu.Dialog>
+  </Dialog.Frame>
+);
+
+type OpenMenu = Pick<CommandMenuProps, "commands" | "anchor">;
+
 export const Node = ({
   nodeKey,
   config,
@@ -170,6 +211,7 @@ export const Node = ({
     stalenessTimeout,
   });
   const value = values(states, readings);
+  const [menu, setMenu] = useState<OpenMenu | null>(null);
   const unmatched = Custom.useUnmatched(spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   const interactions = disabled || symbol == null ? [] : clickable(symbol, config);
@@ -186,11 +228,12 @@ export const Node = ({
   const handleClick = ({ target: el }: MouseEvent<HTMLElement>): void => {
     if (symbol == null || spec == null || !(el instanceof Element)) return;
     const root = el.closest(`.${CSS.B("symbol")}`);
-    if (root == null) return;
+    if (!(root instanceof HTMLElement)) return;
     const interaction = interactionAt(symbol, interactions, root, el);
     if (interaction == null) return;
-    const command = pick(symbol, spec, interaction, value);
-    if (command != null) send(command, fixedValue(command));
+    const command = pick(symbol, spec, interaction, value, commanded(states, readings));
+    if (command != null) return send(command, fixedValue(command));
+    setMenu({ commands: commandsOf(symbol, interaction), anchor: root });
   };
   const badges = {
     stale: stale(states, readings),
@@ -221,6 +264,16 @@ export const Node = ({
         onClick={interactions.length > 0 ? handleClick : undefined}
         onClickDelay={onClickDelay}
       />
+      {menu != null && (
+        <CommandMenu
+          {...menu}
+          onSelect={(command) => {
+            setMenu(null);
+            send(command, fixedValue(command));
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </Grid.Grid>
   );
 };

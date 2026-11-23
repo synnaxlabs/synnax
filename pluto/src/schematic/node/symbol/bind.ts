@@ -42,11 +42,13 @@ export const bindSpec = (
 
 type Sourced = Pick<schematic.StateBinding, "key" | "source">;
 
-/** @returns the channels that the bound states read. */
+/** @returns the channels that the bound states read, and their command channels. */
 export const stateChannels = (bindings: Sourced[]): channel.Key[] =>
   unique.unique(
     bindings.flatMap(({ source }) =>
-      source?.type === "channel" && source.key != null ? [source.key] : [],
+      source?.type === "channel"
+        ? [source.key, source.command].filter((ch) => ch != null)
+        : [],
     ),
   );
 
@@ -104,3 +106,19 @@ export const dataMissing = (
       source.key != null &&
       reading(readings, source)?.value == null,
   );
+
+/** @returns the value of the command channel of each bound state that has one. */
+export const commanded = (
+  bindings: Sourced[],
+  readings: Record<string, symbolNode.Reading>,
+): Map<string, number> => {
+  const out = new Map<string, number>();
+  for (const { key, source } of bindings) {
+    if (source?.type !== "channel" || source.command == null) continue;
+    const v = Object.hasOwn(readings, source.command)
+      ? readings[source.command].value
+      : null;
+    if (v != null) out.set(key, v);
+  }
+  return out;
+};
