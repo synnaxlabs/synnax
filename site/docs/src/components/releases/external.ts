@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { default as Code } from "@/components/releases/Code.astro";
 export { default as List } from "@/components/releases/List.astro";
 export { default as Release } from "@/components/releases/Release.astro";
+export { default as Version } from "@/components/releases/Version.astro";

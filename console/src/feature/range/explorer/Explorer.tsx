@@ -22,9 +22,9 @@ import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { TAB_TYPE } from "@/feature/range/explorer/external";
-import { PROPERTIES } from "@/feature/range/explorer/Filter";
+import { Filter } from "@/feature/range/explorer/filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
-import { pin } from "@/feature/range/explorer/time";
+import { Time } from "@/feature/range/explorer/time";
 import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -146,7 +146,7 @@ const Internal = (): ReactElement => {
   // The Core reads stages and recent spans at the time of a read, so the list reads at
   // a held instant and reads again when a range it holds could cross the filter.
   const [at, setAt] = useState(() => TimeStamp.now());
-  const pinned = where == null ? undefined : pin(where, at);
+  const pinned = where == null ? undefined : Time.pin(where, at);
   // The term that the list reads. The query follows it, so the list never reads a
   // search page without the term, or the term without a search page.
   const [term, setTerm] = useState("");
@@ -245,7 +245,7 @@ const Internal = (): ReactElement => {
       }}
       itemHeight={Tree.itemHeight(layout)}
     >
-      <View.Toolbar properties={PROPERTIES}>
+      <View.Toolbar properties={Filter.PROPERTIES}>
         {searchTerm === "" && (
           <SortSelect value={sort} onChange={setSort} preview={!editable} />
         )}

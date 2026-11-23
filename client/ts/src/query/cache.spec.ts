@@ -21,7 +21,12 @@ import z from "zod";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  MissingCredentialsError,
+  NotFoundError,
+} from "@/index";
 import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {
@@ -662,6 +667,63 @@ describe("Cache", () => {
     });
   });
 
+  describe("missed changes", () => {
+    // Opens one MockStreamer and keeps the onMissed hook the cache handed it.
+    const missingOpener = () => {
+      const state: { opens: number; onMissed?: () => void } = { opens: 0 };
+      const opener: framer.StreamOpener = async (config) => {
+        state.opens++;
+        if (typeof config === "object" && "onMissed" in config)
+          state.onMissed = config.onMissed;
+        return new MockStreamer();
+      };
+      return { state, opener };
+    };
+
+    it("reconciles without reopening the stream", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      let name = "first";
+      const fetch = vi.fn(async (keys: string[]) => keys.map((key) => ({ key, name })));
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      const missed = vi.fn();
+      cache.onMissed(missed);
+      name = "fresh";
+      state.onMissed?.();
+      // The stream stays open, so the epoch holds.
+      expect(cache.epoch).toBe(1);
+      expect(missed).toHaveBeenCalledTimes(1);
+      await expect.poll(() => table.get("k")).toEqual({ key: "k", name: "fresh" });
+      expect(state.opens).toBe(1);
+      expect(cache.live).toBe(true);
+      await cache.close();
+    });
+
+    it("runs one more reconcile for misses during a reconcile", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      const gate = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        await gate.promise;
+        return keys.map((key) => ({ key, name: "fresh" }));
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      state.onMissed?.();
+      state.onMissed?.();
+      state.onMissed?.();
+      expect(cache.epoch).toBe(1);
+      gate.resolve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).toHaveBeenCalledTimes(2);
+      await cache.close();
+    });
+  });
+
   describe("denied change stream", () => {
     /** An opener the cluster refuses until `allow` flips. */
     const deniedOpener = () => {
@@ -1174,6 +1236,33 @@ describe("Cache", () => {
       expect(onError).not.toHaveBeenCalled();
       expect(unreachable.get("u1")).toEqual({ key: "u1", name: "stale" });
       expect(disconnected.get("d1")).toEqual({ key: "d1", name: "stale" });
+      await cache.close();
+    });
+
+    it("stays silent when a fetch fails because the client logged out", async () => {
+      const onError = vi.fn();
+      const cache = new query.Cache({
+        openStreamer: async () => new MockStreamer(),
+        onError,
+      });
+      const loggedOut = cache.createTable<string, Doc>({
+        name: "loggedOut",
+        fetch: async () => {
+          throw new MissingCredentialsError();
+        },
+      });
+      const reachable = cache.createTable<string, Doc>({
+        name: "reachable",
+        fetch: async (keys) => keys.map((k) => ({ key: k, name: "fresh" })),
+      });
+      loggedOut.set("l1", { key: "l1", name: "stale" });
+      reachable.set("r1", { key: "r1", name: "stale" });
+      await cache.ensureStreaming();
+      await expect
+        .poll(() => reachable.get("r1"))
+        .toEqual({ key: "r1", name: "fresh" });
+      expect(onError).not.toHaveBeenCalled();
+      expect(loggedOut.get("l1")).toEqual({ key: "l1", name: "stale" });
       await cache.close();
     });
 

@@ -39,19 +39,27 @@ import {
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
+import { Session } from "@/session";
 
 interface OpenInEditorProps {
   icdKey: icd.Key;
+  /** The message the editor selects. */
+  message: icd.MessageKey;
 }
 
-const EditorButton = ({ icdKey }: OpenInEditorProps): ReactElement => {
+const EditorButton = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
+  const handleClick = () => {
+    dispatch(Session.ICD.setSelected({ key: icdKey, selected: [message] }));
+    openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
+  };
   return (
     <Button.Button
       variant="text"
       size="small"
       tooltip="Open in the ICD editor"
-      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
+      onClick={handleClick}
     >
       <Icon.Library />
       Open in editor
@@ -254,7 +262,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} />}
+            actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
         </PForm.Form>
         <PForm.Section title="Channel">
@@ -316,7 +324,10 @@ export const MessageSections: FC<MessageSectionsProps> = ({
         </PForm.Section>
       )}
       {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
+        <PForm.Section
+          title="Message"
+          actions={<OpenInEditor icdKey={icdKey} message={message.key} />}
+        >
           <Text.Text color={9}>
             The format of this message is not JSON.
             {FLAGS.icds && " Open it to change its format."}
@@ -367,7 +378,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
               actions={
                 <>
                   <AddField onClick={onAddField} disabled={addFieldDisabled} />
-                  <OpenInEditor icdKey={icdKey} />
+                  <OpenInEditor icdKey={icdKey} message={key} />
                 </>
               }
             >

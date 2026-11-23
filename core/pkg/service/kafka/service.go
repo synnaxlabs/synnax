@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -98,6 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		icds:     cfg.ICD,
 		channels: readChannels(cfg.Channel),
 		create:   createICD(cfg.ICD),
+		reads:    read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
