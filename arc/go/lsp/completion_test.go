@@ -899,6 +899,67 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Quoted channel names", func() {
+		BeforeEach(func() {
+			channels := []symbol.Symbol{{
+				Name: "ox-pt-1",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}, {
+				Name: "pt-2",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   2,
+			}}
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			}))
+			server.SetClient(&MockClient{})
+		})
+
+		It("should complete a partly typed quoted name", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "func f() {\n    x := 'ox-p\n}")
+			completions := Completion(server, ctx, docURI, 1, 14)
+			Expect(HasCompletion(completions.Items, "pt-2")).To(BeFalse())
+			item := MustBeOk(FindCompletion(completions.Items, "ox-pt-1"))
+			Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 9},
+					End:   protocol.Position{Line: 1, Character: 14},
+				},
+				NewText: "'ox-pt-1'",
+			}))
+		})
+
+		It("should replace a closing quote right after the cursor", func(
+			ctx SpecContext,
+		) {
+			OpenArcDocument(server, ctx, docURI, "func f() {\n    x := 'ox-p'\n}")
+			completions := Completion(server, ctx, docURI, 1, 14)
+			item := MustBeOk(FindCompletion(completions.Items, "ox-pt-1"))
+			Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 9},
+					End:   protocol.Position{Line: 1, Character: 15},
+				},
+				NewText: "'ox-pt-1'",
+			}))
+		})
+
+		It("should offer only channels inside a quote", func(ctx SpecContext) {
+			OpenArcDocument(
+				server,
+				ctx,
+				docURI,
+				"func f() {\n    o_local f64 := 1.0\n    x := 'o' + o\n}",
+			)
+			completions := Completion(server, ctx, docURI, 2, 11)
+			Expect(completions.Items).To(HaveLen(1))
+			Expect(completions.Items[0].Label).To(Equal("ox-pt-1"))
+		})
+	})
+
 	Describe("Loop Keyword Completion", func() {
 		It(
 			"should show for keyword at statement start inside func body",

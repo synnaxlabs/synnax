@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
+	"golang.org/x/text/unicode/norm"
 )
 
 type completionCategory int
@@ -421,6 +422,15 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{}, nil
 	}
 
+	if items, quoted := s.quotedCompletions(
+		ctx,
+		doc,
+		line,
+		params.Position,
+	); quoted {
+		return &protocol.CompletionList{Items: items}, nil
+	}
+
 	col := lsp.CharacterToByte(line, params.Position.Character)
 	start := col
 	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
@@ -434,6 +444,111 @@ func (s *Server) Completion(
 		IsIncomplete: false,
 		Items:        items,
 	}, nil
+}
+
+// quotedCompletions returns the channels to complete when the cursor at pos sits in a
+// quoted channel name, and false when it sits in none. The prefix is the text from the
+// quote to the cursor, in NFC. Each edit replaces that text, and a closing quote right
+// after the cursor, with the quoted name.
+func (s *Server) quotedCompletions(
+	ctx context.Context,
+	doc *document,
+	line string,
+	pos protocol.Position,
+) ([]protocol.CompletionItem, bool) {
+	text := doc.displayContent()
+	content := []rune(text)
+	lineStart := 0
+	for n := uint32(0); n < pos.Line; lineStart++ {
+		if content[lineStart] == '\n' {
+			n++
+		}
+	}
+	col := int(fromUTF16In(line, pos).Character)
+	cursor := lineStart + col
+	tokens := tokenizeContentWithComments(text)
+	quote, ok := openQuote(tokens, content, lineStart, cursor)
+	if !ok {
+		return nil, false
+	}
+	prefix := strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(
+		string(content[quote+1 : cursor]),
+	)
+	prefix = norm.NFC.String(prefix)
+	end := pos
+	if cursor < len(content) && content[cursor] == '\'' {
+		end.Character++
+	}
+	replace := protocol.Range{
+		Start: toUTF16In(line, protocol.Position{
+			Line:      pos.Line,
+			Character: uint32(quote - lineStart),
+		}),
+		End: end,
+	}
+	var root *symbol.Symbol
+	if s.cfg.NewRoot != nil {
+		root = s.cfg.NewRoot()
+	}
+	channels := s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
+		return t.Kind == types.KindChan
+	}, root)
+	items := make([]protocol.CompletionItem, 0, len(channels))
+	for _, item := range channels {
+		if !strings.HasPrefix(item.Label, prefix) {
+			continue
+		}
+		quoted := parser.QuoteChannelName(item.Label)
+		item.InsertText = protocol.Optional[string]{}
+		item.FilterText = protocol.NewOptional(quoted)
+		item.TextEdit = &protocol.TextEdit{Range: replace, NewText: quoted}
+		items = append(items, item)
+	}
+	return items, true
+}
+
+// openQuote returns the offset in content of the quote that opens the channel name
+// that the cursor at offset cursor sits in, and false when it sits in none. Offsets
+// count code points, and lineStart is the offset of the cursor's line. A complete name
+// holds the cursor after its opening quote and up to its closing quote. An
+// unterminated name opens with a quote that no token holds.
+func openQuote(
+	tokens []antlr.Token,
+	content []rune,
+	lineStart, cursor int,
+) (int, bool) {
+	at := func(i int) antlr.Token {
+		for _, t := range tokens {
+			if t.GetStart() <= i && i <= t.GetStop() {
+				return t
+			}
+		}
+		return nil
+	}
+	if t := at(cursor - 1); t != nil &&
+		t.GetTokenType() == parser.ArcLexerCHANNEL_NAME &&
+		cursor-1 < t.GetStop() {
+		return t.GetStart(), true
+	}
+	for i := cursor - 1; i >= lineStart; i-- {
+		t := at(i)
+		if t == nil {
+			if content[i] == '\'' && (i == 0 || content[i-1] != '\\') {
+				return i, true
+			}
+			continue
+		}
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME,
+			parser.ArcLexerSTR_LITERAL,
+			parser.ArcLexerSTR_LITERAL_MULTI,
+			parser.ArcLexerSINGLE_LINE_COMMENT,
+			parser.ArcLexerMULTI_LINE_COMMENT:
+			return 0, false
+		}
+		i = t.GetStart()
+	}
+	return 0, false
 }
 
 func (s *Server) getCompletionItems(
