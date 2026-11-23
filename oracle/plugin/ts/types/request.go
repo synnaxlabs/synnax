@@ -21,19 +21,16 @@ import (
 
 // Request returns req as the TypeScript plugins read it. It drops the fields that omit
 // TypeScript, and gives the operator of each bare filter line the @ts type of the field
-// that the line reads, so the line takes the values that the record holds.
+// that the line reads in the record that the client cache holds.
 func Request(req *plugin.Request) (*plugin.Request, error) {
 	req = req.OmitFields("ts")
 	table := req.Resolutions
 	for i, typ := range table.Types {
-		if typ.Filter == nil {
+		// A filter with no derived response has no matcher to type.
+		if typ.Filter == nil || typ.Filter.Response == "" {
 			continue
 		}
-		target, _, ok := resolution.Dealias(typ.Filter.Target, table)
-		if !ok {
-			continue
-		}
-		fields, _ := resolution.RecordFields(target, table)
+		record, fields := CachedRecord(typ, table)
 		form := resolution.MustForm[resolution.StructForm](typ)
 		form.Fields = slices.Clone(form.Fields)
 		for _, line := range typ.Filter.Lines {
@@ -47,7 +44,7 @@ func Request(req *plugin.Request) (*plugin.Request, error) {
 			if override == "" {
 				continue
 			}
-			arg, ok := overrideRef(override, target.Namespace, table)
+			arg, ok := overrideRef(override, record.Namespace, table)
 			if !ok {
 				return nil, errors.Newf(
 					"filter %s: line %s reads a field whose @ts type %s is not a type",
@@ -69,6 +66,22 @@ func Request(req *plugin.Request) (*plugin.Request, error) {
 		table.Types[i] = typ
 	}
 	return req, nil
+}
+
+// CachedRecord returns the record type that the client cache holds for where, which is
+// the record that the retrieve response returns, and the fields of that record. where
+// must have a derived retrieve response.
+func CachedRecord(
+	where resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, []resolution.Field) {
+	response := resolution.MustForm[resolution.StructForm](
+		table.MustGet(where.Filter.Response),
+	)
+	// The analyzer derives a response only for a record that is a struct or a union.
+	record, _, _ := resolution.Dealias(response.Fields[0].Type.TypeArgs[0], table)
+	fields, _ := resolution.RecordFields(record, table)
+	return record, fields
 }
 
 // overrideRef returns the type that a @ts type override names.

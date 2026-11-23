@@ -256,25 +256,13 @@ func buildData(
 	return data, nil
 }
 
-// cachedRecord returns the record type that the client cache holds for where, which
-// is the record that the retrieve response returns, and the fields of that record.
+// cachedRecord returns the record type that the client cache holds for where, and the
+// fields of that record.
 func cachedRecord(
 	where resolution.Type,
 	table *resolution.Table,
 ) (resolution.Type, []resolution.Field, error) {
-	response, ok := table.Get(where.Filter.Response)
-	if !ok {
-		return resolution.Type{}, nil, errors.New("has no derived retrieve response")
-	}
-	responseForm := resolution.MustForm[resolution.StructForm](response)
-	elem := responseForm.Fields[0].Type.TypeArgs[0]
-	record, _, ok := resolution.Dealias(elem, table)
-	if !ok {
-		return resolution.Type{}, nil, errors.Newf(
-			"unknown response type %s",
-			elem.Name,
-		)
-	}
+	record, fields := tstypes.CachedRecord(where, table)
 	// The matcher names the record with no type arguments, as the client cache does.
 	if tp, ok := lo.Find(
 		resolution.TypeParams(record.Form),
@@ -285,13 +273,6 @@ func cachedRecord(
 				"with no type arguments",
 			tp.Name,
 			record.Name,
-			record.Name,
-		)
-	}
-	fields, ok := resolution.RecordFields(record, table)
-	if !ok {
-		return resolution.Type{}, nil, errors.Newf(
-			"the response type %s must be a struct or a union",
 			record.Name,
 		)
 	}
