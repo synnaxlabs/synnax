@@ -11,13 +11,10 @@ package mqtt
 
 import (
 	"context"
-	"slices"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
@@ -42,6 +39,7 @@ func createICD(svc *icd.Service) v2.CreateICD {
 type readResolver struct {
 	icds     *icd.Service
 	channels icdv0.Channels
+	reads    read.Resolver
 	ins      alamos.Instrumentation
 }
 
@@ -86,128 +84,56 @@ func (r readResolver) hash(
 	cfg *ReadConfig,
 	h *content.Hash,
 ) error {
-	icdKeys, _ := referencedKeys(cfg, nil)
-	if len(icdKeys) == 0 {
-		return nil
-	}
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
-		return err
-	}
-	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
-	for _, e := range cfg.Entries {
-		entry, ok := e.Variant.(PlainReadEntry)
-		if !ok || entry.Disabled {
-			continue
-		}
-		if err := read.Hash(h, icds[entry.ICD], entry.Messages); err != nil {
-			return err
-		}
-	}
-	return nil
+	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
 }
 
-// check checks each enabled entry of cfg against its ICD, from icds or else read
-// through snap, and its channels. It skips an ICD or a channel that does not exist,
-// which the reference check of the write reports.
+// check checks each enabled entry of cfg, in order, against its ICD, from icds or else
+// read through snap, and its channels.
 func (r readResolver) check(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	icdKeys, channelKeys := referencedKeys(cfg, icds)
-	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
-			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		for _, ic := range found {
-			icds[ic.Key] = ic
-		}
+	c, err := r.reads.NewChecker(ctx, snap, readsOf(cfg), icds)
+	if err != nil {
+		return err
 	}
-	var channels map[channel.Key]icdv0.Channel
-	if len(channelKeys) > 0 {
-		var err error
-		if channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
-			return err
-		}
-	}
-	c := read.NewChecker(lo.MapValues(
-		channels,
-		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
-	))
 	for i, e := range cfg.Entries {
-		path := []string{"entries", strconv.Itoa(i)}
-		if err := checkEntry(c, icds, e, path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// referencedKeys returns the ICDs that the enabled entries of cfg name and icds lacks,
-// and the channels that the enabled entries name.
-func referencedKeys(
-	cfg *ReadConfig,
-	icds map[icd.Key]icd.ICD,
-) (icdKeys []icd.Key, channelKeys []channel.Key) {
-	for _, e := range cfg.Entries {
 		switch entry := e.Variant.(type) {
 		case PlainReadEntry:
-			if entry.Disabled {
-				continue
-			}
-			if _, ok := icds[entry.ICD]; !ok {
-				icdKeys = append(icdKeys, entry.ICD)
-			}
-			for _, m := range entry.Messages {
-				for _, b := range m.Bindings {
-					if b.Channel != 0 {
-						channelKeys = append(channelKeys, b.Channel)
-					}
-				}
+			if !entry.Disabled {
+				err = c.Read(readOf(i, entry))
 			}
 		case SparkplugReadEntry:
 			if !entry.Disabled && entry.Channel != 0 {
-				channelKeys = append(channelKeys, entry.Channel)
+				path := []string{"entries", strconv.Itoa(i), "channel"}
+				err = c.Claim(entry.Channel, path)
 			}
 		}
-	}
-	return icdKeys, channelKeys
-}
-
-// checkEntry checks e, at path, with c when it is enabled. It skips a plain entry whose
-// ICD icds lacks.
-func checkEntry(
-	c read.Checker,
-	icds map[icd.Key]icd.ICD,
-	e ReadEntry,
-	path []string,
-) error {
-	switch entry := e.Variant.(type) {
-	case PlainReadEntry:
-		ic, ok := icds[entry.ICD]
-		if entry.Disabled || !ok {
-			return nil
-		}
-		for j, rm := range entry.Messages {
-			messagePath := slices.Concat(path, []string{"messages", strconv.Itoa(j)})
-			if err := c.Message(rm, ic, messagePath); err != nil {
-				return err
-			}
-		}
-	case SparkplugReadEntry:
-		if !entry.Disabled && entry.Channel != 0 {
-			return c.Claim(entry.Channel, slices.Concat(path, []string{"channel"}))
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// readsOf returns the read of each enabled plain entry of cfg.
+func readsOf(cfg *ReadConfig) []read.Read {
+	var reads []read.Read
+	for i, e := range cfg.Entries {
+		if entry, ok := e.Variant.(PlainReadEntry); ok && !entry.Disabled {
+			reads = append(reads, readOf(i, entry))
+		}
+	}
+	return reads
+}
+
+// readOf returns the read of e, the plain entry at i of a config.
+func readOf(i int, e PlainReadEntry) read.Read {
+	return read.Read{
+		Path:     []string{"entries", strconv.Itoa(i)},
+		ICD:      e.ICD,
+		Messages: e.Messages,
+	}
 }
