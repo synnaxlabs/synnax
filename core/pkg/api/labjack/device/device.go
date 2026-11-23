@@ -140,12 +140,7 @@ func (s *Service) Retrieve(
 
 // withoutStatus drops a status the client sent, because the Core owns each status.
 func withoutStatus(d device.Device) device.Device {
-	if d.Variant == nil {
-		return d
-	}
-	b := d.Base()
-	b.Status = nil
-	d.SetBase(b)
+	d.Status = nil
 	return d
 }
 

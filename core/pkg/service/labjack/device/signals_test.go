@@ -119,12 +119,14 @@ var _ = Describe("Signals", Ordered, func() {
 	It("Should publish device sets and deletes", func(ctx SpecContext) {
 		sets := openStreamer(ctx, "sy_labjack_device_set")
 		deletes := openStreamer(ctx, "sy_labjack_device_delete")
-		d := device.Device{Variant: device.T7Device{Base: device.Base{
+		d := device.Device{
 			Rack:       rackSvc.EmbeddedKey,
 			Name:       "T7-0001",
 			Serial:     470010001,
 			Connection: device.ConnectionUSB,
-		}}}
+			Model:      device.ModelT7,
+			Ports:      device.Ports{Variant: device.T7Ports{}},
+		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())
@@ -136,15 +138,15 @@ var _ = Describe("Signals", Ordered, func() {
 		for sample := range res.Frame.SeriesAt(0).Samples() {
 			Expect(json.Unmarshal(sample, &written)).To(Succeed())
 		}
-		Expect(written.Key).To(Equal(d.Base().Key))
+		Expect(written.Key).To(Equal(d.Key))
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Delete(ctx, d.Base().Key)
+			return svc.NewWriter(tx).Delete(ctx, d.Key)
 		})).To(Succeed())
 		Eventually(deletes.Outlet(), 5*time.Second).Should(Receive(&res))
 		var removed []uuid.UUID
 		for sample := range res.Frame.SeriesAt(0).Samples() {
 			removed = append(removed, uuid.UUID(sample))
 		}
-		Expect(removed).To(ContainElement(d.Base().Key))
+		Expect(removed).To(ContainElement(d.Key))
 	})
 })

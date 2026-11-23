@@ -74,20 +74,20 @@ var _ = Describe("Service", func() {
 		serial++
 		return serial
 	}
-	edit := func(d device.Device, change func(*device.Base)) device.Device {
-		b := d.Base()
-		change(&b)
-		d.SetBase(b)
+	edit := func(d device.Device, change func(*device.Device)) device.Device {
+		change(&d)
 		return d
 	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
-		d := device.Device{Variant: device.T7Device{Base: device.Base{
+		d := device.Device{
 			Rack:       rackKey,
 			Name:       "T7-0001",
 			Serial:     nextSerial(),
 			Connection: device.ConnectionUSB,
-		}}}
+			Model:      device.ModelT7,
+			Ports:      device.Ports{Variant: device.T7Ports{}},
+		}
 		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
 	}
@@ -170,91 +170,98 @@ var _ = Describe("Service", func() {
 	Describe("Create", func() {
 		It("Should mint a key and store the device", func(ctx SpecContext) {
 			d := create(ctx)
-			Expect(d.Base().Key).ToNot(Equal(uuid.Nil()))
-			Expect(retrieve(ctx, d.Base().Key).Base().Serial).To(Equal(d.Base().Serial))
+			Expect(d.Key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieve(ctx, d.Key).Serial).To(Equal(d.Serial))
 		})
 
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
-			d := device.Device{Variant: device.T7Device{Base: device.Base{
+			d := device.Device{
 				Key:        key,
 				Rack:       rackKey,
 				Name:       "T7-0001",
 				Serial:     470010001,
 				Connection: device.ConnectionUSB,
-			}}}
+				Model:      device.ModelT7,
+				Ports:      device.Ports{Variant: device.T7Ports{}},
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-			Expect(d.Base().Key).To(Equal(key))
+			Expect(d.Key).To(Equal(key))
 		})
 
 		DescribeTable(
 			"Should reject an invalid device",
 			func(ctx SpecContext, change func(*device.Device), message string) {
-				d := device.Device{Variant: device.T7Device{Base: device.Base{
+				d := device.Device{
 					Rack:       rackKey,
 					Name:       "T7-0001",
 					Serial:     470010001,
 					Connection: device.ConnectionUSB,
-				}}}
+					Model:      device.ModelT7,
+					Ports:      device.Ports{Variant: device.T7Ports{}},
+				}
 				change(&d)
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry(
 				"no name",
-				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Name = "" }) },
+				func(d *device.Device) { d.Name = "" },
 				"name: required",
 			),
 			Entry(
 				"no serial",
-				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Serial = 0 }) },
+				func(d *device.Device) { d.Serial = 0 },
 				"serial: must be non-zero",
 			),
 			Entry(
 				"no model",
-				func(d *device.Device) { d.Variant = nil },
-				"model: required",
+				func(d *device.Device) { d.Model = "" },
+				"model",
 			),
 			Entry(
-				"a pointer variant",
-				func(d *device.Device) {
-					d.Variant = &device.T7Device{Base: d.Base()}
-				},
-				"model: required",
+				"no ports",
+				func(d *device.Device) { d.Ports = device.Ports{} },
+				"ports.model: required",
+			),
+			Entry(
+				"ports for another model",
+				func(d *device.Device) { d.Ports = device.Ports{Variant: device.T4Ports{}} },
+				"ports: are for t4, not t7",
 			),
 			Entry(
 				"unknown connection",
-				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Connection = "LJM_ctTCP" }) },
+				func(d *device.Device) { d.Connection = "LJM_ctTCP" },
 				"invalid connection",
 			),
 		)
 
 		It("Should write an unknown status", func(ctx SpecContext) {
 			d := create(ctx)
-			s := retrieveStatus(ctx, d.Base().Key)
-			Expect(s.Name).To(Equal(d.Base().Name))
+			s := retrieveStatus(ctx, d.Key)
+			Expect(s.Name).To(Equal(d.Name))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(
 				s.Details,
-			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Base().Key}))
+			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
 		})
 
 		It(
 			"Should move an existing status to a replaced device",
 			func(ctx SpecContext) {
 				d := create(ctx)
-				s := retrieveStatus(ctx, d.Base().Key)
+				s := retrieveStatus(ctx, d.Key)
 				s.Variant = status.VariantSuccess
 				Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 				other := rack.Rack{Name: "Other"}
 				Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-				d = edit(d, func(b *device.Base) {
+				d = edit(d, func(b *device.Device) {
 					b.Rack = other.Key
 					b.Name = "Replaced"
 				})
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-				got := retrieveStatus(ctx, d.Base().Key)
+				got := retrieveStatus(ctx, d.Key)
 				Expect(got.Name).To(Equal("Replaced"))
 				Expect(got.Details.Rack).To(Equal(other.Key))
 				Expect(got.Variant).To(Equal(status.VariantSuccess))
@@ -265,15 +272,15 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := create(ctx)
-			s := retrieveStatus(ctx, d.Base().Key)
+			s := retrieveStatus(ctx, d.Key)
 			s.Variant = status.VariantSuccess
 			s.Message = "Connected"
 			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 			other := rack.Rack{Name: "Other"}
 			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			moved := edit(d, func(b *device.Base) { b.Rack = other.Key })
+			moved := edit(d, func(b *device.Device) { b.Rack = other.Key })
 			Expect(svc.NewWriter(tx).Create(ctx, &moved)).To(Succeed())
-			got := retrieveStatus(ctx, d.Base().Key)
+			got := retrieveStatus(ctx, d.Key)
 			Expect(got.Details.Rack).To(Equal(other.Key))
 			Expect(got.Variant).To(Equal(status.VariantSuccess))
 			Expect(got.Message).To(Equal("Connected"))
@@ -281,12 +288,12 @@ var _ = Describe("Service", func() {
 
 		It("Should keep a status that already exists", func(ctx SpecContext) {
 			d := create(ctx)
-			s := retrieveStatus(ctx, d.Base().Key)
+			s := retrieveStatus(ctx, d.Key)
 			s.Variant = status.VariantSuccess
 			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(
-				retrieveStatus(ctx, d.Base().Key).Variant,
+				retrieveStatus(ctx, d.Key).Variant,
 			).To(Equal(status.VariantSuccess))
 		})
 
@@ -294,12 +301,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			missing := rack.NewKey(1, 999)
-			d := device.Device{Variant: device.T7Device{Base: device.Base{
+			d := device.Device{
 				Rack:       missing,
 				Name:       "T7-0001",
 				Serial:     470010001,
 				Connection: device.ConnectionUSB,
-			}}}
+				Model:      device.ModelT7,
+				Ports:      device.Ports{Variant: device.T7Ports{}},
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
 				"rack: rack %d does not exist: validation error",
 				missing,
@@ -320,10 +329,10 @@ var _ = Describe("Service", func() {
 		}
 		identity := func(d device.Device, change func(*device.Identity)) device.Update {
 			i := device.Identity{
-				Rack:       d.Base().Rack,
-				Serial:     d.Base().Serial,
-				Connection: d.Base().Connection,
-				Model:      d.Model(),
+				Rack:       d.Rack,
+				Serial:     d.Serial,
+				Connection: d.Connection,
+				Model:      d.Model,
 			}
 			change(&i)
 			return device.Update{Variant: device.IdentityUpdate{Identity: i}}
@@ -335,64 +344,65 @@ var _ = Describe("Service", func() {
 			d := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(
 				ctx,
-				d.Base().Key,
+				d.Key,
 				configuration(device.T7Ports{Mux80Attached: true}),
 			)).To(Succeed())
-			got := retrieve(ctx, d.Base().Key)
-			Expect(got.Base().Name).To(Equal("Renamed"))
-			Expect(got.Base().Identifier).To(Equal("dev1"))
-			Expect(got.Base().ReadIndex).To(BeEquivalentTo(7))
-			Expect(got.Variant).To(BeAssignableToTypeOf(device.T7Device{}))
-			Expect(got.Variant).To(HaveField("Mux80Attached", BeTrue()))
-			Expect(got.Base().Rack).To(Equal(d.Base().Rack))
-			Expect(got.Base().Serial).To(Equal(d.Base().Serial))
-			Expect(got.Base().Connection).To(Equal(d.Base().Connection))
+			got := retrieve(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.ReadIndex).To(BeEquivalentTo(7))
+			Expect(got.Ports).To(Equal(device.Ports{
+				Variant: device.T7Ports{Mux80Attached: true},
+			}))
+			Expect(got.Rack).To(Equal(d.Rack))
+			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(got.Connection).To(Equal(d.Connection))
 		})
 
 		It("Should write the identity and keep the configuration", func(
 			ctx SpecContext,
 		) {
-			d := edit(create(ctx), func(b *device.Base) { b.Identifier = "dev1" })
+			d := edit(create(ctx), func(b *device.Device) { b.Identifier = "dev1" })
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			other := rack.Rack{Name: "Other"}
 			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, identity(
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, identity(
 				d,
 				func(i *device.Identity) {
 					i.Rack = other.Key
-					i.Serial = d.Base().Serial + 1000
+					i.Serial = d.Serial + 1000
 					i.Connection = device.ConnectionWifi
 				},
 			))).To(Succeed())
-			got := retrieve(ctx, d.Base().Key).Base()
+			got := retrieve(ctx, d.Key)
 			Expect(got.Rack).To(Equal(other.Key))
-			Expect(got.Serial).To(Equal(d.Base().Serial + 1000))
+			Expect(got.Serial).To(Equal(d.Serial + 1000))
 			Expect(got.Connection).To(Equal(device.ConnectionWifi))
-			Expect(got.Name).To(Equal(d.Base().Name))
+			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
-			Expect(retrieveStatus(ctx, d.Base().Key).Details.Rack).To(Equal(other.Key))
+			Expect(retrieveStatus(ctx, d.Key).Details.Rack).To(Equal(other.Key))
 		})
 
 		It("Should refuse a move to a missing rack", func(ctx SpecContext) {
 			d := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, identity(
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, identity(
 				d,
 				func(i *device.Identity) { i.Rack = rackKey + 1000 },
 			))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("does not exist")),
 			))
-			Expect(retrieve(ctx, d.Base().Key).Base().Rack).To(Equal(rackKey))
+			Expect(retrieve(ctx, d.Key).Rack).To(Equal(rackKey))
 		})
 
 		It("Should rename the status with the device", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(
 				ctx,
-				d.Base().Key,
+				d.Key,
 				configuration(device.T7Ports{}),
 			)).To(Succeed())
-			Expect(retrieveStatus(ctx, d.Base().Key).Name).To(Equal("Renamed"))
+			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
 		})
 
 		It("Should write an unknown status when the status is missing", func(
@@ -401,55 +411,56 @@ var _ = Describe("Service", func() {
 			d := create(ctx)
 			Expect(stat.NewWriter(tx).DeleteOwned(
 				ctx,
-				device.ResourceID(d.Base().Key),
+				device.ResourceID(d.Key),
 			)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(
 				ctx,
-				d.Base().Key,
+				d.Key,
 				configuration(device.T7Ports{}),
 			)).To(Succeed())
-			s := retrieveStatus(ctx, d.Base().Key)
+			s := retrieveStatus(ctx, d.Key)
 			Expect(s.Name).To(Equal("Renamed"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(
 				s.Details,
-			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Base().Key}))
+			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
 		})
 
 		It("Should reject an invalid configuration", func(ctx SpecContext) {
 			d := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, device.Update{
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
 				Variant: device.ConfigurationUpdate{Configuration: device.Configuration{
 					Ports: device.Ports{Variant: device.T7Ports{}},
 				}},
 			})).To(MatchError(ContainSubstring("name: required")))
 		})
 
-		DescribeTable("Should refuse a different model",
-			func(ctx SpecContext, update func(device.Device) device.Update) {
+		DescribeTable(
+			"Should refuse a different model",
+			func(ctx SpecContext, update func(device.Device) device.Update, message string) {
 				d := create(ctx)
-				Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, update(d))).
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update(d))).
 					To(SatisfyAll(
 						MatchError(validate.ErrValidation),
-						MatchError(ContainSubstring("cannot change from t7 to t4")),
+						MatchError(ContainSubstring(message)),
 					))
-				Expect(retrieve(ctx, d.Base().Key).Model()).To(Equal(device.ModelT7))
+				Expect(retrieve(ctx, d.Key).Model).To(Equal(device.ModelT7))
 			},
-			Entry("in a configuration", func(device.Device) device.Update {
+			Entry("in the ports of a configuration", func(device.Device) device.Update {
 				return configuration(device.T4Ports{})
-			}),
+			}, "ports: are for t4, not t7"),
 			Entry("in an identity", func(d device.Device) device.Update {
 				return identity(
 					d,
 					func(i *device.Identity) { i.Model = device.ModelT4 },
 				)
-			}),
+			}, "model: cannot change from t7 to t4"),
 		)
 
 		It("Should reject an update with no group", func(ctx SpecContext) {
 			d := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, device.Update{})).
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{})).
 				To(MatchError(validate.ErrValidation))
 		})
 
@@ -465,13 +476,13 @@ var _ = Describe("Service", func() {
 	Describe("Delete", func() {
 		It("Should remove the device and its status", func(ctx SpecContext) {
 			d := create(ctx)
-			Expect(svc.NewWriter(tx).Delete(ctx, d.Base().Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, d.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
-				Where(device.MatchKeys(d.Base().Key)).
+				Where(device.MatchKeys(d.Key)).
 				Exists(ctx, tx)).To(BeFalse())
 			var s device.Status
 			Expect(stat.NewRetrieve[device.StatusDetails]().
-				Where(status.MatchOwners[device.StatusDetails](device.ResourceID(d.Base().Key))).
+				Where(status.MatchOwners[device.StatusDetails](device.ResourceID(d.Key))).
 				Entry(&s).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -481,7 +492,7 @@ var _ = Describe("Service", func() {
 		) {
 			other := rack.Rack{Name: "Other"}
 			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			d := edit(create(ctx), func(b *device.Base) { b.Rack = other.Key })
+			d := edit(create(ctx), func(b *device.Device) { b.Rack = other.Key })
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, other.Key)).
 				To(MatchError(ContainSubstring("labjack_device")))
@@ -498,11 +509,11 @@ var _ = Describe("Service", func() {
 			create(ctx)
 			var got []device.Device
 			Expect(svc.NewRetrieve().
-				Where(device.MatchSerials(d.Base().Serial)).
+				Where(device.MatchSerials(d.Serial)).
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(1))
-			Expect(got[0].Base().Key).To(Equal(d.Base().Key))
+			Expect(got[0].Key).To(Equal(d.Key))
 		})
 	})
 
@@ -525,7 +536,7 @@ var _ = Describe("Service", func() {
 		It("Should name each device by its name", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
-				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Base().Name}}))
+				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
 		})
 
 		It("Should reject a key that is not a UUID", func(ctx SpecContext) {
@@ -540,7 +551,7 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(svc.Resources().Search(
 				ctx,
 				tx,
-				search.Query[resource.ID]{Term: d.Base().Name, Limit: 10},
+				search.Query[resource.ID]{Term: d.Name, Limit: 10},
 			))
 			Expect(res.Keys).To(ContainElement(d.ResourceID()))
 		})
