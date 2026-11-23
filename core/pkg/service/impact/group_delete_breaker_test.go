@@ -222,8 +222,11 @@ var _ = Describe("Group delete breaker", Ordered, ContinueOnFailure, func() {
 	It("Should refuse a symbol group that holds a symbol", func(ctx SpecContext) {
 		g := createGroup(ctx, resource.TypeSchematicSymbol)
 		sym := defaults.Fill(symbol.Symbol{
-			Name:  "Inlet",
-			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Name: "Inlet",
+			Data: symbol.Spec{
+				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Variant: "valve",
+			},
 			Group: &g.Key,
 		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
