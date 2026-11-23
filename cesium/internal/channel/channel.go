@@ -85,13 +85,6 @@ type Channel struct {
 // x/go/control.
 type Concurrency uint8
 
-const (
-	// ConcurrencyExclusive lets one writer write the channel at a time.
-	ConcurrencyExclusive Concurrency = iota
-	// ConcurrencyShared lets many writers write the channel at once.
-	ConcurrencyShared
-)
-
 // String implements fmt.Stringer to return nicely formatted channel info.
 func (c Channel) String() string { return fmt.Sprintf("<%d>", c.Key) }
 
