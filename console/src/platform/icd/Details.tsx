@@ -272,7 +272,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
                 path={readPath.bindings[i].dataType}
                 channel={preview.channel}
                 defaultDataType={defaultDataType(formatted)}
-                hideDataTypes={hiddenDataTypes(field.type)}
+                hideDataTypes={hiddenDataTypes(formatted)}
               />
             </>
           )}

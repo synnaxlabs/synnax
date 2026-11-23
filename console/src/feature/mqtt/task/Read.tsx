@@ -246,22 +246,22 @@ const messagePrefix = (
 /**
  * @returns the bindings of fields, each to the channel stored for its pointer. A field
  * gets no channel when its stored channel is in written, as the Core refuses a channel
- * that two bindings write, or when its kind does not convert to the data type of the
- * channel in dataTypes. Adds the channels it binds to written.
+ * that two bindings write, or when it does not convert to the data type of the channel
+ * in dataTypes. Adds the channels it binds to written.
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: Pick<icd.JSONField, "key" | "pointer" | "type">[],
+  fields: icd.JSONField[],
   written: Set<channel.Key>,
   dataTypes: ReadonlyMap<channel.Key, string>,
 ): icd.ReadBinding[] =>
-  fields.map(({ key: field, pointer, type }) => {
-    const ch = stored[pointer] ?? 0;
+  fields.map((f) => {
+    const ch = stored[f.pointer] ?? 0;
     const dataType = dataTypes.get(ch);
-    if (written.has(ch) || dataType == null || !ICD.converts(type, dataType))
-      return icd.readBindingZ.parse({ field });
+    if (written.has(ch) || dataType == null || !ICD.converts(f, dataType))
+      return icd.readBindingZ.parse({ field: f.key });
     written.add(ch);
-    return icd.readBindingZ.parse({ field, channel: ch });
+    return icd.readBindingZ.parse({ field: f.key, channel: ch });
   });
 
 /** Inserts entries into the lists of one ICD. */
@@ -705,7 +705,7 @@ const Entries: FC<EntriesProps> = ({
     storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
   );
   // Each control that binds waits for the data types of the stored channels, as the
-  // Core refuses a channel that the field's kind does not convert to.
+  // Core refuses a channel that the field does not convert to.
   const bindDisabled = storedKeys.length > 0 && variant !== "success";
   const dataTypes = new Map(
     storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),

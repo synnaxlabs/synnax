@@ -8,10 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { DataType, uuid } from "@synnaxlabs/x";
+import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
+
+const fieldOf = (type: payload.Kind, scale = 1, offset = 0) =>
+  icd.jsonFieldZ.parse({
+    key: uuid.create(),
+    name: "v",
+    pointer: "/v",
+    type,
+    scale,
+    offset,
+  });
 
 describe("ICD data types", () => {
   describe("converts", () => {
@@ -28,21 +38,37 @@ describe("ICD data types", () => {
       ["timestamp", DataType.TIMESTAMP, true],
       ["timestamp", DataType.INT64, false],
     ] as const)("should report whether %s converts to %s", (kind, dt, expected) => {
-      expect(ICD.converts(kind, dt.toString())).toBe(expected);
+      expect(ICD.converts({ type: kind, scale: 1, offset: 0 }, dt.toString())).toBe(
+        expected,
+      );
+    });
+
+    it.each([
+      ["an integer field with a scale", fieldOf("integer", 0.5), DataType.INT64, false],
+      [
+        "an integer field with a scale",
+        fieldOf("integer", 0.5),
+        DataType.FLOAT32,
+        true,
+      ],
+      [
+        "an unsigned field with an offset",
+        fieldOf("unsigned", 1, 4),
+        DataType.UINT64,
+        false,
+      ],
+      [
+        "an unsigned field with an offset",
+        fieldOf("unsigned", 1, 4),
+        DataType.FLOAT64,
+        true,
+      ],
+    ] as const)("should report whether %s converts to %s", (_, field, dt, expected) => {
+      expect(ICD.converts(field, dt.toString())).toBe(expected);
     });
   });
 
   describe("bindingDataType", () => {
-    const fieldOf = (type: "float" | "integer" | "unsigned", scale = 1, offset = 0) =>
-      icd.jsonFieldZ.parse({
-        key: uuid.create(),
-        name: "v",
-        pointer: "/v",
-        type,
-        scale,
-        offset,
-      });
-
     it("should keep the data type of a binding that names one", () => {
       expect(ICD.bindingDataType({ dataType: "float32" }, fieldOf("float"))).toBe(
         "float32",

@@ -242,7 +242,7 @@ interface BaseArgs<S extends Source> {
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
+  bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
   bindDisabled?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
@@ -344,8 +344,25 @@ export const use = <
   });
   const disabledPath = (source: string) =>
     deep.widen<Source[]>(listOf(source))[source].disabled;
-  const read = (source: string, r: number, field: TreeField, on: boolean) =>
-    setRead(ctx, pathOf(source), r, field, on, () => bindingOf(source, r, field));
+  /** @returns the field of a read of a source, as its message format holds it. */
+  const fullField = (source: string, r: number, key: icd.FieldKey): icd.JSONField => {
+    const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+    const { message } = messages[r];
+    const field = fieldsOf(formats, icdKey, message).find((f) => f.key === key);
+    if (field == null) throw new Error(`Message ${message} has no field ${key}`);
+    return field;
+  };
+  /** full is the field to bind, for a read whose format is not open yet. */
+  const read = (
+    source: string,
+    r: number,
+    field: TreeField,
+    on: boolean,
+    full?: icd.JSONField,
+  ) =>
+    setRead(ctx, pathOf(source), r, field, on, () =>
+      bindingOf(source, r, full ?? fullField(source, r, field.key)),
+    );
 
   const addMessage = (sourceKey: string) => {
     const path = pathOf(sourceKey);
@@ -410,7 +427,7 @@ export const use = <
     ctx.batch(() => {
       ctx.set(path.icd, icdKey);
       ctx.set(path.messages, [{ message: message.key, bindings: [] }]);
-      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true);
+      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true, field);
       if (index != null)
         ctx.set(
           path.messages[0],
@@ -441,7 +458,7 @@ export const use = <
       field,
       fields.at(-1)?.key,
     );
-    read(sourceKey, r, field, true);
+    read(sourceKey, r, field, true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, sourceKey, ...parent]));
     onSelect([fieldKey(sourceKey, message, field.key)]);

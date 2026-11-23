@@ -94,6 +94,74 @@ describe("planMessage", () => {
     expect(plan.fields[0].dataType).toBe("float64");
   });
 
+  it("should replace the integer channel of a field that gains a scale", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const old = await client.channels.create({
+      name: `${prefix}_old`,
+      dataType: "int64",
+      index: index.key,
+    });
+    const bound = createBound({ count: old.key }, undefined, {
+      type: "integer",
+      scale: 0.5,
+    });
+    const plan = await ICD.planMessage(client, Task.createNamer(client), bound, prefix);
+    expect(plan.fields[0].replaces).toBe(old.key);
+    await ICD.applyMessage(client, bound, plan);
+    const key = bound.source.messages[0].bindings[0].channel;
+    expect(key).not.toBe(old.key);
+    expect((await client.channels.retrieve(key)).dataType.toString()).toBe("float64");
+  });
+
+  it("should not reuse a stored integer channel for a scaled field", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const old = await client.channels.create({
+      name: `${prefix}_old`,
+      dataType: "int64",
+      index: index.key,
+    });
+    const bound = createBound({ count: 0 }, undefined, { type: "integer", offset: 4 });
+    const props = { index: index.key, channels: { "/count": old.key } };
+    const namer = Task.createNamer(client);
+    const plan = await ICD.planMessage(client, namer, bound, prefix, props);
+    await ICD.applyMessage(client, bound, plan);
+    const key = bound.source.messages[0].bindings[0].channel;
+    expect(key).not.toBe(0);
+    expect(key).not.toBe(old.key);
+    expect((await client.channels.retrieve(key)).dataType.toString()).toBe("float64");
+  });
+
+  it("should store a scaled field whose stored integer channel is virtual", async () => {
+    const prefix = uniqueName("src");
+    const old = await client.channels.create({
+      name: `${prefix}_old`,
+      dataType: "int64",
+      virtual: true,
+    });
+    const bound = createBound({ count: 0 }, undefined, { type: "integer", scale: 0.5 });
+    const props = { index: 0, channels: { "/count": old.key } };
+    const namer = Task.createNamer(client);
+    const plan = await ICD.planMessage(client, namer, bound, prefix, props);
+    await ICD.applyMessage(client, bound, plan);
+    const ch = await client.channels.retrieve(
+      bound.source.messages[0].bindings[0].channel,
+    );
+    expect(ch.key).not.toBe(old.key);
+    expect(ch.virtual).toBe(false);
+    expect(ch.dataType.toString()).toBe("float64");
+  });
+
+  it("should drop an integer data type that the binding of a scaled field names", async () => {
+    const bound = createBound({ count: 0 }, undefined, { type: "integer", scale: 0.5 });
+    bound.source.messages[0].bindings[0].dataType = "int64";
+    const namer = Task.createNamer(client);
+    const plan = await ICD.planMessage(client, namer, bound, uniqueName("src"));
+    expect(plan.fields[0].dataType).toBe("float64");
+    expect(plan.fields[0].binding.dataType).toBe("");
+  });
+
   it("should plan a new channel when the stored channel was deleted", async () => {
     const prefix = uniqueName("src");
     const index = await createIndex(`${prefix}_time`);

@@ -22,13 +22,23 @@ const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   bytes: DataType.BYTES.toString(),
 };
 
+const isScaled = ({
+  scale,
+  offset,
+}: Pick<icd.JSONField, "scale" | "offset">): boolean => scale !== 1 || offset !== 0;
+
 /**
- * @returns whether the Core writes the values of a field kind to a channel of the data
- * type. A number or a boolean also writes to a float, and an unsigned number or a
- * boolean to any integer.
+ * @returns whether the Core writes the values of field to a channel of the data type. A
+ * scaled field writes only to a float. Else a number or a boolean also writes to a
+ * float, and an unsigned number or a boolean to any integer.
  */
-export const converts = (kind: payload.Kind, dataType: string): boolean => {
+export const converts = (
+  field: Pick<icd.JSONField, "type" | "scale" | "offset">,
+  dataType: string,
+): boolean => {
   const to = payload.kindOf(dataType);
+  if (isScaled(field)) return to === "float";
+  const kind = field.type;
   if (to === kind) return true;
   switch (to) {
     case "float":
@@ -46,8 +56,8 @@ export const converts = (kind: payload.Kind, dataType: string): boolean => {
  * @returns the data type of the channel that a field takes by default. A scaled field
  * takes float64, because the Core scales only float channels.
  */
-export const defaultDataType = ({ type, scale, offset }: icd.JSONField): string =>
-  scale !== 1 || offset !== 0 ? DataType.FLOAT64.toString() : DEFAULT_DATA_TYPES[type];
+export const defaultDataType = (field: icd.JSONField): string =>
+  isScaled(field) ? DataType.FLOAT64.toString() : DEFAULT_DATA_TYPES[field.type];
 
 /**
  * @returns the data type of the channel that deploying creates for a binding of field.
