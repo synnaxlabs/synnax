@@ -105,7 +105,7 @@ func (l lineText) toUTF16(pos protocol.Position) protocol.Position {
 // toUTF16In returns pos, whose column counts code points of line, the text of its
 // line, with a column in UTF-16 units.
 func toUTF16In(line string, pos protocol.Position) protocol.Position {
-	pos.Character = lsp.UTF16Column(line, runeOffset(line, int(pos.Character)))
+	pos.Character = lsp.ByteToCharacter(line, runeOffset(line, int(pos.Character)))
 	return pos
 }
 
@@ -113,7 +113,7 @@ func toUTF16In(line string, pos protocol.Position) protocol.Position {
 // line, with a column in code points.
 func fromUTF16In(line string, pos protocol.Position) protocol.Position {
 	pos.Character = uint32(
-		utf8.RuneCountInString(line[:lsp.ByteOffset(line, pos.Character)]),
+		utf8.RuneCountInString(line[:lsp.CharacterToByte(line, pos.Character)]),
 	)
 	return pos
 }

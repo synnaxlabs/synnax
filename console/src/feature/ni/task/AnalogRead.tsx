@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, errors, primitive, strings, unique } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";

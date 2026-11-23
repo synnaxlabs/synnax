@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers } from "@reduxjs/toolkit";
-import { type panel } from "@synnaxlabs/client";
+import type { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { deep, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";

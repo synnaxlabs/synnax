@@ -9,13 +9,13 @@
 
 import "@/platform/task/views/List.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
-import { type List as PList } from "@synnaxlabs/lyra/list";
+import type { Component } from "@synnaxlabs/lyra/component";
+import type { List as PList } from "@synnaxlabs/lyra/list";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { HoverProvider } from "@/platform/task/port/Hovered";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import {
   ChannelList,
   type ChannelListProps,

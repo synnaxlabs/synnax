@@ -29,12 +29,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type LogEntry,
-  type LogSource,
-  type LogSourceSpec,
-} from "@/log/aether/telem/types";
-import { type status } from "@/status/aether";
+import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/types";
+import type { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 const MAX_ENTRIES = 100_000;
@@ -903,7 +899,7 @@ export class StreamMultiChannelLog
     this.valid = false;
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.reset();
     this.failures.reset();
   }

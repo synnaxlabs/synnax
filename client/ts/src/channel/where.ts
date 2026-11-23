@@ -10,8 +10,8 @@
 import { filter } from "@synnaxlabs/x";
 
 import { isCalculated } from "@/channel/payload";
-import { type Key, type Payload } from "@/channel/types.gen";
-import { type Lines } from "@/channel/where.gen";
+import type { Key, Payload } from "@/channel/types.gen";
+import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
 /**

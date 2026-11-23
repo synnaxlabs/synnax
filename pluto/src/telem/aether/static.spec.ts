@@ -10,8 +10,7 @@
 import { MultiSeries, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Clock, fixedArray, StaticFactory } from "@/telem/aether/static";
-import { type SeriesSource } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 
 describe("Clock", () => {
   const PERIOD = TimeSpan.milliseconds(500);
@@ -25,7 +24,7 @@ describe("Clock", () => {
   });
 
   it("should count the periods elapsed since the epoch", () => {
-    const c = new Clock({ period: PERIOD });
+    const c = new telem.Clock({ period: PERIOD });
     expect(c.value().data).toBe(2);
     vi.advanceTimersByTime(300);
     expect(c.value().data).toBe(3);
@@ -33,7 +32,7 @@ describe("Clock", () => {
   });
 
   it("should notify at each period boundary", () => {
-    const c = new Clock({ period: PERIOD });
+    const c = new telem.Clock({ period: PERIOD });
     const handler = vi.fn();
     c.onChange(handler);
     vi.advanceTimersByTime(299);
@@ -46,9 +45,9 @@ describe("Clock", () => {
   });
 
   it("should tick in phase with a clock created earlier", () => {
-    const first = new Clock({ period: PERIOD });
+    const first = new telem.Clock({ period: PERIOD });
     vi.advanceTimersByTime(150);
-    const second = new Clock({ period: PERIOD });
+    const second = new telem.Clock({ period: PERIOD });
     const firstHandler = vi.fn();
     const secondHandler = vi.fn();
     first.onChange(firstHandler);
@@ -65,7 +64,7 @@ describe("Clock", () => {
   });
 
   it("should stop notifying once cleaned up", () => {
-    const c = new Clock({ period: PERIOD });
+    const c = new telem.Clock({ period: PERIOD });
     const handler = vi.fn();
     c.onChange(handler);
     c.cleanup();
@@ -76,10 +75,10 @@ describe("Clock", () => {
 
 describe("fixedArray", () => {
   it("should provide its data as a multi-series with the data bounds", () => {
-    const spec = fixedArray({
+    const spec = telem.fixedArray({
       data: [new Float32Array([1, 2, 3]), new Float32Array([-4, 5])],
     });
-    const source = new StaticFactory().create(spec) as SeriesSource;
+    const source = new telem.StaticFactory().create(spec) as telem.SeriesSource;
     const [b, data] = source.value().data;
     expect(b).toEqual({ lower: -4, upper: 5 });
     expect(data).toBeInstanceOf(MultiSeries);

@@ -11,6 +11,7 @@ import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   control,
   type CrudeSeries,
+  disposable,
   errors,
   TimeSpan,
   TimeStamp,
@@ -202,9 +203,15 @@ interface Response extends z.infer<typeof resZ> {}
  * failure surfaces on a later call: once the writer accumulates an error, every write
  * and commit returns false until `error` reads and clears it. `commit` blocks until the
  * cluster has the frames written since the last commit, and may be called repeatedly.
- * Close in a `finally` block to release resources; close throws any accumulated error.
+ * Declare it with `await using`, or close it in a `finally` block, to release
+ * resources; close throws any accumulated error.
  */
 export class Writer {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private closeErr: Error | null = null;
@@ -325,10 +332,11 @@ export class Writer {
 
   /**
    * Closes the writer, raising any accumulated error encountered during operation.
-   * A writer MUST be closed after use, and this method should probably be placed
-   * in a 'finally' block.
+   * A writer MUST be closed after use: declare it with `await using`, or close it in a
+   * `finally` block. Closing a closed writer raises the same error again, or nothing.
    */
   async close(): Promise<void> {
+    if (WriterClosedError.matches(this.closeErr)) return;
     await this.closeInternal(null);
   }
 
@@ -355,10 +363,11 @@ export class Writer {
     try {
       await this.stream.send(req);
     } catch (err) {
-      // A send failure is always EOF or StreamClosed, never WriterClosedError, so
-      // closeInternal re-throws here and the receive loop below is reached only when
-      // the send succeeds.
-      await this.closeInternal(errors.fromUnknown(err));
+      const e = errors.fromUnknown(err);
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(e)) await this.closeInternal(e);
+      await this.closeInternal(null);
+      throw new WriterClosedError();
     }
     while (true) {
       let res: Response;

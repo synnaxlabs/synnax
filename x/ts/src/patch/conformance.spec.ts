@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { patch } from "@/patch";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 // The vectors are shared with the Go implementation so that both runtimes apply an
 // action to a document alike. The canonical copy lives in x/testdata/patch.

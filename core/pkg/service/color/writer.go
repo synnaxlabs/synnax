@@ -85,8 +85,9 @@ func (w Writer) CreateMany(ctx context.Context, named []Named) error {
 
 // Apply applies the actions to the named color with the given key, and the commit
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
-// is a create, the result is not valid, or the new group cannot hold a named color, and
-// an error wrapping query.ErrNotFound when no named color has the key.
+// is a create, the result is not valid, the new group cannot hold a named color, or a
+// built-in would leave the "Series" palette. It returns an error wrapping
+// query.ErrNotFound when no named color has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.apply(ctx, key, acts); err != nil {
 		return err
@@ -109,6 +110,13 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(n.Group) {
 				return next, nil
+			}
+			if isBuiltin(n.Key) {
+				return Named{}, errors.Wrapf(
+					validate.ErrValidation,
+					"cannot move built-in color %s out of the Series palette",
+					n.Name,
+				)
 			}
 			if err = group.CheckMember(
 				ctx,
