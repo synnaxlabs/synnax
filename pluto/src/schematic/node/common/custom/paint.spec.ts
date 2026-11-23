@@ -72,6 +72,7 @@ describe("Custom.usePaints", () => {
       entries: [
         { key: "closed", value: 0, name: "Closed", color: fixed("#ff0000") },
         { key: "open", value: 1, name: "Open", color: fixed("#00ff00") },
+        { key: "fault", value: 2, name: "Fault", color: fixed("#000080") },
       ],
     });
     valve = created.key;
@@ -156,6 +157,34 @@ describe("Custom.usePaints", () => {
         { selectors: [".body"], fill: color.construct(hex) },
       ]);
     });
+  });
+
+  describe("contrast paint", () => {
+    const createContrastSpec = () =>
+      createSpec({
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
+        ],
+        looks: [
+          {
+            key: "detail",
+            part: "body",
+            stroke: { type: "contrast", state: "active" },
+          },
+        ],
+      });
+
+    it.each([
+      [1, "#000000e6"],
+      [2, "#ffffffe6"],
+    ])(
+      "should draw on entry %d the black or white that reads on it",
+      async (v, hex) => {
+        expect(await renderPaints(createContrastSpec(), v)).toEqual([
+          { selectors: [".body"], stroke: color.construct(hex) },
+        ]);
+      },
+    );
   });
 
   describe("looks", () => {

@@ -42,12 +42,14 @@ const NAMES: Record<Kind, string> = {
   drawing: "Drawing",
   color: "Color",
   entry: "State color",
+  contrast: "Contrast",
   node: "Node color",
 };
 
 const NOTES: Record<Exclude<Kind, "color">, string> = {
   drawing: "The shapes keep the colors of the drawing.",
   entry: "Each state draws the color of its enumeration entry.",
+  contrast: "Each state draws black or white, whichever reads on its entry color.",
   node: "Each node on a schematic sets this color.",
 };
 
@@ -61,7 +63,8 @@ const ICONS: Partial<Record<Kind, ReactElement>> = {
 
 /**
  * Paint picks the paint of a fill or stroke: the color of the drawing, a color, the
- * color of the entry of a state, or the color of the node.
+ * color of the entry of a state, black or white on that color, or the color of the
+ * node.
  */
 export const Paint = ({
   value,
@@ -85,8 +88,8 @@ export const Paint = ({
     if (next === kind) return;
     if (next === "drawing") return onChange(undefined);
     if (next === "node") return onChange({ type: "node" });
-    if (next === "entry") {
-      if (entryState != null) onChange({ type: "entry", state: entryState });
+    if (next === "entry" || next === "contrast") {
+      if (entryState != null) onChange({ type: next, state: entryState });
       return;
     }
     const start = shown == null || color.opacity(shown) === 0 ? gray.l8 : shown;
@@ -127,7 +130,7 @@ export const Paint = ({
                 key={k}
                 itemKey={k}
                 size="small"
-                disabled={k === "entry" && entryState == null}
+                disabled={(k === "entry" || k === "contrast") && entryState == null}
               >
                 {NAMES[k]}
               </Select.Item>

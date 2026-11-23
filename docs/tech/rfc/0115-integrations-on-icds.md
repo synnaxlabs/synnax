@@ -179,7 +179,10 @@ until 0.63.0. Each carries a migration from the version that shipped:
 - HTTP v5 migrates each v4 endpoint into one ICD message. An ICD default cannot be NaN,
   so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
   no `fill_value`. A missing required float field in such a task then writes NaN with a
-  warning, where v4 skipped the endpoint's group.
+  warning, where v4 skipped the endpoint's group. A message has one index field, so a v4
+  endpoint with two fields bound to index channels keeps both fields but fails to
+  configure. Its status names the field to move, and the user splits the endpoint into
+  two, each with one index field.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
@@ -304,3 +307,10 @@ real adapter (§6.16).
     Desktop-first rule in `CONTRIBUTING.md` that the release owner ruled. A Desktop-only
     release first was rejected, so ICDs and the bus integrations reach the Console in
     0.63.0, not 0.64.0.
+20. **An HTTP endpoint with two index fields fails to configure**: The user splits it
+    into two endpoints (2026-11-22). In v4, an index field is any field bound to an
+    index channel. The Console form holds one per endpoint, so only a script or the API
+    can make two. Keeping only the first was rejected: the channels of the other would
+    take the arrival time with no warning. Several index fields per message was
+    rejected: it changes a read rule that MQTT and Kafka share, for a case that may not
+    exist.
