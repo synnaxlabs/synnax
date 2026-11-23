@@ -808,7 +808,7 @@ const Endpoints: FC<EndpointsProps> = ({
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
-  const handleError = Status.useAsyncErrorHandler();
+  const handleError = Status.useErrorHandler();
   const formats = ICD.useFormats();
   const { push } = PForm.useFieldList(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
@@ -890,10 +890,11 @@ const Endpoints: FC<EndpointsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const runAdd = useExclusiveCallback(
-    async (add: () => Promise<void>, message: string) =>
-      await handleError(add, message),
+  const runExclusive = useExclusiveCallback(
+    async (add: () => Promise<void>) => await add(),
   );
+  const runAdd = (add: () => Promise<void>, message: string) =>
+    handleError(async () => await runExclusive(add), message);
 
   const handleAdd = () =>
     runAdd(async () => {

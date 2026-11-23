@@ -450,7 +450,7 @@ const Records: FC<RecordsProps> = ({
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
-  const handleError = Status.useAsyncErrorHandler();
+  const handleError = Status.useErrorHandler();
   const formats = ICD.useFormats();
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
@@ -641,9 +641,8 @@ const Records: FC<RecordsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const handleAdd = useExclusiveCallback(
-    async () => await handleError(add, "Failed to add data"),
-  );
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);

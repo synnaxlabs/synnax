@@ -628,7 +628,7 @@ const Entries: FC<EntriesProps> = ({
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
-  const handleError = Status.useAsyncErrorHandler();
+  const handleError = Status.useErrorHandler();
   const discover = useDiscoverModal();
   const formats = ICD.useFormats();
   const { push } = PForm.useFieldList(root.config.entries);
@@ -732,9 +732,8 @@ const Entries: FC<EntriesProps> = ({
     tree.expand(firstKey);
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const handleAdd = useExclusiveCallback(
-    async () => await handleError(add, "Failed to add data"),
-  );
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
