@@ -40,7 +40,6 @@ func ReadChannels(svc *channel.Service) v0.Channels {
 					Name:     c.Name,
 					DataType: c.DataType,
 					Index:    c.IsIndex,
-					IndexKey: c.Index(),
 				}
 			},
 		), nil
