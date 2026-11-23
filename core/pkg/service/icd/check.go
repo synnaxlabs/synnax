@@ -162,13 +162,27 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 		case nil:
 			untyped.Add(i)
 		case TaggedTextField:
-			if v.Tag == "" {
-				c.addf(pathOf(fieldPath, "tag"), "tag is required")
-			}
+			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
 		if d := f.Base().Default; d != nil && !xmath.Finite(*d) {
 			c.addf(pathOf(fieldPath, "default"), "default must be finite")
 		}
+	}
+}
+
+// textSpace is the text that the Driver trims from around each item of a line.
+const textSpace = " \t\r"
+
+// checkTag refuses a tag that the Driver cannot match in an item of a line split on
+// delimiter.
+func (c *checker) checkTag(path []string, tag, delimiter string) {
+	switch {
+	case tag == "":
+		c.addf(path, "tag is required")
+	case delimiter != "" && strings.Contains(tag, delimiter):
+		c.addf(path, "the tag contains the delimiter %q", delimiter)
+	case strings.IndexByte(textSpace, tag[0]) >= 0:
+		c.addf(path, "the tag starts with whitespace")
 	}
 }
 
