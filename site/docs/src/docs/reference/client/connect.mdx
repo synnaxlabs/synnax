@@ -475,9 +475,6 @@ export NO_PROXY=localhost,core.internal.example.com
 python my_script.py
 ```
 
-With TLS, the client tunnels through the proxy and checks the certificate of the Core as
-it does with no proxy.
-
 - **Credentials** -> put them in the proxy URL, such as
   `http://user:password@proxy.example.com:3128`. Encode special characters, such as
   `%40` for `@`.
@@ -485,6 +482,9 @@ it does with no proxy.
   `http`. For a SOCKS proxy, the client raises `ValueError` when you create it.
 - **System settings** -> when no proxy variable is set, the client on macOS and Windows
   uses the proxy and the bypass list in the network settings of the computer.
+
+With TLS, the client tunnels through the proxy and checks the certificate of the Core as
+it does with no proxy.
 
   </Fragment>
 
