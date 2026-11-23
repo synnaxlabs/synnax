@@ -39,11 +39,10 @@ const render = async (
   const releases = new Releases({
     fetch: async () => new Response(JSON.stringify(RELEASES)),
   });
-  const html = await container.renderToString(Components.Code, {
+  return await container.renderToString(Components.Code, {
     locals: { releases },
     props: { lang: "text", ...props },
   });
-  return html.replace(/<[^>]+>/g, "");
 };
 
 describe("Code", () => {
