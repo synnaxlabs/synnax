@@ -24,7 +24,14 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
+import {
+  bindSpec,
+  dataMissing,
+  sources,
+  stale,
+  stateChannels,
+  values,
+} from "@/schematic/node/symbol/bind";
 import {
   clickable,
   commandChannels,
@@ -158,7 +165,7 @@ export const Node = ({
   const channels = commandChannels(symbol, config);
   const { readings, set } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(states),
+    sources: sources(stateChannels(states)),
     sinks: sinks(channels),
     stalenessTimeout,
   });
@@ -186,7 +193,7 @@ export const Node = ({
     if (command != null) send(command, fixedValue(command));
   };
   const badges = {
-    stale: Object.values(readings).some((r) => r.stale),
+    stale: stale(states, readings),
     unknown: dataMissing(states, readings) || unmatched,
   };
   return (
