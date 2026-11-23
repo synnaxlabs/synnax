@@ -89,6 +89,24 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
     ASSERT_EQ(x::telem::TimeSpan(end.nanoseconds()), x::telem::SECOND * 2 + skew * k_p);
 }
 
+/// @brief it should not corrupt the end time when no system time passes between
+/// two readings of the clock.
+TEST(TestSampleClock, testHardwareTimedSampleClockFrozenNow) {
+    const auto now_f = [] { return x::telem::TimeStamp(x::telem::SECOND * 5); };
+    auto clock = HardwareTimedSampleClock(
+        {.now = now_f,
+         .sample_rate = x::telem::HERTZ * 2,
+         .stream_rate = x::telem::HERTZ * 1,
+         .k_p = 0,
+         .k_i = 0,
+         .k_d = 0}
+    );
+    x::breaker::Breaker b;
+    const auto start = clock.wait(b);
+    ASSERT_EQ(start, x::telem::TimeStamp(x::telem::SECOND * 5));
+    ASSERT_EQ(clock.end(), x::telem::TimeStamp(x::telem::SECOND * 6));
+}
+
 /// @brief it should reset clock state for new acquisition cycle.
 TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
     const auto sample_rate = x::telem::HERTZ * 2;

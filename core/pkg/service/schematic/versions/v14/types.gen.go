@@ -506,7 +506,24 @@ type ScaledConfig = v13.ScaledConfig
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
-type StalenessConfig = v13.StalenessConfig
+type StalenessConfig struct {
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StalenessConfig) SetDefaults() {
+	s.StalenessTimeout = 5000000000
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StalenessConfig) Validate() error {
+	v := validate.New("StalenessConfig")
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
+	return v.Error()
+}
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
@@ -518,13 +535,66 @@ type ControlStateConfig = v13.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig = v13.ToggleConfig
+type ToggleConfig struct {
+	LabeledConfig
+	ScaledConfig
+	StalenessConfig
+	// StateChannel is the channel whose value drives the symbol's active state, or 0
+	// when none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CommandChannel is the channel actuation commands are written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// Control is the control state display configuration.
+	Control ControlStateConfig `json:"control" msgpack:"control"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.ScaledConfig.SetDefaults()
+	t.StalenessConfig.SetDefaults()
+	t.Control.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleConfig) Validate() error {
+	v := validate.New("ToggleConfig")
+	v.GreaterThanEq("on_click_delay", t.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", t.OnClickDelay, 2147483647000000)
+	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.ScaledConfig.Validate)
+	v.Exec(t.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
+	return v.Error()
+}
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
 type StaticSymbolConfig = v13.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig = v13.ToggleSymbolConfig
+type ToggleSymbolConfig struct {
+	ToggleConfig
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleSymbolConfig) SetDefaults() {
+	t.ToggleConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleSymbolConfig) Validate() error {
+	v := validate.New("ToggleSymbolConfig")
+	v.Exec(t.ToggleConfig.Validate)
+	return v.Error()
+}
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
@@ -3190,8 +3260,6 @@ type TankNodeConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *xcolor.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout

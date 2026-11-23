@@ -296,8 +296,8 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
 /**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
  * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol loses the looks of Active alone,
- * the commands, and the clicks.
+ * migration gives a stored actuator. A static symbol keeps its Base looks on every
+ * value and loses its other looks on the state, the commands, and the clicks.
  */
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {

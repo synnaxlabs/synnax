@@ -33,6 +33,7 @@ export const Control = () => {
           value={authority}
           onChange={handleAuthorityChange}
           bounds={control.AUTHORITY_BOUNDS}
+          integer
         />
       </Input.Item>
       <Input.Item label="Show control state legend">
