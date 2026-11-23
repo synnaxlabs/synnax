@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, device, type task } from "@synnaxlabs/client";
-import { type Task } from "@synnaxlabs/pluto";
+import type { Task } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 /** The values of a form over a task with the schemas S. */
 export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSchema<S>>;

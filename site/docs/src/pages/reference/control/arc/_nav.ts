@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Nav } from "@/components/nav";
+import type { Nav } from "@/components/nav";
 import { REFERENCE_NAV } from "@/pages/reference/control/arc/reference/_nav";
 import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/standard-library/_nav";
 

@@ -9,8 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { throttle } from "@/scheduler/throttle";
-import { TimeSpan } from "@/telem/telem";
+import { scheduler } from "@/scheduler";
+import { TimeSpan } from "@/telem";
 
 describe("throttle", () => {
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe("throttle", () => {
 
   it("should run the first call on the next task", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     expect(fn).not.toHaveBeenCalled();
     vi.advanceTimersByTime(0);
@@ -32,7 +32,7 @@ describe("throttle", () => {
 
   it("should run the calls of one task once with the latest arguments", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     throttled(20);
     throttled(30);
@@ -43,7 +43,7 @@ describe("throttle", () => {
 
   it("should throttle repeated calls during the wait period", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(0);
     throttled(20);
@@ -55,7 +55,7 @@ describe("throttle", () => {
 
   it("should run a trailing call with the latest arguments", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(0);
     throttled(20);
@@ -68,7 +68,7 @@ describe("throttle", () => {
 
   it("should schedule the trailing call after only the remaining wait time", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(90);
     throttled(20);
@@ -81,7 +81,7 @@ describe("throttle", () => {
 
   it("should not schedule multiple trailing calls", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(0);
     throttled(20);
@@ -96,7 +96,7 @@ describe("throttle", () => {
 
   it("should run on the next task once the wait period has passed", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(100);
     throttled(20);
@@ -108,7 +108,7 @@ describe("throttle", () => {
 
   it("should run on the next task after the clock moves backwards", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(0);
     vi.setSystemTime(Date.now() - 1000);
@@ -120,7 +120,7 @@ describe("throttle", () => {
 
   it("should preserve null arguments", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(null);
     vi.advanceTimersByTime(0);
     throttled(20);
@@ -136,7 +136,7 @@ describe("throttle", () => {
     fn.mockImplementation((value: number) => {
       if (value === 20) throttled(30);
     });
-    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
     vi.advanceTimersByTime(0);
     throttled(20);
@@ -150,7 +150,7 @@ describe("throttle", () => {
 
   it("should invoke the function synchronously when the wait period is 0", () => {
     const fn = vi.fn();
-    const throttled = throttle(fn, TimeSpan.ZERO);
+    const throttled = scheduler.throttle(fn, TimeSpan.ZERO);
     throttled(10);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(fn).toHaveBeenLastCalledWith(10);
@@ -159,7 +159,7 @@ describe("throttle", () => {
   describe("cancel", () => {
     it("should drop a pending call", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       throttled.cancel();
       vi.advanceTimersByTime(200);
@@ -168,7 +168,7 @@ describe("throttle", () => {
 
     it("should drop a pending trailing call", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       vi.advanceTimersByTime(0);
       throttled(20);
@@ -180,7 +180,7 @@ describe("throttle", () => {
 
     it("should allow a new call after cancellation", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       throttled.cancel();
       throttled(20);
@@ -191,7 +191,7 @@ describe("throttle", () => {
 
     it("should be a no-op for a zero-wait throttle", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.ZERO);
+      const throttled = scheduler.throttle(fn, TimeSpan.ZERO);
       expect(() => throttled.cancel()).not.toThrow();
       throttled(10);
       expect(fn).toHaveBeenCalledTimes(1);
@@ -201,7 +201,7 @@ describe("throttle", () => {
   describe("flush", () => {
     it("should run a pending call at once with the latest arguments", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       throttled(20);
       throttled.flush();
@@ -213,7 +213,7 @@ describe("throttle", () => {
 
     it("should run a pending trailing call without waiting for the period", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       vi.advanceTimersByTime(0);
       throttled(20);
@@ -224,7 +224,7 @@ describe("throttle", () => {
 
     it("should start the wait period at the flushed call", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled(10);
       throttled.flush();
       throttled(20);
@@ -237,7 +237,7 @@ describe("throttle", () => {
 
     it("should be a no-op when no call is pending", () => {
       const fn = vi.fn();
-      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      const throttled = scheduler.throttle(fn, TimeSpan.milliseconds(100));
       throttled.flush();
       expect(fn).not.toHaveBeenCalled();
     });

@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, Flux } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
   directory: { key: arc.directory.Key; name: string };

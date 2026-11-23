@@ -11,7 +11,7 @@ import { compare } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useStaticData, type UseStaticDataParams } from "@/list/useStaticData";
+import { List } from "@/list";
 
 interface TestItem {
   key: string;
@@ -32,7 +32,7 @@ describe("useStaticData", () => {
   describe("basic functionality", () => {
     it("should return all data keys initially", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
@@ -40,7 +40,7 @@ describe("useStaticData", () => {
 
     it("should return empty array for empty data", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: [] }),
+        List.useStaticData<string, TestItem>({ data: [] }),
       );
 
       expect(result.current.data).toEqual([]);
@@ -48,7 +48,7 @@ describe("useStaticData", () => {
 
     it("should provide getItem function that retrieves items by key", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       expect(result.current.getItem("1")).toEqual({
@@ -70,7 +70,7 @@ describe("useStaticData", () => {
   describe("search functionality", () => {
     it("should filter data based on search term", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       act(() => {
@@ -82,7 +82,7 @@ describe("useStaticData", () => {
 
     it("should perform fuzzy search", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
         result.current.search("Ap");
@@ -94,7 +94,7 @@ describe("useStaticData", () => {
 
     it("should return all items when search term is empty", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       act(() => {
@@ -106,7 +106,7 @@ describe("useStaticData", () => {
 
     it("should return empty results for non-matching search term", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       act(() => {
@@ -118,7 +118,7 @@ describe("useStaticData", () => {
 
     it("should search across multiple fields", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
         result.current.search("vegetable");
@@ -133,7 +133,7 @@ describe("useStaticData", () => {
       const filter = (item: TestItem) => item.category === "fruit";
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, filter }),
+        List.useStaticData<string, TestItem>({ data: mockData, filter }),
       );
 
       expect(result.current.data).toEqual(["1", "2", "5"]);
@@ -143,7 +143,7 @@ describe("useStaticData", () => {
       const filter = (item: TestItem) => item.value > 8;
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, filter }),
+        List.useStaticData<string, TestItem>({ data: mockData, filter }),
       );
 
       expect(result.current.data).toEqual(["1", "4"]);
@@ -153,7 +153,7 @@ describe("useStaticData", () => {
       const filter = (item: TestItem) => item.category === "fruit";
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, filter }),
+        List.useStaticData<string, TestItem>({ data: mockData, filter }),
       );
 
       act(() => {
@@ -171,7 +171,7 @@ describe("useStaticData", () => {
       const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
+        List.useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
       );
 
       expect(result.current.data).toEqual(["1", "5", "2", "4", "3"]);
@@ -181,7 +181,7 @@ describe("useStaticData", () => {
       const sortByValueDesc = (a: TestItem, b: TestItem) => b.value - a.value;
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, sort: sortByValueDesc }),
+        List.useStaticData<string, TestItem>({ data: mockData, sort: sortByValueDesc }),
       );
 
       expect(result.current.data).toEqual(["4", "1", "3", "5", "2"]);
@@ -191,7 +191,7 @@ describe("useStaticData", () => {
       const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
+        List.useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
       );
 
       act(() => {
@@ -206,7 +206,11 @@ describe("useStaticData", () => {
       const sortByValue = (a: TestItem, b: TestItem) => a.value - b.value;
 
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData, filter, sort: sortByValue }),
+        List.useStaticData<string, TestItem>({
+          data: mockData,
+          filter,
+          sort: sortByValue,
+        }),
       );
 
       expect(result.current.data).toEqual(["2", "5", "1"]);
@@ -214,7 +218,7 @@ describe("useStaticData", () => {
 
     it("should work without sorting function", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
@@ -224,8 +228,8 @@ describe("useStaticData", () => {
   describe("edge cases", () => {
     it("should handle data updates", () => {
       const { result, rerender } = renderHook(
-        ({ data }: UseStaticDataParams<string, TestItem>) =>
-          useStaticData<string, TestItem>({ data }),
+        ({ data }: List.UseStaticDataParams<string, TestItem>) =>
+          List.useStaticData<string, TestItem>({ data }),
         { initialProps: { data: mockData.slice(0, 2) } },
       );
 
@@ -238,7 +242,7 @@ describe("useStaticData", () => {
 
     it("should handle search with single character", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       act(() => {
@@ -251,7 +255,7 @@ describe("useStaticData", () => {
 
     it("should maintain getItem functionality after search", () => {
       const { result } = renderHook(() =>
-        useStaticData<string, TestItem>({ data: mockData }),
+        List.useStaticData<string, TestItem>({ data: mockData }),
       );
 
       act(() => {

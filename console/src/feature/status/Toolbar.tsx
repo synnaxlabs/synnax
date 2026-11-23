@@ -26,7 +26,7 @@ import { Explorer } from "@/feature/status/explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Status as PlatformStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
