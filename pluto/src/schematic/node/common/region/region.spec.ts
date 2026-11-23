@@ -437,27 +437,6 @@ describe("Region.normalizeElement", () => {
     });
   });
 
-  describe("motion properties", () => {
-    it("should move an inline opacity and dash offset onto attributes", () => {
-      const style = "opacity:0.5;stroke-dashoffset:2;stroke-width:3";
-      const svg = parse(`<path style="${style}"/>`);
-      Region.normalizeElement(svg, () => ({ fill: null, stroke: null }));
-      const path = svg.querySelector("path")!;
-      expect(path.getAttribute("opacity")).toBe("0.5");
-      expect(path.getAttribute("stroke-dashoffset")).toBe("2");
-      expect(path.style.getPropertyValue("opacity")).toBe("");
-      expect(path.style.getPropertyValue("stroke-width")).toBe("3");
-    });
-
-    it("should move them off a group", () => {
-      const svg = parse('<g style="opacity:0.5"><rect/></g>');
-      Region.normalizeElement(svg, () => ({ fill: null, stroke: null }));
-      const group = svg.querySelector("g")!;
-      expect(group.getAttribute("opacity")).toBe("0.5");
-      expect(group.hasAttribute("style")).toBe(false);
-    });
-  });
-
   describe("paint server / keyword preservation", () => {
     it("should preserve a gradient url() reference rather than destroy it", () => {
       const svg = parse('<rect fill="url(#grad)" id="r"/>');

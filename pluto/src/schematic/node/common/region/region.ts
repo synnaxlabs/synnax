@@ -236,7 +236,7 @@ export interface SymbolColors {
 /// tests inject a deterministic resolver to exercise the rewrite without a browser.
 export type ColorResolver = (el: SVGElement) => SymbolColors;
 
-const setPresentation = (el: SVGElement, attr: string, value: string | null) => {
+const setPaint = (el: SVGElement, attr: "fill" | "stroke", value: string | null) => {
   if (value == null) return;
   el.setAttribute(attr, value);
   // Drop the now-redundant inline declaration so the presentation attribute is the
@@ -244,9 +244,6 @@ const setPresentation = (el: SVGElement, attr: string, value: string | null) => 
   el.style.removeProperty(attr);
   if (el.getAttribute("style") === "") el.removeAttribute("style");
 };
-
-// Symbol motion writes these as presentation attributes, which inline styles outrank.
-const MOTION_PROPERTIES = ["opacity", "stroke-dashoffset"];
 
 const takenRegionIDs = (root: Element): Set<string> =>
   new Set(
@@ -313,9 +310,8 @@ export const name = (markup: string, drawing: Element, shape: Element): Named =>
 
 /// normalizeElement rewrites an SVG in place into the canonical symbol form: every
 /// painted element's effective fill and stroke (resolved via resolveColors) are
-/// flattened onto presentation attributes, an inline opacity or dash offset moves onto
-/// its attribute, <style> blocks are removed, and each shape without an id is tagged
-/// with a stable data-region-id. The result is
+/// flattened onto presentation attributes, <style> blocks are removed, and each shape
+/// without an id is tagged with a stable data-region-id. The result is
 /// self-contained: its colors no longer depend on inline styles, <style> rules, or
 /// ancestor inheritance, so extract and the renderer's color override operate on a
 /// single predictable source. The transform is idempotent.
@@ -330,12 +326,8 @@ export const normalizeElement = (
     resolveColors(el),
   ]);
   resolved.forEach(([el, { fill, stroke }]) => {
-    setPresentation(el, "fill", fill);
-    setPresentation(el, "stroke", stroke);
-  });
-  svg.querySelectorAll<SVGElement>("[style]").forEach((el) => {
-    for (const property of MOTION_PROPERTIES)
-      setPresentation(el, property, el.style.getPropertyValue(property) || null);
+    setPaint(el, "fill", fill);
+    setPaint(el, "stroke", stroke);
   });
   svg.querySelectorAll("style").forEach((styleEl) => styleEl.remove());
   const taken = takenRegionIDs(svg);
