@@ -181,6 +181,15 @@ func (s *Service) Outputs(
 	return byOutput, nil
 }
 
+// Written returns the key of each channel that a calculation writes, as snap sees them.
+// It reads the output index and decodes no calculation.
+func (s *Service) Written(
+	ctx context.Context,
+	snap gorp.Snapshot,
+) (channel.Keys, error) {
+	return s.indexes.output.Held(ctx, snap)
+}
+
 // Channels returns the resource of each channel that c links, in the order of its
 // fields.
 func (s *Service) Channels(c Calculation) []resource.ID {

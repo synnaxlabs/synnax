@@ -250,6 +250,39 @@ var _ = Describe("Multi", func() {
 		})
 	})
 
+	Describe("Values", func() {
+		It("Should return the values that some key holds", func() {
+			Expect(m.Values(nil)).To(ConsistOf("a", "b"))
+		})
+
+		It("Should show staged changes only to their scope", func() {
+			m.Stage(txn, 1, []string{"c"})
+			Expect(m.Values(txn)).To(ConsistOf("b", "c"))
+			m.StageDelete(txn, 2)
+			Expect(m.Values(txn)).To(ConsistOf("c"))
+			Expect(m.Values(nil)).To(ConsistOf("a", "b"))
+		})
+
+		It("Should keep a value that a staged key holds again", func() {
+			m.Stage(txn, 1, []string{"a"})
+			Expect(m.Values(txn)).To(ConsistOf("a", "b"))
+		})
+
+		It("Should return the values of a scope in its commit", func() {
+			m.Stage(txn, 3, []string{"c"})
+			Expect(m.CommittingValues()).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingValues()).To(ConsistOf("c"))
+		})
+
+		It("Should return the load error", func() {
+			failed := index.NewMulti[*scope, int, string]()
+			_, finish := failed.Populate()
+			finish(errLoad)
+			Expect(failed.Values(nil)).Error().To(MatchError(errLoad))
+		})
+	})
+
 	Describe("HeldValues", func() {
 		all := func(int) bool { return true }
 

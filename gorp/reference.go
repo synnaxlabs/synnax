@@ -542,6 +542,39 @@ func (r *reference[K, E, T]) Referenced(
 	return held, nil
 }
 
+// Held returns each target that at least one entry holds. It sees the changes staged
+// against snap, and like Get, it counts the entries of a commit in flight, which can
+// fail. It waits for the index to populate, or for ctx to end, and scans the table when
+// the index failed to populate.
+func (r *reference[K, E, T]) Held(ctx context.Context, snap Snapshot) ([]T, error) {
+	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+		return r.scanHeld(ctx, snap)
+	} else if err != nil {
+		return nil, err
+	}
+	// A scope leaves the overlay only after its flush, so reading the commits in
+	// flight first misses no target.
+	committing := r.store.CommittingValues()
+	held, err := r.store.Values(scopeOf(snap))
+	if err != nil || len(committing) == 0 {
+		return held, err
+	}
+	return set.New(append(held, committing...)...).Slice(), nil
+}
+
+// scanHeld is Held for an index that failed to populate.
+func (r *reference[K, E, T]) scanHeld(ctx context.Context, snap Snapshot) ([]T, error) {
+	var entries []E
+	if err := NewRetrieve[K, E]().Entries(&entries).Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	held := make(set.Set[T])
+	for i := range entries {
+		held.Add(r.targetsOf(&entries[i])...)
+	}
+	return held.Slice(), nil
+}
+
 // scanReferenced is Referenced for an index that failed to populate.
 func (r *reference[K, E, T]) scanReferenced(
 	ctx context.Context,
