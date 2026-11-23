@@ -167,9 +167,9 @@ func overlap(a, b string) string {
 		return ""
 	case slices.Equal(pa, pb):
 		return "the same value as"
-	case len(pb) > len(pa) && slices.Equal(pb[:len(pa)], pa):
+	case pb.HasPrefix(pa):
 		return "a value inside"
-	case len(pa) > len(pb) && slices.Equal(pa[:len(pb)], pb):
+	case pa.HasPrefix(pb):
 		return "a value that holds"
 	}
 	return ""
