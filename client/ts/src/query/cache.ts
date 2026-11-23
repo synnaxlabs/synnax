@@ -21,7 +21,7 @@ import type z from "zod";
 import { AccessDeniedError } from "@/errors";
 import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
-import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
+import { list } from "@/query/list";
 import { isOffline } from "@/query/offline";
 import { space } from "@/query/space";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
@@ -275,14 +275,14 @@ export class Cache {
    * answer space.
    */
   lists<
-    Q extends ListQuery<O, C> & { readonly [key: string]: Params },
+    Q extends list.Query<O, C> & { readonly [key: string]: Params },
     D extends Data,
     K extends record.Key,
     V extends Keyed<K>,
     C,
     O,
-  >(config: ListsConfig<Q, D, K, V, C, O>): Lists<Q, D, K, V, C, O> {
-    const lists = new Lists(config, this.spaceHooks());
+  >(config: list.Config<Q, D, K, V, C, O>): list.Lists<Q, D, K, V, C, O> {
+    const lists = new list.Lists(config, this.spaceHooks());
     this.spaces.push(lists);
     return lists;
   }
