@@ -283,8 +283,7 @@ TextEncoder::Field::append(const x::telem::SampleValue &v, std::string &out) con
             x::errors::VALIDATION,
             x::json::Number(d).to_string() + " is not finite"
         );
-    if (this->number == Number::FLOAT32 &&
-        std::abs(d) <= std::numeric_limits<float>::max())
+    if (this->number == Number::FLOAT32 && !this->scaled)
         append_number(static_cast<float>(d), out);
     else
         append_number(d, out);
