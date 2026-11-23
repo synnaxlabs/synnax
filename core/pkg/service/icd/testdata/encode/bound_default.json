@@ -1,0 +1,56 @@
+{
+  "description": "A bound field writes its default when its sample is missing.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "mode",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/mode",
+          "type": "string",
+          "default": "auto"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "temp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "string"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [null, 20],
+      "document": {
+        "mode": "auto",
+        "temp": 20
+      }
+    },
+    {
+      "samples": ["manual", 20],
+      "document": {
+        "mode": "manual",
+        "temp": 20
+      }
+    }
+  ]
+}

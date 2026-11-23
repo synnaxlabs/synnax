@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -178,11 +179,16 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 	return c.Authorities[i]
 }
 
-// NewStreamWriter implements DB.
+// NewStreamWriter opens a segment that writes to the DB, as OpenWriter does. A failed
+// write or commit sends a WriterResponse with a false Ack, and every later write fails
+// until a WriterRequest with the WriterError command clears the error. Writes are
+// committed only by a WriterCommit request. Close the inlet to close the segment: it
+// serves the requests in progress without a commit, closes its outlet, and returns
+// any error through the context passed to Flow.
 func (db *DB) NewStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
-) (StreamWriter, error) {
+) (confluence.Segment[WriterRequest, WriterResponse], error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}

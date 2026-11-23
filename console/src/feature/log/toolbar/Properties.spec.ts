@@ -12,13 +12,14 @@ import { RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Properties } from "@/feature/log/toolbar/Properties";
+import { Toolbar } from "@/feature/log/toolbar";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
 const roles = new RoleClients(client);
 
 const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) => {
-  const { key, result } = await renderLog(Properties, { log: overrides, as });
+  const { key, result } = await renderLog(Toolbar, { log: overrides, as });
+  fireEvent.click(await screen.findByText("Properties"));
   const checkboxes = () =>
     result.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
   // The switches render in document order: index 0 is Show Receipt Timestamp, the last
@@ -33,7 +34,7 @@ const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) =
 const isUTCDisabled = () =>
   screen.getByText("UTC").closest("button")?.getAttribute("aria-disabled") === "true";
 
-describe("log/toolbar/Properties", () => {
+describe("Log toolbar properties tab", () => {
   it("renders the property controls", async () => {
     await renderProperties();
     expect(await screen.findByText("Show channel names")).toBeDefined();
@@ -87,7 +88,7 @@ describe("log/toolbar/Properties", () => {
   });
 });
 
-describe("log/toolbar/Properties time zone", () => {
+describe("Log toolbar properties tab time zone", () => {
   it("sets the log's time zone through the server", async () => {
     const { key, showTimestamps } = await renderProperties();
     await waitFor(() => expect(showTimestamps().disabled).toBe(false));
@@ -107,7 +108,7 @@ describe("log/toolbar/Properties time zone", () => {
   });
 });
 
-describe("log/toolbar/Properties permissions", () => {
+describe("Log toolbar properties tab permissions", () => {
   it("should freeze every control for a viewer", async () => {
     const { showChannelNames, showTimestamps } = await renderProperties(
       {},

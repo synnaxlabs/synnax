@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();

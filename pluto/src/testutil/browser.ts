@@ -24,6 +24,13 @@ failOnConsoleOutput({
 });
 setupBrowser();
 
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    /** Turns the operating system's Reduce motion setting on or off for the page. */
+    emulateReducedMotion: (reduced: boolean) => Promise<void>;
+  }
+}
+
 // Testing Library unmounts each spec in an afterEach hook, which must run before the
 // pointer reset of setupBrowser. Hooks run last-in first-out, so it loads after.
 const { configure } = await import("@testing-library/react");

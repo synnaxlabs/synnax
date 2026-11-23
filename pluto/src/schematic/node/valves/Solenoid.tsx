@@ -9,6 +9,7 @@
 
 import "@/schematic/node/valves/Solenoid.css";
 
+import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -21,16 +22,25 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {
   normallyOpen?: boolean;
 }
 
-const SPEC = Custom.createBuiltIn({
+const HANDLES: schematic.symbol.Handle[] = [
+  { key: "1", position: { x: 0.022989, y: 0.695652 }, orientation: "left" },
+  { key: "2", position: { x: 0.977011, y: 0.695652 }, orientation: "right" },
+  { key: "3", position: { x: 0.333333, y: 0.177778 }, orientation: "left" },
+  { key: "4", position: { x: 0.5, y: 0.028986 }, orientation: "top" },
+  { key: "5", position: { x: 0.666667, y: 0.177778 }, orientation: "right" },
+];
+
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   variant: "actuator",
   svg,
-  handles: [
-    { key: "1", position: { x: 0.022989, y: 0.695652 }, orientation: "left" },
-    { key: "2", position: { x: 0.977011, y: 0.695652 }, orientation: "right" },
-    { key: "3", position: { x: 0.333333, y: 0.177778 }, orientation: "left" },
-    { key: "4", position: { x: 0.5, y: 0.028986 }, orientation: "top" },
-    { key: "5", position: { x: 0.666667, y: 0.177778 }, orientation: "right" },
-  ],
+  handles: HANDLES,
+});
+
+/** NORMALLY_OPEN_SYMBOL is the solenoid valve that is open at rest. */
+export const NORMALLY_OPEN_SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: HANDLES,
 });
 
 export const Solenoid = ({
@@ -51,7 +61,7 @@ export const Solenoid = ({
     {...rest}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

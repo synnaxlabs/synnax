@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -27,7 +27,6 @@ const dotColor = (element: Element | null): string | null | undefined =>
 describe("Label.SelectMultiple", () => {
   it("should paint its tags and options in the named color of the label", async () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const named = await client.colors.create({
       name: `select-${id.create()}`,
       light: "#123456",
@@ -56,7 +55,6 @@ describe("Label.SelectMultiple", () => {
 describe("Label.SelectSingle", () => {
   it("should edit the label of an option from its context menu", async () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const lbl = await client.labels.create({
       name: `edit-${id.create()}`,
       color: { type: "fixed", value: "#123456" },

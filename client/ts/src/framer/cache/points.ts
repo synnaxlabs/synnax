@@ -28,18 +28,7 @@ import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
 import type { ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawTile } from "@/framer/cache/block";
-import {
-  choose,
-  cover,
-  level as tileLevel,
-  pointLimit as tilePointLimit,
-  type Position,
-  positionKey,
-  tileAt,
-  tileRange,
-  tiles,
-  tileSpan,
-} from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import type { Joins } from "@/framer/cache/join";
 import type { Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
@@ -99,7 +88,7 @@ interface Live {
 
 // Returns the start of the tile of the level after the one that holds ts.
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
-  tileRange({ level, tile: tileAt(ts, level) + 1 }).start.valueOf();
+  grid.tileRange({ level, tile: grid.tileAt(ts, level) + 1 }).start.valueOf();
 
 // slideKey returns the parts of a limit that a slide keeps. Two limits with equal keys
 // differ only in their view and bound, which move a subscription inside its tiles.
@@ -178,7 +167,7 @@ export class Points {
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch != null && ch !== this.key) return;
       this.held.forEach((h) => {
-        if (tileRange(h.spec).overlapsWith(tr)) h.stale = true;
+        if (grid.tileRange(h.spec).overlapsWith(tr)) h.stale = true;
       });
       if (this.streaming && this.index != null) void this.readStored();
       this.changed();
@@ -329,7 +318,7 @@ export class Points {
       return home.end.after(committed) && end < until ? end : until;
     }
     const span = home.span.valueOf();
-    const start = nextEdge(home.start, tileLevel(home)) + span;
+    const start = nextEdge(home.start, grid.level(home)) + span;
     if (start < until) until = start;
     // A window drops its first raw series once the window starts after it.
     const first = this.raw[0]?.timeRange.end.valueOf();
@@ -494,13 +483,13 @@ export class Points {
     const committed = this.props.now().sub(COMMIT_MARGIN);
     if (!this.dynamic && !home.end.after(committed)) return home.end;
     const floor = this.floor()?.start ?? TimeStamp.MIN;
-    const level = tileLevel(home);
+    const level = grid.level(home);
     if (this.dynamic && level <= RAW_LEVEL)
       return TimeStamp.max(
-        tileRange({ level, tile: tileAt(home.start, level) }).start,
+        grid.tileRange({ level, tile: grid.tileAt(home.start, level) }).start,
         floor,
       );
-    const edge = tileRange({ level: RAW_LEVEL, tile: rawTile(committed) }).start;
+    const edge = grid.tileRange({ level: RAW_LEVEL, tile: rawTile(committed) }).start;
     return TimeStamp.max(home.start, edge, floor);
   }
 
@@ -517,7 +506,7 @@ export class Points {
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
   // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const floor = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
+    const floor = this.rawFrom(home).sub(grid.tileSpan(RAW_LEVEL));
     this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
@@ -532,7 +521,7 @@ export class Points {
   private tilesEnd(boundary: TimeStamp): TimeStamp {
     // A raw series ends within its block, though an open one's range ends at MAX.
     const first = this.raw.find((s) => {
-      const { end } = tileRange({
+      const { end } = grid.tileRange({
         level: RAW_LEVEL,
         tile: rawTile(s.timeRange.start),
       });
@@ -564,20 +553,21 @@ export class Points {
       TimeStamp.min(view.end, end ?? view.end, bound?.end ?? view.end),
     );
     if (!tiled.start.before(tiled.end)) return [];
-    const level = tileLevel(view);
+    const level = grid.level(view);
     const floor = this.streaming ? RAW_LEVEL : level;
-    return tiles(tiled, level)
+    return grid
+      .tiles(tiled, level)
       .flatMap((tile) =>
-        end == null ? [{ level, tile }] : cover({ level, tile }, end, floor),
+        end == null ? [{ level, tile }] : grid.cover({ level, tile }, end, floor),
       )
-      .filter((p) => start == null || tileRange(p).end.after(start))
+      .filter((p) => start == null || grid.tileRange(p).end.after(start))
       .map((p) => {
         const tile =
-          start != null && tileRange(p).start.before(start) ? { ...p, start } : p;
+          start != null && grid.tileRange(p).start.before(start) ? { ...p, start } : p;
         return {
           ...tile,
           key: this.key,
-          pointLimit: tilePointLimit({
+          pointLimit: grid.pointLimit({
             tile,
             view,
             points: this.limit.count,
@@ -614,12 +604,12 @@ export class Points {
   // Returns the held tile at the position: the target, then one of the aggregation,
   // then one of another.
   private find(
-    p: Position,
+    p: grid.Position,
     preferred: Map<string, string>,
     aggregation: Aggregation,
     tiles: Iterable<Held> = this.held.values(),
   ): Held | undefined {
-    const want = preferred.get(positionKey(p));
+    const want = preferred.get(grid.positionKey(p));
     if (want != null) {
       const exact = this.held.get(want);
       if (exact != null) return exact;
@@ -636,17 +626,21 @@ export class Points {
   // Chooses the held tiles that draw the targets, standing in for the missing ones.
   private select(targets: TileSpec[], home: TimeRange): Held[] {
     if (targets.length === 0) return [];
-    const preferred = new Map(targets.map((t) => [positionKey(t), tileRequestKey(t)]));
+    const preferred = new Map(
+      targets.map((t) => [grid.positionKey(t), tileRequestKey(t)]),
+    );
     // A held tile that reaches past tilesEnd covers raw samples the window still draws.
     const raw = this.rawRange(home);
     const end = raw.start.before(raw.end) ? this.tilesEnd(this.boundary) : null;
     const drawable = [...this.held.values()].filter(
-      ({ spec }) => end == null || !tileRange(spec).end.after(end),
+      ({ spec }) => end == null || !grid.tileRange(spec).end.after(end),
     );
-    return choose(
-      targets,
-      drawable.map((t) => t.spec),
-    ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
+    return grid
+      .choose(
+        targets,
+        drawable.map((t) => t.spec),
+      )
+      .map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
   }
 
   // Releases the tiles the window no longer draws. The tiles of the window keep, and so
@@ -670,7 +664,9 @@ export class Points {
   // Returns the keys of the window's tiles and of the held tiles standing in for them.
   private homeKeys(home: TimeRange, extremesKept: boolean): string[] {
     const targets = this.targets(home, home, extremesKept);
-    const preferred = new Map(targets.map((t) => [positionKey(t), tileRequestKey(t)]));
+    const preferred = new Map(
+      targets.map((t) => [grid.positionKey(t), tileRequestKey(t)]),
+    );
     return [
       ...preferred.values(),
       ...targets.flatMap((t) => {

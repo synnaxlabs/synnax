@@ -33,7 +33,6 @@ import {
   set,
 } from "@/ranger/actions.gen";
 import { kv } from "@/ranger/kv";
-import { Client as KVClient } from "@/ranger/kv/client";
 import type { Name, Params } from "@/ranger/payload";
 import {
   type Key,
@@ -99,7 +98,7 @@ const createTables = (
 
 interface RangeConstructionOptions {
   frameClient: framer.Client;
-  kv: KVClient;
+  kv: kv.Client;
   labelClient: label.Client;
   rangeClient: Client;
 }
@@ -111,7 +110,7 @@ interface RangeConstructionOptions {
 export class Range {
   key: string;
   name: string;
-  readonly kv: KVClient;
+  readonly kv: kv.Client;
   readonly timeRange: TimeRange;
   readonly color?: color.Ref;
   /** The key of the range this range is nested in. */
@@ -489,8 +488,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  private createKVClient(key: Key): KVClient {
-    return new KVClient(key, this.cfg.unary, this.kvPairs);
+  private createKVClient(key: Key): kv.Client {
+    return new kv.Client(key, this.cfg.unary, this.kvPairs);
   }
 
   private async fetchSingle(key: Key): Promise<Range> {
@@ -520,7 +519,7 @@ export class Client extends query.Retriever<
     return result;
   }
 
-  getKV(range: Key): KVClient {
+  getKV(range: Key): kv.Client {
     return this.createKVClient(range);
   }
 

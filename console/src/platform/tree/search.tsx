@@ -26,7 +26,7 @@ import {
 
 import { CSS } from "@/platform/css";
 import { Toolbar } from "@/platform/toolbar";
-import type { Results } from "@/platform/tree/store";
+import type { Store } from "@/platform/tree/store";
 import type { Resource } from "@/platform/tree/types";
 
 /** How a search shows its matches: in one list, or inside their groups. */
@@ -110,7 +110,7 @@ export interface CreateSearchParams {
 /** What shows in place of the tree while a search has a term. */
 export type SearchAnswer =
   | { variant: "error"; description?: string }
-  | { variant: "success"; results: Results; match: Match; more: boolean };
+  | { variant: "success"; results: Store.Results; match: Match; more: boolean };
 
 /** The state of the search of one tree. */
 export interface Search {

@@ -347,6 +347,9 @@ public:
     // Counts how many times the pipeline reported an open streamer.
     std::atomic<int> opens{0};
 
+    // Counts how many times the pipeline reported missed commands.
+    std::atomic<int> misses{0};
+
     Sink():
         writes(std::make_shared<x::sync::List<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
@@ -356,6 +359,8 @@ public:
         const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}
+
+    void missed() override { ++this->misses; }
 
     x::errors::Error write(x::telem::Frame &frame) override {
         if (frame.empty()) return x::errors::NIL;

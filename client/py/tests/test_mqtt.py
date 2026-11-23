@@ -198,12 +198,22 @@ class TestMQTTWriteTask:
 
     def test_plain_target_defaults(self) -> None:
         """Should default a target to at-least-once delivery and no retain flag."""
-        target = sy.mqtt.PlainWriteTarget(topic="plant/valve/set")
+        target = sy.mqtt.PlainWriteTarget(
+            topic="plant/valve/set",
+            icd=uuid4(),
+            message=sy.icd.WriteMessage(message=uuid4()),
+        )
         assert target.type == "plain"
         assert target.qos == "at_least_once"
         assert target.retained is False
-        assert target.channel.json_type == "number"
-        assert target.fields == []
+        assert target.message.bindings == []
+
+    def test_reject_plain_target_without_message(self) -> None:
+        """Should require the ICD message that a plain target publishes."""
+        with pytest.raises(ValidationError, match="message"):
+            sy.mqtt.PlainWriteTarget.model_validate(
+                {"topic": "plant/valve/set", "icd": str(uuid4())}
+            )
 
     def test_parse_sparkplug_target(self) -> None:
         """Should select the Sparkplug variant from the type field."""
@@ -234,28 +244,35 @@ class TestMQTTWriteTask:
         target = sy.mqtt.SparkplugWriteTarget(group="Plant", edge_node="Line7")
         assert target.tag_type == "double"
 
-    def test_parse_static_and_generated_fields(self) -> None:
-        """Should select the field variant from the type field."""
+    def test_parse_plain_target(self) -> None:
+        """Should parse the message and each kind of binding of a plain target."""
+        icd_key, message_key = uuid4(), uuid4()
+        speed_key, unit_key = uuid4(), uuid4()
         target = sy.mqtt.PlainWriteTarget.model_validate(
             {
                 "topic": "plant/pump/set",
-                "channel": {"channel": 7, "pointer": "/rpm"},
-                "fields": [
-                    {
-                        "type": "static",
-                        "pointer": "/unit",
-                        "json_type": "string",
-                        "value": "rpm",
-                    },
-                    {"type": "generated", "pointer": "/id", "generator": "uuid"},
-                ],
+                "icd": str(icd_key),
+                "message": {
+                    "message": str(message_key),
+                    "bindings": [
+                        {"type": "channel", "field": str(speed_key), "channel": 7},
+                        {
+                            "type": "value",
+                            "field": str(unit_key),
+                            "value": {"type": "string", "value": "rpm"},
+                        },
+                    ],
+                },
             }
         )
-        static, generated = target.fields
-        assert isinstance(static, sy.mqtt.StaticWriteField)
-        assert static.value == "rpm"
-        assert isinstance(generated, sy.mqtt.GeneratedWriteField)
-        assert generated.generator == "uuid"
+        assert target.icd == icd_key
+        assert target.message.message == message_key
+        assert target.message.bindings == [
+            sy.icd.ChannelWriteBinding(field=speed_key, channel=7),
+            sy.icd.ValueWriteBinding(
+                field=unit_key, value=sy.icd.StringWriteValue(value="rpm")
+            ),
+        ]
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
@@ -266,14 +283,28 @@ class TestMQTTWriteTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Should store a write config that the task class parses again."""
+        state = sy.icd.BooleanJSONField(name="state", pointer="/state")
+        source = sy.icd.StringJSONField(name="source", pointer="/source")
+        message = sy.icd.Message(
+            name="Valve", payload=sy.icd.JSONPayload(fields=[state, source])
+        )
+        ic = client.icds.create(name="Valve", messages=[message])
         task = sy.mqtt.WriteTask(
             device="some-broker",
             targets=[
                 sy.mqtt.PlainWriteTarget(
                     topic="plant/valve/set",
                     retained=True,
-                    channel=sy.mqtt.ChannelField(
-                        channel=4321, pointer="/state", json_type="boolean"
+                    icd=ic.key,
+                    message=sy.icd.WriteMessage(
+                        message=message.key,
+                        bindings=[
+                            sy.icd.ChannelWriteBinding(field=state.key, channel=4321),
+                            sy.icd.ValueWriteBinding(
+                                field=source.key,
+                                value=sy.icd.StringWriteValue(value="synnax"),
+                            ),
+                        ],
                     ),
                 )
             ],
@@ -287,7 +318,13 @@ class TestMQTTWriteTask:
         target = sy.mqtt.WriteTask(created).config.targets[0]
         assert isinstance(target, sy.mqtt.PlainWriteTarget)
         assert target.retained is True
-        assert target.channel.json_type == "boolean"
+        assert target.icd == ic.key
+        sent = task.config.targets[0]
+        assert isinstance(sent, sy.mqtt.PlainWriteTarget)
+        assert target.message == sent.message
+        fixed = target.message.bindings[1]
+        assert isinstance(fixed, sy.icd.ValueWriteBinding)
+        assert fixed.value == sy.icd.StringWriteValue(value="synnax")
 
 
 @pytest.mark.mqtt
@@ -455,13 +492,24 @@ class TestMQTTTaskRack:
             virtual=True,
             retrieve_if_name_exists=True,
         )
+        value = sy.icd.FloatJSONField(name="v", pointer="/v")
+        message = sy.icd.Message(
+            name="Setpoint", payload=sy.icd.JSONPayload(fields=[value])
+        )
+        ic = client.icds.create(name="Rack Test", messages=[message])
         task = sy.mqtt.WriteTask(
             device=dev.key,
             name="mqtt-rack-test",
             targets=[
                 sy.mqtt.PlainWriteTarget(
                     topic="plant/rack/set",
-                    channel=sy.mqtt.ChannelField(channel=ch.key, pointer="/v"),
+                    icd=ic.key,
+                    message=sy.icd.WriteMessage(
+                        message=message.key,
+                        bindings=[
+                            sy.icd.ChannelWriteBinding(field=value.key, channel=ch.key)
+                        ],
+                    ),
                 )
             ],
         )

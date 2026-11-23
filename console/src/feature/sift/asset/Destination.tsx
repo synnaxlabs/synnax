@@ -20,7 +20,7 @@ import { type deep, unique } from "@synnaxlabs/x";
 import { type RefObject, useRef, useState } from "react";
 
 import { list, type ListResult } from "@/feature/sift/asset/list";
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
+import { Device } from "@/feature/sift/device";
 import { Modals } from "@/platform/modals";
 
 export interface DestinationProps extends Omit<
@@ -41,7 +41,7 @@ export const Destination = ({ devicePath, ...rest }: DestinationProps) => {
   const picked = useRef(false);
   return (
     <>
-      <SelectDevice
+      <Device.Select
         onChange={(_, { set }) => {
           picked.current = true;
           set(rest.path, "");

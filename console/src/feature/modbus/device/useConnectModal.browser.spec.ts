@@ -75,7 +75,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -206,7 +206,7 @@ describe("Modbus.Device.useConnectModal", () => {
       const rack = await createRunningRack(client, "modbus");
       const scan = await rack.createTask({
         name: uniqueName("modbus_scan"),
-        type: Modbus.Task.SCAN_TYPE,
+        type: Modbus.Device.SCAN_TYPE,
         config: {},
       });
       const { result } = await renderModalOpener(
@@ -231,7 +231,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -272,7 +272,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -295,7 +295,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -319,7 +319,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
@@ -344,7 +344,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
-      type: Modbus.Task.SCAN_TYPE,
+      type: Modbus.Device.SCAN_TYPE,
       config: {},
     });
     await renderModalOpener(Modbus.Device.useConnectModal, [{ rack: rack.key }], {

@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { control } from "@/telem/control/aether";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 
 describe("Indicator", () => {
   let teardown: (() => void) | null = null;
