@@ -511,19 +511,16 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("hides Node color on a static symbol while symbol nodes are off", async () => {
       mocks.symbolNodes = false;
-      const { fill } = await openPainted({});
-      fireEvent.click(fill);
+      await openPainted({});
+      fireEvent.click(screen.getByLabelText("Fill"));
       await screen.findByText("Contrast");
       expect(screen.queryByText("Node color")).toBeNull();
     });
 
     it("offers Node color on an actuator while symbol nodes are off", async () => {
       mocks.symbolNodes = false;
-      const { fill } = await openPainted({
-        variant: "actuator",
-        states: [createState()],
-      });
-      fireEvent.click(fill);
+      await openPainted({ variant: "actuator", states: [createState()] });
+      fireEvent.click(screen.getByLabelText("Fill"));
       expect(await screen.findByText("Node color")).toBeDefined();
     });
 
