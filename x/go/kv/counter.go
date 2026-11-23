@@ -25,8 +25,7 @@ import (
 type AtomicInt64Counter struct {
 	db  Writer
 	key []byte
-	// mu orders the writes of concurrent adds, so storage holds the value of the last
-	// add that succeeded.
+	// mu serializes Add so that values persist in increment order.
 	mu    sync.Mutex
 	value atomic.Int64
 }
@@ -56,16 +55,17 @@ func NewCounter(
 func (c *AtomicInt64Counter) Value() int64 { return c.value.Load() }
 
 // Add increments the counter by the given delta. Returns the new counter value as well
-// as any errors encountered while flushing the counter to storage. Concurrent adds
-// write to storage in the order of their values.
+// as any errors encountered while flushing the counter to storage. The counter does
+// not change if the flush fails.
 func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	next := c.value.Add(delta)
+	next := c.value.Load() + delta
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(next))
 	if err := c.db.Set(ctx, c.key, buf[:]); err != nil {
 		return 0, err
 	}
+	c.value.Store(next)
 	return next, nil
 }

@@ -174,7 +174,7 @@ func (s *Service) Export(
 	if err != nil {
 		return nil, err
 	}
-	files, members, err := s.bundle.Export(ctx, snap, req.Key, encoder)
+	files, members, err := s.bundle.Export(ctx, snap, req.Key, encoder, snap.Allowed)
 	if err != nil {
 		return nil, err
 	}

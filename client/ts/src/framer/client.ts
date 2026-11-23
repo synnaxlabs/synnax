@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type FileTransport,
-  type UnaryClient,
-  type WebSocketClient,
+import type {
+  FileTransport,
+  UnaryClient,
+  WebSocketClient,
 } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
@@ -22,12 +22,13 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadFileOptions, type ReadOptions } from "@/framer/reader";
+import { recordColumn } from "@/framer/record";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { resource } from "@/resource";
@@ -161,7 +162,8 @@ export class Client {
       const data_ = channels as Record<channel.Key | channel.Name, CrudeSeries>;
       const w = await this.openWriter({
         start,
-        channels: Object.keys(data_),
+        channels: Object.keys(data_).map(recordColumn) as
+          channel.Key[] | channel.Name[],
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
         autoIndexPersistInterval: TimeSpan.MAX,
@@ -187,25 +189,26 @@ export class Client {
    * @throws {NotFoundError} if a channel does not exist.
    */
   async read(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channel: channel.Key | channel.Name,
     opts?: ReadOptions,
   ): Promise<MultiSeries>;
   async read(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts?: ReadOptions,
   ): Promise<Frame>;
   /**
    * Reads every sample the given channels hold within the time range.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The
+   * samples of every range arrive in time order.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadOptions}.
    * @returns a MultiSeries when a single channel is given, a Frame otherwise.
    */
   async read(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts?: ReadOptions,
   ): Promise<MultiSeries | Frame> {
@@ -219,7 +222,8 @@ export class Client {
    * Reads every sample the given channels hold within the time range as CSV text. The
    * Core writes the CSV, so the caller never holds the whole export in memory.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The CSV
+   * has one header, then the rows of every range in time order.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadFileOptions}.
    * @returns the CSV as a stream of bytes.
@@ -228,7 +232,7 @@ export class Client {
    * @throws {ValidationError} if a channel has no index channel.
    */
   async readCSV(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts?: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
@@ -240,7 +244,8 @@ export class Client {
    * file. The Core writes the file, so the caller never holds the whole export in
    * memory.
    *
-   * @param tr - the time range to read.
+   * @param tr - the time range to read, or a list of time ranges in any order. The file
+   * holds the samples of every range in time order.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadFileOptions}.
    * @returns the TDMS file as a stream of bytes.
@@ -249,7 +254,7 @@ export class Client {
    * @throws {ValidationError} if a channel has no index channel.
    */
   async readTDMS(
-    tr: CrudeTimeRange,
+    tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts?: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {

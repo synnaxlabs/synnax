@@ -11,7 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
 import { type Field, sameAddress } from "@/feature/ethercat/device/settings";
-import { type SlaveProperties } from "@/feature/ethercat/device/types";
+import type { SlaveProperties } from "@/feature/ethercat/device/types";
 
 /** The type of a command on an object that the catalog does not describe. */
 const UNSIGNED: Record<number, DataType> = {

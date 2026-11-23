@@ -8,10 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SEO } from "astro-seo";
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import geistMonoLatin from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2?url";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
+import Head from "@synnaxlabs/site-common/Head.astro";
 import Header from "@/components/Header.astro";
 import "@/styles/main.css";
 
@@ -19,7 +19,6 @@ const title = "Foundation | Synnax";
 const description =
     "The industrial data and supervisory control plane. Bridge distributed physical infrastructure with high-level software.";
 const canonical = new URL("/", Astro.site).href;
-const image = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
 const columns = [
     {
         title: "Foundation",
@@ -47,8 +46,12 @@ const columns = [
 <!doctype html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <Head
+            title={title}
+            description={description}
+            canonical={canonical}
+            siteName="Foundation by Synnax"
+        />
         <meta name="theme-color" content="#040506" />
         <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
         <link
@@ -58,19 +61,6 @@ const columns = [
             type="font/woff2"
             crossorigin
         />
-        <SEO
-            title={title}
-            description={description}
-            canonical={canonical}
-            openGraph={{
-                basic: { title, type: "website", image, url: canonical },
-                optional: { description, siteName: "Foundation by Synnax" },
-                image: { alt: "Synnax" },
-            }}
-            twitter={{ card: "summary_large_image", title, description, image }}
-        />
-        <link rel="icon" href="/favicon.ico" sizes="48x48" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     </head>
     <body class="foundation-page">
         <a class="skip-link" href="#main">

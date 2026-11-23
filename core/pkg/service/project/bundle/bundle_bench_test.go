@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -31,7 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -246,8 +247,10 @@ func benchLog(proj project.Key, n int, take func() channel.Key) log.Log {
 	l := defaults.Fill(log.Log{Name: fmt.Sprintf("log_%d", n), Project: &proj})
 	for range 20 {
 		l.Channels = append(l.Channels, defaults.Fill(log.ChannelEntry{
-			Channel:  take(),
-			Color:    new(MustSucceed(color.Parse("#ff0000"))),
+			Channel: take(),
+			Color: &color.Ref{
+				Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse("#ff0000"))},
+			},
 			Notation: notation.NotationStandard,
 		}))
 	}
@@ -283,7 +286,9 @@ func BenchmarkExport(b *testing.B) {
 	w := openBenchWorkspace(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		MustSucceed2(w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec))
+		MustSucceed2(
+			w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec, readAll),
+		)
 	}
 }
 
@@ -291,7 +296,9 @@ func BenchmarkExport(b *testing.B) {
 // back, so the Core keeps one copy.
 func BenchmarkImport(b *testing.B) {
 	w := openBenchWorkspace(b)
-	files, _ := MustSucceed2(w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec))
+	files, _ := MustSucceed2(
+		w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec, readAll),
+	)
 	// An imported Arc takes its file's name, which the original holds.
 	gomega.Expect(w.db.WithTx(w.ctx, func(tx gorp.Tx) error {
 		return w.layer.Arc.NewWriter(tx).Delete(w.ctx, w.arcs...)

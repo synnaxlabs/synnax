@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   AbstractSink,
   AbstractSource,
@@ -104,11 +104,11 @@ export class SourcePipeline<V>
     return this.outlet.value(props);
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     return this.outlet.onChange(handler);
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     Object.values(this.sources).forEach((source) => source.cleanup?.());
   }
 }
@@ -171,7 +171,7 @@ export class SinkPipeline<V>
     return this.inlet.set(...values);
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     Object.values(this.sinks).forEach((sink) => sink.cleanup?.());
   }
 }

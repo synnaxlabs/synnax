@@ -188,5 +188,9 @@ func (s *Service) DeleteTimeRange(
 	return s.deleter.DeleteTimeRange(ctx, keys, tr)
 }
 
+// StreamerBufferSize returns the most frames that the relay holds for each streamer
+// before it drops them.
+func (s *Service) StreamerBufferSize() int { return s.relay.StreamerBufferSize() }
+
 // Close closes the Service.
 func (s *Service) Close() error { return s.closer.Close() }

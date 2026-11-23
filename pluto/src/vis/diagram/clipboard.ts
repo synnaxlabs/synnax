@@ -11,7 +11,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type record, strings, uuid, xy } from "@synnaxlabs/x";
 import { type ClipboardEvent, type RefObject, useRef } from "react";
 
-import { type ClipboardHandler } from "@/vis/diagram/Diagram";
+import type { ClipboardHandler } from "@/vis/diagram/Diagram";
 
 const VERSION = 2;
 

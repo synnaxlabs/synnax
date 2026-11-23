@@ -9,7 +9,7 @@
 
 import { group, type resource } from "@synnaxlabs/client";
 import { Group } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 import { Tree } from "@/platform/tree";
 

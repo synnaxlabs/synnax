@@ -1,0 +1,441 @@
+---
+title: "Read data"
+description:
+  "Read stored samples with the Python and TypeScript clients: a time range, the latest
+  samples, fewer samples, CSV and TDMS exports, and large time ranges with an iterator."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Read the samples that a Core stores. A read loads all of its samples into memory. For a
+time range that is too large for memory, use an [iterator](#read-large-time-ranges). To
+get samples as they arrive, [stream data](/reference/client/stream-data).
+
+<Divider.Divider x />
+
+## Read a time range
+
+Give `read` a time range and one or more channels. The time range includes its start and
+excludes its end, as [Time types](/reference/client/time-types#timerange) shows.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+from datetime import datetime, timezone
+
+import synnax as sy
+
+tr = sy.TimeRange(
+    datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc),
+    datetime(2026, 10, 3, 14, 0, tzinfo=timezone.utc),
+)
+
+# One channel gives a MultiSeries.
+temperature = client.read(tr, "temperature")
+print(temperature.to_numpy())
+
+# A list of channels gives a Frame.
+frame = client.read(tr, ["time", "temperature", "pressure"])
+# The columns are the channel names, in the order you request them. The index is the
+# UTC timestamps of "time", which is not a column.
+df = frame.to_df()
+```
+
+A channel that you retrieved also has `read`:
+
+```python
+channel = client.channels.retrieve("temperature")
+temperature = channel.read(tr)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeRange } from "@synnaxlabs/client";
+
+const tr = new TimeRange(
+  new Date("2026-10-03T12:00:00Z"),
+  new Date("2026-10-03T14:00:00Z"),
+);
+
+// One channel gives a MultiSeries.
+const temperature = await client.read(tr, "temperature");
+console.log(Array.from(temperature));
+
+// A list of channels gives a Frame.
+const frame = await client.read(tr, ["time", "temperature", "pressure"]);
+const pressure = frame.get("pressure");
+```
+
+A channel that you retrieved also has `read`:
+
+```typescript
+const channel = await client.channels.retrieve("temperature");
+const samples = await channel.read(tr);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A list of channels always gives a `Frame`, even a list of one channel. When a channel
+has no data in the time range, one channel gives an empty `MultiSeries`, and a list
+gives an empty series for that channel. In Python, a list also reads the index channel
+of each channel that you leave out, after the channels that you request, so `to_df` can
+index the rows by time. A `min_max` read does not. In Python, a frame that you read by
+key also finds a channel by its name. To work with the result, see
+[Series and frames](/reference/client/series-and-frames).
+
+<Divider.Divider x />
+
+## Read the latest samples
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# The last sample of one channel.
+last = client.read_latest("temperature")
+
+# The last 10 samples of each channel.
+frame = client.read_latest(["temperature", "pressure"], n=10)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// The last sample of one channel.
+const last = await client.readLatest("temperature", 1);
+
+// The last 10 samples of each channel.
+const frame = await client.readLatest(["temperature", "pressure"], 10);
+```
+
+To read the newest or oldest samples of a time range, give `latest` or `earliest` to
+`read`:
+
+```typescript
+const newest = await client.read(tr, ["time", "temperature"], { latest: 10 });
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+When a channel has fewer than `n` samples, the read returns the samples that exist.
+
+<Divider.Divider x />
+
+## Read fewer samples
+
+A reduction tells the Core to send fewer samples. Use one to load a long time range for
+a plot or a quick check.
+
+| Reduction | Keeps                                        | Accepted by                    |
+| --------- | -------------------------------------------- | ------------------------------ |
+| Stride    | Every `factor`-th sample of each channel.    | `read`, iterators, and exports |
+| Limit     | About `point_limit` points for each channel. | `read` and iterators           |
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Every 10th sample.
+frame = client.read(
+    tr, ["time", "temperature"], reduction=sy.StrideReduction(factor=10)
+)
+
+# About 2,000 points: the lowest and highest sample of each group.
+frame = client.read(
+    tr,
+    ["time", "temperature"],
+    reduction=sy.LimitReduction(aggregation="min_max", point_limit=2_000),
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Every 10th sample.
+const strided = await client.read(tr, ["time", "temperature"], {
+  reduction: { variant: "stride", factor: 10 },
+});
+
+// About 2,000 points: the lowest and highest sample of each group.
+const limited = await client.read(tr, ["time", "temperature"], {
+  reduction: { variant: "limit", aggregation: "min_max", pointLimit: 2_000 },
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A limit splits each channel into groups. The aggregation sets the points that each group
+gives:
+
+- `min_max` -> the lowest and highest sample, in the order they occurred. The Python
+  client uses it when you give no aggregation.
+- `average` -> the mean of the samples.
+- `decimate` -> the first sample.
+
+A limit does not reduce string, JSON, UUID, or bytes channels.
+
+<Divider.Divider x />
+
+## Export to CSV
+
+The Core writes the CSV file, so your code never holds the whole export in memory:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.read_csv(tr, ["temperature", "pressure"], dest="tank.csv")
+```
+
+The file name must end in `.csv`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+`readCSV` returns a stream of the CSV bytes:
+
+```typescript
+import { createWriteStream } from "node:fs";
+import { Writable } from "node:stream";
+
+const csv = await client.readCSV(tr, ["temperature", "pressure"]);
+await csv.pipeTo(Writable.toWeb(createWriteStream("tank.csv")));
+```
+
+To export only the newest or oldest rows of each index channel, give `latest` or
+`earliest` in the options, as in `client.readCSV(tr, channels, { latest: 100 })`.
+`readTDMS` takes the same options.
+
+  </Fragment>
+
+</Client.Tabs>
+
+The export adds the index channel of each channel that you give. The first line holds
+the channel names. Each index channel has a column, followed by a column for each
+channel that it timestamps. Each line holds the samples of one timestamp, in time order.
+A cell is empty where its channel has no sample at that timestamp. Lines end in `\n`.
+
+To export fewer samples, give a stride as the `reduction`. An export does not take a
+limit. A channel with no index channel, such as a virtual channel, makes the export
+fail.
+
+<Divider.Divider x />
+
+## Export to TDMS
+
+Export samples to an NI TDMS file:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.read_tdms(tr, ["temperature", "pressure"], dest="tank.tdms")
+```
+
+The file name must end in `.tdms`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { createWriteStream } from "node:fs";
+import { Writable } from "node:stream";
+
+const tdms = await client.readTDMS(tr, ["temperature", "pressure"]);
+await tdms.pipeTo(Writable.toWeb(createWriteStream("tank.tdms")));
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The file has a group for each index channel. The group holds the index channel, then the
+float channels that it timestamps. A float channel holds NaN where it has no sample, and
+NI tools read NaN as no value. Each channel of a different data type gets a group of its
+own, with the timestamps of its samples, then the samples. Reductions and channels with
+no index work as in a [CSV export](#export-to-csv).
+
+<Divider.Divider x />
+
+## Read large time ranges
+
+An iterator reads a time range in chunks, so your code holds one chunk in memory at a
+time:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_iterator(tr, ["time", "temperature"]) as iterator:
+    for frame in iterator:
+        print(len(frame["temperature"]))
+```
+
+The `with` block closes the iterator, also when the code raises an error.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await using iterator = await client.openIterator(tr, ["time", "temperature"]);
+for await (const frame of iterator) {
+  console.log(frame.get("temperature").length);
+}
+```
+
+`await using` closes the iterator when the block ends, also when the code throws an
+error. It needs Node.js 24, Chrome 134, Firefox 141, Safari 27.3, or later, unless your
+build tool compiles it to older JavaScript. Elsewhere, call `close` in a `finally`
+block.
+
+  </Fragment>
+
+</Client.Tabs>
+
+Each chunk holds up to 100,000 samples of each channel by default. Set the chunk size
+when you open the iterator:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator = client.open_iterator(tr, ["time", "temperature"], chunk_size=10_000)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(tr, ["time", "temperature"], {
+  chunkSize: 10_000,
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Move the iterator yourself
+
+A loop reads the time range from start to end. To move in other ways, call the methods
+below. Each returns false when no data is there. A seek only moves the iterator: call
+`next` or `prev` after it to read. They put the data that they read in `iterator.value`,
+a frame.
+
+| Python           | TypeScript      | Does                                                         |
+| ---------------- | --------------- | ------------------------------------------------------------ |
+| `seek_first()`   | `seekFirst()`   | Moves to the start of the time range's data. Reads nothing.  |
+| `seek_last()`    | `seekLast()`    | Moves to the end of the time range's data. Reads nothing.    |
+| `seek_ge(stamp)` | `seekGE(stamp)` | Moves to `stamp`, or the first data after it. Reads nothing. |
+| `seek_le(stamp)` | `seekLE(stamp)` | Moves to `stamp`, or the last data before it. Reads nothing. |
+| `next(span)`     | `next(span)`    | Reads forward by `span`.                                     |
+| `prev(span)`     | `prev(span)`    | Reads backward by `span`.                                    |
+| `valid()`        | `valid()`       | Returns true when `value` holds data.                        |
+
+With `sy.AUTO_SPAN` as the span, `next` and `prev` read one chunk. In TypeScript, the
+span is optional, and one chunk is the default.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_iterator(tr, ["time", "temperature"]) as iterator:
+    iterator.seek_first()
+    while iterator.next(sy.TimeSpan.MINUTE):
+        print(iterator.value["temperature"].to_numpy().mean())
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+await using iterator = await client.openIterator(tr, ["time", "temperature"]);
+await iterator.seekFirst();
+while (await iterator.next(TimeSpan.MINUTE))
+  console.log(iterator.value.get("temperature").length);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+This code reads the time range one minute at a time. The loop stops at the first minute
+that has no data. To read past gaps, use `sy.AUTO_SPAN` in Python, or no span in
+TypeScript.
+
+### Iterator options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="chunk_size" id="python-chunk-size" type="int" default="100000">
+  The largest number of samples of each channel that one chunk reads. With a stride, the
+  count is of the samples before the stride. With a limit, the count is of the points.
+</Field.Item>
+
+<Field.Item name="reduction" id="python-reduction" type="Reduction" default="None">
+  Makes the Core send fewer samples, as [Read fewer samples](#read-fewer-samples) shows.
+  With no reduction, the iterator keeps all samples.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="chunkSize" id="typescript-chunk-size" type="number" default="100000">
+  The largest number of samples of each channel that one chunk reads. With a stride, the
+  count is of the samples before the stride. With a limit, the count is of the points.
+</Field.Item>
+
+<Field.Item name="reduction" id="typescript-reduction" type="Reduction">
+  Makes the Core send fewer samples, as [Read fewer samples](#read-fewer-samples) shows.
+  With no reduction, the iterator keeps all samples.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>

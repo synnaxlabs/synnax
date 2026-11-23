@@ -127,7 +127,7 @@ var _ = Describe("Channel links", func() {
 		GinkgoHelper()
 		env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
 		return MustSucceed(json.Marshal(env.WithEncodeOptions(
-			channelSvc.LinkWriter(ctx, db),
+			channelSvc.LinkWriter(ctx, db, func(resource.ID) bool { return true }),
 		)))
 	}
 

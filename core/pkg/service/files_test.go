@@ -191,7 +191,9 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 	})
 
 	It("Should name the channel by its path in every member", func(ctx SpecContext) {
-		files, _ := MustSucceed2(l.Bundle.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(
+			l.Bundle.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(7))
 		for p, data := range files {
 			var body map[string]any
@@ -208,7 +210,9 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 	It("Should bind the channel of every member again on import", func(
 		ctx SpecContext,
 	) {
-		files, _ := MustSucceed2(l.Bundle.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(
+			l.Bundle.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		b := MustSucceed(l.Bundle.Decode(ctx, files, "Paths.zip"))
 		tx := DeferClose(db.OpenTx())
 		imported := MustSucceed(l.Bundle.Import(ctx, tx, b)).Key

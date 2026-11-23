@@ -43,12 +43,17 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
+	// retarget moves the entry with the text key k from the target from to the target
+	// to through the references at refs, and writes it back with a checked write.
+	retarget(ctx context.Context, tx Tx, k string, refs []int, from, to Target) error
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool
 	// targetSet runs the hook of the table for a set of an entry of the table named
 	// table, with the entry of the text key k.
 	targetSet(ctx context.Context, tx Tx, k, table string) error
+	// links returns the links that the entry with the text key k holds in snap.
+	links(ctx context.Context, snap Snapshot, k string) ([]Link, error)
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -57,6 +62,7 @@ type registeredReference interface {
 	referenceName() string
 	index() int
 	onDeletePolicy() OnDelete
+	canRetarget() bool
 	linkKind() LinkKind
 	referenceTag() uint8
 	targetTables() []string

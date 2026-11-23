@@ -12,8 +12,8 @@ import "@/platform/window/Controls.css";
 import { Drift, setWindowMaximized, setWindowMinimized } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
-import { type runtime } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { runtime } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Buttons, type ButtonsProps } from "@/platform/window/Buttons";

@@ -113,7 +113,9 @@ var _ = Describe("Service", func() {
 				"channels": []any{register(map[string]any{"channel": ch})},
 			}))
 			body := MustSucceed(svc.Read.Export(ctx, db, key))
-			b := MustSucceed(json.Marshal(body, channelSvc.LinkWriter(ctx, db)))
+			b := MustSucceed(
+				json.Marshal(body, channelSvc.LinkWriter(ctx, db, readAll)),
+			)
 			var file msgpack.EncodedJSON
 			Expect(json.Unmarshal(b, &file)).To(Succeed())
 			Expect(channel(file)).To(HaveKeyWithValue("channel", created.Name))

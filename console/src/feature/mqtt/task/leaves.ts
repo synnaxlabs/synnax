@@ -9,7 +9,7 @@
 
 import { DataType, type payload } from "@synnaxlabs/x";
 
-import { type BrowsedField } from "@/feature/mqtt/task/types";
+import type { BrowsedField } from "@/feature/mqtt/task/types";
 
 /** A value that a browsed payload offers. */
 export interface Leaf {
