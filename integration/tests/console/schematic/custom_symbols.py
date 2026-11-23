@@ -146,13 +146,13 @@ class CustomSymbols(ConsoleCase):
         editor.set_region_fill_color("#FF0000", region_index=0)
         editor.assert_preview_fill("#body", "rgb(255, 0, 0)")
 
-        # Drawing drops the override, so the preview and the swatch both show the
+        # Drawing drops the override, so the preview and the fill button both show the
         # SVG's own fill again.
         editor.clear_region_fill_color(region_index=0)
         editor.assert_preview_fill("#body", "rgb(90, 135, 197)")
         swatch_color = editor.get_region_fill_swatch_color(region_index=0)
         assert swatch_color == "#5a87c5", (
-            f"Drawing fill swatch should show the SVG's fill, got {swatch_color}"
+            f"Drawing fill button should show the SVG's fill, got {swatch_color}"
         )
 
         # The circle's green fill comes from a <style> class rule; overriding it must

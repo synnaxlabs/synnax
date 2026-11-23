@@ -48,6 +48,8 @@ const NAMES: Record<Kind, string> = {
   node: "Node color",
 };
 
+const KINDS: Kind[] = ["drawing", "color", "entry", "contrast", "node"];
+
 const NOTES: Record<Exclude<Kind, "color">, string> = {
   drawing: "The shapes keep the colors of the drawing.",
   entry: "Each state draws the color of its enumeration entry.",
@@ -131,18 +133,16 @@ export const Paint = ({
       <Dialog.Dialog>
         <Flex.Box y gap="small" className={CSS.B("schematic-paint-dialog")}>
           <Select.Buttons<Kind> value={kind} onChange={handleKindChange} size="small">
-            {(Object.keys(NAMES) as Kind[])
-              .filter((k) => k !== "node" || nodes || kind === "node")
-              .map((k) => (
-                <Select.Item
-                  key={k}
-                  itemKey={k}
-                  size="small"
-                  disabled={(k === "entry" || k === "contrast") && entryState == null}
-                >
-                  {NAMES[k]}
-                </Select.Item>
-              ))}
+            {KINDS.filter((k) => k !== "node" || nodes || kind === "node").map((k) => (
+              <Select.Item
+                key={k}
+                itemKey={k}
+                size="small"
+                disabled={(k === "entry" || k === "contrast") && entryState == null}
+              >
+                {NAMES[k]}
+              </Select.Item>
+            ))}
           </Select.Buttons>
           {kind === "color" ? (
             <Base.Picker

@@ -46,7 +46,12 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
+import {
+  fakePickedFile,
+  getIconButton,
+  interceptFilePicker,
+  queryIcon,
+} from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -429,6 +434,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       default: 0,
     });
 
+    // createEnumeration creates an enumeration whose one entry, Closed at 0, is green.
+    const createEnumeration = async () =>
+      await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+
     // openPainted opens the editor on a new symbol whose one part, Body, selects #a.
     const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
       const grp = await createParentGroup();
@@ -483,26 +502,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("names the field and the kind in the tooltip of a paint", async () => {
       const { fill } = await openPainted({});
       fireEvent.pointerEnter(fill);
-      const tip = await waitFor(() => {
-        const el = document.querySelector<HTMLElement>(".lyra-tooltip");
-        assertDefined(el);
-        return el;
-      });
-      expect(tip.textContent).toBe("Fill: Drawing");
+      expect((await screen.findByRole("tooltip")).textContent).toBe("Fill: Drawing");
     });
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
-      const enumeration = await client.enumerations.create({
-        name: uniqueName("valve"),
-        entries: [
-          {
-            key: "closed",
-            value: 0,
-            name: "Closed",
-            color: { type: "fixed", value: GREEN },
-          },
-        ],
-      });
+      const enumeration = await createEnumeration();
       const { symbol, fill } = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
@@ -528,17 +532,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a contrast paint on the state", async () => {
-      const enumeration = await client.enumerations.create({
-        name: uniqueName("valve"),
-        entries: [
-          {
-            key: "closed",
-            value: 0,
-            name: "Closed",
-            color: { type: "fixed", value: GREEN },
-          },
-        ],
-      });
+      const enumeration = await createEnumeration();
       const { symbol, fill } = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
@@ -546,9 +540,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Active"));
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("Contrast"));
-      await waitFor(() =>
-        expect(fill.querySelector(".lyra-icon--contrast")).not.toBeNull(),
-      );
+      await waitFor(() => expect(queryIcon(fill, "contrast")).not.toBeNull());
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([
