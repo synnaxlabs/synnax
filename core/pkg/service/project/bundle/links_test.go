@@ -154,7 +154,7 @@ var _ = Describe("Channel links", func() {
 		}
 		Expect(importFiles(ctx, files, "Missing.zip")).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no channel is at plant.a, plant.b")),
+			MatchError(ContainSubstring(`no channel is at "plant.a", "plant.b"`)),
 		))
 	})
 

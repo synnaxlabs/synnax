@@ -62,6 +62,8 @@ type Import struct {
 	ctx   context.Context
 	imex  *imex.Service
 	links *channel.LinkReader
+	// options decode the channel links of every file through links.
+	options json.Options
 }
 
 // NewImport returns an Import that decodes through registry and resolves channel paths
@@ -73,16 +75,13 @@ func NewImport(
 	snap gorp.Snapshot,
 	readable func(resource.ID) bool,
 ) *Import {
-	return &Import{
-		ctx:   ctx,
-		imex:  registry,
-		links: channels.NewLinkReader(ctx, snap, readable),
-	}
+	links := channels.NewLinkReader(ctx, snap, readable)
+	return &Import{ctx: ctx, imex: registry, links: links, options: links.Options()}
 }
 
 // Decode decodes env as imex.Service.Decode does, with its channel paths resolved.
 func (i *Import) Decode(env imex.Envelope, fileName string) (imex.Write, error) {
-	return i.imex.Decode(i.ctx, env.WithDecodeOptions(i.links.Options()), fileName)
+	return i.imex.Decode(i.ctx, env.WithDecodeOptions(i.options), fileName)
 }
 
 // Err returns a validation error that lists each channel path of a decoded file that

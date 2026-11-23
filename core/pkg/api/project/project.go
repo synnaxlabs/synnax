@@ -41,7 +41,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Bundle *bundle.Service
-	// DB is the store that a bundle's channel paths resolve against.
+	// DB is the store that an import's access check reads to find the records that its
+	// subject can retrieve.
 	//
 	// [REQUIRED]
 	DB *gorp.DB

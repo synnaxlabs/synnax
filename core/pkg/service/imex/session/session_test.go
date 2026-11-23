@@ -134,7 +134,7 @@ var _ = Describe("Session", func() {
 			imp, _ := decode(ctx, readNoChannel)
 			Expect(imp.Err()).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no channel is at %s", ch.Name)),
+				MatchError(ContainSubstring("no channel is at %q", ch.Name)),
 			))
 		})
 	})

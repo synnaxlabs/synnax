@@ -339,7 +339,7 @@ var _ = Describe("Import", func() {
 			grantLogImport(ctx)
 			Expect(importLog(ctx, fmt.Sprintf("%q", chName))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no channel is at %s", chName)),
+				MatchError(ContainSubstring("no channel is at %q", chName)),
 				Not(MatchError(access.ErrDenied)),
 				Not(MatchError(ContainSubstring(channel.ResourceID(ch).String()))),
 			))
@@ -460,7 +460,7 @@ var _ = Describe("Channel links", func() {
 			`"plant.b"},{"channel":"plant.a"`,
 		)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no channel is at plant.a, plant.b")),
+			MatchError(ContainSubstring(`no channel is at "plant.a", "plant.b"`)),
 		))
 		Expect(count()).To(Equal(before))
 	})
