@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type patch, zod } from "@synnaxlabs/x";
-import type { Draft } from "immer";
+import { current, type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -54,15 +54,25 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
  */
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
   switch (action.type) {
-    case "create":
-      return actions.replace(state, fromStored(action.create.channel));
+    case "create": {
+      // A create holds no calculation field: a set after it carries them.
+      const { expression, operations } = current(state) as Payload;
+      const created = { ...action.create.channel, expression, operations };
+      return actions.replace(state, fromStored(created));
+    }
     case "rename": {
       const prev = state.name;
       if (prev === action.rename.name) return actions.NO_OP_RESULT;
       state.name = action.rename.name;
       return { inverse: [rename({ name: prev })], targets: ["name"] };
     }
-    default:
-      return applyPath(state, action);
+    default: {
+      const result = applyPath(state, action);
+      // The expression of a calculation reaches the channel after its create.
+      const calculated = state.virtual && state.expression !== "";
+      if (calculated === state.calculated) return result;
+      state.calculated = calculated;
+      return { ...result, targets: [...result.targets, "calculated"] };
+    }
   }
 });
