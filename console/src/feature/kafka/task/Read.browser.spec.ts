@@ -1661,7 +1661,7 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect(jsonFieldsOf(await client.icds.retrieve(icdKey))).toMatchObject([
           { key: temperature.key },
-          { name: "Field 2", pointer: "" },
+          { name: "Field 2", pointer: "/field_2" },
         ]),
       );
       const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));

@@ -463,7 +463,7 @@ export const use = <
     const source = ctx.get(pathOf(sourceKey)).value;
     const { message } = source.messages[r];
     const fields = fieldsOf(formats, source.icd, message);
-    const field = createJSONField(fields.map(({ name }) => name));
+    const field = createJSONField(fields);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
