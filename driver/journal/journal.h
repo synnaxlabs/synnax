@@ -154,8 +154,9 @@ public:
     /// file, the writer cuts the file at the damage, as Reader::next finds it, and
     /// appends after the records before it. cut() reports the bytes it cut.
     /// @returns LOCKED when another writer has the file open. UNKNOWN_MAGIC,
-    /// UNKNOWN_VERSION, or OLD_VERSION when the file start is not one this writer
-    /// writes. The errors of Reader::next, and then the file is unchanged.
+    /// UNKNOWN_VERSION, OLD_VERSION, or UNKNOWN_FLAG when the file start is not one
+    /// this writer writes. CORRUPT when the file start fails its checksum. The
+    /// errors of Reader::next, and then the file is unchanged.
     static std::pair<std::unique_ptr<Writer>, x::errors::Error> open(WriterConfig cfg);
 
     /// @brief appends a record, and syncs the file when a sync is due.

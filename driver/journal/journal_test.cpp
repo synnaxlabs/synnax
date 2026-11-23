@@ -167,7 +167,7 @@ TEST_F(JournalTest, ReadsV1Segment) {
     EXPECT_EQ(reader->pos(), 68);
 }
 
-/// @brief it should write the same bytes as the v1 segment fixture.
+/// @brief it should write the v1 segment format, with a salt of its own.
 TEST_F(JournalTest, WritesV1Segment) {
     auto writer = ASSERT_NIL_P(
         Writer::open({.path = this->path, .magic = SEGMENT, .flags = 0x0102})
@@ -555,6 +555,19 @@ TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
     );
     ASSERT_OCCURRED_AS_P(
         Writer::open({.path = this->path, .magic = SEGMENT}),
+        UNKNOWN_VERSION
+    );
+}
+
+/// @brief it should return UNKNOWN_VERSION for a newer version with another start
+/// layout, whose checksum this reader cannot check.
+TEST_F(JournalTest, NewerStartLayoutIsUnknownVersion) {
+    this->write({});
+    auto data = read_file(this->path);
+    data[8] = 2;
+    write_file(this->path, data);
+    ASSERT_OCCURRED_AS_P(
+        Reader::open({.path = this->path, .magic = SEGMENT}),
         UNKNOWN_VERSION
     );
 }

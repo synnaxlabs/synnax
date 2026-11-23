@@ -36,6 +36,8 @@ T get(const char *data) {
     ));
 }
 
+/// @brief the byte position of the salt in the header.
+constexpr std::size_t SALT_OFFSET = 12;
 /// @brief the byte size of the header before its checksum.
 constexpr std::size_t HEADER_SUM_OFFSET = HEADER_SIZE - sizeof(std::uint32_t);
 
@@ -266,15 +268,8 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     const auto &magic = reader->cfg.magic;
     if (!std::equal(magic.begin(), magic.end(), buf.begin()))
         return {nullptr, x::errors::Error(UNKNOWN_MAGIC, path)};
-    if (static_cast<std::uint32_t>(
-            absl::ComputeCrc32c({buf.data(), HEADER_SUM_OFFSET})
-        ) != get<std::uint32_t>(buf.data() + HEADER_SUM_OFFSET))
-        return {nullptr, x::errors::Error(CORRUPT, path + " has a damaged start")};
+    // A newer version can lay out the rest of the start in another way.
     reader->header.version = get<std::uint16_t>(buf.data() + magic.size());
-    reader->header.flags = get<std::uint16_t>(buf.data() + magic.size() + 2);
-    reader->header.salt = get<std::uint32_t>(buf.data() + magic.size() + 4);
-    if (reader->header.version == 0)
-        return {nullptr, x::errors::Error(CORRUPT, path + " has version 0")};
     if (reader->header.version > VERSION)
         return {
             nullptr,
@@ -283,6 +278,14 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
                 path + " has version " + std::to_string(reader->header.version)
             )
         };
+    if (static_cast<std::uint32_t>(
+            absl::ComputeCrc32c({buf.data(), HEADER_SUM_OFFSET})
+        ) != get<std::uint32_t>(buf.data() + HEADER_SUM_OFFSET))
+        return {nullptr, x::errors::Error(CORRUPT, path + " has a damaged start")};
+    reader->header.flags = get<std::uint16_t>(buf.data() + magic.size() + 2);
+    reader->header.salt = get<std::uint32_t>(buf.data() + SALT_OFFSET);
+    if (reader->header.version == 0)
+        return {nullptr, x::errors::Error(CORRUPT, path + " has version 0")};
     if (const auto unknown = reader->header.flags & REQUIRED_FLAGS & ~reader->cfg.flags;
         unknown != 0)
         return {

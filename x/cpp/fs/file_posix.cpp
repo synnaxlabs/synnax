@@ -149,8 +149,11 @@ int rename_exclusive(const char *from, const char *to) {
 }
 
 bool unsupported(const int err) {
-    return err == EINVAL || err == ENOTSUP || err == EOPNOTSUPP || err == ENOSYS ||
-           err == EPERM;
+// ENOTSUP and EOPNOTSUPP are the same value on Linux.
+#if EOPNOTSUPP != ENOTSUP
+    if (err == EOPNOTSUPP) return true;
+#endif
+    return err == EINVAL || err == ENOSYS || err == EPERM || err == ENOTSUP;
 }
 }
 
@@ -159,17 +162,14 @@ rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
     if (rename_exclusive(from.c_str(), to.c_str()) == 0) return x::errors::NIL;
     if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
     if (!unsupported(errno)) return errno_error("failed to rename " + from.string());
-    // A link also fails when to exists.
-    if (link(from.c_str(), to.c_str()) == 0) {
-        if (unlink(from.c_str()) != 0)
-            return errno_error("failed to remove " + from.string());
-        return x::errors::NIL;
+    // FAT and some network volumes have no exclusive rename. An exclusive create
+    // takes the name first, and a crash before the rename leaves it empty.
+    const int fd = ::open(to.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    if (fd < 0) {
+        if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+        return errno_error("failed to create " + to.string());
     }
-    if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
-    if (!unsupported(errno)) return errno_error("failed to link " + from.string());
-    // FAT and some network volumes have neither, so a racing create can win here.
-    std::error_code ec;
-    if (std::filesystem::exists(to, ec)) return x::errors::Error(EXISTS, to.string());
+    close(fd);
     if (std::rename(from.c_str(), to.c_str()) != 0)
         return errno_error("failed to rename " + from.string());
     return x::errors::NIL;
