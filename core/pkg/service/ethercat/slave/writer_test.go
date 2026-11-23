@@ -155,6 +155,34 @@ var _ = Describe("Writer", func() {
 			s.Master = uuid.New()
 			Expect(w.Create(ctx, &s)).To(MatchError(validate.ErrValidation))
 		})
+
+		It("Should refuse a slave whose rack does not exist", func(ctx SpecContext) {
+			s := newSlave()
+			s.Rack = rack.NewKey(9, 9)
+			Expect(w.Create(ctx, &s)).To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should refuse a slave without a name", func(ctx SpecContext) {
+			s := newSlave()
+			s.Name = ""
+			Expect(w.Create(ctx, &s)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("name")),
+			))
+		})
+
+		It("Should refuse a binding that is not an entry of its PDOs", func(
+			ctx SpecContext,
+		) {
+			s := newSlave()
+			s.ReadBindings = []slave.ReadBinding{
+				{Index: 0x6001, SubIndex: 1, Channel: 7},
+			}
+			Expect(w.Create(ctx, &s)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("read_bindings.0: entry 0x6001:01")),
+			))
+		})
 	})
 
 	Describe("Apply", func() {
