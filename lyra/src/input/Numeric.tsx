@@ -160,7 +160,7 @@ export const Numeric = ({
   const value_ = isValueValid ? (isEmpty ? "" : value.toString()) : internalValue;
 
   const onDragChange = (value: number) => {
-    const next = bounds.clamp(boundsRef.current, Math.round(value));
+    const next = bounds.clamp(boundsRef.current, integer ? Math.round(value) : value);
     // A gated input parks the drag in the internal value, so the text tracks the
     // pointer and the release commits through the same blur path typing uses.
     if (onlyChangeOnBlur) {
