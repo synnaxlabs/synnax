@@ -69,6 +69,9 @@ type Service struct {
 	channels *channel.Service
 	// checks holds the check of each action batch that a transaction attaches.
 	checks *gorp.Attachment[batchCheck]
+	// outputChecks holds the check of each channel action batch that announces the
+	// calculation fields of an output.
+	outputChecks *gorp.Attachment[outputCheck]
 }
 
 // batchCheck is the check of one action batch, from the calculation as the batch
@@ -87,10 +90,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		indexes:  newIndexes(),
-		state:    actions.NewState[Key, Action](cfg.DB),
-		channels: cfg.Channel,
-		checks:   gorp.NewAttachment[batchCheck](),
+		indexes:      newIndexes(),
+		state:        actions.NewState[Key, Action](cfg.DB),
+		channels:     cfg.Channel,
+		checks:       gorp.NewAttachment[batchCheck](),
+		outputChecks: gorp.NewAttachment[outputCheck](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -232,9 +236,8 @@ func refused(
 
 // BatchChecks returns the lookup of the check of each action batch that the transaction
 // of c attached, by the key of its calculation and its number. Each check is Readable
-// of
-// the calculation as its batch left it, so a later batch in the commit does not change
-// who receives an earlier one.
+// of the calculation as its batch left it, so a later batch in the commit does not
+// change who receives an earlier one.
 func (s *Service) BatchChecks(
 	c gorp.Commit,
 ) func(key Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
