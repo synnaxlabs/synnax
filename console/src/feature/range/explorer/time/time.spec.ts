@@ -11,20 +11,20 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { pin } from "@/feature/range/explorer/time";
+import { Time } from "@/feature/range/explorer/time";
 
 const AT = TimeStamp.seconds(1000);
 const DAY = TimeSpan.days(1);
 
-describe("pin", () => {
+describe("Time.pin", () => {
   it("should read a recent span back from the instant", () => {
-    expect(pin({ recent: DAY }, AT)).toEqual({
+    expect(Time.pin({ recent: DAY }, AT)).toEqual({
       and: [{ overlaps: new TimeRange(AT.sub(DAY), AT) }],
     });
   });
 
   it("should keep the other fields beside the pinned span", () => {
-    expect(pin({ labeled: true, recent: DAY }, AT)).toEqual({
+    expect(Time.pin({ labeled: true, recent: DAY }, AT)).toEqual({
       and: [{ labeled: true }, { overlaps: new TimeRange(AT.sub(DAY), AT) }],
     });
   });
@@ -33,7 +33,7 @@ describe("pin", () => {
     const inProgress = { and: [{ or: [Ranger.stageWhere("in_progress", AT)] }] };
     const recent = { and: [{ overlaps: new TimeRange(AT.sub(DAY), AT) }] };
     expect(
-      pin(
+      Time.pin(
         {
           and: [{ stages: ["in_progress"] }, { labeled: true }],
           or: [{ recent: DAY }],
@@ -49,6 +49,6 @@ describe("pin", () => {
   });
 
   it("should return a filter that reads no time as it is", () => {
-    expect(pin({ labeled: true }, AT)).toEqual({ labeled: true });
+    expect(Time.pin({ labeled: true }, AT)).toEqual({ labeled: true });
   });
 });

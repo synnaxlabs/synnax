@@ -11,18 +11,18 @@ import type { ranger } from "@synnaxlabs/client";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { PROPERTIES } from "@/feature/range/explorer/Filter";
+import { Filter } from "@/feature/range/explorer/filter";
 
 const A = "4a1f0f4e-2b8f-4d3c-9b8e-3f6c2a1d0e01";
 
-describe("range/explorer/Filter", () => {
+describe("Filter.PROPERTIES", () => {
   it.each<[string, unknown]>([
     ["stage", ["in_progress", "completed"]],
     ["time", TimeSpan.days(7)],
     ["time", new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2))],
     ["parent", [A]],
   ])("should read back a %s condition", (property, value) => {
-    const { encode, decode } = PROPERTIES[property];
+    const { encode, decode } = Filter.PROPERTIES[property];
     expect(decode(encode(value))).toEqual(value);
   });
 
@@ -31,6 +31,6 @@ describe("range/explorer/Filter", () => {
     ["time", { labels: [A] }],
     ["parent", { stages: ["to_do"] }],
   ])("should leave a node that is not a %s condition to another chip", (p, node) => {
-    expect(PROPERTIES[p].decode(node)).toBeNull();
+    expect(Filter.PROPERTIES[p].decode(node)).toBeNull();
   });
 });

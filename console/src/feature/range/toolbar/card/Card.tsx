@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/toolbar/Card.css";
+import "@/feature/range/toolbar/card/Card.css";
 
 import type { ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
@@ -20,7 +20,7 @@ import { Color, Flux, Ranger } from "@synnaxlabs/pluto";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, Fragment, type ReactElement } from "react";
 
-import { formatSpan, nextSecond } from "@/feature/range/toolbar/time";
+import { Time } from "@/feature/range/toolbar/time";
 import { CSS } from "@/platform/css";
 
 const B = "range-card";
@@ -72,7 +72,7 @@ const useChildren = (range: ranger.Range): Children => {
 };
 
 export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
-  const now = useNow(nextSecond);
+  const now = useNow(Time.nextSecond);
   const path = usePath(range);
   const { children, complete } = useChildren(range);
   const labels = Ranger.useLabels(range.key) ?? [];
@@ -128,7 +128,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
           )}
         </span>
         {!openEnd && (
-          <span className={CSS.BE(B, "total")}>{formatSpan(tr.start, end)}</span>
+          <span className={CSS.BE(B, "total")}>{Time.formatSpan(tr.start, end)}</span>
         )}
       </div>
       {children.length > 0 && (
@@ -156,7 +156,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
                 >
                   <span className={CSS.BE(B, "mark")} />
                   <span className={CSS.BE(B, "child-name")}>{c.name}</span>
-                  <span>{formatSpan(v.start, running ? now : v.end)}</span>
+                  <span>{Time.formatSpan(v.start, running ? now : v.end)}</span>
                 </div>
               );
             })}
