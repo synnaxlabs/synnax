@@ -9,7 +9,8 @@
 
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+import pytest
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from x.codec import Bytes, JSONCodec
 
@@ -40,7 +41,7 @@ class PayloadWithBytes(BaseModel):
     data: Bytes
 
 
-BINARY = b"\x00asm\xff"
+BINARY = b"\xfb\xff\x00asm\xff"
 
 
 class TestJSONCodec:
@@ -79,5 +80,11 @@ class TestJSONCodec:
         """Should send binary data as base64 text and decode it back to bytes."""
         codec = JSONCodec()
         encoded = codec.encode(PayloadWithBytes(data=BINARY))
-        assert json.loads(encoded) == {"data": "AGFzbf8="}
+        assert json.loads(encoded) == {"data": "+/8AYXNt/w=="}
         assert codec.decode(encoded, PayloadWithBytes).data == BINARY
+
+    @pytest.mark.parametrize("wire", ['"+/8AYXNt/w"', '"-_8AYXNt_w=="', "[251, 255]"])
+    def test_bytes_reject_invalid_base64(self, wire: str) -> None:
+        """Should reject binary data that is not standard, padded base64 text."""
+        with pytest.raises(ValidationError):
+            JSONCodec().decode(f'{{"data": {wire}}}'.encode(), PayloadWithBytes)

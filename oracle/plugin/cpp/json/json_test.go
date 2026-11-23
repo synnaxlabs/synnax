@@ -1364,6 +1364,28 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("bytes", func() {
+			It("Should write each bytes value through x::json::to_json", func() {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Entity struct {
+						data     bytes
+						maybe    bytes?
+						list     bytes[]
+						by_name  map<string, bytes>
+					}
+				`
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`j["data"] = x::json::to_json(this->data);`,
+					`if (this->maybe.has_value()) j["maybe"] = x::json::to_json(*this->maybe);`,
+					`j["list"] = x::json::to_array(this->list);`,
+					`obj[key] = x::json::to_json(item);`,
+				)
+			})
+		})
+
 		Context("uuid detection through distinct and alias chains", func() {
 			It(
 				"Should detect a distinct type wrapping uuid and call to_json()",

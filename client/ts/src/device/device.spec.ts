@@ -390,7 +390,7 @@ describe("Device", async () => {
         ),
       );
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.devices.retrieve(key)),
@@ -709,6 +709,7 @@ describe("Device", async () => {
           ),
         );
         const local = createTestClient();
+        await waitForStreamLive(local.connection);
         const send = spyOnSend(local);
         const retrieved = await Promise.all(
           devices.map(
