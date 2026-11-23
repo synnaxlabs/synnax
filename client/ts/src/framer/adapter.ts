@@ -112,7 +112,10 @@ export class ReadAdapter {
 export class WriteAdapter {
   private byName: Map<channel.Name, channel.Payload> | null;
   private byKey: Map<channel.Key, channel.Payload>;
-  /** The channel of each key of a record frame, resolved once until an update. */
+  /**
+   * The held channel of each key of a record frame, until an update. A fetched channel
+   * does not count, since its name can move to another channel between records.
+   */
   private byRecordKey: Map<string, channel.Payload>;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
@@ -287,8 +290,11 @@ export class WriteAdapter {
       const [k, v] = kvs[i];
       let pld = this.byRecordKey.get(k);
       if (pld == null) {
-        pld = await this.fetchChannel(this.recordKey(k));
-        this.byRecordKey.set(k, pld);
+        const ref = this.recordKey(k);
+        const held =
+          typeof ref === "number" ? this.byKey.get(ref) : this.byName?.get(ref);
+        if (held != null) this.byRecordKey.set(k, held);
+        pld = held ?? (await this.fetchChannel(ref));
       }
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
