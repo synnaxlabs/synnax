@@ -16,6 +16,7 @@ import { Spec } from "@/feature/schematic/symbol/spec";
 const STATE = Spec.createState().key;
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
+const GREEN = color.construct("#00ff00");
 
 const fixed = (c: color.Color): schematic.symbol.Paint => ({
   type: "color",
@@ -49,6 +50,37 @@ const createSpec = (
 
 describe("symbol editor spec", () => {
   describe("setOwn", () => {
+    it("should add a hidden look after its last hider, not after every look", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
+          { key: "b", fill: fixed(BLUE) },
+          { key: "c", part: "seat", when: equals(0), fill: fixed(RED) },
+        ],
+      });
+      const next = Spec.setOwn(spec, undefined, "fill", fixed(GREEN), 0);
+      expect(next.looks.map((l) => l.key)).toEqual(["a", "b", expect.any(String), "c"]);
+    });
+
+    it("should change the motion of a part that a whole drawing motion follows", () => {
+      const spec = createSpec({
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: equals(0),
+            motion: { type: "spin", rate: 1 },
+          },
+          { key: "b", when: equals(0), motion: { type: "flow", rate: 1 } },
+        ],
+      });
+      const flow: schematic.symbol.Motion = { type: "flow", rate: 2 };
+      expect(Spec.setOwn(spec, "body", "motion", flow, 0).looks).toEqual([
+        { ...spec.looks[0], motion: flow },
+        spec.looks[1],
+      ]);
+    });
+
     it("should clear a field at every value and keep it on single values", () => {
       const spec = createSpec({
         looks: [

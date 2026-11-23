@@ -118,18 +118,24 @@ export const setOwn = <F extends Field>(
       }),
     };
   }
-  const hidden = (from: number): boolean =>
-    looks.slice(from).some((l) => reaches(l, target, value) && l[field] != null);
+  // Pluto gives each part its own motion and blink, and one motion of each kind, so
+  // only those looks hide v.
+  const kind = field === "motion" ? (v as schematic.symbol.Motion).type : undefined;
+  const hides = (l: Look): boolean =>
+    reaches(l, target, value) &&
+    l[field] != null &&
+    ((field !== "motion" && field !== "blink") || l.part === target) &&
+    (kind == null || l.motion?.type === kind);
+  const last = looks.findLastIndex(hides);
   const i = looks.findLastIndex((l) => owns(l, target, value));
-  if (i >= 0 && !hidden(i + 1))
+  if (i >= 0 && last <= i)
     return { ...spec, looks: looks.with(i, { ...looks[i], [field]: v }) };
   const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
   if (value != null) look.when = { type: "equals", state: STATE, values: [value] };
-  const at = slot(looks, look);
   return {
     ...spec,
     states: value == null ? spec.states : withActive(spec.states),
-    looks: hidden(at) ? [...looks, look] : looks.toSpliced(at, 0, look),
+    looks: looks.toSpliced(Math.max(slot(looks, look), last + 1), 0, look),
   };
 };
 
