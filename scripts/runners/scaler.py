@@ -9,7 +9,7 @@
 
 """Pure-demand pool scaling, driven by controller.py's poll cycle. Queued self-hosted
 jobs beyond a pool's idle runners start its offline instances; once a pool's queue is
-empty, runners idle past the cooldown are drained, unregistered from GitHub, then
+empty, runners idle past the cooldown are unregistered from GitHub, drained, then
 stopped. A drain writes false to <runner>_gh_cmd for agent.py to act on, and a start or
 a stop writes <runner>_ec2_cmd for dispatch.py to act on."""
 
