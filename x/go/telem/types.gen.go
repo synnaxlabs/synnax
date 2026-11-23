@@ -112,7 +112,7 @@ type Alignment uint64
 // for a wider code.
 type DataTypeCode uint8
 
-//go:generate stringer -type=DataTypeCode
+//go:generate go tool stringer -type=DataTypeCode
 
 const (
 	// DataTypeCodeUnknown is never valid on the wire.
