@@ -24,12 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -55,9 +57,10 @@ var _ = Describe("Routes", Ordered, func() {
 			Impact: layer.Impact,
 		}))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-			DB:   db,
-			RBAC: layer.RBAC,
-			Held: apiauth.HeldTables(),
+			Holders: taskconfig.NewHolders(arc.DriftTable),
+			DB:      db,
+			RBAC:    layer.RBAC,
+			Held:    apiauth.HeldTables(),
 		}))
 		plan = bind.Read(binder, svc.Plan)
 		apply = svc.ApplyHandler(binder)
