@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type patch, zod } from "@synnaxlabs/x";
-import { current, type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -36,9 +36,9 @@ const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
     { label: "created channel" },
   );
 
-// The fields that a set after a create carries, which only a subject who reads the
+// calculatedOf reads only the expression, which only a subject who reads the
 // calculation receives. Another subject holds calculated with no expression.
-const CALCULATION_FIELDS = ["expression", "operations"] as const;
+const EXPRESSION = ["expression"] as const;
 
 /** @returns the channel that a create action carries, or undefined otherwise. */
 export const createOf = (action: Action): Payload | undefined =>
@@ -63,9 +63,11 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
   switch (action.type) {
     case "create": {
-      const { expression, operations, calculated } = current(state) as Payload;
-      const created = fromStored(action.create.channel);
-      return actions.replace(state, { ...created, expression, operations, calculated });
+      const { expression, operations, calculated } = state;
+      const result = actions.replace(state, fromStored(action.create.channel));
+      // A create holds no calculation field, so the cached ones stay.
+      Object.assign(state, { expression, operations, calculated });
+      return result;
     }
     case "rename": {
       const prev = state.name;
@@ -75,7 +77,7 @@ export const reduceAll = actions.createReduceAll<Payload, Action>((state, action
     }
     default: {
       const result = applyPath(state, action);
-      if (!actions.changesField(action, CALCULATION_FIELDS)) return result;
+      if (!actions.changesField(action, EXPRESSION)) return result;
       const calculated = calculatedOf(state);
       if (calculated === state.calculated) return result;
       state.calculated = calculated;

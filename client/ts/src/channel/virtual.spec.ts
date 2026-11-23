@@ -20,9 +20,25 @@ import {
 
 const admin = createTestClient();
 
+// An input whose doubles keep its data type, so no data type set reaches an output.
+const createInput = async (): Promise<channel.Channel> =>
+  await admin.channels.create({
+    name: id.create(),
+    dataType: DataType.FLOAT32,
+    virtual: true,
+  });
+
+// Data channels only, so the index of a calculation stays out.
+const whereOf = (prefix: string) => ({
+  virtual: true,
+  isIndex: { eq: false },
+  name: { startsWith: prefix },
+});
+
 describe("live virtual lists", () => {
   it("should drop and admit an output for a reader that cannot read its calculation", async () => {
     const prefix = `virtual_${id.create()}`;
+    const input = await createInput();
     const output = await admin.channels.create({
       name: `${prefix}_output`,
       dataType: DataType.FLOAT32,
@@ -35,9 +51,7 @@ describe("live virtual lists", () => {
     });
     await reader.connect();
     await waitForStreamLive(reader.connection);
-    const list = reader.channels.watch({
-      where: { virtual: true, name: { startsWith: prefix } },
-    });
+    const list = reader.channels.watch({ where: whereOf(prefix) });
     const off = list.onChange(() => {});
     try {
       await list.retrieve();
@@ -45,9 +59,39 @@ describe("live virtual lists", () => {
       expect(keys()).toEqual([output.key]);
       const calc = await admin.calculations.create({
         output: output.key,
-        expression: "return 2",
+        expression: `return ${input.name} * 2`,
       });
       await expect.poll(keys).toEqual([]);
+      await admin.calculations.delete(calc.key);
+      await expect.poll(keys).toEqual([output.key]);
+    } finally {
+      off();
+    }
+  });
+
+  it("should admit an output that the client never held when its calculation is deleted", async () => {
+    const prefix = `virtual_${id.create()}`;
+    const input = await createInput();
+    const output = await admin.channels.create({
+      name: `${prefix}_output`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    // A calculation on a stored output creates and deletes no other channel, so only
+    // the announce of its delete can reach the list.
+    const calc = await admin.calculations.create({
+      output: output.key,
+      expression: `return ${input.name} * 2`,
+    });
+    const client = createTestClient();
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const list = client.channels.watch({ where: whereOf(prefix) });
+    const off = list.onChange(() => {});
+    try {
+      await list.retrieve();
+      const keys = () => (list.getCached()?.records ?? []).map(({ key }) => key);
+      expect(keys()).toEqual([]);
       await admin.calculations.delete(calc.key);
       await expect.poll(keys).toEqual([output.key]);
     } finally {

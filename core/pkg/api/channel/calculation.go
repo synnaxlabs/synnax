@@ -261,11 +261,11 @@ func (s *Service) applyCalculation(
 		return nil, err
 	}
 	w := s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey)
-	// The reads that Apply adds belong to the calculation, which the old API does not
+	// The reads that ApplyTo adds belong to the calculation, which the old API does not
 	// show.
-	if _, err = w.Apply(
+	next, _, err := w.ApplyTo(
 		ctx,
-		c.Key,
+		c,
 		calculation.NewSetAction(calculation.SetPayload{
 			Path:  []string{"expression"},
 			Value: doc.Expression,
@@ -274,13 +274,13 @@ func (s *Service) applyCalculation(
 			Path:  []string{"operations"},
 			Value: ops,
 		}),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
-	edits := recordEdits(acts, doc.Expression, ops)
-	if err = s.announceEdits(ctx, tx, w, key, edits); err != nil {
-		return nil, err
-	}
+	// A subject whom the edit lets read the calculation holds none of its fields yet,
+	// so the announce carries all of them.
+	w.Announce(next)
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
 		return nil, err
@@ -313,59 +313,6 @@ func edited(
 		return doc, nil, validate.PathedError(err, "operations")
 	}
 	return doc, ops, nil
-}
-
-// announceEdits announces edits of the channel with key through w, to the readers of
-// its calculation as the edit leaves it.
-func (s *Service) announceEdits(
-	ctx context.Context,
-	tx gorp.Tx,
-	w calculation.Writer,
-	key channel.Key,
-	edits []channel.Action,
-) error {
-	if len(edits) == 0 {
-		return nil
-	}
-	edited, err := s.calculations.Outputs(ctx, tx, key)
-	if err != nil {
-		return err
-	}
-	w.Announce(key, edited[key], edits...)
-	return nil
-}
-
-// recordEdits returns a channel set action for each of the expression and the
-// operations that acts edit, with the value that the calculation holds after them, so a
-// client that reads them from the channel sees what a retrieve returns.
-func recordEdits(
-	acts []channel.Action,
-	expression string,
-	ops []calculation.Operation,
-) []channel.Action {
-	var setsExpression, setsOperations bool
-	for _, a := range acts {
-		switch actionPath(a)[0] {
-		case "expression":
-			setsExpression = true
-		case "operations":
-			setsOperations = true
-		}
-	}
-	var edits []channel.Action
-	if setsExpression {
-		edits = append(edits, channel.NewSetAction(channel.SetPayload{
-			Path:  []string{"expression"},
-			Value: expression,
-		}))
-	}
-	if setsOperations {
-		edits = append(edits, channel.NewSetAction(channel.SetPayload{
-			Path:  []string{"operations"},
-			Value: calculation.ToChannelOperations(ops),
-		}))
-	}
-	return edits
 }
 
 func (s *Service) channelOf(
