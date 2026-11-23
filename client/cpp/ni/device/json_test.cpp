@@ -103,7 +103,7 @@ TEST(Device, RoundTripsProto) {
             .types = {"ao_voltage"},
         }},
         .counter_inputs = {CounterPort{.port = 0, .types = {"ci_frequency"}}},
-        .counter_outputs = {CounterPort{.port = 1, .types = {"co_pulse"}}},
+        .counter_outputs = {CounterPort{.port = 1}},
         .digital_ports = {DigitalPort{.port = 0, .lines = 8, .input = true}},
         .terminals = {"PFI0"},
         .ai_min_rate = x::telem::Rate(1.0),

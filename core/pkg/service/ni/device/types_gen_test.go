@@ -20,17 +20,18 @@ import (
 
 var _ = Describe("Hardware", func() {
 	DescribeTable(
-		"Should reject an analog input rate that is not a non-negative number",
+		"Should reject an analog input rate that is not a positive number",
 		func(rate telem.Rate) {
-			Expect(device.Hardware{AiMinRate: rate}.Validate()).
+			Expect(device.Hardware{AiMinRate: &rate}.Validate()).
 				To(MatchError(ContainSubstring("ai_min_rate")))
 		},
+		Entry("zero", telem.Rate(0)),
 		Entry("negative", telem.Rate(-1)),
 		Entry("positive infinity", telem.Rate(math.Inf(1))),
 		Entry("NaN", telem.Rate(math.NaN())),
 	)
 
-	It("Should accept an analog input rate of 0", func() {
+	It("Should accept an absent analog input rate", func() {
 		Expect(device.Hardware{}.Validate()).To(Succeed())
 	})
 })
