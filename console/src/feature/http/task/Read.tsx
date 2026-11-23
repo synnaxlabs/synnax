@@ -552,7 +552,9 @@ const splitStored = (
   ICD.Stored.split(
     stored,
     endpoints.map((ep) =>
-      readsICD(ep) ? storedSource(ep) : { key: ep.path, legacy: ep.path, messages: [] },
+      readsICD(ep)
+        ? { ...storedSource(ep), disabled: ep.disabled }
+        : { key: ep.path, legacy: ep.path, messages: [] },
     ),
   );
 

@@ -113,7 +113,8 @@ describe("ICD.Stored", () => {
     const source = (
       messages: icd.ReadMessage[],
       legacy?: string,
-    ): ICD.Stored.Source => ({ key: "t", legacy, messages });
+      disabled = false,
+    ): ICD.Stored.Source => ({ key: "t", legacy, messages, disabled });
 
     describe("split", () => {
       const t1 = ICD.Stored.key("t", m1);
@@ -138,15 +139,51 @@ describe("ICD.Stored", () => {
           ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
             source([read(m1), read(m2, [3])], "t"),
           ]),
-        ).toEqual({ [t2]: props(1, { "/a": 2, "/b": 3 }) });
+        ).toEqual({
+          [t1]: props(0, { "/a": 2, "/b": 3 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
       });
 
-      it("should give the legacy channels to the first message by default", () => {
+      it("should give each message that binds none every legacy channel, with no index", () => {
         expect(
           ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [
             source([read(m1), read(m2)], "t"),
           ]),
-        ).toEqual({ [t1]: props(1, { "/a": 2 }) });
+        ).toEqual({ [t1]: props(1, { "/a": 2 }), [t2]: props(0, { "/a": 2 }) });
+      });
+
+      it("should give the legacy index to an enabled message before a disabled one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
+            source([read(m1, [2])], "t", true),
+            source([read(m2, [3])], "t"),
+          ]),
+        ).toEqual({
+          [t1]: props(0, { "/a": 2 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
+      });
+
+      it("should give the legacy index to a disabled message that binds one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
+            source([read(m1)], "t"),
+            source([read(m2, [2])], "t", true),
+          ]),
+        ).toEqual({
+          [t1]: props(0, { "/a": 2, "/b": 3 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
+      });
+
+      it("should give the legacy index to the first enabled message when none binds one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [
+            source([read(m1)], "t", true),
+            source([read(m2)], "t"),
+          ]),
+        ).toEqual({ [t1]: props(0, { "/a": 2 }), [t2]: props(1, { "/a": 2 }) });
       });
 
       it("should keep the channels under the key of a message", () => {

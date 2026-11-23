@@ -190,7 +190,12 @@ const splitStored = (
   stored: Record<string, Task.ReadChannelProps>,
   entries: ReadEntry[],
 ): Record<string, Task.ReadChannelProps> =>
-  ICD.Stored.split(stored, entries.filter(isPlain).map(storedSource));
+  ICD.Stored.split(
+    stored,
+    entries
+      .filter(isPlain)
+      .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
+  );
 
 /**
  * The prefix of the names of the channels that deploying creates for a message. A

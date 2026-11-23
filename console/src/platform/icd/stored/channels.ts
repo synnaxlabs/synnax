@@ -44,6 +44,8 @@ export interface Source {
   legacy?: string;
   /** The messages that the source reads. */
   messages: icd.ReadMessage[];
+  /** Whether the source is disabled. */
+  disabled?: boolean;
 }
 
 /** @returns the key of the read properties that store the channels of a message. */
@@ -61,10 +63,13 @@ const inSource = (at: string, source: string): boolean => {
 
 /**
  * @returns stored with the channels under each legacy key of sources moved to the keys
- * of the messages that read it. The channels share one index, so the first message
- * that binds one of them, or else the first message, gets them all. Each other message
- * gets the channels that it binds. A message with a key of its own keeps it. The legacy
- * key stays while a source that reads it has no messages.
+ * of the messages that read it. One message, the owner, gets them all with their index:
+ * the first enabled message that binds one of them, else the first disabled one, else
+ * the first enabled message, else the first message. Each other message gets the
+ * channels that it binds without the index, or all of them if it binds none. Only the
+ * owner gets the index, because two holders would both keep it, and the Core refuses
+ * two writers on one index. A message with a key of its own keeps it. The legacy key
+ * stays while a source that reads it has no messages.
  */
 export const split = (
   stored: Record<string, Task.ReadChannelProps>,
@@ -75,23 +80,32 @@ export const split = (
     const held = stored[legacy];
     if (held == null) continue;
     const readers = sources.filter((s) => s.legacy === legacy);
-    const messages = readers.flatMap(({ key: sourceKey, messages }) =>
-      messages.map(({ message, bindings }) => ({
-        at: key(sourceKey, message),
-        bound: new Set(bindings.map(({ channel }) => channel)),
-      })),
-    );
-    if (messages.length === 0) continue;
     const heldChannels = new Set([held.index, ...Object.values(held.channels)]);
     heldChannels.delete(0);
+    const messages = readers.flatMap(({ key: sourceKey, messages, disabled }) =>
+      messages.map(({ message, bindings }) => {
+        const bound = new Set(bindings.map(({ channel }) => channel));
+        return {
+          at: key(sourceKey, message),
+          disabled: disabled === true,
+          bound,
+          binds: [...bound].some((ch) => heldChannels.has(ch)),
+        };
+      }),
+    );
+    if (messages.length === 0) continue;
     const owner =
-      messages.find(({ bound }) => [...bound].some((ch) => heldChannels.has(ch)))?.at ??
-      messages[0].at;
-    out[owner] ??= held;
-    for (const { at, bound } of messages) {
-      const channels = Object.fromEntries(
-        Object.entries(held.channels).filter(([, ch]) => bound.has(ch)),
-      );
+      messages.find(({ disabled, binds }) => !disabled && binds) ??
+      messages.find(({ binds }) => binds) ??
+      messages.find(({ disabled }) => !disabled) ??
+      messages[0];
+    out[owner.at] ??= held;
+    for (const { at, bound, binds } of messages) {
+      const channels = binds
+        ? Object.fromEntries(
+            Object.entries(held.channels).filter(([, ch]) => bound.has(ch)),
+          )
+        : held.channels;
       if (Object.keys(channels).length > 0) out[at] ??= { index: 0, channels };
     }
     if (readers.every(({ messages }) => messages.length > 0)) delete out[legacy];
