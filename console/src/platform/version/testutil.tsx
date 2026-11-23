@@ -9,11 +9,11 @@
 
 import { connection, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { semver } from "@synnaxlabs/x";
-import { type Channel } from "@tauri-apps/api/core";
+import type { Channel } from "@tauri-apps/api/core";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { type DownloadEvent } from "@tauri-apps/plugin-updater";
+import type { DownloadEvent } from "@tauri-apps/plugin-updater";
 import { act, cleanup } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { type Mock, type MockInstance, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 
 type Mode =
   | "copy"

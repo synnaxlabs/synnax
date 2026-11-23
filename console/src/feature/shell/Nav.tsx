@@ -9,7 +9,7 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Shell } from "@/platform/shell";
 import { Theme } from "@/platform/theme";

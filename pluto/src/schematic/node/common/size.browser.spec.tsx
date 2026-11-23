@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Primitive } from "@/schematic/node/common/primitive";

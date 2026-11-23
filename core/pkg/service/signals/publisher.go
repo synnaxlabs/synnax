@@ -155,42 +155,6 @@ func (p *Provider) declareObserved(
 	return channel.KeysFromChannels(declared), nil
 }
 
-// frameOf returns the transform that writes changes to the set and delete
-// channels of cfg, dropping the changes of a disabled channel.
-func frameOf(
-	cfg ObservablePublisherConfig,
-	setEnabled, deleteEnabled bool,
-) func(context.Context, []Change) (framer.WriterRequest, bool, error) {
-	return func(_ context.Context, changes []Change) (framer.WriterRequest, bool, error) {
-		var (
-			frame   framer.Frame
-			sets    = telem.Series{DataType: cfg.SetChannel.DataType}
-			deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
-		)
-		for _, ch := range changes {
-			switch {
-			case ch.Deleted && deleteEnabled:
-				deletes.Data = append(deletes.Data, ch.Sample...)
-			case !ch.Deleted && setEnabled:
-				sets.Data = append(sets.Data, ch.Sample...)
-			}
-		}
-		if len(sets.Data) > 0 {
-			frame = frame.Append(cfg.SetChannel.Key(), sets)
-		}
-		if len(deletes.Data) > 0 {
-			frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
-		}
-		if len(sets.Data) == 0 && len(deletes.Data) == 0 {
-			return framer.WriterRequest{}, false, nil
-		}
-		return framer.WriterRequest{
-			Command: framer.WriterCommandWrite,
-			Frame:   frame,
-		}, true, nil
-	}
-}
-
 // PublishFromObservable opens a new Signals pipeline that subscribes to the configured
 // ObservableSubscriber and writes changes to the configured channels. The returned
 // io.Closer can be used to close the pipeline when done.
@@ -203,7 +167,6 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	setEnabled := cfg.SetChannel.Name != ""
-	deleteEnabled := cfg.DeleteChannel.Name != ""
 	keys, err := p.declareObserved(ctx, &cfg)
 	if err != nil {
 		return nil, err
@@ -219,7 +182,7 @@ func (p *Provider) PublishFromObservable(
 	t := &confluence.ObservableTransformPublisher[[]Change, framer.WriterRequest]{
 		Instrumentation: p.cfg.Instrumentation,
 		Observable:      cfg.Observable,
-		Transform:       frameOf(cfg, setEnabled, deleteEnabled),
+		Transform:       encodeChanges(cfg.SetChannel, cfg.DeleteChannel),
 	}
 	pl := plumber.New()
 	pl.SetSource("source", t)
@@ -248,4 +211,45 @@ func (p *Provider) PublishFromObservable(
 		confluence.RecoverWithErrOnPanic(),
 	)
 	return signal.NewHardShutdown(sCtx, cancel), nil
+}
+
+// encodeChanges returns a transform that encodes changes as a write to set and del. It
+// drops the changes for a channel with an empty name.
+func encodeChanges(
+	set, del channel.Channel,
+) func(context.Context, []Change) (framer.WriterRequest, bool, error) {
+	setEnabled := set.Name != ""
+	deleteEnabled := del.Name != ""
+	return func(_ context.Context, changes []Change) (framer.WriterRequest, bool, error) {
+		if len(changes) == 0 {
+			return framer.WriterRequest{}, false, nil
+		}
+		var (
+			frame   framer.Frame
+			sets    = telem.Series{DataType: set.DataType}
+			deletes = telem.Series{DataType: del.DataType}
+		)
+		for _, ch := range changes {
+			if ch.Deleted {
+				if deleteEnabled {
+					deletes.Data = append(deletes.Data, ch.Sample...)
+				}
+			} else if setEnabled {
+				sets.Data = append(sets.Data, ch.Sample...)
+			}
+		}
+		if len(sets.Data) > 0 {
+			frame = frame.Append(set.Key(), sets)
+		}
+		if len(deletes.Data) > 0 {
+			frame = frame.Append(del.Key(), deletes)
+		}
+		if len(sets.Data) == 0 && len(deletes.Data) == 0 {
+			return framer.WriterRequest{}, false, nil
+		}
+		return framer.WriterRequest{
+			Command: framer.WriterCommandWrite,
+			Frame:   frame,
+		}, true, nil
+	}
 }

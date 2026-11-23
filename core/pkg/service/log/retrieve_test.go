@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +27,7 @@ var _ = Describe("Retrieve", func() {
 			Channels: []log.ChannelEntry{
 				{
 					Channel:  ch1,
-					Color:    new(MustSucceed(color.Parse("#ff0000"))),
+					Color:    fixedColor("#ff0000"),
 					Notation: notation.NotationStandard,
 				},
 			},

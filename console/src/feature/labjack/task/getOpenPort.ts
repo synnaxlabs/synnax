@@ -21,7 +21,7 @@ import {
   type PortType,
 } from "@/feature/labjack/device/types";
 import { claims, terminal } from "@/feature/labjack/task/ports";
-import { type Channel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
 // DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).

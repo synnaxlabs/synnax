@@ -11,7 +11,7 @@ import { Arc, Panel as PPanel } from "@synnaxlabs/pluto";
 
 import { Graph } from "@/feature/arc/editor/toolbar/graph";
 import { Text } from "@/feature/arc/editor/toolbar/text";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 
 const Internal = () => {
   const mode = Arc.useMode();

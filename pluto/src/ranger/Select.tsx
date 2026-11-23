@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flux } from "@/flux";
 import { Label } from "@/label";
@@ -43,10 +44,6 @@ export interface SelectProps
       "query" | "filter"
     > {}
 
-const renderHaulPreview = (entry: unknown): ReactNode => (
-  <HaulPreview range={entry as ranger.Payload} />
-);
-
 export const Select = ({
   filter,
   query,
@@ -57,6 +54,11 @@ export const Select = ({
     (client) => client.ranges,
     { name: "ranges", filter, query },
   );
+  const resolve = Color.useResolve();
+  const renderHaulPreview = (entry: unknown): ReactNode => {
+    const range = entry as ranger.Payload;
+    return <HaulPreview range={range} color={resolve(range.color)} />;
+  };
   return (
     <Base.Single<ranger.Key, ranger.Payload | undefined>
       variant="modal"

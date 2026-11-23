@@ -3341,6 +3341,24 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
+			"Should reject a qualified read whose head is a variable",
+			func(ctx SpecContext) {
+				source := `
+			func f() f64 {
+				a := 1.0
+				b := 2.0
+				return a.b
+			}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+				Expect(
+					diagnostics.String(),
+				).To(ContainSubstring("undefined symbol: a.b"))
+			},
+		)
+
+		It(
 			"Should reject assigning a channel read/write to a stateful variable",
 			func(ctx SpecContext) {
 				source := `
