@@ -2,8 +2,8 @@
 title: "Connect to a Core"
 description:
   "Connect and authenticate a Python or TypeScript client with a Synnax Core: connect to
-  Synnax Desktop, log in with arguments, an API key, or sy login, use TLS, and close the
-  client."
+  Synnax Desktop, log in with arguments, an API key, or sy login, use TLS or a proxy,
+  and close the client."
 clients: ["python", "typescript"]
 ---
 
@@ -455,6 +455,32 @@ instead.
   </Fragment>
 
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Proxies
+
+The Python client reads the standard proxy environment variables. It sends requests and
+streams through the proxy in `HTTPS_PROXY` when it uses TLS, and through the proxy in
+`HTTP_PROXY` when it does not. It connects to the Core directly when `NO_PROXY` names
+its host:
+
+```bash
+export HTTPS_PROXY=http://proxy.example.com:3128
+export NO_PROXY=localhost,core.internal.example.com
+python my_script.py
+```
+
+With TLS, the client tunnels through the proxy and checks the certificate of the Core as
+it does with no proxy. The client reads the variables when you create it.
+
+- **Credentials** -> put them in the proxy URL, such as
+  `http://user:password@proxy.example.com:3128`. Encode special characters, such as
+  `%40` for `@`.
+- **Schemes** -> the proxy URL must use `http` or `https`. A URL with no scheme uses
+  `http`. For a SOCKS proxy, the client raises `ValueError` when you create it.
+- **System settings** -> when no proxy variable is set, the client on macOS and Windows
+  uses the proxy and the bypass list in the network settings of the computer.
 
 <Divider.Divider x />
 

@@ -70,14 +70,14 @@ const setSymbolStroke = (el: SVGElement, symbolColor: color.Crude | undefined) =
   el.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
 };
 
+// An empty original fill marks a shape with no fill attribute of its own.
 const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
-  if (!el.hasAttribute(ORIGINAL_FILL_ATTRIBUTE)) {
-    const originalFill = el.getAttribute("fill");
-    if (originalFill != null) el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, originalFill);
-  }
-  const fill =
-    fillColor != null ? color.hex(fillColor) : el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
-  if (fill != null) el.setAttribute("fill", fill);
+  const original =
+    el.getAttribute(ORIGINAL_FILL_ATTRIBUTE) ?? el.getAttribute("fill") ?? "";
+  el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, original);
+  const fill = fillColor == null ? original : color.hex(fillColor);
+  if (fill === "") el.removeAttribute("fill");
+  else el.setAttribute("fill", fill);
 };
 
 const setHidden = (el: SVGElement, hidden: boolean) => {
