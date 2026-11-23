@@ -60,7 +60,32 @@ Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a device."
 }
 
-Base struct {
+Ports union on model Model {
+    t4 {
+        @doc value "are the ports of a T4."
+    }
+    t7 {
+        mux80_attached bool = false {
+            @doc value """
+                is true when a Mux80 is attached, which adds the analog input ports
+                AIN48 to AIN127.
+            """
+        }
+
+        @doc value "are the ports of a T7."
+    }
+    t8 {
+        @doc value "are the ports of a T8."
+    }
+
+    @doc value  """
+        holds the configuration that depends on the model: the channel maps and the
+        accessories that add ports.
+    """
+    @go marshal
+}
+
+Device struct {
     key               Key = create {
         @doc value "uniquely identifies the device."
         @key
@@ -94,30 +119,17 @@ Base struct {
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }
-
-    @doc value  "carries the fields that every LabJack device shares."
-    @go marshal
-}
-
-Device union on model Model extends Base {
-    t4 {
-        @doc value "is a T4."
+    model             Model       {
+        @doc value         """
+            is the model of the device. It selects the ports the device has.
+        """
+        @validate required
     }
-    t7 {
-        mux80_attached bool = false {
-            @doc value """
-                is true when a Mux80 is attached, which adds the analog input ports
-                AIN48 to AIN127.
-            """
-        }
-
-        @doc value "is a T7."
-    }
-    t8 {
-        @doc value "is a T8."
+    ports             Ports       {
+        @doc value "holds the channel maps and the accessories of the device's model."
     }
 
-    @doc value  "is a LabJack T-series device. Its model selects the ports it has."
+    @doc value  "is a LabJack T-series device."
     @go marshal
     @go migrate
 }

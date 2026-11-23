@@ -46,20 +46,21 @@ type StatusDetails = v0.StatusDetails
 // Status is the operational status of a device.
 type Status = v0.Status
 
-// Base carries the fields that every LabJack device shares.
-type Base = v0.Base
+// Ports holds the configuration that depends on the model: the channel maps and the
+// accessories that add ports.
+type Ports = v0.Ports
 
-// Device is a LabJack T-series device. Its model selects the ports it has.
+// PortsVariant is implemented by every Ports variant.
+type PortsVariant = v0.PortsVariant
+
+// T4Ports are the ports of a T4.
+type T4Ports = v0.T4Ports
+
+// T7Ports are the ports of a T7.
+type T7Ports = v0.T7Ports
+
+// T8Ports are the ports of a T8.
+type T8Ports = v0.T8Ports
+
+// Device is a LabJack T-series device.
 type Device = v0.Device
-
-// DeviceVariant is implemented by every Device variant.
-type DeviceVariant = v0.DeviceVariant
-
-// T4Device is a T4.
-type T4Device = v0.T4Device
-
-// T7Device is a T7.
-type T7Device = v0.T7Device
-
-// T8Device is a T8.
-type T8Device = v0.T8Device

@@ -86,126 +86,65 @@ type StatusDetails struct {
 // Status is the operational status of a device.
 type Status = status.Status[StatusDetails]
 
-// Base carries the fields that every LabJack device shares.
-type Base struct {
-	// Key uniquely identifies the device.
-	Key Key `json:"key" msgpack:"key"`
-	// Rack is the key of the rack the device is connected to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Name is a human-readable name for the device.
-	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the device.
-	Serial uint32 `json:"serial" msgpack:"serial"`
-	// Connection is the connection the scanner last found the device on.
-	Connection Connection `json:"connection" msgpack:"connection"`
-	// Identifier is the prefix of the device's channel names. The device is
-	// unconfigured while it is empty.
-	Identifier string `json:"identifier" msgpack:"identifier"`
-	// ReadIndex is the index channel of the channels that the device reads into.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
-	// WriteStateIndex is the index channel of the state channels of the device's
-	// outputs.
-	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
-	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+// PortsVariant is implemented by every Ports variant.
+type PortsVariant interface {
+	isPortsVariant()
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b Base) Validate() error {
-	v := validate.New("Base")
-	v.Ternaryf("connection", !b.Connection.IsValid(), "invalid connection: %v", b.Connection)
-	v.NotEmptyString("name", b.Name)
-	v.NonZero("serial", b.Serial)
-	v.Ternary("identifier", !validatePattern0.MatchString(string(b.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
-	return v.Error()
+// T4Ports are the ports of a T4.
+type T4Ports struct {
 }
 
-// DeviceVariant is implemented by every Device variant.
-type DeviceVariant interface {
-	isDeviceVariant()
-}
+func (T4Ports) isPortsVariant() {}
 
-// T4Device is a T4.
-type T4Device struct {
-	Base
-}
-
-func (T4Device) isDeviceVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T4Device) Validate() error {
-	v := validate.New("T4Device")
-	v.Exec(t.Base.Validate)
-	return v.Error()
-}
-
-// T7Device is a T7.
-type T7Device struct {
-	Base
+// T7Ports are the ports of a T7.
+type T7Ports struct {
 	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
 	// AIN48 to AIN127.
 	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
 }
 
-func (T7Device) isDeviceVariant() {}
+func (T7Ports) isPortsVariant() {}
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T7Device) Validate() error {
-	v := validate.New("T7Device")
-	v.Exec(t.Base.Validate)
-	return v.Error()
+// T8Ports are the ports of a T8.
+type T8Ports struct {
 }
 
-// T8Device is a T8.
-type T8Device struct {
-	Base
-}
+func (T8Ports) isPortsVariant() {}
 
-func (T8Device) isDeviceVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t T8Device) Validate() error {
-	v := validate.New("T8Device")
-	v.Exec(t.Base.Validate)
-	return v.Error()
-}
-
-// Device is a LabJack T-series device. Its model selects the ports it has.
-type Device struct {
-	Variant DeviceVariant
+// Ports holds the configuration that depends on the model: the channel maps and the
+// accessories that add ports.
+type Ports struct {
+	Variant PortsVariant
 }
 
 // MarshalJSONTo encodes the active variant with its "model" tag injected.
-func (u Device) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (u Ports) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case T4Device:
+	case T4Ports:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T4Device
-		}{Type: ModelT4, T4Device: v})
-	case T7Device:
+			T4Ports
+		}{Type: ModelT4, T4Ports: v})
+	case T7Ports:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T7Device
-		}{Type: ModelT7, T7Device: v})
-	case T8Device:
+			T7Ports
+		}{Type: ModelT7, T7Ports: v})
+	case T8Ports:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T8Device
-		}{Type: ModelT8, T8Device: v})
+			T8Ports
+		}{Type: ModelT8, T8Ports: v})
 	default:
-		return errors.Newf("Device: unknown variant %T", v)
+		return errors.Newf("Ports: unknown variant %T", v)
 	}
 }
 
 // UnmarshalJSONFrom decodes the variant selected by the "model" field.
-func (u *Device) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -227,34 +166,34 @@ func (u *Device) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case ModelT4:
 		var v struct {
 			Type Model `json:"model"`
-			T4Device
+			T4Ports
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T4Device
+		u.Variant = v.T4Ports
 	case ModelT7:
 		var v struct {
 			Type Model `json:"model"`
-			T7Device
+			T7Ports
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T7Device
+		u.Variant = v.T7Ports
 	case ModelT8:
 		var v struct {
 			Type Model `json:"model"`
-			T8Device
+			T8Ports
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T8Device
+		u.Variant = v.T8Ports
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"Device: unknown model %q",
+			"Ports: unknown model %q",
 			disc.Type,
 		)
 	}
@@ -262,13 +201,13 @@ func (u *Device) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // Model returns the model of the active variant, or an empty model when there is none.
-func (u Device) Model() Model {
+func (u Ports) Model() Model {
 	switch u.Variant.(type) {
-	case T4Device:
+	case T4Ports:
 		return ModelT4
-	case T7Device:
+	case T7Ports:
 		return ModelT7
-	case T8Device:
+	case T8Ports:
 		return ModelT8
 	}
 	return ""
@@ -276,46 +215,49 @@ func (u Device) Model() Model {
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
-func (u Device) Validate() error {
-	v := validate.New("Device")
+func (u Ports) Validate() error {
+	v := validate.New("Ports")
 	v.Ternary("model", u.Variant == nil, "required")
-	switch variant := u.Variant.(type) {
-	case T4Device:
-		v.Exec(variant.Validate)
-	case T7Device:
-		v.Exec(variant.Validate)
-	case T8Device:
-		v.Exec(variant.Validate)
-	}
 	return v.Error()
 }
 
-// Base returns the fields every variant shares, or the zero value if Variant is nil.
-func (u Device) Base() Base {
-	switch variant := u.Variant.(type) {
-	case T4Device:
-		return variant.Base
-	case T7Device:
-		return variant.Base
-	case T8Device:
-		return variant.Base
-	}
-	return Base{}
+// Device is a LabJack T-series device.
+type Device struct {
+	// Key uniquely identifies the device.
+	Key Key `json:"key" msgpack:"key"`
+	// Rack is the key of the rack the device is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the device.
+	Name string `json:"name" msgpack:"name"`
+	// Serial is the serial number of the device.
+	Serial uint32 `json:"serial" msgpack:"serial"`
+	// Connection is the connection the scanner last found the device on.
+	Connection Connection `json:"connection" msgpack:"connection"`
+	// Identifier is the prefix of the device's channel names. The device is
+	// unconfigured while it is empty.
+	Identifier string `json:"identifier" msgpack:"identifier"`
+	// ReadIndex is the index channel of the channels that the device reads into.
+	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	// WriteStateIndex is the index channel of the state channels of the device's
+	// outputs.
+	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	// Status is the current operational status of the device.
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+	// Model is the model of the device. It selects the ports the device has.
+	Model Model `json:"model" msgpack:"model"`
+	// Ports holds the channel maps and the accessories of the device's model.
+	Ports Ports `json:"ports" msgpack:"ports"`
 }
 
-// SetBase replaces the fields every variant shares. It panics if Variant is nil.
-func (u *Device) SetBase(base Base) {
-	switch variant := u.Variant.(type) {
-	case T4Device:
-		variant.Base = base
-		u.Variant = variant
-	case T7Device:
-		variant.Base = base
-		u.Variant = variant
-	case T8Device:
-		variant.Base = base
-		u.Variant = variant
-	default:
-		panic(errors.Newf("Device: cannot set the base of variant %T", variant))
-	}
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	v.Ternaryf("connection", !d.Connection.IsValid(), "invalid connection: %v", d.Connection)
+	v.Ternaryf("model", !d.Model.IsValid(), "invalid model: %v", d.Model)
+	v.NotEmptyString("name", d.Name)
+	v.NonZero("serial", d.Serial)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
+	v.Exec(func() error { return validate.PathedError(d.Ports.Validate(), "ports") })
+	return v.Error()
 }

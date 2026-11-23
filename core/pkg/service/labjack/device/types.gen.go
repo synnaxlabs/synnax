@@ -55,23 +55,24 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a device.
 type Status = versions.Status
 
-// Base carries the fields that every LabJack device shares.
-type Base = versions.Base
+// Ports holds the configuration that depends on the model: the channel maps and the
+// accessories that add ports.
+type Ports = versions.Ports
 
-// Device is a LabJack T-series device. Its model selects the ports it has.
+// PortsVariant is implemented by every Ports variant.
+type PortsVariant = versions.PortsVariant
+
+// T4Ports are the ports of a T4.
+type T4Ports = versions.T4Ports
+
+// T7Ports are the ports of a T7.
+type T7Ports = versions.T7Ports
+
+// T8Ports are the ports of a T8.
+type T8Ports = versions.T8Ports
+
+// Device is a LabJack T-series device.
 type Device = versions.Device
-
-// DeviceVariant is implemented by every Device variant.
-type DeviceVariant = versions.DeviceVariant
-
-// T4Device is a T4.
-type T4Device = versions.T4Device
-
-// T7Device is a T7.
-type T7Device = versions.T7Device
-
-// T8Device is a T8.
-type T8Device = versions.T8Device
 
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
@@ -95,141 +96,6 @@ func (i Identity) Validate() error {
 	v.Ternaryf("model", !i.Model.IsValid(), "invalid model: %v", i.Model)
 	v.NonZero("rack", i.Rack)
 	v.NonZero("serial", i.Serial)
-	return v.Error()
-}
-
-// PortsVariant is implemented by every Ports variant.
-type PortsVariant interface {
-	isPortsVariant()
-}
-
-// T4Ports are the ports of a T4.
-type T4Ports struct {
-}
-
-func (T4Ports) isPortsVariant() {}
-
-// T7Ports are the ports of a T7.
-type T7Ports struct {
-	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
-	// AIN48 to AIN127.
-	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
-}
-
-func (T7Ports) isPortsVariant() {}
-
-// T8Ports are the ports of a T8.
-type T8Ports struct {
-}
-
-func (T8Ports) isPortsVariant() {}
-
-// Ports holds the configuration that depends on the model: the channel maps and the
-// accessories that add ports.
-type Ports struct {
-	Variant PortsVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "model" tag injected.
-func (u Ports) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case T4Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T4Ports
-		}{Type: ModelT4, T4Ports: v})
-	case T7Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T7Ports
-		}{Type: ModelT7, T7Ports: v})
-	case T8Ports:
-		return json.MarshalEncode(enc, struct {
-			Type Model `json:"model"`
-			T8Ports
-		}{Type: ModelT8, T8Ports: v})
-	default:
-		return errors.Newf("Ports: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "model" field.
-func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type Model `json:"model"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ModelT4:
-		var v struct {
-			Type Model `json:"model"`
-			T4Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T4Ports
-	case ModelT7:
-		var v struct {
-			Type Model `json:"model"`
-			T7Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T7Ports
-	case ModelT8:
-		var v struct {
-			Type Model `json:"model"`
-			T8Ports
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.T8Ports
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"Ports: unknown model %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Model returns the model of the active variant, or an empty model when there is none.
-func (u Ports) Model() Model {
-	switch u.Variant.(type) {
-	case T4Ports:
-		return ModelT4
-	case T7Ports:
-		return ModelT7
-	case T8Ports:
-		return ModelT8
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u Ports) Validate() error {
-	v := validate.New("Ports")
-	v.Ternary("model", u.Variant == nil, "required")
 	return v.Error()
 }
 

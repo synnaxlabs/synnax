@@ -18,12 +18,13 @@ const DEVICE = {
   serial: 470010001,
   connection: "LJM_ctUSB",
   model: "t7",
+  ports: { model: "t7" },
 } as const;
 
 describe("deviceZ", () => {
   it("should parse a device and apply the defaults", () => {
     const device = labjack.device.deviceZ.parse(DEVICE);
-    expect(device.model).toEqual("t7");
+    expect(device.ports).toEqual({ model: "t7", mux80Attached: false });
     expect(device.identifier).toEqual("");
     expect(device.readIndex).toEqual(0);
   });
@@ -32,6 +33,7 @@ describe("deviceZ", () => {
     ["an empty name", { name: "" }],
     ["a zero serial", { serial: 0 }],
     ["an unknown model", { model: "t9" }],
+    ["unknown ports", { ports: { model: "t9" } }],
     ["an unknown connection", { connection: "LJM_ctTCP" }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {

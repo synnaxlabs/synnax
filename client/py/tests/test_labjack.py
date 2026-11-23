@@ -686,12 +686,14 @@ class TestLabJackDeviceResource:
         "serial": 470010001,
         "connection": "LJM_ctUSB",
         "model": "t7",
+        "ports": {"model": "t7"},
     }
 
-    def test_parses_the_model_variant(self) -> None:
-        """Should parse the variant that the model names and leave it unconfigured."""
+    def test_parses_the_ports_of_the_model(self) -> None:
+        """Should parse the ports that the model names and leave it unconfigured."""
         device = TypeAdapter(sy.labjack.device.Device).validate_python(self.DEVICE)
-        assert isinstance(device, sy.labjack.device.T7Device)
+        assert isinstance(device.ports, sy.labjack.device.T7Ports)
+        assert not device.ports.mux80_attached
         assert device.identifier == ""
         assert device.read_index == 0
 
@@ -699,12 +701,13 @@ class TestLabJackDeviceResource:
         "change",
         [
             {"model": "t9"},
+            {"ports": {"model": "t9"}},
             {"connection": "LJM_ctTCP"},
             {"serial": None},
         ],
     )
     def test_rejects_an_invalid_device(self, change: dict[str, object]) -> None:
-        """Should reject an unknown model or connection and a missing serial."""
+        """Should reject an unknown model, ports, or connection and a missing serial."""
         data = {k: v for k, v in {**self.DEVICE, **change}.items() if v is not None}
         with pytest.raises(ValidationError):
             TypeAdapter(sy.labjack.device.Device).validate_python(data)
