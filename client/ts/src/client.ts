@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
   type CrudeTimeSpan,
+  disposable,
   observe,
   sleep,
   TimeSpan,
@@ -110,6 +111,16 @@ export const synnaxParamsZ = z.object({
    */
   onRetry: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
+    .optional(),
+  /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
+  // custom, not z.function: parse would wrap the clock and check every reading
+  clock: z.custom<() => TimeStamp>((v) => typeof v === "function").optional(),
+  /** Runs on every request and stream the client opens, after its own middleware. */
+  // custom, not z.function: parse would wrap each middleware and check every call
+  middleware: z
+    .custom<Middleware[]>(
+      (v) => Array.isArray(v) && v.every((m) => typeof m === "function"),
+    )
     .optional(),
 });
 
@@ -226,6 +237,11 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
  * @property connection - The connection state machine.
  */
 export default class Synnax extends framer.Client {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
@@ -355,6 +371,7 @@ export default class Synnax extends framer.Client {
       onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onStreamRetry: parsedParams.onRetry,
       onError: parsedParams.onInternalError,
+      clock: parsedParams.clock,
     });
     this.cache = cache;
     this.conn = new connection.Client({
@@ -384,6 +401,7 @@ export default class Synnax extends framer.Client {
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
+    if (parsedParams.middleware != null) transport.use(...parsedParams.middleware);
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();

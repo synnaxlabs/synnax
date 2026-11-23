@@ -11,10 +11,14 @@ package cmd_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd"
+	"github.com/synnaxlabs/synnax/cmd/exit"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -42,5 +46,49 @@ var _ = Describe("Cmd", func() {
 			),
 			MatchError("unknown flag: --bogus"),
 		))
+	})
+
+	Describe("Config file", func() {
+		var root *cobra.Command
+		BeforeEach(func() {
+			root = cmd.NewCmd()
+			root.SetOut(new(bytes.Buffer))
+			root.SetErr(new(bytes.Buffer))
+		})
+
+		It(
+			"Should fail with the config exit code when the file does not parse",
+			func() {
+				path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+				Expect(
+					os.WriteFile(path, []byte("insecure: [true"), 0o600),
+				).To(Succeed())
+				root.SetArgs([]string{"version", "--config", path})
+				Expect(root.Execute()).To(And(
+					MatchError(ContainSubstring(path)),
+					WithTransform(exit.Code, Equal(exit.Config)),
+				))
+			},
+		)
+
+		It(
+			"Should fail with the config exit code when a passed path does not exist",
+			func() {
+				path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
+				root.SetArgs([]string{"version", "--config", path})
+				Expect(root.Execute()).To(And(
+					MatchError(ContainSubstring(path)),
+					WithTransform(exit.Code, Equal(exit.Config)),
+				))
+			},
+		)
+
+		It("Should succeed when the default path does not exist", func() {
+			flag := root.PersistentFlags().Lookup("config")
+			path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
+			Expect(flag.Value.Set(path)).To(Succeed())
+			root.SetArgs([]string{"version"})
+			Expect(root.Execute()).To(Succeed())
+		})
 	})
 })

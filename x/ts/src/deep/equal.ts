@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@/primitive";
+import type { primitive } from "@/primitive";
 
 interface DeepEqualBaseRecord {
   equals?: (other: unknown) => boolean;
@@ -39,7 +39,9 @@ const compareWhole = (a: object, b: object): boolean | undefined => {
   if (isEquatable(a)) return a.equals(b);
   if (isEquatable(b)) return b.equals(a);
   if (a instanceof Date || b instanceof Date)
-    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+    return (
+      a instanceof Date && b instanceof Date && Object.is(a.getTime(), b.getTime())
+    );
   if (a instanceof Map || b instanceof Map)
     return a instanceof Map && b instanceof Map && mapsEqual(a, b);
   if (a instanceof Set || b instanceof Set)

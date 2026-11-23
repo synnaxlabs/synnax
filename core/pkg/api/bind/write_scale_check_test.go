@@ -33,7 +33,11 @@ var _ = Describe("Write and large records", func() {
 			labels := make([]label.Label, n)
 			reads := make([]string, n)
 			for i := range labels {
-				labels[i] = label.Label{Key: uuid.New(), Name: "read"}
+				labels[i] = label.Label{
+					Key:   uuid.New(),
+					Name:  "read",
+					Color: labelColor,
+				}
 				reads[i] = labels[i].Key.String()
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

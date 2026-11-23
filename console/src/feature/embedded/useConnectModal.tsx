@@ -9,7 +9,7 @@
 
 import "@/feature/embedded/useConnectModal.css";
 
-import { type resource } from "@synnaxlabs/client";
+import type { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";

@@ -17,12 +17,13 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Handoff } from "@/feature/license/Handoff";
 import { KeyInput } from "@/feature/license/KeyInput";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
+import { Portal } from "@/platform/portal";
 import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
@@ -236,7 +237,7 @@ export const Info = (): ReactElement => {
             variant="text"
             size="small"
             disabled={fingerprint.length === 0}
-            text={() => License.joinFingerprint(fingerprint)}
+            text={() => Portal.joinFingerprint(fingerprint)}
           >
             Copy fingerprint
           </Button.Copy>
