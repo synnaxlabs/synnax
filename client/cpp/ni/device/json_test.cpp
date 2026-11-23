@@ -122,8 +122,10 @@ TEST(Device, RoundTripsProto) {
 /// @brief it should reject an unknown terminal configuration.
 TEST(AnalogInputPort, RejectsUnknownTerminalConfigToProto) {
     const AnalogInputPort port{.port = 0, .default_terminal_config = "Bogus"};
-    const auto [pb, err] = port.to_proto();
-    ASSERT_TRUE(err) << err;
+    ASSERT_OCCURRED_AS_P(
+        port.to_proto(),
+        x::errors::Error("unrecognized TerminalConfig value: Bogus")
+    );
 }
 
 /// @brief it should reject a line number that does not fit in a byte.

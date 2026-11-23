@@ -130,7 +130,8 @@ var _ = Describe("Translator", func() {
 	It("Should reject an unknown terminal configuration", func() {
 		hw := newHardware()
 		hw.AnalogInputs[0].DefaultTerminalConfig = "Bogus"
-		Expect(pb.HardwareToPB(*hw)).Error().To(HaveOccurred())
+		Expect(pb.HardwareToPB(*hw)).Error().
+			To(MatchError(ContainSubstring("unrecognized device.TerminalConfig value")))
 	})
 
 	DescribeTable("Should round trip an update", func(u device.Update) {
