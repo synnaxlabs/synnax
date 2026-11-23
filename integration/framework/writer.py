@@ -39,9 +39,9 @@ class Writer:
             if not data.keys() <= self._channels:
                 channels = self._channels | data.keys()
                 if self._writer is not None:
-                    self._writer.close()
-                    self._writer = None
+                    stale, self._writer = self._writer, None
                     self._channels = set()
+                    stale.close()
                 # Use the current commit timestamp as the start for the new
                 # writer so we don't overlap with data we just committed.
                 self._writer = self._client.open_writer(
@@ -57,6 +57,6 @@ class Writer:
     def close(self) -> None:
         with self._lock:
             if self._writer is not None:
-                self._writer.close()
-                self._writer = None
+                stale, self._writer = self._writer, None
                 self._channels = set()
+                stale.close()

@@ -68,3 +68,17 @@ class TestWriter:
         writer.write("b", 3)
         assert len(client.streams) == 2
         assert client.streams[-1].written == [{"b": 3}]
+
+    def test_should_open_a_writer_again_after_a_failed_close(self) -> None:
+        client = _Client()
+        writer = _writer(client)
+        writer.write("a", 1)
+
+        def fail() -> None:
+            raise ConnectionError("stream dropped")
+
+        setattr(client.streams[0], "close", fail)
+        with pytest.raises(ConnectionError):
+            writer.write("b", 2)
+        writer.write("b", 3)
+        assert client.streams[-1].written == [{"b": 3}]
