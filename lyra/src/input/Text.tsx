@@ -202,10 +202,11 @@ export const Text = ({
   };
 
   // An input's text is no scroll container a CSS scroll timeline can watch, so the
-  // input measures itself to fade a cut value.
-  const [cut, setCut] = useState(false);
+  // input measures itself to fade a cut value. It marks the element without a render:
+  // a render in a ResizeObserver callback flushes pending updates in the observer loop.
   const measureCut = (el: HTMLElement | null): void => {
-    if (el != null && !area) setCut(el.scrollWidth > el.clientWidth);
+    if (el != null && !area)
+      el.classList.toggle(CSS.M("cut"), el.scrollWidth > el.clientWidth);
   };
   const resizeRef = useResize<HTMLInputElement>((_, el) => measureCut(el));
   useLayoutEffect(
@@ -325,7 +326,6 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
-          className={cut ? CSS.M("cut") : undefined}
           value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}

@@ -64,8 +64,6 @@ const FRAME = "records";
 const HINT =
   "Select the fields to read. Records that hold the same fields share a message.";
 
-const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
-
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
 const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: "No JSON message" };
@@ -262,7 +260,7 @@ const TopicValues = ({
         const key = `${i}${f.pointer}`;
         fields.set(key, [shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
-        if (j === shape.index) lock = INDEX;
+        if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
@@ -270,7 +268,7 @@ const TopicValues = ({
           key,
           name: f.pointer === "" ? "Whole value" : f.pointer,
           sample: show(newestValue(newest, f.pointer)),
-          dataType: f.timeFormat == null ? f.dataType.toString() : "timestamp",
+          dataType: ICD.DEFAULT_DATA_TYPES[f.kind],
           lock,
         };
       }),
