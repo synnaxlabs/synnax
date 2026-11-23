@@ -193,12 +193,6 @@ func MigrateAnalogWriteConfig(
 	return cfg, nil
 }
 
-// MigrateCIChannel lifts a v3 counter input channel to v4. See MigrateMinMaxVal for its
-// range.
-func MigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, error) {
-	return autoMigrateCIChannel(ctx, old)
-}
-
 // MigrateCounterReadConfig lifts a v3 counter read config to v4.
 func MigrateCounterReadConfig(
 	ctx context.Context,

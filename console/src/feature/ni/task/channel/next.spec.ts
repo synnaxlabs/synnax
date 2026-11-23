@@ -126,35 +126,19 @@ describe("Channel", () => {
     });
 
     it("should give a new voltage channel a range of ±10 V", () => {
-<<<<<<< HEAD:console/src/feature/ni/task/channel/next.spec.ts
-      expect(Channel.createNextAI([])).toMatchObject({ range: { lower: -10, upper: 10 } });
-||||||| parent of 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
-      expect(createNextAIChannel([])).toMatchObject({ range: { lower: -10, upper: 10 } });
-=======
-      expect(createNextAIChannel([])).toMatchObject({
+      expect(Channel.createNextAI([])).toMatchObject({
         range: { lower: -10, upper: 10 },
       });
->>>>>>> 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
     });
 
     it("should give a copy on another device that device's range", () => {
-<<<<<<< HEAD:console/src/feature/ni/task/channel/next.spec.ts
-      const source = { ...aiChannel("1", 0), device: "a", range: { lower: -60, upper: 60 } };
-      expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
-        range: { lower: -10, upper: 10 },
-||||||| parent of 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
-      const source = { ...aiChannel("1", 0), device: "a", range: { lower: -60, upper: 60 } };
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
-        range: { lower: -10, upper: 10 },
-=======
       const source = {
         ...aiChannel("1", 0),
         device: "a",
         range: { lower: -60, upper: 60 },
       };
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+      expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         range: { lower: -10, upper: 10 },
->>>>>>> 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
       });
     });
 
@@ -172,16 +156,8 @@ describe("Channel", () => {
         range: { lower: 0, upper: 30 },
         customScale,
       };
-<<<<<<< HEAD:console/src/feature/ni/task/channel/next.spec.ts
       expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         range: { lower: 0, upper: 30 },
-||||||| parent of 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
-        range: { lower: 0, upper: 30 },
-=======
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
-        range: { lower: 0, upper: 30 },
->>>>>>> 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
       });
     });
 
@@ -191,32 +167,16 @@ describe("Channel", () => {
         device: "a",
         range: { lower: -0.02, upper: 0.02 },
       };
-<<<<<<< HEAD:console/src/feature/ni/task/channel/next.spec.ts
       expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
         range: { lower: -0.02, upper: 0.02 },
-||||||| parent of 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
-        range: { lower: -0.02, upper: 0.02 },
-=======
-      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
-        range: { lower: -0.02, upper: 0.02 },
->>>>>>> 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
       });
     });
 
     it("should keep the range of the copied channel", () => {
-<<<<<<< HEAD:console/src/feature/ni/task/channel/next.spec.ts
       const source = { ...aiChannel("1", 0), range: { lower: -1, upper: 1 } };
-      expect(Channel.createNextAI([source])).toMatchObject({ range: { lower: -1, upper: 1 } });
-||||||| parent of 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
-      const source = { ...aiChannel("1", 0), range: { lower: -1, upper: 1 } };
-      expect(createNextAIChannel([source])).toMatchObject({ range: { lower: -1, upper: 1 } });
-=======
-      const source = { ...aiChannel("1", 0), range: { lower: -1, upper: 1 } };
-      expect(createNextAIChannel([source])).toMatchObject({
+      expect(Channel.createNextAI([source])).toMatchObject({
         range: { lower: -1, upper: 1 },
       });
->>>>>>> 81298d01a0e (SY-6741: Move NI MinMaxVal to a ClosedBounds range):console/src/feature/ni/task/createChannel.spec.ts
     });
 
     it("should copy the last channel when no channel to copy is given", () => {
