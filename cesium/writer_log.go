@@ -406,24 +406,8 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			First:     int64(w.first),
 			Last:      int64(w.end),
 		}
-		w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
-		for _, lk := range w.keys {
-			if lk.w == nil || lk.w.Len() == lk.committed {
-				continue
-			}
-			w.committed = append(w.committed, lk.ch.Key)
-			length, crc := lk.w.Pending()
-			w.keySegments = append(w.keySegments, log.Slot{
-				Segment: lk.id,
-				Length:  length,
-				TailCRC: crc,
-			})
-		}
-		slices.SortFunc(w.keySegments, func(a, b log.Slot) int {
-			return cmp.Compare(a.Segment, b.Segment)
-		})
+		w.collectSlots()
 		c.Slots = slices.Clone(w.keySegments)
-		slices.Sort(w.committed)
 		var err error
 		w.pre, err = w.e.withPreloads(w.pre, w.committed, w.first, w.end, false, func(
 			pre []state.Preload,
@@ -451,6 +435,28 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 		err = w.sync()
 	}
 	return end, false, err
+}
+
+// collectSlots sets keySegments to a slot for each segment with uncommitted samples, in
+// rising order of segment, and committed to the keys of those segments in rising order.
+func (w *logWriter) collectSlots() {
+	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
+	for _, lk := range w.keys {
+		if lk.w == nil || lk.w.Len() == lk.committed {
+			continue
+		}
+		w.committed = append(w.committed, lk.ch.Key)
+		length, crc := lk.w.Pending()
+		w.keySegments = append(w.keySegments, log.Slot{
+			Segment: lk.id,
+			Length:  length,
+			TailCRC: crc,
+		})
+	}
+	slices.SortFunc(w.keySegments, func(a, b log.Slot) int {
+		return cmp.Compare(a.Segment, b.Segment)
+	})
+	slices.Sort(w.committed)
 }
 
 // sealFull seals each segment that reached segmentLimit, so the next write creates
