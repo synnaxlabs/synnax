@@ -20,8 +20,6 @@
 
 // Owner: Emiliano Bonilla. Umbrella: SY-4970. Removed in 0.63.
 export const icds = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
-// Owner: Emiliano Bonilla. Umbrella: SY-6226. Removed in 0.63.
-export const staleBadges = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
 // Owner: Emiliano Bonilla. Umbrella: SY-6601. On in Desktop. Removed in 0.64.
 export const breaks =
   IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";

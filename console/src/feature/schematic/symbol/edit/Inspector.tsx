@@ -105,7 +105,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const [split, setSplit] = useState(false);
+  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
   const several = values.values.length > 1;
   const varies = split || Spec.variesByValue({ looks }, part, field);
   const handleVariesChange = (next: boolean) => {
@@ -187,14 +187,13 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, onChange, label, at } =
-    useScope<"hidden">("VisibleControl");
+  const { value, inherited, onChange, label } = useScope<"hidden">("VisibleControl");
   return (
     <Input.Checkbox
       aria-label={label}
       value={value !== true}
       onChange={(shown) =>
-        onChange(shown ? (at == null && inherited !== true ? undefined : false) : true)
+        onChange(shown ? (inherited === true ? false : undefined) : true)
       }
     />
   );

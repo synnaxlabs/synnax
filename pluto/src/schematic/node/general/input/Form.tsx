@@ -53,7 +53,7 @@ const InputTelemForm = (): ReactElement => {
         <Form.ControlChipField />
       </Base.Section>
       <Base.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Base.Section>
     </Base.Sections>
   );
