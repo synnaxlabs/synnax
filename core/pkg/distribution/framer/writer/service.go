@@ -322,7 +322,7 @@ func (s *Service) OnControlUpdate(
 
 // ClaimDelete claims keys for a delete and returns the function that releases the
 // claim. While the claim is held, a writer on one of keys fails to open. ClaimDelete
-// fails with ErrChannelInUse when a writer holds one of keys.
+// fails when a writer holds one of keys.
 func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
 	if release, err = s.claims.claim(keys); err == nil {
 		s.controls.forget(keys)
