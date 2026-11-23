@@ -61,6 +61,7 @@ export class Loop {
   private readonly frame = (now: number): void => {
     this.handle = null;
     for (const mover of this.movers) if (!mover.step(now)) this.movers.delete(mover);
-    if (this.movers.size > 0) this.handle = this.requestFrame(this.frame);
+    // A part that joins during the frame has already asked for the next one.
+    if (this.movers.size > 0) this.handle ??= this.requestFrame(this.frame);
   };
 }
