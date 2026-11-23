@@ -699,6 +699,13 @@ class TestGH:
         assert call_gh(*args, stdin="{}") != ""
         assert len(fake.calls()) == 2
 
+    def test_should_send_the_body_again_on_a_retry(self, fake: Executable) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        body = '{"status": "completed"}'
+        path = f"repos/{REPO}/check-runs/55"
+        call_gh("api", "-X", "PATCH", path, "--input", "-", stdin=body)
+        assert fake.inputs() == [body, body]
+
     def test_should_fail_a_client_error_at_once(self, fake: Executable) -> None:
         fake.fail("api *", "gh: Not Found (HTTP 404)")
         with pytest.raises(subprocess.CalledProcessError):

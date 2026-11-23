@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from itertools import pairwise
@@ -102,7 +103,20 @@ def gh(*args: str, stdin: str | None = None, env: dict[str, str] | None = None) 
     """Runs `gh` with the given arguments and returns its stdout. A read, a GraphQL
     query, a PATCH, or a PUT retries a transient failure as `gh_api.sh` does. Any other
     call runs once: a failed call can still land, so a retry could post twice."""
-    cmd = [str(_GH_API), *args[1:]] if _repeatable(args) else ["gh", *args]
+    if not _repeatable(args):
+        return _run(["gh", *args], stdin=stdin, env=env)
+    with tempfile.NamedTemporaryFile("w") as body:
+        body.write(stdin or "")
+        body.flush()
+        # Each attempt reads the body again, and stdin is empty after the first.
+        rest = [
+            body.name if (prev, a) == ("--input", "-") else a
+            for prev, a in pairwise(args)
+        ]
+        return _run([str(_GH_API), *rest], stdin=None, env=env)
+
+
+def _run(cmd: list[str], *, stdin: str | None, env: dict[str, str] | None) -> str:
     return subprocess.run(
         cmd, input=stdin, stdout=subprocess.PIPE, text=True, check=True, env=env
     ).stdout
