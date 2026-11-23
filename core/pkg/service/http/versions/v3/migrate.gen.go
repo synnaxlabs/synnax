@@ -25,11 +25,3 @@ func autoMigrateReadConfig(_ context.Context, old v2.ReadConfig) (ReadConfig, er
 		Endpoints:     old.Endpoints,
 	}, nil
 }
-
-func autoMigrateWriteConfig(_ context.Context, old v2.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		StartConfig: old.StartConfig,
-		Device:      old.Device,
-		Endpoints:   old.Endpoints,
-	}, nil
-}

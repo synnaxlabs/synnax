@@ -32,13 +32,6 @@ func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v1.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
-	}, nil
-}
-
 func autoMigrateReadChannel(_ context.Context, old v1.ReadChannel) (ReadChannel, error) {
 	return ReadChannel{
 		BaseChannel: old.BaseChannel,

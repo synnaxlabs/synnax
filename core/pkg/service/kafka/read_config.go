@@ -67,6 +67,7 @@ type readResolver struct {
 	icds     *icd.Service
 	channels v1.Channels
 	create   v1.CreateICD
+	reads    read.Resolver
 	ins      alamos.Instrumentation
 }
 
@@ -111,108 +112,45 @@ func (r readResolver) hash(
 	cfg *ReadConfig,
 	h *content.Hash,
 ) error {
-	icdKeys, _ := referencedKeys(cfg, nil)
-	if len(icdKeys) == 0 {
-		return nil
-	}
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
-		return err
-	}
-	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
-	for _, topic := range cfg.Topics {
-		for _, rec := range topic.Records {
-			if rec.Disabled {
-				continue
-			}
-			if err := read.Hash(h, icds[rec.ICD], rec.Messages); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
 }
 
 // check checks each enabled record of cfg against its ICD, from icds or else read
-// through snap, and its channels. It skips an ICD or a channel that does not exist,
-// which the reference check of the write reports.
+// through snap, and its channels.
 func (r readResolver) check(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	icdKeys, channelKeys := referencedKeys(cfg, icds)
-	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
-			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		for _, ic := range found {
-			icds[ic.Key] = ic
-		}
+	reads := readsOf(cfg)
+	c, err := r.reads.NewChecker(ctx, snap, reads, icds)
+	if err != nil {
+		return err
 	}
-	var channels map[channel.Key]v1.Channel
-	if len(channelKeys) > 0 {
-		var err error
-		if channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
+	for _, rd := range reads {
+		if err = c.Read(rd); err != nil {
 			return err
-		}
-	}
-	c := read.NewChecker(lo.MapValues(
-		channels,
-		func(ch v1.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
-	))
-	for t, topic := range cfg.Topics {
-		for i, rec := range topic.Records {
-			ic, ok := icds[rec.ICD]
-			if rec.Disabled || !ok {
-				continue
-			}
-			for j, rm := range rec.Messages {
-				path := []string{
-					"topics", strconv.Itoa(t),
-					"records", strconv.Itoa(i),
-					"messages", strconv.Itoa(j),
-				}
-				if err := c.Message(rm, ic, path); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil
 }
 
-// referencedKeys returns the ICDs that the enabled records of cfg name and icds lacks,
-// and the channels that the enabled records name.
-func referencedKeys(
-	cfg *ReadConfig,
-	icds map[icd.Key]icd.ICD,
-) (icdKeys []icd.Key, channelKeys []channel.Key) {
-	for _, topic := range cfg.Topics {
-		for _, rec := range topic.Records {
+// readsOf returns the read of each enabled record of cfg.
+func readsOf(cfg *ReadConfig) []read.Read {
+	var reads []read.Read
+	for t, topic := range cfg.Topics {
+		for i, rec := range topic.Records {
 			if rec.Disabled {
 				continue
 			}
-			if _, ok := icds[rec.ICD]; !ok {
-				icdKeys = append(icdKeys, rec.ICD)
-			}
-			for _, m := range rec.Messages {
-				for _, b := range m.Bindings {
-					if b.Channel != 0 {
-						channelKeys = append(channelKeys, b.Channel)
-					}
-				}
-			}
+			path := []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)}
+			reads = append(reads, read.Read{
+				Path:     path,
+				ICD:      rec.ICD,
+				Messages: rec.Messages,
+			})
 		}
 	}
-	return icdKeys, channelKeys
+	return reads
 }

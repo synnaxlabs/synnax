@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
 import { Keys } from "@/components/keys/Keys";
-import { SHORTCUT } from "@/components/nav/collapse";
+import { collapse } from "@/components/nav/collapse";
 import { Page as P } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
@@ -47,7 +47,11 @@ const TREE_ID = "page-nav-tree";
     >
         <Text.Text level="small" color={11}>
             <span data-tooltip-label></span>
-            <Keys trigger={["Control", SHORTCUT]} level="small" data-tooltip-keys />
+            <Keys
+                trigger={["Control", collapse.SHORTCUT]}
+                level="small"
+                data-tooltip-keys
+            />
         </Text.Text>
     </div>
 </nav>

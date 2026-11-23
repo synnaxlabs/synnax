@@ -126,6 +126,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       this.changes.count++;
       if (store.keys().length > 0) this.refetch();
     });
+    cache.onMissed(onChange);
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),
