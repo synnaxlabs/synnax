@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	xjson "github.com/synnaxlabs/x/json"
 	xpayload "github.com/synnaxlabs/x/payload"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/set"
@@ -109,7 +110,7 @@ func LiftMessage(
 		key := uuid.New()
 		field, dataType, changes := liftField(old, isIndex, ch, JSONBaseField{
 			Key:     key,
-			Name:    UniqueName(names, fieldName(old)),
+			Name:    fieldName(names, old.Name, old.Pointer),
 			Scale:   1,
 			Pointer: old.Pointer,
 		})
@@ -151,12 +152,44 @@ func UniqueName(taken set.Set[string], name string) string {
 	return unique
 }
 
-// fieldName returns the name of old, or else its pointer.
-func fieldName(old InlineField) string {
-	if old.Name != "" {
-		return old.Name
+// fieldName returns name, or else a name made from pointer, apart from the names in
+// taken, and adds it to taken. The tokens of pointer join with "_", and the whole
+// document gives "value". A taken name gets the lowest free suffix "_n", from 2. Two
+// names clash when they are the same as channel names. taken holds channel names.
+func fieldName(taken set.Set[string], name, pointer string) string {
+	base := lo.CoalesceOrEmpty(name, pointerName(pointer))
+	unique := base
+	for n := 2; taken.Contains(channelName(unique)); n++ {
+		unique = base + "_" + strconv.Itoa(n)
 	}
-	return lo.CoalesceOrEmpty(strings.TrimPrefix(old.Pointer, "/"), "value")
+	taken.Add(channelName(unique))
+	return unique
+}
+
+// pointerName joins the tokens of pointer with "_", or returns "value" for the whole
+// document. A malformed pointer gives its text.
+func pointerName(pointer string) string {
+	tokens, err := xjson.ParsePointer(pointer)
+	if err != nil {
+		return strings.TrimPrefix(pointer, "/")
+	}
+	return lo.CoalesceOrEmpty(strings.Join(tokens, "_"), "value")
+}
+
+// channelName returns name as a valid channel name: each character other than a letter,
+// a digit, or "_" becomes "_", and a leading digit gets a "_" before it.
+func channelName(name string) string {
+	escaped := strings.Map(func(r rune) rune {
+		if r == '_' || 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' ||
+			'0' <= r && r <= '9' {
+			return r
+		}
+		return '_'
+	}, name)
+	if escaped != "" && '0' <= escaped[0] && escaped[0] <= '9' {
+		return "_" + escaped
+	}
+	return escaped
 }
 
 // liftField returns the JSON field of base for old, the data type of a new channel for
@@ -244,6 +277,17 @@ func (f enumFilter) usable(e payload.EnumEntry) bool {
 	}
 	f.seen.Add(e.Label)
 	return true
+}
+
+// LiftKind returns the JSON field of base with kind, and the enum values and time
+// format of old that kind can hold. note receives each entry that it drops.
+func LiftKind(
+	old InlineField,
+	kind payload.Kind,
+	base JSONBaseField,
+	note func(format string, args ...any),
+) JSONField {
+	return liftRead(old, kind, base, enumFilter{seen: set.New[string](), note: note})
 }
 
 // liftRead returns the JSON field of base with kind and the options of old.

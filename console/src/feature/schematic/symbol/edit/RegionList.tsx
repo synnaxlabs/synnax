@@ -23,6 +23,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
 import type { color } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
@@ -79,7 +80,7 @@ const RegionListItem = ({
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
         <Text.Text level="small" color={9}>
-          {part.selectors.length} elements
+          {pluralize("element", part.selectors.length, true)}
         </Text.Text>
         <Color.Swatch
           value={region?.strokeColor}

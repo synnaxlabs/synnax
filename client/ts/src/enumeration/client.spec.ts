@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { color } from "@/color";
 import { enumeration } from "@/enumeration";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { schematic } from "@/schematic";
 import {

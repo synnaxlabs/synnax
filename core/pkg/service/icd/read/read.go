@@ -7,48 +7,158 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package read checks the reads of ICD messages that task configs hold against their
-// ICDs and channels.
+// Package read checks and hashes the reads of ICD messages that task configs hold,
+// against their ICDs and channels.
 package read
 
 import (
+	"context"
 	"encoding/json/v2"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Channel is what a check needs of a channel.
-type Channel struct {
-	// Name is the name of the channel.
-	Name string
-	// DataType is the data type of the channel.
-	DataType telem.DataType
-	// Index is true when the channel is an index channel.
-	Index bool
+// Read is a read of messages of an ICD, at a path of a task config.
+type Read struct {
+	// Path is the path of the read in its config.
+	Path []string
+	// ICD is the key of the ICD that holds the messages.
+	ICD icd.Key
+	// Messages are the messages to read and the channel of each field.
+	Messages []icd.ReadMessage
 }
 
-// Checker checks the reads of one task config. It passes a binding to a channel it
-// does not hold, which the reference check of the write reports. It is not safe for
-// concurrent use.
+// Resolver checks and hashes reads against the ICDs and the channels that they name.
+type Resolver struct {
+	icds     *icd.Service
+	channels icdv0.Channels
+}
+
+// NewResolver returns a Resolver that retrieves ICDs from icds and channels with
+// channels.
+func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
+	return Resolver{icds: icds, channels: channels}
+}
+
+// NewChecker returns the Checker of reads, with each ICD from icds or else retrieved
+// through snap, and the channels of their bindings. The Checker skips an ICD or a
+// channel that does not exist, which the reference check of the write reports.
+func (r Resolver) NewChecker(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	reads []Read,
+	icds map[icd.Key]icd.ICD,
+) (Checker, error) {
+	c := Checker{
+		icds:    make(map[icd.Key]icd.ICD, len(icds)),
+		written: make(map[channel.Key]string),
+	}
+	maps.Copy(c.icds, icds)
+	var (
+		icdKeys     []icd.Key
+		channelKeys []channel.Key
+	)
+	for _, rd := range reads {
+		if _, ok := c.icds[rd.ICD]; !ok {
+			icdKeys = append(icdKeys, rd.ICD)
+		}
+		for _, m := range rd.Messages {
+			for _, b := range m.Bindings {
+				if b.Channel != 0 {
+					channelKeys = append(channelKeys, b.Channel)
+				}
+			}
+		}
+	}
+	if len(icdKeys) > 0 {
+		var found []icd.ICD
+		if err := r.icds.NewRetrieve().
+			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
+			SkipMissingKeys().
+			Entries(&found).
+			Exec(ctx, snap); err != nil {
+			return Checker{}, err
+		}
+		for _, ic := range found {
+			c.icds[ic.Key] = ic
+		}
+	}
+	if len(channelKeys) > 0 {
+		var err error
+		if c.channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
+			return Checker{}, err
+		}
+	}
+	return c, nil
+}
+
+// Hash writes to h the payload of each ICD message that reads read, retrieved through
+// snap, so an edit to the format of one changes the hash. A read of a message that its
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound
+// when an ICD of reads does not exist.
+func (r Resolver) Hash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	h *content.Hash,
+	reads []Read,
+) error {
+	if len(reads) == 0 {
+		return nil
+	}
+	keys := lo.Uniq(lo.Map(reads, func(rd Read, _ int) icd.Key { return rd.ICD }))
+	var found []icd.ICD
+	if err := r.icds.NewRetrieve().
+		Where(icd.MatchKeys(keys...)).
+		Entries(&found).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
+	for _, rd := range reads {
+		if err := hash(h, icds[rd.ICD], rd.Messages); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Checker checks the reads of one task config. It passes a read of an ICD or a binding
+// to a channel that it does not hold, which the reference check of the write reports.
+// It is not safe for concurrent use.
 type Checker struct {
-	channels map[channel.Key]Channel
+	icds     map[icd.Key]icd.ICD
+	channels map[channel.Key]icdv0.Channel
 	// written holds the path of the binding or tag that writes to each channel.
 	written map[channel.Key]string
 }
 
-// NewChecker returns a Checker of bindings to channels.
-func NewChecker(channels map[channel.Key]Channel) Checker {
-	return Checker{channels: channels, written: make(map[channel.Key]string)}
+// Read checks each message of rd against its ICD and the channels of its bindings, and
+// claims each channel of a binding. It returns a validation error at the path of the
+// first problem.
+func (c Checker) Read(rd Read) error {
+	ic, ok := c.icds[rd.ICD]
+	if !ok {
+		return nil
+	}
+	for j, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
+		if err := c.message(rm, ic, path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Claim takes key for the binding or tag at path. It returns a validation error when
@@ -64,10 +174,9 @@ func (c Checker) Claim(key channel.Key, path []string) error {
 	return nil
 }
 
-// Message checks rm, at path, against its message in ic and the channels of its
-// bindings, and claims each channel of a binding. It returns a validation error at the
-// path of the first problem.
-func (c Checker) Message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
+// message checks rm, at path, against its message in ic and the channels of its
+// bindings, and claims each channel of a binding.
+func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
@@ -184,16 +293,16 @@ func (c Checker) checkBinding(
 	}
 	if !isIndex && ch.Index {
 		return at(validate.Errorf(
-			"only the index field can write to index channel %s", ch.Name,
+			"field %s cannot write to index channel %s, because only the index field "+
+				"can. Bind field %s to a data channel",
+			name, ch.Name, name,
 		), "channel")
 	}
 	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
 }
 
-// Hash writes to h the payload of the message of ic that each of rms reads, so an edit
-// to the format of one changes the hash. A read of a message that ic lacks writes only
-// that the message is absent.
-func Hash(h *content.Hash, ic icd.ICD, rms []icd.ReadMessage) error {
+// hash writes to h the payload of the message of ic that each of rms reads.
+func hash(h *content.Hash, ic icd.ICD, rms []icd.ReadMessage) error {
 	for _, rm := range rms {
 		m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
 			return m.Key == rm.Message

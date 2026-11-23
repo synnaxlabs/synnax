@@ -738,7 +738,7 @@ describe("cached reads", () => {
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [await createRange(), await createRange()];
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.ranges.retrieve(key)),

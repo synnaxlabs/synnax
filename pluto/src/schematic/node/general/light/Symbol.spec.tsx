@@ -10,14 +10,13 @@
 import { DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import { Light } from "@/schematic/node/general/light";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { light } from "@/vis/light/aether";
-import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 
 const COLOR_VAR = "--pluto-symbol-color";
@@ -31,24 +30,22 @@ const Wrapper = createSynnaxWrapper({
   telemFactories: [],
 });
 
-const renderStale = (badged: boolean) => {
+const renderStale = () => {
   const result = render(
     <Wrapper>
-      <Staleness.Provider badged={badged}>
-        <ReactFlowProvider>
-          <Light.spec.Node
-            nodeKey="l1"
-            selected={false}
-            onConfigChange={() => {}}
-            config={schematic.lightNodeConfigZ.parse({
-              variant: "light",
-              channel: 1,
-              strokeColor: "#00ff00",
-              onColor: "#ff0000",
-            })}
-          />
-        </ReactFlowProvider>
-      </Staleness.Provider>
+      <ReactFlowProvider>
+        <Light.spec.Node
+          nodeKey="l1"
+          selected={false}
+          onConfigChange={() => {}}
+          config={schematic.lightNodeConfigZ.parse({
+            variant: "light",
+            channel: 1,
+            strokeColor: "#00ff00",
+            onColor: "#ff0000",
+          })}
+        />
+      </ReactFlowProvider>
     </Wrapper>,
   );
   const color = (selector: string, variable: string): string =>
@@ -63,21 +60,14 @@ const renderStale = (badged: boolean) => {
 };
 
 describe("Light.Symbol staleness", () => {
-  it("should show the stale indicator in place of the stale color", async () => {
-    const { findByRole, strokeColor, lampColor } = renderStale(true);
+  it("should show the stale indicator and keep the symbol colors", async () => {
+    const { findByRole, strokeColor, lampColor } = renderStale();
     const indicator = await findByRole("img", { name: "Stale" });
     expect(indicator.closest(".pluto-grid__item")?.classList).toContain(
       "lyra--location-bottom",
     );
     expect(strokeColor()).toBe(STROKE);
     expect(lampColor()).toBe(ON);
-  });
-
-  it("should paint the stale color with no indicator when not badged", async () => {
-    const { queryByRole, strokeColor, lampColor } = renderStale(false);
-    await waitFor(() => expect(strokeColor()).not.toBe(STROKE));
-    expect(lampColor()).toBe("");
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });
 

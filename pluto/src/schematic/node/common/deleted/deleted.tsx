@@ -25,7 +25,7 @@ export const useEither = (state: channel.Key, command: channel.Key): boolean => 
 
 /** Marks a symbol whose channel the Core deleted, below the symbol. */
 export const Item = Grid.createItem((): ReactElement => (
-  <Grid.Item itemKey="deleted" location="bottom">
+  <Grid.Item itemKey="deleted" location="bottom" fixed>
     <Badge.Badge>{Channel.DELETED_TEXT}</Badge.Badge>
   </Grid.Item>
 ));

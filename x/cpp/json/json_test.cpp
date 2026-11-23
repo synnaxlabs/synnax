@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
@@ -1932,5 +1936,36 @@ TEST(testConfig, testNullParserReadsFieldsAsMissing) {
     Parser parser(json(nullptr));
     EXPECT_EQ(parser.field<int>("count", 3), 3);
     EXPECT_TRUE(parser.ok());
+}
+
+namespace {
+const std::vector<std::uint8_t> BYTES = {0xFB, 0xFF, 0x00, 0x61, 0x73, 0x6D, 0xFF};
+}
+
+/// @brief it should parse bytes from standard, padded base64.
+TEST(testBytes, testParse) {
+    Parser parser(json{{"data", "+/8AYXNt/w=="}});
+    EXPECT_EQ(parser.field<std::vector<std::uint8_t>>("data"), BYTES);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should write bytes as standard, padded base64.
+TEST(testBytes, testToJSON) {
+    EXPECT_EQ(to_json(BYTES), "+/8AYXNt/w==");
+}
+
+/// @brief it should reject bytes that are not canonical, padded base64 text in the
+/// standard alphabet.
+TEST(testBytes, testRejectInvalid) {
+    const auto reject = [](const json &data, const std::string &message) {
+        Parser parser(json{{"data", data}});
+        parser.field<std::vector<std::uint8_t>>("data");
+        ASSERT_EQ(parser.errors->size(), 1);
+        EXPECT_EQ(parser.errors->at(0)["message"], message);
+    };
+    reject("+/8AYXNt/w", "expected padded, canonical base64");
+    reject("+/8AYXNt/x==", "expected padded, canonical base64");
+    reject("-_8AYXNt_w==", "expected padded, canonical base64");
+    reject(json::array({251, 255}), "expected a base64 string");
 }
 }
