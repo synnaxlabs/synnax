@@ -16,7 +16,7 @@ import { telem } from "@/telem/aether";
 import type { diagram } from "@/vis/diagram/aether";
 import { staleness } from "@/vis/staleness/aether";
 
-export const readingZ = z.object({
+const readingZ = z.object({
   /** value is the newest value of the source, or null for no data and NaN. */
   value: z.number().nullable(),
   stale: z.boolean(),

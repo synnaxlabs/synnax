@@ -293,7 +293,9 @@ func (c Checker) checkBinding(
 	}
 	if !isIndex && ch.Index {
 		return at(validate.Errorf(
-			"only the index field can write to index channel %s", ch.Name,
+			"field %s cannot write to index channel %s, because only the index field "+
+				"can. Bind field %s to a data channel",
+			name, ch.Name, name,
 		), "channel")
 	}
 	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
