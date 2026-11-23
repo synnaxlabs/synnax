@@ -118,14 +118,15 @@ export const Value = ({
   const theme = Theming.use();
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
-  BaseValue.use({
+  const staleColor = Staleness.resolveColor(resolve(stalenessColor), theme);
+  const { stale } = BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
     level,
     color: resolve(textColor),
     stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
-    stalenessColor: Staleness.resolveColor(resolve(stalenessColor), theme),
+    stalenessColor: staleColor,
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,
@@ -153,7 +154,7 @@ export const Value = ({
         CSS.BEM("table", "cell", "value"),
       )}
     >
-      {deleted && <Channel.Deleted />}
+      {deleted && <Channel.Deleted color={stale ? staleColor : undefined} />}
     </Base>
   );
 };

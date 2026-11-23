@@ -10,7 +10,7 @@
 import { color, DataType, table } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color as xcolor, id, TimeSpan } from "@synnaxlabs/x";
+import { box, color as xcolor, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -65,7 +65,10 @@ const renderValue = (config: Partial<table.ValueCellConfig>): void => {
 
 const client = createTestClient();
 
-const renderLiveValue = async (channel: number) => {
+const renderLiveValue = async (
+  channel: number,
+  config: Partial<table.ValueCellConfig> = {},
+) => {
   const Providers = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: value.REGISTRY,
@@ -78,7 +81,11 @@ const renderLiveValue = async (channel: number) => {
         <tbody>
           <tr>
             <Cell.Value
-              {...table.valueCellConfigZ.parse({ variant: "value", channel })}
+              {...table.valueCellConfigZ.parse({
+                variant: "value",
+                channel,
+                ...config,
+              })}
               cellKey={id.create()}
               box={box.construct(0, 0, 100, 20)}
               selected={false}
@@ -94,6 +101,32 @@ const renderLiveValue = async (channel: number) => {
 };
 
 describe("Cells.Value deleted channel", () => {
+  it("should tint Deleted channel with the stale color once its value went stale", async () => {
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const { findByText } = await renderLiveValue(ch.key, {
+      stalenessTimeout: 1,
+      stalenessColor: { type: "fixed", value: [255, 0, 0, 1] },
+    });
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [ch.key],
+    });
+    for (let i = 0; i < 10; i++) {
+      await writer.write({ [ch.key]: [i] });
+      await sleep.sleep(TimeSpan.milliseconds(100));
+    }
+    await writer.close();
+    await client.channels.delete(ch.key);
+    const text = await findByText("Deleted channel");
+    await expect
+      .poll(() => getComputedStyle(text).color, { timeout: 5000 })
+      .toBe("rgb(255, 0, 0)");
+  });
+
   it("should say Deleted channel for a channel the Core deleted", async () => {
     const ch = await client.channels.create({
       name: `cell_${id.create()}`,
