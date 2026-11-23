@@ -45,20 +45,6 @@ struct JSONMessage {
 /// @brief JSON decodes documents that each belong to one of several JSON messages into
 /// samples. It is not safe for concurrent use.
 class JSON {
-public:
-    /// @brief Failure is a field that the last decode of its message could not decode.
-    struct Failure {
-        /// @brief binding is the position of the field in the bindings of its message.
-        std::size_t binding = 0;
-        /// @brief missing is true when the document has no value for the field, and the
-        /// field has no default.
-        bool missing = false;
-        /// @brief error is why the field did not decode. It names the field, and also
-        /// the message when the decoder holds more than one.
-        x::errors::Error error;
-    };
-
-private:
     /// @brief Integer is the value of an integer or unsigned match rule.
     struct Integer {
         /// @brief bits holds the value in two's complement.
