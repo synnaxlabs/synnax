@@ -33,7 +33,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
-import { compare, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { compare, type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -313,31 +313,42 @@ const Entry = ({
   );
 };
 
-interface HiddenProps {
+/** The list key of the row for a group's records that the user cannot see. */
+const HIDDEN_KEY = "hidden";
+
+interface HiddenEntryProps {
+  index: number;
+  translate?: number;
   count: number;
-  className?: string | false;
   /** pick is the check for the records, absent when the user picks nothing for them. */
   pick?: Omit<CheckProps, "label" | "nameID" | "indeterminate">;
 }
 
-/** A row for the records of a group that the user cannot see. */
-const Hidden = ({ count, className, pick }: HiddenProps): ReactElement => {
+/** The row for the records of a group that the user cannot see. */
+const HiddenEntry = ({
+  index,
+  translate,
+  count,
+  pick,
+}: HiddenEntryProps): ReactElement => {
   const id = useId();
   return (
-    <Flex.Box
-      x
+    <List.Item<string>
+      itemKey={HIDDEN_KEY}
+      index={index}
+      translate={translate}
+      className={CSS.BE("impact", "entry")}
       align="center"
       gap="medium"
-      className={CSS.cls(CSS.BE("impact", "hidden"), className)}
     >
       <span className={CSS.BE("impact", "icon")}>
         <Icon.Hidden />
       </span>
-      <Text.Text id={`${id}-name`} grow>
+      <Text.Text id={`${id}-name`} overflow="fade" grow>
         {count === 1 ? "1 record you cannot see" : `${count} records you cannot see`}
       </Text.Text>
       {pick != null && <Check label={PICK_LABEL} nameID={`${id}-name`} {...pick} />}
-    </Flex.Box>
+    </List.Item>
   );
 };
 
@@ -376,14 +387,18 @@ const Group = ({
 }: GroupProps): ReactElement => {
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
-  const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
+  const items: record.Keyed<string>[] =
+    hidden > 0 ? [...rows, { key: HIDDEN_KEY }] : rows;
+  const { data, getItem } = List.useStaticData<string, record.Keyed<string>>({
+    data: items,
+  });
   // The hidden records share one check, so they count as one pick.
   const hiddenPicks = pickable && hidden > 0 ? 1 : 0;
   const pickCount = rows.length + hiddenPicks;
   const pickedCount =
     rows.filter((r) => picks[r.key] === "delete").length +
     (hiddenPicks > 0 && hiddenPick.picked ? 1 : 0);
-  const scrolls = rows.length > DISPLAY_ITEMS;
+  const scrolls = items.length > DISPLAY_ITEMS;
   const scrollsClass = scrolls && CSS.M("scrolls");
   return (
     <section className={CSS.BE("impact", "group")} aria-label={title}>
@@ -415,8 +430,8 @@ const Group = ({
           />
         </Flex.Box>
       )}
-      {open && rows.length > 0 && (
-        <List.Frame<string, Row>
+      {open && (
+        <List.Frame<string, record.Keyed<string>>
           data={data}
           getItem={getItem}
           itemHeight={ITEM_HEIGHT}
@@ -428,43 +443,46 @@ const Group = ({
             {...(scrolls && {
               tabIndex: 0,
               role: "region",
-              "aria-label": `${title}, ${rows.length} records`,
+              "aria-label": `${title}, ${rows.length + hidden} records`,
             })}
           >
             <List.Items<string>>
-              {({ key, index, translate }) => (
-                <Entry
-                  key={key}
-                  row={byKey.get(key) as Row}
-                  index={index}
-                  translate={translate}
-                  picked={picks[key] === "delete"}
-                  unpicked={unpicked.has(key)}
-                  onPick={onPick}
-                />
-              )}
+              {({ key, index, translate }) =>
+                key === HIDDEN_KEY ? (
+                  <HiddenEntry
+                    key={key}
+                    index={index}
+                    translate={translate}
+                    count={hidden}
+                    pick={
+                      pickable
+                        ? {
+                            picked: hiddenPick.picked,
+                            mark: hiddenPick.marked
+                              ? hidden === 1
+                                ? "Uses the channel"
+                                : "Use the channel"
+                              : undefined,
+                            onChange: hiddenPick.onChange,
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <Entry
+                    key={key}
+                    row={byKey.get(key) as Row}
+                    index={index}
+                    translate={translate}
+                    picked={picks[key] === "delete"}
+                    unpicked={unpicked.has(key)}
+                    onPick={onPick}
+                  />
+                )
+              }
             </List.Items>
           </List.Scroll>
         </List.Frame>
-      )}
-      {open && hidden > 0 && (
-        <Hidden
-          count={hidden}
-          className={scrollsClass}
-          pick={
-            pickable
-              ? {
-                  picked: hiddenPick.picked,
-                  mark: hiddenPick.marked
-                    ? hidden === 1
-                      ? "Uses the channel"
-                      : "Use the channel"
-                    : undefined,
-                  onChange: hiddenPick.onChange,
-                }
-              : undefined
-          }
-        />
       )}
     </section>
   );

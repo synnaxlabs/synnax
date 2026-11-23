@@ -75,8 +75,7 @@
 }
 
 /* the list's 1rem padding plus a row's own, so the checks line up with the list's */
-.console-impact__all,
-.console-impact__hidden {
+.console-impact__all {
     padding-inline: 2.5rem;
     height: 6rem;
 
