@@ -64,7 +64,7 @@ TEST(Server, RoundTrips) {
                 Register{
                     .type = REGISTER_TYPE_HOLDING_REGISTER,
                     .address = 5,
-                    .data_type = DATA_TYPE_FLOAT32,
+                    .data_type = DATA_TYPE_FLOAT_32,
                 },
             .index = 3,
             .channel = 4,
@@ -80,7 +80,7 @@ TEST(Server, RoundTrips) {
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
     ASSERT_EQ(std::get<TcpConnection>(parsed.connection).host, "plc");
-    ASSERT_EQ(parsed.reads.at(0).register_.data_type, DATA_TYPE_FLOAT32);
+    ASSERT_EQ(parsed.reads.at(0).register_.data_type, DATA_TYPE_FLOAT_32);
     ASSERT_EQ(parsed.reads.at(0).index, 3);
     ASSERT_EQ(parsed.reads.at(0).channel, 4);
     ASSERT_EQ(parsed.writes.at(0).register_.bit, 3);
