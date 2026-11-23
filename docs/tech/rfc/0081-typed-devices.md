@@ -247,10 +247,10 @@ included, and sets them in the connect form. Its identity group holds what the c
 form and a scanner's certificate pin write, so neither clobbers the channel maps that
 the task forms write. The OPC UA pin is a narrow Core write, not an identity update: it
 sets `connection.security.server_trust` to `pinned` only while the stored value is still
-`first_use`, and changes nothing else. The connect form sends the stored trust back
-unchanged unless the user changes the trust setting, so a save never drops a pin.
-`configured` does not exist. A discovered resource is unconfigured while `identifier` is
-empty.
+`first_use`, and changes nothing else. An identity update that sends `first_use` keeps a
+stored pin, so a connect form that loaded before the pin cannot drop it; to replace a
+pin, the user picks another trust setting. `configured` does not exist. A discovered
+resource is unconfigured while `identifier` is empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
 (`schemas/synnax/ni.oracle:489,941,1389`), `labjack.Device.Key` on `labjack.oracle:216`,
@@ -468,7 +468,8 @@ green at every step. The migration brings 0.59 data forward near the end.
   read on the same node, field, and index, or a write to the same node. So the route
   never fails on a duplicate, and it is a narrow exception to principle 5: it adds to
   the configuration group and never replaces it. The route deletes the entry and clears
-  the warning.
+  the warning. The other exception is the scanner's server certificate pin, which writes
+  only `server_trust` (§4.1).
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
