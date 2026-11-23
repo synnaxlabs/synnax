@@ -100,6 +100,20 @@ const renderChannelTree = async (
     extra,
   });
 
+/** Expects the open menu's Rename item to be disabled, with reason in its tooltip. */
+const expectRenameRefused = async (reason: string): Promise<void> => {
+  const item = (await screen.findByText("Rename")).closest<HTMLElement>(".lyra-btn");
+  if (item == null) throw new Error("rename item not found");
+  expect(item.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.pointerEnter(item);
+  const tip = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>(".lyra-tooltip");
+    if (el == null) throw new Error("tooltip did not open");
+    return el;
+  });
+  expect(tip.textContent).toBe(reason);
+};
+
 describe("channel/tree", () => {
   describe("haulItems", () => {
     it("hauls a regular channel as a channel item", async () => {
@@ -344,7 +358,7 @@ describe("channel/tree", () => {
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
-    it("withholds rename from a built-in channel", async () => {
+    it("disables rename for a built-in channel and says why", async () => {
       const ch = await retrieveInternalChannel();
       // With the keys in hand the menu renders its final items at once.
       await client.channels.builtIns.retrieve();
@@ -353,13 +367,10 @@ describe("channel/tree", () => {
         client,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
-      // Delete shares the update permission the rename item needs, so its presence
-      // proves the gate resolved before the absence below is read.
-      expect(await screen.findByText("Delete")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
+      await expectRenameRefused("Built-in channels cannot be renamed");
     });
 
-    it("withholds rename from every channel until the built-in keys arrive", async () => {
+    it("disables rename for every channel until the built-in keys arrive", async () => {
       const ch = await createChannel();
       const pending = createTestClient();
       holdRequests(pending, BUILT_INS_TARGET);
@@ -371,8 +382,7 @@ describe("channel/tree", () => {
       const name = await screen.findByText(ch.name);
       expect(name.className).not.toContain("lyra-text--editable");
       await openTreeRowContextMenu(ch.name);
-      expect(await screen.findByText("Delete")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
+      await expectRenameRefused("Waiting for the Core's list of built-in channels");
     });
 
     it("allows rename when the built-in keys fail to arrive", async () => {

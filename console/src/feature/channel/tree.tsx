@@ -46,14 +46,25 @@ const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   ];
 };
 
+/** Whether a channel can be renamed, and why not when it cannot. */
+interface Renaming {
+  allowed: boolean;
+  reason?: string;
+}
+
 /**
- * @returns false for a built-in channel, and for every channel until the built-in keys
- * arrive. A failed fetch allows a rename, since the Core refuses a built-in rename.
+ * @returns a refusal for a built-in channel, and for every channel until the built-in
+ * keys arrive. A failed fetch allows a rename, since the Core refuses a built-in
+ * rename.
  */
-const useRenamable = (key: channel.Key): boolean => {
+const useRenaming = (key: channel.Key): Renaming => {
   const { data } = PChannel.useResultBuiltIns();
-  if (data?.keys != null) return !data.keys.has(key);
-  return data?.error != null;
+  if (data?.keys != null)
+    return data.keys.has(key)
+      ? { allowed: false, reason: "Built-in channels cannot be renamed" }
+      : { allowed: true };
+  if (data?.error != null) return { allowed: true };
+  return { allowed: false, reason: "Waiting for the Core's list of built-in channels" };
 };
 
 const FACTS = ["Channel"];
@@ -123,7 +134,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
   const isCalc =
     singleResource && firstChannel != null && isCalculated(firstChannel.payload);
-  const renamable = useRenamable(channelKeys[0]);
+  const renaming = useRenaming(channelKeys[0]);
 
   return (
     <ContextMenu.Menu>
@@ -134,8 +145,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {singleResource && hasUpdatePermission && renamable && (
-        <ContextMenu.RenameItem onClick={handleRename} />
+      {singleResource && hasUpdatePermission && (
+        <ContextMenu.RenameItem
+          onClick={handleRename}
+          disabled={!renaming.allowed}
+          tooltip={renaming.reason}
+        />
       )}
       {hasUpdatePermission && (
         <Group.ContextMenuItem
@@ -168,7 +183,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key) };
   const { data: chStatus } = PChannel.useResultStatus(params);
   const { data: kind } = PChannel.useResultKind(params);
-  const renamable = useRenamable(params.key);
+  const { allowed: renamable } = useRenaming(params.key);
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();
