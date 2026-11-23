@@ -283,7 +283,7 @@ const useEnumerations = (
  */
 export const useUnmatched = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
-  value: StateValue,
+  value: StateValues,
 ): boolean => {
   const enumerations = useEnumerations(spec);
   if (spec == null || enumerations == null || typeof value === "number") return false;
