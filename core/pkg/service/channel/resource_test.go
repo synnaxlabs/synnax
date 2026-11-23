@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -183,6 +184,16 @@ var _ = Describe("Resource", Ordered, func() {
 		)
 	})
 	Describe("ToPayload", func() {
+		It("Should include the concurrency of the channel", func() {
+			ch := channel.Channel{
+				Name:        "shared",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Concurrency: control.ConcurrencyShared,
+			}
+			Expect(ch.ToPayload()).
+				To(HaveKeyWithValue("concurrency", control.ConcurrencyShared))
+		})
 		It("Should hold neither an expression nor operations", func() {
 			ch := channel.Channel{Name: "payload", DataType: telem.Float64T}
 			Expect(ch.ToPayload()).ToNot(HaveKey("expression"))

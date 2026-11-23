@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";

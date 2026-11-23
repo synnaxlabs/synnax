@@ -11,9 +11,11 @@
 
 import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
+import type { TestProjectInlineConfiguration } from "vitest/config";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 // Builds compile workspace packages from source, so code splitting reaches into them.
@@ -25,6 +27,76 @@ const desktop = process.env.VITE_DESKTOP === "true";
 const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
+const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
+const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
+const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
+const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
+
+interface BrowserProjectProps {
+  name: string;
+  include?: string[];
+  exclude?: string[];
+  desktop?: boolean;
+  webkit?: boolean;
+}
+
+/**
+ * @returns a project that runs its specs in Chromium and WebKit. A desktop project
+ * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix. With
+ * `webkit` false, the project runs Chromium alone, as `<name>-chromium`.
+ */
+const browserProject = ({
+  name,
+  include = [BROWSER_SPECS],
+  exclude = [],
+  desktop = false,
+  webkit = true,
+}: BrowserProjectProps): TestProjectInlineConfiguration => {
+  const prefix = desktop ? "desktop-" : "";
+  // A CI runner has 4 CPUs. Parallel Chromium pages starve the jsdom workers that share
+  // them, so their timers fire seconds late and their specs time out. WebKit runs in a
+  // step of its own, with no jsdom workers beside it.
+  const pages = process.env.CI === "true" ? { maxWorkers: 1 } : {};
+  return {
+    extends: true,
+    define: { DESKTOP: desktop },
+    // The optimizer misses these until a spec loads them, then reloads the page and
+    // fails the specs that are running.
+    optimizeDeps: {
+      include: [
+        "@tauri-apps/plugin-deep-link",
+        "@tauri-apps/plugin-dialog",
+        "@tauri-apps/plugin-fs",
+        "@tauri-apps/plugin-shell",
+      ],
+    },
+    test: {
+      name,
+      setupFiles: ["src/testutil/browser.ts"],
+      include,
+      exclude,
+      // A browser has no `process` to read the test Core from.
+      provide: {
+        synnaxTestCore: {
+          host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+          port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+        },
+      },
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright(),
+        // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
+        instances: webkit
+          ? [
+              { browser: "chromium", name: `${prefix}chromium`, ...pages },
+              { browser: "webkit", name: `${prefix}webkit` },
+            ]
+          : [{ browser: "chromium", name: `${name}-chromium`, ...pages }],
+      },
+    },
+  };
+};
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -124,7 +196,7 @@ export default defineConfig({
     stripSourcesContent(),
   ],
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",
+    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
     // minified stack traces (see pluto/src/errors/resolveStack.ts).
@@ -149,9 +221,8 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
+    hookTimeout: 15_000,
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
@@ -159,15 +230,31 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          ...JSDOM,
           name: "console",
-          exclude: ["**/node_modules/**", "**/dist/**", DESKTOP_SPECS],
+          exclude: ["**/node_modules/**", "**/dist/**", DESKTOP_SPECS, BROWSER_SPECS],
         },
       },
       {
         extends: true,
         define: { DESKTOP: true },
-        test: { name: "desktop", include: [DESKTOP_SPECS] },
+        test: { ...JSDOM, name: "desktop", include: [DESKTOP_SPECS] },
       },
+      browserProject({ name: "browser", exclude: [DESKTOP_BROWSER_SPECS] }),
+      browserProject({
+        name: "desktop-browser",
+        include: [DESKTOP_BROWSER_SPECS],
+        exclude: [SAMPLE_SPEC],
+        desktop: true,
+      }),
+      // The product creates the sample project with fixed keys, so two browsers on one
+      // Core collide. Its spec runs in Chromium alone.
+      browserProject({
+        name: "desktop-sample",
+        include: [SAMPLE_SPEC],
+        desktop: true,
+        webkit: false,
+      }),
     ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

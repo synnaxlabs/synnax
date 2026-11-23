@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Code } from "@/code";
+import type { Code } from "@/code";
 
 // monaco-vscode-api ignores `tokenTypes` in language config, so the parent
 // `string.quoted.*.arc` scope suppresses the popup inside `{...}`. Matches an

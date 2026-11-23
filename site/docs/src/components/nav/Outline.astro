@@ -11,13 +11,13 @@
 import type { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
-import { type Client } from "@/components/client/choice";
+import type { Client } from "@/components/client/choice";
 import { INFO as CLIENTS } from "@/components/client/Client";
-import { type Platform } from "@/components/platform/choice";
+import type { Platform } from "@/components/platform/choice";
 import { INFO as PLATFORMS } from "@/components/platform/Platform";
 import { Picker } from "@/components/tabs/Picker";
 import { InlineCode } from "@/components/text/InlineCode";
-import { type Entry } from "@/util/outline";
+import type { Entry } from "@/util/outline";
 
 interface Props {
     /** The headings to list, in page order. */

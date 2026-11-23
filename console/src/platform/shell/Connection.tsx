@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";

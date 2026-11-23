@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC } from "react";
+import type { FC } from "react";
 import { z } from "zod";
 
-import { type Spec } from "@/arc/graph/node/types/spec";
+import type { types } from "@/arc/graph/node/types";
 
 export interface OperatorParams<T extends string> {
   // key is the function type (e.g. "add", "gt").
@@ -31,7 +31,7 @@ export const createOperator = <T extends string>({
 }: OperatorParams<T>) => {
   const configZ = z.object({ type: z.literal(key) });
   type Config = z.infer<typeof configZ>;
-  const spec: Spec<T, Config> = {
+  const spec: types.Spec<T, Config> = {
     key,
     name,
     Form: () => null,

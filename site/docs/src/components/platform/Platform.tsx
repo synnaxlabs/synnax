@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Platform } from "@/components/platform/choice";
+import type { Platform } from "@/components/platform/choice";
 
 export interface Info {
   key: Platform;

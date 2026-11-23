@@ -2,8 +2,7 @@
 
 Facts about Dewesoft IOLITE, KRYPTON, and SIRIUS modules that the code does not show.
 Each one was found on hardware or in the Dewesoft manual for third-party EtherCAT
-masters. The user page is
-`site/docs/src/pages/reference/hardware/ethercat/dewesoft.mdx`.
+masters. The user page is `site/docs/src/docs/reference/hardware/ethercat/dewesoft.mdx`.
 
 The Driver reads Dewesoft settings from a catalog that the `synnaxlabs/esi` parser makes
 from its supplements. The catalog compiles into

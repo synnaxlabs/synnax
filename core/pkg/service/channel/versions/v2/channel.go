@@ -120,7 +120,7 @@ func (c Channel) ResourceID() resource.ID {
 
 // payloadSize is the most keys a payload holds: the fields of ToPayload and the
 // internal flag that signals add.
-const payloadSize = 10
+const payloadSize = 11
 
 // ToPayload returns a map representation of the channel for use in ontology resources
 // and signal marshaling. The "group" key is omitted when the channel has no group. The
@@ -135,6 +135,7 @@ func (c Channel) ToPayload() map[string]any {
 	p["data_type"] = c.DataType
 	p["virtual"] = c.Virtual
 	p["description"] = c.Description
+	p["concurrency"] = c.Concurrency
 	if c.Group != nil {
 		p["group"] = *c.Group
 	}

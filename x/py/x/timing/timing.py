@@ -12,12 +12,10 @@ from __future__ import annotations
 import sys
 import time
 from collections.abc import Callable
-from typing import Literal, Protocol, TypeVar
+from typing import Literal, Protocol
 
 from x.params import deprecate_positional
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
-
-T = TypeVar("T")
 
 # How long before a precise deadline the OS sleep hands over to a spin. Windows timers
 # wake up to 0.5 ms late, so its margin is larger. A full spin is no more accurate, and
@@ -200,7 +198,7 @@ class Loop:
 
 
 @deprecate_positional("timeout", "interval")
-def poll(
+def poll[T](
     func: Callable[[], T | None],
     *,
     timeout: CrudeTimeSpan,

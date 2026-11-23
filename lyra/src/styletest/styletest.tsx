@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { scheduler } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render, type RenderResult } from "vitest-browser-react";
@@ -39,11 +39,16 @@ export const setupBrowser = (): void => {
   // hovered.
   afterEach(async () => {
     const corner = document.createElement("div");
+    // The id keeps the selector of the hover unique while a late render adds elements.
+    corner.id = "styletest-corner";
     corner.style.cssText =
       "position: fixed; right: 0; bottom: 0; width: 1px; height: 1px";
     document.body.appendChild(corner);
-    await userEvent.hover(corner, { force: true });
-    corner.remove();
+    try {
+      await userEvent.hover(corner, { force: true });
+    } finally {
+      corner.remove();
+    }
     // WebKit can draw no frames for seconds after the first pointer move, and a forced
     // hover does not wait for them. The next spec then waits on a frame that is late.
     await scheduler.nextFrame();

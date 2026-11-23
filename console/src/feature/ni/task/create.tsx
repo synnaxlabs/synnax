@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { device, Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { MAKE } from "@/feature/ni/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import {
   createNextAIChannel,
   createNextAOChannel,
@@ -34,19 +35,26 @@ import {
   digitalWriteConfigZ,
   type DigitalWriteSchemas,
 } from "@/feature/ni/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
+const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = async ({
+  client,
   deviceKeys,
   config,
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
-  if (config == null) {
-    cfg.channels = [];
-    if (deviceKeys.length === 0) cfg.channels.push(createNextAIChannel([]));
-    for (const device of deviceKeys)
-      cfg.channels.push(createNextAIChannel(cfg.channels, { device }));
+  if (config == null && deviceKeys.length === 0)
+    cfg.channels = [createNextAIChannel([])];
+  else if (config == null) {
+    const devices = await client.devices.retrieve({
+      key: deviceKeys,
+      schemas: SCHEMAS,
+    });
+    // No channel copies another, so each takes the voltage range of its own device.
+    cfg.channels = deviceKeys.map((device) =>
+      createNextAIChannel([], { device }, devices),
+    );
   }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
@@ -114,13 +122,23 @@ export const CounterReadSelectable: Selector.Selectable = {
   useOnSelect: useCreateCounterRead,
 };
 
-const getDigitalReadInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
+const retrieveDevice = async (
+  client: Synnax,
+  key: device.Key | undefined,
+): Promise<Device | undefined> =>
+  key == null ? undefined : await client.devices.retrieve({ key, schemas: SCHEMAS });
+
+const getDigitalReadInitialValues: Task.GetInitialValues<DigitalReadSchemas> = async ({
+  client,
   deviceKey,
   config,
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextDIChannel([])];
+  if (config == null)
+    cfg.channels = [
+      createNextDIChannel([], {}, await retrieveDevice(client, deviceKey)),
+    ];
   return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
@@ -137,13 +155,15 @@ export const DigitalReadSelectable: Selector.Selectable = {
   useOnSelect: useCreateDigitalRead,
 };
 
-const getDigitalWriteInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
+const getDigitalWriteInitialValues: Task.GetInitialValues<
+  DigitalWriteSchemas
+> = async ({ client, deviceKey, config }) => {
   const cfg = digitalWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextDOChannel([])];
+  if (config == null)
+    cfg.channels = [
+      createNextDOChannel([], {}, await retrieveDevice(client, deviceKey)),
+    ];
   return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
