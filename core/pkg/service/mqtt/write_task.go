@@ -13,20 +13,15 @@ import (
 	"context"
 	"fmt"
 	"iter"
-	"slices"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // publication is one message to publish.
@@ -48,26 +43,12 @@ type target interface {
 	String() string
 }
 
-// messageTarget publishes the documents of one ICD message to one topic. Document i of
-// a frame holds command i of each bound channel, and the last command of a channel with
-// fewer. A field with no command since the start sends its default. The target
-// publishes nothing until each field with no default has a command. A command that its
-// field cannot hold is dropped, and the field keeps its last good command. A document
-// goes out only for a row that holds a good command.
+// messageTarget publishes the documents of one ICD message to one topic.
 type messageTarget struct {
 	topic    string
 	qos      byte
 	retained bool
-	encoder  *codec.JSONEncoder
-	// channels holds the command channel of each binding.
-	channels channel.Keys
-	received []bool
-	// last holds the last good command of each binding that received one.
-	last [][]byte
-	// next holds the commands of the document to encode, nil for a binding with none.
-	next [][]byte
-	// rows holds the commands of each binding in one frame.
-	rows [][][]byte
+	docs     *write.Documents
 }
 
 var _ target = (*messageTarget)(nil)
@@ -87,74 +68,33 @@ func newMessageTarget(
 	if err = validateTopic(target.Topic); err != nil {
 		return nil, err
 	}
-	sampled := channelBindings(target.Message)
-	n := len(sampled)
-	t := &messageTarget{
+	docs, err := write.NewDocuments(target.Message, ic, channels, path)
+	if err != nil {
+		return nil, errors.Wrap(err, path)
+	}
+	return &messageTarget{
 		topic:    target.Topic,
 		qos:      qos,
 		retained: target.Retained,
-		channels: make(channel.Keys, n),
-		received: make([]bool, n),
-		last:     make([][]byte, n),
-		next:     make([][]byte, n),
-		rows:     make([][][]byte, n),
-	}
-	dataTypes := make(map[channel.Key]telem.DataType, n)
-	for i, b := range sampled {
-		ch, ok := channels[b.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: channel %d does not exist", path, b.Channel,
-			)
-		}
-		dataTypes[b.Channel] = ch.DataType
-		t.channels[i] = b.Channel
-		t.last[i] = []byte{}
-	}
-	if t.encoder, err = write.Encoder(target.Message, ic, dataTypes); err != nil {
-		return nil, errors.Wrap(err, path)
-	}
-	return t, nil
+		docs:     docs,
+	}, nil
 }
 
 // String implements target.
 func (t *messageTarget) String() string { return "target " + t.topic }
 
 // reset implements target.
-func (t *messageTarget) reset() { clear(t.received) }
+func (t *messageTarget) reset() { t.docs.Reset() }
 
-// publications implements target. It sends one document for each row of fr that holds a
-// good command.
+// publications implements target.
 func (t *messageTarget) publications(
 	fr framer.Frame,
 	skips *driver.Skips,
 ) iter.Seq[publication] {
 	return func(yield func(publication) bool) {
-		for row := range t.gather(fr) {
-			good := false
-			for b, rows := range t.rows {
-				if row >= len(rows) {
-					continue
-				}
-				skips.Read()
-				if err := t.encoder.Check(b, rows[row]); err != nil {
-					skip(skips, t, err)
-					continue
-				}
-				t.last[b] = append(t.last[b][:0], rows[row]...)
-				t.received[b], good = true, true
-			}
-			if !good || !t.fill() {
-				continue
-			}
-			payload, err := t.encoder.Encode(nil, t.next)
-			if err != nil {
-				skip(skips, t, err)
-				continue
-			}
+		for doc := range t.docs.From(fr, skips) {
 			if !yield(publication{
-				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
+				topic: t.topic, payload: doc, qos: t.qos, retained: t.retained,
 			}) {
 				return
 			}
@@ -162,55 +102,9 @@ func (t *messageTarget) publications(
 	}
 }
 
-// channelBindings returns the channel bindings of wm, in binding order.
-func channelBindings(wm icd.WriteMessage) []icd.ChannelWriteBinding {
-	return lo.FilterMap(wm.Bindings, func(b icd.WriteBinding, _ int) (
-		icd.ChannelWriteBinding,
-		bool,
-	) {
-		cb, ok := b.Variant.(icd.ChannelWriteBinding)
-		return cb, ok
-	})
-}
-
 // skip counts in skips a command for t that err dropped.
 func skip(skips *driver.Skips, t target, err error) {
 	skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", t, err))
-}
-
-// gather fills rows with the commands of each binding in fr, and returns the count of
-// documents that they make.
-func (t *messageTarget) gather(fr framer.Frame) int {
-	for b := range t.rows {
-		t.rows[b] = t.rows[b][:0]
-	}
-	for key, s := range fr.Entries() {
-		for b, ch := range t.channels {
-			if ch == key {
-				t.rows[b] = slices.AppendSeq(t.rows[b], s.Samples())
-			}
-		}
-	}
-	n := 0
-	for _, rows := range t.rows {
-		n = max(n, len(rows))
-	}
-	return n
-}
-
-// fill fills next with the last good command of each binding, and reports whether each
-// field with no default has one.
-func (t *messageTarget) fill() bool {
-	ready := true
-	for b := range t.next {
-		t.next[b] = nil
-		if t.received[b] {
-			t.next[b] = t.last[b]
-		} else if !t.encoder.HasDefault(b) {
-			ready = false
-		}
-	}
-	return ready
 }
 
 // writeSink is the driver.Sink of an MQTT write task.
@@ -235,7 +129,10 @@ func (s *writeSink) add(t target, keys ...channel.Key) {
 }
 
 // Open implements driver.Sink.
-func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
+func (s *writeSink) Open(
+	ctx context.Context,
+	skips *driver.Skips,
+) (driver.Writer, error) {
 	// A write task receives no messages, so its queue holds none.
 	a, err := s.pool.attach(ctx, s.broker, 0)
 	if err != nil {
@@ -251,7 +148,7 @@ func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
 	return &writer{
 		writeSink:  s,
 		attachment: a,
-		skips:      driver.NewSkips("command"),
+		skips:      skips,
 		touched:    make([]bool, len(s.targets)),
 		fed:        make([]int, 0, len(s.targets)),
 	}, nil
@@ -283,8 +180,8 @@ func (w *writer) Close() error {
 }
 
 // Write implements driver.Writer. It publishes every message it can, and returns the
-// first error it met. A command with no form in its message, such as NaN in JSON, is
-// dropped, and Write returns the warning of the skips.
+// first error it met. It drops a command with no form in its message, such as NaN in
+// JSON, and counts it in the skips.
 func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	w.fed = w.fed[:0]
 	for key := range fr.Keys() {
@@ -314,11 +211,5 @@ func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 			}
 		}
 	}
-	if first != nil {
-		return first
-	}
-	if skipped := w.skips.Warning(time.Now()); skipped != nil {
-		return skipped.Degraded()
-	}
-	return nil
+	return first
 }

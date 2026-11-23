@@ -33,6 +33,12 @@ var _ = Describe("Errors", func() {
 		Entry("AccessDenied", auth.ErrAccessDenied),
 		Entry("Auth", auth.ErrAuth),
 	)
+	It("Should not repeat the sentinel message on each hop", func() {
+		err := errors.Wrap(auth.ErrAccessDenied, "channel 5")
+		Expect(codec.Decode(
+			codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+		)).To(MatchError(err.Error()))
+	})
 	It("Should keep a denial distinct from a plain auth error", func() {
 		pld := codec.Encode(auth.ErrAccessDenied, false)
 		Expect(errors.Is(codec.Decode(pld), auth.ErrAccessDenied)).To(BeTrue())
