@@ -1180,7 +1180,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.HTTP.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
-			ClearUnissuedChannelLinks(
+			clearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
