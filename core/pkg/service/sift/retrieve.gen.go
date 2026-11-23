@@ -41,9 +41,9 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *StreamConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *StreamConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -65,19 +65,22 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					return k2 == t
 				})
 			},
-			Retarget: func(e *StreamConfig, from, to channel.Key) {
-				if slices.ContainsFunc(e.Channels, func(k3 channel.Key) bool {
-					return k3 == to
-				}) {
-					e.Channels = slices.DeleteFunc(e.Channels, func(k3 channel.Key) bool {
-						return k3 == from
-					})
-				} else {
-					for i4 := range e.Channels {
-						if e.Channels[i4] == from {
-							e.Channels[i4] = to
+			Retarget: func(e *StreamConfig, to map[channel.Key]channel.Key) {
+				moved4 := false
+				for i3 := range e.Channels {
+					if t, ok := to[e.Channels[i3]]; ok {
+						e.Channels[i3] = t
+						moved4 = true
+					}
+				}
+				if moved4 {
+					kept5 := e.Channels[:0]
+					for _, k6 := range e.Channels {
+						if !slices.Contains(kept5, k6) {
+							kept5 = append(kept5, k6)
 						}
 					}
+					e.Channels = kept5
 				}
 			},
 		}),
@@ -98,19 +101,22 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					return k2 == t
 				})
 			},
-			Retarget: func(e *StreamConfig, from, to label.Key) {
-				if slices.ContainsFunc(e.Labels, func(k3 label.Key) bool {
-					return k3 == to
-				}) {
-					e.Labels = slices.DeleteFunc(e.Labels, func(k3 label.Key) bool {
-						return k3 == from
-					})
-				} else {
-					for i4 := range e.Labels {
-						if e.Labels[i4] == from {
-							e.Labels[i4] = to
+			Retarget: func(e *StreamConfig, to map[label.Key]label.Key) {
+				moved4 := false
+				for i3 := range e.Labels {
+					if t, ok := to[e.Labels[i3]]; ok {
+						e.Labels[i3] = t
+						moved4 = true
+					}
+				}
+				if moved4 {
+					kept5 := e.Labels[:0]
+					for _, k6 := range e.Labels {
+						if !slices.Contains(kept5, k6) {
+							kept5 = append(kept5, k6)
 						}
 					}
+					e.Labels = kept5
 				}
 			},
 		}),
