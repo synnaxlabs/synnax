@@ -544,7 +544,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     field.scaled = b.scale != 1 || b.offset != 0;
     field.scale = b.scale;
     field.offset = b.offset;
-    field.base = b;
+    field.base = static_cast<const icd::BaseField &>(b);
     field.narrow = dt == x::telem::FLOAT32_T;
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};

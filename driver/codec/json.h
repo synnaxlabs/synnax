@@ -246,8 +246,7 @@ class JSONEncoder {
         /// integer.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
-        /// @returns the limit that v equals at the precision of the samples, or else
-        /// v.
+        /// @returns v, or the limit it equals at the precision of the samples.
         [[nodiscard]] double at_limit(double v) const;
     };
 
