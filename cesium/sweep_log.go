@@ -197,14 +197,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 		return nil, err
 	}
 	intents := set.New(snapshot.Intents...)
-	var cleared []ChannelKey
-	for k := range intents {
-		if records.Contains(k) {
-			cleared = append(cleared, k)
-		}
-	}
-	slices.Sort(cleared)
-	if err = db.engine.intend(cleared, true); err != nil {
+	if err = db.clearIntents(intents, records); err != nil {
 		return nil, err
 	}
 	sizes, parted := storedSizes(snapshot)
@@ -247,6 +240,19 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 		return nil, err
 	}
 	return kept, db.dropLog(drop)
+}
+
+// clearIntents clears the intent of each key in both intents and records. The caller
+// holds db.mu.
+func (db *DB) clearIntents(intents, records set.Set[ChannelKey]) error {
+	var cleared []ChannelKey
+	for k := range intents {
+		if records.Contains(k) {
+			cleared = append(cleared, k)
+		}
+	}
+	slices.Sort(cleared)
+	return db.engine.intend(cleared, true)
 }
 
 // removeTorn removes the directory of each torn key outside records. The caller holds
