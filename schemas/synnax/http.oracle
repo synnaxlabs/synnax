@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
+import "schemas/synnax/icd"
 import "schemas/synnax/task"
 import "schemas/x/payload"
 import "schemas/x/telem"
@@ -129,22 +130,36 @@ ReadEndpoint struct {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }
+    disabled     bool = false {
+        @doc value "is true when the endpoint is excluded from the task."
+    }
     method       Method = get {
         @doc value "is the HTTP method used to poll the endpoint."
     }
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]     {
+    headers      Header[]          {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[] {
+    query_params QueryParam[]      {
         @doc value "contains query parameters appended to the request URL."
     }
     body         string = "" {
         @doc value "is a static body sent with each request. Empty sends no body."
     }
-    fields       ReadField[]  {
+    icd          icd.Key?          {
+        @doc value     """
+            is the key of the ICD that holds the messages of the endpoint. Absent when
+            the endpoint reads no messages.
+        """
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    messages     icd.ReadMessage[] = [] {
+        @doc value "are the messages that the response body is read as."
+    }
+    fields       ReadField[]       {
         @doc value "contains the values to extract from the response."
     }
     index        string = "" {
@@ -178,6 +193,16 @@ ReadConfig struct extends task.PersistConfig {
             NaN. When false, the task skips every field that shares the endpoint and
             index channel with it.
         """
+    }
+    inline           InlineRead?    {
+        @cpp omit
+        @doc value  """
+            holds the fields of each endpoint of a config from before ICDs. A write
+            moves them into a new ICD and clears it.
+        """
+        @go marshal omit
+        @py omit
+        @ts omit
     }
 
     @doc value           """
@@ -334,4 +359,35 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+}
+
+InlineEndpoint struct {
+    key    string = "" {
+        @doc value "is the key of the endpoint that held the fields."
+    }
+    index  string = "" {
+        @doc value """
+            is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        """
+    }
+    fields ReadField[] = [] {
+        @doc value "are the fields of the endpoint."
+    }
+
+    @cpp omit
+    @doc value "is an endpoint from before ICDs, which held its fields inline."
+    @py omit
+    @ts omit
+}
+
+InlineRead struct {
+    endpoints InlineEndpoint[] = [] {
+        @doc value "are the endpoints that held their fields inline."
+    }
+
+    @cpp omit
+    @doc value "holds the fields of a read config from before ICDs."
+    @py omit
+    @ts omit
 }

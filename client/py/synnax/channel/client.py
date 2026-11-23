@@ -213,6 +213,7 @@ class Channel(Payload):
             virtual=self.virtual,
             expression=self.expression,
             operations=self.operations,
+            concurrency=self.concurrency,
             group=self.group,
         )
 

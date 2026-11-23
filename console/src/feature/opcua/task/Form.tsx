@@ -25,26 +25,9 @@ import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { Browser } from "@/feature/opcua/device/Browser";
-import {
-  canDropHaulItem,
-  HAUL_TYPE,
-  type HaulItem,
-  isHaulItem,
-} from "@/feature/opcua/device/haul";
-import { use } from "@/feature/opcua/device/queries";
-import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
-import { useNoneSelected } from "@/feature/opcua/device/Select";
-import type { Device } from "@/feature/opcua/device/types";
-import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
+import { Device } from "@/feature/opcua/device";
 import { CSV } from "@/feature/opcua/task/csv";
-import {
-  BROWSE_VARIABLES_COMMAND_TYPE,
-  browseVariablesResponseZ,
-  type Channel,
-  nodeIdentity,
-  type ScannedNode,
-} from "@/feature/opcua/task/types";
+import type { Channel } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -223,11 +206,11 @@ const EmptyContent = () => (
 const VARIABLE_NODE_CLASS = "Variable";
 const OBJECT_NODE_CLASS = "Object";
 
-const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
-  isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
+const isVariableHaulItem = (item: Haul.Item): item is Device.HaulItem =>
+  Device.isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
 
-const isFolderHaulItem = (item: Haul.Item): item is HaulItem =>
-  isHaulItem(item) && item.data.nodeClass === OBJECT_NODE_CLASS;
+const isFolderHaulItem = (item: Haul.Item): item is Device.HaulItem =>
+  Device.isHaulItem(item) && item.data.nodeClass === OBJECT_NODE_CLASS;
 
 const canDrop = ({ items }: Haul.DraggingState): boolean =>
   items.some((item) => isVariableHaulItem(item) || isFolderHaulItem(item));
@@ -243,7 +226,7 @@ const NAMING_NOTE =
 const MOVED_NOTE = "The task moved to another server during the search.";
 
 interface Search {
-  nodes: ScannedNode[];
+  nodes: Device.ScannedNode[];
   truncated: boolean;
   skipped: string[];
 }
@@ -251,20 +234,20 @@ interface Search {
 /** @returns the variables under the folders, named from the folder and their path. */
 const findVariables = async (
   client: Synnax,
-  device: Device,
-  folders: ScannedNode[],
+  device: Device.Device,
+  folders: Device.ScannedNode[],
 ): Promise<Search> => {
   const search: Search = { nodes: [], truncated: false, skipped: [] };
   // The Driver runs one scan command at a time, so a search sent before the last one
   // ends would spend its timeout in the queue.
   for (const folder of folders) {
-    const { channels, truncated, skipped } = await executeScanCommand(
+    const { channels, truncated, skipped } = await Device.executeScanCommand(
       client,
       device.rack,
       {
-        type: BROWSE_VARIABLES_COMMAND_TYPE,
+        type: Device.BROWSE_VARIABLES_COMMAND_TYPE,
         args: { device: device.key, node_id: folder.nodeId },
-        schema: browseVariablesResponseZ,
+        schema: Device.browseVariablesResponseZ,
         timeout: SEARCH_TIMEOUT,
       },
     );
@@ -306,9 +289,9 @@ interface ChannelListProps<C extends Channel> extends Pick<
   "contextMenuItems" | "path" | "resolve" | "tareable"
 > {
   children: Component.RenderProp<ExtraItemProps<C>>;
-  device: Device;
+  device: Device.Device;
   /** @returns the channel of a node, or null if the task cannot hold it. */
-  convertNodeToChannel: (node: ScannedNode) => C | null;
+  convertNodeToChannel: (node: Device.ScannedNode) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** True when a channel can be the task's index, which adds a CSV index column. */
   indexed?: boolean;
@@ -330,19 +313,19 @@ const ChannelList = <C extends Channel>({
   const confirm = Modals.useConfirm();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const newChannels = (nodes: ScannedNode[]): C[] => {
+  const newChannels = (nodes: Device.ScannedNode[]): C[] => {
     const channels = ctx.get(path).value;
-    const held = new Set(channels.map(nodeIdentity));
+    const held = new Set(channels.map(Device.nodeIdentity));
     const names = new Set(channels.map(deployName));
     return nodes.map(convertNodeToChannel).flatMap((ch) => {
-      if (ch == null || held.has(nodeIdentity(ch))) return [];
-      held.add(nodeIdentity(ch));
+      if (ch == null || held.has(Device.nodeIdentity(ch))) return [];
+      held.add(Device.nodeIdentity(ch));
       const free = withFreeName(ch, names);
       names.add(deployName(free));
       return [free];
     });
   };
-  const addFolders = (folders: HaulItem[]) =>
+  const addFolders = (folders: Device.HaulItem[]) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const key = id.create();
@@ -418,7 +401,7 @@ const ChannelList = <C extends Channel>({
   };
 
   const haulProps = Haul.useDrop({
-    type: HAUL_TYPE,
+    type: Device.HAUL_TYPE,
     canDrop,
     onDrop: handleDrop,
   });
@@ -427,7 +410,7 @@ const ChannelList = <C extends Channel>({
   // drags, so the drop target goes inert too.
   const isPreview = Task.useIsPreview();
   const draggingState = Haul.useDraggingState();
-  const isDragging = !isPreview && canDropHaulItem(draggingState);
+  const isDragging = !isPreview && Device.canDropHaulItem(draggingState);
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
@@ -472,11 +455,11 @@ export interface FormProps<C extends Channel>
   children?: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
-  resolve: (device: Device, channel: C) => Partial<C>;
+  resolve: (device: Device.Device, channel: C) => Partial<C>;
 }
 
 interface BodyProps<C extends Channel>
-  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device> {}
+  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device.Device> {}
 
 const Body = <C extends Channel>({
   device,
@@ -493,7 +476,7 @@ const Body = <C extends Channel>({
   const resolveOnDevice = (channel: C) => resolve(device, channel);
   return (
     <>
-      {!isPreview && <Browser device={device} />}
+      {!isPreview && <Device.Browser device={device} />}
       <ChannelList<C>
         device={device}
         convertNodeToChannel={convertNodeToChannel}
@@ -511,14 +494,14 @@ const Body = <C extends Channel>({
 };
 
 export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
-  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => (
+  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => (
     <Body<C> device={device} {...props} />
   );
   Content.displayName = "OPCTaskForm";
   return PlatformDevice.wrapTaskForm({
-    use,
-    useConfigure: useConnectModal,
-    useNoneSelected,
+    use: Device.use,
+    useConfigure: Device.useConnectModal,
+    useNoneSelected: Device.useNoneSelected,
     Content,
   });
 };

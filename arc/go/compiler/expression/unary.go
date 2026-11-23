@@ -21,16 +21,8 @@ func compileUnary(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
-		if inner := ctx.AST.UnaryExpression(); inner.MINUS() == nil {
-			if lit := parser.GetLiteralNode(inner); lit != nil {
-				if num := lit.NumericLiteral(); num != nil {
-					// An unsigned target keeps the wrapping negation below.
-					numCtx := ctx.Child(num)
-					if !numericLiteralType(numCtx).IsUnsignedInteger() {
-						return compileNumericLiteral(numCtx, true)
-					}
-				}
-			}
+		if numCtx, ok := negatedLiteral(ctx); ok {
+			return compileNumericLiteral(numCtx, true)
 		}
 		return compileNegate(ctx)
 	}
@@ -41,6 +33,31 @@ func compileUnary(
 		return compilePower(ctx.Child(power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
+}
+
+// negatedLiteral returns the numeric literal that a negation applies to directly, and
+// false when the operand is another expression or an unsigned literal, which keeps the
+// wrapping negation.
+func negatedLiteral(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) (context.Context[parser.INumericLiteralContext], bool) {
+	inner := ctx.AST.UnaryExpression()
+	if inner.MINUS() != nil {
+		return context.Context[parser.INumericLiteralContext]{}, false
+	}
+	lit := parser.GetLiteralNode(inner)
+	if lit == nil {
+		return context.Context[parser.INumericLiteralContext]{}, false
+	}
+	num := lit.NumericLiteral()
+	if num == nil {
+		return context.Context[parser.INumericLiteralContext]{}, false
+	}
+	numCtx := ctx.Child(num)
+	if numericLiteralType(numCtx).IsUnsignedInteger() {
+		return context.Context[parser.INumericLiteralContext]{}, false
+	}
+	return numCtx, true
 }
 
 func compileNegate(

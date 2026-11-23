@@ -259,6 +259,13 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     return {std::move(n), errors::NIL};
 }
 
+std::pair<double, errors::Error> parse_float64(const std::string_view text) {
+    if (!parse_decimal(text, 0).has_value()) return {0, invalid_number(text)};
+    const auto v = parse_double(text);
+    if (!v.has_value()) return {0, invalid_number(text)};
+    return {*v, errors::NIL};
+}
+
 std::optional<std::int64_t> Number::to_int64() const {
     switch (this->kind) {
         case Kind::Int:
@@ -336,6 +343,30 @@ std::string Number::to_string() const {
             return format_shortest(this->f);
     }
     return "";
+}
+
+errors::Error append_float(const double v, std::string &out) {
+    if (!std::isfinite(v))
+        return errors::Error(
+            errors::VALIDATION,
+            Number(v).to_string() + " is not a JSON number"
+        );
+    const double abs = std::abs(v);
+    const auto format = abs != 0 && (abs < 1e-6 || abs >= 1e21)
+                          ? std::chars_format::scientific
+                          : std::chars_format::fixed;
+    std::array<char, 64> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v, format);
+    const std::string_view text(buf.data(), res.ptr - buf.data());
+    // to_chars pads an exponent to two digits, as in e-07.
+    if (const auto n = text.size(); format == std::chars_format::scientific && n >= 4 &&
+                                    text.substr(n - 4, 3) == "e-0") {
+        out += text.substr(0, n - 2);
+        out += text.back();
+        return errors::NIL;
+    }
+    out += text;
+    return errors::NIL;
 }
 
 bool Number::integral() const {

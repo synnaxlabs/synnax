@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cstdint>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -24,6 +25,15 @@ protected:
 
     void SetUp() override { this->counter = 0; }
 };
+
+/// @brief it should return the bytes of text, in order.
+TEST(Bytes, ReturnsTheBytesOfText) {
+    const auto b = bytes("ab\n");
+    ASSERT_EQ(
+        std::vector(b.begin(), b.end()),
+        std::vector<std::uint8_t>({'a', 'b', '\n'})
+    );
+}
 
 /// @brief it should eventually reach an equal value across threads.
 TEST_F(XTestTest, TestEventuallyEQ) {
