@@ -363,6 +363,8 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
+	// The rewrite of the virtual line moves a top-level name under an and.
+	named := namesByName(req.Where)
 	if req.Where != nil && hasVirtual(*req.Where) {
 		outputs, err := s.outputs(ctx, snap)
 		if err != nil {
@@ -376,7 +378,6 @@ func (s *Service) retrieve(
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
