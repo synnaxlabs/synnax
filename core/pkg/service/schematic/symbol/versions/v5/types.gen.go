@@ -981,6 +981,14 @@ func (s *SpinMotion) SetDefaults() {
 	s.Rate = 0.5
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SpinMotion) Validate() error {
+	v := validate.New("SpinMotion")
+	v.Finite("rate", s.Rate)
+	return v.Error()
+}
+
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
 	// Rate is the cycles each second at the upper bound of the state. A negative rate
@@ -995,6 +1003,14 @@ func (FlowMotion) isMotionVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (f *FlowMotion) SetDefaults() {
 	f.Rate = 0.5
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FlowMotion) Validate() error {
+	v := validate.New("FlowMotion")
+	v.Finite("rate", f.Rate)
+	return v.Error()
 }
 
 // LevelMotion fills a part to a level.
@@ -1185,6 +1201,10 @@ func (u Motion) Validate() error {
 	v := validate.New("Motion")
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
+	case SpinMotion:
+		v.Exec(variant.Validate)
+	case FlowMotion:
+		v.Exec(variant.Validate)
 	case LevelMotion:
 		v.Exec(variant.Validate)
 	}

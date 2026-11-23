@@ -230,7 +230,7 @@ class SpinMotion(BaseModel):
     """Turns a part around its pivot."""
 
     type: Literal["spin"] = "spin"
-    rate: float = 0.500000
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
@@ -238,7 +238,7 @@ class FlowMotion(BaseModel):
     """Moves the dashes of a stroke along it."""
 
     type: Literal["flow"] = "flow"
-    rate: float = 0.500000
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
