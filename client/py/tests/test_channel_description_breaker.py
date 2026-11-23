@@ -31,7 +31,8 @@ class _Creator:
 
 def _client(creator: _Creator) -> Client:
     none: Any = None
-    return Client(client=none, frame_client=none, retriever=none, creator=creator)
+    writer: Any = creator
+    return Client(client=none, frame_client=none, retriever=none, creator=writer)
 
 
 @pytest.mark.channel
@@ -72,7 +73,7 @@ class TestChannelDescriptionBreaker:
             data_type=sy.DataType.FLOAT32,
             description="\U0001f600" * 1024,
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="at most 1024 characters"):
             Channel(
                 name="pt_05",
                 data_type=sy.DataType.FLOAT32,
