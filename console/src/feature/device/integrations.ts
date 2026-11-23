@@ -51,8 +51,8 @@ export const NETWORK: Network[] = [
   { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.Device.ContextMenuItems },
   { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
   { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
-  { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.Device.ContextMenuItems },
-  { ...Sift.Device.NETWORK, ContextMenuItems: Sift.Device.ContextMenuItems },
+  { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.ContextMenuItems },
+  { ...Sift.Device.NETWORK, ContextMenuItems: Sift.ContextMenuItems },
 ];
 
 export const HARDWARE: Hardware[] = [
