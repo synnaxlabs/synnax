@@ -413,7 +413,9 @@ var _ = Describe("Service", func() {
 		It("Should let a rack replace a file certificate on it", func(ctx SpecContext) {
 			r := createRack(ctx)
 			c := createFileCertificate(ctx, r.Key)
-			details := *c.Variant.(certificate.FileCertificate).Details
+			file, ok := c.Variant.(certificate.FileCertificate)
+			Expect(ok).To(BeTrue())
+			details := *file.Details
 			details.Sha256 = "cc"
 			MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
 				apicertificate.SetRequest{Certificates: []apicertificate.Input{{
