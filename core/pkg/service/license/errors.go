@@ -56,47 +56,41 @@ func newTooManyError(count uint32) error {
 	return errors.Wrapf(ErrTooMany, "limit is %d channels", count)
 }
 
-// data returns the message of err without ref. A bare sentinel keeps its own message
-// so that clients in other languages receive text.
-func data(err, ref error) string {
-	if msg := errors.MessageWithout(err, ref); msg != "" {
-		return msg
-	}
-	return err.Error()
-}
-
-// wrap decodes data into ref. Data equal to the message of ref is the bare sentinel.
+// wrap decodes data into ref. The sentinel text that data ends with is not repeated.
 func wrap(ref error, data string) error {
 	if data == ref.Error() {
 		return ref
+	}
+	if detail, ok := strings.CutSuffix(data, ": "+ref.Error()); ok {
+		return errors.Wrap(ref, detail)
 	}
 	return errors.Wrap(ref, data)
 }
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrMissing) {
-		return errors.Payload{Type: missingType, Data: data(err, ErrMissing)}, true
+		return errors.Payload{Type: missingType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrExpired) {
-		return errors.Payload{Type: expiredType, Data: data(err, ErrExpired)}, true
+		return errors.Payload{Type: expiredType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrInvalid) {
-		return errors.Payload{Type: invalidType, Data: data(err, ErrInvalid)}, true
+		return errors.Payload{Type: invalidType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrEdition) {
-		return errors.Payload{Type: editionType, Data: data(err, ErrEdition)}, true
+		return errors.Payload{Type: editionType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrFingerprint) {
 		return errors.Payload{
 			Type: fingerprintType,
-			Data: data(err, ErrFingerprint),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrTooMany) {
-		return errors.Payload{Type: tooManyType, Data: data(err, ErrTooMany)}, true
+		return errors.Payload{Type: tooManyType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrLicense) {
-		return errors.Payload{Type: errorType, Data: data(err, ErrLicense)}, true
+		return errors.Payload{Type: errorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }
