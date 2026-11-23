@@ -178,6 +178,21 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("CommandBinding", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.CommandBinding) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.CommandBinding
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v14.CommandBinding{Key: "test_1", Channel: channel.Key(3)}),
+			Entry("zero values", v14.CommandBinding{Key: "", Channel: channel.Key(0)}),
+		)
+	})
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v14.Edge) {
@@ -227,6 +242,29 @@ var _ = Describe("Codec", func() {
 			Entry("hydraulic variant", v14.EdgeConfig{Variant: v14.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 			Entry("pneumatic variant", v14.EdgeConfig{Variant: v14.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 			Entry("data variant", v14.EdgeConfig{Variant: v14.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+		)
+	})
+	Describe("FormatConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.FormatConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.FormatConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v14.FormatConfig{
+				Units:     new(string("test_1")),
+				Precision: new(uint8(3)),
+				Notation:  new(notation.Notation("standard")),
+			}),
+			Entry("zero values", v14.FormatConfig{
+				Units:     nil,
+				Precision: nil,
+				Notation:  nil,
+			}),
 		)
 	})
 	Describe("Node", func() {
@@ -835,6 +873,39 @@ var _ = Describe("Codec", func() {
 				},
 			}}),
 			Entry("group_box variant", v14.NodeConfig{Variant: v14.GroupBoxNodeConfig{Locked: true}}),
+			Entry("symbol variant", v14.NodeConfig{Variant: v14.SymbolNodeConfig{
+				LabeledConfig:   fullyPopulatedLabeledConfig,
+				ScaledConfig:    fullyPopulatedScaledConfig,
+				StalenessConfig: fullyPopulatedStalenessConfig,
+				Spec:            symbol.Ref{Variant: symbol.BuiltinRef{Name: "test_2"}},
+				Color: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				}}),
+				Disabled:       true,
+				MotionDisabled: false,
+				OnClickDelay:   telem.TimeSpan(8),
+				States: []v14.StateBinding{
+					{
+						Units:       new(string("test_9")),
+						Precision:   new(uint8(11)),
+						Notation:    new(notation.Notation("standard")),
+						Key:         "test_12",
+						Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
+						Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
+						Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
+						Bounds:      new(spatial.Bounds{Lower: 19.5, Upper: 20.5}),
+						Default:     new(float64(21.5)),
+					},
+				},
+				Commands: []v14.CommandBinding{{Key: "test_23", Channel: channel.Key(25)}},
+				Control: new(v14.ControlStateConfig{
+					Authority:       new(uint8(27)),
+					Hidden:          true,
+					ChipHidden:      false,
+					IndicatorHidden: true,
+					Orientation:     spatial.Location("top"),
+				}),
+			}}),
 		)
 	})
 	Describe("ScaleIndicatorConfig", func() {
@@ -947,6 +1018,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Source", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.Source) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.Source
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("channel variant", v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(2)), Command: new(channel.Key(3))}}),
+			Entry("local variant", v14.Source{Variant: v14.LocalSource{Value: 1.5}}),
+		)
+	})
 	Describe("StalenessConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v14.StalenessConfig) {
@@ -960,6 +1046,41 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedStalenessConfig),
 			Entry("zero values", v14.StalenessConfig{StalenessTimeout: telem.TimeSpan(0)}),
+		)
+	})
+	Describe("StateBinding", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.StateBinding) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.StateBinding
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v14.StateBinding{
+				Units:       new(string("test_1")),
+				Precision:   new(uint8(3)),
+				Notation:    new(notation.Notation("standard")),
+				Key:         "test_4",
+				Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
+				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+				Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
+				Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+				Default:     new(float64(13.5)),
+			}),
+			Entry("zero values", v14.StateBinding{
+				Units:       nil,
+				Precision:   nil,
+				Notation:    nil,
+				Key:         "",
+				Source:      nil,
+				Enumeration: nil,
+				Match:       nil,
+				Bounds:      nil,
+				Default:     nil,
+			}),
 		)
 	})
 	Describe("ToggleConfig", func() {
@@ -1039,6 +1160,23 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeCommandBinding(b *testing.B) {
+	seed := v14.CommandBinding{Key: "test_1", Channel: channel.Key(3)}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.CommandBinding
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	seed := v14.Edge{
 		Key:    "test_1",
@@ -1071,6 +1209,27 @@ func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v14.EdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeFormatConfig(b *testing.B) {
+	seed := v14.FormatConfig{
+		Units:     new(string("test_1")),
+		Precision: new(uint8(3)),
+		Notation:  new(notation.Notation("standard")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.FormatConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1191,6 +1350,23 @@ func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeSource(b *testing.B) {
+	seed := v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(2)), Command: new(channel.Key(3))}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.Source
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeStalenessConfig(b *testing.B) {
 	seed := fullyPopulatedStalenessConfig
 	w := orc.NewWriter(0)
@@ -1201,6 +1377,33 @@ func BenchmarkEncodeDecodeStalenessConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v14.StalenessConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStateBinding(b *testing.B) {
+	seed := v14.StateBinding{
+		Units:       new(string("test_1")),
+		Precision:   new(uint8(3)),
+		Notation:    new(notation.Notation("standard")),
+		Key:         "test_4",
+		Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
+		Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+		Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
+		Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+		Default:     new(float64(13.5)),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.StateBinding
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1240,6 +1443,45 @@ func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeCommandBinding(f *testing.F) {
+	{
+		seed := v14.CommandBinding{Key: "test_1", Channel: channel.Key(3)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.CommandBinding{Key: "", Channel: channel.Key(0)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.CommandBinding
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.CommandBinding
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeEdge(f *testing.F) {
@@ -1366,6 +1608,53 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v14.EdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeFormatConfig(f *testing.F) {
+	{
+		seed := v14.FormatConfig{
+			Units:     new(string("test_1")),
+			Precision: new(uint8(3)),
+			Notation:  new(notation.Notation("standard")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.FormatConfig{
+			Units:     nil,
+			Precision: nil,
+			Notation:  nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.FormatConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.FormatConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -2724,6 +3013,46 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		}
 		f.Add(w.Bytes())
 	}
+	{
+		seed := v14.NodeConfig{Variant: v14.SymbolNodeConfig{
+			LabeledConfig:   fullyPopulatedLabeledConfig,
+			ScaledConfig:    fullyPopulatedScaledConfig,
+			StalenessConfig: fullyPopulatedStalenessConfig,
+			Spec:            symbol.Ref{Variant: symbol.BuiltinRef{Name: "test_2"}},
+			Color: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			}}),
+			Disabled:       true,
+			MotionDisabled: false,
+			OnClickDelay:   telem.TimeSpan(8),
+			States: []v14.StateBinding{
+				{
+					Units:       new(string("test_9")),
+					Precision:   new(uint8(11)),
+					Notation:    new(notation.Notation("standard")),
+					Key:         "test_12",
+					Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
+					Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
+					Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
+					Bounds:      new(spatial.Bounds{Lower: 19.5, Upper: 20.5}),
+					Default:     new(float64(21.5)),
+				},
+			},
+			Commands: []v14.CommandBinding{{Key: "test_23", Channel: channel.Key(25)}},
+			Control: new(v14.ControlStateConfig{
+				Authority:       new(uint8(27)),
+				Hidden:          true,
+				ChipHidden:      false,
+				IndicatorHidden: true,
+				Orientation:     spatial.Location("top"),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded v14.NodeConfig
 		r := orc.NewReader(nil)
@@ -2942,6 +3271,45 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeSource(f *testing.F) {
+	{
+		seed := v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(2)), Command: new(channel.Key(3))}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.Source{Variant: v14.LocalSource{Value: 1.5}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.Source
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.Source
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeStalenessConfig(f *testing.F) {
 	{
 		seed := fullyPopulatedStalenessConfig
@@ -2971,6 +3339,65 @@ func FuzzDecodeStalenessConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v14.StalenessConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStateBinding(f *testing.F) {
+	{
+		seed := v14.StateBinding{
+			Units:       new(string("test_1")),
+			Precision:   new(uint8(3)),
+			Notation:    new(notation.Notation("standard")),
+			Key:         "test_4",
+			Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
+			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+			Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
+			Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+			Default:     new(float64(13.5)),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.StateBinding{
+			Units:       nil,
+			Precision:   nil,
+			Notation:    nil,
+			Key:         "",
+			Source:      nil,
+			Enumeration: nil,
+			Match:       nil,
+			Bounds:      nil,
+			Default:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.StateBinding
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.StateBinding
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

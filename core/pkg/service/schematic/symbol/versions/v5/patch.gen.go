@@ -29,3 +29,132 @@ func (so *StateOverride) Patch(c patch.Cursor) error {
 
 // PatchKey returns the key that paths name the value by in a list.
 func (so *StateOverride) PatchKey() string { return so.Key }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (m *Matcher) Patch(c patch.Cursor) error {
+	switch v := m.Variant.(type) {
+	case ExactMatcher:
+		c, ok := c.Guard("type", "exact")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(m, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		m.Variant = v
+		return nil
+	case WithinMatcher:
+		c, ok := c.Guard("type", "within")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(m, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		m.Variant = v
+		return nil
+	default:
+		return patch.Absent(m, c, "type")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (em *ExactMatcher) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wm *WithinMatcher) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "bounds":
+		return patch.Value(&wm.Bounds, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (r *Ref) Patch(c patch.Cursor) error {
+	switch v := r.Variant.(type) {
+	case BuiltinRef:
+		c, ok := c.Guard("type", "builtin")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(r, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		r.Variant = v
+		return nil
+	case CustomRef:
+		c, ok := c.Guard("type", "custom")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(r, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		r.Variant = v
+		return nil
+	case MissingRef:
+		c, ok := c.Guard("type", "missing")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(r, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		r.Variant = v
+		return nil
+	default:
+		return patch.Absent(r, c, "type")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (br *BuiltinRef) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "name":
+		return patch.Value(&br.Name, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (cr *CustomRef) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&cr.Key, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (mr *MissingRef) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&mr.Key, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}

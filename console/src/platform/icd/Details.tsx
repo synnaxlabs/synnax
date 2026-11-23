@@ -18,7 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import type { FC, ReactElement } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -270,6 +270,43 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
+interface MessageStatusProps {
+  /** The message in the ICD, or null when the ICD has no message with its key. */
+  message: icd.Message | null;
+  /** Says why the ICD has no such message, and what to do now. */
+  missingDescription: string;
+  /** Actions beside the note on a message that is not JSON. */
+  actions?: ReactNode;
+}
+
+/** Warns when the ICD has no such message, or when the message is not JSON. */
+const MessageStatus = ({
+  message,
+  missingDescription,
+  actions,
+}: MessageStatusProps): ReactElement | null => {
+  if (message == null)
+    return (
+      <PForm.Section title="Message">
+        <Status.Summary
+          variant="warning"
+          message="Message not found"
+          description={missingDescription}
+          center={false}
+        />
+      </PForm.Section>
+    );
+  if (message.payload.format === "json") return null;
+  return (
+    <PForm.Section title="Message" actions={actions}>
+      <Text.Text color={9}>
+        The format of this message is not JSON.
+        {FLAGS.icds && " Open it in the editor to change its format."}
+      </Text.Text>
+    </PForm.Section>
+  );
+};
+
 /** The timestamp of a message that a source reads, and the problems of its format. */
 export const MessageSections: FC<MessageSectionsProps> = ({
   format,
@@ -288,28 +325,14 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   const fields = jsonFields(message);
   return (
     <>
-      {message == null && (
-        <PForm.Section title="Message">
-          <Status.Summary
-            variant="warning"
-            message="Message not found"
-            description={missingDescription}
-            center={false}
-          />
-        </PForm.Section>
-      )}
-      {message != null && message.payload.format !== "json" && (
-        <PForm.Section
-          title="Message"
-          // A source that reads one message opens the editor from its format picker.
-          actions={several && <OpenInEditor icdKey={icdKey} message={message.key} />}
-        >
-          <Text.Text color={9}>
-            The format of this message is not JSON.
-            {FLAGS.icds && " Open it in the editor to change its format."}
-          </Text.Text>
-        </PForm.Section>
-      )}
+      <MessageStatus
+        message={message}
+        missingDescription={missingDescription}
+        // A source that reads one message opens the editor from its format picker.
+        actions={
+          several && <OpenInEditor icdKey={icdKey} message={readMessage.message} />
+        }
+      />
       <PForm.Section title="Timestamp">
         <TimestampFields {...rest} fields={fields} plan={plan} />
       </PForm.Section>
