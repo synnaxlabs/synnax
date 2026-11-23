@@ -131,7 +131,7 @@ const addMessage = async (
   return message;
 };
 
-// The form body renders against a device only. as is the client that renders the
+// The form body renders against a device only. `as` is the client that renders the
 // form, when not the one that saves the task.
 const renderWithDevice = async (
   endpoints: HTTP.Task.ReadEndpoint[] = [],
@@ -145,8 +145,8 @@ const renderWithDevice = async (
 };
 
 /**
- * Stops and then starts reading the field named name, once its checkbox enables.
- * Waits for bindings to hold none in between.
+ * Stops and then starts reading the field named name, once its checkbox enables. Waits
+ * for bindings to hold none in between.
  */
 const readAgain = async (
   name: string,
