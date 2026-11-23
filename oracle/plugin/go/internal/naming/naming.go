@@ -64,8 +64,8 @@ func GetFieldName(f resolution.Field) string {
 	return ToPascalCase(f.Name)
 }
 
-// GetEnumValueName returns the suffix of an enum member's Go constant. It checks for a
-// @go name override first, then falls back to ToPascalCase of the member name.
+// GetEnumValueName returns the suffix of an enum member's Go constant: its @go name
+// override, or else ToPascalCase of the member name.
 func GetEnumValueName(v resolution.EnumValue) string {
 	if override := domain.GetStringFromEnumValue(v, "go", "name"); override != "" {
 		return override
