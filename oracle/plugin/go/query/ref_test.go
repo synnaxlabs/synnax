@@ -323,6 +323,30 @@ var _ = Describe("@ref", func() {
 			)
 	})
 
+	It("Should return no target for a nil pointer before slicing it", func() {
+		resp := MustGenerate(device(`
+			shelf rack.Key? @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
+			"Targets: func(e *Device) []rack.Key {",
+			"if e.Shelf == nil {",
+			"return nil",
+			"return unsafe.Slice(e.Shelf, 1)",
+		)
+	})
+
+	It("Should return no target for a zero key before slicing it", func() {
+		resp := MustGenerate(device(`
+			spare rack.Key = 0 @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
+			"Targets: func(e *Device) []rack.Key {",
+			"if e.Spare == 0 {",
+			"return nil",
+			"return unsafe.Slice(&e.Spare, 1)",
+		)
+	})
+
 	Describe("union record", func() {
 		union := func(dep, variant string) string {
 			return `
