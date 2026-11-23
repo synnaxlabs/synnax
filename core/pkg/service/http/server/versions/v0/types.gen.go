@@ -30,11 +30,15 @@ import (
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-var validatePattern0 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+var validatePattern0 = regexp.MustCompile("^[^:]*$")
 
-var validatePattern1 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
+var validatePattern1 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
-var validatePattern2 = regexp.MustCompile("^$|^/")
+var validatePattern2 = regexp.MustCompile("^[^?#[:space:]]*$")
+
+var validatePattern3 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
+
+var validatePattern4 = regexp.MustCompile("^$|^/[^?#[:space:]]*$")
 
 // Key uniquely identifies an HTTP server.
 type Key = uuid.UUID
@@ -238,6 +242,7 @@ func (BasicAuth) isAuthVariant() {}
 func (b BasicAuth) Validate() error {
 	v := validate.New("BasicAuth")
 	v.NotEmptyString("username", b.Username)
+	v.Ternary("username", !validatePattern0.MatchString(string(b.Username)), "User name must not contain a colon")
 	v.NonZero("password", b.Password)
 	return v.Error()
 }
@@ -412,7 +417,7 @@ type BaseResponse struct {
 // schema constraints.
 func (b BaseResponse) Validate() error {
 	v := validate.New("BaseResponse")
-	v.Ternary("pointer", !validatePattern0.MatchString(string(b.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.Ternary("pointer", !validatePattern1.MatchString(string(b.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	return v.Error()
 }
 
@@ -717,6 +722,7 @@ func (h *HealthCheck) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (h HealthCheck) Validate() error {
 	v := validate.New("HealthCheck")
 	v.Ternaryf("method", !h.Method.IsValid(), "invalid method: %v", h.Method)
+	v.Ternary("path", !validatePattern2.MatchString(string(h.Path)), "Path must not hold a query, a fragment, or whitespace")
 	if h.Response != nil {
 		v.Exec(func() error { return validate.PathedError(h.Response.Validate(), "response") })
 	}
@@ -762,6 +768,7 @@ func (r *Request) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r Request) Validate() error {
 	v := validate.New("Request")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	v.Ternary("path", !validatePattern2.MatchString(string(r.Path)), "Path must not hold a query, a fragment, or whitespace")
 	return v.Error()
 }
 
@@ -804,6 +811,7 @@ func (r *ReadRequest) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadRequest) Validate() error {
 	v := validate.New("ReadRequest")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	v.Ternary("path", !validatePattern2.MatchString(string(r.Path)), "Path must not hold a query, a fragment, or whitespace")
 	return v.Error()
 }
 
@@ -847,7 +855,7 @@ func (r *Read) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r Read) Validate() error {
 	v := validate.New("Read")
-	v.Ternary("pointer", !validatePattern0.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.Ternary("pointer", !validatePattern1.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	v.NonZero("index", r.Index)
 	v.NonZero("channel", r.Channel)
 	v.Exec(func() error { return validate.PathedError(r.Request.Validate(), "request") })
@@ -974,11 +982,11 @@ func (s Server) Validate() error {
 	v := validate.New("Server")
 	v.NotEmptyString("name", s.Name)
 	v.NotEmptyString("host", s.Host)
-	v.Ternary("host", !validatePattern1.MatchString(string(s.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
+	v.Ternary("host", !validatePattern3.MatchString(string(s.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
 	if s.Port != nil {
 		v.GreaterThanEq("port", *s.Port, 1)
 	}
-	v.Ternary("base_path", !validatePattern2.MatchString(string(s.BasePath)), "Base path must be empty or start with /")
+	v.Ternary("base_path", !validatePattern4.MatchString(string(s.BasePath)), "Base path must be empty or start with /, with no query, fragment, or whitespace")
 	v.GreaterThanEq("timeout", s.Timeout, 10000000)
 	v.LessThanEq("timeout", s.Timeout, 9007199254740991)
 	v.GreaterThanEq("max_concurrent_requests", s.MaxConcurrentRequests, 1)

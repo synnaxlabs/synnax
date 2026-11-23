@@ -162,6 +162,23 @@ var _ = Describe("Server", func() {
 		Entry("a base path with no leading slash", func(s *v0.Server) {
 			s.BasePath = "api"
 		}, "base_path"),
+		Entry("a base path with a query", func(s *v0.Server) {
+			s.BasePath = "/api?v=1"
+		}, "base_path"),
+		Entry("a health check path with a fragment", func(s *v0.Server) {
+			s.HealthCheck.Path = "/health#top"
+		}, "path"),
+		Entry("a read path with a query", func(s *v0.Server) {
+			r := read("")
+			r.Request.Path = "/now?units=si"
+			s.Reads = []v0.Read{r}
+		}, "path"),
+		Entry("a write path with whitespace", func(s *v0.Server) {
+			s.Writes = []v0.Write{{
+				Request: v0.Request{Method: http.MethodPost, Path: "/a b"},
+				Channel: 3,
+			}}
+		}, "path"),
 		Entry("no scheme", func(s *v0.Server) { s.Scheme = v0.Scheme{} }, "type"),
 		Entry("a timeout under 10 ms", func(s *v0.Server) {
 			s.Timeout = 9 * telem.Millisecond
@@ -208,6 +225,12 @@ var _ = Describe("Server", func() {
 		}, "key"),
 		Entry("basic auth with no user name", func(s *v0.Server) {
 			s.Auth = v0.Auth{Variant: v0.BasicAuth{Password: uuid.New()}}
+		}, "username"),
+		Entry("basic auth with a colon in the user name", func(s *v0.Server) {
+			s.Auth = v0.Auth{Variant: v0.BasicAuth{
+				Username: "ad:min",
+				Password: uuid.New(),
+			}}
 		}, "username"),
 		Entry("an API key with no name", func(s *v0.Server) {
 			s.Auth = v0.Auth{Variant: v0.APIKeyAuth{Key: uuid.New(), SendAs: "header"}}

@@ -65,6 +65,7 @@ Auth union on type {
     basic {
         username string     {
             @doc value         "is the user name to authenticate with."
+            @go validate       pattern "^[^:]*$" "User name must not contain a colon"
             @validate required
         }
         password secret.Key {
@@ -141,7 +142,10 @@ HealthCheck struct {
         @doc value "is the method of the health check request."
     }
     path         string = "" {
-        @doc value "is the path appended to the base URL. Empty requests the base URL."
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
     headers      http.Header[] = [] {
         @doc value "are the headers sent with the request."
@@ -168,7 +172,10 @@ Request struct {
         @doc value "is the method of the request."
     }
     path   string = "" {
-        @doc value "is the path appended to the base URL. Empty requests the base URL."
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
     query  http.QueryParam[] = [] {
         @doc value "are the query parameters of the request, in sorted order."
@@ -183,7 +190,10 @@ ReadRequest struct {
         @doc value "is the method of the request."
     }
     path   string = "" {
-        @doc value "is the path appended to the base URL. Empty requests the base URL."
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
     query  http.QueryParam[] = [] {
         @doc value "are the query parameters of the request, in sorted order."
@@ -275,7 +285,7 @@ Server struct {
     }
     base_path               string = "" {
         @doc value   "is the path that prefixes the path of every request."
-        @go validate pattern "^$|^/" "Base path must be empty or start with /"
+        @go validate pattern "^$|^/[^?#[:space:]]*$" "Base path must be empty or start with /, with no query, fragment, or whitespace"
     }
     timeout                 telem.TimeSpan = 1000000000 {
         @doc value    "is the timeout of each request."
