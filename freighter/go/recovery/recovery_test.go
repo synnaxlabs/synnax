@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/recovery"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -82,6 +83,21 @@ var _ = Describe("Recovery", func() {
 				},
 			)))
 			Expect(oCtx.GetDefault("handled", false)).To(BeTrue())
+		})
+	})
+
+	Describe("ErrorProvider", func() {
+		It("should round-trip ErrPanic as an internal error", func() {
+			codec := errors.NewCodec(recovery.ErrorProvider())
+			pld := codec.Encode(recovery.ErrPanic, false)
+			Expect(pld.Type).To(Equal("sy.internal"))
+			Expect(codec.Decode(pld)).To(MatchError(recovery.ErrPanic))
+		})
+
+		It("should leave other errors to other providers", func() {
+			codec := errors.NewCodec(recovery.ErrorProvider())
+			Expect(codec.Encode(errors.New("cat"), false).Type).
+				To(Equal(errors.TypeUnknown))
 		})
 	})
 

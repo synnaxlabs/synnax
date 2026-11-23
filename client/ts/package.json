@@ -45,13 +45,9 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "undici": "catalog:node22",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
-    "undici": {
-      "optional": true
-    },
     "vitest": {
       "optional": true
     }
@@ -63,12 +59,13 @@
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "esbuild": "catalog:",
     "eslint": "catalog:",
     "playwright": "catalog:",
     "typescript": "catalog:",
-    "undici": "catalog:node22",
     "vite": "catalog:",
     "vitest": "catalog:",
+    "webpack": "catalog:",
     "ws": "catalog:"
   },
   "type": "module",
