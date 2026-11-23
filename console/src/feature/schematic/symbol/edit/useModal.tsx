@@ -143,13 +143,13 @@ const Editor = ({
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addPart = () => {
-    const spec = form.get(path.data).value;
+    const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
-      name: `Part ${spec.parts.length + 1}`,
+      name: Spec.nextPartName(parts),
       selectors: [],
     };
-    form.set(path.data.parts, [...spec.parts, part]);
+    form.set(path.data.parts, [...parts, part]);
     setSelectedPart(part.key);
   };
 
