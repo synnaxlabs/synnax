@@ -462,10 +462,10 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// refuseAmbiguous returns a validation error when a name of the strict where is held by
-// several channels, every holder counted, with the paths that the subject can see. It
-// returns a validation error when where holds a match other than a key, name, or path,
-// at the top level or as the branches of one or.
+// refuseAmbiguous returns a multiple results error when a name of the strict where is
+// held by several channels, every holder counted, with the paths that the subject can
+// see. It returns a validation error when where holds a match other than a key, name,
+// or path, at the top level or as the branches of one or.
 func (s *Service) refuseAmbiguous(
 	ctx context.Context,
 	snap bind.Snapshot,
