@@ -91,4 +91,41 @@ TEST(Server, RoundTrips) {
     ASSERT_EQ(std::get<BitWriteValue>(write.value).bit, 3);
     ASSERT_EQ(parsed.writes.at(0).channel, 5);
 }
+
+/// @brief it should keep the field group of an update through JSON.
+TEST(Update, RoundTripsGroup) {
+    IdentityUpdate identity;
+    identity.rack = 1;
+    identity.name = "PLC";
+    TcpConnection tcp;
+    tcp.host = "plc";
+    tcp.port = 502;
+    identity.connection = tcp;
+    const auto j = to_json(Update(identity));
+    ASSERT_EQ(j["group"], "identity");
+    x::json::Parser parser(j);
+    const auto parsed = parse_update(parser);
+    ASSERT_NIL(parser.error());
+    const auto &got = std::get<IdentityUpdate>(parsed);
+    ASSERT_EQ(got.name, "PLC");
+    ASSERT_EQ(std::get<TcpConnection>(got.connection).port, 502);
+    ASSERT_EQ(got.requests.max_registers, 125);
+}
+
+/// @brief it should apply the defaults of a configuration update.
+TEST(Update, AppliesConfigurationDefaults) {
+    x::json::Parser parser(x::json::json{{"group", "configuration"}});
+    const auto parsed = parse_update(parser);
+    ASSERT_NIL(parser.error());
+    const auto &got = std::get<ConfigurationUpdate>(parsed);
+    ASSERT_TRUE(got.reads.empty());
+    ASSERT_TRUE(got.writes.empty());
+}
+
+/// @brief it should reject an update with an unknown group.
+TEST(Update, RejectsUnknownGroup) {
+    x::json::Parser parser(x::json::json{{"group", "other"}});
+    parse_update(parser);
+    ASSERT_FALSE(parser.ok());
+}
 }
