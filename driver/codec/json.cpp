@@ -378,16 +378,17 @@ bool writes(const std::string_view k, const x::telem::DataType &dt) {
     return dk.has_value() && (*dk == k || (numeric(*dk) && numeric(k)));
 }
 
-/// @brief reports whether a field of kind k changes the number that an encoder writes
-/// for a sample of dt.
+/// @brief reports whether a field of kind k changes or checks the number that an
+/// encoder writes for a sample of dt.
 bool needs_conversion(
     const std::string_view k,
     const x::telem::DataType &dt,
-    const bool scaled
+    const bool scaled,
+    const bool bounded
 ) {
-    if (k == payload::KIND_FLOAT) return scaled;
+    if (k == payload::KIND_FLOAT) return scaled || bounded;
     if (k == payload::KIND_INTEGER || k == payload::KIND_UNSIGNED)
-        return scaled || kind_of(dt) != k;
+        return scaled || bounded || kind_of(dt) != k;
     if (k == payload::KIND_BOOLEAN) return kind_of(dt) != k;
     return false;
 }
@@ -543,6 +544,8 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     field.scaled = b.scale != 1 || b.offset != 0;
     field.scale = b.scale;
     field.offset = b.offset;
+    field.base = b;
+    field.narrow = dt == x::telem::FLOAT32_T;
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};
     field.kind = v.kind;
@@ -559,7 +562,12 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
             Field{},
             invalid("a scaled field requires a float channel, not " + dt.name()),
         };
-    field.converted = needs_conversion(v.kind, dt, field.scaled);
+    field.converted = needs_conversion(
+        v.kind,
+        dt,
+        field.scaled,
+        b.min.has_value() || b.max.has_value()
+    );
     if (v.kind == payload::KIND_JSON) return {std::move(field), x::errors::NIL};
     auto type = x::json::Type::Number;
     if (v.kind == payload::KIND_STRING || v.kind == payload::KIND_UUID ||
@@ -596,6 +604,8 @@ x::errors::Error JSONEncoder::Field::append(
     const auto [n, err] = x::json::Number::parse(std::string_view(out).substr(start));
     out.resize(start);
     if (err) return err;
+    if (auto limit_err = check_limits(this->base, this->at_limit(n.to_float64())))
+        return limit_err;
     if (this->kind == payload::KIND_FLOAT)
         return x::json::append_float(
             (n.to_float64() - this->offset) / this->scale,
@@ -637,6 +647,14 @@ JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) c
         x::json::Number(v).to_string() + " is out of range for " +
         std::string(this->kind) + " values"
     );
+}
+
+double JSONEncoder::Field::at_limit(const double v) const {
+    if (!this->narrow) return v;
+    for (const auto &limit: {this->base.min, this->base.max})
+        if (limit.has_value() && static_cast<float>(v) == static_cast<float>(*limit))
+            return *limit;
+    return v;
 }
 
 std::pair<JSONEncoder, x::errors::Error>

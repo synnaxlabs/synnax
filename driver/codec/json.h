@@ -229,6 +229,11 @@ class JSONEncoder {
         bool scaled = false;
         double scale = 1;
         double offset = 0;
+        /// @brief base holds the min and max of the field.
+        synnax::icd::BaseField base;
+        /// @brief narrow is true for float32 samples, which check against each limit
+        /// at float32 precision, so a command at a limit passes.
+        bool narrow = false;
         /// @brief fallback is the default that an empty series writes.
         Default fallback;
 
@@ -241,6 +246,9 @@ class JSONEncoder {
         /// integer.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
+        /// @returns the limit that v equals at the precision of the samples, or else
+        /// v.
+        [[nodiscard]] double at_limit(double v) const;
     };
 
     /// @brief Slot is a value of the document that changes between encodes.
