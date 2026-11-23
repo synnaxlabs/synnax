@@ -36,16 +36,12 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
-	// retarget replaces each target of the entry with the text key k that is a key of
-	// to with its value, through the references at refs, and writes it back with a
-	// checked write.
-	retarget(
-		ctx context.Context,
-		tx Tx,
-		k string,
-		refs []int,
-		to map[Target]Target,
-	) error
+	// retarget replaces each target that m moves in the entry with the text key k,
+	// through the references at refs, and writes the entry back with a checked write
+	// when it held one.
+	retarget(ctx context.Context, tx Tx, k string, refs []int, m moves) error
+	// formatKey returns k, a text key of the table, in the form that FormatKey returns.
+	formatKey(k string) (string, error)
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool

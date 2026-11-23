@@ -103,8 +103,10 @@ type Reference[K Key, E Entry[K]] interface {
 	detachTarget(e *E, target Target) bool
 	// canDetach reports whether the reference has a Detach.
 	canDetach() bool
-	// retargetTargets replaces each target of e that is a key of to with its value.
-	retargetTargets(e *E, to map[Target]Target)
+	// retargetTargets replaces each target of e that m moves with its new target. It
+	// reports whether e held one, and fails when the reference does not point at the
+	// table whose keys m moves.
+	retargetTargets(e *E, m moves) (bool, error)
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
 	// check validates the targets that e holds against tx, for a write of e to t. It
@@ -479,21 +481,38 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 
 func (r *reference[K, E, T]) canRetarget() bool { return r.retarget != nil }
 
-func (r *reference[K, E, T]) retargetTargets(e *E, to map[Target]Target) {
-	if typed, ok := any(to).(map[T]T); ok {
-		r.retarget(e, typed)
-		return
+func (r *reference[K, E, T]) retargetTargets(e *E, m moves) (bool, error) {
+	if !slices.Contains(r.tables, m.table) {
+		return false, errors.Newf(
+			"[gorp] - reference %s of table %s cannot retarget keys of table %s",
+			r.name,
+			r.owner,
+			m.table,
+		)
 	}
-	typed := make(map[T]T, len(to))
-	for from, target := range to {
-		f, fromOK := r.parse(from)
-		t, toOK := r.parse(target)
-		if !fromOK || !toOK {
-			panic("[gorp] - Retarget got a target that its reference cannot parse")
+	typed, ok := m.keys.(map[T]T)
+	if !ok {
+		typed, ok = any(m.targets).(map[T]T)
+	}
+	if !ok {
+		typed = make(map[T]T, len(m.targets))
+		for from, onto := range m.targets {
+			f, fromOK := r.parse(from)
+			t, toOK := r.parse(onto)
+			if !fromOK || !toOK {
+				panic("[gorp] - Retarget got a target that its reference cannot parse")
+			}
+			typed[f] = t
 		}
-		typed[f] = t
+	}
+	if !slices.ContainsFunc(r.targetsOf(e), func(t T) bool {
+		_, moving := typed[t]
+		return moving
+	}) {
+		return false, nil
 	}
 	r.retarget(e, typed)
+	return true, nil
 }
 
 func (r *reference[K, E, T]) inlineTarget(
