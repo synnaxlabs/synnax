@@ -223,6 +223,9 @@ export default defineConfig({
     globals: true,
     testTimeout: 15_000,
     hookTimeout: 15_000,
+    // A Core write can take more than the 1 s default, so polls wait as long as
+    // Testing Library does.
+    expect: { poll: { timeout: 5000 } },
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
