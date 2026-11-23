@@ -16,9 +16,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { builtinEnvironments } from "vitest/runtime";
 
 import { Media } from "@/components/media";
-import { start } from "@/components/media/lightbox";
+import { lightbox } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
-import { REDUCED_MOTION } from "@/components/media/video";
+import { playback } from "@/components/media/playback";
 import videos from "@/components/media/videos.json";
 
 const [ID] = Object.keys(videos);
@@ -69,7 +69,7 @@ describe("lightbox", () => {
     ({ teardown } = await builtinEnvironments.jsdom.setup(globalThis, {}));
     // Reduced motion skips the open and close animations, which jsdom cannot run.
     vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query === REDUCED_MOTION,
+      matches: query === playback.REDUCED_MOTION,
       addEventListener: () => {},
     }));
     // jsdom has no modal dialogs or media playback, so these act as the browser would.
@@ -124,7 +124,7 @@ describe("lightbox", () => {
         times.set(this, time);
       },
     );
-    start();
+    lightbox.start();
   });
 
   afterAll(async () => {
