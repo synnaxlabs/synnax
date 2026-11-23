@@ -278,7 +278,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
         type: "within",
         bounds: { lower: 0.9, upper: 1.1 },
       }),
-      looks: [...spec.looks, ...copies],
+      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
       commands: [
         {
           key: DEACTIVATE,
