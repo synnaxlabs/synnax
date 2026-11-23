@@ -139,6 +139,17 @@ class TestWriterLookupCheck:
             with pytest.raises(sy.NotFoundError, match="channels not found matching"):
                 w.write({old: np.array([2.0])})
 
+    def test_refuse_a_record_key_past_the_uint32_range(self, client: sy.Synnax) -> None:
+        """Should refuse a record keyed by an integer that does not fit a channel key,
+        as a retrieve does.
+        """
+        ch, _ = in_group(client)
+        with client.open_writer(start=sy.TimeStamp.now(), channels=[ch.key]) as w:
+            with pytest.raises(
+                sy.ValidationError, match="4294967296 is not a channel key"
+            ):
+                w.write({2**32: np.array([1.0])})
+
     def test_extra_dataframe_column_needs_no_retrieve(
         self, counted_client: tuple[sy.Synnax, RetrieveCounter]
     ) -> None:
