@@ -73,8 +73,8 @@ func MigrateScaleIndicatorConfig(
 	return cfg, nil
 }
 
-// MigrateStalenessConfig lifts a v13 staleness config to v14, which drops the staleness
-// color. A stale symbol shows a stale indicator in its place.
+// MigrateStalenessConfig lifts a v13 staleness config to v14. It drops the staleness
+// color.
 func MigrateStalenessConfig(
 	ctx context.Context,
 	old v13.StalenessConfig,
