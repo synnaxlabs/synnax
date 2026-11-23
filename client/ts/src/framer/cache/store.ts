@@ -20,7 +20,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import {
   type Block,
