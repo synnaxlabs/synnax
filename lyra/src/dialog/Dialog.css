@@ -83,9 +83,11 @@
         }
     }
 
+    /* The entrance animation sets opacity, so it starts once the dialog is placed. */
     &.lyra--hidden {
         opacity: 0;
         pointer-events: none;
+        animation: none;
     }
 
     &.lyra--visible {
