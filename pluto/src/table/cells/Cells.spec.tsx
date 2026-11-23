@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, table } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { box, color as xcolor, id, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -75,7 +75,6 @@ describe("Cells.Value", () => {
       client,
       additionalRegistry: { [CapturingValue.TYPE]: CapturingValue },
     });
-    await waitForStreamLive(client.connection);
     const [text, fill, stale] = await Promise.all(
       ["#111111", "#222222", "#333333"].map(
         async (light) =>
@@ -146,7 +145,6 @@ describe("Cells.Text", () => {
   it("should fill with its named color and repaint when the color changes", async () => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const named = await client.colors.create({
       name: `fill-${id.create()}`,
       light: "#123456",

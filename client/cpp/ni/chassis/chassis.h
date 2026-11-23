@@ -36,7 +36,7 @@ using RetrieveClient = freighter::UnaryClient<
 
 /// @brief the transport that writes one field group to an NI chassis.
 using UpdateClient = freighter::
-    UnaryClient<grpc::ni_chassis::UpdateRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::ni_chassis::UpdateRequest, grpc::ni_chassis::UpdateResponse>;
 
 /// @brief the transport that deletes NI chassis.
 using DeleteClient = freighter::
@@ -93,8 +93,10 @@ public:
     /// other group as stored.
     /// @param key the key of the chassis.
     /// @param update the field group to write.
-    /// @returns an error that matches NOT_FOUND when no chassis has the key.
-    [[nodiscard]] x::errors::Error update(const Key &key, const Update &update) const;
+    /// @returns the chassis as stored after the update, and an error that matches
+    /// NOT_FOUND when no chassis has the key.
+    [[nodiscard]] std::pair<Chassis, x::errors::Error>
+    update(const Key &key, const Update &update) const;
 
     /// @brief deletes the chassis with the given keys.
     /// @param keys the keys of the chassis.

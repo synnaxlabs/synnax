@@ -37,6 +37,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/json:read",
         "//x/cpp/payload",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],

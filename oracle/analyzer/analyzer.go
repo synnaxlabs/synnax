@@ -108,6 +108,7 @@ func Analyze(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return table, diag
 }
@@ -145,6 +146,7 @@ func AnalyzeSeeded(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return diag
 }

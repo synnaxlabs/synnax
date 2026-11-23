@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -582,6 +583,7 @@ func (f *goFile) templateData(aliasOverrides map[string]string) *templateData {
 		AliasOverrides: aliasOverrides,
 	}
 	return &templateData{
+		patterns:   &[]patternVar{},
 		Package:    pkg,
 		OutputPath: f.outputPath,
 		Namespace:  namespace,
@@ -821,12 +823,16 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if err := checkHeld(entry.Name, sd.IsGeneric, embeds, fields, data); err != nil {
 		return structData{}, err
 	}
+	siblings := resolution.UnifiedFields(entry, data.table)
+	parents := resolution.InheritedFields(form.Extends, data.table)
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
 		if genMethods {
-			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
+			addFieldMethods(
+				&sd, field, siblings, restated(field, defaultOnly, parents), data,
+			)
 		}
 	}
 	if genMethods {
@@ -935,14 +941,17 @@ func embedExtends(
 	return embeds
 }
 
-// addFieldMethods adds the default fills and validation checks of field. defaultOnly
-// marks a field that only restates an inherited default.
+// addFieldMethods adds the default fills and validation checks of field. siblings are
+// the fields of field's struct. parent is the inherited field that field only restates
+// a default of, or nil.
 func addFieldMethods(
 	sd *structData,
 	field resolution.Field,
-	defaultOnly bool,
+	siblings []resolution.Field,
+	parent *resolution.Field,
 	data *templateData,
 ) {
+	defaultOnly := parent != nil
 	fd := data.forField(field)
 	if defaultGroupName(field) == "" {
 		fills := goDefaultFills(field, fd)
@@ -961,6 +970,12 @@ func addFieldMethods(
 		sd.ConstraintChecks,
 		goConstraintChecks(field, defaultOnly, fd)...,
 	)
+	if chk, ok := goLessThanCheck(field, siblings, parent); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
+	if chk, ok := goPatternCheck(field, parent, data); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
@@ -1195,6 +1210,34 @@ type templateData struct {
 	Namespace  string
 	repoRoot   string
 	Decls      []declData
+	// patterns holds one compiled regex for each distinct regex of the pattern checks.
+	// Copies of the data share it, since any of them can add a check.
+	patterns *[]patternVar
+}
+
+// Patterns returns the regex vars the file declares.
+func (d *templateData) Patterns() []patternVar { return *d.patterns }
+
+// patternVar is a package-level regex that pattern checks match against.
+type patternVar struct {
+	// Name is the Go name of the var.
+	Name string
+	// Literal is the quoted regex.
+	Literal string
+}
+
+// patternVar returns the name of the var that holds pattern, adding the var when the
+// file has none for it.
+func (d *templateData) patternVar(pattern string) string {
+	literal := strconv.Quote(pattern)
+	for _, p := range *d.patterns {
+		if p.Literal == literal {
+			return p.Name
+		}
+	}
+	name := "validatePattern" + strconv.Itoa(len(*d.patterns))
+	*d.patterns = append(*d.patterns, patternVar{Name: name, Literal: literal})
+	return name
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1402,6 +1445,10 @@ import (
 {{- end}}
 {{- end}}
 )
+{{- end}}
+{{- range .Patterns}}
+
+var {{.Name}} = regexp.MustCompile({{.Literal}})
 {{- end}}
 {{- range .Decls}}
 {{- with .Alias}}
@@ -1652,6 +1699,10 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1792,6 +1843,10 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -2027,3 +2082,18 @@ func ({{$r}} *{{.Name}}) SetDefaults() {
 {{- end}}
 `),
 )
+
+// restated returns the inherited field that field only restates a default of, or nil.
+func restated(
+	field resolution.Field,
+	defaultOnly set.Set[string],
+	parents map[string]resolution.Field,
+) *resolution.Field {
+	if !defaultOnly.Contains(field.Name) {
+		return nil
+	}
+	if parent, ok := parents[field.Name]; ok {
+		return &parent
+	}
+	return nil
+}

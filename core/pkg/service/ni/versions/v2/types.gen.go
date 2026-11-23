@@ -1085,6 +1085,14 @@ func (m *MinMaxVal) DefaultGroups() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (m MinMaxVal) Validate() error {
+	v := validate.New("MinMaxVal")
+	v.Ternary("min_val", !(m.MinVal < m.MaxVal), "Minimum value must be less than maximum value")
+	return v.Error()
+}
+
 // Terminal configures the terminal wiring of an analog input channel.
 type Terminal struct {
 	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
@@ -1438,6 +1446,7 @@ func (a *AIVoltageChannel) DefaultGroups() {
 // schema constraints.
 func (a AIVoltageChannel) Validate() error {
 	v := validate.New("AIVoltageChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1490,6 +1499,7 @@ func (a AIAccelChannel) Validate() error {
 	v := validate.New("AIAccelChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1538,6 +1548,7 @@ func (a *AIBridgeChannel) DefaultGroups() {
 func (a AIBridgeChannel) Validate() error {
 	v := validate.New("AIBridgeChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1587,6 +1598,7 @@ func (a *AICurrentChannel) DefaultGroups() {
 func (a AICurrentChannel) Validate() error {
 	v := validate.New("AICurrentChannel")
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1640,6 +1652,7 @@ func (a AIForceBridgeTableChannel) Validate() error {
 	v := validate.New("AIForceBridgeTableChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -1697,6 +1710,7 @@ func (a AIForceBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AIForceBridgeTwoPointLinChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -1751,6 +1765,7 @@ func (a AIForceIEPEChannel) Validate() error {
 	v := validate.New("AIForceIEPEChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1836,6 +1851,7 @@ func (a AIPressureBridgeTableChannel) Validate() error {
 	v := validate.New("AIPressureBridgeTableChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -1893,6 +1909,7 @@ func (a AIPressureBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AIPressureBridgeTwoPointLinChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -1938,6 +1955,7 @@ func (a *AIResistanceChannel) DefaultGroups() {
 // schema constraints.
 func (a AIResistanceChannel) Validate() error {
 	v := validate.New("AIResistanceChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1990,6 +2008,7 @@ func (a AIRTDChannel) Validate() error {
 	v := validate.New("AIRTDChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("rtd_type", !a.RtdType.IsValid(), "invalid rtd_type: %v", a.RtdType)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	return v.Error()
@@ -2045,6 +2064,7 @@ func (a *AIStrainGaugeChannel) DefaultGroups() {
 func (a AIStrainGaugeChannel) Validate() error {
 	v := validate.New("AIStrainGaugeChannel")
 	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2124,6 +2144,7 @@ func (a AIThermocoupleChannel) Validate() error {
 	v := validate.New("AIThermocoupleChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(func() error { return validate.PathedError(a.Cjc.Validate(), "cjc") })
 	return v.Error()
 }
@@ -2176,6 +2197,7 @@ func (a AITorqueBridgeTableChannel) Validate() error {
 	v := validate.New("AITorqueBridgeTableChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -2233,6 +2255,7 @@ func (a AITorqueBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AITorqueBridgeTwoPointLinChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -2287,6 +2310,7 @@ func (a AIVelocityIEPEChannel) Validate() error {
 	v := validate.New("AIVelocityIEPEChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2344,6 +2368,7 @@ func (a AIAccel4WireDCVoltageChannel) Validate() error {
 	v := validate.New("AIAccel4WireDCVoltageChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2395,6 +2420,7 @@ func (a AIAccelChargeChannel) Validate() error {
 	v := validate.New("AIAccelChargeChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2440,6 +2466,7 @@ func (a *AIChargeChannel) DefaultGroups() {
 func (a AIChargeChannel) Validate() error {
 	v := validate.New("AIChargeChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2488,6 +2515,7 @@ func (a *AICurrentRMSChannel) DefaultGroups() {
 func (a AICurrentRMSChannel) Validate() error {
 	v := validate.New("AICurrentRMSChannel")
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2541,6 +2569,7 @@ func (a AIForceBridgePolynomialChannel) Validate() error {
 	v := validate.New("AIForceBridgePolynomialChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)
@@ -2586,6 +2615,7 @@ func (a *AIFreqVoltageChannel) DefaultGroups() {
 // schema constraints.
 func (a AIFreqVoltageChannel) Validate() error {
 	v := validate.New("AIFreqVoltageChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -2639,6 +2669,7 @@ func (a AIPressureBridgePolynomialChannel) Validate() error {
 	v := validate.New("AIPressureBridgePolynomialChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)
@@ -2692,6 +2723,7 @@ func (a *AIThermistorIexChannel) DefaultGroups() {
 func (a AIThermistorIexChannel) Validate() error {
 	v := validate.New("AIThermistorIexChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	return v.Error()
@@ -2745,6 +2777,7 @@ func (a *AIThermistorVexChannel) DefaultGroups() {
 func (a AIThermistorVexChannel) Validate() error {
 	v := validate.New("AIThermistorVexChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	return v.Error()
@@ -2799,6 +2832,7 @@ func (a AITorqueBridgePolynomialChannel) Validate() error {
 	v := validate.New("AITorqueBridgePolynomialChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)
@@ -2842,6 +2876,7 @@ func (a *AIVoltageRMSChannel) DefaultGroups() {
 // schema constraints.
 func (a AIVoltageRMSChannel) Validate() error {
 	v := validate.New("AIVoltageRMSChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2892,6 +2927,7 @@ func (a *AIVoltageWithExcitChannel) DefaultGroups() {
 func (a AIVoltageWithExcitChannel) Validate() error {
 	v := validate.New("AIVoltageWithExcitChannel")
 	v.Ternaryf("bridge_config", !a.BridgeConfig.IsValid(), "invalid bridge_config: %v", a.BridgeConfig)
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -3945,6 +3981,7 @@ func (c CIFrequencyChannel) Validate() error {
 	v.Ternaryf("edge", !c.Edge.IsValid(), "invalid edge: %v", c.Edge)
 	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4037,6 +4074,7 @@ func (c CIPeriodChannel) Validate() error {
 	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
 	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4089,6 +4127,7 @@ func (c CIPulseWidthChannel) Validate() error {
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4137,6 +4176,7 @@ func (c CISemiPeriodChannel) Validate() error {
 	v := validate.New("CISemiPeriodChannel")
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4195,6 +4235,7 @@ func (c CITwoEdgeSepChannel) Validate() error {
 	v.Ternaryf("first_edge", !c.FirstEdge.IsValid(), "invalid first_edge: %v", c.FirstEdge)
 	v.Ternaryf("second_edge", !c.SecondEdge.IsValid(), "invalid second_edge: %v", c.SecondEdge)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4251,6 +4292,7 @@ func (c CIVelocityLinearChannel) Validate() error {
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4307,6 +4349,7 @@ func (c CIVelocityAngularChannel) Validate() error {
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4437,6 +4480,7 @@ func (c CIDutyCycleChannel) Validate() error {
 	v := validate.New("CIDutyCycleChannel")
 	v.Ternaryf("active_edge", !c.ActiveEdge.IsValid(), "invalid active_edge: %v", c.ActiveEdge)
 	v.Exec(c.CustomScale.Validate)
+	v.Exec(c.MinMaxVal.Validate)
 	return v.Error()
 }
 
@@ -4884,6 +4928,7 @@ func (a *AOCurrentChannel) DefaultGroups() {
 // schema constraints.
 func (a AOCurrentChannel) Validate() error {
 	v := validate.New("AOCurrentChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -4950,6 +4995,7 @@ func (a *AOVoltageChannel) DefaultGroups() {
 // schema constraints.
 func (a AOVoltageChannel) Validate() error {
 	v := validate.New("AOVoltageChannel")
+	v.Exec(a.MinMaxVal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }

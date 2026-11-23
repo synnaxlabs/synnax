@@ -240,6 +240,11 @@ export const Provider = memo(
         x = PREVIEW_PAD + event.clientX - rect.left;
         y = PREVIEW_PAD + event.clientY - rect.top;
       }
+      // Last in the top layer, the preview shows over the dropdown it came from.
+      if (content != null) {
+        layer.hidePopover();
+        layer.showPopover();
+      }
       event.dataTransfer.setDragImage(layer, x, y);
       requestAnimationFrame(() => flushSync(() => setPreviewContent(null)));
     };
@@ -347,7 +352,12 @@ export const Provider = memo(
       <Context value={controls}>
         <StateContext value={dragging}>{children}</StateContext>
         {createPortal(
-          <div ref={layerRef} className={CSS.BE("haul", "layer")} aria-hidden>
+          <div
+            ref={layerRef}
+            className={CSS.BE("haul", "layer")}
+            popover="manual"
+            aria-hidden
+          >
             {preview}
           </div>,
           document.body,

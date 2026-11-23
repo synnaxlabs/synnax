@@ -328,8 +328,8 @@ describe("Input", () => {
         fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
         fireEvent.keyUp(document.body, { key: "Escape", code: "Escape" });
         expect(c.queryByLabelText("Search")).toBeNull();
-        expect(c.getByText("Modal content")).toBeTruthy();
-        fireEvent.keyDown(c.container, { key: "Escape", code: "Escape" });
+        const content = c.getByText("Modal content");
+        fireEvent.keyDown(content, { key: "Escape", code: "Escape" });
         expect(c.queryByText("Modal content")).toBeNull();
       });
     });
