@@ -231,8 +231,9 @@ Field groups per make:
   A read binds a node, a structure field, and an index channel to a channel; a write
   binds a node to its command channel. A node ID names its namespace by URI
   (`nsu=<uri>;<id>`), because a server can renumber its namespace indexes; the writer
-  normalizes node IDs, refuses an index other than 0, and refuses duplicate bindings.
-  The Core refuses an endpoint that is not an `opc.tcp` URL.
+  normalizes node IDs, refuses an index other than 0, and refuses two reads on one node,
+  field, and index, or two writes to one node. The Core refuses an endpoint that is not
+  an `opc.tcp` URL.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -459,9 +460,11 @@ green at every step. The migration brings 0.59 data forward near the end.
   bindings parked under `sy_opcua_unresolved/<server key>` against the server's
   `NamespaceArray` on its next connect and hands them to a Core route that appends them
   to `reads` and `writes` in one transaction. The route keeps every binding a task form
-  wrote and skips a resolved binding that duplicates one, so it is a narrow exception to
-  principle 5: it adds to the configuration group and never replaces it. The route
-  deletes the entry and clears the warning.
+  wrote and skips a resolved binding on the key that the writer refuses to repeat: a
+  read on the same node, field, and index, or a write to the same node. So the route
+  never fails on a duplicate, and it is a narrow exception to principle 5: it adds to
+  the configuration group and never replaces it. The route deletes the entry and clears
+  the warning.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
