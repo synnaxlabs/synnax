@@ -37,8 +37,8 @@ const Owner = ({ onClickOutside, dialog }: OwnerProps): ReactElement => {
 };
 Owner.displayName = "Owner";
 
-// jsdom gives every element a zero rect, which reads as containing every click, so
-// the owner and the viewport need rects of their own.
+// The test fires events at fixed coordinates, so the owner and the viewport need
+// fixed rects.
 const renderOwner = (onClickOutside: () => void, dialog = false) => {
   const c = render(
     <>
