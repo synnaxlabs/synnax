@@ -152,6 +152,41 @@ describe("Writer", () => {
     });
   });
 
+  describe("record names", () => {
+    it("should write a fetched record name to its holder now", async () => {
+      const create = async () =>
+        await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        });
+      const a = await create();
+      const b = await create();
+      const streamer = await client.openStreamer([a.key, b.key]);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [a.key, b.key],
+      });
+      const written = async (): Promise<channel.Key[]> => {
+        const fr = await streamer.read();
+        return [a.key, b.key].filter((k) => fr.get(k).length > 0);
+      };
+      try {
+        const moved = id.create();
+        await client.channels.rename(a.key, moved);
+        await writer.write({ [moved]: [1] });
+        expect(await written()).toEqual([a.key]);
+        await client.channels.rename(a.key, id.create());
+        await client.channels.rename(b.key, moved);
+        await writer.write({ [moved]: [2] });
+        expect(await written()).toEqual([b.key]);
+      } finally {
+        await writer.close();
+        streamer.close();
+      }
+    });
+  });
+
   describe("dispose", () => {
     test("should close the writer once at the end of an await using block", async () => {
       const channels = await newIndexedPair(client);
