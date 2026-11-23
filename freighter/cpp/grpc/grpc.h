@@ -28,14 +28,27 @@ const std::string ERROR_KEY = "error";
 /// @brief the gRPC environment variable naming a PEM file of trust anchors.
 const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
 
-/// @brief converts a ::grpc::Status to a x::errors::Error.
+/// @brief converts a ::grpc::Status to a x::errors::Error. A type---data message from
+/// the Core keeps its type. Any other message becomes the data of the freighter error
+/// for the status code.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
-    if (status.error_code() == ::grpc::StatusCode::UNAVAILABLE)
-        return {UNREACHABLE.type, status.error_message()};
-    if (status.error_code() == ::grpc::StatusCode::DEADLINE_EXCEEDED)
-        return {TIMEOUT.type, status.error_message()};
-    return x::errors::Error(status.error_message());
+    const auto &msg = status.error_message();
+    if (msg.find("---") != std::string::npos) return x::errors::Error(msg);
+    switch (status.error_code()) {
+        case ::grpc::StatusCode::UNAVAILABLE:
+            return {UNREACHABLE, msg};
+        case ::grpc::StatusCode::DEADLINE_EXCEEDED:
+            return {TIMEOUT, msg};
+        case ::grpc::StatusCode::CANCELLED:
+            return {CANCELLED, msg};
+        case ::grpc::StatusCode::INTERNAL:
+            return {TRANSPORT, msg};
+        case ::grpc::StatusCode::RESOURCE_EXHAUSTED:
+            return {RESOURCE_EXHAUSTED, msg};
+        default:
+            return {UNKNOWN, msg};
+    }
 }
 }
 

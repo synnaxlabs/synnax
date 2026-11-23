@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -488,5 +489,39 @@ TEST_F(DeadlineTest, ContextDeadlineReplacesPoolTimeout) {
     ASSERT_EQ(this->service.remaining.size(), 1);
     EXPECT_LT(this->service.remaining[0], std::chrono::seconds(3));
     EXPECT_GT(this->service.remaining[0], std::chrono::seconds(1));
+}
+
+/// @brief it should keep the type of a type---data payload from the Core.
+TEST(testGRPC, testErrFromStatusKeepsPayloadType) {
+    const auto err = priv::err_from_status(
+        ::grpc::Status(::grpc::StatusCode::UNKNOWN, "sy.validation---bad key")
+    );
+    ASSERT_EQ(err.type, x::errors::VALIDATION.type);
+    ASSERT_EQ(err.data, "bad key");
+}
+
+/// @brief it should map a status with no payload to the freighter error of its code.
+TEST(testGRPC, testErrFromStatusMapsCodes) {
+    const std::vector<std::pair<::grpc::StatusCode, x::errors::Error>> cases = {
+        {::grpc::StatusCode::UNAVAILABLE, UNREACHABLE},
+        {::grpc::StatusCode::DEADLINE_EXCEEDED, TIMEOUT},
+        {::grpc::StatusCode::CANCELLED, CANCELLED},
+        {::grpc::StatusCode::INTERNAL, TRANSPORT},
+        {::grpc::StatusCode::RESOURCE_EXHAUSTED, RESOURCE_EXHAUSTED},
+        {::grpc::StatusCode::UNKNOWN, UNKNOWN},
+        {::grpc::StatusCode::UNIMPLEMENTED, UNKNOWN},
+        {::grpc::StatusCode::PERMISSION_DENIED, UNKNOWN},
+    };
+    const std::string msg = "Received RST_STREAM with error code 2";
+    for (const auto &[code, expected]: cases) {
+        const auto err = priv::err_from_status(::grpc::Status(code, msg));
+        ASSERT_EQ(err.type, expected.type);
+        ASSERT_EQ(err.data, msg);
+    }
+}
+
+/// @brief it should return nil for an ok status.
+TEST(testGRPC, testErrFromStatusOk) {
+    ASSERT_NIL(priv::err_from_status(::grpc::Status::OK));
 }
 }
