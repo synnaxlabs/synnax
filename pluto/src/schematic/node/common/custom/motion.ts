@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { deep, type dimensions, TimeSpan, type xy } from "@synnaxlabs/x";
+import { deep, type dimensions, type location, TimeSpan, type xy } from "@synnaxlabs/x";
 
 import type { Loop, Mover } from "@/schematic/node/common/custom/loop";
 import { matched } from "@/schematic/node/common/custom/paint";
@@ -40,6 +40,7 @@ export const moves = ({ motion, blink }: schematic.symbol.Look): boolean =>
 // One flash is one period, so a blink stays under three flashes a second.
 const MIN_BLINK_PERIOD = TimeSpan.milliseconds(400).milliseconds;
 const BLINK_DIM = 0.2;
+const TRANSITION_MS = 200;
 
 type Kind = schematic.symbol.MotionType | "blink";
 type Of<K extends Kind> = K extends "blink"
@@ -94,22 +95,36 @@ const parse = (own: string | null, fallback: number): number => {
 };
 const compose = (motion: string, own: string | null): string =>
   own == null ? motion : `${motion} ${own}`;
+const lerp = (from: number, to: number, f: number): number => from + (to - from) * f;
 
 const rotate = (angle: number, { pivot, own }: Shape): string =>
   compose(`rotate(${num(angle)} ${num(pivot.x)} ${num(pivot.y)})`, own);
 
+const translate = ({ matrix: { a, b, c, d }, own }: Shape, { x, y }: xy.XY): string =>
+  compose(`translate(${num(a * x + c * y)} ${num(b * x + d * y)})`, own);
+
+const INSETS: Record<location.Outer, (cut: string) => string> = {
+  bottom: (cut) => `inset(${cut} 0 0 0)`,
+  top: (cut) => `inset(0 0 ${cut} 0)`,
+  left: (cut) => `inset(0 ${cut} 0 0)`,
+  right: (cut) => `inset(0 0 0 ${cut})`,
+};
+
 interface Entry<M> {
   /** attribute is the attribute that the motion writes. No look writes it. */
-  attribute: "transform" | "stroke-dashoffset" | "opacity";
-  /** speed is the cycles each second at the upper bound of the state. */
-  speed: (motion: M) => number;
+  attribute: "transform" | "stroke-dashoffset" | "clip-path" | "opacity";
+  /**
+   * speed is the cycles each second at the upper bound of the state. A motion with no
+   * speed follows the fraction of its state.
+   */
+  speed?: (motion: M) => number;
   /** held keeps the last cycle drawn while the motion stops. Otherwise it draws 0. */
   held?: boolean;
-  /** draw returns the attribute value at a cycle in [0, 1). */
-  draw: (motion: M, shape: Shape, cycle: number) => string;
+  /** draw returns the attribute value at a cycle in [0, 1), or at a fraction. */
+  draw: (motion: M, shape: Shape, value: number) => string;
 }
 
-const MOTIONS: { [K in Kind]?: Entry<Of<K>> } = {
+const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
   spin: {
     attribute: "transform",
     speed: ({ rate }) => rate,
@@ -128,6 +143,19 @@ const MOTIONS: { [K in Kind]?: Entry<Of<K>> } = {
       1000 / Math.max(new TimeSpan(period).milliseconds, MIN_BLINK_PERIOD),
     draw: (_, shape, cycles) =>
       num(parse(shape.own, 1) * (cycles < 0.5 ? 1 : BLINK_DIM)),
+  },
+  level: {
+    attribute: "clip-path",
+    draw: ({ side }, _, f) => INSETS[side](`${num((1 - f) * 100)}%`),
+  },
+  rotate: {
+    attribute: "transform",
+    draw: ({ from, to }, shape, f) => rotate(lerp(from, to, f), shape),
+  },
+  move: {
+    attribute: "transform",
+    draw: ({ from, to }, shape, f) =>
+      translate(shape, { x: lerp(from.x, to.x, f), y: lerp(from.y, to.y, f) }),
   },
 };
 
@@ -240,9 +268,7 @@ const resolve = (
     if (look.motion == null && look.blink == null) continue;
     const effect = effects.get(look.part) ?? { hidden: false };
     const reads = look.when == null ? [] : [look.when.state];
-    // The table draws only the motions that cycle.
-    if (look.motion != null && look.motion.type in MOTIONS)
-      effect.motion = { value: look.motion, reads };
+    if (look.motion != null) effect.motion = { value: look.motion, reads };
     if (look.blink != null) effect.blink = { value: look.blink, reads };
     effects.set(look.part, effect);
   }
@@ -259,10 +285,13 @@ type Value = Effect["value"];
 class Track {
   private readonly entry: Entry<Value>;
   private readonly shapes: Shape[];
-  // value is the cycle drawn, in [0, 1).
+  // value is the cycle of a motion that cycles, or the fraction drawn.
   private value = 0;
   private speed = 0;
   private last?: number;
+  private from = 0;
+  private target = 0;
+  private start?: number;
 
   constructor(
     readonly kind: Kind,
@@ -282,13 +311,17 @@ class Track {
   }
 
   get moving(): boolean {
-    return this.speed !== 0;
+    return this.entry.speed != null ? this.speed !== 0 : this.value !== this.target;
   }
 
-  set({ value, reads }: Effect, ctx: Context): void {
+  set({ value, reads }: Effect, ctx: Context, fresh: boolean): void {
     this.motion = value;
     const state = "state" in value ? value.state : undefined;
     const { speed, held } = this.entry;
+    if (speed == null) {
+      if (state != null) this.follow(ctx, state, fresh);
+      return;
+    }
     const stopped =
       ctx.frozen ||
       reads.some((key) => stops(ctx, key)) ||
@@ -306,11 +339,32 @@ class Track {
     this.speed = next;
   }
 
+  // follow jumps to the fraction of state when fresh, frozen, or unknown. Otherwise it
+  // starts a transition to it.
+  private follow(ctx: Context, state: string, fresh: boolean): void {
+    const f = fraction(ctx, state);
+    if (fresh || ctx.frozen || Number.isNaN(ctx.readings[state]?.value ?? 0)) {
+      this.value = f;
+      this.target = f;
+      this.draw();
+    } else if (f !== this.target) {
+      this.from = this.value;
+      this.target = f;
+      this.start = undefined;
+    }
+  }
+
   step(now: number): boolean {
     if (!this.moving) return false;
-    this.value = this.cycle(now);
+    this.value = this.entry.speed == null ? this.ease(now) : this.cycle(now);
     this.draw();
     return this.moving;
+  }
+
+  private ease(now: number): number {
+    this.start ??= now;
+    const t = Math.min(1, (now - this.start) / TRANSITION_MS);
+    return t === 1 ? this.target : lerp(this.from, this.target, 1 - (1 - t) ** 3);
   }
 
   private cycle(now: number): number {
@@ -372,6 +426,7 @@ class Part implements Mover {
         delete this.tracks[field];
         continue;
       }
+      const fresh = track == null;
       track ??= new Track(
         kindOf(effect.value),
         effect.value,
@@ -380,7 +435,7 @@ class Part implements Mover {
         this.box,
         this.pivotOf,
       );
-      track.set(effect, partCtx);
+      track.set(effect, partCtx, fresh);
       this.tracks[field] = track;
     }
   }
