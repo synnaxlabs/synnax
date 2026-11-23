@@ -522,6 +522,39 @@ describe("Certificate.Field", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("requires a private key when the field requires one", async () => {
+    const { onChange } = await renderField("", { privateKeyRequired: true });
+    await openCreate();
+    typeInto("Certificate", CERTIFICATE.pem);
+    expect(screen.getByRole("textbox", { name: "Private key *" })).toBeDefined();
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Private key is required");
+    expect(onChange).not.toHaveBeenCalled();
+    typeInto("Private key", CERTIFICATE.privateKeyPem);
+    const c = await saveCreated(onChange);
+    expect(c.privateKey).toBeDefined();
+  });
+
+  it("requires a private key file for a file certificate when the field requires a key", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    const { onChange } = await renderField("", {
+      rack: files.rack.key,
+      privateKeyRequired: true,
+    });
+    await openCreate();
+    fireEvent.click(await screen.findByText("File on Driver"));
+    fireEvent.change(
+      await screen.findByRole("textbox", { name: "Certificate file *" }),
+      {
+        target: { value: "/etc/ssl/client.crt" },
+      },
+    );
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Private key file is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("holds Cancel while the certificate saves", async () => {
     const { onChange } = await renderField();
     await openCreate();

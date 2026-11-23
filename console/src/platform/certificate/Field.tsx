@@ -79,7 +79,12 @@ const Control = ({
         result={result}
         onCreate={
           canCreate
-            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            ? (name) =>
+                openCreate({
+                  name: name === "" ? defaultName : name,
+                  rack,
+                  privateKeyRequired,
+                })
             : undefined
         }
         preview={preview}
@@ -99,7 +104,7 @@ export interface FieldProps extends Omit<Form.FieldProps<certificate.Key>, "chil
   rack: rack.Key;
   /** Whether the user may clear the field, which then holds no certificate. */
   allowNone?: boolean;
-  /** Whether the field lists only certificates with a private key, as a client needs. */
+  /** Whether the certificate must have a private key, as a client certificate does. */
   privateKeyRequired?: boolean;
 }
 
