@@ -278,8 +278,8 @@ const useEnumerations = (
 };
 
 /**
- * @returns whether a state that has a value in value and an enumeration finds no entry
- * of that enumeration after its match. It is false while the enumerations load.
+ * @returns whether a state that has a value in value and a loaded enumeration finds no
+ * entry of that enumeration after its match. It is false while the enumerations load.
  */
 export const useUnmatched = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
@@ -290,9 +290,10 @@ export const useUnmatched = (
   return spec.states.some((state) => {
     if (state.type !== "enumeration" || state.enumeration == null) return false;
     if (!value.has(state.key)) return false;
+    const loaded = enumerations.get(state.enumeration);
+    if (loaded == null) return false;
     const v = matched(state, value);
-    const entries = enumerations.get(state.enumeration)?.entries ?? [];
-    return !entries.some((e) => e.value === v);
+    return !loaded.entries.some((e) => e.value === v);
   });
 };
 

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { BUILT_INS } from "@/schematic/node/builtIns";
 import { Telem } from "@/schematic/node/common/telem";
-import { bindSpec } from "@/schematic/node/symbol/bind";
+import { bind } from "@/schematic/node/symbol/bind";
 import {
   clickable,
   commandChannels,
@@ -189,7 +189,7 @@ describe("command", () => {
     });
 
     it("should match the state value with the node's match", () => {
-      const bound = bindSpec(VALVE, [
+      const bound = bind.spec(VALVE, [
         { key: "active", match: { type: "within", bounds: { lower: 4, upper: 6 } } },
       ]);
       expect(pick(VALVE, bound, CLICK, value(5), NONE)).toEqual(DEACTIVATE);
@@ -209,7 +209,7 @@ describe("command", () => {
     });
 
     it("should send nothing when the value equals neither command", () => {
-      const bound = bindSpec(VALVE, [{ key: "active", match: { type: "exact" } }]);
+      const bound = bind.spec(VALVE, [{ key: "active", match: { type: "exact" } }]);
       expect(pick(VALVE, bound, CLICK, value(2), NONE)).toBeUndefined();
     });
 

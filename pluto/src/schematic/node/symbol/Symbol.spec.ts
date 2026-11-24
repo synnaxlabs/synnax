@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SyntheticCore } from "@synnaxlabs/client/testutil";
+import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +22,8 @@ import {
   WITHIN,
 } from "@/schematic/node/symbol/testutil";
 import { control } from "@/telem/control/aether";
+import { createAsyncSynnaxWrapper } from "@/testutil";
+import { symbolNode } from "@/vis/symbolNode/aether";
 
 describe("Symbol node", () => {
   afterEach(() => vi.useRealTimers());
@@ -135,7 +137,7 @@ describe("Symbol node", () => {
     expect(queryByRole("img", { name: "Unknown" })).toBeNull();
   });
 
-  it("should show the stale and unknown indicators in one row", async () => {
+  it("should show the stale and unknown indicators side by side", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
     const now = TimeStamp.now().sub(TimeSpan.minutes(1));
     const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
@@ -143,13 +145,10 @@ describe("Symbol node", () => {
     const { findByRole } = renderNode(
       {
         spec: { type: "builtin", name: "valve" },
-        // No enumeration has this key, so no value finds an entry.
         states: [
-          {
-            key: "active",
-            source: { type: "channel", key: reading.key },
-            enumeration: "00000000-0000-0000-0000-000000000000",
-          },
+          { key: "active", source: { type: "channel", key: reading.key } },
+          // The synthetic Core has no such channel, so this state never gets data.
+          { key: "fault", source: { type: "channel", key: 999_999 } },
         ],
       },
       createWrapper({ core }),
@@ -164,6 +163,77 @@ describe("Symbol node", () => {
     expect(stale.closest(".pluto-grid__item")?.classList).toContain(
       "lyra--location-bottom",
     );
+  });
+
+  it("should show the unknown indicator for a local value that names no entry", async () => {
+    const client = createTestClient();
+    const { key: enumeration } = await client.enumerations.create({
+      name: "Valve",
+      entries: [
+        { key: "closed", value: 0, name: "Closed" },
+        { key: "open", value: 1, name: "Open" },
+      ],
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          {
+            key: "active",
+            source: { type: "local", value: 5 },
+            enumeration,
+            match: { type: "exact" },
+          },
+        ],
+      },
+      Wrapper,
+    );
+    await findByRole("img", { name: "Unknown" });
+  });
+
+  it("should show no unknown indicator while the enumeration of a state is not loaded", async () => {
+    const { container, queryByRole } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      states: [
+        {
+          key: "active",
+          source: { type: "local", value: 5 },
+          enumeration: "00000000-0000-0000-0000-000000000000",
+          match: { type: "exact" },
+        },
+      ],
+    });
+    await vi.waitFor(() => expect(container.querySelector("path")).not.toBeNull());
+    expect(queryByRole("img", { name: "Unknown" })).toBeNull();
+  });
+
+  it("should draw a custom symbol that the Core holds", async () => {
+    const client = createTestClient();
+    const symbol = await client.schematics.symbols.create({
+      name: "Custom",
+      data: {
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect class="body" width="10" height="10" /></svg>',
+        },
+        variant: "static",
+      },
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { container } = renderNode(
+      { spec: { type: "custom", key: symbol.key } },
+      Wrapper,
+    );
+    await vi.waitFor(() => expect(container.querySelector("rect.body")).not.toBeNull());
   });
 
   it.each([
