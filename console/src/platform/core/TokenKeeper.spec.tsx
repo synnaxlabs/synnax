@@ -165,7 +165,7 @@ describe("Core.TokenKeeper", () => {
     );
     await waitFor(() => expect(calls).toHaveLength(1));
     await act(async () => {
-      await grabbed.client?.auth.setPassword({
+      await grabbed.client?.auth.passwords.set({
         password: "new",
         currentPassword: "old",
       });
@@ -260,7 +260,7 @@ describe("Core.TokenKeeper", () => {
       sessionCookie: token === "",
     });
     onTestFinished(async () => await client.close());
-    await client.auth.retrieveSessions();
+    await client.auth.sessions.retrieve();
     const core = createCore("Local", {
       host: "127.0.0.1",
       port,
