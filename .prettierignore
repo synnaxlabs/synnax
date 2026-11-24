@@ -18,3 +18,6 @@ driver/ethercat/esi/registry_settings.inc
 
 # Recorded by Vitest specs, which compare them byte for byte.
 __snapshots__/
+
+# Written by Cesium at core/v0.62.0. Specs compare them byte for byte.
+cesium/testutil/oldlayout/testdata/
