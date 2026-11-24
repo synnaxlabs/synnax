@@ -2383,6 +2383,7 @@ TEST(HTTPWriteTask, BuildWritersRejectsEndpointWithNoMessage) {
     const auto client = new_test_client();
     ::synnax::http::WriteEndpoint no_icd;
     no_icd.path = "/a";
+    no_icd.message = synnax::icd::WriteMessage{.message = x::uuid::create()};
     auto no_message = create_icd_endpoint(client, "/a", create_command_channel(client));
     no_message.message.reset();
     for (const auto &ep: {no_icd, no_message}) {
