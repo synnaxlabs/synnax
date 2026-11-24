@@ -28,6 +28,11 @@ type Config struct {
 	// From is the first stamp that gets an output. The samples before it only fill the
 	// hold limits, so that a read can look back before its range.
 	From telem.TimeStamp
+	// Live makes the join judge an input that is late by arrival, as a live read cannot
+	// wait for it. Each Next joins one frame of primary stamps. An input whose newest
+	// stamp lies before the frame's first stamp holds its value for the whole frame
+	// when that gap is within its hold limit.
+	Live bool
 }
 
 // Run is a stretch of joined samples whose alignments touch.
@@ -62,6 +67,7 @@ type Join struct {
 	inputs  []*input
 	primary int
 	from    telem.TimeStamp
+	live    bool
 	// last is the alignment of the last primary sample that got an output, and joined
 	// is false when no sample did or a dropped stamp came after it.
 	last   telem.Alignment
@@ -105,6 +111,7 @@ func New(cfg Config) (*Join, error) {
 		inputs:  make([]*input, len(cfg.DataTypes)),
 		primary: cfg.Primary,
 		from:    cfg.From,
+		live:    cfg.Live,
 	}
 	for i, dt := range cfg.DataTypes {
 		if dt.IsVariable() || dt.Density() == 0 {
@@ -126,7 +133,8 @@ func New(cfg Config) (*Join, error) {
 }
 
 // Push adds the samples of input i, with their stamps in t. The stamps must rise
-// strictly from the last stamp pushed to the input.
+// strictly from the last stamp pushed to the input. The samples take the alignment of
+// t, and Push ignores the alignment of data.
 func (j *Join) Push(i int, data, t telem.Series) error {
 	if i < 0 || i >= len(j.inputs) {
 		return errors.Wrapf(validate.ErrValidation, "input %d does not exist", i)
@@ -195,6 +203,10 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 // stamp is known.
 func (j *Join) Next(until telem.TimeStamp, out *Output) {
 	p := j.inputs[j.primary]
+	var frame telem.TimeStamp
+	if p.first < len(p.stamps) {
+		frame = p.stamps[p.first]
+	}
 	for ; p.first < len(p.stamps) && p.stamps[p.first] <= until; p.first++ {
 		stamp := p.stamps[p.first]
 		j.pass(stamp)
@@ -203,7 +215,7 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		if stamp < j.from {
 			continue
 		}
-		if !j.holdsAll(stamp) {
+		if !j.holdsAll(stamp, frame) {
 			out.Dropped++
 			j.joined = false
 			continue
@@ -257,8 +269,8 @@ func (in *input) bound() {
 }
 
 // holdsAll reports whether each other input than the primary holds a sample within its
-// hold limit of stamp.
-func (j *Join) holdsAll(stamp telem.TimeStamp) bool {
+// hold limit of stamp, in the frame of primary stamps that starts at frame.
+func (j *Join) holdsAll(stamp, frame telem.TimeStamp) bool {
 	for i, in := range j.inputs {
 		if i == j.primary {
 			continue
@@ -267,8 +279,16 @@ func (j *Join) holdsAll(stamp telem.TimeStamp) bool {
 		if !in.holds || stamp < in.heldStamp {
 			return false
 		}
-		if limit := in.intervals.limit(); limit > 0 &&
-			telem.TimeSpan(stamp-in.heldStamp) > limit {
+		limit := in.intervals.limit()
+		if limit == 0 {
+			continue
+		}
+		// A live input with no sample past the frame's start is judged at that start.
+		at := stamp
+		if j.live && in.first == len(in.stamps) && in.last < frame {
+			at = frame
+		}
+		if telem.TimeSpan(at-in.heldStamp) > limit {
 			return false
 		}
 	}

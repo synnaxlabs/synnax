@@ -400,4 +400,51 @@ var _ = Describe("Join", func() {
 			},
 		)
 	})
+
+	Describe("Live", func() {
+		// joinFrame pushes an input at 1 Hz from 0 s to 10 s, which holds for 3 s, and
+		// then one primary frame at seconds, and joins it.
+		joinFrame := func(live bool, seconds ...float64) join.Output {
+			GinkgoHelper()
+			j := MustSucceed(join.New(join.Config{
+				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+				Live:      live,
+			}))
+			back := make([]float64, 11)
+			for i := range back {
+				back[i] = float64(i)
+			}
+			Expect(j.Push(1, values(back...), stamps(0, back...))).To(Succeed())
+			Expect(j.Push(0, values(seconds...), stamps(0, seconds...))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			return out
+		}
+
+		It("Should hold a late input for a whole frame that starts within its hold "+
+			"limit after the input's newest stamp", func() {
+			out := joinFrame(true, 11, 12, 13, 14, 15)
+			got, _ := samples(out)
+			Expect(got).To(HaveLen(5))
+			Expect(got[4]).To(Equal(sample{15, 4, []float64{15, 10}}))
+			Expect(out.Dropped).To(BeZero())
+			Expect(joinFrame(false, 11, 12, 13, 14, 15).Dropped).
+				To(Equal(2), "history judges each stamp")
+		})
+
+		It("Should drop a frame that starts past the hold limit of a late input",
+			func() {
+				out := joinFrame(true, 14, 15)
+				Expect(out.Runs).To(BeEmpty())
+				Expect(out.Dropped).To(Equal(2))
+			})
+
+		It("Should judge by stamps an input whose newest stamp lies in the frame",
+			func() {
+				out := joinFrame(true, 9.5, 10.5, 14)
+				got, _ := samples(out)
+				Expect(got).To(HaveLen(2))
+				Expect(out.Dropped).To(Equal(1))
+			})
+	})
 })
