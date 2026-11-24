@@ -17,11 +17,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Pair", func() {
+var _ = Describe("Load", func() {
 	It("Should report a publish after the loads", func() {
 		s := MustSucceed(state.Open(config(&appended{}), sample()))
 		run(s)
-		_, _, count := s.Pair(6, 5)
+		Eventually(func() *state.Channel { return s.Channel(5) }).ShouldNot(BeNil())
+		chs := make([]*state.Channel, 2)
+		count := s.Load([]uint32{6, 5}, chs)
+		Expect(chs[0].Key).To(Equal(uint32(6)))
+		Expect(chs[1].Key).To(Equal(uint32(5)))
 		Expect(s.Unchanged(count)).To(BeTrue())
 		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
 		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())

@@ -79,9 +79,6 @@ type State struct {
 	}
 	step    func()
 	stepped chan bool
-	// betweenLoads, when set, runs in Pair between the loads of its two Channels. Only
-	// a spec of this package sets it.
-	betweenLoads func()
 	// replayed is true once replay mode ends.
 	replayed bool
 	// The fields below belong to the owner.
@@ -284,28 +281,27 @@ func (s *State) Channel(key uint32) *Channel {
 	return ch.pub.Load()
 }
 
-// Pair returns the visible state of key and of clock from one step of the owner, or nil
-// for a key that the state holds no segment of. It loads both again while the owner
-// publishes between its loads. It also returns the publish count of the loads, which
-// Unchanged takes.
-func (s *State) Pair(key, clock uint32) (ch, clocks *Channel, count uint64) {
+// Load sets each of chs to the visible state of the key of keys at its index, from one
+// step of the owner, or to nil for a key that the state holds no segment of. It loads
+// them all again while the owner publishes between its loads. It returns the publish
+// count of the loads, which Unchanged takes. chs must be as long as keys.
+func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	for {
-		if count = s.core.count.n.Load(); count%2 == 1 {
+		count := s.core.count.n.Load()
+		if count%2 == 1 {
 			runtime.Gosched()
 			continue
 		}
-		ch = s.Channel(key)
-		if s.betweenLoads != nil {
-			s.betweenLoads()
+		for i, key := range keys {
+			chs[i] = s.Channel(key)
 		}
-		clocks = s.Channel(clock)
 		if s.core.count.n.Load() == count {
-			return ch, clocks, count
+			return count
 		}
 	}
 }
 
-// Unchanged reports whether the owner published nothing since the loads of Pair that
+// Unchanged reports whether the owner published nothing since the loads of Load that
 // returned count.
 func (s *State) Unchanged(count uint64) bool { return s.core.count.n.Load() == count }
 
