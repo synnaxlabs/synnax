@@ -147,9 +147,8 @@ type Checker struct {
 }
 
 // Read checks each message of rd against its ICD and the channels of its bindings, and
-// claims each channel that the message writes: the channel of each binding, and each
-// index channel of the bound channels, whose timestamps the task writes when no index
-// field binds it. It returns a validation error at the path of the first problem.
+// claims each channel of a binding. It returns a validation error at the path of the
+// first problem.
 func (c Checker) Read(rd Read) error {
 	ic, ok := c.icds[rd.ICD]
 	if !ok {
@@ -164,22 +163,9 @@ func (c Checker) Read(rd Read) error {
 	return nil
 }
 
-// Claim takes key, the channel of the tag at path, and the index channel of key when
-// the Checker holds key. It returns a validation error when another binding or tag of
-// the config already writes to either.
-func (c Checker) Claim(key channel.Key, path []string) error {
-	if err := c.claim(key, path); err != nil {
-		return err
-	}
-	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
-		return c.claim(ch.IndexKey, path)
-	}
-	return nil
-}
-
-// claim takes key for the binding or tag at path. It returns a validation error when
+// Claim takes key for the binding or tag at path. It returns a validation error when
 // another binding or tag of the config already writes to key.
-func (c Checker) claim(key channel.Key, path []string) error {
+func (c Checker) Claim(key channel.Key, path []string) error {
 	if other, ok := c.written[key]; ok {
 		return validate.PathedError(
 			validate.Errorf("channel %d is also written by %s", key, other),
@@ -190,8 +176,52 @@ func (c Checker) claim(key channel.Key, path []string) error {
 	return nil
 }
 
+// ClaimIndexes claims, for each message of rd, each index channel of its bound channels
+// that its index field does not bind, since the task writes its timestamps. Run it
+// after Read and Claim, so that an error is at the path of the message that does not
+// bind it.
+func (c Checker) ClaimIndexes(rd Read) error {
+	for j, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
+		var (
+			// indexes holds each index channel of the bound channels, in binding order.
+			indexes []channel.Key
+			// indexChannel is the channel of the index field.
+			indexChannel channel.Key
+		)
+		for _, b := range rm.Bindings {
+			if rm.Index != nil && *rm.Index == b.Field {
+				indexChannel = b.Channel
+			}
+			ch, ok := c.channels[b.Channel]
+			if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
+				indexes = append(indexes, ch.IndexKey)
+			}
+		}
+		for _, key := range indexes {
+			if key == indexChannel {
+				continue
+			}
+			if err := c.Claim(key, path); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ClaimIndex claims the index channel of key, the channel of the tag at path, whose
+// timestamps the task writes. It returns a validation error when another binding or
+// tag already writes to it.
+func (c Checker) ClaimIndex(key channel.Key, path []string) error {
+	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
+		return c.Claim(ch.IndexKey, path)
+	}
+	return nil
+}
+
 // message checks rm, at path, against its message in ic and the channels of its
-// bindings, and claims each channel that it writes.
+// bindings, and claims each channel of a binding.
 func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
@@ -223,12 +253,6 @@ func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 			return at(err, "index")
 		}
 	}
-	var (
-		// indexes holds each index channel of the bound channels, in binding order.
-		indexes []channel.Key
-		// indexChannel is the channel of the index field.
-		indexChannel channel.Key
-	)
 	for j, b := range rm.Bindings {
 		f, ok := fields[b.Field]
 		bindingPath := slices.Concat(path, []string{"bindings", strconv.Itoa(j)})
@@ -239,21 +263,6 @@ func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 		}
 		isIndex := rm.Index != nil && *rm.Index == b.Field
 		if err := c.checkBinding(b, f, isIndex, bindingPath); err != nil {
-			return err
-		}
-		if isIndex {
-			indexChannel = b.Channel
-		}
-		ch, ok := c.channels[b.Channel]
-		if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
-			indexes = append(indexes, ch.IndexKey)
-		}
-	}
-	for _, key := range indexes {
-		if key == indexChannel {
-			continue
-		}
-		if err := c.claim(key, path); err != nil {
 			return err
 		}
 	}
@@ -335,7 +344,7 @@ func (c Checker) checkBinding(
 			name, ch.Name, name,
 		), "channel")
 	}
-	return c.claim(b.Channel, slices.Concat(path, []string{"channel"}))
+	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
 }
 
 // hash writes to h the payload of the message of ic that each of rms reads.

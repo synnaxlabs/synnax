@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -191,6 +192,15 @@ func (f *factory) buildReadRecords(
 	}
 	channels, err := f.readChannels(ctx, lo.Uniq(keys))
 	if err != nil {
+		return nil, nil, err
+	}
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, icds)
+		if err != nil {
+			return err
+		}
+		return claimIndexes(c, &cfg)
+	}); err != nil {
 		return nil, nil, err
 	}
 	var (
