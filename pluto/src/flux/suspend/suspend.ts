@@ -228,11 +228,15 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
     };
     const fail = async (error: Error): Promise<Data> => {
       if (!current()) return await follow();
+      // A reconnected Core may answer what the old connection could not.
+      if (local.epoch !== epoch) {
+        local.inFlight.delete(hash);
+        return await ensureFetch(params, fetchParams);
+      }
       // A failed fetch writes nothing getCached can serve, so the error must
       // settle locally or the next render refetches forever. A later cache
-      // hit short-circuits before this entry is read. A reconnect that
-      // landed mid-fetch discards the failure instead.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
+      // hit short-circuits before this entry is read.
+      setSettled(local, hash, { error });
       local.inFlight.delete(hash);
       throw error;
     };
