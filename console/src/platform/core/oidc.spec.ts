@@ -187,16 +187,10 @@ describe("oidc", () => {
       expect(Core.pendingPurpose()).toBe("link");
     });
 
-    it("should clear a saved login that is not valid", () => {
-      sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: "alpha" }));
-      expect(Core.pendingPurpose()).toBeUndefined();
-      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
-    });
-
-    it("should clear a saved login that is not JSON", () => {
+    it("should give no purpose for a saved login that is not valid", () => {
       sessionStorage.setItem("synnax-oidc-login", "{");
       expect(Core.pendingPurpose()).toBeUndefined();
-      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBe("{");
     });
   });
 

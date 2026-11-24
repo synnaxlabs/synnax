@@ -248,6 +248,17 @@ describe("auth guard", () => {
       await expectAlways(() => expect(statuses()).toEqual([]));
     });
 
+    it("should report a redirect for a saved login that is not valid", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state");
+      sessionStorage.setItem("synnax-oidc-login", "{");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to log in"));
+      expect(window.location.search).toBe("");
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      expect(server.linked).toEqual([]);
+    });
+
     it("should link the account and keep the session", async () => {
       const server = await serveOIDC();
       returnFromProvider("/?code=abc&state=state");

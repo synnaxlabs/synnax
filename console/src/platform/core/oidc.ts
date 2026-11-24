@@ -206,37 +206,43 @@ export interface CompletedLogin {
   credentials: auth.OIDCCredentials;
 }
 
-// Clears a saved login that is not valid, such as one from an older Console.
-const readPending = (): z.infer<typeof pendingZ> | undefined => {
-  const raw = sessionStorage.getItem(PENDING_KEY);
-  if (raw == null) return undefined;
+// A saved login that is not valid, such as one from an older Console, reads as none.
+const parsePending = (raw: string): z.infer<typeof pendingZ> | undefined => {
   try {
     return pendingZ.parse(JSON.parse(raw));
   } catch {
-    sessionStorage.removeItem(PENDING_KEY);
     return undefined;
   }
 };
 
+const readPending = (): z.infer<typeof pendingZ> | undefined => {
+  const raw = sessionStorage.getItem(PENDING_KEY);
+  return raw == null ? undefined : parsePending(raw);
+};
+
 /**
  * @returns the purpose of the browser login in progress, if any. A saved login that is
- * not valid is cleared and has no purpose.
+ * not valid has no purpose.
  */
 export const pendingPurpose = (): Purpose | undefined => readPending()?.purpose;
 
 /**
  * Finishes a browser login on the page load the provider redirected to. Removes the
  * code from the address bar either way. Resolves undefined when the page did not come
- * back from a login.
+ * back from a login, and then clears a saved login that is not valid.
  * @throws {Error} when the provider refused, the redirect belongs to another login, or
  * the saved login is not valid.
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
-  const saved = sessionStorage.getItem(PENDING_KEY) != null;
-  const pending = readPending();
+  const raw = sessionStorage.getItem(PENDING_KEY);
+  if (raw == null) return undefined;
+  const pending = parsePending(raw);
   const { search } = window.location;
   const params = new URLSearchParams(search);
-  if (!saved || (!params.has("code") && !params.has("error"))) return undefined;
+  if (!params.has("code") && !params.has("error")) {
+    if (pending == null) sessionStorage.removeItem(PENDING_KEY);
+    return undefined;
+  }
   sessionStorage.removeItem(PENDING_KEY);
   window.history.replaceState(null, "", window.location.pathname);
   if (pending == null)
