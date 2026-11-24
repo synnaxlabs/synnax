@@ -1096,28 +1096,111 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps a command that a toggle sends fixed on its state", async () => {
-      const on = (key: string, value: number): schematic.symbol.Command => ({
+      const createCommand = (key: string, value: number): schematic.symbol.Command => ({
         key,
         name: key,
         state: "active",
         value: { type: "fixed", value },
       });
       await openPainted({
-        states: [createState()],
-        commands: [on("off", 0), on("on", 1)],
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        commands: [createCommand("off", 0), createCommand("on", 1)],
         interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
       });
       fireEvent.click(screen.getByText("on"));
       await screen.findByRole("heading", { name: "on" });
-      const off = (text: string) =>
+      const disabled = (name: string) =>
         within(getInspector())
-          .getByText(text)
-          .closest("button")
-          ?.getAttribute("aria-disabled");
-      expect(off("None")).toBe("true");
-      expect(off("Ask")).toBe("true");
+          .getByRole("button", { name })
+          .getAttribute("aria-disabled");
+      expect(disabled("Fixed")).not.toBe("true");
+      expect(disabled("None")).toBe("true");
+      expect(disabled("Fault")).toBe("true");
+      expect(disabled("Ask")).toBe("true");
       // Off sends Base, so On cannot.
-      expect(off("Base")).toBe("true");
+      expect(disabled("Base")).toBe("true");
+    });
+
+    it("saves a command that asks for a value", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [
+          {
+            key: "set",
+            name: "Set",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Set"));
+      await screen.findByRole("heading", { name: "Set" });
+      fireEvent.click(within(getInspector()).getByRole("button", { name: "Ask" }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          { key: "set", name: "Set", state: "active", value: { type: "ask" } },
+        ]),
+      );
+    });
+
+    it("saves the number that a command sends on a number state", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Top up"));
+      await screen.findByRole("heading", { name: "Top up" });
+      const input = within(getInspector()).getByRole("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 40 },
+          },
+        ]),
+      );
+    });
+
+    it("drops the selection of a removed command", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [
+          { key: "command-1", name: "Command 1", value: { type: "fixed", value: 0 } },
+        ],
+      });
+      fireEvent.click(screen.getByText("Command 1"));
+      await screen.findByRole("heading", { name: "Command 1" });
+      fireEvent.click(screen.getByLabelText("Remove Command 1"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      await awaitTextEditing("symbol-command-command-1");
+      const inspector = within(getInspector());
+      expect(inspector.queryByRole("heading", { name: "Command 1" })).toBeNull();
+      expect(inspector.getByRole("heading", { name: "Whole drawing" })).toBeDefined();
     });
 
     it("starts a fixed value at the default of a new state", async () => {

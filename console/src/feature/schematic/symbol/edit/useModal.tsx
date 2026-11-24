@@ -246,6 +246,8 @@ const Editor = ({
   const shownCommand = commands.some((c) => c.key === selectedCommand)
     ? selectedCommand
     : undefined;
+  // A removed command leaves its key, which a new command can take.
+  if (selectedCommand != null && shownCommand == null) setSelectedCommand(undefined);
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
