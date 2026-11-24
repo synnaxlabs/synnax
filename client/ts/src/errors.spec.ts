@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Timeout } from "@synnaxlabs/freighter";
-import { errors, id, uuid } from "@synnaxlabs/x";
+import { type Middleware, Timeout, Unreachable } from "@synnaxlabs/freighter";
+import { errors, id, TimeSpan, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   ContiguityError,
   ControlError,
@@ -99,6 +100,12 @@ describe("error", () => {
       expect(NotFoundError.matches(decoded)).toBe(true);
     });
 
+    test("round trips an API key that cannot load through the registry", () => {
+      const decoded = errors.decode(errors.encode(new APIKeyUnavailableError("gone")));
+      expect(APIKeyUnavailableError.matches(decoded)).toBe(true);
+      expect(decoded?.message).toEqual("gone");
+    });
+
     test("round trips a path error through the registry", () => {
       const original = new PathError("field", new ValidationError("bad"));
       const decoded = errors.decode(errors.encode(original));
@@ -112,6 +119,42 @@ describe("error", () => {
       expect(payload.type).toBe(errors.UNKNOWN);
       expect(payload.data).toBe("boom");
     });
+  });
+});
+
+describe("unreachable Core", () => {
+  const endpoint = new url.URL({ host: "core.example.com", port: 9090 });
+
+  const failWith = async (err: Error): Promise<unknown> => {
+    const unreachable: Middleware = async (ctx, next) => {
+      if (ctx.target.endsWith("/channel/retrieve")) throw err;
+      return await next(ctx);
+    };
+    const client = createTestClient({
+      cache: false,
+      middleware: [unreachable],
+      retry: { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 0 },
+    });
+    try {
+      return await client.channels
+        .retrieve(["no-such-channel"])
+        .catch((e: unknown) => e);
+    } finally {
+      await client.close();
+    }
+  };
+
+  test("should name the Core in an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint }));
+    expect(err).toHaveProperty("message", "Cannot reach Core at core.example.com:9090");
+  });
+
+  test("should keep the hint of an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint, hint: "Check TLS" }));
+    expect(err).toHaveProperty(
+      "message",
+      "Cannot reach Core at core.example.com:9090. Check TLS",
+    );
   });
 });
 

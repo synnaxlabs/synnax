@@ -14,6 +14,7 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 	"uuid"
 
@@ -23,6 +24,7 @@ import (
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for an ICD.
@@ -1818,6 +1820,374 @@ func (m Message) Validate() error {
 	return v.Error()
 }
 
+// ChecksumAlgorithm is a CRC that ends a sync frame.
+type ChecksumAlgorithm string
+
+const (
+	// ChecksumAlgorithmCrc16CcittFalse has polynomial 0x1021 and initial value 0xFFFF,
+	// with no reflection.
+	ChecksumAlgorithmCrc16CcittFalse ChecksumAlgorithm = "crc16_ccitt_false"
+	// ChecksumAlgorithmCrc16Modbus has polynomial 0x8005 and initial value 0xFFFF,
+	// reflected.
+	ChecksumAlgorithmCrc16Modbus ChecksumAlgorithm = "crc16_modbus"
+	// ChecksumAlgorithmCrc32 is the CRC of Ethernet and zlib.
+	ChecksumAlgorithmCrc32 ChecksumAlgorithm = "crc32"
+)
+
+// IsValid reports whether c is one of the defined ChecksumAlgorithm
+// values.
+func (c ChecksumAlgorithm) IsValid() bool {
+	switch c {
+	case ChecksumAlgorithmCrc16CcittFalse, ChecksumAlgorithmCrc16Modbus, ChecksumAlgorithmCrc32:
+		return true
+	default:
+		return false
+	}
+}
+
+// Checksum is the CRC that ends a sync frame and covers every byte before it.
+type Checksum struct {
+	// Algorithm is the CRC that the checksum holds.
+	Algorithm ChecksumAlgorithm `json:"algorithm" msgpack:"algorithm"`
+	// ByteOrder is the byte order of the checksum.
+	ByteOrder ByteOrder `json:"byte_order" msgpack:"byte_order"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Checksum) SetDefaults() {
+	c.ByteOrder = ByteOrderLittleEndian
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *Checksum) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Checksum
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *Checksum) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Checksum
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Checksum) Validate() error {
+	v := validate.New("Checksum")
+	v.Ternaryf("algorithm", !c.Algorithm.IsValid(), "invalid algorithm: %v", c.Algorithm)
+	v.Ternaryf("byte_order", !c.ByteOrder.IsValid(), "invalid byte_order: %v", c.ByteOrder)
+	return v.Error()
+}
+
+// LengthSize is the number of bytes in the length field of a sync frame.
+type LengthSize string
+
+const (
+	// LengthSizeOne is a 1-byte length field.
+	LengthSizeOne LengthSize = "one"
+	// LengthSizeTwo is a 2-byte length field.
+	LengthSizeTwo LengthSize = "two"
+	// LengthSizeFour is a 4-byte length field.
+	LengthSizeFour LengthSize = "four"
+)
+
+// IsValid reports whether l is one of the defined LengthSize
+// values.
+func (l LengthSize) IsValid() bool {
+	switch l {
+	case LengthSizeOne, LengthSizeTwo, LengthSizeFour:
+		return true
+	default:
+		return false
+	}
+}
+
+// FramingType is the "type" value that selects a variant of Framing.
+type FramingType string
+
+const (
+	// DelimitedFramingType ends each frame with a delimiter.
+	DelimitedFramingType FramingType = "delimited"
+	// FixedFramingType splits the stream into frames of one length.
+	FixedFramingType FramingType = "fixed"
+	// SyncFramingType starts each frame with a sync sequence and a length field. A
+	// frame that the task reads starts at the sync sequence and has no checksum, so the
+	// message layout of an ICD can hold the header fields.
+	SyncFramingType FramingType = "sync"
+	// CobsFramingType stuffs each frame with consistent overhead byte stuffing (COBS)
+	// and ends it with a zero byte.
+	CobsFramingType FramingType = "cobs"
+	// SlipFramingType escapes each frame with the serial line internet protocol (SLIP,
+	// RFC 1055) and ends it with an END byte.
+	SlipFramingType FramingType = "slip"
+)
+
+// FramingVariant is implemented by every Framing variant.
+type FramingVariant interface {
+	isFramingVariant()
+}
+
+// DelimitedFraming ends each frame with a delimiter.
+type DelimitedFraming struct {
+	// Delimiter is the text whose UTF-8 bytes end each frame.
+	Delimiter string `json:"delimiter" msgpack:"delimiter"`
+}
+
+func (DelimitedFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DelimitedFraming) SetDefaults() {
+	d.Delimiter = "\n"
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DelimitedFraming) Validate() error {
+	v := validate.New("DelimitedFraming")
+	v.NotEmptyString("delimiter", d.Delimiter)
+	return v.Error()
+}
+
+// FixedFraming splits the stream into frames of one length.
+type FixedFraming struct {
+	// Length is the number of bytes in each frame, from 1 to 65536.
+	Length uint32 `json:"length" msgpack:"length"`
+}
+
+func (FixedFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FixedFraming) SetDefaults() {
+	f.Length = 1
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FixedFraming) Validate() error {
+	v := validate.New("FixedFraming")
+	v.GreaterThanEq("length", f.Length, 1)
+	v.LessThanEq("length", f.Length, 65536)
+	return v.Error()
+}
+
+// SyncFraming starts each frame with a sync sequence and a length field. A frame that
+// the task reads starts at the sync sequence and has no checksum, so the message layout
+// of an ICD can hold the header fields.
+type SyncFraming struct {
+	// Sync is the byte sequence that starts each frame.
+	Sync []byte `json:"sync" msgpack:"sync"`
+	// LengthOffset is the offset of the length field from the start of the frame.
+	LengthOffset uint32 `json:"length_offset" msgpack:"length_offset"`
+	// LengthSize is the number of bytes in the length field.
+	LengthSize LengthSize `json:"length_size" msgpack:"length_size"`
+	// ByteOrder is the byte order of the length field.
+	ByteOrder ByteOrder `json:"byte_order" msgpack:"byte_order"`
+	// LengthAdjustment is added to the length field to give the number of bytes after
+	// the length field, checksum included.
+	LengthAdjustment int32 `json:"length_adjustment" msgpack:"length_adjustment"`
+	// Checksum is the CRC that ends each frame. Absent when frames have none.
+	Checksum *Checksum `json:"checksum,omitzero" msgpack:"checksum,omitempty"`
+	// MaxLength is the most bytes in a frame, sync included and checksum excluded, from
+	// 1 to 65536. A length field that gives a longer frame marks a corrupt frame.
+	MaxLength uint32 `json:"max_length" msgpack:"max_length"`
+}
+
+func (SyncFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SyncFraming) SetDefaults() {
+	s.LengthSize = LengthSizeOne
+	s.ByteOrder = ByteOrderLittleEndian
+	s.MaxLength = 65536
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SyncFraming) Validate() error {
+	v := validate.New("SyncFraming")
+	v.Ternaryf("length_size", !s.LengthSize.IsValid(), "invalid length_size: %v", s.LengthSize)
+	v.Ternaryf("byte_order", !s.ByteOrder.IsValid(), "invalid byte_order: %v", s.ByteOrder)
+	v.MinBytes("sync", s.Sync, 1)
+	v.GreaterThanEq("max_length", s.MaxLength, 1)
+	v.LessThanEq("max_length", s.MaxLength, 65536)
+	if s.Checksum != nil {
+		v.Exec(func() error { return validate.PathedError(s.Checksum.Validate(), "checksum") })
+	}
+	return v.Error()
+}
+
+// CobsFraming stuffs each frame with consistent overhead byte stuffing (COBS) and ends
+// it with a zero byte.
+type CobsFraming struct {
+}
+
+func (CobsFraming) isFramingVariant() {}
+
+// SlipFraming escapes each frame with the serial line internet protocol (SLIP, RFC
+// 1055) and ends it with an END byte.
+type SlipFraming struct {
+}
+
+func (SlipFraming) isFramingVariant() {}
+
+// Framing splits a byte stream into frames. The type field selects how.
+type Framing struct {
+	Variant FramingVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Framing) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case DelimitedFraming:
+		return json.MarshalEncode(enc, struct {
+			Type FramingType `json:"type"`
+			DelimitedFraming
+		}{Type: DelimitedFramingType, DelimitedFraming: v})
+	case FixedFraming:
+		return json.MarshalEncode(enc, struct {
+			Type FramingType `json:"type"`
+			FixedFraming
+		}{Type: FixedFramingType, FixedFraming: v})
+	case SyncFraming:
+		return json.MarshalEncode(enc, struct {
+			Type FramingType `json:"type"`
+			SyncFraming
+		}{Type: SyncFramingType, SyncFraming: v})
+	case CobsFraming:
+		return json.MarshalEncode(enc, struct {
+			Type FramingType `json:"type"`
+			CobsFraming
+		}{Type: CobsFramingType, CobsFraming: v})
+	case SlipFraming:
+		return json.MarshalEncode(enc, struct {
+			Type FramingType `json:"type"`
+			SlipFraming
+		}{Type: SlipFramingType, SlipFraming: v})
+	default:
+		return errors.Newf("Framing: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Framing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type FramingType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case DelimitedFramingType:
+		var v struct {
+			Type FramingType `json:"type"`
+			DelimitedFraming
+		}
+		v.DelimitedFraming.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DelimitedFraming
+	case FixedFramingType:
+		var v struct {
+			Type FramingType `json:"type"`
+			FixedFraming
+		}
+		v.FixedFraming.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FixedFraming
+	case SyncFramingType:
+		var v struct {
+			Type FramingType `json:"type"`
+			SyncFraming
+		}
+		v.SyncFraming.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SyncFraming
+	case CobsFramingType:
+		var v struct {
+			Type FramingType `json:"type"`
+			CobsFraming
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CobsFraming
+	case SlipFramingType:
+		var v struct {
+			Type FramingType `json:"type"`
+			SlipFraming
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SlipFraming
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Framing: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Framing) Type() FramingType {
+	switch u.Variant.(type) {
+	case DelimitedFraming:
+		return DelimitedFramingType
+	case FixedFraming:
+		return FixedFramingType
+	case SyncFraming:
+		return SyncFramingType
+	case CobsFraming:
+		return CobsFramingType
+	case SlipFraming:
+		return SlipFramingType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Framing) Validate() error {
+	v := validate.New("Framing")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case DelimitedFraming:
+		v.Exec(variant.Validate)
+	case FixedFraming:
+		v.Exec(variant.Validate)
+	case SyncFraming:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD struct {
@@ -1827,6 +2197,9 @@ type ICD struct {
 	Name string `json:"name" msgpack:"name"`
 	// Messages are the messages the ICD holds.
 	Messages []Message `json:"messages" msgpack:"messages"`
+	// Framing is how a byte stream splits into the ICD's messages, or absent when each
+	// message arrives whole.
+	Framing *Framing `json:"framing,omitzero" msgpack:"framing,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1836,6 +2209,9 @@ func (ic ICD) Validate() error {
 	v.NotEmptyString("name", ic.Name)
 	for i := range ic.Messages {
 		v.Exec(func() error { return validate.PathedError(ic.Messages[i].Validate(), "messages", strconv.Itoa(i)) })
+	}
+	if ic.Framing != nil {
+		v.Exec(func() error { return validate.PathedError(ic.Framing.Validate(), "framing") })
 	}
 	return v.Error()
 }

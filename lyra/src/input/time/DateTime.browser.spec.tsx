@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
+import { preloadTimeLanguage } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const local = (...args: [number, number, number, number, number]): number =>
@@ -33,7 +33,7 @@ const type = (field: HTMLInputElement, text: string): void => {
 };
 
 describe("Input.DateTime", () => {
-  beforeAll(loadLanguage);
+  preloadTimeLanguage();
 
   it("should open the editor on the value in a fixed local layout", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
@@ -276,6 +276,246 @@ describe("Input.DateTime", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
     open(container);
     expect(screen.getByRole("menuitem", { name: "Now" }).textContent).toBe("Now");
+  });
+
+  describe("readings", () => {
+    const NOW = new TimeStamp(new Date(2026, 7, 23, 14, 5));
+    const START = NOW.sub(TimeSpan.hours(1));
+    const PARENT = NOW.sub(TimeSpan.days(1));
+    const at = (ts: TimeStamp): number => Number(ts.valueOf());
+    const anchors = {
+      start: at(START),
+      parent: { start: at(PARENT), end: at(NOW.add(TimeSpan.days(1))) },
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
+      vi.setSystemTime(NOW.date());
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface EditProps extends Partial<Input.DateTimeProps> {
+      steps?: number;
+    }
+
+    // Types text into a fresh input and returns its readings and what Enter commits.
+    const edit = (
+      text: string,
+      { steps = 0, ...props }: EditProps = {},
+    ): { readings: string[]; committed?: number } => {
+      const onChange = vi.fn();
+      // The value differs from every reading, so Enter always commits one.
+      const { container } = render(
+        <Input.DateTime
+          value={local(2000, 0, 1, 0, 0)}
+          onChange={onChange}
+          {...props}
+        />,
+      );
+      const field = open(container);
+      type(field, text);
+      const readings = Array.from(
+        container.ownerDocument.querySelectorAll(
+          ".lyra-time-editor__suggestion .lyra-time-editor__detail",
+        ),
+        (detail) => (detail.textContent ?? "").split(" · ")[0],
+      );
+      for (let i = 0; i < steps; i++) fireEvent.keyDown(field, { key: "ArrowDown" });
+      fireEvent.keyDown(field, { key: "Enter" });
+      const committed = onChange.mock.calls[0]?.[0] as number | undefined;
+      cleanup();
+      return { readings, committed };
+    };
+
+    it("should resolve anchor words", () => {
+      expect(edit("now", { anchors }).committed).toBe(at(NOW));
+      expect(edit("START", { anchors }).committed).toBe(at(START));
+    });
+
+    it("should lead with an anchor offset by a signed duration", () => {
+      const before = edit("now - 5m", { anchors });
+      expect(before.readings[0]).toBe("5min before now");
+      expect(before.committed).toBe(at(NOW.sub(TimeSpan.minutes(5))));
+      const after = edit("T+3.2s", { anchors });
+      expect(after.readings[0]).toBe("3s 200ms after the parent start");
+      expect(after.committed).toBe(at(PARENT.add(TimeSpan.milliseconds(3200))));
+      expect(edit("T", { anchors }).readings[0]).toBe("the parent start");
+    });
+
+    it("should say how the expression was read", () => {
+      const kinds: [string, string][] = [
+        ["now", "now"],
+        ["1756000000", "Unix seconds"],
+        ["1756000000000", "Unix milliseconds"],
+        ["1756000000000000000", "Unix nanoseconds"],
+        ["2026-08-23T14:05:00Z", "ISO 8601"],
+        ["2026-08-23 14:05:00Z", "ISO 8601"],
+        ["2026-08-23 16:05+02:00", "ISO 8601"],
+        ["14:05", "today"],
+        ["14:05:00.250 137", "today"],
+        ["2026-08-23", "local time"],
+        ["2026-08-23 14:05", "local time"],
+      ];
+      for (const [text, reading] of kinds)
+        expect(edit(text).readings[0], text).toBe(reading);
+    });
+
+    it("should not read an anchor the input does not have", () => {
+      expect(edit("T+1s").readings).toEqual([]);
+      expect(edit("end").readings).toEqual([]);
+    });
+
+    it("should parse a local date-time with sub-millisecond digits", () => {
+      const expected = new TimeStamp(new Date(2026, 7, 23, 14, 5, 0, 250)).add(
+        TimeSpan.microseconds(137),
+      );
+      expect(edit("2026-08-23 14:05:00.250137").committed).toBe(at(expected));
+    });
+
+    it("should parse a date alone as local midnight", () => {
+      expect(edit("2026-08-23").committed).toBe(local(2026, 7, 23, 0, 0));
+    });
+
+    it("should parse a time of day as today", () => {
+      expect(edit("2:05 pm").committed).toBe(at(NOW));
+      expect(edit("23:59:59").committed).toBe(
+        at(new TimeStamp(new Date(2026, 7, 23, 23, 59, 59))),
+      );
+    });
+
+    it("should parse an ISO string with a zone", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5, 0, 250)));
+      expect(edit("2026-08-23T14:05:00.250Z").committed).toBe(at(expected));
+    });
+
+    it("should read an epoch in the one unit that lands near the present", () => {
+      const ns = NOW.valueOf();
+      const units: [string, bigint][] = [
+        ["seconds", 1000000000n],
+        ["milliseconds", 1000000n],
+        ["microseconds", 1000n],
+        ["nanoseconds", 1n],
+      ];
+      for (const [unit, size] of units) {
+        const { readings, committed } = edit((ns / size).toString());
+        expect(readings, unit).toEqual([`Unix ${unit}`]);
+        expect(committed, unit).toBe(at(NOW));
+      }
+    });
+
+    it("should read a 9-digit epoch as seconds", () => {
+      expect(edit("999999999").readings[0]).toBe("Unix seconds");
+    });
+
+    it("should read an epoch that no unit places near the present as nanoseconds", () => {
+      const { readings, committed } = edit("86400000000000");
+      expect(readings[0]).toBe("Unix nanoseconds");
+      expect(committed).toBe(at(new TimeStamp(TimeSpan.DAY)));
+    });
+
+    it("should round a commit to the nearest microsecond", () => {
+      expect(edit("86400000001600").committed).toBe(86400000002000);
+    });
+
+    it("should read nothing in nonsense", () => {
+      expect(edit("yesterday-ish").readings).toEqual([]);
+      expect(edit("purple").readings).toEqual([]);
+    });
+
+    it("should reject dates and times that do not exist", () => {
+      const missing = [
+        "2026-02-31",
+        "2026-02-29 10:00",
+        "2026-13-01",
+        "25:00",
+        "12:99",
+        "12:30:60",
+        "13:00 pm",
+        "0:30 am",
+      ];
+      for (const text of missing) expect(edit(text).readings, text).toEqual([]);
+    });
+
+    it("should place a bare time on the other end's day for an end cell", () => {
+      const props: EditProps = {
+        anchors: { start: local(2026, 7, 20, 9, 0) },
+        bound: "end",
+      };
+      const { readings } = edit("11:30", props);
+      expect(readings.slice(0, 2)).toEqual(["today", "on the day of the start"]);
+      expect(edit("11:30", { ...props, steps: 1 }).committed).toBe(
+        local(2026, 7, 20, 11, 30),
+      );
+    });
+
+    it("should read a bare duration relative to the range", () => {
+      const start = local(2026, 7, 20, 9, 0);
+      const { readings, committed } = edit("2h", { anchors: { start }, bound: "end" });
+      expect(readings[0]).toBe("2h after the start");
+      expect(committed).toBe(start + HOUR * 2);
+      expect(readings).toContain("2h from now");
+    });
+
+    it("should shift the current value by a signed duration", () => {
+      const { readings, committed } = edit("+30s", { value: at(START) });
+      expect(readings[0]).toBe("30s after the current value");
+      expect(committed).toBe(at(START.add(TimeSpan.seconds(30))));
+    });
+
+    it("should read natural language", () => {
+      expect(edit("tomorrow at 3pm").committed).toBe(local(2026, 7, 24, 15, 0));
+      expect(edit("5m ago").committed).toBe(at(NOW.sub(TimeSpan.minutes(5))));
+    });
+
+    it("should offer the end of a whole day to an end cell", () => {
+      const { readings } = edit("tomorrow", { bound: "end" });
+      expect(readings.slice(0, 2)).toEqual(["start of tomorrow", "end of tomorrow"]);
+    });
+  });
+
+  describe("nudge", () => {
+    const nudge = (text: string, caret: number, key: string, shiftKey = false) => {
+      const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
+      const field = open(container);
+      type(field, text);
+      field.setSelectionRange(caret, caret);
+      fireEvent.keyDown(field, { key, shiftKey });
+      const { value } = field;
+      cleanup();
+      return value;
+    };
+
+    it("should step the unit under the caret", () => {
+      const text = "2026-08-23 14:05:00.250 137 004";
+      const nudged: [number, string][] = [
+        [0, "2027-08-23 14:05:00.250 137 004"],
+        [4, "2027-08-23 14:05:00.250 137 004"],
+        [6, "2026-09-23 14:05:00.250 137 004"],
+        [9, "2026-08-24 14:05:00.250 137 004"],
+        [12, "2026-08-23 15:05:00.250 137 004"],
+        [15, "2026-08-23 14:06:00.250 137 004"],
+        [19, "2026-08-23 14:05:01.250 137 004"],
+        [21, "2026-08-23 14:05:00.251 137 004"],
+        [25, "2026-08-23 14:05:00.250 138 004"],
+        [30, "2026-08-23 14:05:00.250 137 005"],
+      ];
+      for (const [caret, expected] of nudged)
+        expect(nudge(text, caret, "ArrowUp"), `caret ${caret}`).toBe(expected);
+    });
+
+    it("should step ten units with Shift", () => {
+      expect(nudge("2026-08-23 14:05:00.250", 21, "ArrowDown", true)).toBe(
+        "2026-08-23 14:05:00.240",
+      );
+    });
+
+    it("should step months and years on the local calendar", () => {
+      const text = "2026-08-23 14:05:00.000 137";
+      expect(nudge(text, 6, "ArrowUp")).toBe("2026-09-23 14:05:00.000 137");
+      expect(nudge(text, 0, "ArrowDown")).toBe("2025-08-23 14:05:00.000 137");
+    });
   });
 
   it("should stay open on Enter when the text is not a time", () => {

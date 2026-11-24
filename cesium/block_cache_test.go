@@ -90,6 +90,7 @@ var _ = Describe("Block cache", func() {
 		keys := []cesium.ChannelKey{idx, data}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

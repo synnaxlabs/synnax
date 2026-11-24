@@ -28,7 +28,10 @@ export interface TransportConfig {
   secure?: boolean;
   /** Receives each failed attempt that the unary client retries. */
   onRetry?: (error: Error) => void;
-  /** Opens the connections. Defaults to the global fetch and WebSocket. */
+  /**
+   * Opens the connections. Defaults to the global fetch and WebSocket. In Node, when
+   * HTTP_PROXY or HTTPS_PROXY is set, defaults to a connector that uses that proxy.
+   */
   connector?: Connector;
 }
 

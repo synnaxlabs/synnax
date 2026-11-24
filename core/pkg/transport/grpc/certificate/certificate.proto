@@ -29,6 +29,10 @@ service CertificateRefreshService {
   rpc Exec(RefreshRequest) returns (google.protobuf.Empty);
 }
 
+service CertificateDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
 message Input {
   string key = 1;
   string name = 2;
@@ -52,4 +56,8 @@ message SetResponse {
 message RefreshRequest {
   string key = 1;
   service.certificate.pb.Details details = 2;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -122,12 +121,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Group: groupSvc,
 		})),
 	}))
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-		DB: node.DB,
-	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       node.DB,
-		Password: passwordSvc,
+		DB: node.DB,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     node.DB,

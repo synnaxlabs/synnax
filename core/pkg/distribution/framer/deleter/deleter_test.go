@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -163,6 +164,28 @@ var _ = Describe("Deleter", Ordered, func() {
 						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
 					},
 				)
+			})
+		})
+		Describe("Held time range", func() {
+			It("Should refuse a delete that reaches the time range of an open writer, "+
+				"naming the writer", func(ctx SpecContext) {
+				subject := control.Subject{Key: "holder", Name: "Holder"}
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: subject,
+					Keys:           s.keys,
+					Start:          10 * telem.SecondTS,
+				}))
+				Expect(s.dist.Framer.DeleteTimeRange(
+					ctx,
+					s.keys[:1],
+					(12 * telem.SecondTS).Range(30*telem.SecondTS),
+				)).To(SatisfyAll(
+					MatchError(control.ErrUnauthorized),
+					MatchError(ContainSubstring(
+						"because writer "+subject.String()+" holds it",
+					)),
+				))
+				Expect(w.Close()).To(Succeed())
 			})
 		})
 		Describe("Channel not found", func() {

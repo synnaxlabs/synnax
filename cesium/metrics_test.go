@@ -69,7 +69,7 @@ var _ = Describe("Metrics", Ordered, func() {
 						m := subDB.Metrics()
 						Expect(m.DiskSize).To(Equal(telem.Size(0)))
 
-						Expect(subDB.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, subDB, 1*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{indexKey, dataKey},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
