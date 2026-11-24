@@ -433,6 +433,17 @@ TEST(TextEncoder, EncodeTagged) {
     assert_decodes(m, line, {21.5, 1, 40});
 }
 
+/// @brief it should write a tag that starts another tag, and read both back.
+TEST(TextEncoder, EncodeOverlappingTags) {
+    const auto m = message("cmd", {tagged("te", "TE"), tagged("t", "T")});
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(5.0), x::telem::Series(3.0))
+    );
+    EXPECT_EQ(line, "TE5,T3");
+    assert_decodes(m, line, {5, 3});
+}
+
 /// @brief it should write the shortest text that reads back as each sample, at the
 /// precision of its channel.
 TEST(TextEncoder, EncodeNumbers) {
