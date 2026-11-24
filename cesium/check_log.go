@@ -55,6 +55,11 @@ type checker struct {
 	failed set.Set[uint64]
 	// keys holds the keys that the next round reads for targets.
 	keys set.Set[ChannelKey]
+	// drops holds the keys that a Drop took. A check of one stops at its next block.
+	drops struct {
+		mu   sync.Mutex
+		keys set.Set[ChannelKey]
+	}
 	// reads holds the three reads of a block.
 	reads [3][]byte
 	// The fields below belong to the segment in progress.
@@ -63,8 +68,9 @@ type checker struct {
 	stepped chan error
 }
 
-// pass is the check of one segment.
+// pass is the check of one segment of key.
 type pass struct {
+	key    ChannelKey
 	cfg    segment.Config
 	h      *segment.Handle
 	length int64
@@ -98,6 +104,7 @@ func newChecker(
 		failed:  set.New[uint64](),
 		stepped: make(chan error, 1),
 	}
+	c.drops.keys = set.New[ChannelKey]()
 	for i := range c.reads {
 		c.reads[i] = make([]byte, segment.BlockSize)
 	}
@@ -155,6 +162,21 @@ func (c *checker) run(ctx context.Context) error {
 func (c *checker) close() {
 	c.stopping.Do(func() { close(c.stop) })
 	<-c.exit
+}
+
+// drop marks keys, which a Drop took, so that a check of one of them stops at its next
+// block.
+func (c *checker) drop(keys []ChannelKey) {
+	c.drops.mu.Lock()
+	c.drops.keys.Add(keys...)
+	c.drops.mu.Unlock()
+}
+
+// dropped reports whether a Drop took key.
+func (c *checker) dropped(key ChannelKey) bool {
+	c.drops.mu.Lock()
+	defer c.drops.mu.Unlock()
+	return c.drops.keys.Contains(key)
 }
 
 // round checks each target of the keys of c, and reports whether a claim or a change
@@ -230,29 +252,32 @@ func (e *engine) loadLive(key ChannelKey) (segs []state.Segment, h held, err err
 	return pre.Segments, h, nil
 }
 
+// staleCheck is the log of a check that a change of its segment dropped.
+const staleCheck = "dropped the check of a segment that changed during its pass"
+
 // check checks t, and logs a failure. It reports whether a claim or a change cut the
 // check short. It returns only an error of ctx, of close, or of a failed state.
 func (c *checker) check(ctx context.Context, t target) (retry bool, err error) {
 	segs, h, err := c.e.loadLive(t.key)
-	defer func() {
-		if unpinErr := c.e.unpin(h); unpinErr != nil {
-			c.e.ins.L.Error("unlink of a checked segment failed", zap.Error(unpinErr))
-		}
-	}()
 	fields := []zap.Field{zap.Uint32("key", t.key), zap.Uint64("segment", t.seg)}
 	if err != nil {
+		c.unpin(h)
 		c.e.ins.L.Warn("check of a segment failed", append(fields, zap.Error(err))...)
 		return true, c.fatal(err)
 	}
 	i := slices.IndexFunc(segs, func(s state.Segment) bool { return s.ID == t.seg })
 	if i < 0 {
+		c.unpin(h)
 		return false, nil
 	}
 	seg := segs[i]
-	bad, err := c.read(ctx, t.key, seg)
+	bad, err := c.read(ctx, t.key, seg, h)
 	switch {
 	case errors.Is(err, errStopped) || ctx.Err() != nil:
 		return false, err
+	case errors.Is(err, state.ErrStale):
+		c.e.ins.L.Debug(staleCheck, append(fields, zap.Error(err))...)
+		return false, nil
 	case errors.Is(err, place.ErrCorrupt):
 		c.failed.Add(seg.ID)
 		c.e.ins.L.Error(
@@ -294,14 +319,18 @@ func (c *checker) finish(
 		c.e.ins.L.Debug("a claim holds a cut of the check pass", fields...)
 		return true, nil
 	case errors.Is(err, state.ErrStale):
-		c.e.ins.L.Debug(
-			"dropped the check of a segment that changed during its pass",
-			append(fields, zap.Error(err))...,
-		)
+		c.e.ins.L.Debug(staleCheck, append(fields, zap.Error(err))...)
 		return true, nil
 	}
 	c.e.ins.L.Warn("check of a segment failed", append(fields, zap.Error(err))...)
 	return false, c.fatal(err)
+}
+
+// unpin unpins h, and logs a failed unlink.
+func (c *checker) unpin(h held) {
+	if err := c.e.unpin(h); err != nil {
+		c.e.ins.L.Error("unlink of a checked segment failed", zap.Error(err))
+	}
 }
 
 // fatal returns err when the state failed, and nil otherwise.
@@ -313,15 +342,18 @@ func (c *checker) fatal(err error) error {
 }
 
 // read reads each block of seg, a segment of key, in jobs on the executor, and leaves
-// the sums of its blocks in c.sg. It returns the stamps of a clock segment that fail
-// the rise check, or an error that wraps place.ErrCorrupt when no two reads of a block
-// agree.
+// the sums of its blocks in c.sg. It closes the file of seg, then unpins h, the pins of
+// its load. It returns the stamps of a clock segment that fail the rise check, an error
+// that wraps place.ErrCorrupt when no two reads of a block agree, or one that wraps
+// state.ErrStale when a Drop takes key before the last block.
 func (c *checker) read(
 	ctx context.Context,
 	key ChannelKey,
 	seg state.Segment,
+	h held,
 ) ([]badStamp, error) {
 	c.sg = pass{
+		key:    key,
 		cfg:    c.e.segmentConfig(seg),
 		h:      c.e.openSegment(key, seg),
 		length: int64(seg.Length),
@@ -338,6 +370,7 @@ func (c *checker) read(
 		}
 	}
 	err = errors.Join(err, c.sg.h.Close())
+	c.unpin(h)
 	var bad []badStamp
 	if c.sg.rise != nil {
 		bad = c.sg.rise.bad
@@ -347,13 +380,18 @@ func (c *checker) read(
 }
 
 // readBlocks is one job of the segment in progress: it reads at most jobBlocks blocks
-// from the next one, and adds the sum of each.
+// from the next one, and adds the sum of each. It stops with an error that wraps
+// state.ErrStale once a Drop takes the key of the segment.
 func (c *checker) readBlocks() error {
 	sg := &c.sg
 	for end := sg.next + jobBlocks; sg.next < end; sg.next++ {
 		off := sg.next * segment.BlockSize
 		if off >= sg.length {
 			return nil
+		}
+		if c.dropped(sg.key) {
+			return errors.Wrapf(state.ErrStale, "a Drop took key %d during the check "+
+				"of segment %d", sg.key, sg.cfg.ID)
 		}
 		block, err := c.agree(off, int(min(segment.BlockSize, sg.length-off)))
 		if err != nil {
@@ -498,10 +536,16 @@ func (e *engine) cutBefore(
 // logCheck writes the check file of seg, a segment of key, with the sums of the
 // segment in progress, makes it durable, and turns the checks of seg on. It removes
 // the file when the state refuses the Check as stale. After any other error, the log
-// can hold the Check, so the file stays for the orphan pass of the next open.
+// can hold the Check, so the file stays for the orphan pass of the next open. It
+// returns an error that wraps state.ErrStale when a Drop took key with its directory.
 func (c *checker) logCheck(key ChannelKey, seg state.Segment) error {
 	name := checkName(key, seg.ID)
-	if err := c.e.writeChecks(key, name, c.sg.cfg.EncodeChecks(c.sg.sums)); err != nil {
+	err := c.e.writeChecks(key, name, c.sg.cfg.EncodeChecks(c.sg.sums))
+	if errors.Is(err, os.ErrNotExist) && c.dropped(key) {
+		return errors.Wrapf(state.ErrStale, "a Drop took key %d before the check of "+
+			"segment %d: %v", key, seg.ID, err)
+	}
+	if err != nil {
 		return err
 	}
 	first, last := bounds(seg)
@@ -532,7 +576,7 @@ func bounds(seg state.Segment) (first, last telem.TimeStamp) {
 }
 
 // writeChecks writes b to the check file name of key, then syncs the file and the
-// directory of key.
+// directory of key. It never makes the directory of key.
 func (e *engine) writeChecks(key ChannelKey, name string, b []byte) error {
 	f, err := e.fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 	if err != nil {

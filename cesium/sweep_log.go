@@ -95,6 +95,7 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	if _, err = db.engine.log.Append(&entry).Wait(); err != nil {
 		return err
 	}
+	db.engine.check.drop(dropped)
 	err = db.engine.reap()
 	for _, k := range dropped {
 		delete(db.mu.channels, k)

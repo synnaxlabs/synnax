@@ -14,10 +14,12 @@ import (
 	"context"
 	"maps"
 	"math/rand/v2"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -107,6 +110,37 @@ func (f flipFile) ReadAt(p []byte, off int64) (int, error) {
 		p[0] ^= f.fs.flip(f.name, off)
 	}
 	return n, err
+}
+
+// readsFS counts the reads of the old files on it.
+type readsFS struct {
+	xfs.FS
+	n atomic.Int64
+}
+
+func (f *readsFS) Sub(name string) (xfs.FS, error) {
+	if name != "" {
+		return f.FS.Sub(name)
+	}
+	return f, nil
+}
+
+func (f *readsFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !strings.HasSuffix(name, ".domain") {
+		return file, err
+	}
+	return readsFile{File: file, fs: f}, nil
+}
+
+type readsFile struct {
+	xfs.File
+	fs *readsFS
+}
+
+func (f readsFile) ReadAt(p []byte, off int64) (int, error) {
+	f.fs.n.Add(1)
+	return f.File.ReadAt(p, off)
 }
 
 // checkFiles returns the number of check files in the directory of each of keys on
@@ -586,8 +620,7 @@ var _ = Describe("Check pass on the pointer log", func() {
 			).
 				Should(Equal(1))
 			// The directory of each key goes at a later Sweep, since the pass pinned
-			// its
-			// files during the Drop.
+			// its files during the Drop.
 			Expect(checkFiles(disk, keys...)).To(Equal(none))
 			for _, key := range keys {
 				Expect(db.RetrieveChannel(ctx, key)).Error().
@@ -596,4 +629,51 @@ var _ = Describe("Check pass on the pointer log", func() {
 			Expect(logs.FilterLevelExact(zapcore.ErrorLevel).Len()).To(BeZero())
 			Expect(closeDB()).To(Succeed())
 		})
+
+	It("Should free the files of a key that a Drop takes during the read of its "+
+		"segment within one block", func(ctx SpecContext) {
+		const key cesium.ChannelKey = 21
+		big := MustSucceed(fault.New(fault.Config{}))
+		db := openDBOnFS(ctx, big)
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      key,
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+		stamps := make([]telem.TimeStamp, 4*segment.BlockSize/8)
+		for i := range stamps {
+			stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+		}
+		Expect(db.Write(ctx, stamps[0], telem.MultiFrame(
+			[]cesium.ChannelKey{key},
+			[]telem.Series{telem.NewSeries(stamps)},
+		))).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+		big.Writeback()
+		reads := &readsFS{FS: big}
+		gate := &gateFS{FS: reads}
+		db, closeDB := startConverted(ctx, gate, ins, func() { gate.arm(".domain") })
+		Eventually(gate.waiting).Should(Receive())
+		reads.n.Store(0)
+		Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
+		close(gate.release)
+		dir := strconv.FormatUint(uint64(key), 10)
+		Eventually(func() ([]string, error) {
+			infos, err := big.List(dir)
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, nil
+			}
+			var names []string
+			for _, info := range infos {
+				if strings.HasSuffix(info.Name(), ".domain") {
+					names = append(names, info.Name())
+				}
+			}
+			return names, err
+		}).Should(BeEmpty())
+		Expect(reads.n.Load()).To(BeNumerically("<=", 3))
+		Expect(logs.FilterLevelExact(zapcore.ErrorLevel).Len()).To(BeZero())
+		Expect(closeDB()).To(Succeed())
+	})
 })
