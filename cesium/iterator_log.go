@@ -42,16 +42,15 @@ type logView struct {
 	loaded bool
 	// failed is true when the last load failed to read the parts of a range.
 	failed bool
-	// err holds the errors of the loads, a part read or an unlink after an unpin, which
-	// Close returns.
+	// err holds the errors of the part reads of the loads, which Close returns.
 	err error
 }
 
 func (v *logView) load() {
-	chs, pinned, err, unlinkErr := v.e.loadView(v.key, v.clock, v.pinned, v.spare)
+	chs, pinned, err := v.e.loadView(v.key, v.clock, v.pinned, v.spare)
 	v.spare = [2][]uint64{v.pinned[0].segments[:0], v.pinned[1].segments[:0]}
 	v.chs, v.pinned, v.loaded, v.failed = chs, pinned, true, err != nil
-	v.err = errors.Join(v.err, err, unlinkErr)
+	v.err = errors.Join(v.err, err)
 }
 
 // half returns the Channel of the key, or of the clock when clock is true, and the
@@ -64,7 +63,9 @@ func (v *logView) half(clock bool) (*state.Channel, []checkpoint.Part) {
 }
 
 func (v *logView) close() error {
-	err := errors.Join(v.err, v.e.unpin(v.pinned[0]), v.e.unpin(v.pinned[1]))
+	v.e.unpin(v.pinned[0])
+	v.e.unpin(v.pinned[1])
+	err := v.err
 	*v = logView{e: v.e, key: v.key, clock: v.clock}
 	return err
 }
@@ -325,5 +326,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
+	err := r.h.Close()
+	r.e.unpin(held{segments: []uint64{r.id}})
+	return err
 }

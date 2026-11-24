@@ -22,13 +22,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // holdFS holds the write of a log frame that holds marker, until unhold.
@@ -38,6 +43,28 @@ type holdFS struct {
 	marker  []byte
 	waiting chan struct{}
 	release chan struct{}
+	// removeDir and removeErr fail each removal of a segment file under removeDir.
+	removeDir string
+	removeErr error
+}
+
+// failRemoves makes each later removal of a segment file under dir fail with err, or
+// lets removals through when err is nil.
+func (f *holdFS) failRemoves(dir string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removeDir, f.removeErr = dir, err
+}
+
+func (f *holdFS) Remove(name string) error {
+	f.mu.Lock()
+	dir, err := f.removeDir, f.removeErr
+	f.mu.Unlock()
+	if err != nil && strings.HasPrefix(name, dir+"/") &&
+		strings.HasSuffix(name, ".seg") {
+		return err
+	}
+	return f.FS.Remove(name)
 }
 
 func (f *holdFS) Sub(name string) (xfs.FS, error) {
@@ -348,6 +375,62 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(segments()).To(Equal(1))
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
 		})
+
+	It(
+		"Should log a failed removal at the last unpin of a dropped key, keep its "+
+			"error out of every read, and leave the file to the next open",
+		func(ctx SpecContext) {
+			write(ctx, 10, 11)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			core, logs := observer.New(zapcore.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			db = MustOpen(cesium.Open(
+				ctx,
+				"",
+				cesium.WithFS(fs),
+				cesium.WithPointerLog(),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+				cesium.WithInstrumentation(
+					alamos.New("test", alamos.WithLogger(logger)),
+				),
+			))
+			stop = StartRun(db.Run)
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			dir := strconv.FormatUint(uint64(data), 10)
+			fs.failRemoves(dir, xerrors.New("remove failed"))
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
+			// A seek loads the view again, which unpins the segments of the dropped
+			// key.
+			iter.SeekFirst()
+			Expect(iter.Error()).ToNot(HaveOccurred())
+			Expect(iter.Close()).To(Succeed())
+			const message = "Failed to remove the file of a dead segment"
+			entries := logs.FilterMessage(message).All()
+			Expect(entries).ToNot(BeEmpty())
+			fields := entries[0].ContextMap()
+			Expect(fields).To(HaveKeyWithValue("key", data))
+			Expect(fields["file"]).To(HavePrefix(dir + "/"))
+			Expect(fields["error"]).To(ContainSubstring("remove failed"))
+			Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx).Len()).
+				To(Equal(int64(2)))
+			Expect(MustSucceed(fs.List(dir))).ToNot(BeEmpty())
+			fs.failRemoves("", nil)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			open(ctx)
+			Eventually(func() (int, error) {
+				infos, err := fs.List(dir)
+				return len(infos), err
+			}).Should(BeZero())
+		},
+	)
 
 	It("Should finish a read that pinned the segments of a key across its Drop",
 		func(ctx SpecContext) {
