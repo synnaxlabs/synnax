@@ -436,6 +436,42 @@ var _ = Describe("Writer", func() {
 					To(refusedOpen())
 			})
 
+		It("Should free the time before the first commit of a live writer's new "+
+			"stretch for a bounded writer", func() {
+			w := open(clockWriter(10, false, 5))
+			id := MustSucceed(w.NewSegment(5))
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(2, n, 0, 10, 11, slot(id, 16)))).To(Succeed())
+			Expect(
+				s.OpenWriter(context.Background(), clockWriter(15, true, 5)),
+			).Error().To(refusedOpen())
+			m := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(2, m, 0, 20, 21, slot(id, 32)))).To(Succeed())
+			open(clockWriter(15, true, 5))
+		})
+
+		It("Should free the time between the stretches of a bounded writer", func() {
+			b := open(clockWriter(10, true, 5))
+			id := MustSucceed(b.NewSegment(5))
+			n := MustSucceed(b.NewAlignment())
+			Expect(b.Commit(commit(2, n, 0, 10, 11, slot(id, 16)))).To(Succeed())
+			m := MustSucceed(b.NewAlignment())
+			Expect(b.Commit(commit(2, m, 0, 20, 21, slot(id, 32)))).To(Succeed())
+			open(clockWriter(15, true, 5))
+		})
+
+		It("Should keep the claim of a live writer across later commits of one stretch",
+			func() {
+				w := open(clockWriter(5, false, 5))
+				id := MustSucceed(w.NewSegment(5))
+				n := MustSucceed(w.NewAlignment())
+				Expect(w.Commit(commit(2, n, 0, 10, 11, slot(id, 16)))).To(Succeed())
+				Expect(w.Commit(commit(2, n, 2, 20, 21, slot(id, 32)))).To(Succeed())
+				Expect(
+					s.OpenWriter(context.Background(), clockWriter(7, true, 5)),
+				).Error().To(refusedOpen())
+			})
+
 		It("Should let another writer claim a key after Close", func() {
 			w := open(clockWriter(100, false, 5))
 			Expect(w.Close()).To(Succeed())
