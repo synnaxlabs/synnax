@@ -28,6 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -816,7 +817,7 @@ var _ = Describe("Delete", func() {
 						fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
 						Expect(
 							fr.Get(key).Series[0],
-						).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+						).To(MatchSeriesDataV[int64](1, 2, 3))
 					}
 					It(
 						"Should delete no channel when one has an open writer",
@@ -1651,10 +1652,10 @@ var _ = Describe("Delete", func() {
 							f := MustSucceed(
 								db.Read(ctx, telem.TimeRangeMax, data, data2),
 							)
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
-							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data2).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
 						},
@@ -1688,7 +1689,7 @@ var _ = Describe("Delete", func() {
 							)).To(MatchError(ContainSubstring("cannot access time range")))
 							Expect(w.Close()).To(Succeed())
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
 						},
@@ -1745,13 +1746,13 @@ var _ = Describe("Delete", func() {
 							f := MustSucceed(
 								db.Read(ctx, telem.TimeRangeMax, index, data, data2),
 							)
-							Expect(f.Get(index).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(index).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
 							))
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
-							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data2).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](200, 201, 202, 203, 204),
 							))
 						},
@@ -1873,7 +1874,7 @@ var _ = Describe("Background removal", func() {
 		MustSucceed(db.RetrieveChannel(ctx, key))
 		Expect(deletedDirs(fsys, key)).To(BeEmpty())
 		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-		Expect(fr.Get(data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+		Expect(fr.Get(data).Series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
 	})
 
 	It("Should delete a channel whose files fail to close", func(ctx SpecContext) {

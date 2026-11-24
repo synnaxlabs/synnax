@@ -9,7 +9,13 @@
 
 package keywords
 
-import "github.com/synnaxlabs/x/set"
+import (
+	_ "embed"
+	"strings"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/set"
+)
 
 var reserved = set.New(
 	"False", "None", "True", "and", "as",
@@ -21,11 +27,30 @@ var reserved = set.New(
 	"return", "try", "while", "with", "yield",
 )
 
-// Escape appends an underscore suffix to names that collide with Python reserved
-// keywords.
-func Escape(name string) string {
-	if reserved.Contains(name) {
+// modelAttributes lists the public attributes of a Pydantic BaseModel, one per line. A
+// test in the Python client checks it against the installed Pydantic.
+//
+//go:embed model_attributes.txt
+var modelAttributes string
+
+var attributes = set.New(strings.Fields(modelAttributes)...)
+
+// EscapeField appends an underscore suffix to a model field name that collides with a
+// Python reserved keyword or with an attribute of a Pydantic BaseModel.
+func EscapeField(name string) string {
+	if attributes.Contains(name) || reserved.Contains(name) {
 		return name + "_"
 	}
 	return name
+}
+
+// protectedPrefixes are the field name prefixes that Pydantic warns about by default.
+var protectedPrefixes = []string{"model_validate", "model_dump"}
+
+// Protected reports whether a model field name starts with a prefix that Pydantic
+// protects, so that its class must clear protected_namespaces to define it.
+func Protected(name string) bool {
+	return lo.SomeBy(protectedPrefixes, func(p string) bool {
+		return strings.HasPrefix(name, p)
+	})
 }

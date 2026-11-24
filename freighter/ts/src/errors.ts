@@ -41,6 +41,8 @@ export interface UnreachableParams {
   cause?: unknown;
   /** True when the target received the request, so a resend could repeat it. */
   delivered?: boolean;
+  /** A possible cause and what to do, which the message ends with. */
+  hint?: string;
 }
 
 /** Thrown when a network target is unreachable. */
@@ -48,6 +50,8 @@ export class Unreachable extends FreighterError.sub("unreachable") {
   url: url.URL;
   /** True when the target received the request, so a resend could repeat it. */
   readonly delivered: boolean;
+  /** A possible cause and what to do, which the message ends with. */
+  readonly hint?: string;
 
   constructor(params: UnreachableParams = {}) {
     const {
@@ -55,12 +59,60 @@ export class Unreachable extends FreighterError.sub("unreachable") {
       url: endpoint = url.URL.UNKNOWN,
       cause,
       delivered = false,
+      hint,
     } = params;
-    super(message, cause !== undefined ? { cause } : undefined);
+    super(
+      hint == null ? message : `${message}. ${hint}`,
+      cause !== undefined ? { cause } : undefined,
+    );
     this.url = endpoint;
     this.delivered = delivered;
+    this.hint = hint;
   }
 }
+
+/** Thrown when the runtime does not trust the certificate of a target. */
+export class UntrustedCertificate extends FreighterError.sub("untrusted_certificate") {}
+
+// Node and Bun give an OpenSSL code. Deno gives only a message.
+const UNTRUSTED_CODES = new Set([
+  "CERT_UNTRUSTED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_GET_ISSUER_CERT",
+  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+]);
+const UNTRUSTED_MESSAGE = "invalid peer certificate: UnknownIssuer";
+
+const isUntrusted = (err: unknown): boolean => {
+  if (typeof err !== "object" || err === null) return false;
+  if ("code" in err && typeof err.code === "string" && UNTRUSTED_CODES.has(err.code))
+    return true;
+  if (
+    "message" in err &&
+    typeof err.message === "string" &&
+    err.message.includes(UNTRUSTED_MESSAGE)
+  )
+    return true;
+  return "cause" in err && isUntrusted(err.cause);
+};
+
+/**
+ * @returns an UntrustedCertificate for the target when the error, or a cause of it, is
+ * a certificate that the runtime does not trust. Otherwise null.
+ */
+export const asUntrustedCertificate = (
+  err: unknown,
+  target: url.URL,
+): UntrustedCertificate | null =>
+  isUntrusted(err)
+    ? new UntrustedCertificate(
+        `The certificate of ${target.toString()} is not trusted. Set caCert to the ` +
+          "CA certificate that signed it.",
+        { cause: err },
+      )
+    : null;
 
 const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
   if (!error.type.startsWith(FreighterError.TYPE)) return null;
@@ -69,6 +121,8 @@ const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
     return { type: StreamClosed.TYPE, data: "StreamClosed" };
   if (Unreachable.matches(error))
     return { type: Unreachable.TYPE, data: "Unreachable" };
+  if (UntrustedCertificate.matches(error))
+    return { type: UntrustedCertificate.TYPE, data: error.message };
   if (ReceiveOverflow.matches(error))
     return { type: ReceiveOverflow.TYPE, data: error.message };
   if (Timeout.matches(error)) return { type: Timeout.TYPE, data: error.message };
@@ -84,6 +138,8 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
       return new StreamClosed();
     case Unreachable.TYPE:
       return new Unreachable();
+    case UntrustedCertificate.TYPE:
+      return new UntrustedCertificate(encoded.data);
     case ReceiveOverflow.TYPE:
       return new ReceiveOverflow(encoded.data);
     case Timeout.TYPE:

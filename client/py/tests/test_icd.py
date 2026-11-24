@@ -311,6 +311,132 @@ class TestICD:
                 {"identifier": {"type": "token", "prefix": "$"}}
             )
 
+    def test_parse_sync_framing(self) -> None:
+        """Should decode a base64 sync sequence and fill in the sync defaults."""
+        ic = sy.icd.ICD.model_validate(
+            {"name": "Rig", "framing": {"type": "sync", "sync": "qlU="}}
+        )
+        assert ic.framing == sy.icd.SyncFraming(
+            sync=b"\xaa\x55",
+            length_offset=0,
+            length_size="one",
+            byte_order="little_endian",
+            length_adjustment=0,
+            checksum=None,
+            max_length=65536,
+        )
+
+    @pytest.mark.parametrize(
+        ("framing", "expected"),
+        [
+            ({"type": "delimited"}, sy.icd.DelimitedFraming(delimiter="\n")),
+            ({"type": "fixed", "length": 12}, sy.icd.FixedFraming(length=12)),
+            (
+                {"type": "sync", "sync": "fg==", "checksum": {"algorithm": "crc32"}},
+                sy.icd.SyncFraming(
+                    sync=b"\x7e",
+                    checksum=sy.icd.Checksum(
+                        algorithm="crc32", byte_order="little_endian"
+                    ),
+                ),
+            ),
+            ({"type": "cobs"}, sy.icd.CobsFraming()),
+            ({"type": "slip"}, sy.icd.SlipFraming()),
+        ],
+    )
+    def test_parse_framing(
+        self, framing: dict[str, object], expected: sy.icd.Framing
+    ) -> None:
+        """Should parse each kind of framing by its type."""
+        ic = sy.icd.ICD.model_validate({"name": "Rig", "framing": framing})
+        assert ic.framing == expected
+
+    def test_parse_absent_framing(self) -> None:
+        """Should parse a null framing as no framing."""
+        ic = sy.icd.ICD.model_validate({"name": "Rig", "framing": None})
+        assert ic.framing is None
+
+    def test_reject_unknown_framing(self) -> None:
+        """Should not parse a framing of an unknown type."""
+        with pytest.raises(
+            ValidationError, match="Input tag 'stream' found using 'type'"
+        ):
+            sy.icd.ICD.model_validate({"name": "Rig", "framing": {"type": "stream"}})
+
+    @pytest.mark.parametrize(
+        ("framing", "loc", "msg"),
+        [
+            (
+                {"type": "sync", "sync": ""},
+                ("sync", "sync"),
+                "Data should have at least 1 byte",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "length_size": "three"},
+                ("sync", "length_size"),
+                "Input should be 'one', 'two' or 'four'",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "max_length": 0},
+                ("sync", "max_length"),
+                "Input should be greater than or equal to 1",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "max_length": 65537},
+                ("sync", "max_length"),
+                "Input should be less than or equal to 65536",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "byte_order": "middle_endian"},
+                ("sync", "byte_order"),
+                "Input should be 'little_endian' or 'big_endian'",
+            ),
+            (
+                {
+                    "type": "sync",
+                    "sync": "qg==",
+                    "checksum": {"algorithm": "crc32", "byte_order": "middle_endian"},
+                },
+                ("sync", "checksum", "byte_order"),
+                "Input should be 'little_endian' or 'big_endian'",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "checksum": {}},
+                ("sync", "checksum", "algorithm"),
+                "Field required",
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "checksum": {"algorithm": "crc8"}},
+                ("sync", "checksum", "algorithm"),
+                "Input should be 'crc16_ccitt_false', 'crc16_modbus' or 'crc32'",
+            ),
+            (
+                {"type": "fixed", "length": 0},
+                ("fixed", "length"),
+                "Input should be greater than or equal to 1",
+            ),
+            (
+                {"type": "fixed", "length": 65537},
+                ("fixed", "length"),
+                "Input should be less than or equal to 65536",
+            ),
+            (
+                {"type": "delimited", "delimiter": ""},
+                ("delimited", "delimiter"),
+                "String should have at least 1 character",
+            ),
+        ],
+    )
+    def test_reject_invalid_framing(
+        self, framing: dict[str, object], loc: tuple[str, ...], msg: str
+    ) -> None:
+        """Should not parse an invalid framing, and name the path of its field."""
+        with pytest.raises(ValidationError) as exc:
+            sy.icd.ICD.model_validate({"name": "Rig", "framing": framing})
+        assert [(e["loc"], e["msg"]) for e in exc.value.errors()] == [
+            (("framing", *loc), msg)
+        ]
+
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an ICD from keyword arguments."""
         ic = client.icds.create(

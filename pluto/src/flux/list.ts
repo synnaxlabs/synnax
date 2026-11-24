@@ -53,7 +53,7 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 export interface ListSource<Q, E extends record.Keyed<record.Key>, I> {
   watch: {
     (item: NoInfer<I>): query.Live<NoInfer<E>>;
-    (query: Q): query.List<E, unknown>;
+    (query: Q): query.list.List<E, unknown>;
   };
 }
 
@@ -122,7 +122,7 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
 
 /** A window and the search term it answers. */
 interface Answer<E extends record.Keyed<record.Key>> {
-  window: query.Window<E, unknown>;
+  window: query.list.Window<E, unknown>;
   searchTerm: string;
 }
 
@@ -255,15 +255,15 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // A page that the filter hides whole shows nothing new, so the read goes on to the
   // next page until a new record shows, the list ends, or a newer read starts.
   const readShown = async (
-    l: query.List<E, unknown>,
-    first: Promise<query.Window<E, unknown>>,
+    l: query.list.List<E, unknown>,
+    first: Promise<query.list.Window<E, unknown>>,
     before: E[] = [],
   ): Promise<void> => {
     const token = reading.current;
     let w = await first;
     if (filter == null) return;
     const old = new Set(before.filter(filter).map(({ key }) => key));
-    const showsNew = ({ records }: query.Window<E, unknown>): boolean =>
+    const showsNew = ({ records }: query.list.Window<E, unknown>): boolean =>
       records.some((r) => filter(r) && !old.has(r.key));
     while (w.end != null && reading.current === token && !showsNew(w)) {
       const { end } = w;
@@ -312,7 +312,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // once and not once per key.
   const readers = useInitializerRef(() => new Map<() => void, number>());
   const membersByWindow = useInitializerRef(
-    () => new WeakMap<query.Window<E, unknown>, Map<K, E>>(),
+    () => new WeakMap<query.list.Window<E, unknown>, Map<K, E>>(),
   );
   const notifyReaders = () => readers.current.forEach((_, read) => read());
   useEffect(() => {
@@ -323,7 +323,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   }, [list]);
   // Readers read the values of the last commit, so a new value makes them read again.
   useLayoutEffect(notifyReaders, [list, shown, retriever, filter, itemQuery]);
-  const membersOf = (answer?: query.Window<E, unknown>): Map<K, E> | undefined => {
+  const membersOf = (answer?: query.list.Window<E, unknown>): Map<K, E> | undefined => {
     if (answer == null) return undefined;
     let members = membersByWindow.current.get(answer);
     if (members == null) {

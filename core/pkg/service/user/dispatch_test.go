@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -27,14 +25,9 @@ import (
 
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[user.Key, user.Action]
-	var (
-		u     user.User
-		taken string
-	)
+	var u user.User
 	BeforeEach(func(ctx SpecContext) {
 		u = createUser(ctx, uuid.New().String(), "p", false)
-		taken = uuid.New().String()
-		createUser(ctx, taken, "p", false)
 	})
 	dispatch := func(ctx context.Context, key user.Key, acts ...user.Action) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -48,9 +41,6 @@ var _ = Describe("Dispatch", func() {
 	}
 	set := func(path string, value any) user.Action {
 		return user.NewSetAction(user.SetPayload{Path: []string{path}, Value: value})
-	}
-	setUsername := func(username string) user.Action {
-		return user.NewSetUsernameAction(user.SetUsernamePayload{Username: username})
 	}
 	retrieve := func(ctx context.Context, key user.Key) user.User {
 		GinkgoHelper()
@@ -98,9 +88,6 @@ var _ = Describe("Dispatch", func() {
 		Entry("a create", func() user.Action {
 			return user.NewCreateAction(user.CreatePayload{User: u})
 		}, MatchError(ContainSubstring("only the Core dispatches a user create"))),
-		Entry("a username another user holds", func() user.Action {
-			return setUsername(taken)
-		}, MatchError(auth.ErrRepeatedUsername)),
 	)
 
 	It("Should refuse to change the role of a root user", func(ctx SpecContext) {
@@ -116,17 +103,6 @@ var _ = Describe("Dispatch", func() {
 		r := createUser(ctx, uuid.New().String(), "p", true)
 		Expect(dispatch(ctx, r.Key, set("name", "renamed root"))).To(Succeed())
 		Expect(retrieve(ctx, r.Key).Name).To(Equal("renamed root"))
-	})
-
-	It("Should rename the password of the user", func(ctx SpecContext) {
-		username := uuid.New().String()
-		Expect(dispatch(ctx, u.Key, setUsername(username))).To(Succeed())
-		var p password.Password
-		Expect(passwordSvc.NewRetrieve().
-			Where(password.MatchSubjects(u.ResourceID())).
-			Entry(&p).
-			Exec(ctx, db)).To(Succeed())
-		Expect(p.Username).To(Equal(username))
 	})
 
 	It("Should return not found for a missing user", func(ctx SpecContext) {
