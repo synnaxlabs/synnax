@@ -77,6 +77,8 @@ type engine struct {
 		// advanced is closed and replaced each time covered rises.
 		advanced chan struct{}
 	}
+	// reaping serializes reap.
+	reaping  sync.Mutex
 	shutdown sync.Once
 	closeErr error
 	pins     pins
@@ -280,44 +282,44 @@ func (e *engine) onHead(
 }
 
 // reap unlinks the file of each segment that left the state, once the log covers the
-// record that took it out and no reader pins it.
+// record that took it out and no reader pins it. Reaps run one at a time, so when reap
+// returns, each covered dead file is unlinked or pinned.
 func (e *engine) reap() error {
+	e.reaping.Lock()
+	defer e.reaping.Unlock()
 	dead, err := e.state.TakeDead()
 	if err != nil {
 		return err
 	}
-	return e.release(e.uncover(0, dead))
+	return e.release(e.uncover(dead))
 }
 
-// covered unlinks, off the step of the log, the file of each dead segment whose record
-// the log now covers, and takes the segments that left the state since the last reap.
+// covered raises the covered sequence, and reaps off the step of the log when a dead
+// segment waits for the log or the state holds new ones.
 func (e *engine) covered(sequence uint64) {
-	free := e.uncover(sequence, nil)
-	taking := e.state.HasDead()
-	if len(free) == 0 && !taking {
+	e.cover.Lock()
+	if sequence > e.cover.covered {
+		e.cover.covered = sequence
+		close(e.cover.advanced)
+		e.cover.advanced = make(chan struct{})
+	}
+	waiting := len(e.cover.dead) > 0
+	e.cover.Unlock()
+	if !waiting && !e.state.HasDead() {
 		return
 	}
 	e.exec(func() {
-		err := e.release(free)
-		if taking {
-			err = errors.Join(err, e.reap())
-		}
-		if err != nil {
+		if err := e.reap(); err != nil {
 			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
 		}
 	})
 }
 
-// uncover raises the covered sequence to covered, adds dead to the segments that wait,
-// and returns those whose record the log covers.
-func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
+// uncover adds dead to the segments that wait for the log, and returns those whose
+// record the log covers.
+func (e *engine) uncover(dead []state.Dead) []state.Dead {
 	e.cover.Lock()
 	defer e.cover.Unlock()
-	if covered > e.cover.covered {
-		e.cover.covered = covered
-		close(e.cover.advanced)
-		e.cover.advanced = make(chan struct{})
-	}
 	e.cover.dead = append(e.cover.dead, dead...)
 	var free []state.Dead
 	waiting := e.cover.dead[:0]
