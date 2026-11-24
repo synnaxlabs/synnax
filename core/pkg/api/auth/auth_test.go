@@ -11,7 +11,7 @@ package auth_test
 
 import (
 	"context"
-	"strings"
+	"time"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -21,76 +21,16 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"github.com/synnaxlabs/x/validate"
 )
-
-func request(username, pwd string) apiauth.LoginRequest {
-	creds := auth.Credentials{Username: username, Password: pwd}
-	return apiauth.LoginRequest{Credentials: creds}
-}
 
 func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}}
-}
-
-func authed(ctx context.Context, token string) freighter.Context {
-	GinkgoHelper()
-	fctx := requestCtx(ctx)
-	fctx.Variant = freighter.VariantUnary
-	fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
-	var seen freighter.Context
-	MustSucceed(apiauth.Middleware(authSvc).Exec(fctx, freighter.FinalizerFunc(
-		func(c freighter.Context) (freighter.Context, error) {
-			seen = c
-			return c, nil
-		},
-	)))
-	return seen
-}
-
-func createUser(ctx context.Context, username, pwd string) user.User {
-	GinkgoHelper()
-	u := MustSucceed(
-		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: username}),
-	)
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return passwordSvc.NewWriter(tx).Set(
-			ctx,
-			u.ResourceID(),
-			username,
-			MustSucceed(passwordSvc.Hash(pwd)),
-		)
-	})).To(Succeed())
-	return u
-}
-
-// expectLegacyUser asserts that u encodes with every field a 0.60 client requires of a
-// user.
-func expectLegacyUser(u apiauth.User, username string) {
-	GinkgoHelper()
-	for _, codec := range []encoding.Codec{json.Codec, msgpack.Codec} {
-		var decoded map[string]any
-		Expect(codec.Decode(MustSucceed(codec.Encode(u)), &decoded)).To(Succeed())
-		Expect(decoded).To(HaveKey("key"))
-		Expect(decoded).To(HaveKeyWithValue("username", username))
-		Expect(decoded).To(HaveKeyWithValue("first_name", u.Name))
-		Expect(decoded).To(HaveKeyWithValue("last_name", ""))
-	}
 }
 
 func passwordProof(username, pwd string) auth.Proof {
@@ -135,36 +75,6 @@ var _ = Describe("HeldTables", func() {
 	})
 })
 
-var _ = Describe("Login", func() {
-	It(
-		"Should return a token for the user and the cluster info",
-		func(ctx SpecContext) {
-			res := MustSucceed(
-				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
-			)
-			Expect(res.User.Key).To(Equal(root.Key))
-			expectLegacyUser(res.User, creds.Username)
-			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
-			Expect(session.Subject).To(Equal(root.ResourceID()))
-			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Identity.Key.String()))
-			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Identity.HostKey))
-			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
-		},
-	)
-	It("Should reject a wrong password", func(ctx SpecContext) {
-		Expect(
-			apiSvc.Login(requestCtx(ctx), request(creds.Username, "wrong")),
-		).Error().
-			To(MatchError(auth.ErrInvalidCredentials))
-	})
-	It("Should reject an unknown username", func(ctx SpecContext) {
-		Expect(
-			apiSvc.Login(requestCtx(ctx), request("nobody", creds.Password)),
-		).Error().
-			To(MatchError(auth.ErrInvalidCredentials))
-	})
-})
-
 var _ = Describe("Methods", func() {
 	It("Should list the methods the Core accepts and each provider's issuer", func(
 		ctx SpecContext,
@@ -188,7 +98,6 @@ var _ = Describe("Methods", func() {
 })
 
 var _ = Describe("Disabled methods", func() {
-	var own auth.Credentials
 	disabled := func(ctx SpecContext, method auth.Method) *apiauth.Service {
 		GinkgoHelper()
 		authenticators := map[auth.Method]auth.Authenticator{
@@ -204,20 +113,10 @@ var _ = Describe("Disabled methods", func() {
 			Authenticators: authenticators,
 		}))
 		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-			DB:       db,
-			Auth:     svc,
-			Password: passwordSvc,
-			APIKey:   apiKeySvc,
-			OIDC:     oidcSvc,
-			User:     userSvc,
-			RBAC:     rbacSvc,
-			Identity: node.Identity,
+			Auth: svc,
+			OIDC: oidcSvc,
 		}))
 	}
-	BeforeEach(func(ctx SpecContext) {
-		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
-		createUser(ctx, own.Username, own.Password)
-	})
 	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
 			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOIDC}))
@@ -225,596 +124,6 @@ var _ = Describe("Disabled methods", func() {
 	It("Should list no providers while oidc is off", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodOIDC).Methods(ctx, struct{}{})).
 			To(HaveField("Providers", BeEmpty()))
-	})
-	It("Should refuse to link a provider account", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodOIDC).PrepareLinkOIDC(
-			requestCtx(ctx),
-			apiauth.OIDCLinkRequest{},
-		)).Error().To(MatchError(validate.ErrValidation))
-	})
-	It("Should refuse a password login and keep the password", func(ctx SpecContext) {
-		proof := passwordProof(own.Username, own.Password)
-		Expect(disabled(ctx, auth.MethodPassword).CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: proof},
-		)).Error().To(MatchError(validate.ErrValidation))
-		MustSucceed(passwordSvc.Authenticate(ctx, proof))
-	})
-	It("Should refuse a password change and keep the password", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodPassword).PrepareChangePassword(
-			requestCtx(ctx),
-			apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
-		)).Error().To(MatchError(validate.ErrValidation))
-		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
-	})
-	It("Should refuse to set a password and keep the old one", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodPassword).PrepareSetPassword(
-			requestCtx(ctx),
-			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "old"},
-		)).Error().To(MatchError(validate.ErrValidation))
-		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
-	})
-	It("Should refuse to dispatch to a password", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodPassword).DispatchPassword(
-			requestCtx(ctx),
-			nil,
-			apiauth.PasswordDispatchRequest{Key: uuid.New()},
-		)).Error().To(MatchError(validate.ErrValidation))
-	})
-	It("Should refuse to create a password", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
-			Name: "nopass-" + uuid.New().String(),
-		}))
-		Expect(disabled(ctx, auth.MethodPassword).PrepareCreatePassword(
-			requestCtx(ctx),
-			apiauth.PasswordCreateRequest{
-				Subject:  u.ResourceID(),
-				Username: u.Name, Password: "p",
-			},
-		)).Error().To(MatchError(validate.ErrValidation))
-	})
-	It("Should refuse a new API key", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodAPIKey).CreateAPIKey(
-			requestCtx(ctx),
-			nil,
-			apiauth.APIKeyCreateRequest{Name: "ci"},
-		)).Error().To(MatchError(validate.ErrValidation))
-	})
-})
-
-var _ = Describe("ChangePassword", func() {
-	var (
-		own      auth.Credentials
-		ownToken string
-	)
-	change := func(
-		ctx context.Context,
-		token string,
-		creds auth.Credentials,
-	) error {
-		_, err := changePassword(
-			authed(ctx, token),
-			apiauth.ChangePasswordRequest{Credentials: creds, NewPassword: "new"},
-		)
-		return err
-	}
-	BeforeEach(func(ctx SpecContext) {
-		own = auth.Credentials{Username: "own-" + uuid.New().String(), Password: "old"}
-		createUser(ctx, own.Username, own.Password)
-		ownToken = MustSucceed(
-			apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
-		).Token
-	})
-	It("Should replace the password when the current one is right", func(
-		ctx SpecContext,
-	) {
-		Expect(change(ctx, ownToken, own)).To(Succeed())
-		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, "new")))
-		Expect(
-			apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
-		).Error().
-			To(MatchError(auth.ErrInvalidCredentials))
-	})
-	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
-		wrong := auth.Credentials{Username: own.Username, Password: "wrong"}
-		Expect(change(ctx, ownToken, wrong)).To(MatchError(auth.ErrInvalidCredentials))
-		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
-	})
-	It(
-		"Should end every session the password opened, the caller's included",
-		func(ctx SpecContext) {
-			other := MustSucceed(
-				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
-			)
-			Expect(change(ctx, ownToken, own)).To(Succeed())
-			for _, token := range []string{ownToken, other.Token} {
-				Expect(authSvc.Authenticate(ctx, token)).Error().
-					To(MatchError(auth.ErrInvalidToken))
-			}
-		},
-	)
-	It("Should deny a caller that may not update the user of the credentials", func(
-		ctx SpecContext,
-	) {
-		bob := createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken := MustSucceed(
-			apiSvc.Login(requestCtx(ctx), request(bob.Name, "p")),
-		).Token
-		Expect(change(ctx, bobToken, own)).To(MatchError(access.ErrDenied))
-		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
-	})
-})
-
-var _ = Describe("SetPassword", func() {
-	var (
-		bob       user.User
-		bobToken  string
-		rootToken string
-	)
-	login := func(ctx context.Context, username, pwd string) string {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
-		)).Token
-	}
-	set := func(
-		ctx context.Context,
-		token string,
-		req apiauth.PasswordSetRequest,
-	) (apiauth.PasswordSetResponse, error) {
-		return setPassword(authed(ctx, token), req)
-	}
-	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
-		bobToken = login(ctx, bob.Name, "old")
-		rootToken = login(ctx, creds.Username, creds.Password)
-	})
-	It("Should replace the caller's session when it sets its own password", func(
-		ctx SpecContext,
-	) {
-		other := login(ctx, bob.Name, "old")
-		res := MustSucceed(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
-		}))
-		Expect(res.Session).ToNot(BeNil())
-		Expect(res.Session.Subject).To(Equal(bob.ResourceID()))
-		Expect(authSvc.Authenticate(ctx, res.Token)).To(Equal(*res.Session))
-		for _, token := range []string{bobToken, other} {
-			Expect(authSvc.Authenticate(ctx, token)).Error().
-				To(MatchError(auth.ErrInvalidToken))
-		}
-		login(ctx, bob.Name, "new")
-	})
-	It("Should put the caller's new token in a cookie when asked", func(
-		ctx SpecContext,
-	) {
-		fctx := authed(ctx, bobToken)
-		res := MustSucceed(setPassword(fctx, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
-			Cookie:          true,
-		}))
-		Expect(res.Token).To(BeEmpty())
-		v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
-		cookie, ok := v.(apiauth.SessionCookie)
-		Expect(ok).To(BeTrue())
-		Expect(authSvc.Authenticate(ctx, cookie.Token)).To(Equal(*res.Session))
-	})
-	It("Should open no session for a caller logged in with an API key", func(
-		ctx SpecContext,
-	) {
-		key := MustSucceed(createKey(
-			authed(ctx, bobToken),
-			apiauth.APIKeyCreateRequest{Name: "spec"},
-		))
-		keyToken := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
-		)).Token
-		res := MustSucceed(set(ctx, keyToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
-		}))
-		Expect(res).To(Equal(apiauth.PasswordSetResponse{}))
-		MustSucceed(authSvc.Authenticate(ctx, keyToken))
-		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
-			To(MatchError(auth.ErrInvalidToken))
-	})
-	It("Should refuse the caller's own password with a wrong current one", func(
-		ctx SpecContext,
-	) {
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "wrong",
-		})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		login(ctx, bob.Name, "old")
-	})
-	It("Should refuse the caller's own password without the current one", func(
-		ctx SpecContext,
-	) {
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{Password: "new"})).
-			Error().To(MatchError(ContainSubstring("password: required")))
-		login(ctx, bob.Name, "old")
-	})
-	It("Should let the owner set another user's password", func(ctx SpecContext) {
-		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  bob.ResourceID(),
-			Password: "new",
-		})).To(Equal(apiauth.PasswordSetResponse{}))
-		MustSucceed(authSvc.Authenticate(ctx, rootToken))
-		login(ctx, bob.Name, "new")
-		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
-			To(MatchError(auth.ErrInvalidToken))
-	})
-	It(
-		"Should let a caller that may update a signed-out user set its password",
-		func(ctx SpecContext) {
-			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
-			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
-			Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
-				Subject:  eng.ResourceID(),
-				Password: "new",
-			})).To(Equal(apiauth.PasswordSetResponse{}))
-			login(ctx, eng.Name, "new")
-		},
-	)
-	It(
-		"Should require delete on a signed-in user to set its password",
-		func(ctx SpecContext) {
-			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
-			engToken := login(ctx, eng.Name, "p")
-			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
-			req := apiauth.PasswordSetRequest{
-				Subject:  eng.ResourceID(),
-				Password: "new",
-			}
-			Expect(set(ctx, bobToken, req)).Error().To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring("cannot delete %s", eng.ResourceID())),
-			))
-			MustSucceed(authSvc.Authenticate(ctx, engToken))
-			grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
-			Expect(set(ctx, bobToken, req)).To(Equal(apiauth.PasswordSetResponse{}))
-			Expect(authSvc.Authenticate(ctx, engToken)).Error().
-				To(MatchError(auth.ErrInvalidToken))
-		},
-	)
-	It("Should deny a user setting another user's password", func(ctx SpecContext) {
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Subject:  root.ResourceID(),
-			Password: "new",
-		})).Error().To(MatchError(access.ErrDenied))
-	})
-	It("Should reject a subject that is not a user", func(ctx SpecContext) {
-		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  resource.ID{Type: resource.TypeRack, Key: "1"},
-			Password: "new",
-		})).Error().To(MatchError(validate.ErrValidation))
-	})
-	It("Should report a user with no password as not found", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
-			Name: "nopass-" + uuid.New().String(),
-		}))
-		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject:  u.ResourceID(),
-			Password: "new",
-		})).Error().To(MatchError(query.ErrNotFound))
-	})
-	It("Should reject an empty password", func(ctx SpecContext) {
-		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
-			Subject: bob.ResourceID(),
-		})).Error().To(MatchError(ContainSubstring("password: required")))
-	})
-})
-
-var _ = Describe("CreatePassword", func() {
-	var (
-		bob       user.User
-		bobToken  string
-		rootToken string
-		nopass    user.User
-	)
-	create := func(
-		ctx context.Context,
-		token string,
-		req apiauth.PasswordCreateRequest,
-	) (struct{}, error) {
-		return createPassword(authed(ctx, token), req)
-	}
-	login := func(ctx context.Context, username, pwd string) string {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
-		)).Token
-	}
-	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
-		bobToken = login(ctx, bob.Name, "old")
-		rootToken = login(ctx, creds.Username, creds.Password)
-		nopass = MustSucceed(rbactestutil.CreateUser(
-			ctx,
-			db,
-			rbacSvc,
-			userSvc,
-			user.User{Name: "nopass-" + uuid.New().String()},
-		))
-	})
-	It("Should let the owner give a user its first password", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: nopass.Name, Password: "p",
-		})).Error().ToNot(HaveOccurred())
-		login(ctx, nopass.Name, "p")
-	})
-	It("Should let a user give itself its first password", func(ctx SpecContext) {
-		key := MustSucceed(createKey(
-			authed(ctx, rootToken),
-			apiauth.APIKeyCreateRequest{Subject: nopass.ResourceID(), Name: "nopass"},
-		))
-		token := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
-		)).Token
-		Expect(create(ctx, token, apiauth.PasswordCreateRequest{
-			Username: nopass.Name, Password: "p",
-		})).Error().ToNot(HaveOccurred())
-		login(ctx, nopass.Name, "p")
-	})
-	It("Should deny a user giving another user a password", func(ctx SpecContext) {
-		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: nopass.Name, Password: "p",
-		})).Error().To(MatchError(access.ErrDenied))
-	})
-	It("Should deny a caller that may only create users", func(ctx SpecContext) {
-		MustSucceed(rbactestutil.Grant(
-			ctx,
-			db,
-			rbacSvc,
-			userSvc,
-			bob.Key,
-			[]access.Action{access.ActionCreate},
-			resource.ID{Type: resource.TypeUser},
-		))
-		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: nopass.Name, Password: "p",
-		})).Error().To(MatchError(access.ErrDenied))
-	})
-	It("Should deny a caller that may only update users", func(ctx SpecContext) {
-		MustSucceed(rbactestutil.Grant(
-			ctx,
-			db,
-			rbacSvc,
-			userSvc,
-			bob.Key,
-			[]access.Action{access.ActionUpdate},
-			resource.ID{Type: resource.TypeUser},
-		))
-		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: nopass.Name, Password: "p",
-		})).Error().To(MatchError(access.ErrDenied))
-	})
-	It("Should refuse a user named by a key in another case", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject: resource.ID{
-				Type: resource.TypeUser,
-				Key:  strings.ToUpper(bob.Key.String()),
-			},
-			Username: "other", Password: "p",
-		})).Error().To(MatchError(ContainSubstring("already has a password")))
-	})
-	It("Should refuse a user that already has a password", func(ctx SpecContext) {
-		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
-			Username: "other", Password: "new",
-		})).Error().To(MatchError(ContainSubstring("already has a password")))
-	})
-	It("Should refuse a username another user holds", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: creds.Username, Password: "p",
-		})).Error().To(MatchError(auth.ErrRepeatedUsername))
-	})
-	It("Should reject a subject that is not a user", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  resource.ID{Type: resource.TypeRack, Key: "1"},
-			Username: "rack", Password: "p",
-		})).Error().To(MatchError(validate.ErrValidation))
-	})
-	It("Should report a user that does not exist as not found", func(
-		ctx SpecContext,
-	) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  user.ResourceID(uuid.New()),
-			Username: "ghost", Password: "p",
-		})).Error().To(MatchError(query.ErrNotFound))
-	})
-	It("Should reject an empty password", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Username: nopass.Name,
-		})).Error().To(MatchError(ContainSubstring("password: required")))
-	})
-	It("Should reject an empty username", func(ctx SpecContext) {
-		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
-			Subject:  nopass.ResourceID(),
-			Password: "p",
-		})).Error().To(MatchError(ContainSubstring("username: required")))
-	})
-})
-
-var _ = Describe("Passwords", func() {
-	var (
-		bob       user.User
-		bobToken  string
-		rootToken string
-	)
-	tokenFor := func(ctx context.Context, username, pwd string) string {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
-		)).Token
-	}
-	keyOf := func(ctx context.Context, subject resource.ID) password.Key {
-		GinkgoHelper()
-		var p password.Password
-		Expect(passwordSvc.NewRetrieve().
-			Where(password.MatchSubjects(subject)).
-			Entry(&p).
-			Exec(ctx, db)).To(Succeed())
-		return p.Key
-	}
-	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken = tokenFor(ctx, bob.Name, "p")
-		rootToken = tokenFor(ctx, creds.Username, creds.Password)
-	})
-	Describe("RetrievePasswords", func() {
-		retrieve := func(
-			ctx context.Context,
-			token string,
-			req apiauth.PasswordRetrieveRequest,
-		) ([]apiauth.Password, error) {
-			res, err := retrievePasswords(authed(ctx, token), req)
-			return res.Passwords, err
-		}
-		It("Should return the caller's password by default", func(ctx SpecContext) {
-			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{})).
-				To(ConsistOf(apiauth.Password{
-					Key:      keyOf(ctx, bob.ResourceID()),
-					Subject:  bob.ResourceID(),
-					Username: bob.Name,
-				}))
-		})
-		It("Should find a password by its username", func(ctx SpecContext) {
-			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
-				Usernames: []string{bob.Name},
-			})).To(ConsistOf(HaveField("Subject", bob.ResourceID())))
-		})
-		It("Should find a password by its subject", func(ctx SpecContext) {
-			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
-				Subjects: []resource.ID{bob.ResourceID()},
-			})).To(ConsistOf(HaveField("Username", bob.Name)))
-		})
-		It("Should ignore an unknown username", func(ctx SpecContext) {
-			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
-				Usernames: []string{"unknown-" + uuid.New().String()},
-			})).To(BeEmpty())
-		})
-		It("Should deny a user another user's password by subject", func(
-			ctx SpecContext,
-		) {
-			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{
-				Subjects: []resource.ID{root.ResourceID()},
-			})).Error().To(MatchError(access.ErrDenied))
-		})
-		It("Should leave out another user's password by username", func(
-			ctx SpecContext,
-		) {
-			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{
-				Usernames: []string{creds.Username, bob.Name},
-			})).To(ConsistOf(HaveField("Subject", bob.ResourceID())))
-		})
-	})
-	Describe("DispatchPassword", func() {
-		rename := func(
-			ctx context.Context,
-			token string,
-			key password.Key,
-			username string,
-		) error {
-			action := password.NewSetUsernameAction(
-				password.SetUsernamePayload{Username: username},
-			)
-			_, err := dispatchPassword(
-				authed(ctx, token),
-				apiauth.PasswordDispatchRequest{
-					Key:     key,
-					Actions: []password.Action{action},
-				},
-			)
-			return err
-		}
-		It("Should let the owner rename another user's password", func(
-			ctx SpecContext,
-		) {
-			username := "renamed-" + uuid.New().String()
-			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), username)).
-				To(Succeed())
-			tokenFor(ctx, username, "p")
-			MustSucceed(authSvc.Authenticate(ctx, bobToken))
-			Expect(apiSvc.CreateSession(
-				requestCtx(ctx),
-				apiauth.SessionCreateRequest{Proof: passwordProof(bob.Name, "p")},
-			)).Error().To(MatchError(auth.ErrInvalidCredentials))
-		})
-		It("Should let a user that may update itself rename its own password", func(
-			ctx SpecContext,
-		) {
-			MustSucceed(rbactestutil.Grant(
-				ctx,
-				db,
-				rbacSvc,
-				userSvc,
-				bob.Key,
-				[]access.Action{access.ActionUpdate},
-				bob.ResourceID(),
-			))
-			username := "self-" + uuid.New().String()
-			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), username)).
-				To(Succeed())
-			tokenFor(ctx, username, "p")
-		})
-		It("Should deny a self-rename without update on the user", func(
-			ctx SpecContext,
-		) {
-			Expect(rename(
-				ctx,
-				bobToken,
-				keyOf(ctx, bob.ResourceID()),
-				"self-"+uuid.New().String(),
-			)).To(MatchError(access.ErrDenied))
-			tokenFor(ctx, bob.Name, "p")
-		})
-		It("Should keep the username when it does not change", func(ctx SpecContext) {
-			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), bob.Name)).
-				To(Succeed())
-			tokenFor(ctx, bob.Name, "p")
-		})
-		It("Should refuse a username another user holds", func(ctx SpecContext) {
-			Expect(rename(
-				ctx,
-				rootToken,
-				keyOf(ctx, bob.ResourceID()),
-				creds.Username,
-			)).To(MatchError(auth.ErrRepeatedUsername))
-		})
-		It("Should deny a user renaming another user's password", func(
-			ctx SpecContext,
-		) {
-			Expect(rename(
-				ctx,
-				bobToken,
-				keyOf(ctx, root.ResourceID()),
-				"taken-"+uuid.New().String(),
-			)).To(MatchError(access.ErrDenied))
-			tokenFor(ctx, creds.Username, creds.Password)
-		})
-		It("Should report a password that does not exist as not found", func(
-			ctx SpecContext,
-		) {
-			Expect(rename(ctx, rootToken, uuid.New(), "nopass-"+uuid.New().String())).
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should reject an empty username", func(ctx SpecContext) {
-			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), "")).
-				To(MatchError(validate.ErrValidation))
-		})
 	})
 })
 
@@ -825,10 +134,9 @@ var _ = Describe("Middleware", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		mw = apiauth.Middleware(authSvc)
-		token = MustSucceed(apiSvc.Login(requestCtx(ctx), request(
-			creds.Username,
-			creds.Password,
-		))).Token
+		_, token = MustSucceed2(
+			authSvc.Login(ctx, passwordProof(creds.Username, creds.Password)),
+		)
 	})
 	withToken := func(ctx context.Context, variant freighter.Variant) freighter.Context {
 		fctx := requestCtx(ctx)
@@ -855,6 +163,20 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.ResourceID()))
+	})
+	It("Should put the session on a unary request", func(ctx SpecContext) {
+		var seen freighter.Context
+		MustSucceed(mw.Exec(
+			withToken(ctx, freighter.VariantUnary),
+			freighter.FinalizerFunc(
+				func(c freighter.Context) (freighter.Context, error) {
+					seen = c
+					return c, nil
+				},
+			),
+		))
+		Expect(apiauth.GetSession(seen)).
+			To(Equal(MustSucceed(authSvc.Authenticate(ctx, token))))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
@@ -896,266 +218,27 @@ var _ = Describe("Middleware", func() {
 	})
 })
 
-var _ = Describe("CreateSession", func() {
-	It("Should open a session for a password proof", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(
-				creds.Username,
-				creds.Password,
-			)},
-		))
-		session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
-		Expect(session.Key).To(Equal(res.Session.Key))
-		Expect(res.Session.Subject).To(Equal(root.ResourceID()))
-		Expect(res.Session.Credential).To(Equal(session.Credential))
-		Expect(res.User.Key).To(Equal(root.Key))
+var _ = Describe("Deliver", func() {
+	const token = "session-token"
+	It("Should return the token unchanged", func(ctx SpecContext) {
+		fctx := requestCtx(ctx)
+		Expect(apiauth.Deliver(fctx, authSvc, token, false)).To(Equal(token))
+		Expect(fctx.Params).ToNot(HaveKey(apiauth.SessionCookieParam))
 	})
-	It("Should send the user fields that 0.60 clients require", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(
-				creds.Username,
-				creds.Password,
-			)},
-		))
-		expectLegacyUser(*res.User, creds.Username)
-	})
-	It("Should leave the hash off the wire", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(
-				creds.Username,
-				creds.Password,
-			)},
-		))
-		Expect(res.Session.Hash).To(HaveLen(32))
-		var decoded map[string]any
-		Expect(json.Codec.Decode(
-			MustSucceed(json.Codec.Encode(res.Session)),
-			&decoded,
-		)).To(Succeed())
-		Expect(decoded).To(HaveKey("key"))
-		Expect(decoded).ToNot(HaveKey("hash"))
-	})
-	It("Should reject a wrong password", func(ctx SpecContext) {
-		Expect(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(creds.Username, "wrong")},
-		)).Error().To(MatchError(auth.ErrInvalidCredentials))
-	})
-	It("Should reject a proof with no method", func(ctx SpecContext) {
-		Expect(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{},
-		)).Error().To(MatchError(validate.ErrValidation))
-	})
-})
-
-var _ = Describe("RenewSession", func() {
-	It("Should return the caller's session and user", func(ctx SpecContext) {
-		created := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{
-				Proof: passwordProof(creds.Username, creds.Password),
+	It("Should put the token in the session cookie", func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: other,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: passwordSvc,
 			},
-		))
-		res := MustSucceed(apiSvc.RenewSession(authed(ctx, created.Token), struct{}{}))
-		Expect(res.Session.Key).To(Equal(created.Session.Key))
-		Expect(res.Session.Subject).To(Equal(root.ResourceID()))
-		Expect(res.User).ToNot(BeNil())
-		Expect(res.User.Key).To(Equal(root.Key))
-		expectLegacyUser(*res.User, creds.Username)
-	})
-})
-
-var _ = Describe("Session cookie", func() {
-	It(
-		"Should hand the token to the transport instead of the body",
-		func(ctx SpecContext) {
-			fctx := requestCtx(ctx)
-			res := MustSucceed(apiSvc.CreateSession(fctx, apiauth.SessionCreateRequest{
-				Proof:  passwordProof(creds.Username, creds.Password),
-				Cookie: true,
-			}))
-			Expect(res.Token).To(BeEmpty())
-			v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
-			cookie, ok := v.(apiauth.SessionCookie)
-			Expect(ok).To(BeTrue())
-			Expect(cookie.Token).To(HavePrefix("sys_"))
-			Expect(cookie.Lifetime).To(Equal(authSvc.IdleTimeout()))
-			Expect(MustSucceed(apiSvc.RenewSession(
-				authed(ctx, cookie.Token),
-				struct{}{},
-			)).Session.Key).To(Equal(res.Session.Key))
-		},
-	)
-	It(
-		"Should ask the transport to refresh the cookie on every unary request",
-		func(ctx SpecContext) {
-			created := MustSucceed(apiSvc.CreateSession(
-				requestCtx(ctx),
-				apiauth.SessionCreateRequest{
-					Proof: passwordProof(creds.Username, creds.Password),
-				},
-			))
-			fctx := authed(ctx, created.Token)
-			Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).
-				To(Equal(apiauth.SessionCookie{Lifetime: authSvc.IdleTimeout()}))
-		},
-	)
-	It("Should ask the transport to clear the cookie on logout", func(ctx SpecContext) {
-		created := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{
-				Proof: passwordProof(creds.Username, creds.Password),
-			},
-		))
-		fctx := authed(ctx, created.Token)
-		MustSucceed(deleteSessions(fctx, apiauth.SessionDeleteRequest{
-			Keys: []auth.SessionKey{created.Session.Key},
+			IdleTimeout: time.Hour,
 		}))
-		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).
-			To(Equal(apiauth.SessionCookie{}))
-	})
-	It("Should keep the cookie when ending other sessions", func(ctx SpecContext) {
-		created := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{
-				Proof: passwordProof(creds.Username, creds.Password),
-			},
+		fctx := requestCtx(ctx)
+		Expect(apiauth.Deliver(fctx, svc, token, true)).To(BeEmpty())
+		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).To(Equal(
+			apiauth.SessionCookie{Token: token, Lifetime: time.Hour},
 		))
-		other := MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{
-				Proof: passwordProof(creds.Username, creds.Password),
-			},
-		))
-		fctx := authed(ctx, created.Token)
-		MustSucceed(deleteSessions(fctx, apiauth.SessionDeleteRequest{
-			Keys: []auth.SessionKey{other.Session.Key},
-		}))
-		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).
-			To(Equal(apiauth.SessionCookie{Lifetime: authSvc.IdleTimeout()}))
-	})
-})
-
-var _ = Describe("Sessions", func() {
-	var (
-		bob       user.User
-		bobToken  string
-		rootToken string
-	)
-	login := func(ctx context.Context, username, pwd string) apiauth.SessionCreateResponse {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
-		))
-	}
-	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken = login(ctx, bob.Name, "p").Token
-		rootToken = login(ctx, creds.Username, creds.Password).Token
-	})
-	Describe("RetrieveSessions", func() {
-		It("Should list the caller's own sessions by default", func(ctx SpecContext) {
-			res := MustSucceed(retrieveSessions(
-				authed(ctx, bobToken),
-				apiauth.SessionRetrieveRequest{},
-			))
-			Expect(res.Sessions).To(HaveLen(1))
-			Expect(res.Sessions[0].Subject).To(Equal(bob.ResourceID()))
-		})
-		It(
-			"Should let the owner list another subject's sessions",
-			func(ctx SpecContext) {
-				res := MustSucceed(retrieveSessions(
-					authed(ctx, rootToken),
-					apiauth.SessionRetrieveRequest{
-						Subjects: []resource.ID{bob.ResourceID()},
-					},
-				))
-				Expect(res.Sessions).To(HaveLen(1))
-				Expect(res.Sessions[0].Subject).To(Equal(bob.ResourceID()))
-			},
-		)
-		It(
-			"Should return an empty list for a subject with no sessions",
-			func(ctx SpecContext) {
-				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
-				res := MustSucceed(retrieveSessions(
-					authed(ctx, rootToken),
-					apiauth.SessionRetrieveRequest{
-						Subjects: []resource.ID{idle.ResourceID()},
-					},
-				))
-				Expect(res.Sessions).ToNot(BeNil())
-				Expect(res.Sessions).To(BeEmpty())
-			},
-		)
-		It(
-			"Should deny a user listing another subject's sessions",
-			func(ctx SpecContext) {
-				Expect(retrieveSessions(
-					authed(ctx, bobToken),
-					apiauth.SessionRetrieveRequest{
-						Subjects: []resource.ID{root.ResourceID()},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-			},
-		)
-	})
-	Describe("DeleteSessions", func() {
-		It("Should end the caller's own session", func(ctx SpecContext) {
-			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
-			Expect(deleteSessions(
-				authed(ctx, bobToken),
-				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(authSvc.Authenticate(ctx, bobToken)).Error().
-				To(MatchError(auth.ErrInvalidToken))
-		})
-		It(
-			"Should deny a user ending another subject's session",
-			func(ctx SpecContext) {
-				key := MustSucceed(authSvc.Authenticate(ctx, rootToken)).Key
-				Expect(deleteSessions(
-					authed(ctx, bobToken),
-					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
-				)).Error().To(MatchError(access.ErrDenied))
-				MustSucceed(authSvc.Authenticate(ctx, rootToken))
-			},
-		)
-		It(
-			"Should let a caller that may delete on a subject end its session",
-			func(ctx SpecContext) {
-				eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
-				engToken := login(ctx, eng.Name, "p").Token
-				key := MustSucceed(authSvc.Authenticate(ctx, engToken)).Key
-				grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
-				Expect(deleteSessions(
-					authed(ctx, bobToken),
-					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
-				)).Error().ToNot(HaveOccurred())
-				Expect(authSvc.Authenticate(ctx, engToken)).Error().
-					To(MatchError(auth.ErrInvalidToken))
-			},
-		)
-		It("Should let the owner end another subject's session", func(ctx SpecContext) {
-			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
-			Expect(deleteSessions(
-				authed(ctx, rootToken),
-				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(authSvc.Authenticate(ctx, bobToken)).Error().
-				To(MatchError(auth.ErrInvalidToken))
-		})
-		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(deleteSessions(
-				authed(ctx, bobToken),
-				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{uuid.New()}},
-			)).Error().ToNot(HaveOccurred())
-		})
 	})
 })
