@@ -19,16 +19,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // ungrouping is the plan of an ungroup and what applying it moves.
 type ungrouping struct {
 	// plan lists each tombstone that drops, with no token.
 	plan Plan
-	// groups are the groups that the ungroup deletes, sorted by key.
+	// groups are the groups that the ungroup deletes, sorted by key, each with the
+	// parent
+	// that takes its children.
 	groups []group.Group
-	// moves maps each of groups to its parent group, or to nil.
+	// moves maps each of groups to the group that takes its children, or to nil.
 	moves map[group.Key]*group.Key
 }
 
@@ -75,8 +76,8 @@ func (s *Service) planUngroup(
 	return u, nil
 }
 
-// ungrouped fills the groups and moves of u and returns each group's name by key. A
-// group whose parent is among keys fails with a validation error.
+// ungrouped fills the groups and moves of u and returns each group's name by key. The
+// children of a group go to the parent of its outermost ancestor among keys.
 func (s *Service) ungrouped(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -92,31 +93,43 @@ func (s *Service) ungrouped(
 	slices.SortFunc(u.groups, func(a, b group.Group) int {
 		return compareGroups(a.Key, b.Key)
 	})
-	u.moves = make(map[group.Key]*group.Key, len(u.groups))
+	byKey := make(map[group.Key]group.Group, len(u.groups))
 	names := make(map[group.Key]string, len(u.groups))
 	for _, g := range u.groups {
-		u.moves[g.Key] = nil
+		byKey[g.Key] = g
 		names[g.Key] = g.Name
 	}
-	for _, g := range u.groups {
-		if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
-			continue
-		}
-		parent, err := group.KeyFromResourceID(*g.Parent)
+	u.moves = make(map[group.Key]*group.Key, len(u.groups))
+	for i, g := range u.groups {
+		parent, to, err := outerParent(g, byKey)
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := names[parent]; ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot ungroup %s and %s, which holds it, in one change",
-				g.Name,
-				names[parent],
-			)
-		}
-		u.moves[g.Key] = &parent
+		u.groups[i].Parent = parent
+		u.moves[g.Key] = to
 	}
 	return names, nil
+}
+
+// outerParent returns the parent of the outermost ancestor of g in ungrouped, or of g
+// when its parent is not in ungrouped, with that parent's group key, or nil when the
+// parent is not a group.
+func outerParent(
+	g group.Group,
+	ungrouped map[group.Key]group.Group,
+) (*resource.ID, *group.Key, error) {
+	for g.Parent != nil && g.Parent.Type == resource.TypeGroup {
+		k, err := group.KeyFromResourceID(*g.Parent)
+		if err != nil {
+			return nil, nil, err
+		}
+		outer, ok := ungrouped[k]
+		if !ok {
+			return g.Parent, &k, nil
+		}
+		g = outer
+	}
+	return g.Parent, nil, nil
 }
 
 // ungroupGroups applies c, the ungroup of the groups with keys, as Apply describes.
