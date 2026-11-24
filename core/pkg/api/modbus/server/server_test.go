@@ -51,10 +51,13 @@ var _ = Describe("Service", func() {
 			Rack:       svc.Rack.EmbeddedKey,
 			Name:       "PLC-" + uuid.New().String(),
 			Connection: tcp("plc"),
-			Requests: server.Requests{
-				MaxRegisters: 125,
-				MaxGap:       125,
-				WriteCodes:   server.WriteCodesMultiple,
+			RequestPolicy: server.RequestPolicy{
+				MaxReadRegisters:  125,
+				MaxWriteRegisters: 123,
+				MaxReadBits:       2000,
+				MaxWriteBits:      1968,
+				MaxGap:            125,
+				WriteFunction:     server.WriteFunctionMultiple,
 			},
 		}
 		for _, override := range overrides {
@@ -348,10 +351,10 @@ var _ = Describe("Service", func() {
 				Key: s.Key,
 				Update: server.Update{Variant: server.IdentityUpdate{
 					Identity: server.Identity{
-						Rack:       s.Rack,
-						Name:       "Renamed",
-						Connection: s.Connection,
-						Requests:   s.Requests,
+						Rack:          s.Rack,
+						Name:          "Renamed",
+						Connection:    s.Connection,
+						RequestPolicy: s.RequestPolicy,
 					},
 				}},
 			}
@@ -362,8 +365,7 @@ var _ = Describe("Service", func() {
 				s.Reads = []server.Read{
 					{
 						Register: server.Register{
-							Type:    server.RegisterTypeCoil,
-							Address: 5,
+							Variant: server.CoilRegister{Address: 5},
 						},
 						Index:   1,
 						Channel: 2,
@@ -386,13 +388,14 @@ var _ = Describe("Service", func() {
 					Key: s.Key,
 					Update: server.Update{Variant: server.ConfigurationUpdate{
 						Configuration: server.Configuration{
-							Writes: []server.Write{{
-								Register: server.Register{
-									Type:    server.RegisterTypeCoil,
-									Address: 1,
+							Writes: []server.Write{
+								{
+									Register: server.Register{
+										Variant: server.CoilRegister{Address: 1},
+									},
+									Channel: 2,
 								},
-								Channel: 2,
-							}},
+							},
 						},
 					}},
 				},
@@ -420,10 +423,10 @@ var _ = Describe("Service", func() {
 				Key: s.Key,
 				Update: server.Update{Variant: server.IdentityUpdate{
 					Identity: server.Identity{
-						Rack:       other.Key,
-						Name:       s.Name,
-						Connection: s.Connection,
-						Requests:   s.Requests,
+						Rack:          other.Key,
+						Name:          s.Name,
+						Connection:    s.Connection,
+						RequestPolicy: s.RequestPolicy,
 					},
 				}},
 			}

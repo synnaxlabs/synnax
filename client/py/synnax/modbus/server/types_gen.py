@@ -371,6 +371,22 @@ WriteLocation = Annotated[
     Field(discriminator="table"),
 ]
 
+class Identity(BaseModel):
+    """Holds the server fields that the connect form owns.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        connection: Holds the settings that the Driver connects with.
+        request_policy: Limits and paces the requests that the Driver sends.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    connection: Connection
+    request_policy: RequestPolicy = Field(default_factory=lambda: RequestPolicy())
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -428,6 +444,18 @@ class Server(BaseModel):
         return hash(self.key)
 
 
+class Configuration(BaseModel):
+    """Holds the server fields that the task forms own.
+
+    Attributes:
+        reads: Bind the values that read tasks read to their channels.
+        writes: Bind the values that write tasks write to their command channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
+
+
 class RetrieveResponse(BaseModel):
     """Holds the servers a RetrieveRequest selects.
 
@@ -436,6 +464,27 @@ class RetrieveResponse(BaseModel):
     """
 
     servers: list[Server] = Field(default_factory=list)
+
+
+class IdentityUpdate(Identity):
+    """Writes the rack, name, connection, and request policy of the server."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the channel maps of the server. A client sends the whole group, because
+    a field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a server.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 Where.model_rebuild()

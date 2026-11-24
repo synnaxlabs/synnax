@@ -58,10 +58,10 @@ var _ = Describe("Service", func() {
 
 	newServer := func() server.Server {
 		return server.Server{
-			Rack:       rackSvc.EmbeddedKey,
-			Name:       "Boiler PLC",
-			Connection: tcp("boiler"),
-			Requests:   requests(),
+			Rack:          rackSvc.EmbeddedKey,
+			Name:          "Boiler PLC",
+			Connection:    tcp("boiler"),
+			RequestPolicy: requestPolicy(),
 		}
 	}
 	create := func(ctx context.Context) server.Server {
@@ -90,10 +90,10 @@ var _ = Describe("Service", func() {
 	}
 	identity := func(s server.Server) server.Identity {
 		return server.Identity{
-			Rack:       s.Rack,
-			Name:       s.Name,
-			Connection: s.Connection,
-			Requests:   s.Requests,
+			Rack:          s.Rack,
+			Name:          s.Name,
+			Connection:    s.Connection,
+			RequestPolicy: s.RequestPolicy,
 		}
 	}
 
@@ -182,6 +182,57 @@ var _ = Describe("Service", func() {
 			Entry("two writes of one register", func(s *server.Server) {
 				s.Writes = []server.Write{write(1, 2), write(1, 3)}
 			}),
+			Entry("a host with a path", func(s *server.Server) {
+				s.Connection = tcp("plc/1")
+			}),
+			Entry("a host that ends in a number", func(s *server.Server) {
+				s.Connection = tcp("10.0.0.256")
+			}),
+			Entry("a gap wider than one read", func(s *server.Server) {
+				s.RequestPolicy.MaxReadRegisters = 10
+				s.RequestPolicy.MaxGap = 11
+			}),
+			Entry("a write to a discrete input", func(s *server.Server) {
+				s.Writes = []server.Write{{
+					Register: server.Register{
+						Variant: server.DiscreteInputRegister{Address: 1},
+					},
+					Channel: 2,
+				}}
+			}),
+			Entry("a write of a string", func(s *server.Server) {
+				s.Writes = []server.Write{{
+					Register: server.Register{Variant: server.HoldingRegisterRegister{
+						Address: 1,
+						Value:   server.Value{Variant: server.StringValue{Length: 4}},
+					}},
+					Channel: 2,
+				}}
+			}),
+		)
+
+		DescribeTable("Should accept a host",
+			func(ctx SpecContext, host string) {
+				s := newServer()
+				s.Connection = tcp(host)
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			},
+			Entry("hostname", "plc-1.plant.local"),
+			Entry("IPv4", "10.0.0.5"),
+			Entry("IPv6", "fe80::1"),
+		)
+
+		It("Should accept two reads of one address as different values",
+			func(ctx SpecContext) {
+				s := newServer()
+				bit := read(5, 1, 3)
+				bit.Register = server.Register{Variant: server.HoldingRegisterRegister{
+					Address: 5,
+					Value:   server.Value{Variant: server.BitValue{Bit: 2}},
+				}}
+				s.Reads = []server.Read{read(5, 1, 2), bit}
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			},
 		)
 	})
 
@@ -195,14 +246,14 @@ var _ = Describe("Service", func() {
 			update := identity(s)
 			update.Name = "Renamed"
 			update.Connection = rtu(9600)
-			update.Requests.Delay = 10 * telem.Millisecond
+			update.RequestPolicy.Delay = 10 * telem.Millisecond
 			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
 				Variant: server.IdentityUpdate{Identity: update},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Connection).To(Equal(rtu(9600)))
-			Expect(got.Requests.Delay).To(Equal(10 * telem.Millisecond))
+			Expect(got.RequestPolicy.Delay).To(Equal(10 * telem.Millisecond))
 			Expect(got.Reads).To(Equal(s.Reads))
 			Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Renamed"))
 		})
@@ -220,7 +271,7 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, s.Key)
 			Expect(got.Name).To(Equal(s.Name))
 			Expect(got.Connection).To(Equal(s.Connection))
-			Expect(got.Requests).To(Equal(s.Requests))
+			Expect(got.RequestPolicy).To(Equal(s.RequestPolicy))
 			Expect(got.Reads).To(Equal([]server.Read{read(1, 1, 2)}))
 			Expect(got.Writes).To(Equal([]server.Write{write(2, 3)}))
 		})

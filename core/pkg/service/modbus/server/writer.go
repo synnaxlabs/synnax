@@ -11,9 +11,13 @@ package server
 
 import (
 	"context"
+	"net"
+	"regexp"
 	"strconv"
+	"strings"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -28,28 +32,88 @@ import (
 type registerKey struct {
 	typ      RegisterType
 	address  uint16
+	value    ValueType
 	dataType DataType
-	bit      int
+	bit      uint8
+	length   uint16
 }
 
 func keyOf(r Register) registerKey {
-	k := registerKey{typ: r.Type, address: r.Address, bit: -1}
-	if r.DataType != nil {
-		k.dataType = *r.DataType
+	var k registerKey
+	var value Value
+	switch v := r.Variant.(type) {
+	case CoilRegister:
+		k.typ, k.address = CoilRegisterType, v.Address
+	case DiscreteInputRegister:
+		k.typ, k.address = DiscreteInputRegisterType, v.Address
+	case HoldingRegisterRegister:
+		k.typ, k.address, value = HoldingRegisterRegisterType, v.Address, v.Value
+	case InputRegisterRegister:
+		k.typ, k.address, value = InputRegisterRegisterType, v.Address, v.Value
 	}
-	if r.Bit != nil {
-		k.bit = int(*r.Bit)
+	switch v := value.Variant.(type) {
+	case WholeValue:
+		k.value, k.dataType = WholeValueType, v.DataType
+	case BitValue:
+		k.value, k.bit = BitValueType, v.Bit
+	case StringValue:
+		k.value, k.length = StringValueType, v.Length
 	}
 	return k
 }
 
-// validateServer checks s against its schema. It also checks that no two reads share a
-// register and an index, and that no two writes share a register.
+// hostLabel matches one label of a hostname.
+var hostLabel = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)
+
+// isHost returns true if host is an IP address or a hostname whose last label is not
+// all digits.
+func isHost(host string) bool {
+	if net.ParseIP(host) != nil {
+		return true
+	}
+	labels := strings.Split(host, ".")
+	if len(host) > 253 || strings.Trim(labels[len(labels)-1], "0123456789") == "" {
+		return false
+	}
+	return lo.EveryBy(labels, hostLabel.MatchString)
+}
+
+// isWritable returns true if write tasks can set the register: a coil, or a whole value
+// or bit of a holding register.
+func isWritable(r Register) bool {
+	switch v := r.Variant.(type) {
+	case CoilRegister:
+		return true
+	case HoldingRegisterRegister:
+		_, isString := v.Value.Variant.(StringValue)
+		return !isString
+	default:
+		return false
+	}
+}
+
+// validateServer checks s against its schema. It also checks that a TCP host is a
+// hostname or an IP address, that max_gap is at most max_read_registers, that no two
+// reads share a register and an index, and that each write sets a writable register
+// that no other write sets.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
 	v := validate.New("Server")
+	if tcp, ok := s.Connection.Variant.(TcpConnection); ok {
+		v.Ternary(
+			"connection.host",
+			!isHost(tcp.Host),
+			"must be a hostname, an IPv4 address, or an IPv6 address",
+		)
+	}
+	v.Ternaryf(
+		"request_policy.max_gap",
+		s.RequestPolicy.MaxGap > s.RequestPolicy.MaxReadRegisters,
+		"must be at most max_read_registers (%d)",
+		s.RequestPolicy.MaxReadRegisters,
+	)
 	type readKey struct {
 		register registerKey
 		index    channel.Key
@@ -66,12 +130,14 @@ func validateServer(s Server) error {
 	}
 	writes := set.New[registerKey]()
 	for i, w := range s.Writes {
-		k := keyOf(w.Register)
+		path := "writes." + strconv.Itoa(i)
 		v.Ternary(
-			"writes."+strconv.Itoa(i),
-			writes.Contains(k),
-			"repeats the register of another write",
+			path+".register",
+			!isWritable(w.Register),
+			"must be a coil, or a whole value or bit of a holding register",
 		)
+		k := keyOf(w.Register)
+		v.Ternary(path, writes.Contains(k), "repeats the register of another write")
 		writes.Add(k)
 	}
 	return v.Error()

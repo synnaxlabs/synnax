@@ -56,28 +56,32 @@ func rtu(baud server.BaudRate) server.Connection {
 		SerialPort: "/dev/ttyUSB0",
 		BaudRate:   baud,
 		Parity:     server.ParityEven,
-		StopBits:   1,
+		StopBits:   server.StopBitsOne,
 		UnitID:     1,
 	}}
 }
 
-// requests returns the schema defaults of the requests of a server.
-func requests() server.Requests {
-	return server.Requests{
-		MaxRegisters: 125,
-		MaxGap:       125,
-		WriteCodes:   server.WriteCodesMultiple,
+// requestPolicy returns the schema defaults of the request policy of a server.
+func requestPolicy() server.RequestPolicy {
+	return server.RequestPolicy{
+		MaxReadRegisters:  125,
+		MaxWriteRegisters: 123,
+		MaxReadBits:       2000,
+		MaxWriteBits:      1968,
+		MaxGap:            125,
+		WriteFunction:     server.WriteFunctionMultiple,
 	}
 }
 
 // read binds a float32 holding register at address to channel under index.
 func read(address uint16, index, ch channel.Key) server.Read {
 	return server.Read{
-		Register: server.Register{
-			Type:     server.RegisterTypeHoldingRegister,
-			Address:  address,
-			DataType: new(server.DataTypeFloat32),
-		},
+		Register: server.Register{Variant: server.HoldingRegisterRegister{
+			Address: address,
+			Value: server.Value{
+				Variant: server.WholeValue{DataType: server.DataTypeFloat32},
+			},
+		}},
 		Index:   index,
 		Channel: ch,
 	}
@@ -86,7 +90,7 @@ func read(address uint16, index, ch channel.Key) server.Read {
 // write binds the coil at address to channel.
 func write(address uint16, ch channel.Key) server.Write {
 	return server.Write{
-		Register: server.Register{Type: server.RegisterTypeCoil, Address: address},
+		Register: server.Register{Variant: server.CoilRegister{Address: address}},
 		Channel:  ch,
 	}
 }

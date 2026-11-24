@@ -109,7 +109,7 @@ TEST(Update, RoundTripsGroup) {
     const auto &got = std::get<IdentityUpdate>(parsed);
     ASSERT_EQ(got.name, "PLC");
     ASSERT_EQ(std::get<TcpConnection>(got.connection).port, 502);
-    ASSERT_EQ(got.requests.max_registers, 125);
+    ASSERT_EQ(got.request_policy.max_read_registers, 125);
 }
 
 /// @brief it should apply the defaults of a configuration update.

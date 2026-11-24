@@ -91,7 +91,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			s.Rack = v.Rack
 			s.Name = v.Name
 			s.Connection = v.Connection
-			s.Requests = v.Requests
+			s.RequestPolicy = v.RequestPolicy
 			return s, nil
 		})
 	case ConfigurationUpdate:

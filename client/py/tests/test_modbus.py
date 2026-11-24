@@ -1207,7 +1207,7 @@ class TestModbusServerResource:
             }
         )
         assert isinstance(identity, sy.modbus.server.IdentityUpdate)
-        assert identity.requests.max_registers == 125
+        assert identity.request_policy.max_read_registers == 125
         configuration = adapter.validate_python({"group": "configuration"})
         assert isinstance(configuration, sy.modbus.server.ConfigurationUpdate)
         assert configuration.reads == []

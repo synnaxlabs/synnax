@@ -265,13 +265,13 @@ type Identity struct {
 	Name string `json:"name" msgpack:"name"`
 	// Connection holds the settings that the Driver connects with.
 	Connection Connection `json:"connection" msgpack:"connection"`
-	// Requests shapes the requests that the Driver sends.
-	Requests Requests `json:"requests" msgpack:"requests"`
+	// RequestPolicy limits and paces the requests that the Driver sends.
+	RequestPolicy RequestPolicy `json:"request_policy" msgpack:"request_policy"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (i *Identity) SetDefaults() {
-	i.Requests.SetDefaults()
+	i.RequestPolicy.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -281,7 +281,7 @@ func (i Identity) Validate() error {
 	v.NonZero("rack", i.Rack)
 	v.NotEmptyString("name", i.Name)
 	v.Exec(func() error { return validate.PathedError(i.Connection.Validate(), "connection") })
-	v.Exec(func() error { return validate.PathedError(i.Requests.Validate(), "requests") })
+	v.Exec(func() error { return validate.PathedError(i.RequestPolicy.Validate(), "request_policy") })
 	return v.Error()
 }
 
@@ -310,7 +310,8 @@ func (c Configuration) Validate() error {
 type UpdateType string
 
 const (
-	// IdentityUpdateType writes the rack, name, connection, and requests of the server.
+	// IdentityUpdateType writes the rack, name, connection, and request policy of the
+	// server.
 	IdentityUpdateType UpdateType = "identity"
 	// ConfigurationUpdateType replaces the channel maps of the server. A client sends
 	// the whole group, because a field it leaves out is cleared.
@@ -322,7 +323,7 @@ type UpdateVariant interface {
 	isUpdateVariant()
 }
 
-// IdentityUpdate writes the rack, name, connection, and requests of the server.
+// IdentityUpdate writes the rack, name, connection, and request policy of the server.
 type IdentityUpdate struct {
 	Identity
 }

@@ -24,10 +24,10 @@ import (
 var _ = Describe("Update", func() {
 	identity := server.Update{Variant: server.IdentityUpdate{
 		Identity: server.Identity{
-			Rack:       1,
-			Name:       "Boiler PLC",
-			Connection: rtu(9600),
-			Requests:   requests(),
+			Rack:          1,
+			Name:          "Boiler PLC",
+			Connection:    rtu(9600),
+			RequestPolicy: requestPolicy(),
 		},
 	}}
 	configuration := server.Update{Variant: server.ConfigurationUpdate{
@@ -126,7 +126,7 @@ var _ = Describe("Update", func() {
 				Port:    502,
 				UnitID:  255,
 			}},
-			Requests: requests(),
+			RequestPolicy: requestPolicy(),
 		}
 		Expect(got.Variant).To(Equal(server.IdentityUpdate{Identity: expected}))
 	})

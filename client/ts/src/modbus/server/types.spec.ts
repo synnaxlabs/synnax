@@ -226,7 +226,7 @@ describe("updateZ", () => {
     expect(update.group).toEqual("identity");
     if (update.group !== "identity") return;
     expect(update.connection.timeout).toEqual(1000000000);
-    expect(update.requests.maxRegisters).toEqual(125);
+    expect(update.requestPolicy.maxReadRegisters).toEqual(125);
   });
 
   it("should parse a configuration update and apply its defaults", () => {
