@@ -462,9 +462,10 @@ describe("resolveParams finding the file of Synnax Desktop", () => {
       { XDG_CONFIG_HOME: "/xdg" },
       "~/Library/Application Support/Synnax/desktop.json",
     ],
-    ["win32", {}, "~\\AppData\\Roaming\\Synnax\\desktop.json"],
-    ["win32", { APPDATA: "D:\\Roaming" }, "D:\\Roaming\\Synnax\\desktop.json"],
-    ["win32", { APPDATA: "Roaming" }, "~\\AppData\\Roaming\\Synnax\\desktop.json"],
+    ["win32", {}, "~\\AppData\\Local\\Synnax\\desktop.json"],
+    ["win32", { LOCALAPPDATA: "D:\\Local" }, "D:\\Local\\Synnax\\desktop.json"],
+    ["win32", { LOCALAPPDATA: "Local" }, "~\\AppData\\Local\\Synnax\\desktop.json"],
+    ["win32", { APPDATA: "D:\\Roaming" }, "~\\AppData\\Local\\Synnax\\desktop.json"],
     ["linux", {}, "~/.synnax/desktop.json"],
     ["darwin", {}, "~/.synnax/desktop.json"],
     ["win32", {}, "~\\.synnax\\desktop.json"],
@@ -520,12 +521,12 @@ describe("resolveParams finding the file of Synnax Desktop", () => {
       vi.stubEnv("USERPROFILE", home);
       try {
         const vars = {
-          APPDATA: join(home, "AppData", "Roaming"),
+          LOCALAPPDATA: join(home, "AppData", "Local"),
           XDG_CONFIG_HOME: join(home, ".config"),
         };
         const dir =
           {
-            win32: join(vars.APPDATA, "Synnax"),
+            win32: join(vars.LOCALAPPDATA, "Synnax"),
             darwin: join(home, "Library", "Application Support", "Synnax"),
           }[process.platform as string] ?? join(vars.XDG_CONFIG_HOME, "synnax");
         const write = (d: string, port: number): void => {

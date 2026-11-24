@@ -105,7 +105,7 @@ describe("constructor", () => {
     const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
-    vi.stubEnv("APPDATA", join(home, "AppData", "Roaming"));
+    vi.stubEnv("LOCALAPPDATA", join(home, "AppData", "Local"));
     vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     try {
       expect(() => new Synnax()).toThrow(ValidationError);

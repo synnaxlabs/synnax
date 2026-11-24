@@ -147,7 +147,7 @@ const desktopFiles = (env: Env, platform: string): string[] => {
   };
   if (platform === "win32")
     return [
-      `${dir("APPDATA", "~\\AppData\\Roaming")}\\Synnax\\desktop.json`,
+      `${dir("LOCALAPPDATA", "~\\AppData\\Local")}\\Synnax\\desktop.json`,
       "~\\.synnax\\desktop.json",
     ];
   const current =
