@@ -606,22 +606,7 @@ func openTS(
 			cfg.TSEngine,
 		)
 	}
-	opts := []cesium.Option{
-		cesium.WithFS(fs),
-		cesium.WithInstrumentation(cfg.Child("ts")),
-	}
-	if cfg.Clock != nil {
-		opts = append(opts, cesium.WithClock(cfg.Clock))
-	}
-	if cfg.Random != nil {
-		opts = append(opts, cesium.WithRandom(cfg.Random))
-	}
-	if cfg.Executor != nil {
-		opts = append(opts, cesium.WithExecutor(cfg.Executor))
-	}
-	if cfg.PartSize != 0 {
-		opts = append(opts, cesium.WithPartSize(cfg.PartSize))
-	}
+	opts := tsOptions(cfg, fs)
 	dir := filepath.Join(cfg.Dirname, cesiumDir)
 	if !*cfg.PointerLogEnabled {
 		return cesium.Open(ctx, dir, opts...)
@@ -645,6 +630,27 @@ func openTS(
 		return nil, errors.Combine(err, db.Close())
 	}
 	return db, nil
+}
+
+// tsOptions returns the options of Cesium on fs that cfg sets.
+func tsOptions(cfg LayerConfig, fs xfs.FS) []cesium.Option {
+	opts := []cesium.Option{
+		cesium.WithFS(fs),
+		cesium.WithInstrumentation(cfg.Child("ts")),
+	}
+	if cfg.Clock != nil {
+		opts = append(opts, cesium.WithClock(cfg.Clock))
+	}
+	if cfg.Random != nil {
+		opts = append(opts, cesium.WithRandom(cfg.Random))
+	}
+	if cfg.Executor != nil {
+		opts = append(opts, cesium.WithExecutor(cfg.Executor))
+	}
+	if cfg.PartSize != 0 {
+		opts = append(opts, cesium.WithPartSize(cfg.PartSize))
+	}
+	return opts
 }
 
 // readTSIdentity returns the identity of the Cesium database that meta holds, or 0 when

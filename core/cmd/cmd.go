@@ -20,10 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/purge"
+	"github.com/synnaxlabs/synnax/cmd/repair"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/cmd/update"
 	"github.com/synnaxlabs/synnax/cmd/version"
 	"github.com/synnaxlabs/synnax/pkg/release"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	pkgversion "github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -55,6 +57,11 @@ func NewCmd() *cobra.Command {
 		start.NewCmd(),
 		update.NewCmd(release.DefaultConfig),
 		purge.NewCmd(pkgversion.Get(), instrumentation.Configure),
+		repair.NewCmd(
+			pkgversion.Get(),
+			instrumentation.Configure,
+			storage.LayerConfig{},
+		),
 	)
 	root.AddCommand(serviceCmds()...)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {

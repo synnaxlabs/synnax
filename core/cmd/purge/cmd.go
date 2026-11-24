@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -90,10 +89,8 @@ func run(
 		return err
 	}
 	// Only a start of vsn keeps data, and a purge must not start an update.
-	if !version.IsDev(vsn) {
-		if err = checkVersion(ins, dir, vsn); err != nil {
-			return err
-		}
+	if err = storage.CheckOpenedLast(ins, dir, vsn, "the purge"); err != nil {
+		return err
 	}
 	layer, err := storage.OpenLayer(ctx, storage.LayerConfig{
 		Instrumentation: ins,
@@ -134,28 +131,6 @@ func run(
 			"channel records from a backup.",
 	)
 	return err
-}
-
-func checkVersion(ins alamos.Instrumentation, dir, vsn string) error {
-	backups, err := storage.NewBackups(
-		storage.BackupsConfig{Instrumentation: ins, Dirname: dir},
-	)
-	if err != nil {
-		return err
-	}
-	state, err := backups.UpdateState(vsn)
-	if err != nil {
-		return err
-	}
-	if state != storage.UpdateCommitted {
-		return errors.Newf(
-			"Core %s did not open the data last. Start Core %s on the data, stop it, "+
-				"and run the purge again.",
-			vsn,
-			vsn,
-		)
-	}
-	return nil
 }
 
 // channels names keys as prose: "channel 12", "channels 12 and 13", or "channels 12,
