@@ -462,6 +462,25 @@ describe("connect", () => {
     await client.close();
   });
 
+  it("should recover from an auth failure by resuming another client's session", async () => {
+    const other = createTestClient();
+    await other.connect();
+    const token = other.auth.token;
+    if (token == null) throw new Error("not logged in");
+    const client = createTestClient({ password: "definitely-wrong" });
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
+    client.resume(token);
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    expect(client.auth.token).toEqual(token);
+    expect(client.auth.session?.key).toEqual(other.auth.session?.key);
+    await client.close();
+    // a resumed session stays open for the client that opened it
+    expect((await other.connect()).variant).toEqual("success");
+    await other.close();
+  });
+
   it("should reject bad credentials without a change stream", async () => {
     const client = createTestClient({ password: "definitely-wrong", cache: false });
     await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);

@@ -13,12 +13,14 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 
-import { deleteToken, writeToken } from "@/platform/core/token";
+import { deleteToken, readToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
  * Keeps the keychain in step with the connection: saves the session token once the
- * Core accepts it and forgets it once the Core rejects it. On the web, where the
+ * Core accepts it and forgets it once the Core rejects it. When the keychain holds a
+ * newer token, such as one another window saved after its user set their own password,
+ * the client resumes that session instead. On the web, where the
  * session lives in a cookie, it instead removes a spent OpenID Connect code from the
  * Core's record once the cookie holds the session, so no later client logs in with it.
  * Renders nothing.
@@ -51,8 +53,12 @@ export const TokenKeeper = (): null => {
   // old rejection or save over the token that login just saved
   const handledRejection = useRef<typeof status>(undefined);
   const savedToken = useRef<string>(undefined);
+  // the last token this client held, to tell a rejected token from a newer saved one
+  const held = useRef<{ client: Client; token: string }>(undefined);
   useEffect(() => {
     if (core == null) return;
+    if (client != null && token != null && token !== "")
+      held.current = { client, token };
     if (Session.Runtime.ENGINE !== "tauri") {
       // a cookie session has an empty token. Only a cookie keeps the session for the
       // client that replaces this one; a Core on another origin keeps it here alone.
@@ -60,10 +66,19 @@ export const TokenKeeper = (): null => {
         dispatch(Session.Core.set({ ...core, oidc: undefined }));
       return;
     }
-    if (rejected) {
+    if (rejected && client != null) {
       if (handledRejection.current === status) return;
       handledRejection.current = status;
-      handleError(async () => await deleteToken(core), "Failed to forget the session");
+      const last = held.current?.client === client ? held.current.token : undefined;
+      handleError(async () => {
+        const saved = await readToken(core);
+        if (saved == null || saved === last) {
+          await deleteToken(core);
+          return;
+        }
+        held.current = { client, token: saved };
+        client.resume(saved);
+      }, "Failed to forget the session");
     } else if (token != null && token !== "" && savedToken.current !== token) {
       savedToken.current = token;
       handleError(async () => {
@@ -76,6 +91,6 @@ export const TokenKeeper = (): null => {
         }
       }, "Failed to save the session");
     }
-  }, [core, rejected, status, token, handleError]);
+  }, [client, core, rejected, status, token, handleError]);
   return null;
 };
