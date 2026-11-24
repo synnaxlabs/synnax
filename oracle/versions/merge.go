@@ -648,9 +648,8 @@ func (x *liveExtractor) text(ctx antlr.ParserRuleContext) string {
 	return string(x.runes[ctx.GetStart().GetStart() : ctx.GetStop().GetStop()+1])
 }
 
-// liveOwned passes each live-owned expression line of d to add and records a @doc or
-//
-//	@resource	on path.
+// liveOwned passes each live-owned expression line of d to add, and records on path
+// whether d is a doc or a resource type.
 func (x *liveExtractor) liveOwned(d domainNode, path string, add func(line string)) {
 	name := d.IDENT().GetText()
 	switch name {
