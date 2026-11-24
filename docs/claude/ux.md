@@ -921,8 +921,8 @@ says why in a sentence, then gives the raw error.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
   cut by the plot edge has square corners and fades out over 40 px, and the name stays
   at the edge. A fade means only "more of this range is outside the view".
-- The time sits at the bar's end with tabular digits: `T+h:mm:ss` for a running range,
-  and the short length (`10min`) for any other. The name gets the room first.
+- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
+  the short length (`10min`) for any other. The name gets the room first.
 - A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
   cap in the range color that bends around the corners, with a glow that pulses every
   1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a
