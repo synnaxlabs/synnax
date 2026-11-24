@@ -319,11 +319,13 @@ var _ = Describe("Service", func() {
 				Eventually(withDown.Logins).Should(Equal([]oidc.Login{
 					{
 						Provider:              "b",
+						Issuer:                provider.Issuer(),
 						AuthorizationEndpoint: provider.Issuer() + "/authorize",
 						ClientID:              "b-client",
 					},
 					{
 						Provider:              "c",
+						Issuer:                provider.Issuer(),
 						AuthorizationEndpoint: provider.Issuer() + "/authorize",
 						ClientID:              "c-client",
 					},

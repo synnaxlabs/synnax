@@ -34,6 +34,7 @@ import (
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -1490,7 +1491,7 @@ var _ = Describe("Writer", func() {
 					)
 					Expect(
 						fr.Get(uint32(kept)).Series[0],
-					).To(telem.MatchSeriesDataV(
+					).To(MatchSeriesDataV(
 						10*telem.SecondTS,
 						11*telem.SecondTS,
 						12*telem.SecondTS,

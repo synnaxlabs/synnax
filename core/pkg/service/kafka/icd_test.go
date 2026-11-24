@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -74,6 +73,29 @@ func bind(m icd.Message, i int, ch channel.Channel) icd.ReadBinding {
 	return icd.ReadBinding{Field: fieldKey(m, i), Channel: ch.Key()}
 }
 
+// command returns the binding that fills field i of m with the commands of ch.
+func command(m icd.Message, i int, ch channel.Channel) icd.WriteBinding {
+	return icd.WriteBinding{Variant: icd.ChannelWriteBinding{
+		WriteBaseBinding: icd.WriteBaseBinding{Field: fieldKey(m, i)},
+		Channel:          ch.Key(),
+	}}
+}
+
+// writeTarget returns the target that produces m of ic to topic through bindings.
+func writeTarget(
+	topic string,
+	ic icd.ICD,
+	m icd.Message,
+	bindings ...icd.WriteBinding,
+) kafka.WriteTarget {
+	return kafka.WriteTarget{
+		Key:     "t-" + topic,
+		Topic:   topic,
+		ICD:     ic.Key,
+		Message: icd.WriteMessage{Message: m.Key, Bindings: bindings},
+	}
+}
+
 // lift moves records, which hold their fields inline, into a new ICD with one message
 // for each record, as a write of a config from before ICDs does.
 func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord {
@@ -81,7 +103,12 @@ func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord
 	cfg := kafka.ReadConfig{Inline: &kafka.InlineRead{Records: records}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		old, _, err := v1.ResolveReadConfig(
-			ctx, tx, channels, "Plant", &cfg, func(string, string) {},
+			ctx,
+			tx,
+			icd.ReadChannels(channelSvc),
+			"Plant",
+			&cfg,
+			func(string, string) {},
 		)
 		if err != nil {
 			return err
@@ -98,23 +125,4 @@ func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord
 // oneTopic returns the topics of a task that reads records from the topic name.
 func oneTopic(name string, records []kafka.ReadRecord) []kafka.ReadTopic {
 	return []kafka.ReadTopic{{Name: name, Records: records}}
-}
-
-// channels returns the channels among keys, read through snap.
-func channels(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	keys []channel.Key,
-) (map[channel.Key]v1.Channel, error) {
-	var found []channel.Channel
-	if err := channelSvc.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	return lo.SliceToMap(found, func(c channel.Channel) (channel.Key, v1.Channel) {
-		return c.Key(), v1.Channel{Name: c.Name, DataType: c.DataType, Index: c.IsIndex}
-	}), nil
 }

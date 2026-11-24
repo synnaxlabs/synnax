@@ -43,6 +43,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   telem?: CanDisabledProps<Telem.ProviderProps>;
   color?: Color.ProviderProps;
   staleness?: Staleness.ProviderProps;
+  code?: Code.ProviderProps;
 }
 
 export const Provider = ({
@@ -58,6 +59,7 @@ export const Provider = ({
   telem,
   color,
   staleness,
+  code,
 }: ProviderProps): ReactElement => (
   // The drag preview renders beside the children of Haul.Provider, so motion wraps it.
   <Custom.MotionProvider>
@@ -74,7 +76,7 @@ export const Provider = ({
                 <Synnax.Provider connParams={connParams}>
                   <Theming.Provider {...theming}>
                     <Color.Provider {...color}>
-                      <Code.Provider languages={ARC_LANGUAGES}>
+                      <Code.Provider languages={ARC_LANGUAGES} {...code}>
                         <CanDisableTelem {...telem}>
                           <Staleness.Provider {...staleness}>
                             <Control.Colors>{children}</Control.Colors>

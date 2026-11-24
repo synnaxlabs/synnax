@@ -41,7 +41,7 @@ const Name = ({ onCreated }: NameProps): ReactElement => {
     afterSuccess: async ({ data }) => {
       if (mounted.current) return onCreated(data);
       // unmounted before the key could be shown, so nobody holds its secret
-      await client?.auth.deleteKeys(data.key.key);
+      await client?.auth.apiKeys.delete(data.key.key);
     },
   });
   // a user who cannot delete keys could not clean up a key created after a close

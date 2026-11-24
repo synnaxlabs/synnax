@@ -353,8 +353,6 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const role = await createEmptyRole(client);
       const other = await client.users.create({
-        username: uuid.create(),
-        password: "test",
         name: "other",
         role: role.key,
       });

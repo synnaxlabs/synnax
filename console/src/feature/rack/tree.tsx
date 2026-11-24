@@ -27,6 +27,7 @@ import { Access, Rack } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
 import { Device } from "@/feature/device";
+import { FLAGS } from "@/flags";
 import { Arc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
@@ -206,6 +207,20 @@ const TreeItem = Tree.createItem({
       { where: { rack: { eq: Number(id.key) }, grouped: false, nested: false } },
       Tree.toResource("device"),
     ),
+    ...(FLAGS.typedNIDevices
+      ? [
+          Tree.createSource(
+            client.ni.chassis,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("ni_chassis"),
+          ),
+          Tree.createSource(
+            client.ni.devices,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("ni_device"),
+          ),
+        ]
+      : []),
   ],
   canDrop: (props) =>
     props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&

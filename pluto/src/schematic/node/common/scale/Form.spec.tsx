@@ -15,9 +15,10 @@ import type { ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Node } from "@/schematic/node";
-import { ScaleForm } from "@/schematic/node/general/scale/Form";
-import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Box } from "@/schematic/node/general/box";
+import { Scale } from "@/schematic/node/general/scale";
+import { Tank } from "@/schematic/node/vessels/tank";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -70,7 +71,7 @@ describe("scale display fields", () => {
       <FormWrapper
         values={{ ...Node.createConfig({ variant: "scale" }), caretHidden: true }}
       >
-        <ScaleForm />
+        <Scale.spec.Form />
       </FormWrapper>,
     );
     fireEvent.click(getByText("Style"));
@@ -87,7 +88,7 @@ describe("scale display fields", () => {
           caretVisible: true,
         }}
       >
-        <TankForm showFillTab />
+        <Tank.spec.Form />
       </FormWrapper>,
     );
     fireEvent.click(getByRole("tab", { name: "Fill" }));
@@ -107,7 +108,7 @@ describe("tank colors", () => {
           axisColor: { type: "fixed", value: color.construct("#00ff00") },
         }}
       >
-        <TankForm showFillTab />
+        <Tank.spec.Form />
       </FormWrapper>,
     );
     expect(swatchColor(container, "Stroke")).toBe("#ff0000");
@@ -120,7 +121,7 @@ describe("box border radius", () => {
   it("should show one border radius field and no corner fields", () => {
     const { getByText, queryByText } = render(
       <FormWrapper values={Node.createConfig({ variant: "box" })}>
-        <TankForm showBorderRadius showStrokeWidth />
+        <Box.spec.Form />
       </FormWrapper>,
     );
     expect(getByText("Border radius")).toBeTruthy();
@@ -141,7 +142,7 @@ describe("precision", () => {
   it("should show 2 places when the precision is absent", () => {
     const { container } = render(
       <FormWrapper values={Node.createConfig({ variant: "scale" })}>
-        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+        <Scale.spec.Form tab="telemetry" onTabChange={vi.fn()} />
       </FormWrapper>,
     );
     expect(precisionInput(container).value).toBe("2");
@@ -152,7 +153,7 @@ describe("precision", () => {
       <FormWrapper
         values={{ ...Node.createConfig({ variant: "scale" }), precision: 0 }}
       >
-        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+        <Scale.spec.Form tab="telemetry" onTabChange={vi.fn()} />
       </FormWrapper>,
     );
     expect(precisionInput(container).value).toBe("0");
@@ -165,7 +166,7 @@ describe("precision", () => {
         values={Node.createConfig({ variant: "scale" })}
         onPrecisionChange={onPrecisionChange}
       >
-        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+        <Scale.spec.Form tab="telemetry" onTabChange={vi.fn()} />
       </FormWrapper>,
     );
     const input = getByText("Precision")
