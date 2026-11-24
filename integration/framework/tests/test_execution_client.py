@@ -452,10 +452,15 @@ class TestExecutionClient:
         """Should keep one result for each test when the run stops during a retry, and
         the first result of a peer whose second run did not start."""
         retrying = threading.Event()
+        # A stop before the retry starts a test's thread leaves that test with no
+        # result, so the spec waits until the retry has started both.
+        started = threading.Event()
 
         def log(message: str) -> None:
             if "RETRYING" in message:
                 retrying.set()
+            elif retrying.is_set() and message.startswith("Waiting for 2 tests"):
+                started.set()
 
         active: list[tuple[Any, ...]] = []
         execution, loaded, results = client(
@@ -469,7 +474,7 @@ class TestExecutionClient:
         runner = threading.Thread(target=execution.run, args=(loaded,))
         runner.start()
         timer = sy.Timer()
-        while not (retrying.is_set() and active):
+        while not (started.is_set() and active):
             assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
             sy.sleep(0.01)
         execution.stop()

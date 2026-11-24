@@ -20,6 +20,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xmath "github.com/synnaxlabs/x/math"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -196,8 +197,8 @@ func NewDecoder(f Field) (*Decoder, error) {
 // starts with its length.
 //   - A timestamp takes a string in ISO8601 format, and a number or a string holding
 //     one in a Unix format.
-//   - A string takes a string, or the label of an enum. JSON takes any value,
-//     compacted but spelled as raw.
+//   - A string takes a string, or the label of an enum. Any other value writes its
+//     JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
 //   - A UUID takes its string form.
 //   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
@@ -231,9 +232,7 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 
 func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if raw.Kind() != '"' {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "expected a string, got %s", kindName(raw),
-		)
+		return appendJSON(dst, raw)
 	}
 	if len(d.enums) > 0 {
 		if err := d.unquote(raw); err != nil {
@@ -528,7 +527,12 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		return strconv.AppendBool(dst, n.float() != 0), nil
 	case String:
 		dst = append(dst, '"')
-		return append(n.appendText(dst), '"'), nil
+		if dt == telem.Float32T {
+			dst = xstrconv.AppendFloat(dst, n.f, 32)
+		} else {
+			dst = n.appendText(dst)
+		}
+		return append(dst, '"'), nil
 	case Number:
 		return appendJSONNumber(dst, n)
 	}

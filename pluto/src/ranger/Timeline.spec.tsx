@@ -57,7 +57,8 @@ describe("label resolution", () => {
   });
 
   it("should read to the microsecond across milliseconds", () => {
-    const now = TimeStamp.now().nanoseconds;
+    // A whole-millisecond now keeps the microseconds of the start nonzero.
+    const now = TimeStamp.now().truncate(TimeSpan.MILLISECOND).nanoseconds;
     render(
       <Ranger.Timeline
         value={{ start: now - 3 * MILLISECOND + 456_000, end: now }}

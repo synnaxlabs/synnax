@@ -55,7 +55,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ICD holds the ICDs whose messages read tasks decode.
+	// ICD holds the ICDs whose messages read tasks decode and write tasks send.
 	//
 	// [REQUIRED]
 	ICD *icd.Service
@@ -175,7 +175,25 @@ func (f *factory) ConfigureTask(
 		}
 		return rt, nil
 	case WriteTaskType:
-		wt, err := f.configureWrite(ctx, t)
+		var cfg WriteConfig
+		if err := t.Config.Unmarshal(&cfg); err != nil {
+			f.reporter().Report(ctx, t, cmdKey, err)
+			return nil, err
+		}
+		if len(cfg.Targets) > 0 {
+			wt, err := f.configureTargets(ctx, t, cfg)
+			if err != nil {
+				f.reporter().Report(ctx, t, cmdKey, err)
+				return nil, err
+			}
+			if cfg.AutoStart {
+				if err = wt.Start(ctx, cmdKey); err != nil {
+					return nil, err
+				}
+			}
+			return wt, nil
+		}
+		wt, err := f.configureWrite(ctx, t, cfg)
 		if err != nil {
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err

@@ -11,38 +11,11 @@ package user
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 )
 
 // Retrieve is used to retrieve User records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	gorp     gorp.Retrieve[Key, User]
-	indexes  indexes
-	password *password.Service
-}
-
-// MatchUsernames returns a filter that matches the users whose password has any of the
-// usernames.
-func MatchUsernames(usernames ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, User] {
-		return gorp.MatchKeysFunc[Key, User](func(ctx gorp.Context) ([]Key, error) {
-			var passwords []password.Password
-			if err := r.password.NewRetrieve().
-				Where(password.MatchUsernames(usernames...)).
-				Entries(&passwords).
-				Exec(ctx, ctx.Snapshot); err != nil {
-				return nil, err
-			}
-			keys := make([]Key, 0, len(passwords))
-			for _, p := range passwords {
-				key, err := KeyFromResourceID(p.Subject)
-				if err != nil {
-					return nil, err
-				}
-				keys = append(keys, key)
-			}
-			return keys, nil
-		})
-	}
+	gorp    gorp.Retrieve[Key, User]
+	indexes indexes
 }

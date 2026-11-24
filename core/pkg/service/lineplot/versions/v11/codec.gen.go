@@ -73,8 +73,13 @@ func (a Axis) EncodeOrc(w *orc.Writer) error {
 	w.String(a.Label)
 	w.String(string(a.LabelDirection))
 	w.String(string(a.LabelLevel))
-	w.Float64(float64(a.Bounds.Lower))
-	w.Float64(float64(a.Bounds.Upper))
+	if a.Bounds != nil {
+		w.Bool(true)
+		w.Float64(float64((*a.Bounds).Lower))
+		w.Float64(float64((*a.Bounds).Upper))
+	} else {
+		w.Bool(false)
+	}
 	if err := a.ManualBounds.EncodeOrc(w); err != nil {
 		return err
 	}
@@ -121,11 +126,21 @@ func (a *Axis) DecodeOrc(r *orc.Reader) error {
 		}
 		a.LabelLevel = text.Level(rawV)
 	}
-	if a.Bounds.Lower, err = r.Float64(); err != nil {
-		return err
-	}
-	if a.Bounds.Upper, err = r.Float64(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv spatial.ClosedBounds
+			if hv.Lower, err = r.Float64(); err != nil {
+				return err
+			}
+			if hv.Upper, err = r.Float64(); err != nil {
+				return err
+			}
+			a.Bounds = &hv
+		}
 	}
 	if err = a.ManualBounds.DecodeOrc(r); err != nil {
 		return err

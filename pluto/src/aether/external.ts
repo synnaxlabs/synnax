@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type {
-  CallersFromSchema,
-  EmptyMethodsSchema,
-  MethodsSchema,
-} from "@/aether/aether/aether";
+import type { aether } from "@/aether/aether";
+
 export * from "@/aether/main";
 export { Store } from "@/aether/store";
+
+export type CallersFromSchema<T> = aether.CallersFromSchema<T>;
+export type EmptyMethodsSchema = aether.EmptyMethodsSchema;
+export type MethodsSchema = aether.MethodsSchema;

@@ -707,6 +707,35 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(await findDialogTriggerByText(own.name)).toBeTruthy();
   });
 
+  it("should offer only certificates with a private key as the client certificate", async () => {
+    const prefix = uniqueName("opc_keyed");
+    const keyed = await client.certificates.set({
+      name: `${prefix} keyed`,
+      source: "stored",
+      pem: CERTIFICATE.pem,
+      privateKeyPem: CERTIFICATE.privateKeyPem,
+    });
+    const bare = await client.certificates.set({
+      name: `${prefix} bare`,
+      source: "stored",
+      pem: CERTIFICATE.pem,
+    });
+    const dev = await createOPCDevice(client, {
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: keyed.key },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    fireEvent.click(await findDialogTriggerByText(keyed.name));
+    fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
+      target: { value: prefix },
+    });
+    await findOption("certificate", keyed.name);
+    expect(screen.queryByRole("option", { name: new RegExp(bare.name) })).toBeNull();
+  });
+
   it("should clear the client certificate when the Driver certificate is chosen again", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);

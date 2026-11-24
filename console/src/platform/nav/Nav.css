@@ -97,6 +97,11 @@
 .console--os-windows .console-nav__bar.lyra--direction-x {
     padding-right: 1rem;
     padding-left: 2.5rem;
+
+    /* The close button reaches the window's edge, so a throw to the corner closes. */
+    &:has(.console-window__buttons) {
+        padding-right: 0;
+    }
 }
 
 .console-nav__drawer {
