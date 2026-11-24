@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -963,5 +964,55 @@ TEST_F(OutboxTest, CallsOnCreateForEveryFile) {
         EXPECT_TRUE(was_created(entry.path())) << entry.path();
     }
     EXPECT_GE(files, 3);
+}
+
+/// @brief it should wait for a spare segment once per full tail, and then keep writing
+/// to the tail without a wait.
+TEST_F(OutboxTest, WaitsForSpareOncePerTail) {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool blocked = false;
+    bool released = false;
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of({freighter::UNREACHABLE})
+        ),
+        .segment_calls = 1,
+        .sync_interval = 200 * x::telem::MILLISECOND,
+        // The first spare holds the sync thread, so no spare opens.
+        .on_create = [&](const std::filesystem::path &path) {
+            if (!path.filename().string().starts_with("1.calls")) return x::errors::NIL;
+            std::unique_lock lock(mu);
+            blocked = true;
+            cv.notify_all();
+            cv.wait(lock, [&] { return released; });
+            return x::errors::NIL;
+        },
+    };
+    cfg.retry.base_interval = x::telem::HOUR;
+    cfg.retry.max_interval = x::telem::HOUR;
+    {
+        const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+        {
+            std::unique_lock lock(mu);
+            cv.wait(lock, [&] { return blocked; });
+        }
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+        const auto start = std::chrono::steady_clock::now();
+        ASSERT_NIL(outbox->set_status(set_of("second"), nullptr));
+        EXPECT_GE(std::chrono::steady_clock::now() - start, cfg.sync_interval.chrono());
+        const auto after = std::chrono::steady_clock::now();
+        for (const auto *msg: {"third", "fourth"})
+            ASSERT_NIL(outbox->set_status(set_of(msg), nullptr));
+        EXPECT_LT(std::chrono::steady_clock::now() - after, cfg.sync_interval.chrono());
+        EXPECT_EQ(outbox->size(), 4);
+        std::lock_guard lock(mu);
+        released = true;
+        cv.notify_all();
+    }
 }
 }

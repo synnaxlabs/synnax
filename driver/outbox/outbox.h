@@ -178,6 +178,9 @@ class Outbox {
     /// @brief the segment that takes new calls. Its writer is null after a failure.
     Segment tail;
     std::size_t tail_calls = 0;
+    /// @brief a push waited for a spare and kept the full tail, so later pushes to the
+    /// tail do not wait.
+    bool tail_overfull = false;
     /// @brief a new segment that the sync thread opened for the next tail.
     std::optional<Segment> spare;
     /// @brief the tail took the spare, so the sync thread opens a new one.

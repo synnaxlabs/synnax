@@ -394,6 +394,7 @@ x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
     if (!this->spare.has_value()) {
         this->spare_wanted = true;
         this->sync_cv.notify_one();
+        if (this->tail.writer != nullptr && this->tail_overfull) return x::errors::NIL;
         this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [this] {
             return this->spare.has_value() ||
                    (this->tail.writer != nullptr &&
@@ -401,13 +402,19 @@ x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
         });
         // A full tail takes more calls when the sync thread is slow to open a spare.
         if (!this->spare.has_value()) {
-            if (this->tail.writer != nullptr) return x::errors::NIL;
-            return x::errors::Error(BASE_ERROR, "no segment is open to take the call");
+            if (this->tail.writer == nullptr)
+                return x::errors::Error(
+                    BASE_ERROR,
+                    "no segment is open to take the call"
+                );
+            this->tail_overfull = this->tail_calls >= this->cfg.segment_calls;
+            return x::errors::NIL;
         }
     }
     if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
     this->tail = *this->spare;
     this->tail_calls = 0;
+    this->tail_overfull = false;
     this->spare.reset();
     this->spare_wanted = true;
     this->sync_cv.notify_one();
@@ -678,6 +685,7 @@ void Outbox::compact() {
         this->spare_wanted = true;
         this->tail = {.key = tail_key, .writer = tail_writer};
         this->tail_calls = 0;
+        this->tail_overfull = false;
         this->writers[tail_key] = tail_writer;
         this->segments[tail_key] = tail_writer->pos();
         this->bytes += tail_writer->pos();
