@@ -73,13 +73,29 @@ func GenerateChannelKey() cesium.ChannelKey {
 // when the spec or container that opens it ends.
 func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 	GinkgoHelper()
-	db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))))
+	return openTestDB(ctx, fsys, false)
+}
+
+// mustOpenLogDBOnFS opens a test DB on the pointer log layout, as mustOpenDBOnFS does.
+func mustOpenLogDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
+	GinkgoHelper()
+	return openTestDB(ctx, fsys, true)
+}
+
+func openTestDB(ctx context.Context, fsys fs.FS, pointerLog bool) *testDB {
+	GinkgoHelper()
+	opts := []cesium.Option{cesium.WithFS(fsys)}
+	if pointerLog {
+		opts = append(opts, cesium.WithPointerLog())
+	}
+	db := DeferClose(MustSucceed(cesium.Open(ctx, "", opts...)))
 	StartRun(db.Run)
 	writes := confluence.NewStream[relay.Response](10_000)
 	svc := MustSucceed(writer.NewService(writer.ServiceConfig{
-		TS:     db,
-		Writes: writes,
-		Clock:  xtime.Real,
+		TS:                db,
+		Writes:            writes,
+		Clock:             xtime.Real,
+		PointerLogEnabled: new(pointerLog),
 	}))
 	tdb := &testDB{
 		DB:      db,

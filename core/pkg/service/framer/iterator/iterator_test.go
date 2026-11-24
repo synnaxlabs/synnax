@@ -1853,7 +1853,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					MatchError(query.ErrUnsupported),
 					MatchError(
 						ContainSubstring(
-							"cannot open an iterator on a virtual channel",
+							"cannot open iterator on virtual channel",
 						),
 					),
 				)
