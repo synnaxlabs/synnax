@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from typing import TypeAlias, overload
 
@@ -451,7 +452,8 @@ class Client:
         on_missed: Callable[[], None] | None = None,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self._channels)
-        adapter.update(channels)
+        # The channel retrieve is a blocking request, so it runs off the event loop.
+        await asyncio.to_thread(adapter.update, channels)
         s = AsyncStreamer(
             adapter=adapter,
             client=self._async_client,

@@ -185,8 +185,9 @@ client_ts: &client_ts
   - *ts
   - *x_ts
   - client/ts/**
-  # The client's filter specs read the Core's shared filter cases.
+  # The client's filter and orphan specs read the Core's shared vectors.
   - core/testdata/filter/**
+  - core/testdata/orphans/**
 
 pluto: &pluto
   - *alamos_ts
