@@ -387,8 +387,9 @@ class Forwarder {
     }
 
     /// @brief waits out the backoff after the Core proves unreachable, and reports the
-    /// queue while it waits. Once close() begins, it tries the Core again at once, and
-    /// then within the drain timeout only. Returns false once no try is left.
+    /// queue while it waits. Once close() begins, it stops at once when the queue is
+    /// empty. Otherwise it tries the Core again at once, and then within the drain
+    /// timeout only. Returns false once no try is left.
     bool back_off(const x::errors::Error &err) {
         this->failures++;
         const auto interval = this->backoff.interval(this->failures);
@@ -407,6 +408,7 @@ class Forwarder {
                     std::chrono::steady_clock::now() + this->drop_report_interval
                 );
                 this->cv.wait_until(lock, wake, retry_now);
+                if (this->closing && this->queue.empty()) return false;
                 if (retry_now()) {
                     this->retried_on_close = true;
                     return true;

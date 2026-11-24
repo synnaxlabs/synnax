@@ -668,6 +668,23 @@ TEST(ForwarderTest, SendsItsQueueWhenTheCoreReturnsDuringAStop) {
     ASSERT_EQ(forwarder.dropped().total(), 0);
 }
 
+/// @brief it should stop at once when it closes during an outage with nothing queued.
+TEST(ForwarderTest, StopsAtOnceDuringAnOutageWithAnEmptyQueue) {
+    const auto server = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.breaker = {.base_interval = x::telem::HOUR}}
+    );
+    ASSERT_NIL(forwarder.opened());
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(forwarder.close());
+    ASSERT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    ASSERT_EQ(server->writer_opens.load(), 1);
+}
+
 /// @brief opens Core writers whose writes block until the writer is cancelled.
 class StuckFactory final : public ::driver::pipeline::WriterFactory {
     class Writer final : public ::driver::pipeline::Writer {
