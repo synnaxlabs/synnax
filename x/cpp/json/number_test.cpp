@@ -242,20 +242,21 @@ TEST(NumberToString, PrintsNonFiniteByName) {
     ASSERT_EQ(Number(-INF).to_string(), "-Infinity");
 }
 
-/// @brief it should print a double in plain form from 1e-4 up to 1e6.
+/// @brief it should print a double in plain form from 1e-6 up to 1e21.
 TEST(NumberToString, PrintsPlainForm) {
     ASSERT_EQ(Number(1.5).to_string(), "1.5");
     ASSERT_EQ(Number(123456.0).to_string(), "123456");
     ASSERT_EQ(Number(0.000123).to_string(), "0.000123");
     ASSERT_EQ(Number(-0.0).to_string(), "-0");
+    ASSERT_EQ(Number(1e6).to_string(), "1000000");
+    ASSERT_EQ(Number(1e-5).to_string(), "0.00001");
+    ASSERT_EQ(Number(9007199254740994.0).to_string(), "9007199254740994");
 }
 
-/// @brief it should print a double with an exponent below 1e-4 and from 1e6.
+/// @brief it should print a double with an exponent below 1e-6 and from 1e21.
 TEST(NumberToString, PrintsExponentForm) {
-    ASSERT_EQ(Number(1e6).to_string(), "1e+06");
-    ASSERT_EQ(Number(1234567.0).to_string(), "1.234567e+06");
-    ASSERT_EQ(Number(1e-5).to_string(), "1e-05");
-    ASSERT_EQ(Number(9007199254740994.0).to_string(), "9.007199254740994e+15");
+    ASSERT_EQ(Number(1e21).to_string(), "1e+21");
+    ASSERT_EQ(Number(1.5e-7).to_string(), "1.5e-7");
     ASSERT_EQ(Number(1e100).to_string(), "1e+100");
 }
 

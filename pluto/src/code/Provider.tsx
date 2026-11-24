@@ -59,8 +59,11 @@ let initPromise: Promise<Monaco> | null = null;
 /** initializeMonaco performs the one-time, ordered bootstrap of the monaco-vscode-api
  * runtime and registers the given languages. It is memoized: monaco-vscode-api can only
  * be initialized once per page, so every caller shares a single promise. */
-const initializeMonaco = async (languages: Language[]): Promise<Monaco> => {
-  initPromise ??= doInitialize(languages);
+const initializeMonaco = async (
+  languages: Language[],
+  openLink?: (url: string) => void,
+): Promise<Monaco> => {
+  initPromise ??= doInitialize(languages, openLink);
   try {
     return await initPromise;
   } catch (e) {
@@ -69,7 +72,10 @@ const initializeMonaco = async (languages: Language[]): Promise<Monaco> => {
   }
 };
 
-const doInitialize = async (languages: Language[]): Promise<Monaco> => {
+const doInitialize = async (
+  languages: Language[],
+  openLink?: (url: string) => void,
+): Promise<Monaco> => {
   self.MonacoEnvironment = { getWorker };
   // Everything in this batch must load BEFORE initialize(). In particular importing
   // vscode/localExtensionHost registers the participant that publishes the default
@@ -89,13 +95,27 @@ const doInitialize = async (languages: Language[]): Promise<Monaco> => {
     import("@codingame/monaco-vscode-languages-service-override"),
     import("@codingame/monaco-vscode-extension-api/localExtensionHost"),
   ]);
-  await initialize({
-    ...getTextMateServiceOverride(),
-    ...getThemeServiceOverride(),
-    ...getLanguagesServiceOverride(),
-  });
+  await initialize(
+    {
+      ...getTextMateServiceOverride(),
+      ...getThemeServiceOverride(),
+      ...getLanguagesServiceOverride(),
+    },
+    undefined,
+    // Monaco shows its own prompt before it opens a link to a domain it does not trust.
+    { additionalTrustedDomains: ["*"] },
+  );
   const monaco = await import("@codingame/monaco-vscode-editor-api");
   for (const language of languages) await registerLanguage(language);
+  // Monaco asks a registered opener first for every link, so only web links stop here.
+  if (openLink != null)
+    monaco.editor.registerLinkOpener({
+      open: (resource) => {
+        if (resource.scheme !== "http" && resource.scheme !== "https") return false;
+        openLink(resource.toString(true));
+        return true;
+      },
+    });
   return monaco;
 };
 
@@ -129,6 +149,10 @@ const EMPTY_LANGUAGES: Language[] = [];
 
 export interface ProviderProps extends PropsWithChildren {
   languages?: Language[];
+  /** openLink opens a web link that the user selects in an editor. A rejection shows as
+   * a status. Without it, Monaco opens the link with window.open. Read when Monaco
+   * initializes. */
+  openLink?: (url: string) => Promise<void>;
 }
 
 /** Provider makes the Monaco runtime available to descendant editors. It performs no
@@ -138,15 +162,23 @@ export interface ProviderProps extends PropsWithChildren {
 export const Provider = ({
   children,
   languages = EMPTY_LANGUAGES,
+  openLink,
 }: ProviderProps): ReactElement => {
   const [monaco, setMonaco] = useState<Monaco | null>(null);
   const initRef = useRef<Promise<Monaco> | null>(null);
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+
+  const handleLink =
+    openLink == null
+      ? undefined
+      : (url: string) =>
+          handleError(async () => await openLink(url), "Failed to open link");
 
   const ensure = (): Promise<Monaco> => {
     if (initRef.current == null)
       initRef.current = (async () => {
-        const m = await initializeMonaco(languages);
+        const m = await initializeMonaco(languages, handleLink);
         setMonaco(m);
         return m;
       })();
@@ -154,7 +186,7 @@ export const Provider = ({
   };
 
   // Leaves monaco unset, so the language servers wait for the first editor.
-  const preload = (): Promise<Monaco> => initializeMonaco(languages);
+  const preload = (): Promise<Monaco> => initializeMonaco(languages, handleLink);
 
   const languageMap = new Map(languages.map((l) => [l.name, l]));
   const getLanguage = (name: string) => languageMap.get(name);

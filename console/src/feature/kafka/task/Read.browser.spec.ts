@@ -345,7 +345,7 @@ const createSampledRecord = (offset: number, value: object) => ({
 /** Creates a Kafka scan task on the rack of dev, with a heartbeat. */
 const createScanTask = async (dev: device.Device) => {
   const rck = await client.racks.retrieve({ key: dev.rack });
-  await startRackHeartbeat(client, rck);
+  onTestFinished(await startRackHeartbeat(client, rck));
   return await rck.createTask({
     name: uniqueName("kafka_scan"),
     type: Kafka.Device.SCAN_TYPE,

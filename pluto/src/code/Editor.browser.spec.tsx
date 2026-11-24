@@ -16,7 +16,7 @@ import {
   resolve,
   selectedByTripleClick,
 } from "@synnaxlabs/lyra/styletest";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
 import { Code } from "@/code";
@@ -26,6 +26,11 @@ const CODE = "const pressure = 1;";
 
 // Monaco loads its whole runtime on the first editor of the page.
 const MONACO_TIMEOUT = 60_000;
+
+type MarkerCode = Code.Monaco.editor.IMarkerData["code"];
+
+// Monaco takes the opener of the first provider of the page, so every editor gets it.
+const openLink = vi.fn(async (_: string) => {});
 
 /** Renders a real editor and resolves once Monaco has created it. */
 const renderEditor = async (
@@ -37,7 +42,7 @@ const renderEditor = async (
     return { dispose: () => {} };
   };
   await renderThemed(
-    <Code.Provider>
+    <Code.Provider openLink={openLink}>
       <Code.Editor
         language="plaintext"
         initialValue={CODE}
@@ -88,26 +93,13 @@ const registerRename = async (
   return registration;
 };
 
-/** @returns the marker row of the hover that a real editor opens on a warning. */
-const hoverWarning = async (code?: string): Promise<Element> => {
-  let editor: Code.Monaco.editor.IStandaloneCodeEditor | undefined;
-  const capture: Code.EditorExtension = (e) => {
-    editor = e;
-    return { dispose: () => {} };
-  };
-  await renderThemed(
-    <Code.Provider>
-      <Code.Editor
-        language="plaintext"
-        initialValue={CODE}
-        extensions={[capture]}
-        style={{ width: 600, height: 300 }}
-      />
-    </Code.Provider>,
-  );
-  await expect.poll(() => editor, { timeout: MONACO_TIMEOUT }).toBeDefined();
-  const model = editor?.getModel();
-  if (editor == null || model == null) throw new Error("editor has no model");
+/** @returns a real editor that has a warning of the code on its one line. */
+const renderWarning = async (
+  code?: MarkerCode,
+): Promise<Code.Monaco.editor.IStandaloneCodeEditor> => {
+  const editor = await renderEditor();
+  const model = editor.getModel();
+  if (model == null) throw new Error("editor has no model");
   const monaco = await import("@codingame/monaco-vscode-editor-api");
   monaco.editor.setModelMarkers(model, "spec", [
     {
@@ -121,12 +113,34 @@ const hoverWarning = async (code?: string): Promise<Element> => {
       endColumn: CODE.length + 1,
     },
   ]);
+  return editor;
+};
+
+/** @returns the code that links to a page, as a diagnostic of the Arc LSP has it. */
+const linkedCode = async (): Promise<MarkerCode> => {
+  const { Uri } = await import("@codingame/monaco-vscode-editor-api");
+  return { value: "W2000", target: Uri.parse("https://example.com/w2000") };
+};
+
+/** @returns the marker row of the hover that a real editor opens on a warning. */
+const hoverWarning = async (code?: MarkerCode): Promise<Element> => {
+  await renderWarning(code);
   const text = () => document.querySelector(".monaco-editor .view-line > span");
   await expect.poll(text).not.toBeNull();
   await userEvent.hover(text() as Element);
   const row = () => document.querySelector(".monaco-hover .marker.hover-contents");
   await expect.poll(row, { timeout: 5000 }).not.toBeNull();
   return row() as Element;
+};
+
+/** @returns the message of the "View Problem" widget of a warning that has a link. */
+const viewProblem = async (): Promise<Element> => {
+  const editor = await renderWarning(await linkedCode());
+  await editor.getAction("editor.action.marker.next")?.run();
+  const message = () =>
+    document.querySelector(".marker-widget .descriptioncontainer .message");
+  await expect.poll(message, { timeout: 5000 }).not.toBeNull();
+  return message() as Element;
 };
 
 const expectColors = (row: Element, token: string): void => {
@@ -139,6 +153,10 @@ const expectColors = (row: Element, token: string): void => {
 };
 
 describe("Editor", () => {
+  beforeEach(() => {
+    openLink.mockClear();
+  });
+
   // Monaco's parts that set no user-select of their own inherit it from the editor.
   it("should let a user select code under a body with selection off", async () => {
     const { getByText } = await renderThemed(
@@ -157,8 +175,82 @@ describe("Editor", () => {
     );
 
     it(
+      "should color the hover of a warning that has a linked code as a warning",
+      async () => expectColors(await hoverWarning(await linkedCode()), "warning"),
+      MONACO_TIMEOUT,
+    );
+
+    it(
       "should color the hover of a warning that has no code as an error",
       async () => expectColors(await hoverWarning(), "error"),
+      MONACO_TIMEOUT,
+    );
+  });
+
+  describe("hover code", () => {
+    it(
+      "should hide the source and the linked code",
+      async () => {
+        const row = await hoverWarning(await linkedCode());
+        expect(row.querySelector("a.code-link")).not.toBeNull();
+        expect(computed(row.children[1], "display")).toEqual("none");
+      },
+      MONACO_TIMEOUT,
+    );
+  });
+
+  describe("view problem", () => {
+    it(
+      "should show the linked code before the message",
+      async () => {
+        const message = await viewProblem();
+        const details = message.querySelector(".details");
+        if (details?.parentElement?.firstChild == null)
+          throw new Error("widget has no code");
+        const text = document.createRange();
+        text.selectNodeContents(details.parentElement.firstChild);
+        expect(details.getBoundingClientRect().right).toBeLessThanOrEqual(
+          text.getBoundingClientRect().left,
+        );
+      },
+      MONACO_TIMEOUT,
+    );
+
+    it(
+      "should hide the source",
+      async () => {
+        const source = (await viewProblem()).querySelector(".source");
+        if (source == null) throw new Error("widget has no source");
+        expect(computed(source, "display")).toEqual("none");
+      },
+      MONACO_TIMEOUT,
+    );
+
+    it(
+      "should show the linked code with no parentheses and no underline",
+      async () => {
+        const link = (await viewProblem()).querySelector("a.code-link");
+        if (link?.firstElementChild == null) throw new Error("widget has no link");
+        expect(getComputedStyle(link, "::before").content).toEqual("none");
+        expect(getComputedStyle(link, "::after").content).toEqual("none");
+        expect(computed(link, "text-decoration-line")).toEqual("none");
+        expect(computed(link.firstElementChild, "text-decoration-line")).toEqual(
+          "none",
+        );
+      },
+      MONACO_TIMEOUT,
+    );
+
+    it(
+      "should open the page of the linked code when the user clicks it",
+      async () => {
+        const link = (await viewProblem()).querySelector("a.code-link");
+        if (link == null) throw new Error("widget has no link");
+        await userEvent.click(link);
+        await expect
+          .poll(() => openLink)
+          .toHaveBeenCalledExactlyOnceWith("https://example.com/w2000");
+      },
       MONACO_TIMEOUT,
     );
   });

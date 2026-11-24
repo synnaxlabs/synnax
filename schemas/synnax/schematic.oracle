@@ -455,10 +455,10 @@ NodeConfig union on variant {
         position     spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the gauge contents within the symbol."
         }
-        stroke_color color.Ref?         {
+        stroke_color color.Ref?           {
             @doc value "is the color of the gauge arc, a named color or a fixed color."
         }
-        bounds       spatial.Bounds = { lower = 0, upper = 100 } {
+        bounds       spatial.ClosedBounds = { lower = 0, upper = 100 } {
             @doc value "is the numeric range displayed by the gauge."
         }
         bar_width    uint16 = 10 {
@@ -1216,7 +1216,7 @@ Where filter Schematic {
 }
 
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
-    bounds       spatial.Bounds = { lower = 0, upper = 100 } {
+    bounds       spatial.ClosedBounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
     }
     level_color  color.Ref?            {
@@ -1292,7 +1292,7 @@ Page struct {
 }
 
 StalenessConfig struct {
-    staleness_timeout telem.TimeSpan = 5000000000 {
+    staleness_timeout telem.TimeSpan = 5s {
         @doc value    "is the span after which the value is considered stale."
         @ts type      telem.NumericTimeSpan
         @validate max 9007199254740991
@@ -1361,24 +1361,24 @@ FormatConfig struct {
 }
 
 StateBinding struct extends FormatConfig {
-    key         string           {
+    key         string                {
         @doc value "is the key of the state of the symbol that the binding sets."
     }
-    source      Source?          {
+    source      Source?               {
         @doc value "is where the state reads its value, or nowhere."
     }
-    enumeration enumeration.Key? {
+    enumeration enumeration.Key?      {
         @doc value     "replaces the enumeration of the state."
         @ref kind      use
         @ref on_delete restrict
     }
-    match       symbol.Matcher?  {
+    match       symbol.Matcher?       {
         @doc value "replaces the match of the state."
     }
-    bounds      spatial.Bounds?  {
+    bounds      spatial.ClosedBounds? {
         @doc value "replaces the bounds of a number state."
     }
-    default     float64?         {
+    default     float64?              {
         @doc value "replaces the default of the state."
     }
 
