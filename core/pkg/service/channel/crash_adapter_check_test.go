@@ -138,6 +138,7 @@ func (e recordFirst) Commit(
 		return 0, err
 	}
 	if err := e.cesium.Drop(
+		ctx,
 		[]cesium.ChannelKey{cesium.ChannelKey(scratch.Key())},
 	); err != nil {
 		return 0, err
