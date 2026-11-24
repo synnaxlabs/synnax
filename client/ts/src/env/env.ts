@@ -39,6 +39,8 @@ export interface Run {
 
 /** The access to the operating system that finds Synnax Desktop and CA files. */
 export interface System {
+  /** The operating system, as `process.platform` names it. */
+  platform: string;
   /**
    * Returns the text of the file at path, or null when there is no file. A leading `~`
    * is the home directory.
@@ -77,7 +79,6 @@ const DEFAULT_PORT = 9090;
 const TRUE = ["1", "true", "yes"];
 const FALSE = ["0", "false", "no"];
 
-const DESKTOP_FILE = "~/.synnax/desktop.json";
 const NO_HOST_MSG = "give a host, or set SYNNAX_HOST";
 const OLD_DESKTOP_MSG =
   "Synnax Desktop saved its API key in an older format. Update Synnax Desktop and " +
@@ -85,8 +86,6 @@ const OLD_DESKTOP_MSG =
 const NOT_RUNNING_MSG =
   "Synnax Desktop is not running. Open it and try again. To connect to another Core, " +
   "give a host and a port.";
-const UNREADABLE_MSG =
-  "Cannot read ~/.synnax/desktop.json. Update Synnax Desktop and open it.";
 const CA_NEEDS_SECURE_MSG =
   "SYNNAX_CA_CERT requires SYNNAX_SECURE; leave SYNNAX_SECURE out or set it to true";
 const HELPER_TIMEOUT = TimeSpan.seconds(30);
@@ -136,25 +135,52 @@ const readSecure = (env: Env): boolean | undefined => {
   throw new ValidationError(`SYNNAX_SECURE must be true or false, not "${raw}"`);
 };
 
-// A missing file or a Deno permission error means no Synnax Desktop that the script can
-// see, so the message does not name it.
-const readDesktopFile = (system: System): string => {
-  let text: string | null;
-  try {
-    text = system.readFile(DESKTOP_FILE);
-  } catch (e) {
-    const err = errors.fromUnknown(e);
-    if (isNotCapable(err)) throw new ValidationError(NO_HOST_MSG, { cause: err });
-    throw new ValidationError(`Cannot read ~/.synnax/desktop.json: ${err.message}`, {
-      cause: err,
-    });
-  }
-  if (text == null) throw new ValidationError(NO_HOST_MSG);
-  return text;
+const isAbsolute = (path: string, platform: string): boolean =>
+  platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
+
+// The file is in the config directory of the OS, or in ~/.synnax, where Synnax Desktop
+// 1.1 and older clients keep it.
+const desktopFiles = (env: Env, platform: string): string[] => {
+  const dir = (name: string, fallback: string): string => {
+    const value = read(env, name);
+    return isAbsolute(value, platform) ? value : fallback;
+  };
+  if (platform === "win32")
+    return [
+      `${dir("APPDATA", "~\\AppData\\Roaming")}\\Synnax\\desktop.json`,
+      "~\\.synnax\\desktop.json",
+    ];
+  const current =
+    platform === "darwin"
+      ? "~/Library/Application Support/Synnax"
+      : `${dir("XDG_CONFIG_HOME", "~/.config")}/synnax`;
+  return [`${current}/desktop.json`, "~/.synnax/desktop.json"];
 };
 
-// The user chose this file, so unlike ~/.synnax/desktop.json, a Deno permission error
-// is not the same as no file.
+// A missing file or a Deno permission error means no Synnax Desktop that the script can
+// see, so the message does not name it.
+const readDesktopFile = (system: System, env: Env): [string, string] => {
+  let denied: Error | undefined;
+  for (const path of desktopFiles(env, system.platform)) {
+    let text: string | null;
+    try {
+      text = system.readFile(path);
+    } catch (e) {
+      const err = errors.fromUnknown(e);
+      if (!isNotCapable(err))
+        throw new ValidationError(`Cannot read ${path}: ${err.message}`, {
+          cause: err,
+        });
+      denied ??= err;
+      continue;
+    }
+    if (text != null) return [path, text];
+  }
+  throw new ValidationError(NO_HOST_MSG, { cause: denied });
+};
+
+// The user chose this file, so unlike the file of Synnax Desktop, a Deno permission
+// error is not the same as no file.
 const readCA = (system: System | undefined, path: string): string => {
   const cannotRead = (reason: string, cause?: Error): ValidationError =>
     new ValidationError(`Cannot read SYNNAX_CA_CERT file "${path}": ${reason}`, {
@@ -224,20 +250,20 @@ const readKey = async (
   return out.stdout.trim();
 };
 
-const loadDesktop = (system: System | undefined): Desktop => {
+const loadDesktop = (system: System | undefined, env: Env): Desktop => {
   if (system == null) throw new ValidationError(NO_HOST_MSG);
-  const text = readDesktopFile(system);
+  const [path, text] = readDesktopFile(system, env);
+  const unreadable = `Cannot read ${path}. Update Synnax Desktop and open it.`;
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch (e) {
-    throw new ValidationError(UNREADABLE_MSG, { cause: e });
+    throw new ValidationError(unreadable, { cause: e });
   }
   if (typeof raw === "object" && raw != null && "api_key" in raw)
     throw new ValidationError(OLD_DESKTOP_MSG);
   const parsed = desktopFileZ.safeParse(raw);
-  if (!parsed.success)
-    throw new ValidationError(UNREADABLE_MSG, { cause: parsed.error });
+  if (!parsed.success) throw new ValidationError(unreadable, { cause: parsed.error });
   const { api_key_helper: helper, ...file } = parsed.data;
   return {
     ...file,
@@ -256,6 +282,7 @@ export const nodeSystem = (
   const proc = globalThis.process;
   if (proc?.getBuiltinModule == null) return undefined;
   return {
+    platform: proc.platform,
     caCertUnsupported: "Deno" in globalThis,
     readFile: (path) => {
       const paths = proc.getBuiltinModule("node:path");
@@ -332,9 +359,9 @@ export const nodeSystem = (
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
  * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
  * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
- * cannot be read, if ~/.synnax/desktop.json cannot be read, or if Synnax Desktop is
- * too old. In Deno, a missing permission to read ~/.synnax/desktop.json is the same as
- * no file.
+ * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
+ * Desktop is too old. Reads desktop.json in the config directory of the OS, then in
+ * ~/.synnax. In Deno, a missing permission to read the file is the same as no file.
  */
 export const resolveParams = <P extends Given>(
   params: P,
@@ -343,7 +370,7 @@ export const resolveParams = <P extends Given>(
 ): Omit<P, keyof Resolved> & Resolved => {
   const given =
     params.host != null && params.host !== "" ? params.host : read(env, "SYNNAX_HOST");
-  const desktop = given === "" ? loadDesktop(system) : undefined;
+  const desktop = given === "" ? loadDesktop(system, env) : undefined;
   const { apiKey, username, password, token, oidc } = params;
   const credentials = apiKey ?? username ?? password ?? token ?? oidc;
   let key = apiKey;

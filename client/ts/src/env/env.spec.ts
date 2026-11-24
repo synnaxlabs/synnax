@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EventEmitter } from "node:events";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -185,6 +185,7 @@ const desktop = (
   file: object | null = DESKTOP_FILE,
   run: env.Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
 ): env.System => ({
+  platform: "linux",
   readFile: () => (file == null ? null : JSON.stringify(file)),
   run: vi.fn(async () => run),
 });
@@ -241,6 +242,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should not read Synnax Desktop when the params give a host", () => {
     const system: env.System = {
+      platform: "linux",
       readFile: () => {
         throw new Error("read");
       },
@@ -270,6 +272,7 @@ describe("resolveParams with Synnax Desktop", () => {
   };
 
   const reading = (error: Error): env.System => ({
+    platform: "linux",
     readFile: () => {
       throw error;
     },
@@ -296,7 +299,7 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error).toBeInstanceOf(ValidationError);
     expect(error).toHaveProperty(
       "message",
-      "Cannot read ~/.synnax/desktop.json: EACCES: permission denied",
+      "Cannot read ~/.config/synnax/desktop.json: EACCES: permission denied",
     );
     expect(error).toHaveProperty("cause", cause);
   });
@@ -304,6 +307,7 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should name Synnax Desktop when Deno cannot run the key helper", async () => {
     const cause = notCapable();
     const system: env.System = {
+      platform: "linux",
       readFile: () => JSON.stringify(DESKTOP_FILE),
       run: async () => {
         throw cause;
@@ -337,12 +341,12 @@ describe("resolveParams with Synnax Desktop", () => {
     [
       "the file has no key helper",
       desktop({ host: "localhost", port: 9095, secure: false }),
-      "Cannot read ~/.synnax/desktop.json. Update Synnax Desktop and open it.",
+      "Cannot read ~/.config/synnax/desktop.json. Update Synnax Desktop and open it.",
     ],
     [
       "the file is not valid JSON",
-      { readFile: () => "{", run: async () => null },
-      "Cannot read ~/.synnax/desktop.json",
+      { platform: "linux", readFile: () => "{", run: async () => null },
+      "Cannot read ~/.config/synnax/desktop.json",
     ],
   ])("should reject when %s", (_, system, message) => {
     expect(() => env.resolveParams({}, {}, system)).toThrow(ValidationError);
@@ -393,6 +397,7 @@ describe("resolveParams with Synnax Desktop", () => {
       await withDir(async (dir, real) => {
         const helper = writeHelper(dir, 0o755);
         const system: env.System = {
+          platform: "linux",
           readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
           run: real.run,
         };
@@ -439,6 +444,89 @@ describe("resolveParams with Synnax Desktop", () => {
   });
 });
 
+describe("resolveParams finding the file of Synnax Desktop", () => {
+  const at = (platform: string, files: Record<string, object>): env.System => ({
+    platform,
+    readFile: (path) => (path in files ? JSON.stringify(files[path]) : null),
+    run: async () => null,
+  });
+
+  it.each<[string, env.Env, string]>([
+    ["linux", {}, "~/.config/synnax/desktop.json"],
+    ["linux", { XDG_CONFIG_HOME: "/xdg" }, "/xdg/synnax/desktop.json"],
+    ["linux", { XDG_CONFIG_HOME: "xdg" }, "~/.config/synnax/desktop.json"],
+    ["freebsd", {}, "~/.config/synnax/desktop.json"],
+    [
+      "darwin",
+      { XDG_CONFIG_HOME: "/xdg" },
+      "~/Library/Application Support/Synnax/desktop.json",
+    ],
+    ["win32", {}, "~\\AppData\\Roaming\\Synnax\\desktop.json"],
+    ["win32", { APPDATA: "D:\\Roaming" }, "D:\\Roaming\\Synnax\\desktop.json"],
+    ["win32", { APPDATA: "Roaming" }, "~\\AppData\\Roaming\\Synnax\\desktop.json"],
+    ["linux", {}, "~/.synnax/desktop.json"],
+    ["darwin", {}, "~/.synnax/desktop.json"],
+    ["win32", {}, "~\\.synnax\\desktop.json"],
+  ])("should read the file on %s with %j at %s", (platform, vars, path) => {
+    const system = at(platform, { [path]: DESKTOP_FILE });
+    expect(env.resolveParams({}, vars, system).port).toEqual(9095);
+  });
+
+  it("should prefer the config directory over ~/.synnax", () => {
+    const system = at("linux", {
+      "~/.config/synnax/desktop.json": DESKTOP_FILE,
+      "~/.synnax/desktop.json": { ...DESKTOP_FILE, port: 1 },
+    });
+    expect(env.resolveParams({}, {}, system).port).toEqual(9095);
+  });
+
+  it("should read ~/.synnax when Deno cannot read the config directory", () => {
+    const system: env.System = {
+      platform: "linux",
+      readFile: (path) => {
+        if (path === "~/.synnax/desktop.json") return JSON.stringify(DESKTOP_FILE);
+        throw notCapable();
+      },
+      run: async () => null,
+    };
+    expect(env.resolveParams({}, {}, system).port).toEqual(9095);
+  });
+
+  it.each([true, false])(
+    "should read the real file when the config directory holds one: %s",
+    (current) => {
+      const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+      vi.stubEnv("HOME", home);
+      vi.stubEnv("USERPROFILE", home);
+      try {
+        const vars = {
+          APPDATA: join(home, "AppData", "Roaming"),
+          XDG_CONFIG_HOME: join(home, ".config"),
+        };
+        const dir =
+          {
+            win32: join(vars.APPDATA, "Synnax"),
+            darwin: join(home, "Library", "Application Support", "Synnax"),
+          }[process.platform as string] ?? join(vars.XDG_CONFIG_HOME, "synnax");
+        const write = (d: string, port: number): void => {
+          mkdirSync(d, { recursive: true });
+          writeFileSync(
+            join(d, "desktop.json"),
+            JSON.stringify({ ...DESKTOP_FILE, port }),
+          );
+        };
+        write(join(home, ".synnax"), 1);
+        if (current) write(dir, 2);
+        const system = env.nodeSystem();
+        expect(env.resolveParams({}, vars, system).port).toEqual(current ? 2 : 1);
+      } finally {
+        vi.unstubAllEnvs();
+        rmSync(home, { recursive: true });
+      }
+    },
+  );
+});
+
 describe("nodeSystem", () => {
   it("should reject when a helper that cannot start has no streams", async () => {
     const real = process;
@@ -474,6 +562,7 @@ const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n";
 
 // Reads only the files in the map, and runs no program.
 const files = (map: Record<string, string>): env.System => ({
+  platform: "linux",
   readFile: (path) => map[path] ?? null,
   run: async () => null,
 });
@@ -520,6 +609,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
 
   it("should fill the rest from Synnax Desktop", () => {
     const system: env.System = {
+      platform: "linux",
       readFile: (path) =>
         path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, secure: false }),
       run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
@@ -573,6 +663,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
 
   it("should turn on TLS without reading the file when the CA is unsupported", () => {
     const deno: env.System = {
+      platform: "linux",
       readFile: vi.fn(() => PEM),
       run: async () => null,
       caCertUnsupported: true,
@@ -598,6 +689,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   it("should name the file when Deno cannot read it", () => {
     const cause = notCapable();
     const system: env.System = {
+      platform: "linux",
       readFile: () => {
         throw cause;
       },
