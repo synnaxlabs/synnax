@@ -255,32 +255,24 @@ export const hardwareZ = z.object({
    * support the attribute.
    */
   aoMaxRate: z.number().gt(0).optional(),
-  /**
-   * aiVoltageRanges are the analog input voltage ranges of the device, ends included.
-   */
+  /** aiVoltageRanges are the analog input voltage ranges of the device. */
   aiVoltageRanges: spatial
-    .boundsZ()
+    .closedBoundsZ()
     .array()
     .default(() => []),
-  /**
-   * aiCurrentRanges are the analog input current ranges of the device, ends included.
-   */
+  /** aiCurrentRanges are the analog input current ranges of the device. */
   aiCurrentRanges: spatial
-    .boundsZ()
+    .closedBoundsZ()
     .array()
     .default(() => []),
-  /**
-   * aoVoltageRanges are the analog output voltage ranges of the device, ends included.
-   */
+  /** aoVoltageRanges are the analog output voltage ranges of the device. */
   aoVoltageRanges: spatial
-    .boundsZ()
+    .closedBoundsZ()
     .array()
     .default(() => []),
-  /**
-   * aoCurrentRanges are the analog output current ranges of the device, ends included.
-   */
+  /** aoCurrentRanges are the analog output current ranges of the device. */
   aoCurrentRanges: spatial
-    .boundsZ()
+    .closedBoundsZ()
     .array()
     .default(() => []),
 });

@@ -57,10 +57,10 @@ func newHardware() *device.Hardware {
 		AiMaxSingleChannelRate: new(250 * telem.Kilohertz),
 		AiMaxMultiChannelRate:  new(250 * telem.Kilohertz),
 		AoMaxRate:              new(telem.Kilohertz),
-		AiVoltageRanges:        []spatial.Bounds{{Lower: -10, Upper: 10}},
-		AiCurrentRanges:        []spatial.Bounds{{Lower: -0.02, Upper: 0.02}},
-		AoVoltageRanges:        []spatial.Bounds{{Lower: -10, Upper: 10}},
-		AoCurrentRanges:        []spatial.Bounds{},
+		AiVoltageRanges:        []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
+		AiCurrentRanges:        []spatial.ClosedBounds{{Lower: -0.02, Upper: 0.02}},
+		AoVoltageRanges:        []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
+		AoCurrentRanges:        []spatial.ClosedBounds{},
 	}
 }
 

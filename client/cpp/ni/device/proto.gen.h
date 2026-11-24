@@ -1112,22 +1112,22 @@ Hardware::from_proto(const ::service::ni_device::pb::Hardware &pb) {
         );
     if (pb.has_ao_max_rate())
         cpp.ao_max_rate = ::x::telem::Rate::from_proto(pb.ao_max_rate());
-    if (auto err = x::pb::from_proto_repeated<::x::spatial::Bounds>(
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
             cpp.ai_voltage_ranges,
             pb.ai_voltage_ranges()
         ))
         return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::x::spatial::Bounds>(
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
             cpp.ai_current_ranges,
             pb.ai_current_ranges()
         ))
         return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::x::spatial::Bounds>(
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
             cpp.ao_voltage_ranges,
             pb.ao_voltage_ranges()
         ))
         return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::x::spatial::Bounds>(
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
             cpp.ao_current_ranges,
             pb.ao_current_ranges()
         ))

@@ -1465,19 +1465,19 @@ func HardwareToPB(r device.Hardware) (*Hardware, error) {
 	if err != nil {
 		return nil, err
 	}
-	aiVoltageRangesVal, err := spatialpb.BoundsListToPB(r.AiVoltageRanges)
+	aiVoltageRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AiVoltageRanges)
 	if err != nil {
 		return nil, err
 	}
-	aiCurrentRangesVal, err := spatialpb.BoundsListToPB(r.AiCurrentRanges)
+	aiCurrentRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AiCurrentRanges)
 	if err != nil {
 		return nil, err
 	}
-	aoVoltageRangesVal, err := spatialpb.BoundsListToPB(r.AoVoltageRanges)
+	aoVoltageRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AoVoltageRanges)
 	if err != nil {
 		return nil, err
 	}
-	aoCurrentRangesVal, err := spatialpb.BoundsListToPB(r.AoCurrentRanges)
+	aoCurrentRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AoCurrentRanges)
 	if err != nil {
 		return nil, err
 	}
@@ -1543,19 +1543,19 @@ func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
 	if err != nil {
 		return device.Hardware{}, err
 	}
-	r.AiVoltageRanges, err = spatialpb.BoundsListFromPB(pb.AiVoltageRanges)
+	r.AiVoltageRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AiVoltageRanges)
 	if err != nil {
 		return device.Hardware{}, err
 	}
-	r.AiCurrentRanges, err = spatialpb.BoundsListFromPB(pb.AiCurrentRanges)
+	r.AiCurrentRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AiCurrentRanges)
 	if err != nil {
 		return device.Hardware{}, err
 	}
-	r.AoVoltageRanges, err = spatialpb.BoundsListFromPB(pb.AoVoltageRanges)
+	r.AoVoltageRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AoVoltageRanges)
 	if err != nil {
 		return device.Hardware{}, err
 	}
-	r.AoCurrentRanges, err = spatialpb.BoundsListFromPB(pb.AoCurrentRanges)
+	r.AoCurrentRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AoCurrentRanges)
 	if err != nil {
 		return device.Hardware{}, err
 	}

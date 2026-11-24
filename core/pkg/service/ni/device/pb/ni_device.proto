@@ -342,16 +342,14 @@ message Hardware {
   // ao_max_rate is the highest analog output sample rate. Absent when the device does
   // not support the attribute.
   optional double ao_max_rate = 10;
-  // ai_voltage_ranges are the analog input voltage ranges of the device, ends included.
-  repeated .x.spatial.pb.Bounds ai_voltage_ranges = 11;
-  // ai_current_ranges are the analog input current ranges of the device, ends included.
-  repeated .x.spatial.pb.Bounds ai_current_ranges = 12;
-  // ao_voltage_ranges are the analog output voltage ranges of the device, ends
-  // included.
-  repeated .x.spatial.pb.Bounds ao_voltage_ranges = 13;
-  // ao_current_ranges are the analog output current ranges of the device, ends
-  // included.
-  repeated .x.spatial.pb.Bounds ao_current_ranges = 14;
+  // ai_voltage_ranges are the analog input voltage ranges of the device.
+  repeated .x.spatial.pb.ClosedBounds ai_voltage_ranges = 11;
+  // ai_current_ranges are the analog input current ranges of the device.
+  repeated .x.spatial.pb.ClosedBounds ai_current_ranges = 12;
+  // ao_voltage_ranges are the analog output voltage ranges of the device.
+  repeated .x.spatial.pb.ClosedBounds ao_voltage_ranges = 13;
+  // ao_current_ranges are the analog output current ranges of the device.
+  repeated .x.spatial.pb.ClosedBounds ao_current_ranges = 14;
 }
 
 // Update is a write to one field group of a device.

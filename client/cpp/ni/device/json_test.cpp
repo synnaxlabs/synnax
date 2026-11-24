@@ -110,9 +110,9 @@ TEST(Device, RoundTripsProto) {
         .ai_max_single_channel_rate = x::telem::Rate(250000.0),
         .ai_max_multi_channel_rate = x::telem::Rate(250000.0),
         .ao_max_rate = x::telem::Rate(1000.0),
-        .ai_voltage_ranges = {x::spatial::Bounds{.lower = -10, .upper = 10}},
-        .ai_current_ranges = {x::spatial::Bounds{.lower = -0.02, .upper = 0.02}},
-        .ao_voltage_ranges = {x::spatial::Bounds{.lower = -10, .upper = 10}},
+        .ai_voltage_ranges = {x::spatial::ClosedBounds{.lower = -10, .upper = 10}},
+        .ai_current_ranges = {x::spatial::ClosedBounds{.lower = -0.02, .upper = 0.02}},
+        .ao_voltage_ranges = {x::spatial::ClosedBounds{.lower = -10, .upper = 10}},
     };
     const auto pb = ASSERT_NIL_P(dev.to_proto());
     const auto parsed = ASSERT_NIL_P(Device::from_proto(pb));

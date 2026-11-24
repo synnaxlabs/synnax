@@ -774,7 +774,7 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			h.AiVoltageRanges = make([]spatial.Bounds, n)
+			h.AiVoltageRanges = make([]spatial.ClosedBounds, n)
 			for i := range h.AiVoltageRanges {
 				if h.AiVoltageRanges[i].Lower, err = r.Float64(); err != nil {
 					return err
@@ -795,7 +795,7 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			h.AiCurrentRanges = make([]spatial.Bounds, n)
+			h.AiCurrentRanges = make([]spatial.ClosedBounds, n)
 			for i := range h.AiCurrentRanges {
 				if h.AiCurrentRanges[i].Lower, err = r.Float64(); err != nil {
 					return err
@@ -816,7 +816,7 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			h.AoVoltageRanges = make([]spatial.Bounds, n)
+			h.AoVoltageRanges = make([]spatial.ClosedBounds, n)
 			for i := range h.AoVoltageRanges {
 				if h.AoVoltageRanges[i].Lower, err = r.Float64(); err != nil {
 					return err
@@ -837,7 +837,7 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			h.AoCurrentRanges = make([]spatial.Bounds, n)
+			h.AoCurrentRanges = make([]spatial.ClosedBounds, n)
 			for i := range h.AoCurrentRanges {
 				if h.AoCurrentRanges[i].Lower, err = r.Float64(); err != nil {
 					return err

@@ -496,21 +496,21 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
             "ai_max_multi_channel_rate"
         ),
         .ao_max_rate = parser.field<std::optional<::x::telem::Rate>>("ao_max_rate"),
-        .ai_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ai_voltage_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ai_voltage_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ai_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ai_current_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ai_current_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ao_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ao_voltage_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ao_voltage_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ao_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ao_current_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ao_current_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
     };
 }

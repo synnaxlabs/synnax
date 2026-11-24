@@ -1786,16 +1786,14 @@ type Hardware struct {
 	// ao_max_rate is the highest analog output sample rate. Absent when the device does
 	// not support the attribute.
 	AoMaxRate *float64 `protobuf:"fixed64,10,opt,name=ao_max_rate,json=aoMaxRate,proto3,oneof" json:"ao_max_rate,omitempty"`
-	// ai_voltage_ranges are the analog input voltage ranges of the device, ends included.
-	AiVoltageRanges []*pb2.Bounds `protobuf:"bytes,11,rep,name=ai_voltage_ranges,json=aiVoltageRanges,proto3" json:"ai_voltage_ranges,omitempty"`
-	// ai_current_ranges are the analog input current ranges of the device, ends included.
-	AiCurrentRanges []*pb2.Bounds `protobuf:"bytes,12,rep,name=ai_current_ranges,json=aiCurrentRanges,proto3" json:"ai_current_ranges,omitempty"`
-	// ao_voltage_ranges are the analog output voltage ranges of the device, ends
-	// included.
-	AoVoltageRanges []*pb2.Bounds `protobuf:"bytes,13,rep,name=ao_voltage_ranges,json=aoVoltageRanges,proto3" json:"ao_voltage_ranges,omitempty"`
-	// ao_current_ranges are the analog output current ranges of the device, ends
-	// included.
-	AoCurrentRanges []*pb2.Bounds `protobuf:"bytes,14,rep,name=ao_current_ranges,json=aoCurrentRanges,proto3" json:"ao_current_ranges,omitempty"`
+	// ai_voltage_ranges are the analog input voltage ranges of the device.
+	AiVoltageRanges []*pb2.ClosedBounds `protobuf:"bytes,11,rep,name=ai_voltage_ranges,json=aiVoltageRanges,proto3" json:"ai_voltage_ranges,omitempty"`
+	// ai_current_ranges are the analog input current ranges of the device.
+	AiCurrentRanges []*pb2.ClosedBounds `protobuf:"bytes,12,rep,name=ai_current_ranges,json=aiCurrentRanges,proto3" json:"ai_current_ranges,omitempty"`
+	// ao_voltage_ranges are the analog output voltage ranges of the device.
+	AoVoltageRanges []*pb2.ClosedBounds `protobuf:"bytes,13,rep,name=ao_voltage_ranges,json=aoVoltageRanges,proto3" json:"ao_voltage_ranges,omitempty"`
+	// ao_current_ranges are the analog output current ranges of the device.
+	AoCurrentRanges []*pb2.ClosedBounds `protobuf:"bytes,14,rep,name=ao_current_ranges,json=aoCurrentRanges,proto3" json:"ao_current_ranges,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1900,28 +1898,28 @@ func (x *Hardware) GetAoMaxRate() float64 {
 	return 0
 }
 
-func (x *Hardware) GetAiVoltageRanges() []*pb2.Bounds {
+func (x *Hardware) GetAiVoltageRanges() []*pb2.ClosedBounds {
 	if x != nil {
 		return x.AiVoltageRanges
 	}
 	return nil
 }
 
-func (x *Hardware) GetAiCurrentRanges() []*pb2.Bounds {
+func (x *Hardware) GetAiCurrentRanges() []*pb2.ClosedBounds {
 	if x != nil {
 		return x.AiCurrentRanges
 	}
 	return nil
 }
 
-func (x *Hardware) GetAoVoltageRanges() []*pb2.Bounds {
+func (x *Hardware) GetAoVoltageRanges() []*pb2.ClosedBounds {
 	if x != nil {
 		return x.AoVoltageRanges
 	}
 	return nil
 }
 
-func (x *Hardware) GetAoCurrentRanges() []*pb2.Bounds {
+func (x *Hardware) GetAoCurrentRanges() []*pb2.ClosedBounds {
 	if x != nil {
 		return x.AoCurrentRanges
 	}
@@ -2168,7 +2166,7 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x14\n" +
 	"\x05lines\x18\x02 \x01(\rR\x05lines\x12\x14\n" +
 	"\x05input\x18\x03 \x01(\bR\x05input\x12\x16\n" +
-	"\x06output\x18\x04 \x01(\bR\x06output\"\xd0\a\n" +
+	"\x06output\x18\x04 \x01(\bR\x06output\"\xe8\a\n" +
 	"\bHardware\x12J\n" +
 	"\ranalog_inputs\x18\x01 \x03(\v2%.service.ni_device.pb.AnalogInputPortR\fanalogInputs\x12M\n" +
 	"\x0eanalog_outputs\x18\x02 \x03(\v2&.service.ni_device.pb.AnalogOutputPortR\ranalogOutputs\x12H\n" +
@@ -2180,11 +2178,11 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x1aai_max_single_channel_rate\x18\b \x01(\x01H\x01R\x16aiMaxSingleChannelRate\x88\x01\x01\x12=\n" +
 	"\x19ai_max_multi_channel_rate\x18\t \x01(\x01H\x02R\x15aiMaxMultiChannelRate\x88\x01\x01\x12#\n" +
 	"\vao_max_rate\x18\n" +
-	" \x01(\x01H\x03R\taoMaxRate\x88\x01\x01\x12@\n" +
-	"\x11ai_voltage_ranges\x18\v \x03(\v2\x14.x.spatial.pb.BoundsR\x0faiVoltageRanges\x12@\n" +
-	"\x11ai_current_ranges\x18\f \x03(\v2\x14.x.spatial.pb.BoundsR\x0faiCurrentRanges\x12@\n" +
-	"\x11ao_voltage_ranges\x18\r \x03(\v2\x14.x.spatial.pb.BoundsR\x0faoVoltageRanges\x12@\n" +
-	"\x11ao_current_ranges\x18\x0e \x03(\v2\x14.x.spatial.pb.BoundsR\x0faoCurrentRangesB\x0e\n" +
+	" \x01(\x01H\x03R\taoMaxRate\x88\x01\x01\x12F\n" +
+	"\x11ai_voltage_ranges\x18\v \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faiVoltageRanges\x12F\n" +
+	"\x11ai_current_ranges\x18\f \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faiCurrentRanges\x12F\n" +
+	"\x11ao_voltage_ranges\x18\r \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faoVoltageRanges\x12F\n" +
+	"\x11ao_current_ranges\x18\x0e \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faoCurrentRangesB\x0e\n" +
 	"\f_ai_min_rateB\x1d\n" +
 	"\x1b_ai_max_single_channel_rateB\x1c\n" +
 	"\x1a_ai_max_multi_channel_rateB\x0e\n" +
@@ -2304,7 +2302,7 @@ var file_core_pkg_service_ni_device_pb_ni_device_proto_goTypes = []any{
 	nil,                           // 36: service.ni_device.pb.Configuration.DigitalOutputEntry
 	(*pb.Status)(nil),             // 37: service.status.pb.Status
 	(*pb1.String)(nil),            // 38: x.filter.pb.String
-	(*pb2.Bounds)(nil),            // 39: x.spatial.pb.Bounds
+	(*pb2.ClosedBounds)(nil),      // 39: x.spatial.pb.ClosedBounds
 }
 var file_core_pkg_service_ni_device_pb_ni_device_proto_depIdxs = []int32{
 	24, // 0: service.ni_device.pb.Device.hardware:type_name -> service.ni_device.pb.Hardware
@@ -2346,10 +2344,10 @@ var file_core_pkg_service_ni_device_pb_ni_device_proto_depIdxs = []int32{
 	22, // 36: service.ni_device.pb.Hardware.counter_inputs:type_name -> service.ni_device.pb.CounterPort
 	22, // 37: service.ni_device.pb.Hardware.counter_outputs:type_name -> service.ni_device.pb.CounterPort
 	23, // 38: service.ni_device.pb.Hardware.digital_ports:type_name -> service.ni_device.pb.DigitalPort
-	39, // 39: service.ni_device.pb.Hardware.ai_voltage_ranges:type_name -> x.spatial.pb.Bounds
-	39, // 40: service.ni_device.pb.Hardware.ai_current_ranges:type_name -> x.spatial.pb.Bounds
-	39, // 41: service.ni_device.pb.Hardware.ao_voltage_ranges:type_name -> x.spatial.pb.Bounds
-	39, // 42: service.ni_device.pb.Hardware.ao_current_ranges:type_name -> x.spatial.pb.Bounds
+	39, // 39: service.ni_device.pb.Hardware.ai_voltage_ranges:type_name -> x.spatial.pb.ClosedBounds
+	39, // 40: service.ni_device.pb.Hardware.ai_current_ranges:type_name -> x.spatial.pb.ClosedBounds
+	39, // 41: service.ni_device.pb.Hardware.ao_voltage_ranges:type_name -> x.spatial.pb.ClosedBounds
+	39, // 42: service.ni_device.pb.Hardware.ao_current_ranges:type_name -> x.spatial.pb.ClosedBounds
 	18, // 43: service.ni_device.pb.Update.identity:type_name -> service.ni_device.pb.Identity
 	19, // 44: service.ni_device.pb.Update.configuration:type_name -> service.ni_device.pb.Configuration
 	13, // 45: service.ni_device.pb.Device.AnalogOutputEntry.value:type_name -> service.ni_device.pb.AnalogOutputChannels

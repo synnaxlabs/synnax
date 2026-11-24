@@ -145,12 +145,6 @@ struct Bounds {
 
     static Bounds parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::Bounds;
-    [[nodiscard]] std::pair<::x::spatial::pb::Bounds, x::errors::Error>
-    to_proto() const;
-    static std::pair<Bounds, x::errors::Error>
-    from_proto(const ::x::spatial::pb::Bounds &pb);
 };
 
 /// @brief ClosedBounds is a nonempty closed interval [lower, upper] over an ordered
@@ -165,6 +159,12 @@ struct ClosedBounds {
 
     static ClosedBounds parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::ClosedBounds;
+    [[nodiscard]] std::pair<::x::spatial::pb::ClosedBounds, x::errors::Error>
+    to_proto() const;
+    static std::pair<ClosedBounds, x::errors::Error>
+    from_proto(const ::x::spatial::pb::ClosedBounds &pb);
 };
 
 /// @brief Viewport is the camera state of a viewport.

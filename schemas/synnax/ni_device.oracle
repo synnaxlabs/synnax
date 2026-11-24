@@ -497,7 +497,7 @@ Hardware struct {
             are the terminals of the device, such as PFI0, without the device name.
         """
     }
-    ai_min_rate                telem.Rate?        {
+    ai_min_rate                telem.Rate?            {
         @doc value   """
             is the lowest analog input sample rate. Absent when the device does not
             support the attribute.
@@ -505,7 +505,7 @@ Hardware struct {
         @ts type     "number"
         @validate gt 0
     }
-    ai_max_single_channel_rate telem.Rate?        {
+    ai_max_single_channel_rate telem.Rate?            {
         @doc value   """
             is the highest analog input sample rate of one channel. Absent when the
             device does not support the attribute.
@@ -513,7 +513,7 @@ Hardware struct {
         @ts type     "number"
         @validate gt 0
     }
-    ai_max_multi_channel_rate  telem.Rate?        {
+    ai_max_multi_channel_rate  telem.Rate?            {
         @doc value   """
             is the highest analog input sample rate of the device. A task with several
             channels divides it by the channel count. Absent when the device does not
@@ -522,7 +522,7 @@ Hardware struct {
         @ts type     "number"
         @validate gt 0
     }
-    ao_max_rate                telem.Rate?        {
+    ao_max_rate                telem.Rate?            {
         @doc value   """
             is the highest analog output sample rate. Absent when the device does not
             support the attribute.
@@ -530,17 +530,17 @@ Hardware struct {
         @ts type     "number"
         @validate gt 0
     }
-    ai_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input voltage ranges of the device, ends included."
+    ai_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device."
     }
-    ai_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input current ranges of the device, ends included."
+    ai_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input current ranges of the device."
     }
-    ao_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output voltage ranges of the device, ends included."
+    ao_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device."
     }
-    ao_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output current ranges of the device, ends included."
+    ao_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output current ranges of the device."
     }
 
     @doc value  """

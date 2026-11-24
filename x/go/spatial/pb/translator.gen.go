@@ -86,24 +86,24 @@ func XLocationFromPB(v XLocation) (spatial.XLocation, error) {
 	}
 }
 
-// BoundsToPB converts Bounds to Bounds using provided type
+// ClosedBoundsToPB converts ClosedBounds to ClosedBounds using provided type
 // converters.
-func BoundsToPB(
-	r spatial.Bounds,
-) (*Bounds, error) {
-	pb := &Bounds{
+func ClosedBoundsToPB(
+	r spatial.ClosedBounds,
+) (*ClosedBounds, error) {
+	pb := &ClosedBounds{
 		Lower: r.Lower,
 		Upper: r.Upper,
 	}
 	return pb, nil
 }
 
-// BoundsFromPB converts Bounds to Bounds using provided type
+// ClosedBoundsFromPB converts ClosedBounds to ClosedBounds using provided type
 // converters.
-func BoundsFromPB(
-	pb *Bounds,
-) (spatial.Bounds, error) {
-	var r spatial.Bounds
+func ClosedBoundsFromPB(
+	pb *ClosedBounds,
+) (spatial.ClosedBounds, error) {
+	var r spatial.ClosedBounds
 	if pb == nil {
 		return r, nil
 	}
@@ -112,14 +112,14 @@ func BoundsFromPB(
 	return r, nil
 }
 
-// BoundsListToPB converts a slice of Bounds to Bounds.
-func BoundsListToPB(
-	rs []spatial.Bounds,
-) ([]*Bounds, error) {
-	result := make([]*Bounds, len(rs))
+// ClosedBoundsListToPB converts a slice of ClosedBounds to ClosedBounds.
+func ClosedBoundsListToPB(
+	rs []spatial.ClosedBounds,
+) ([]*ClosedBounds, error) {
+	result := make([]*ClosedBounds, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = BoundsToPB(rs[i])
+		result[i], err = ClosedBoundsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -127,14 +127,14 @@ func BoundsListToPB(
 	return result, nil
 }
 
-// BoundsListFromPB converts a slice of Bounds to Bounds.
-func BoundsListFromPB(
-	pbs []*Bounds,
-) ([]spatial.Bounds, error) {
-	result := make([]spatial.Bounds, len(pbs))
+// ClosedBoundsListFromPB converts a slice of ClosedBounds to ClosedBounds.
+func ClosedBoundsListFromPB(
+	pbs []*ClosedBounds,
+) ([]spatial.ClosedBounds, error) {
+	result := make([]spatial.ClosedBounds, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = BoundsFromPB(pb)
+		result[i], err = ClosedBoundsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
