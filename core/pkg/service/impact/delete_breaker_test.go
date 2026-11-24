@@ -229,7 +229,12 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 	Describe("Built-in channel", func() {
 		It("Should refuse a built-in channel that a task holds as DeleteMany does",
 			func(ctx SpecContext) {
-				builtIns := layer.Channel.BuiltIns()
+				var internal []channel.Channel
+				Expect(layer.Channel.NewRetrieve().
+					Where(channel.MatchInternal(true)).
+					Entries(&internal).
+					Exec(ctx, db)).To(Succeed())
+				builtIns := channel.KeysFromChannels(internal)
 				Expect(builtIns).ToNot(BeEmpty())
 				builtIn := builtIns[0]
 				tsk := createTask(ctx, builtIn)
@@ -245,7 +250,12 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 
 		It("Should leave a task picked for delete in place when Apply through the DB "+
 			"fails on a built-in channel", func(ctx SpecContext) {
-			builtIn := layer.Channel.BuiltIns()[0]
+			var internal []channel.Channel
+			Expect(layer.Channel.NewRetrieve().
+				Where(channel.MatchInternal(true)).
+				Entries(&internal).
+				Exec(ctx, db)).To(Succeed())
+			builtIn := channel.KeysFromChannels(internal)[0]
 			tsk := createTask(ctx, builtIn)
 			DeferCleanup(func(ctx SpecContext) {
 				if taskExists(ctx, tsk.Key) {

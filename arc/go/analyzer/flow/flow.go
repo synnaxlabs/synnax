@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -59,6 +60,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 		funcType.AnalyzeArguments,
 		ctx.AST,
 		funcType.Trigger.Target,
+		funcType.ReciprocalInput,
 	)
 }
 
@@ -88,11 +90,12 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 		if !ok || op.TRANSITION() == nil || i+1 >= len(children) {
 			continue
 		}
+		fix := formatter.ReplaceToken(op.TRANSITION().GetSymbol(), "->")
 		switch next := children[i+1].(type) {
 		case parser.IRoutingTableContext:
 			ctx.Diagnostics.Add(codes.FlowOperator.Atf(op,
 				"'=>' cannot feed a routing table, use '->'",
-			))
+			).WithEdits("Change to `->`", fix))
 		case parser.IFlowNodeContext:
 			fn := next.Function()
 			if fn == nil || parser.FunctionName(fn) != "select" {
@@ -100,7 +103,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 			}
 			ctx.Diagnostics.Add(codes.FlowOperator.Atf(op,
 				"'=>' cannot feed select(), use '->'",
-			))
+			).WithEdits("Change to `->`", fix))
 		}
 	}
 }
@@ -184,6 +187,7 @@ func parseFunction(
 		funcType.AnalyzeArguments,
 		ctx.AST,
 		funcType.Trigger.Target,
+		funcType.ReciprocalInput,
 		externallySatisfied...,
 	)
 
@@ -421,7 +425,9 @@ func analyzeIdentifier(
 	if !isFlowNode {
 		d := codes.ChannelExpected.Atf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
-			d = d.WithNote("use " + name + "() to instantiate the function")
+			call := ctx.AST.GetText() + "()"
+			d = d.WithNote("use "+name+"() to instantiate the function").
+				WithEdits("Change to `"+call+"`", formatter.Replace(ctx.AST, call))
 		}
 		ctx.Diagnostics.Add(d)
 		return
@@ -1024,6 +1030,7 @@ func analyzeRoutingTargetWithParam(
 			fnType.AnalyzeArguments,
 			fn,
 			fnType.Trigger.Target,
+			fnType.ReciprocalInput,
 			externallySatisfied...,
 		)
 

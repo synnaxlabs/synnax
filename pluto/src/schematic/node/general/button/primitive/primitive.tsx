@@ -1,0 +1,106 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/schematic/node/general/button/button.css";
+
+import type { schematic } from "@synnaxlabs/client";
+import { Button as Base } from "@synnaxlabs/lyra/button";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Handle } from "@/schematic/node/common/handle";
+import { Label } from "@/schematic/node/common/label";
+import { Primitive } from "@/schematic/node/common/primitive";
+import { size as nodeSize } from "@/schematic/node/common/size";
+
+// A context menu swallows a secondary press's release, so momentary would stay pressed.
+const primaryOnly = (
+  handler?: MouseEventHandler<HTMLButtonElement>,
+): MouseEventHandler<HTMLButtonElement> | undefined =>
+  handler == null
+    ? undefined
+    : (e) => {
+        if (e.button === Triggers.MOUSE_LEFT_NUMBER) handler(e);
+      };
+
+interface ButtonProps extends Partial<
+  Pick<schematic.ButtonNodeConfig, "orientation" | "size" | "mode" | "onClickDelay">
+> {
+  label?: schematic.ButtonNodeConfig["label"];
+  fillColor?: color.Crude;
+  className?: string;
+  disabled?: boolean;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
+  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
+}
+
+export const Button = ({
+  onClick,
+  onMouseDown,
+  onMouseUp,
+  orientation = "left",
+  label,
+  fillColor,
+  size = "medium",
+  mode = "fire",
+  onClickDelay: delay,
+  disabled,
+}: ButtonProps): ReactElement => {
+  const symbolColor = color.rgbaString(fillColor);
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    textAlign: label == null ? undefined : Label.TEXT_ALIGNS[label.align],
+    maxInlineSize: label?.maxInlineSize,
+  };
+  // The activation delay gates Base.Button's onClick, so single-shot actuation
+  // (fire's release write, pulse's press write) routes through it. An undelayed
+  // pulse keeps its raw press edge. Momentary always acts on raw press/release:
+  // the hold is the actuation, so a hold delay has no meaning there.
+  const delayed = (delay ?? 0) > 0;
+  let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
+  // A disabled Lyra button still passes a press and a release to their handlers.
+  if (disabled) handlers = {};
+  else if (mode === "momentary")
+    handlers = {
+      onMouseDown: primaryOnly(onMouseDown),
+      onMouseUp: primaryOnly(onMouseUp),
+    };
+  else if (mode === "pulse")
+    handlers = delayed
+      ? { onClick: onMouseDown }
+      : { onMouseDown: primaryOnly(onMouseDown) };
+  else handlers = { onClick };
+  return (
+    <Primitive.Div orientation={orientation}>
+      <Base.Button
+        variant="filled"
+        className={CSS.cls(CSS.symbolColored, CSS.B("symbol-button"))}
+        style={style}
+        {...handlers}
+        disabled={disabled}
+        size={size}
+        level={nodeSize.LEVELS[size]}
+        direction={label?.direction}
+        onClickDelay={mode === "momentary" ? 0 : new TimeSpan(delay ?? 0)}
+      >
+        {label?.label ?? ""}
+      </Base.Button>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={0}
+        right={100}
+        bottom={100}
+      />
+    </Primitive.Div>
+  );
+};
