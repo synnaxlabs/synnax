@@ -21,6 +21,21 @@ export const WRITE_FUNCTIONS = ["multiple", "single"] as const;
 export const writeFunctionZ = z.enum(WRITE_FUNCTIONS);
 export type WriteFunction = z.infer<typeof writeFunctionZ>;
 
+export const DATA_TYPES = [
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float32",
+  "float64",
+] as const;
+export const dataTypeZ = z.enum(DATA_TYPES);
+export type DataType = z.infer<typeof dataTypeZ>;
+
 export const PARITYS = ["none", "even", "odd"] as const;
 export const parityZ = z.enum(PARITYS);
 export type Parity = z.infer<typeof parityZ>;
@@ -43,21 +58,6 @@ export enum StopBits {
   two = 2,
 }
 export const stopBitsZ = z.enum(StopBits);
-
-export const DATA_TYPES = [
-  "int8",
-  "int16",
-  "int32",
-  "int64",
-  "uint8",
-  "uint16",
-  "uint32",
-  "uint64",
-  "float32",
-  "float64",
-] as const;
-export const dataTypeZ = z.enum(DATA_TYPES);
-export type DataType = z.infer<typeof dataTypeZ>;
 
 /** BaseConnection carries the fields that every Modbus connection shares. */
 export const baseConnectionZ = z.object({
@@ -98,6 +98,24 @@ export const requestPolicyZ = z.object({
 });
 export interface RequestPolicy extends z.infer<typeof requestPolicyZ> {}
 
+/** Number is a number that fills one or more registers. */
+export const numberZ = z.object({
+  /** dataType is the type of the value in the registers. */
+  dataType: dataTypeZ.default("uint16"),
+  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
+  bytesSwapped: z.boolean().optional(),
+  /** wordsSwapped overrides the words_swapped of the connection for the value. */
+  wordsSwapped: z.boolean().optional(),
+});
+export interface Number extends z.infer<typeof numberZ> {}
+
+/** RegisterBit is one bit of a register. */
+export const registerBitZ = z.object({
+  /** bit is the bit of the register, from 0 to 15. */
+  bit: zod.uint8.max(15).default(0),
+});
+export interface RegisterBit extends z.infer<typeof registerBitZ> {}
+
 /** BaseLocation carries the address that every location has. */
 export const baseLocationZ = z.object({
   /** address is the address of the coil, discrete input, or first register. */
@@ -124,56 +142,6 @@ export interface Stats extends z.infer<typeof statsZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
-
-/** WholeValue is a number that fills one or more registers. */
-export const wholeValueZ = z.object({
-  type: z.literal("whole"),
-  /** dataType is the type of the value in the registers. */
-  dataType: dataTypeZ.default("uint16"),
-  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
-  bytesSwapped: z.boolean().optional(),
-  /** wordsSwapped overrides the words_swapped of the connection for the value. */
-  wordsSwapped: z.boolean().optional(),
-});
-export interface WholeValue extends z.infer<typeof wholeValueZ> {}
-
-/** BitValue is one bit of a register. */
-export const bitValueZ = z.object({
-  type: z.literal("bit"),
-  /** bit is the bit of the register, from 0 to 15. */
-  bit: zod.uint8.max(15).default(0),
-});
-export interface BitValue extends z.infer<typeof bitValueZ> {}
-
-/** StringValue is a fixed-length string that read tasks read. */
-export const stringValueZ = z.object({
-  type: z.literal("string"),
-  /** length is the number of characters, two to each register. */
-  length: zod.uint16.min(1).max(250),
-  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
-  bytesSwapped: z.boolean().optional(),
-});
-export interface StringValue extends z.infer<typeof stringValueZ> {}
-
-export const VALUE_TYPES = ["whole", "bit", "string"] as const;
-export const valueTypeZ = z.enum(VALUE_TYPES);
-export type ValueType = z.infer<typeof valueTypeZ>;
-
-/** Value is how one or more registers hold a value. */
-export const valueZ = z.discriminatedUnion("type", [
-  wholeValueZ,
-  bitValueZ,
-  stringValueZ,
-]);
-export type Value = WholeValue | BitValue | StringValue;
-
-export const VALUE_SCHEMAS: {
-  [K in ValueType]: z.ZodType<Extract<Value, { type: K }>>;
-} = {
-  whole: wholeValueZ,
-  bit: bitValueZ,
-  string: stringValueZ,
-};
 
 /** TcpConnection connects to a server over Modbus TCP. */
 export const tcpConnectionZ = baseConnectionZ.extend({
@@ -219,6 +187,78 @@ export const CONNECTION_SCHEMAS: {
 } = {
   tcp: tcpConnectionZ,
   rtu: rtuConnectionZ,
+};
+
+/** WholeValue is a number that fills one or more registers. */
+export const wholeValueZ = numberZ.extend({
+  type: z.literal("whole"),
+});
+export interface WholeValue extends z.infer<typeof wholeValueZ> {}
+
+/** BitValue is one bit of a register. */
+export const bitValueZ = registerBitZ.extend({
+  type: z.literal("bit"),
+});
+export interface BitValue extends z.infer<typeof bitValueZ> {}
+
+/** StringValue is a fixed-length string that read tasks read. */
+export const stringValueZ = z.object({
+  type: z.literal("string"),
+  /** length is the number of characters, two to each register. */
+  length: zod.uint16.min(1).max(250),
+  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
+  bytesSwapped: z.boolean().optional(),
+});
+export interface StringValue extends z.infer<typeof stringValueZ> {}
+
+export const VALUE_TYPES = ["whole", "bit", "string"] as const;
+export const valueTypeZ = z.enum(VALUE_TYPES);
+export type ValueType = z.infer<typeof valueTypeZ>;
+
+/** Value is how one or more registers hold a value. */
+export const valueZ = z.discriminatedUnion("type", [
+  wholeValueZ,
+  bitValueZ,
+  stringValueZ,
+]);
+export type Value = WholeValue | BitValue | StringValue;
+
+export const VALUE_SCHEMAS: {
+  [K in ValueType]: z.ZodType<Extract<Value, { type: K }>>;
+} = {
+  whole: wholeValueZ,
+  bit: bitValueZ,
+  string: stringValueZ,
+};
+
+/** WholeWriteValue is a number that fills one or more registers. */
+export const wholeWriteValueZ = numberZ.extend({
+  type: z.literal("whole"),
+});
+export interface WholeWriteValue extends z.infer<typeof wholeWriteValueZ> {}
+
+/** BitWriteValue is one bit of a register. */
+export const bitWriteValueZ = registerBitZ.extend({
+  type: z.literal("bit"),
+});
+export interface BitWriteValue extends z.infer<typeof bitWriteValueZ> {}
+
+export const WRITE_VALUE_TYPES = ["whole", "bit"] as const;
+export const writeValueTypeZ = z.enum(WRITE_VALUE_TYPES);
+export type WriteValueType = z.infer<typeof writeValueTypeZ>;
+
+/** WriteValue is how a holding register holds a value that write tasks write. */
+export const writeValueZ = z.discriminatedUnion("type", [
+  wholeWriteValueZ,
+  bitWriteValueZ,
+]);
+export type WriteValue = WholeWriteValue | BitWriteValue;
+
+export const WRITE_VALUE_SCHEMAS: {
+  [K in WriteValueType]: z.ZodType<Extract<WriteValue, { type: K }>>;
+} = {
+  whole: wholeWriteValueZ,
+  bit: bitWriteValueZ,
 };
 
 /** StatusDetails identifies the server and rack that a status pertains to. */
@@ -297,6 +337,43 @@ export const LOCATION_SCHEMAS: {
   input_register: inputRegisterLocationZ,
 };
 
+/** CoilWriteLocation is a coil. */
+export const coilWriteLocationZ = baseLocationZ.extend({
+  table: z.literal("coil"),
+});
+export interface CoilWriteLocation extends z.infer<typeof coilWriteLocationZ> {}
+
+/** HoldingRegisterWriteLocation is a holding register value. */
+export const holdingRegisterWriteLocationZ = baseLocationZ.extend({
+  table: z.literal("holding_register"),
+  /** value is how the registers hold the value. */
+  value: writeValueZ,
+});
+export interface HoldingRegisterWriteLocation extends z.infer<
+  typeof holdingRegisterWriteLocationZ
+> {}
+
+export const WRITE_LOCATION_TYPES = ["coil", "holding_register"] as const;
+export const writeLocationTypeZ = z.enum(WRITE_LOCATION_TYPES);
+export type WriteLocationType = z.infer<typeof writeLocationTypeZ>;
+
+/**
+ * WriteLocation identifies a value that write tasks write, by its Modbus table and
+ * address.
+ */
+export const writeLocationZ = z.discriminatedUnion("table", [
+  coilWriteLocationZ,
+  holdingRegisterWriteLocationZ,
+]);
+export type WriteLocation = CoilWriteLocation | HoldingRegisterWriteLocation;
+
+export const WRITE_LOCATION_SCHEMAS: {
+  [K in WriteLocationType]: z.ZodType<Extract<WriteLocation, { table: K }>>;
+} = {
+  coil: coilWriteLocationZ,
+  holding_register: holdingRegisterWriteLocationZ,
+};
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -314,7 +391,7 @@ export interface Read extends z.infer<typeof readZ> {}
 /** Write binds a value that write tasks write to its command channel. */
 export const writeZ = z.object({
   /** location is the value that the channel commands. */
-  location: locationZ,
+  location: writeLocationZ,
   /** channel is the channel whose commands write tasks send to the value. */
   channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
 });

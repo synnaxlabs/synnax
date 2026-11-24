@@ -33,6 +33,12 @@ var (
 		Retries:      5,
 	}
 	fullyPopulatedBaseLocation = v0.BaseLocation{Address: 2}
+	fullyPopulatedNumber       = v0.Number{
+		DataType:     v0.DataType("int8"),
+		BytesSwapped: new(bool(false)),
+		WordsSwapped: new(bool(true)),
+	}
+	fullyPopulatedRegisterBit = v0.RegisterBit{Bit: 2}
 )
 
 var _ = Describe("Codec", func() {
@@ -113,20 +119,31 @@ var _ = Describe("Codec", func() {
 			Entry("discrete_input variant", v0.Location{Variant: v0.DiscreteInputLocation{BaseLocation: fullyPopulatedBaseLocation}}),
 			Entry("holding_register variant", v0.Location{Variant: v0.HoldingRegisterLocation{
 				BaseLocation: fullyPopulatedBaseLocation,
-				Value: v0.Value{Variant: v0.WholeValue{
-					DataType:     v0.DataType("int8"),
-					BytesSwapped: new(bool(true)),
-					WordsSwapped: new(bool(false)),
-				}},
+				Value:        v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}},
 			}}),
 			Entry("input_register variant", v0.Location{Variant: v0.InputRegisterLocation{
 				BaseLocation: fullyPopulatedBaseLocation,
-				Value: v0.Value{Variant: v0.WholeValue{
-					DataType:     v0.DataType("int8"),
-					BytesSwapped: new(bool(true)),
-					WordsSwapped: new(bool(false)),
-				}},
+				Value:        v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}},
 			}}),
+		)
+	})
+	Describe("Number", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Number) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Number
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedNumber),
+			Entry("zero values", v0.Number{
+				DataType:     v0.DataType(""),
+				BytesSwapped: nil,
+				WordsSwapped: nil,
+			}),
 		)
 	})
 	Describe("Read", func() {
@@ -150,6 +167,21 @@ var _ = Describe("Codec", func() {
 				Index:    channel.Key(0),
 				Channel:  channel.Key(0),
 			}),
+		)
+	})
+	Describe("RegisterBit", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.RegisterBit) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.RegisterBit
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedRegisterBit),
+			Entry("zero values", v0.RegisterBit{Bit: 0}),
 		)
 	})
 	Describe("RequestPolicy", func() {
@@ -225,7 +257,7 @@ var _ = Describe("Codec", func() {
 				},
 				Writes: []v0.Write{
 					{
-						Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+						Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 						Channel:  channel.Key(24),
 					},
 				},
@@ -299,12 +331,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("whole variant", v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataType("int8"),
-				BytesSwapped: new(bool(false)),
-				WordsSwapped: new(bool(true)),
-			}}),
-			Entry("bit variant", v0.Value{Variant: v0.BitValue{Bit: 2}}),
+			Entry("whole variant", v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}}),
+			Entry("bit variant", v0.Value{Variant: v0.BitValue{RegisterBit: fullyPopulatedRegisterBit}}),
 			Entry("string variant", v0.Value{Variant: v0.StringValue{Length: 2, BytesSwapped: new(bool(false))}}),
 		)
 	})
@@ -320,13 +348,46 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Write{
-				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+				Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Channel:  channel.Key(3),
 			}),
 			Entry("zero values", v0.Write{
-				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
+				Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 				Channel:  channel.Key(0),
 			}),
+		)
+	})
+	Describe("WriteLocation", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.WriteLocation) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.WriteLocation
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("coil variant", v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}}),
+			Entry("holding_register variant", v0.WriteLocation{Variant: v0.HoldingRegisterWriteLocation{
+				BaseLocation: fullyPopulatedBaseLocation,
+				Value:        v0.WriteValue{Variant: v0.WholeWriteValue{Number: fullyPopulatedNumber}},
+			}}),
+		)
+	})
+	Describe("WriteValue", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.WriteValue) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.WriteValue
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("whole variant", v0.WriteValue{Variant: v0.WholeWriteValue{Number: fullyPopulatedNumber}}),
+			Entry("bit variant", v0.WriteValue{Variant: v0.BitWriteValue{RegisterBit: fullyPopulatedRegisterBit}}),
 		)
 	})
 })
@@ -404,6 +465,23 @@ func BenchmarkEncodeDecodeLocation(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeNumber(b *testing.B) {
+	seed := fullyPopulatedNumber
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Number
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRead(b *testing.B) {
 	seed := v0.Read{
 		Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
@@ -418,6 +496,23 @@ func BenchmarkEncodeDecodeRead(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Read
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRegisterBit(b *testing.B) {
+	seed := fullyPopulatedRegisterBit
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.RegisterBit
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -481,7 +576,7 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 		},
 		Writes: []v0.Write{
 			{
-				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+				Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Channel:  channel.Key(24),
 			},
 		},
@@ -502,11 +597,7 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeValue(b *testing.B) {
-	seed := v0.Value{Variant: v0.WholeValue{
-		DataType:     v0.DataType("int8"),
-		BytesSwapped: new(bool(false)),
-		WordsSwapped: new(bool(true)),
-	}}
+	seed := v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -524,7 +615,7 @@ func BenchmarkEncodeDecodeValue(b *testing.B) {
 
 func BenchmarkEncodeDecodeWrite(b *testing.B) {
 	seed := v0.Write{
-		Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+		Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 		Channel:  channel.Key(3),
 	}
 	w := orc.NewWriter(0)
@@ -535,6 +626,40 @@ func BenchmarkEncodeDecodeWrite(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Write
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWriteLocation(b *testing.B) {
+	seed := v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.WriteLocation
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWriteValue(b *testing.B) {
+	seed := v0.WriteValue{Variant: v0.WholeWriteValue{Number: fullyPopulatedNumber}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.WriteValue
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -696,11 +821,7 @@ func FuzzDecodeLocation(f *testing.F) {
 	{
 		seed := v0.Location{Variant: v0.HoldingRegisterLocation{
 			BaseLocation: fullyPopulatedBaseLocation,
-			Value: v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataType("int8"),
-				BytesSwapped: new(bool(true)),
-				WordsSwapped: new(bool(false)),
-			}},
+			Value:        v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -711,11 +832,7 @@ func FuzzDecodeLocation(f *testing.F) {
 	{
 		seed := v0.Location{Variant: v0.InputRegisterLocation{
 			BaseLocation: fullyPopulatedBaseLocation,
-			Value: v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataType("int8"),
-				BytesSwapped: new(bool(true)),
-				WordsSwapped: new(bool(false)),
-			}},
+			Value:        v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -735,6 +852,49 @@ func FuzzDecodeLocation(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Location
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeNumber(f *testing.F) {
+	{
+		seed := fullyPopulatedNumber
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Number{
+			DataType:     v0.DataType(""),
+			BytesSwapped: nil,
+			WordsSwapped: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Number
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Number
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -782,6 +942,45 @@ func FuzzDecodeRead(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Read
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRegisterBit(f *testing.F) {
+	{
+		seed := fullyPopulatedRegisterBit
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.RegisterBit{Bit: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.RegisterBit
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.RegisterBit
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -880,7 +1079,7 @@ func FuzzDecodeServer(f *testing.F) {
 			},
 			Writes: []v0.Write{
 				{
-					Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+					Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 					Channel:  channel.Key(24),
 				},
 			},
@@ -985,11 +1184,7 @@ func FuzzDecodeServer(f *testing.F) {
 
 func FuzzDecodeValue(f *testing.F) {
 	{
-		seed := v0.Value{Variant: v0.WholeValue{
-			DataType:     v0.DataType("int8"),
-			BytesSwapped: new(bool(false)),
-			WordsSwapped: new(bool(true)),
-		}}
+		seed := v0.Value{Variant: v0.WholeValue{Number: fullyPopulatedNumber}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -997,7 +1192,7 @@ func FuzzDecodeValue(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Value{Variant: v0.BitValue{Bit: 2}}
+		seed := v0.Value{Variant: v0.BitValue{RegisterBit: fullyPopulatedRegisterBit}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1037,7 +1232,7 @@ func FuzzDecodeValue(f *testing.F) {
 func FuzzDecodeWrite(f *testing.F) {
 	{
 		seed := v0.Write{
-			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
+			Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}},
 			Channel:  channel.Key(3),
 		}
 		w := orc.NewWriter(0)
@@ -1048,7 +1243,7 @@ func FuzzDecodeWrite(f *testing.F) {
 	}
 	{
 		seed := v0.Write{
-			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
+			Location: v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 			Channel:  channel.Key(0),
 		}
 		w := orc.NewWriter(0)
@@ -1069,6 +1264,87 @@ func FuzzDecodeWrite(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Write
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteLocation(f *testing.F) {
+	{
+		seed := v0.WriteLocation{Variant: v0.CoilWriteLocation{BaseLocation: fullyPopulatedBaseLocation}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteLocation{Variant: v0.HoldingRegisterWriteLocation{
+			BaseLocation: fullyPopulatedBaseLocation,
+			Value:        v0.WriteValue{Variant: v0.WholeWriteValue{Number: fullyPopulatedNumber}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.WriteLocation
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.WriteLocation
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteValue(f *testing.F) {
+	{
+		seed := v0.WriteValue{Variant: v0.WholeWriteValue{Number: fullyPopulatedNumber}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteValue{Variant: v0.BitWriteValue{RegisterBit: fullyPopulatedRegisterBit}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.WriteValue
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.WriteValue
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

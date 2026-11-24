@@ -28,33 +28,6 @@ WRITE_FUNCTION_SINGLE: Literal["single"] = "single"
 
 WriteFunction = Literal["multiple", "single"]
 
-PARITY_NONE: Literal["none"] = "none"
-
-PARITY_EVEN: Literal["even"] = "even"
-
-PARITY_ODD: Literal["odd"] = "odd"
-
-
-Parity = Literal["none", "even", "odd"]
-
-
-class BaudRate(IntEnum):
-    b1200 = 1200
-    b2400 = 2400
-    b4800 = 4800
-    b9600 = 9600
-    b19200 = 19200
-    b38400 = 38400
-    b57600 = 57600
-    b115200 = 115200
-    b230400 = 230400
-
-
-class StopBits(IntEnum):
-    one = 1
-    two = 2
-
-
 DATA_TYPE_INT8: Literal["int8"] = "int8"
 
 DATA_TYPE_INT16: Literal["int16"] = "int16"
@@ -88,6 +61,33 @@ DataType = Literal[
     "float32",
     "float64",
 ]
+
+PARITY_NONE: Literal["none"] = "none"
+
+PARITY_EVEN: Literal["even"] = "even"
+
+PARITY_ODD: Literal["odd"] = "odd"
+
+
+Parity = Literal["none", "even", "odd"]
+
+
+class BaudRate(IntEnum):
+    b1200 = 1200
+    b2400 = 2400
+    b4800 = 4800
+    b9600 = 9600
+    b19200 = 19200
+    b38400 = 38400
+    b57600 = 57600
+    b115200 = 115200
+    b230400 = 230400
+
+
+class StopBits(IntEnum):
+    one = 1
+    two = 2
+
 
 Key: TypeAlias = UUID
 
@@ -135,6 +135,30 @@ class RequestPolicy(BaseModel):
     delay: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=0, le=5000000000)
 
 
+class Number(BaseModel):
+    """Is a number that fills one or more registers.
+
+    Attributes:
+        data_type: Is the type of the value in the registers.
+        bytes_swapped: Overrides the bytes_swapped of the connection for the value.
+        words_swapped: Overrides the words_swapped of the connection for the value.
+    """
+
+    data_type: DataType = "uint16"
+    bytes_swapped: bool | None = None
+    words_swapped: bool | None = None
+
+
+class RegisterBit(BaseModel):
+    """Is one bit of a register.
+
+    Attributes:
+        bit: Is the bit of the register, from 0 to 15.
+    """
+
+    bit: int = Field(default=0, ge=0, le=15)
+
+
 class BaseLocation(BaseModel):
     """Carries the address that every location has.
 
@@ -169,37 +193,6 @@ class Stats(BaseModel):
     )
 
 
-class WholeValue(BaseModel):
-    """Is a number that fills one or more registers."""
-
-    type: Literal["whole"] = "whole"
-    data_type: DataType = "uint16"
-    bytes_swapped: bool | None = None
-    words_swapped: bool | None = None
-
-
-class BitValue(BaseModel):
-    """Is one bit of a register."""
-
-    type: Literal["bit"] = "bit"
-    bit: int = Field(default=0, ge=0, le=15)
-
-
-class StringValue(BaseModel):
-    """Is a fixed-length string that read tasks read."""
-
-    type: Literal["string"] = "string"
-    length: int = Field(ge=1, le=250)
-    bytes_swapped: bool | None = None
-
-
-# Is how one or more registers hold a value.
-Value = Annotated[
-    WholeValue | BitValue | StringValue,
-    Field(discriminator="type"),
-]
-
-
 class TcpConnection(BaseConnection):
     """Connects to a server over Modbus TCP."""
 
@@ -224,6 +217,52 @@ class RtuConnection(BaseConnection):
 Connection = Annotated[
     TcpConnection | RtuConnection,
     Field(discriminator="transport"),
+]
+
+
+class WholeValue(Number):
+    """Is a number that fills one or more registers."""
+
+    type: Literal["whole"] = "whole"
+
+
+class BitValue(RegisterBit):
+    """Is one bit of a register."""
+
+    type: Literal["bit"] = "bit"
+
+
+class StringValue(BaseModel):
+    """Is a fixed-length string that read tasks read."""
+
+    type: Literal["string"] = "string"
+    length: int = Field(ge=1, le=250)
+    bytes_swapped: bool | None = None
+
+
+# Is how one or more registers hold a value.
+Value = Annotated[
+    WholeValue | BitValue | StringValue,
+    Field(discriminator="type"),
+]
+
+
+class WholeWriteValue(Number):
+    """Is a number that fills one or more registers."""
+
+    type: Literal["whole"] = "whole"
+
+
+class BitWriteValue(RegisterBit):
+    """Is one bit of a register."""
+
+    type: Literal["bit"] = "bit"
+
+
+# Is how a holding register holds a value that write tasks write.
+WriteValue = Annotated[
+    WholeWriteValue | BitWriteValue,
+    Field(discriminator="type"),
 ]
 
 
@@ -278,6 +317,26 @@ Location = Annotated[
     Field(discriminator="table"),
 ]
 
+
+class CoilWriteLocation(BaseLocation):
+    """Is a coil."""
+
+    table: Literal["coil"] = "coil"
+
+
+class HoldingRegisterWriteLocation(BaseLocation):
+    """Is a holding register value."""
+
+    table: Literal["holding_register"] = "holding_register"
+    value: WriteValue
+
+
+# Identifies a value that write tasks write, by its Modbus table and address.
+WriteLocation = Annotated[
+    CoilWriteLocation | HoldingRegisterWriteLocation,
+    Field(discriminator="table"),
+]
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -303,7 +362,7 @@ class Write(BaseModel):
         channel: Is the channel whose commands write tasks send to the value.
     """
 
-    location: Location
+    location: WriteLocation
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 

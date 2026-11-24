@@ -177,6 +177,25 @@ describe("serverZ", () => {
       },
     ],
     [
+      "a write to a discrete input",
+      { writes: [{ location: { table: "discrete_input", address: 0 }, channel: 1 }] },
+    ],
+    [
+      "a write of a string",
+      {
+        writes: [
+          {
+            location: {
+              table: "holding_register",
+              address: 0,
+              value: { type: "string", length: 4 },
+            },
+            channel: 1,
+          },
+        ],
+      },
+    ],
+    [
       "a holding register with no value",
       {
         writes: [{ location: { table: "holding_register", address: 0 }, channel: 1 }],

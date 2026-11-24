@@ -1176,6 +1176,25 @@ class TestModbusServerResource:
                 {**self.SERVER, "connection": connection}
             )
 
+    @pytest.mark.parametrize(
+        "location",
+        [
+            {"table": "discrete_input", "address": 0},
+            {"table": "input_register", "address": 0, "value": {"type": "bit"}},
+            {
+                "table": "holding_register",
+                "address": 0,
+                "value": {"type": "string", "length": 4},
+            },
+        ],
+    )
+    def test_rejects_a_read_only_write(self, location: dict[str, Any]) -> None:
+        """Should reject a write to a read-only table or of a string."""
+        with pytest.raises(ValidationError):
+            sy.modbus.server.Server.model_validate(
+                {**self.SERVER, "writes": [{"location": location, "channel": 1}]}
+            )
+
     def test_resource_id(self) -> None:
         """Should name the server by its key under the modbus_server type."""
         assert sy.modbus.server.resource_id(self.KEY).type == "modbus_server"

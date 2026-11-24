@@ -126,6 +126,12 @@ type RtuConnection = versions.RtuConnection
 // RequestPolicy limits and paces the requests that the Driver sends to a server.
 type RequestPolicy = versions.RequestPolicy
 
+// Number is a number that fills one or more registers.
+type Number = versions.Number
+
+// RegisterBit is one bit of a register.
+type RegisterBit = versions.RegisterBit
+
 // Value is how one or more registers hold a value.
 type Value = versions.Value
 
@@ -188,6 +194,51 @@ type HoldingRegisterLocation = versions.HoldingRegisterLocation
 
 // InputRegisterLocation is an input register value, which tasks can only read.
 type InputRegisterLocation = versions.InputRegisterLocation
+
+// WriteValue is how a holding register holds a value that write tasks write.
+type WriteValue = versions.WriteValue
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant = versions.WriteValueVariant
+
+// WriteValueType is the "type" value that selects a variant of WriteValue.
+type WriteValueType = versions.WriteValueType
+
+const (
+	// WholeWriteValueType is a number that fills one or more registers.
+	WholeWriteValueType WriteValueType = versions.WholeWriteValueType
+	// BitWriteValueType is one bit of a register.
+	BitWriteValueType WriteValueType = versions.BitWriteValueType
+)
+
+// WholeWriteValue is a number that fills one or more registers.
+type WholeWriteValue = versions.WholeWriteValue
+
+// BitWriteValue is one bit of a register.
+type BitWriteValue = versions.BitWriteValue
+
+// WriteLocation identifies a value that write tasks write, by its Modbus table and
+// address.
+type WriteLocation = versions.WriteLocation
+
+// WriteLocationVariant is implemented by every WriteLocation variant.
+type WriteLocationVariant = versions.WriteLocationVariant
+
+// WriteLocationType is the "table" value that selects a variant of WriteLocation.
+type WriteLocationType = versions.WriteLocationType
+
+const (
+	// CoilWriteLocationType is a coil.
+	CoilWriteLocationType WriteLocationType = versions.CoilWriteLocationType
+	// HoldingRegisterWriteLocationType is a holding register value.
+	HoldingRegisterWriteLocationType WriteLocationType = versions.HoldingRegisterWriteLocationType
+)
+
+// CoilWriteLocation is a coil.
+type CoilWriteLocation = versions.CoilWriteLocation
+
+// HoldingRegisterWriteLocation is a holding register value.
+type HoldingRegisterWriteLocation = versions.HoldingRegisterWriteLocation
 
 // Read binds a value that read tasks read to its channel.
 type Read = versions.Read

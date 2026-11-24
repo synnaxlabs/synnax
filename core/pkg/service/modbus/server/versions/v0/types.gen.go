@@ -479,6 +479,43 @@ func (r RequestPolicy) Validate() error {
 	return v.Error()
 }
 
+// Number is a number that fills one or more registers.
+type Number struct {
+	// DataType is the type of the value in the registers.
+	DataType DataType `json:"data_type" msgpack:"data_type"`
+	// BytesSwapped overrides the bytes_swapped of the connection for the value.
+	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped overrides the words_swapped of the connection for the value.
+	WordsSwapped *bool `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (n *Number) SetDefaults() {
+	n.DataType = DataTypeUint16
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n Number) Validate() error {
+	v := validate.New("Number")
+	v.Ternaryf("data_type", !n.DataType.IsValid(), "invalid data_type: %v", n.DataType)
+	return v.Error()
+}
+
+// RegisterBit is one bit of a register.
+type RegisterBit struct {
+	// Bit is the bit of the register, from 0 to 15.
+	Bit uint8 `json:"bit" msgpack:"bit"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RegisterBit) Validate() error {
+	v := validate.New("RegisterBit")
+	v.LessThanEq("bit", r.Bit, 15)
+	return v.Error()
+}
+
 // ValueType is the "type" value that selects a variant of Value.
 type ValueType string
 
@@ -498,33 +535,27 @@ type ValueVariant interface {
 
 // WholeValue is a number that fills one or more registers.
 type WholeValue struct {
-	// DataType is the type of the value in the registers.
-	DataType DataType `json:"data_type" msgpack:"data_type"`
-	// BytesSwapped overrides the bytes_swapped of the connection for the value.
-	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
-	// WordsSwapped overrides the words_swapped of the connection for the value.
-	WordsSwapped *bool `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+	Number
 }
 
 func (WholeValue) isValueVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WholeValue) SetDefaults() {
-	w.DataType = DataTypeUint16
+	w.Number.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WholeValue) Validate() error {
 	v := validate.New("WholeValue")
-	v.Ternaryf("data_type", !w.DataType.IsValid(), "invalid data_type: %v", w.DataType)
+	v.Exec(w.Number.Validate)
 	return v.Error()
 }
 
 // BitValue is one bit of a register.
 type BitValue struct {
-	// Bit is the bit of the register, from 0 to 15.
-	Bit uint8 `json:"bit" msgpack:"bit"`
+	RegisterBit
 }
 
 func (BitValue) isValueVariant() {}
@@ -533,7 +564,7 @@ func (BitValue) isValueVariant() {}
 // schema constraints.
 func (b BitValue) Validate() error {
 	v := validate.New("BitValue")
-	v.LessThanEq("bit", b.Bit, 15)
+	v.Exec(b.RegisterBit.Validate)
 	return v.Error()
 }
 
@@ -912,6 +943,316 @@ func (u *Location) SetBase(base BaseLocation) {
 	}
 }
 
+// WriteValueType is the "type" value that selects a variant of WriteValue.
+type WriteValueType string
+
+const (
+	// WholeWriteValueType is a number that fills one or more registers.
+	WholeWriteValueType WriteValueType = "whole"
+	// BitWriteValueType is one bit of a register.
+	BitWriteValueType WriteValueType = "bit"
+)
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant interface {
+	isWriteValueVariant()
+}
+
+// WholeWriteValue is a number that fills one or more registers.
+type WholeWriteValue struct {
+	Number
+}
+
+func (WholeWriteValue) isWriteValueVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WholeWriteValue) SetDefaults() {
+	w.Number.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WholeWriteValue) Validate() error {
+	v := validate.New("WholeWriteValue")
+	v.Exec(w.Number.Validate)
+	return v.Error()
+}
+
+// BitWriteValue is one bit of a register.
+type BitWriteValue struct {
+	RegisterBit
+}
+
+func (BitWriteValue) isWriteValueVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BitWriteValue) Validate() error {
+	v := validate.New("BitWriteValue")
+	v.Exec(b.RegisterBit.Validate)
+	return v.Error()
+}
+
+// WriteValue is how a holding register holds a value that write tasks write.
+type WriteValue struct {
+	Variant WriteValueVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WholeWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type WriteValueType `json:"type"`
+			WholeWriteValue
+		}{Type: WholeWriteValueType, WholeWriteValue: v})
+	case BitWriteValue:
+		return json.MarshalEncode(enc, struct {
+			Type WriteValueType `json:"type"`
+			BitWriteValue
+		}{Type: BitWriteValueType, BitWriteValue: v})
+	default:
+		return errors.Newf("WriteValue: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteValueType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case WholeWriteValueType:
+		var v struct {
+			Type WriteValueType `json:"type"`
+			WholeWriteValue
+		}
+		v.WholeWriteValue.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.WholeWriteValue
+	case BitWriteValueType:
+		var v struct {
+			Type WriteValueType `json:"type"`
+			BitWriteValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BitWriteValue
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteValue: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteValue) Type() WriteValueType {
+	switch u.Variant.(type) {
+	case WholeWriteValue:
+		return WholeWriteValueType
+	case BitWriteValue:
+		return BitWriteValueType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteValue) Validate() error {
+	v := validate.New("WriteValue")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case WholeWriteValue:
+		v.Exec(variant.Validate)
+	case BitWriteValue:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// WriteLocationType is the "table" value that selects a variant of WriteLocation.
+type WriteLocationType string
+
+const (
+	// CoilWriteLocationType is a coil.
+	CoilWriteLocationType WriteLocationType = "coil"
+	// HoldingRegisterWriteLocationType is a holding register value.
+	HoldingRegisterWriteLocationType WriteLocationType = "holding_register"
+)
+
+// WriteLocationVariant is implemented by every WriteLocation variant.
+type WriteLocationVariant interface {
+	isWriteLocationVariant()
+}
+
+// CoilWriteLocation is a coil.
+type CoilWriteLocation struct {
+	BaseLocation
+}
+
+func (CoilWriteLocation) isWriteLocationVariant() {}
+
+// HoldingRegisterWriteLocation is a holding register value.
+type HoldingRegisterWriteLocation struct {
+	BaseLocation
+	// Value is how the registers hold the value.
+	Value WriteValue `json:"value" msgpack:"value"`
+}
+
+func (HoldingRegisterWriteLocation) isWriteLocationVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HoldingRegisterWriteLocation) Validate() error {
+	v := validate.New("HoldingRegisterWriteLocation")
+	v.Exec(func() error { return validate.PathedError(h.Value.Validate(), "value") })
+	return v.Error()
+}
+
+// WriteLocation identifies a value that write tasks write, by its Modbus table and
+// address.
+type WriteLocation struct {
+	Variant WriteLocationVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "table" tag injected.
+func (u WriteLocation) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CoilWriteLocation:
+		return json.MarshalEncode(enc, struct {
+			Type WriteLocationType `json:"table"`
+			CoilWriteLocation
+		}{Type: CoilWriteLocationType, CoilWriteLocation: v})
+	case HoldingRegisterWriteLocation:
+		return json.MarshalEncode(enc, struct {
+			Type WriteLocationType `json:"table"`
+			HoldingRegisterWriteLocation
+		}{Type: HoldingRegisterWriteLocationType, HoldingRegisterWriteLocation: v})
+	default:
+		return errors.Newf("WriteLocation: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "table" field.
+func (u *WriteLocation) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteLocationType `json:"table"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CoilWriteLocationType:
+		var v struct {
+			Type WriteLocationType `json:"table"`
+			CoilWriteLocation
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CoilWriteLocation
+	case HoldingRegisterWriteLocationType:
+		var v struct {
+			Type WriteLocationType `json:"table"`
+			HoldingRegisterWriteLocation
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterWriteLocation
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteLocation: unknown table %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Table returns the table of the active variant, or an empty table when there is none.
+func (u WriteLocation) Table() WriteLocationType {
+	switch u.Variant.(type) {
+	case CoilWriteLocation:
+		return CoilWriteLocationType
+	case HoldingRegisterWriteLocation:
+		return HoldingRegisterWriteLocationType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteLocation) Validate() error {
+	v := validate.New("WriteLocation")
+	v.Ternary("table", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case HoldingRegisterWriteLocation:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteLocation) Base() BaseLocation {
+	switch variant := u.Variant.(type) {
+	case CoilWriteLocation:
+		return variant.BaseLocation
+	case HoldingRegisterWriteLocation:
+		return variant.BaseLocation
+	}
+	return BaseLocation{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteLocation) SetBase(base BaseLocation) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteLocation:
+		variant.BaseLocation = base
+		u.Variant = variant
+	case HoldingRegisterWriteLocation:
+		variant.BaseLocation = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteLocation: cannot set the base of variant %T", variant))
+	}
+}
+
 // Read binds a value that read tasks read to its channel.
 type Read struct {
 	// Location is the value that the channel holds.
@@ -935,7 +1276,7 @@ func (r Read) Validate() error {
 // Write binds a value that write tasks write to its command channel.
 type Write struct {
 	// Location is the value that the channel commands.
-	Location Location `json:"location" msgpack:"location"`
+	Location WriteLocation `json:"location" msgpack:"location"`
 	// Channel is the channel whose commands write tasks send to the value.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }

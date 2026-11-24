@@ -55,6 +55,9 @@ var _ = Describe("Server", func() {
 			Value:        v0.Value{Variant: value},
 		}}
 	}
+	writeCoil := func(address uint16) v0.WriteLocation {
+		return v0.WriteLocation{Variant: v0.CoilWriteLocation{Address: address}}
+	}
 	server := func() v0.Server {
 		return v0.Server{
 			Key:        uuid.MustParse("22222222-2222-4222-8222-222222222222"),
@@ -128,7 +131,7 @@ var _ = Describe("Server", func() {
 			Index:    3,
 			Channel:  6,
 		}}
-		s.Writes = []v0.Write{{Location: coil(1), Channel: 7}}
+		s.Writes = []v0.Write{{Location: writeCoil(1), Channel: 7}}
 		var decoded v0.Server
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(s)), &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(s))
@@ -275,12 +278,20 @@ var _ = Describe("Server", func() {
 		}, "reads.0.location.value.length"),
 		Entry("a write of an unknown data type", func(s *v0.Server) {
 			s.Writes = []v0.Write{{
-				Location: holding(0, v0.WholeValue{DataType: "bfloat16"}),
-				Channel:  1,
+				Location: v0.WriteLocation{
+					Variant: v0.HoldingRegisterWriteLocation{
+						Value: v0.WriteValue{
+							Variant: v0.WholeWriteValue{
+								Number: v0.Number{DataType: "bfloat16"},
+							},
+						},
+					},
+				},
+				Channel: 1,
 			}}
 		}, "writes.0.location.value.data_type"),
 		Entry("a write with no channel", func(s *v0.Server) {
-			s.Writes = []v0.Write{{Location: coil(0)}}
+			s.Writes = []v0.Write{{Location: writeCoil(0)}}
 		}, "writes.0.channel"),
 	)
 })

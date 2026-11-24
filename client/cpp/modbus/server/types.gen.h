@@ -28,16 +28,29 @@
 namespace synnax::modbus::server {
 
 struct BaseConnection;
+struct RegisterBit;
 struct BaseLocation;
 struct Stats;
 struct StatusDetails;
 struct RequestPolicy;
+struct Number;
 struct Read;
 struct Write;
 struct Server;
 
 constexpr const char *WRITE_FUNCTION_MULTIPLE = "multiple";
 constexpr const char *WRITE_FUNCTION_SINGLE = "single";
+
+constexpr const char *DATA_TYPE_INT_8 = "int8";
+constexpr const char *DATA_TYPE_INT_16 = "int16";
+constexpr const char *DATA_TYPE_INT_32 = "int32";
+constexpr const char *DATA_TYPE_INT_64 = "int64";
+constexpr const char *DATA_TYPE_UINT_8 = "uint8";
+constexpr const char *DATA_TYPE_UINT_16 = "uint16";
+constexpr const char *DATA_TYPE_UINT_32 = "uint32";
+constexpr const char *DATA_TYPE_UINT_64 = "uint64";
+constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
+constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
 
 constexpr const char *PARITY_NONE = "none";
 constexpr const char *PARITY_EVEN = "even";
@@ -60,17 +73,6 @@ enum class StopBits : std::uint8_t {
     Two = 2,
 };
 
-constexpr const char *DATA_TYPE_INT_8 = "int8";
-constexpr const char *DATA_TYPE_INT_16 = "int16";
-constexpr const char *DATA_TYPE_INT_32 = "int32";
-constexpr const char *DATA_TYPE_INT_64 = "int64";
-constexpr const char *DATA_TYPE_UINT_8 = "uint8";
-constexpr const char *DATA_TYPE_UINT_16 = "uint16";
-constexpr const char *DATA_TYPE_UINT_32 = "uint32";
-constexpr const char *DATA_TYPE_UINT_64 = "uint64";
-constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
-constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
-
 using Key = x::uuid::UUID;
 
 /// @brief BaseConnection carries the fields that every Modbus connection shares.
@@ -86,6 +88,15 @@ struct BaseConnection {
     std::uint8_t retries = 1;
 
     static BaseConnection parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RegisterBit is one bit of a register.
+struct RegisterBit {
+    /// @brief bit is the bit of the register, from 0 to 15.
+    std::uint8_t bit = 0;
+
+    static RegisterBit parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -203,9 +214,8 @@ Connection parse_connection(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseConnection & { return v; }, value);
 }
 
-/// @brief WholeValue is a number that fills one or more registers.
-struct WholeValue {
-    std::string type = "whole";
+/// @brief Number is a number that fills one or more registers.
+struct Number {
     /// @brief data_type is the type of the value in the registers.
     std::string data_type = DATA_TYPE_UINT_16;
     /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
@@ -215,15 +225,23 @@ struct WholeValue {
     /// value.
     std::optional<bool> words_swapped;
 
+    static Number parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief WholeValue is a number that fills one or more registers.
+struct WholeValue : public Number {
+    std::string type = "whole";
+
     static WholeValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief BitValue is one bit of a register.
-struct BitValue {
+struct BitValue : public RegisterBit {
     std::string type = "bit";
-    /// @brief bit is the bit of the register, from 0 to 15.
-    std::uint8_t bit = 0;
 
     static BitValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -248,7 +266,27 @@ using Value = std::variant<WholeValue, BitValue, StringValue>;
 Value parse_value(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Value &value);
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief WholeWriteValue is a number that fills one or more registers.
+struct WholeWriteValue : public Number {
+    std::string type = "whole";
+
+    static WholeWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BitWriteValue is one bit of a register.
+struct BitWriteValue : public RegisterBit {
+    std::string type = "bit";
+
+    static BitWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteValue is how a holding register holds a value that write tasks write.
+using WriteValue = std::variant<WholeWriteValue, BitWriteValue>;
+
+WriteValue parse_write_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteValue &value);
 
 /// @brief CoilLocation is a coil, which tasks can read and write.
 struct CoilLocation : public BaseLocation {
@@ -302,6 +340,36 @@ Location parse_location(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseLocation & { return v; }, value);
 }
 
+/// @brief CoilWriteLocation is a coil.
+struct CoilWriteLocation : public BaseLocation {
+    std::string table = "coil";
+
+    static CoilWriteLocation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterWriteLocation is a holding register value.
+struct HoldingRegisterWriteLocation : public BaseLocation {
+    std::string table = "holding_register";
+    /// @brief value is how the registers hold the value.
+    WriteValue value;
+
+    static HoldingRegisterWriteLocation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteLocation identifies a value that write tasks write, by its Modbus table
+/// and address.
+using WriteLocation = std::variant<CoilWriteLocation, HoldingRegisterWriteLocation>;
+
+WriteLocation parse_write_location(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteLocation &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseLocation &base(const WriteLocation &value) {
+    return std::visit([](const auto &v) -> const BaseLocation & { return v; }, value);
+}
+
 /// @brief Read binds a value that read tasks read to its channel.
 struct Read {
     /// @brief location is the value that the channel holds.
@@ -318,7 +386,7 @@ struct Read {
 /// @brief Write binds a value that write tasks write to its command channel.
 struct Write {
     /// @brief location is the value that the channel commands.
-    Location location;
+    WriteLocation location;
     /// @brief channel is the channel whose commands write tasks send to the value.
     ::synnax::channel::Key channel = 0;
 

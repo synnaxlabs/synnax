@@ -62,11 +62,16 @@ TEST(Server, RoundTrips) {
     ASSERT_NIL(parser.error());
     HoldingRegisterLocation holding;
     holding.address = 5;
-    holding.value = WholeValue{.data_type = DATA_TYPE_FLOAT_32, .words_swapped = true};
+    WholeValue whole_value;
+    whole_value.data_type = DATA_TYPE_FLOAT_32;
+    whole_value.words_swapped = true;
+    holding.value = whole_value;
     server.reads.push_back(Read{.location = holding, .index = 3, .channel = 4});
-    HoldingRegisterLocation bit;
+    HoldingRegisterWriteLocation bit;
     bit.address = 1;
-    bit.value = BitValue{.bit = 3};
+    BitWriteValue bit_value;
+    bit_value.bit = 3;
+    bit.value = bit_value;
     server.writes.push_back(Write{.location = bit, .channel = 5});
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
@@ -80,8 +85,10 @@ TEST(Server, RoundTrips) {
     ASSERT_FALSE(whole.bytes_swapped.has_value());
     ASSERT_EQ(parsed.reads.at(0).index, 3);
     ASSERT_EQ(parsed.reads.at(0).channel, 4);
-    const auto &write = std::get<HoldingRegisterLocation>(parsed.writes.at(0).location);
-    ASSERT_EQ(std::get<BitValue>(write.value).bit, 3);
+    const auto &write = std::get<HoldingRegisterWriteLocation>(
+        parsed.writes.at(0).location
+    );
+    ASSERT_EQ(std::get<BitWriteValue>(write.value).bit, 3);
     ASSERT_EQ(parsed.writes.at(0).channel, 5);
 }
 }

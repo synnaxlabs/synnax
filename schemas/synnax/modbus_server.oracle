@@ -236,26 +236,36 @@ RequestPolicy struct {
     @go marshal
 }
 
-Value union on type {
-    whole {
-        data_type     DataType = uint16 {
-            @doc value "is the type of the value in the registers."
-        }
-        bytes_swapped bool?    {
-            @doc value "overrides the bytes_swapped of the connection for the value."
-        }
-        words_swapped bool?    {
-            @doc value "overrides the words_swapped of the connection for the value."
-        }
+Number struct {
+    data_type     DataType = uint16 {
+        @doc value "is the type of the value in the registers."
+    }
+    bytes_swapped bool?    {
+        @doc value "overrides the bytes_swapped of the connection for the value."
+    }
+    words_swapped bool?    {
+        @doc value "overrides the words_swapped of the connection for the value."
+    }
 
+    @doc value  "is a number that fills one or more registers."
+    @go marshal
+}
+
+RegisterBit struct {
+    bit uint8 = 0 {
+        @doc value    "is the bit of the register, from 0 to 15."
+        @validate max 15
+    }
+
+    @doc value  "is one bit of a register."
+    @go marshal
+}
+
+Value union on type {
+    whole extends Number {
         @doc value "is a number that fills one or more registers."
     }
-    bit {
-        bit uint8 = 0 {
-            @doc value    "is the bit of the register, from 0 to 15."
-            @validate max 15
-        }
-
+    bit extends RegisterBit {
         @doc value "is one bit of a register."
     }
     string {
@@ -310,6 +320,36 @@ Location union on table extends BaseLocation {
     @go marshal
 }
 
+WriteValue union on type {
+    whole extends Number {
+        @doc value "is a number that fills one or more registers."
+    }
+    bit extends RegisterBit {
+        @doc value "is one bit of a register."
+    }
+
+    @doc value  "is how a holding register holds a value that write tasks write."
+    @go marshal
+}
+
+WriteLocation union on table extends BaseLocation {
+    coil {
+        @doc value "is a coil."
+    }
+    holding_register {
+        value WriteValue {
+            @doc value "is how the registers hold the value."
+        }
+
+        @doc value "is a holding register value."
+    }
+
+    @doc value  """
+        identifies a value that write tasks write, by its Modbus table and address.
+    """
+    @go marshal
+}
+
 Read struct {
     location Location    {
         @doc value "is the value that the channel holds."
@@ -328,10 +368,10 @@ Read struct {
 }
 
 Write struct {
-    location Location    {
+    location WriteLocation {
         @doc value "is the value that the channel commands."
     }
-    channel  channel.Key {
+    channel  channel.Key   {
         @doc value         """
             is the channel whose commands write tasks send to the value.
         """

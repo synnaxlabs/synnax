@@ -232,6 +232,62 @@ func (lv *Location) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (nv Number) EncodeOrc(w *orc.Writer) error {
+	w.String(string(nv.DataType))
+	if nv.BytesSwapped != nil {
+		w.Bool(true)
+		w.Bool(*nv.BytesSwapped)
+	} else {
+		w.Bool(false)
+	}
+	if nv.WordsSwapped != nil {
+		w.Bool(true)
+		w.Bool(*nv.WordsSwapped)
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (nv *Number) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		nv.DataType = DataType(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			nv.BytesSwapped = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			nv.WordsSwapped = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Read) EncodeOrc(w *orc.Writer) error {
 	if err := rv.Location.EncodeOrc(w); err != nil {
 		return err
@@ -260,6 +316,21 @@ func (rv *Read) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		rv.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rb RegisterBit) EncodeOrc(w *orc.Writer) error {
+	w.Uint8(uint8(rb.Bit))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rb *RegisterBit) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rb.Bit, err = r.Uint8(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -413,22 +484,14 @@ func (vv Value) EncodeOrc(w *orc.Writer) error {
 	switch v := vv.Variant.(type) {
 	case WholeValue:
 		w.String("whole")
-		w.String(string(v.DataType))
-		if v.BytesSwapped != nil {
-			w.Bool(true)
-			w.Bool(*v.BytesSwapped)
-		} else {
-			w.Bool(false)
-		}
-		if v.WordsSwapped != nil {
-			w.Bool(true)
-			w.Bool(*v.WordsSwapped)
-		} else {
-			w.Bool(false)
+		if err := v.Number.EncodeOrc(w); err != nil {
+			return err
 		}
 	case BitValue:
 		w.String("bit")
-		w.Uint8(uint8(v.Bit))
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
 	case StringValue:
 		w.String("string")
 		w.Uint16(uint16(v.Length))
@@ -453,43 +516,13 @@ func (vv *Value) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "whole":
 		var v WholeValue
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.DataType = DataType(rawV)
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv bool
-				if hv, err = r.Bool(); err != nil {
-					return err
-				}
-				v.BytesSwapped = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv bool
-				if hv, err = r.Bool(); err != nil {
-					return err
-				}
-				v.WordsSwapped = &hv
-			}
+		if err := v.Number.DecodeOrc(r); err != nil {
+			return err
 		}
 		vv.Variant = v
 	case "bit":
 		var v BitValue
-		if v.Bit, err = r.Uint8(); err != nil {
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
 			return err
 		}
 		vv.Variant = v
@@ -539,6 +572,100 @@ func (wv *Write) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		wv.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wl WriteLocation) EncodeOrc(w *orc.Writer) error {
+	switch v := wl.Variant.(type) {
+	case CoilWriteLocation:
+		w.String("coil")
+		if err := v.BaseLocation.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HoldingRegisterWriteLocation:
+		w.String("holding_register")
+		if err := v.BaseLocation.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Value.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteLocation: nil or unknown variant %T", wl.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wl *WriteLocation) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "coil":
+		var v CoilWriteLocation
+		if err := v.BaseLocation.DecodeOrc(r); err != nil {
+			return err
+		}
+		wl.Variant = v
+	case "holding_register":
+		var v HoldingRegisterWriteLocation
+		if err := v.BaseLocation.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Value.DecodeOrc(r); err != nil {
+			return err
+		}
+		wl.Variant = v
+	default:
+		return errors.Newf("WriteLocation: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv WriteValue) EncodeOrc(w *orc.Writer) error {
+	switch v := wv.Variant.(type) {
+	case WholeWriteValue:
+		w.String("whole")
+		if err := v.Number.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BitWriteValue:
+		w.String("bit")
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteValue: nil or unknown variant %T", wv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *WriteValue) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "whole":
+		var v WholeWriteValue
+		if err := v.Number.DecodeOrc(r); err != nil {
+			return err
+		}
+		wv.Variant = v
+	case "bit":
+		var v BitWriteValue
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
+			return err
+		}
+		wv.Variant = v
+	default:
+		return errors.Newf("WriteValue: unknown variant %q", tag)
 	}
 	return nil
 }

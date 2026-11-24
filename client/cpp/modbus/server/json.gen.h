@@ -72,6 +72,34 @@ inline x::json::json RequestPolicy::to_json() const {
     return j;
 }
 
+inline Number Number::parse(x::json::Parser parser) {
+    return Number{
+        .data_type = parser.field<std::string>("data_type", "uint16"),
+        .bytes_swapped = parser.field<std::optional<bool>>("bytes_swapped"),
+        .words_swapped = parser.field<std::optional<bool>>("words_swapped"),
+    };
+}
+
+inline x::json::json Number::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["data_type"] = this->data_type;
+    if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
+    if (this->words_swapped.has_value()) j["words_swapped"] = *this->words_swapped;
+    return j;
+}
+
+inline RegisterBit RegisterBit::parse(x::json::Parser parser) {
+    return RegisterBit{
+        .bit = parser.field<std::uint8_t>("bit", 0),
+    };
+}
+
+inline x::json::json RegisterBit::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["bit"] = this->bit;
+    return j;
+}
+
 inline BaseLocation BaseLocation::parse(x::json::Parser parser) {
     return BaseLocation{
         .address = parser.field<std::uint16_t>("address", 0),
@@ -102,7 +130,7 @@ inline x::json::json Read::to_json() const {
 
 inline Write Write::parse(x::json::Parser parser) {
     return Write{
-        .location = parse_location(parser.child("location")),
+        .location = parse_write_location(parser.child("location")),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
@@ -235,32 +263,29 @@ inline x::json::json RtuConnection::to_json() const {
 
 inline WholeValue WholeValue::parse(x::json::Parser parser) {
     WholeValue result;
-    result.data_type = parser.field<std::string>("data_type", "uint16");
-    result.bytes_swapped = parser.field<std::optional<bool>>("bytes_swapped");
-    result.words_swapped = parser.field<std::optional<bool>>("words_swapped");
+    static_cast<Number &>(result) = Number::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
 inline x::json::json WholeValue::to_json() const {
     x::json::json j = x::json::json::object();
-    j["data_type"] = this->data_type;
-    if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
-    if (this->words_swapped.has_value()) j["words_swapped"] = *this->words_swapped;
+    if (const auto parent = Number::to_json(); parent.is_object()) j.update(parent);
     j["type"] = this->type;
     return j;
 }
 
 inline BitValue BitValue::parse(x::json::Parser parser) {
     BitValue result;
-    result.bit = parser.field<std::uint8_t>("bit", 0);
+    static_cast<RegisterBit &>(result) = RegisterBit::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
 inline x::json::json BitValue::to_json() const {
     x::json::json j = x::json::json::object();
-    j["bit"] = this->bit;
+    if (const auto parent = RegisterBit::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -345,6 +370,68 @@ inline x::json::json InputRegisterLocation::to_json() const {
     return j;
 }
 
+inline WholeWriteValue WholeWriteValue::parse(x::json::Parser parser) {
+    WholeWriteValue result;
+    static_cast<Number &>(result) = Number::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json WholeWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Number::to_json(); parent.is_object()) j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline BitWriteValue BitWriteValue::parse(x::json::Parser parser) {
+    BitWriteValue result;
+    static_cast<RegisterBit &>(result) = RegisterBit::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BitWriteValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = RegisterBit::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline CoilWriteLocation CoilWriteLocation::parse(x::json::Parser parser) {
+    CoilWriteLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
+    result.table = parser.field<std::string>("table");
+    return result;
+}
+
+inline x::json::json CoilWriteLocation::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
+        j.update(parent);
+    j["table"] = this->table;
+    return j;
+}
+
+inline HoldingRegisterWriteLocation
+HoldingRegisterWriteLocation::parse(x::json::Parser parser) {
+    HoldingRegisterWriteLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
+    result.value = parse_write_value(parser.child("value"));
+    result.table = parser.field<std::string>("table");
+    return result;
+}
+
+inline x::json::json HoldingRegisterWriteLocation::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = ::synnax::modbus::server::to_json(this->value);
+    j["table"] = this->table;
+    return j;
+}
+
 inline Connection parse_connection(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("transport");
     if (discriminator == "tcp") return TcpConnection::parse(parser);
@@ -382,6 +469,31 @@ inline Location parse_location(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Location &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteValue parse_write_value(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "whole") return WholeWriteValue::parse(parser);
+    if (discriminator == "bit") return BitWriteValue::parse(parser);
+    parser.field_err("type", "unknown WriteValue type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteValue &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteLocation parse_write_location(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("table");
+    if (discriminator == "coil") return CoilWriteLocation::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterWriteLocation::parse(parser);
+    parser.field_err("table", "unknown WriteLocation table: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteLocation &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
