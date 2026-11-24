@@ -352,7 +352,7 @@ interface NoMatchesProps {
 
 const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   <Text.Text level="small" color={9} className={CSS.BE("tree-search", "message")}>
-    No {noun} match “{term}”
+    {term === "" ? `No ${noun} match the filter` : `No ${noun} match “${term}”`}
   </Text.Text>
 );
 
@@ -363,6 +363,7 @@ interface AnswerProps extends Pick<
   client: Client;
   root: resource.ID;
   answer: SearchAnswer;
+  emptyMatches?: ReactNode;
 }
 
 const Answer = ({
@@ -373,6 +374,7 @@ const Answer = ({
   answer,
   fieldRef,
   resultsRef,
+  emptyMatches,
 }: AnswerProps): ReactElement => {
   // A second Escape, in the field, closes the search.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -398,11 +400,16 @@ const Answer = ({
         results={answer.results}
         ref={resultsRef}
         onKeyDown={handleKeyDown}
-        emptyContent={<NoMatches noun={noun} term={answer.match.term} />}
+        emptyContent={
+          emptyMatches ?? <NoMatches noun={noun} term={answer.match.term} />
+        }
       />
       {answer.more && (
         <Text.Text level="small" color={9} className={CSS.BE("tree-search", "more")}>
-          Showing the first {LIMIT} matches. Type more to narrow the search.
+          Showing the first {LIMIT} matches.{" "}
+          {answer.match.term === ""
+            ? "Add a filter to narrow them."
+            : "Type more to narrow the search."}
         </Text.Text>
       )}
     </MatchProvider>
@@ -421,6 +428,8 @@ export interface TreeProps {
   rootContextMenu?: FC<RootContextMenuProps>;
   /** Shows the search answer in place of the tree while the search has one. */
   search?: Search;
+  /** Shows when the search answer holds no matches. Defaults to a line of text. */
+  emptyMatches?: ReactNode;
 }
 
 export const Tree = ({
@@ -429,6 +438,7 @@ export const Tree = ({
   emptyContent,
   rootContextMenu,
   search,
+  emptyMatches,
 }: TreeProps): ReactElement | null => {
   const client = Synnax.use();
   if (root == null || client == null) return null;
@@ -446,6 +456,7 @@ export const Tree = ({
           answer={search.answer}
           fieldRef={search.fieldRef}
           resultsRef={search.resultsRef}
+          emptyMatches={emptyMatches}
         />
       )}
       <Internal

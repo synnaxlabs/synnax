@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
 
@@ -22,11 +22,14 @@ export interface ItemsProps<K extends record.Key = record.Key>
     Omit<List.ScrollProps, "children" | "contextMenu">,
     Pick<List.ItemsProps<K>, "children"> {
   contextMenu?: Menu.ContextMenuProps["menu"];
+  /** Shows when the answered list holds nothing. Defaults to a line of text. */
+  emptyContent?: ReactNode;
 }
 
 export const Items = <K extends record.Key>({
   contextMenu,
   children,
+  emptyContent = defaultEmptyContent,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const menuProps = Menu.useContextMenu();
@@ -34,9 +37,7 @@ export const Items = <K extends record.Key>({
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <List.Scroll grow onContextMenu={menuProps.open} {...rest}>
-        <List.Items<K> emptyContent={answered && defaultEmptyContent}>
-          {children}
-        </List.Items>
+        <List.Items<K> emptyContent={answered && emptyContent}>{children}</List.Items>
       </List.Scroll>
     </Menu.ContextMenu>
   );

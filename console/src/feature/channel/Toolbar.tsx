@@ -45,13 +45,16 @@ const Actions = ({ search }: ActionsProps): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID);
   const openExplorer = Explorer.useOpenTab();
   return (
     <Toolbar.Actions>
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open channel explorer" onClick={openExplorer}>
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
       <Tree.SearchAction search={search} />
-      <Toolbar.Action tooltip="Open channel explorer" onClick={openExplorer}>
-        <Icon.Explore />
-      </Toolbar.Action>
       {hasCreatePermission && (
         <>
           <Toolbar.CreateAction

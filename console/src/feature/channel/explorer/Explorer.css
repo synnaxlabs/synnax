@@ -13,7 +13,12 @@
     min-height: 0;
 }
 
+.console-channel-explorer__list {
+    container: channel-list / inline-size;
+}
+
 .console-channel-explorer__item {
+    height: 44px;
     padding-right: 1.5rem;
 }
 
@@ -25,9 +30,25 @@
     flex-shrink: 0;
 }
 
+.console-channel-explorer__data-type {
+    min-width: 7rem;
+    justify-content: flex-end;
+}
+
+.console-channel-explorer__message {
+    padding: 3rem 2rem;
+}
+
+/* In a narrow list, the data type goes first, so the name keeps its width. */
+@container channel-list (width < 48rem) {
+    .console-channel-explorer__data-type {
+        display: none;
+    }
+}
+
 /* As the frame narrows, the layout names go first. A layout without its name is a
    square, as an icon button is. */
-@container view-frame (width < 70rem) {
+@container view-frame (width < 88rem) {
     .console-channel-explorer__layout {
         justify-content: center;
         min-width: var(--pluto-height-medium);

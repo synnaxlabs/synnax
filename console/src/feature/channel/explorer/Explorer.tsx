@@ -13,16 +13,21 @@ import { channel, type group, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Channel, Group as PGroup, Telem } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Channel, type Flux, Group as PGroup, Telem } from "@synnaxlabs/pluto";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { contextMenu } from "@/feature/channel/explorer/ContextMenu";
 import { TAB_TYPE } from "@/feature/channel/explorer/external";
 import { Filter } from "@/feature/channel/explorer/filter";
+import { Open } from "@/feature/channel/open";
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { CSS } from "@/platform/css";
@@ -55,12 +60,32 @@ const useSearch = Tree.createSearch<channel.Where>({
   usePlacement: Group.usePlacement,
 });
 
+const wherePath = deep.path<{ where?: channel.Where }>().where;
+
+/**
+ * The empty state of both layouts. A filter offers to clear it. Otherwise, it offers to
+ * create a channel.
+ */
 const NoChannels = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const { editable } = View.useContext();
+  const where = Form.useFieldValue<channel.Where | undefined>(wherePath, {
+    optional: true,
+  });
+  const { set } = Form.useContext();
+  const { term } = View.useSearch();
+  if (where != null)
+    return (
+      <Empty.Action
+        message="No channels match the filter"
+        action={editable ? "Clear filters" : undefined}
+        onClick={() => set(wherePath, undefined)}
+      />
+    );
   return (
     <Empty.Action
-      message="No channels match"
+      message={term === "" ? "No channels" : "No channels match"}
       action={canCreate ? "Create channel" : undefined}
       onClick={() => openCreate()}
     />
@@ -90,6 +115,7 @@ const Folders = ({ where, term }: FoldersProps): ReactElement => {
         root={channel.TYPE_RESOURCE_ID}
         listRoot={listTreeRoot}
         emptyContent={NO_CHANNELS}
+        emptyMatches={NO_CHANNELS}
         search={search}
       />
     </Flex.Box>
@@ -120,39 +146,67 @@ const FolderPath = ({ folder }: FolderPathProps): ReactElement | null => {
   const folders = PGroup.useResultAncestors({ keys: [folder] }).data;
   if (folders == null) return null;
   return (
-    <Text.Text level="small" color={8} overflow="fade">
+    <Text.Text level="small" color={9} overflow="fade">
       {folderNames(folder, folders).join(" / ")}
     </Text.Text>
   );
 };
 
 const ListItem = (props: List.ItemProps<channel.Key>): ReactElement | null => {
-  const ch = List.useItem<channel.Key, channel.Channel>(props.itemKey);
+  const { itemKey } = props;
+  const ch = List.useItem<channel.Key, channel.Channel>(itemKey);
+  const canRename = Access.useUpdateGranted(channel.resourceID(itemKey));
+  const { update: rename } = Channel.useRename();
+  const open = Open.use();
+  const { term } = View.useSearch();
   if (ch == null) return null;
-  const DataTypeIcon = Telem.resolveDataTypeIcon(ch.dataType);
+  const KindIcon = Channel.resolveIcon(ch.payload);
+  const handleRename =
+    canRename && !ch.internal
+      ? (name: string) => rename({ key: itemKey, name })
+      : undefined;
   return (
     <Select.Item<channel.Key>
       {...props}
+      role="listitem"
+      aria-label={ch.name}
       checkable
       justify="between"
       className={CSS.BE("channel-explorer", "item")}
+      onActivate={() =>
+        open({
+          key: channel.resourceID(itemKey).key,
+          id: channel.resourceID(itemKey),
+          name: ch.name,
+        })
+      }
     >
+      <KindIcon color={10} />
       <Flex.Box y empty grow className={CSS.BE("channel-explorer", "summary")}>
-        <Text.Text level="p" weight={450} overflow="fade">
-          {ch.name}
-        </Text.Text>
+        <Text.MaybeEditable
+          id={List.itemNameID(itemKey)}
+          value={ch.name}
+          onChange={handleRename}
+          allowDoubleClick={false}
+          overflow="fade"
+          level="p"
+          weight={450}
+          highlight={term === "" ? undefined : term}
+        />
         {ch.group != null && <FolderPath folder={ch.group} />}
       </Flex.Box>
       <Flex.Box x align="center" className={CSS.BE("channel-explorer", "meta")}>
-        {ch.isIndex && (
-          <Text.Text level="small" color={9}>
-            Index
-          </Text.Text>
+        {ch.virtual && (
+          <Tooltip.Dialog location="left">
+            <Text.Text level="small">Virtual</Text.Text>
+            <Icon.Virtual color={9} aria-label="Virtual" />
+          </Tooltip.Dialog>
         )}
-        {ch.virtual && !ch.isCalculated && <Icon.Virtual aria-label="Virtual" />}
-        {ch.isCalculated && <Icon.Calculation aria-label="Calculated" />}
-        <Text.Text level="small" color={9}>
-          {DataTypeIcon != null && <DataTypeIcon />}
+        <Text.Text
+          level="small"
+          color={9}
+          className={CSS.BE("channel-explorer", "data-type")}
+        >
           {Telem.resolveDataTypeName(ch.dataType)}
         </Text.Text>
       </Flex.Box>
@@ -161,6 +215,31 @@ const ListItem = (props: List.ItemProps<channel.Key>): ReactElement | null => {
 };
 
 const listItem = Component.renderProp(ListItem);
+
+interface ListLayoutProps {
+  list: Flux.UseListReturn<channel.Key, channel.Channel>;
+}
+
+const ListLayout = ({ list }: ListLayoutProps): ReactElement => {
+  if (list.variant === "error")
+    return (
+      <Status.Summary
+        className={CSS.BE("channel-explorer", "message")}
+        variant="error"
+        message="Failed to list channels"
+        description={list.status.description}
+      />
+    );
+  return (
+    <View.Items<channel.Key>
+      contextMenu={contextMenu}
+      emptyContent={NO_CHANNELS}
+      className={CSS.BE("channel-explorer", "list")}
+    >
+      {listItem}
+    </View.Items>
+  );
+};
 
 interface LayoutInfo {
   name: string;
@@ -250,7 +329,7 @@ const Internal = (): ReactElement => {
       {layout === "folders" ? (
         <Folders where={where} term={term} />
       ) : (
-        <View.Items<channel.Key>>{listItem}</View.Items>
+        <ListLayout list={list} />
       )}
     </View.Form>
   );

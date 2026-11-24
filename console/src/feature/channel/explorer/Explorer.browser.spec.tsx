@@ -19,7 +19,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { DataType } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -156,6 +156,40 @@ describe("channel explorer", () => {
       expect(screen.getAllByText(`${outer.name} / ${inner.name}`)).toHaveLength(2),
     );
     expect(screen.getByText("int64")).toBeTruthy();
+  });
+
+  it("should offer to clear a filter that matches nothing, in each layout", async () => {
+    const { outer } = await createFolders();
+    for (const layout of view.CHANNEL_LAYOUTS) {
+      await renderView(
+        await client.views.create({
+          name: uniqueName("view"),
+          type: "channel",
+          where: { groups: [outer.key] },
+          layout,
+        }),
+      );
+      expect(await screen.findByText("No channels match the filter")).toBeTruthy();
+      fireEvent.click(screen.getByText("Clear filters"));
+      await waitFor(() => expect(screen.queryByText("Folder")).toBeNull());
+      cleanup();
+    }
+  });
+
+  it("should offer the actions on a channel in the List layout", async () => {
+    const { inner, floats } = await createFolders();
+    await renderView(
+      await client.views.create({
+        name: uniqueName("view"),
+        type: "channel",
+        where: { groups: [inner.key] },
+        layout: "list",
+      }),
+    );
+    fireEvent.contextMenu(await screen.findByText(floats.name));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Copy link")).toBeTruthy();
+    expect(screen.getByText("Delete")).toBeTruthy();
   });
 
   it("should save the layout of a stored view", async () => {

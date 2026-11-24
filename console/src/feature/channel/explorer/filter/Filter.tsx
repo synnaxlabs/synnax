@@ -12,6 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Group, Telem } from "@synnaxlabs/pluto";
 import { DataType } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
@@ -35,13 +36,34 @@ const FolderItem = ({
   ...rest
 }: List.ItemRenderProps<group.Key>): ReactElement | null => {
   const folder = List.useItem<group.Key, group.Group>(itemKey);
+  const above = Group.useResultAncestors({ keys: [itemKey] }).data;
   if (folder == null) return null;
+  const parents = folderParents(itemKey, above ?? []);
   return (
     <Select.Item<group.Key> itemKey={itemKey} {...rest}>
       <Icon.Group />
       {folder.name}
+      {parents.length > 0 && (
+        <Text.Text level="small" color={9} overflow="fade">
+          {parents.join(" / ")}
+        </Text.Text>
+      )}
     </Select.Item>
   );
+};
+
+/** @returns the names of the folders above the folder with the key, from the top. */
+const folderParents = (key: group.Key, folders: group.Group[]): string[] => {
+  const byKey = new Map(folders.map((f) => [f.key, f]));
+  const names: string[] = [];
+  let parent = byKey.get(key)?.parent;
+  while (parent?.type === "group") {
+    const folder = byKey.get(parent.key);
+    if (folder == null) break;
+    names.unshift(folder.name);
+    parent = folder.parent;
+  }
+  return names;
 };
 
 const folderItem = Component.renderProp(FolderItem);
@@ -52,7 +74,7 @@ const FolderPicker = ({
 }: View.Filter.PickerProps<group.Key[]>): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (client) => client.groups,
-    { name: "folders", query: { scope: "channel" } },
+    { name: "folders", query: { scope: "channel", order: { field: "name" } } },
   );
   return (
     <Select.Frame<group.Key, group.Group | undefined>
@@ -181,7 +203,7 @@ const KindPicker = ({
 
 const KIND: View.Filter.Property<channel.Where, Kind> = {
   name: "Kind",
-  icon: Icon.Virtual,
+  icon: Icon.Channel,
   decode: (node) => {
     if (View.Filter.soleField(node) !== "virtual" || node.virtual == null) return null;
     return node.virtual ? "virtual" : "stored";
