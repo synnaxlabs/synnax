@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"unicode"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
@@ -61,8 +60,7 @@ func splitNamespace(id string) (namespace, body string, err error) {
 			return "", "", errors.New("no identifier after the namespace URI")
 		}
 		decoded, err := url.PathUnescape(uri)
-		if err != nil || decoded == "" ||
-			strings.ContainsFunc(decoded, unicode.IsSpace) {
+		if err != nil || decoded == "" {
 			return "", "", errors.New("malformed namespace URI")
 		}
 		return decoded, rest, nil

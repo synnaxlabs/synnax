@@ -205,6 +205,9 @@ var _ = Describe("Service", func() {
 			Entry("an IPv6 host that is not an address", func(s *server.Server) {
 				s.Connection.Endpoint = "opc.tcp://[:::]:4840"
 			}),
+			Entry("an IPv4 address in brackets", func(s *server.Server) {
+				s.Connection.Endpoint = "opc.tcp://[10.0.0.1]:4840"
+			}),
 			Entry("a field path with an empty name", func(s *server.Server) {
 				s.Reads = []server.Read{
 					{Node: "nsu=urn:plc;s=Temp", Field: "a..b", Index: 1, Channel: 2},
@@ -213,11 +216,6 @@ var _ = Describe("Service", func() {
 			Entry("a field path that ends in an escape", func(s *server.Server) {
 				s.Reads = []server.Read{
 					{Node: "nsu=urn:plc;s=Temp", Field: "a&", Index: 1, Channel: 2},
-				}
-			}),
-			Entry("a read whose index is its channel", func(s *server.Server) {
-				s.Reads = []server.Read{
-					{Node: "nsu=urn:plc;s=Temp", Index: 2, Channel: 2},
 				}
 			}),
 			Entry("two reads into one channel", func(s *server.Server) {
@@ -236,9 +234,6 @@ var _ = Describe("Service", func() {
 				s.Writes = []server.Write{
 					{Node: "nsu=urn:plc;s=" + strings.Repeat("a", 4097), Channel: 2},
 				}
-			}),
-			Entry("a namespace URI with a space", func(s *server.Server) {
-				s.Writes = []server.Write{{Node: "nsu=urn:my plc;s=Valve", Channel: 2}}
 			}),
 			Entry("two writes to one node", func(s *server.Server) {
 				s.Writes = []server.Write{
@@ -277,13 +272,14 @@ var _ = Describe("Service", func() {
 		})
 
 		It(
-			"Should store escaped field paths, a long string node, and an IPv6 host",
+			"Should store the edge cases that the Driver accepts",
 			func(
 				ctx SpecContext,
 			) {
 				s := newServer()
-				s.Connection.Endpoint = "opc.tcp://[fe80::1]:4840"
+				s.Connection.Endpoint = "opc.tcp://[::ffff:192.168.1.10]:4840"
 				s.Reads = []server.Read{
+					{Node: "nsu=urn:HOST:CODESYS Control;s=Time", Index: 4, Channel: 4},
 					{
 						Node:    "nsu=urn:plc;s=Temp",
 						Field:   "a&.b.c&&",
@@ -466,6 +462,13 @@ var _ = Describe("Service", func() {
 			Entry("an identity without a name", server.Update{
 				Variant: server.IdentityUpdate{Identity: server.Identity{
 					Rack:       1,
+					Connection: newConnection("opc.tcp://plc:4840"),
+				}},
+			}),
+			Entry("an identity with a name of only spaces", server.Update{
+				Variant: server.IdentityUpdate{Identity: server.Identity{
+					Rack:       1,
+					Name:       "  ",
 					Connection: newConnection("opc.tcp://plc:4840"),
 				}},
 			}),

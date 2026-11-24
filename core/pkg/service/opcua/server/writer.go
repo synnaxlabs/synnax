@@ -38,9 +38,9 @@ type Writer struct {
 }
 
 // prepare validates s and normalizes the node ID of each binding. Beyond the schema
-// rules, it refuses an IPv6 endpoint host that does not parse, a malformed field path,
-// a read whose index is its own channel, two reads on one node, field, and index, two
-// reads into one channel, and two writes to one node or from one channel.
+// rules, it refuses a bracketed endpoint host that is not an IPv6 address, a malformed
+// field path, two reads on one node, field, and index, two reads into one channel, and
+// two writes to one node or from one channel.
 func prepare(s *Server) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -65,7 +65,7 @@ func validIPv6Host(endpoint string) bool {
 	}
 	host, _, ok := strings.Cut(rest, "]")
 	ip := net.ParseIP(host)
-	return ok && ip != nil && ip.To4() == nil
+	return ok && ip != nil && strings.Contains(host, ":")
 }
 
 func prepareReads(v *validate.Validator, reads []Read) {
@@ -79,7 +79,6 @@ func prepareReads(v *validate.Validator, reads []Read) {
 		r := &reads[i]
 		path := fmt.Sprintf("reads.%d", i)
 		v.Ternary(path+".field", !validFieldPath(r.Field), "is not a valid field path")
-		v.Ternary(path+".index", r.Index == r.Channel, "must differ from the channel")
 		v.Ternary(
 			path+".channel",
 			channels.Contains(r.Channel),
