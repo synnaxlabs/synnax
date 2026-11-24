@@ -58,8 +58,13 @@ var (
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
 	]
-	createPassword freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
-	createKey      freighter.UnaryHandler[
+	createPassword    freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
+	dispatchPassword  freighter.UnaryHandler[apiauth.PasswordDispatchRequest, struct{}]
+	retrievePasswords freighter.UnaryHandler[
+		apiauth.PasswordRetrieveRequest,
+		apiauth.PasswordRetrieveResponse,
+	]
+	createKey freighter.UnaryHandler[
 		apiauth.KeyCreateRequest,
 		apiauth.KeyCreateResponse,
 	]
@@ -92,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Password: passwordSvc,
+		DB: db,
 	}))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
@@ -161,6 +166,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		apiSvc.PrepareCreatePassword,
 		apiSvc.CreatePassword,
 	)
+	dispatchPassword = bind.Write(binder, apiSvc.DispatchPassword)
+	retrievePasswords = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.PasswordRetrieveRequest,
+	) (apiauth.PasswordRetrieveResponse, error) {
+		return apiSvc.RetrievePasswords(ctx, snap, snap.Allowed, req)
+	})
 	createKey = bind.Write(binder, apiSvc.CreateKey)
 	retrieveKeys = bind.Read(binder, func(
 		ctx context.Context,

@@ -173,7 +173,17 @@ var _ = Describe("Delta", func() {
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, RecoverWithErrOnPanic(), WithRetryOnPanic())
+			delta.Flow(
+				ctx,
+				RecoverWithErrOnPanic(),
+				WithRetryOnPanic(),
+				func(opts *Options) {
+					opts.Signal = append(
+						opts.Signal,
+						signal.WithBaseRetryInterval(time.Millisecond),
+					)
+				},
+			)
 			delta.Connect(outputOne)
 			// A send on the closed inlet panics.
 			outputOne.Close()
