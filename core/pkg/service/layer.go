@@ -1348,6 +1348,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	// The Driver deploys Arcs, so the text passes of the renames of every Declare come
+	// first.
+	if err = passDeclaredRenames(ctx, cfg.Distribution.DB, l.Channel); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
