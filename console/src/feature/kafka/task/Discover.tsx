@@ -413,14 +413,13 @@ const WholeValues = ({
 }: WholeValuesProps) => {
   const newest = newestFirst(sample, shape);
   const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
-  const picked = value ? values.map(({ key }) => key) : [];
   return (
     <>
       <ICD.Picker.PaneHeader
         title={name}
         note={note}
         free={values.length}
-        picked={picked.length}
+        picked={value ? values.length : 0}
         onPickAll={() => onChange(true)}
         onClear={() => onChange(false)}
       />
@@ -428,9 +427,6 @@ const WholeValues = ({
       <ICD.Picker.Values
         noun="Field"
         groups={[{ title: titleOf(shape, label), values }]}
-        value={picked}
-        // One tick or untick picks or drops the whole topic.
-        onChange={(keys) => onChange(keys.length > picked.length)}
       />
     </>
   );
@@ -618,7 +614,7 @@ const Content = ({
   const reading = entries.find(
     ({ name }) => samples.topics.get(name)?.variant === "loading",
   );
-  let statusText = pluralize("topic", listed.length, true);
+  let statusText = pluralize("topic", entries.length, true);
   if (browsing) statusText = "Listing topics";
   else if (reading != null) statusText = `Reading ${reading.name}`;
   else if (browseFailed) statusText = "Failed to list topics";
