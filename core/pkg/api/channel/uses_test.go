@@ -205,8 +205,9 @@ var _ = Describe("Built-in channels", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &plain)
 		})).To(Succeed())
-		keys := make([]channel.Key, 0)
-		for _, ch := range retrieveInternal(ctx, u) {
+		chs := retrieveInternal(ctx, u)
+		keys := make([]channel.Key, 0, len(chs))
+		for _, ch := range chs {
 			keys = append(keys, ch.Key)
 		}
 		Expect(keys).To(ContainElement(builtIn.Key()))
