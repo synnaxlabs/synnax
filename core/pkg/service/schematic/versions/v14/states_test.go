@@ -167,24 +167,28 @@ var _ = Describe("Select and state indicator states", func() {
 			Expect(keys[2]).ToNot(BeElementOf(keys[0], keys[1]))
 		})
 
-	It("Should drop a state whose value is not finite", func(ctx SpecContext) {
-		s, calls := internAll(ctx, schematicOf(
-			"Panel",
-			selectNode(
-				"a",
-				"Mode",
-				state("nan", math.NaN(), "Broken", nil),
-				state("on", 1, "On", nil),
-			),
-			selectNode("b", "Spare", state("inf", math.Inf(1), "Broken", nil)),
-		))
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].entries).To(HaveLen(1))
-		Expect(calls[0].entries[0].Key).To(Equal("on"))
-		spare, ok := s.Nodes[1].Config.Variant.(v14.SelectNodeConfig)
-		Expect(ok).To(BeTrue())
-		Expect(spare.Enumeration).To(BeNil())
-	})
+	It(
+		"Should drop a state whose value is not finite or repeats",
+		func(ctx SpecContext) {
+			s, calls := internAll(ctx, schematicOf(
+				"Panel",
+				selectNode(
+					"a",
+					"Mode",
+					state("nan", math.NaN(), "Broken", nil),
+					state("on", 1, "On", nil),
+					state("again", 1, "Also on", nil),
+				),
+				selectNode("b", "Spare", state("inf", math.Inf(1), "Broken", nil)),
+			))
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].entries).To(HaveLen(1))
+			Expect(calls[0].entries[0].Key).To(Equal("on"))
+			spare, ok := s.Nodes[1].Config.Variant.(v14.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(spare.Enumeration).To(BeNil())
+		},
+	)
 
 	It("Should fail the migration with the node when the intern fails",
 		func(ctx SpecContext) {
