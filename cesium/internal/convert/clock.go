@@ -91,8 +91,9 @@ func (r *reader) indexes() error {
 
 // cuts sets the cut of each pointer of c whose index range starts after the last stamp
 // of the pointers before it while its first stamps do not: those stamps, which a writer
-// wrote again in a new file after a roll. Pointers whose index ranges overlap get no
-// cut, and the state refuses them.
+// wrote again in a new file after a roll. It returns an error that names the file of a
+// pointer whose first stamps and index range both reach back that far, which no cut
+// can place.
 func (h *handle) cuts(c *clock) error {
 	c.cut = make([]uint32, len(c.ptrs))
 	if len(c.ptrs) == 0 {
@@ -101,7 +102,16 @@ func (h *handle) cuts(c *clock) error {
 	prev := c.last[0]
 	for k := 1; k < len(c.ptrs); k++ {
 		switch {
-		case c.first[k] > prev || c.ptrs[k].start <= prev:
+		case c.first[k] > prev:
+		case c.ptrs[k].start <= prev:
+			return errors.Newf(
+				"the index pointer at offset %d of %s holds stamps from %d, at or "+
+					"below the last stamp %d before it, inside its own time range",
+				c.ptrs[k].offset,
+				fileName(c.key, c.ptrs[k].file),
+				c.first[k],
+				prev,
+			)
 		case c.last[k] <= prev:
 			c.cut[k], c.last[k] = c.count(k), prev
 		default:
