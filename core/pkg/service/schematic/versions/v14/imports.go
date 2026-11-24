@@ -154,7 +154,8 @@ func applies(c *symbol.Condition, v float64) bool {
 	return ok && slices.Contains(eq.Values, v)
 }
 
-// paintColor returns the color that p paints at the value of e.
+// paintColor returns the color that p paints at the value of e, or nil when the node or
+// the background sets the color.
 func paintColor(p *symbol.Paint, e enumeration.Entry) *xcolor.Color {
 	switch pv := p.Variant.(type) {
 	case symbol.EntryPaint:
@@ -275,9 +276,9 @@ func recolor(
 	return out
 }
 
-// repaint returns looks with no paint on parts, then a look for each part at each value
-// of state that paints it as want does. A paint in the entry's color paints with the
-// entry.
+// repaint returns looks with no paint on parts but the paints that paintColor cannot
+// resolve, then a look for each part at each value of state that paints it as want
+// does. A paint in the entry's color paints with the entry.
 func repaint(
 	looks []symbol.Look,
 	state string,
@@ -288,8 +289,9 @@ func repaint(
 	taken := set.Set[string]{}
 	for _, l := range looks {
 		if l.Part != nil {
-			l.Stroke, l.Fill = nil, nil
-			if l.Hidden == nil && l.Motion == nil && l.Blink == nil {
+			l.Stroke, l.Fill = unresolved(l.Stroke), unresolved(l.Fill)
+			if l.Stroke == nil && l.Fill == nil && l.Hidden == nil && l.Motion == nil &&
+				l.Blink == nil {
 				continue
 			}
 		}
@@ -325,6 +327,19 @@ func repaint(
 		}
 	}
 	return out
+}
+
+// unresolved returns p when the node or the background sets its color, and otherwise
+// nil.
+func unresolved(p *symbol.Paint) *symbol.Paint {
+	if p == nil {
+		return nil
+	}
+	switch p.Variant.(type) {
+	case symbol.NodePaint, symbol.ContrastPaint:
+		return p
+	}
+	return nil
 }
 
 func entryColor(e enumeration.Entry) *xcolor.Color {

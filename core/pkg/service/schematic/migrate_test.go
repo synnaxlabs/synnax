@@ -434,10 +434,12 @@ func drawing(
 	spec symbol.Spec,
 	entries []enumeration.Entry,
 ) map[float64]map[string]paints {
+	GinkgoHelper()
 	selectors := lo.SliceToMap(spec.Parts, func(p symbol.Part) (string, string) {
 		return p.Key, strings.Join(slices.Sorted(slices.Values(p.Selectors)), " ")
 	})
 	resolve := func(p *symbol.Paint, e enumeration.Entry) *color.Color {
+		GinkgoHelper()
 		var ref *servicecolor.Ref
 		switch v := p.Variant.(type) {
 		case symbol.EntryPaint:
@@ -448,20 +450,17 @@ func drawing(
 		if ref == nil {
 			return nil
 		}
-		f, ok := ref.Variant.(servicecolor.FixedRef)
-		Expect(ok).To(BeTrue())
-		return &f.Value
+		return new(as[servicecolor.FixedRef](ref.Variant).Value)
 	}
 	out := map[float64]map[string]paints{}
 	for _, e := range entries {
 		parts := map[string]paints{}
 		for _, l := range spec.Looks {
-			if l.When != nil {
-				eq, ok := l.When.Variant.(symbol.EqualsCondition)
-				Expect(ok).To(BeTrue())
-				if !slices.Contains(eq.Values, e.Value) {
-					continue
-				}
+			if l.When != nil && !slices.Contains(
+				as[symbol.EqualsCondition](l.When.Variant).Values,
+				e.Value,
+			) {
+				continue
 			}
 			p := parts[selectors[*l.Part]]
 			if l.Stroke != nil {
@@ -553,18 +552,15 @@ var _ = Describe("Imported v13 state overrides", func() {
 			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](key)).
 			Entry(&sc).
 			Exec(ctx, db)).To(Succeed())
-		n, ok := sc.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
-		Expect(ok).To(BeTrue())
-		ref, ok := n.Spec.Variant.(symbol.CustomRef)
-		Expect(ok).To(BeTrue())
+		n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
 		var l look
 		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
-			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](
+				as[symbol.CustomRef](n.Spec.Variant).Key,
+			)).
 			Entry(&l.symbol).
 			Exec(ctx, db)).To(Succeed())
-		state, ok := l.symbol.Data.States[0].Variant.(symbol.EnumerationState)
-		Expect(ok).To(BeTrue())
-		e := state.Enumeration
+		e := as[symbol.EnumerationState](l.symbol.Data.States[0].Variant).Enumeration
 		if n.States[0].Enumeration != nil {
 			e = n.States[0].Enumeration
 		}
@@ -623,8 +619,7 @@ var _ = Describe("Imported v13 state overrides", func() {
 				Where(schematic.MatchKeys(key)).
 				Entry(&sc).
 				Exec(ctx, db)).To(Succeed())
-			n, ok := sc.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
-			Expect(ok).To(BeTrue())
+			n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
 			Expect(n.Spec.Variant).To(BeAssignableToTypeOf(symbol.MissingRef{}))
 		})
 
