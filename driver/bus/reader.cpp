@@ -81,8 +81,9 @@ std::size_t Reader::decode(x::telem::Frame &fr, common::Warning &warning) {
         if (!frame.has_value()) break;
         n++;
         this->stamp = std::max(this->received, this->stamp + x::telem::NANOSECOND);
-        const auto read_err = this->messages.read(*frame, this->stamp, fr, BATCH)
-                                  .second;
+        auto read_err = this->messages.read(*frame, this->stamp, fr, BATCH).second;
+        if (!read_err && !this->messages.failures().empty())
+            read_err = this->messages.failures().front().error;
         if (read_err && warning.empty())
             warning = {
                 .message = "Failed to decode message",

@@ -1847,7 +1847,7 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		w.String(string(v.Units))
 		w.String(string(v.Edge))
 		w.String(string(v.MeasMethod))
-		w.Float64(float64(v.MeasTime))
+		w.Int64(int64(v.MeasTime))
 		w.Uint32(uint32(v.Divisor))
 		w.String(v.Terminal)
 	case CIEdgeCountChannel:
@@ -1873,7 +1873,7 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		w.String(string(v.Units))
 		w.String(string(v.StartingEdge))
 		w.String(string(v.MeasMethod))
-		w.Float64(float64(v.MeasTime))
+		w.Int64(int64(v.MeasTime))
 		w.Uint32(uint32(v.Divisor))
 		w.String(v.Terminal)
 	case CIPulseWidthChannel:
@@ -2043,8 +2043,12 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.MeasMethod = CIMeasMethod(rawV)
 		}
-		if v.MeasTime, err = r.Float64(); err != nil {
-			return err
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.MeasTime = telem.TimeSpan(rawV)
 		}
 		if v.Divisor, err = r.Uint32(); err != nil {
 			return err
@@ -2111,8 +2115,12 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.MeasMethod = CIMeasMethod(rawV)
 		}
-		if v.MeasTime, err = r.Float64(); err != nil {
-			return err
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.MeasTime = telem.TimeSpan(rawV)
 		}
 		if v.Divisor, err = r.Uint32(); err != nil {
 			return err

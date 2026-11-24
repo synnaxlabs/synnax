@@ -241,6 +241,7 @@ Where::to_proto() const {
         for (const auto &item: *this->racks)
             wrapper->add_values(item);
     }
+    if (this->keyed.has_value()) pb.set_keyed(*this->keyed);
     return {pb, x::errors::NIL};
 }
 
@@ -282,6 +283,7 @@ Where::from_proto(const ::service::certificate::pb::Where &pb) {
         for (const auto &item: pb.racks().values())
             cpp.racks->push_back(item);
     }
+    if (pb.has_keyed()) cpp.keyed = pb.keyed();
     return {cpp, x::errors::NIL};
 }
 
