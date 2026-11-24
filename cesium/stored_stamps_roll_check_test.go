@@ -155,24 +155,16 @@ var _ = Describe("Check: data against stored stamps across a clock roll", func()
 			}).WithTimeout(time.Minute).Should(Succeed())
 			return h
 		}
-		// M15: a switch parts A. A later writer of the clock seals B as it takes the
-		// clock over, and a second switch parts B into a later part, which the first
+		// M15: a switch parts A. The clock writer then fills B to 2^27 stamps, so B
+		// seals in turn, and a second switch parts B into a later part, which the first
 		// bounds of d2's run miss.
 		parted := switched(3)
 		Expect(parted.Parts).ToNot(BeEmpty())
+		for from := roll + 16; from < 2*roll+16; from += chunk {
+			write(from, chunk)
+		}
 		Expect(c.Close()).To(Succeed())
-		later := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: clockKeys,
-			Clock:    idx,
-			Start:    stamp(roll + 100),
-		}))
-		MustSucceed2(later.Write(ctx, telem.MultiFrame(
-			clockKeys,
-			[]telem.Series{telem.NewSeries([]telem.TimeStamp{stamp(roll + 100)})},
-		), nil))
-		MustSucceed2(later.Commit(ctx, nil))
-		Expect(later.Close()).To(Succeed())
-		// The clock holds A, B, and the segment of the later writer, in rising order.
+		// The clock holds A, B, and the segment after B, in rising order.
 		var segments []uint64
 		for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(idx), 10))) {
 			if hex, ok := strings.CutSuffix(info.Name(), ".seg"); ok {
