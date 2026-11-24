@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -37,10 +36,8 @@ var _ = Describe("Grant", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Password: passwords,
+			DB: db,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,

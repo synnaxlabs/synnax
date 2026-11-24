@@ -150,7 +150,7 @@ ManualBounds struct {
 }
 
 Axis struct {
-    key             AxisKey           {
+    key             AxisKey               {
         @doc value "identifies which of the six axes this configuration applies to."
     }
     label           string = "" {
@@ -162,11 +162,11 @@ Axis struct {
     label_level     text.Level = text.LevelSmall {
         @doc value "is the typography level of the label."
     }
-    bounds          spatial.Bounds = { lower = 0, upper = 0 } {
+    bounds          spatial.ClosedBounds? {
         @doc value """
-            is the value-space window of the axis. When the matching entry in
-            manual_bounds is false the field is overwritten locally on every render;
-            otherwise it is the user-set fixed bound.
+            is the value-space window of the axis. Absent while both edges are auto. An
+            edge whose matching entry in manual_bounds is false is overwritten locally
+            on every render; a manual edge is the user-set bound.
         """
     }
     manual_bounds   ManualBounds = {} {
@@ -175,13 +175,13 @@ Axis struct {
     tick_spacing    float64 = 75 {
         @doc value "is the target pixel distance between adjacent tick marks."
     }
-    type            TickType?         {
+    type            TickType?             {
         @doc value """
             selects the tick label style. Null means default (linear). X-axes typically
             carry "time" when bound to a timestamp channel.
         """
     }
-    time_mode       TimeMode?         {
+    time_mode       TimeMode?             {
         @doc value "selects where an x axis draws the ranges. Null is absolute."
     }
 
@@ -497,7 +497,7 @@ LinePlot struct {
 
     action SetAxisBounds {
         key           AxisKey
-        bounds        spatial.Bounds
+        bounds        spatial.ClosedBounds?
         manual_bounds ManualBounds
 
         @doc value """

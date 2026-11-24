@@ -50,14 +50,16 @@ to_input(const Certificate &certificate, const std::string &private_key_pem) {
 Client::Client(
     std::shared_ptr<RetrieveClient> retrieve_client,
     std::shared_ptr<SetClient> set_client,
-    std::shared_ptr<RefreshClient> refresh_client
+    std::shared_ptr<RefreshClient> refresh_client,
+    std::shared_ptr<DeleteClient> delete_client
 ):
     retrieve_client(std::move(retrieve_client)),
     set_client(std::move(set_client)),
-    refresh_client(std::move(refresh_client)) {}
+    refresh_client(std::move(refresh_client)),
+    delete_client(std::move(delete_client)) {}
 
 std::pair<Certificate, x::errors::Error> Client::retrieve(const Key &key) const {
-    auto [certificates, err] = this->retrieve(std::vector{key});
+    auto [certificates, err] = this->retrieve(Where{.key = key});
     if (err) return {Certificate{}, err};
     if (const auto one_err = errors::check_one(
             "certificate",
@@ -70,8 +72,8 @@ std::pair<Certificate, x::errors::Error> Client::retrieve(const Key &key) const 
 }
 
 std::pair<std::vector<Certificate>, x::errors::Error>
-Client::retrieve(const std::vector<Key> &keys) const {
-    auto [req, pb_err] = RetrieveRequest::from(Where{.key = keys}).to_proto();
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {{}, pb_err};
     auto [res, err] = this->retrieve_client->send("/certificate/retrieve", req);
     if (err) return {{}, err};
@@ -103,5 +105,12 @@ x::errors::Error Client::refresh(const Key &key, const Details &details) const {
     if (pb_err) return pb_err;
     *req.mutable_details() = std::move(pb);
     return this->refresh_client->send("/certificate/refresh", req).second;
+}
+
+x::errors::Error Client::del(const std::vector<Key> &keys) const {
+    grpc::certificate::DeleteRequest req;
+    for (const auto &key: keys)
+        req.add_keys(key.to_string());
+    return this->delete_client->send("/certificate/delete", req).second;
 }
 }

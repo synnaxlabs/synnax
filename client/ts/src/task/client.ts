@@ -67,7 +67,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/task/where.gen";
-import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
+import { util } from "@/util";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
@@ -645,11 +645,11 @@ export class Client extends query.Retriever<
       const request = query.dropOne(params);
       if (isOneParams(request) && !z.validate(retrieveParamsZ, request)) {
         const res = singleQueryZ.safeParse(request);
-        if (!res.success) throw singleQueryError("task", request, res.error);
+        if (!res.success) throw util.singleQueryError("task", request, res.error);
       }
       const req = retrieveParamsZ.parse(request);
       const sugared = await this.execRetrieve<S>(req, schemas);
-      checkForMultipleOrNoResults("task", req, sugared, isSingle);
+      util.checkForMultipleOrNoResults("task", req, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -838,7 +838,7 @@ export class Client extends query.Retriever<
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults(
+      util.checkForMultipleOrNoResults(
         "task",
         { where: { key: { eq: q.key } } },
         tasks,
@@ -851,7 +851,7 @@ export class Client extends query.Retriever<
       async (since) =>
         await this.cfg.statuses.store.track(async (statusSince) => {
           const tasks = await this.execRetrieve({ where, includeStatus: true });
-          checkForMultipleOrNoResults("task", { where }, tasks, true);
+          util.checkForMultipleOrNoResults("task", { where }, tasks, true);
           this.hydrate(tasks[0], since, statusSince);
           return tasks[0];
         }),
