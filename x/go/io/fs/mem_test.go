@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -49,6 +50,10 @@ var _ = Describe("Mem", func() {
 		// string is the prefix that puts a relative name under the root.
 		backends := map[string]func() (fs.FS, string){
 			"memFS": func() (fs.FS, string) { return fs.NewMem(), "" },
+			"faultFS": func() (fs.FS, string) {
+				GinkgoHelper()
+				return MustSucceed(fault.New(fault.Config{})), ""
+			},
 			"osFS": func() (fs.FS, string) {
 				return fs.Default, GinkgoT().TempDir() + "/"
 			},
