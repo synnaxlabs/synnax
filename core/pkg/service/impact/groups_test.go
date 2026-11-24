@@ -162,6 +162,33 @@ var _ = Describe("Delete groups", Ordered, func() {
 		))
 	})
 
+	It("Should count a tombstone whose path holds a hidden folder", func(
+		ctx SpecContext,
+	) {
+		outer := createFolder(ctx, "impact-seen", nil)
+		inner := createFolder(ctx, "impact-unseen", &outer)
+		inOuter := tombstone(ctx, outer)
+		tombstone(ctx, inner)
+		hidden := inner.ResourceID()
+		visible := func(id resource.ID) bool { return id != hidden }
+		want := impact.Plan{
+			Change:  deleteOf(outer.Key, inner.Key),
+			Entries: []impact.Entry{cascade(inOuter, "impact-seen."+inOuter.Name)},
+			Hidden:  impact.Hidden{Cascade: 1},
+		}
+		planned := MustSucceed(
+			plan(ctx, impact.PlanOptions{Visible: visible}, outer.Key, inner.Key),
+		)
+		planned.Token = ""
+		Expect(planned).To(Equal(want))
+		Expect(apply(
+			ctx,
+			impact.ApplyOptions{Visible: visible},
+			outer.Key,
+			inner.Key,
+		)).To(Equal(want))
+	})
+
 	It("Should start a path at the deleted folder, not at a kept folder above it", func(
 		ctx SpecContext,
 	) {

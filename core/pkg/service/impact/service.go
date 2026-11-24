@@ -132,9 +132,10 @@ type PlanOptions struct {
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
 // does. A delete of groups lists each tombstone in the groups as a cascade entry with
-// its path. A pick for a record that the plan does not reach has no effect, and the
-// token does not hold it. Plan writes nothing. A pick that is not a choice, or that its
-// entry does not allow, fails with a validation error.
+// its path, and counts it as hidden unless the caller can see each folder on the path
+// and its channel. A pick for a record that the plan does not reach has no effect, and
+// the token does not hold it. Plan writes nothing. A pick that is not a choice, or that
+// its entry does not allow, fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -343,43 +344,59 @@ func (s *Service) deleteGroups(
 
 // tombstonePaths returns the path of each of dead from the deleted group that holds it.
 // A group inside a deleted one is deleted too, so each walk ends at a deleted group.
+// When visible hides a group on the path of dead[i], hidden[i] is true. hidden is nil
+// when visible hides no group.
 func (s *Service) tombstonePaths(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	keys []group.Key,
 	dead []channel.Tombstone,
-) ([]string, error) {
+	visible func(resource.ID) bool,
+) (paths []string, hidden []bool, err error) {
 	groups := make([]group.Group, 0, len(keys))
-	if err := s.cfg.Group.NewRetrieve().
+	if err = s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(keys...)).
 		Entries(&groups).
 		Exec(ctx, snap); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	deleted := make(map[group.Key]group.Group, len(groups))
+	var unseen set.Set[group.Key]
 	for _, g := range groups {
 		deleted[g.Key] = g
+		if visible != nil && !visible(g.ResourceID()) {
+			if unseen == nil {
+				unseen = make(set.Set[group.Key])
+			}
+			unseen.Add(g.Key)
+		}
 	}
-	paths := make([]string, len(dead))
+	if unseen != nil {
+		hidden = make([]bool, len(dead))
+	}
+	paths = make([]string, len(dead))
 	var segments []string
 	for i, t := range dead {
 		segments = append(segments[:0], t.Name)
 		g, ok := deleted[*t.Group]
 		for ok {
 			segments = append(segments, g.Name)
+			if unseen.Contains(g.Key) {
+				hidden[i] = true
+			}
 			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
 				break
 			}
 			parent, err := group.KeyFromResourceID(*g.Parent)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			g, ok = deleted[parent]
 		}
 		slices.Reverse(segments)
 		paths[i] = strings.Join(segments, ".")
 	}
-	return paths, nil
+	return paths, hidden, nil
 }
 
 // checkToken returns nil when t is the token of a plan whose sum is sum. Otherwise it
