@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
@@ -1035,7 +1036,7 @@ var _ = Describe("Writer Behavior", func() {
 										db.OpenWriter(ctx, both),
 									).Error().
 										To(SatisfyAll(
-											MatchError(validate.ErrValidation),
+											MatchError(claim.ErrClaimed),
 											MatchError(ContainSubstring(
 												"reaches the claim of another writer",
 											)),
@@ -1192,7 +1193,7 @@ var _ = Describe("Writer Behavior", func() {
 										db.OpenWriter(ctx, second),
 									).Error().
 										To(SatisfyAll(
-											MatchError(validate.ErrValidation),
+											MatchError(claim.ErrClaimed),
 											MatchError(ContainSubstring(
 												"reaches the claim of another writer",
 											)),
