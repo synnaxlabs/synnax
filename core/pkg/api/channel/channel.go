@@ -64,11 +64,7 @@ type ServiceConfig struct {
 	Calculation *calculation.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the channel API service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -101,7 +97,7 @@ type Service struct {
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -612,20 +608,6 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 		translated[i] = tCh
 	}
 	return translated
-}
-
-// RetrieveBuiltInsRequest is a request for the keys of the built-in channels. It names
-// no record, so any subject may send it.
-type RetrieveBuiltInsRequest struct{}
-
-// RetrieveBuiltIns returns the keys of the channels that Core services declare for
-// their work.
-func (s *Service) RetrieveBuiltIns(
-	context.Context,
-	bind.Snapshot,
-	RetrieveBuiltInsRequest,
-) (RetrieveBuiltInsResponse, error) {
-	return RetrieveBuiltInsResponse{Keys: s.internal.BuiltIns()}, nil
 }
 
 // CountLimitedRequest is a request for the count of the channels that count against the

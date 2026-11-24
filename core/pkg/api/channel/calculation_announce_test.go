@@ -166,6 +166,19 @@ var _ = Describe("Calculation announcements", func() {
 		}
 		return out
 	}
+	// calculatedSets returns the value of each set of calculated in batches, by
+	// channel.
+	calculatedSets := func(batches []batch) map[channel.Key][]any {
+		out := map[channel.Key][]any{}
+		for _, b := range batches {
+			for _, a := range b.Actions {
+				if a.Set != nil && a.Set.Path[0] == "calculated" {
+					out[b.Key] = append(out[b.Key], a.Set.Value)
+				}
+			}
+		}
+		return out
+	}
 	createOld := func(ctx SpecContext, ch apichannel.Channel) apichannel.Channel {
 		GinkgoHelper()
 		return MustSucceed(createChannels(
@@ -240,8 +253,8 @@ var _ = Describe("Calculation announcements", func() {
 	)
 
 	It(
-		"Should send nothing of a calculation that one commit creates and deletes "+
-			"to a reader who cannot read it",
+		"Should send only the calculated flag of a calculation that one commit "+
+			"creates and deletes to a reader who cannot read it",
 		func(ctx SpecContext) {
 			secret := createChannel(ctx, telem.Float32T)
 			output := createChannel(ctx, telem.Float32T)
@@ -265,14 +278,18 @@ var _ = Describe("Calculation announcements", func() {
 				return w.Delete(ctx, c.Key)
 			})).To(Succeed())
 			rename(ctx, witness)
-			Expect(until(witness)).To(BeEmpty())
+			received := until(witness)
+			Expect(expressions(received)).To(BeEmpty())
+			Expect(calculatedSets(received)).To(Equal(map[channel.Key][]any{
+				output.Key(): {true, false},
+			}))
 		},
 		SpecTimeout(60*time.Second),
 	)
 
 	It(
-		"Should clear only the outputs that a reader could read at a delete of "+
-			"several calculations",
+		"Should clear the calculated flag of every output and the fields only of "+
+			"the calculations a reader could read at a delete of several",
 		func(ctx SpecContext) {
 			visible := createChannel(ctx, telem.Float32T)
 			secret := createChannel(ctx, telem.Float32T)
@@ -305,9 +322,14 @@ var _ = Describe("Calculation announcements", func() {
 			})).To(Succeed())
 			rename(ctx, witness)
 			received := until(witness)
-			Expect(received).To(HaveLen(1))
-			Expect(received[0].Key).To(Equal(shownOut.Key))
+			Expect(calculatedSets(received)).To(Equal(map[channel.Key][]any{
+				shownOut.Key:  {false},
+				hiddenOut.Key: {false},
+			}))
 			Expect(expressions(received)).To(Equal([]string{""}))
+			Expect(slices.ContainsFunc(received, func(b batch) bool {
+				return b.Key == hiddenOut.Key && slices.Contains(paths(b), "expression")
+			})).To(BeFalse())
 		},
 		SpecTimeout(60*time.Second),
 	)
@@ -348,6 +370,60 @@ var _ = Describe("Calculation announcements", func() {
 			Expect(slices.ContainsFunc(received, func(b batch) bool {
 				return b.Key == out.Key && slices.Contains(paths(b), "group")
 			})).To(BeTrue())
+		},
+		SpecTimeout(60*time.Second),
+	)
+
+	It(
+		"Should send the calculated flag of a new calculated channel to a reader with "+
+			"no calculation access",
+		func(ctx SpecContext) {
+			input := createChannel(ctx, telem.Float32T)
+			witness := createChannel(ctx, telem.Float32T)
+			open(ctx, reader(ctx, resource.ID{Type: resource.TypeChannel}))
+			out := createOld(ctx, apichannel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: times(input, 2),
+			})
+			rename(ctx, witness)
+			received := until(witness)
+			Expect(expressions(received)).To(BeEmpty())
+			Expect(calculatedSets(received)[out.Key]).To(Equal([]any{true}))
+		},
+		SpecTimeout(60*time.Second),
+	)
+
+	It(
+		"Should send a reader with no calculation access that a calculation starts "+
+			"and then stops writing a channel",
+		func(ctx SpecContext) {
+			input := createChannel(ctx, telem.Float32T)
+			output := createChannel(ctx, telem.Float32T)
+			witness := createChannel(ctx, telem.Float32T)
+			open(ctx, reader(
+				ctx,
+				channel.ResourceID(input.Key()),
+				channel.ResourceID(output.Key()),
+				channel.ResourceID(witness.Key()),
+			))
+			c := calculation.Calculation{
+				Output:     output.Key(),
+				Expression: times(input, 2),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Calculation.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Calculation.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			rename(ctx, witness)
+			received := until(witness)
+			Expect(expressions(received)).To(BeEmpty())
+			Expect(calculatedSets(received)).To(Equal(map[channel.Key][]any{
+				output.Key(): {true, false},
+			}))
 		},
 		SpecTimeout(60*time.Second),
 	)
@@ -419,20 +495,22 @@ var _ = Describe("Calculation announcements", func() {
 		}
 
 		It(
-			"Should send a reader who cannot read the calculation only the data type",
+			"Should send a reader who cannot read the calculation only the data type "+
+				"and the calculated flag",
 			func(ctx SpecContext) {
-				Expect(retype(ctx)).To(Equal([][][]string{{{"data_type"}}}))
+				Expect(retype(ctx)).
+					To(Equal([][][]string{{{"data_type"}, {"calculated"}}}))
 			},
 			SpecTimeout(60*time.Second),
 		)
 
 		It(
-			"Should send a calculation reader the data type, then the calculation "+
-				"fields, in one frame",
+			"Should send a calculation reader the data type, the calculated flag, "+
+				"then the calculation fields, in one frame",
 			func(ctx SpecContext) {
 				Expect(retype(ctx, resource.ID{Type: resource.TypeCalculation})).
 					To(Equal([][][]string{
-						{{"data_type"}, {"expression", "operations"}},
+						{{"data_type"}, {"calculated"}, {"expression", "operations"}},
 					}))
 			},
 			SpecTimeout(60*time.Second),

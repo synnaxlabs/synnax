@@ -356,19 +356,6 @@ Use struct {
     @pb omit
 }
 
-RetrieveBuiltInsResponse struct {
-    keys Key[] {
-        @doc value "are the keys of the built-in channels."
-    }
-
-    @cpp omit
-    @doc value """
-        holds the keys of the channels that Core services declare for their work.
-    """
-    @go output "core/pkg/api/channel"
-    @pb omit
-}
-
 CountLimitedResponse struct {
     count uint32 {
         @doc value "is how many channels count against the license channel limit."

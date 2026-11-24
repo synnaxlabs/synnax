@@ -34,11 +34,12 @@ var _ = Describe("Service", func() {
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:          testDB,
-				Group:       testGroup,
-				ImEx:        imex.NewService(),
-				Enumeration: openEnumerations(ctx, testDB),
-				Actuators:   noActuators,
+				DB:            testDB,
+				Group:         testGroup,
+				ImEx:          imex.NewService(),
+				Enumeration:   openEnumerations(ctx, testDB),
+				Actuators:     noActuators,
+				RemoveOrphans: noOrphans,
 			}))
 			Expect(testSvc).ToNot(BeNil())
 		})
@@ -61,6 +62,13 @@ var _ = Describe("Service", func() {
 				ImEx:        &imex.Service{},
 				Enumeration: &enumeration.Service{},
 			}, "actuators"),
+			Entry("no remove orphans", symbol.ServiceConfig{
+				DB:          &gorp.DB{},
+				Group:       &group.Service{},
+				ImEx:        &imex.Service{},
+				Enumeration: &enumeration.Service{},
+				Actuators:   noActuators,
+			}, "remove_orphans"),
 		)
 
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
@@ -72,10 +80,11 @@ var _ = Describe("Service", func() {
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
-				Group:       testGroup,
-				ImEx:        imex.NewService(),
-				Enumeration: openEnumerations(ctx, testDB),
-				Actuators:   noActuators,
+				Group:         testGroup,
+				ImEx:          imex.NewService(),
+				Enumeration:   openEnumerations(ctx, testDB),
+				Actuators:     noActuators,
+				RemoveOrphans: noOrphans,
 			}
 			cfg2 := symbol.ServiceConfig{DB: testDB}
 			Expect(MustOpen(symbol.OpenService(ctx, cfg1, cfg2))).ToNot(BeNil())
@@ -106,11 +115,12 @@ var _ = Describe("Service", func() {
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:          testDB,
-				Group:       testGroup,
-				ImEx:        imex.NewService(),
-				Enumeration: openEnumerations(ctx, testDB),
-				Actuators:   noActuators,
+				DB:            testDB,
+				Group:         testGroup,
+				ImEx:          imex.NewService(),
+				Enumeration:   openEnumerations(ctx, testDB),
+				Actuators:     noActuators,
+				RemoveOrphans: noOrphans,
 			}))
 
 			Expect(testSvc.Close()).To(Succeed())

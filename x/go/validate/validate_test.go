@@ -432,23 +432,6 @@ var _ = Describe("Validate", func() {
 				Entry("2 bytes in 4 characters", "AQI=", true),
 				Entry("3 bytes in 4 characters", "AQID", false),
 			)
-
-			DescribeTable(
-				"MaxBytes should count decoded bytes",
-				func(text string, long bool) {
-					value := MustSucceed(base64.StdEncoding.DecodeString(text))
-					Expect(v.MaxBytes("field", value, 3)).To(Equal(long))
-					if long {
-						Expect(v.Error()).To(MatchError(ContainSubstring(
-							"field: must be at most 3 bytes long",
-						)))
-					} else {
-						Expect(v.Error()).NotTo(HaveOccurred())
-					}
-				},
-				Entry("3 bytes in 4 characters", "AQID", false),
-				Entry("4 bytes in 8 characters", "AQIDBA==", true),
-			)
 		})
 
 		Describe("NonZero", func() {

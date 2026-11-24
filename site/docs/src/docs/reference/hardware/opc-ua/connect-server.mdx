@@ -168,6 +168,12 @@ adds it to its rejected list. Trust it there, or click <Icon.Settings /> (**Mana
 the dialog and download it under **Renewal**. The Driver uses the next certificate when
 all the servers accept it, or when the current one expires.
 
+The Driver certificate also shows in **Settings** under **Certificates**, with its
+expiry. For a rack named "Plant", it is "Plant OPC UA Driver certificate", and during
+renewal the next one is "Plant next OPC UA Driver certificate". If a server does not
+trust the next certificate, Synnax warns 30 days before the current one expires. The
+private key stays on the Driver computer.
+
 **Regenerate** replaces the certificate of the Driver with a new one. Use it only when
 the private key is no longer safe. All the servers must then trust the new certificate.
 
