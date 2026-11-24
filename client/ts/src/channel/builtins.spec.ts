@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { DisconnectedError, type Synnax } from "@/index";
@@ -16,6 +16,7 @@ import {
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
+  holdRequests,
   holdResponses,
   isBuiltInsFetch,
   rejectRequests,
@@ -159,4 +160,28 @@ describe("Built-in channels after a reconnect", () => {
   it("should keep a watched internal list live when a refetch of the keys fails", async () => {
     await reconnectWithList("fails-once");
   }, 30000);
+});
+
+describe("Losing the session with the built-in key fetch in flight", () => {
+  // Holds the fetch until end has run, so the fetch reaches the Core with no session.
+  const loseSession = async (end: (client: Synnax) => Promise<void>) => {
+    const internal: Error[] = [];
+    const client = createTestClient({ onInternalError: (e) => internal.push(e) });
+    const held = holdRequests(client, isBuiltInsFetch);
+    await client.connect();
+    await expect.poll(() => held.sent()).toBeGreaterThan(0);
+    await end(client);
+    held.release();
+    await sleep.sleep(TimeSpan.milliseconds(200));
+    await client.close();
+    return internal;
+  };
+
+  it("should not report the fetch when it fails after the close", async () => {
+    expect(await loseSession(async (client) => await client.close())).toEqual([]);
+  });
+
+  it("should not report the fetch when it fails after a logout", async () => {
+    expect(await loseSession(async (client) => await client.auth.logout())).toEqual([]);
+  });
 });

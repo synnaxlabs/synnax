@@ -115,7 +115,10 @@ export interface Config<
    * decide the record, which fetches the window again. Absent, every list is a search.
    */
   matches?: (record: V, query: Q) => boolean | null;
-  /** Whether only the Core can check the query, such as a regex. */
+  /**
+   * Whether only the Core can check the query, such as a regex. Its windows still page
+   * by cursor: only a search term ranks.
+   */
   serverComputed?: (query: Q) => boolean;
   /**
    * The keys of a query that addresses keys and nothing else, or null for any other
@@ -141,8 +144,13 @@ interface Seen {
 interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The query without its limit and cursor. */
   query: Q;
-  /** Whether only the Core can order and match the window, as in a search. */
+  /** Whether only the Core can order the window, as in a search. */
   ranked: boolean;
+  /**
+   * Whether only the Core can decide which records match. A change to such a window
+   * fetches it again, and its pages hold what the Core returned.
+   */
+  coreMatched: boolean;
   /** The window's keys, in list order. */
   keys: K[];
   end: C | null;
@@ -338,12 +346,11 @@ export class Lists<
     const hashed = hash(query);
     return map.getOrInsert(this.entries, hashed, () => {
       const { matches, serverComputed } = this.config;
+      const ranked = matches == null || query.searchTerm != null;
       return {
         query,
-        ranked:
-          matches == null ||
-          query.searchTerm != null ||
-          serverComputed?.(query) === true,
+        ranked,
+        coreMatched: ranked || serverComputed?.(query) === true,
         keys: [],
         end: null,
         covered: 0,
@@ -450,8 +457,8 @@ export class Lists<
     entry.fetched = true;
     entry.end = this.endOf(entry, page.records, size);
     entry.covered = page.records.length;
-    if (ranked) {
-      entry.searchLimit = size;
+    if (entry.coreMatched) {
+      if (ranked) entry.searchLimit = size;
       entry.keys = page.records.map(({ key }) => key);
       // Only the Core can place a change that landed during the fetch.
       if (page.rechecks.size > 0) this.scheduleRefetch(entry);
@@ -473,7 +480,10 @@ export class Lists<
     if (page == null) return await this.replace(entry, options);
     entry.end = this.endOf(entry, page.records, n);
     entry.covered += page.records.length;
-    this.admitPage(entry, page);
+    if (entry.coreMatched) {
+      entry.keys.push(...page.records.map(({ key }) => key));
+      if (page.rechecks.size > 0) this.scheduleRefetch(entry);
+    } else this.admitPage(entry, page);
     entry.limit = Math.max(entry.limit, entry.keys.length);
     this.deliver(entry);
   }
@@ -601,7 +611,7 @@ export class Lists<
 
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
     if (entry.ingesting) return;
-    const changes = entry.ranked ? events.filter(isChange) : events;
+    const changes = entry.coreMatched ? events.filter(isChange) : events;
     if (changes.length > 0)
       this.changed(
         entry,
@@ -612,11 +622,11 @@ export class Lists<
   private changed(entry: Entry<Q, K, D, V, C>, keys: K[]): void {
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
-    if (!entry.ranked) {
+    if (!entry.coreMatched) {
       if (this.admitChange(entry, keys)) this.deliver(entry);
       return;
     }
-    // Only the Core knows relevance. A change to a member shows at once, so a local
+    // Only the Core knows the members. A change to a member shows at once, so a local
     // write renders before the refetch lands.
     this.scheduleRefetch(entry);
     const members = new Set(entry.keys);
@@ -675,7 +685,7 @@ export class Lists<
     result.forEach((key) => entry.composedByKey?.delete(key));
     if (result.some((key) => members.has(key))) entry.composed = undefined;
     if (trigger.contentOnly !== true)
-      if (entry.ranked) this.scheduleRefetch(entry);
+      if (entry.coreMatched) this.scheduleRefetch(entry);
       else this.admitChange(entry, result);
     const admitted = new Set(entry.keys);
     if (!result.some((key) => admitted.has(key))) return;

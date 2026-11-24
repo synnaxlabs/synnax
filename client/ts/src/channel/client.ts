@@ -69,7 +69,7 @@ import {
   serverComputed,
 } from "@/channel/where.gen";
 import type { Writer } from "@/channel/writer";
-import { isConnectionError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import type { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
@@ -311,6 +311,10 @@ export interface ClientConfig {
   batch: batch.Client;
 }
 
+// The Core checks the virtual line by whether a calculation writes the channel, which a
+// set of the expression announces.
+const CORE_LINE_FIELDS = ["expression"] as const;
+
 /**
  * Creates, reads, and deletes channels on a Core. Reach it through `client.channels`.
  * Retrievals are served from a cache that a change stream keeps current, so a repeated
@@ -354,7 +358,9 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, Channel, Action>({
       store,
       listed: (action) =>
-        action.type === "rename" || actions.changesField(action, LIST_FIELDS),
+        action.type === "rename" ||
+        actions.changesField(action, LIST_FIELDS) ||
+        actions.changesField(action, CORE_LINE_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       onStreamDown: (callback) => cache.onStreamDown(callback),
@@ -405,13 +411,15 @@ export class Client extends query.Retriever<
           builtIns = new Set(channels.map(({ key }) => key));
         })
         .catch((exc: unknown) => {
-          if (isConnectionError(exc)) return;
+          // The next connection fetches the built-in keys again.
+          if (query.isOffline(exc)) return;
           cache.onError(new Error("failed to fetch built-in channels", { cause: exc }));
         });
     });
     const lines = createLines(() => builtIns);
-    // A query ranks as a search only for a line that stays the Core's. The internal
-    // line waits for the built-in keys instead, so its list pages by key.
+    // Only the Core decides the members of a query with a line that stays the Core's.
+    // The internal line waits for the built-in keys instead, then the client places
+    // each change itself.
     const lasting = createLines(() => new Set());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",

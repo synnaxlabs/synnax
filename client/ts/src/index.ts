@@ -17,6 +17,7 @@ export { actions } from "@/actions";
 export { arc } from "@/arc";
 export { auth } from "@/auth";
 export { batch } from "@/batch";
+export { calculation } from "@/calculation";
 export { certificate } from "@/certificate";
 export { channel } from "@/channel";
 export {

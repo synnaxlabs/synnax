@@ -13,7 +13,12 @@ import z from "zod";
 
 import { actions } from "@/actions";
 import { batch } from "@/batch";
-import { AccessDeniedError, NotCachedError } from "@/index";
+import {
+  AccessDeniedError,
+  MissingCredentialsError,
+  NotCachedError,
+  ValidationError,
+} from "@/index";
 import { query } from "@/query";
 
 interface Doc {
@@ -144,6 +149,33 @@ const prime = (
 ) => docs.set(key, { values });
 
 describe("actions.Controller", () => {
+  describe("listed remote actions", () => {
+    it("should show a doc that it fetches for a listed action as a change", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, values: { a: 1 } })),
+      );
+      const { docs, controller } = setupStore({ fetch, listed: () => true });
+      const changes: string[] = [];
+      docs.subscribe((event) => {
+        if (event.variant === "set" && event.discovered !== true)
+          changes.push(event.key);
+      });
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      await expect.poll(() => changes).toEqual(["k"]);
+      expect(fetch).toHaveBeenCalledWith(["k"]);
+    });
+
+    it("should fetch no doc for an action that is not listed", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, values: { a: 1 } })),
+      );
+      const { controller } = setupStore({ fetch, listed: () => false });
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("dispatch", () => {
     it("throws and sends nothing when the doc is not cached", async () => {
       const { controller, send } = setupStore();
@@ -1383,6 +1415,26 @@ describe("actions.Controller", () => {
         await expect.poll(() => fetch.mock.calls.length).toBe(1);
         await sleep.sleep(TimeSpan.milliseconds(30));
         expect(errors).toEqual([]);
+      });
+
+      it("ignores a doc fetched while the client has no session", async () => {
+        const fetch = vi.fn(async () => {
+          throw new MissingCredentialsError("logged out");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(errors).toEqual([]);
+      });
+
+      it("reports a fetch that fails for another reason", async () => {
+        const fetch = vi.fn(async () => {
+          throw new ValidationError("bad doc");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => errors.length).toBe(1);
       });
     });
 

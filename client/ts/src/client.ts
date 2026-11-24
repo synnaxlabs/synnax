@@ -27,6 +27,7 @@ import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { batch } from "@/batch";
+import { calculation } from "@/calculation";
 import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { color } from "@/color";
@@ -196,7 +197,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
-  calculation: null,
+  calculation: changes(
+    calculation.ACTION_CHANNEL_NAME,
+    calculation.DELETE_CHANNEL_NAME,
+  ),
   certificate: changes(
     certificate.ACTION_CHANNEL_NAME,
     certificate.DELETE_CHANNEL_NAME,
@@ -268,6 +272,7 @@ export default class Synnax extends framer.Client {
   readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
+  readonly calculations: calculation.Client;
   readonly colors: color.Client;
   readonly enumerations: enumeration.Client;
   readonly license: license.Client;
@@ -449,6 +454,7 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
+    this.calculations = new calculation.Client({ unary, cache });
     this.enumerations = new enumeration.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({

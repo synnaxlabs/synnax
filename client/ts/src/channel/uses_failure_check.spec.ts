@@ -29,6 +29,7 @@ const FAILED: channel.Payload = {
   virtual: true,
   internal: false,
   expression: "",
+  calculated: false,
   operations: [],
   concurrency: control.Concurrency.exclusive,
   calculated: false,
