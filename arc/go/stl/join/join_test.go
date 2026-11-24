@@ -495,6 +495,45 @@ var _ = Describe("Join", func() {
 				To(Equal(2), "history judges each stamp")
 		})
 
+		It(
+			"Should hold a late input whose frames arrive a frame apart, within 3 times "+
+				"the median gap of its frames",
+			func() {
+				// 1 kHz primary frames and 500 Hz input frames, both 40 ms long, and
+				// each input frame arrives after the next primary frame. The input's
+				// gap of 42
+				// ms is past its limit of 6 ms, but within 3 times its 40 ms frame gap.
+				const ms = float64(telem.Millisecond) / float64(telem.Second)
+				j := MustSucceed(join.New(join.Config{
+					DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+					Live:      true,
+				}))
+				var out join.Output
+				for f := range 10 {
+					primary, input := make([]float64, 40), make([]float64, 20)
+					for k := range primary {
+						primary[k] = float64(40*f+k) * ms
+					}
+					for k := range input {
+						input[k] = float64(40*(f-1)+2*k) * ms
+					}
+					Expect(j.Push(
+						0,
+						values(primary...),
+						stamps(telem.Alignment(40*f), primary...),
+					)).To(Succeed())
+					j.Next(telem.TimeStamp(primary[39]*float64(telem.Second)), &out)
+					if f > 0 {
+						Expect(j.Push(1, values(input...), stamps(0, input...))).
+							To(Succeed())
+					}
+				}
+				Expect(
+					out.Dropped,
+				).To(Equal(3*40), "no input, then one frame with no gap")
+			},
+		)
+
 		It("Should drop a frame that starts past the hold limit of a late input",
 			func() {
 				out := joinFrame(true, 14, 15)

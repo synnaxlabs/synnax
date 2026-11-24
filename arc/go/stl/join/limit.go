@@ -17,11 +17,12 @@ const window = 16
 // intervals holds an input's last intervals, in a fixed ring, and caches their hold
 // limit.
 type intervals struct {
-	ring  [window]telem.TimeSpan
-	n     int
-	next  int
-	held  telem.TimeSpan
-	fresh bool
+	ring   [window]telem.TimeSpan
+	n      int
+	next   int
+	held   telem.TimeSpan
+	spread telem.TimeSpan
+	fresh  bool
 }
 
 func (iv *intervals) add(span telem.TimeSpan) {
@@ -33,31 +34,65 @@ func (iv *intervals) add(span telem.TimeSpan) {
 
 // limit returns the hold limit of the intervals.
 func (iv *intervals) limit() telem.TimeSpan {
-	if !iv.fresh {
-		iv.held, iv.fresh = holdLimit(iv.ring[:iv.n]), true
-	}
+	iv.update()
 	return iv.held
 }
 
-// holdLimit returns 3 times the median of spans, or 0 for no limit: when spans is
-// empty, or when the input has no steady rate, as fewer than 3 in 4 of spans lie within
-// a factor of 2 of their median.
-func holdLimit(spans []telem.TimeSpan) telem.TimeSpan {
-	n := len(spans)
-	if n == 0 {
-		return 0
+// within returns 3 times the median of the intervals, or 0 when there are none.
+func (iv *intervals) within() telem.TimeSpan {
+	iv.update()
+	return iv.spread
+}
+
+func (iv *intervals) update() {
+	if iv.fresh {
+		return
 	}
 	var sorted [window]telem.TimeSpan
-	copy(sorted[:n], spans)
+	n := iv.n
+	copy(sorted[:n], iv.ring[:n])
 	for i := 1; i < n; i++ {
 		for k := i; k > 0 && sorted[k] < sorted[k-1]; k-- {
 			sorted[k], sorted[k-1] = sorted[k-1], sorted[k]
 		}
 	}
-	median := sorted[n/2]
-	if n%2 == 0 {
-		median = sorted[n/2-1] + (median-sorted[n/2-1])/2
+	iv.held, iv.spread, iv.fresh = holdLimit(
+		sorted[:n],
+	), thrice(
+		median(sorted[:n]),
+	), true
+}
+
+// median returns the median of sorted, or 0 when it is empty.
+func median(sorted []telem.TimeSpan) telem.TimeSpan {
+	n := len(sorted)
+	if n == 0 {
+		return 0
 	}
+	m := sorted[n/2]
+	if n%2 == 0 {
+		m = sorted[n/2-1] + (m-sorted[n/2-1])/2
+	}
+	return m
+}
+
+// thrice returns 3 times span, or TimeSpanMax when that overflows.
+func thrice(span telem.TimeSpan) telem.TimeSpan {
+	if span > telem.TimeSpanMax/3 {
+		return telem.TimeSpanMax
+	}
+	return 3 * span
+}
+
+// holdLimit returns 3 times the median of sorted, or 0 for no limit: when sorted is
+// empty, or when the input has no steady rate, as fewer than 3 in 4 of sorted lie
+// within a factor of 2 of their median.
+func holdLimit(sorted []telem.TimeSpan) telem.TimeSpan {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
+	median := median(sorted)
 	steady := 0
 	for _, span := range sorted[:n] {
 		if span-median <= median && median-span <= span {
@@ -67,8 +102,5 @@ func holdLimit(spans []telem.TimeSpan) telem.TimeSpan {
 	if 4*steady < 3*n {
 		return 0
 	}
-	if median > telem.TimeSpanMax/3 {
-		return telem.TimeSpanMax
-	}
-	return 3 * median
+	return thrice(median)
 }
