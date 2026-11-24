@@ -61,5 +61,5 @@ export {
   type TableSubscriber,
 } from "@/query/table";
 export type { Data, FetchOptions, Params, WriteOptions } from "@/query/types";
-export { Uses, type UsesConfig } from "@/query/uses";
+export { REFERENCE_CHANGE_CHANNEL_NAME, Uses, type UsesConfig } from "@/query/uses";
 export { optimistic, type OptimisticParams } from "@/query/write";

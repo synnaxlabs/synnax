@@ -449,11 +449,7 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
-    this.enumerations = new enumeration.Client({
-      unary,
-      cache,
-      usesChannels: [schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME],
-    });
+    this.enumerations = new enumeration.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
@@ -468,18 +464,6 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       cache,
       batch: this.batch,
-      usesChannels: [
-        task.ACTION_CHANNEL_NAME,
-        task.DELETE_CHANNEL_NAME,
-        schematic.SET_CHANNEL_NAME,
-        schematic.DELETE_CHANNEL_NAME,
-        table.SET_CHANNEL_NAME,
-        table.DELETE_CHANNEL_NAME,
-        lineplot.SET_CHANNEL_NAME,
-        lineplot.DELETE_CHANNEL_NAME,
-        log.SET_CHANNEL_NAME,
-        log.DELETE_CHANNEL_NAME,
-      ],
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
@@ -530,7 +514,6 @@ export default class Synnax extends framer.Client {
     this.secrets = new secret.Client({
       unary,
       cache,
-      usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
     });
     this.certificates = new certificate.Client({ unary, cache });
     this.icds = new icd.Client({ unary, cache });

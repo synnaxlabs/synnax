@@ -83,13 +83,27 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Records map[channel.Key]signals.Record
+	// References is the reference change channel, which a stream reads from the
+	// provider and never from the relay.
+	//
+	// [OPTIONAL]
+	References signals.ReferenceChanges
+	// ReferenceQueue is the number of commits of reference changes that a stream holds
+	// before it fails for falling behind.
+	//
+	// [OPTIONAL] - Defaults to 1024.
+	ReferenceQueue int
 	// Errors encodes the errors that streams send to clients.
 	//
 	// [REQUIRED]
 	Errors *errors.Codec
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// defaultServiceConfig is the default configuration for the framer API service.
+	defaultServiceConfig = ServiceConfig{ReferenceQueue: 1024}
+)
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -100,6 +114,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Records = override.Nil(c.Records, other.Records)
+	if other.References.Key != 0 {
+		c.References = other.References
+	}
+	c.ReferenceQueue = override.Numeric(c.ReferenceQueue, other.ReferenceQueue)
 	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
@@ -113,6 +131,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("calculation", c.Calculation)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("errors", c.Errors)
+	v.Positive("reference_queue", c.ReferenceQueue)
 	return v.Error()
 }
 
@@ -123,12 +142,15 @@ type Service struct {
 	calculation *calculation.Service
 	internal    *framer.Service
 	records     map[channel.Key]signals.Record
-	errs        *errors.Codec
+	// references and referenceQueue configure each stream's referenceStream.
+	references     signals.ReferenceChanges
+	referenceQueue int
+	errs           *errors.Codec
 	alamos.Instrumentation
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(defaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +162,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		calculation:     cfg.Calculation,
 		access:          cfg.RBAC,
 		records:         cfg.Records,
+		references:      cfg.References,
+		referenceQueue:  cfg.ReferenceQueue,
 		errs:            cfg.Errors,
 	}, nil
 }
@@ -563,14 +587,17 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	)
 	defer cancel()
 	subject := auth.GetSubject(ctx)
-	streamer, req, err := s.openStreamer(sCtx, subject, stream)
-	if err != nil {
-		return err
-	}
 	records, err := s.newRecordSender(sCtx, subject, stream)
 	if err != nil {
 		return err
 	}
+	references := s.newReferenceStream(records)
+	defer references.route(nil)
+	streamer, req, err := s.openStreamer(sCtx, subject, stream, references.route)
+	if err != nil {
+		return err
+	}
+	sCtx.Go(references.run, signal.WithKey("references"), signal.CancelOnFail())
 	var (
 		receiver = &freightfluence.TransformReceiver[StreamerRequest, StreamerRequest]{
 			Receiver: stream,
@@ -578,18 +605,21 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 				ctx context.Context,
 				req StreamerRequest,
 			) (StreamerRequest, bool, error) {
-				return req, true, s.db.WithSnapshot(
+				if err := s.db.WithSnapshot(
 					ctx,
 					func(snap gorp.Snapshot) error {
 						return s.enforceRetrieve(ctx, snap, subject, req.Keys)
 					},
-				)
+				); err != nil {
+					return req, true, err
+				}
+				req.Keys = references.route(req.Keys)
+				return req, true, nil
 			},
 		}
 		sender = &freightfluence.Sender[StreamerResponse]{
-			Sender: freighter.SenderNopCloser[StreamerResponse]{
-				StreamSender: records,
-			},
+			Sender:            references,
+			Merged:            references.out,
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
 				return StreamerResponse{KeepAlive: true}
@@ -619,6 +649,7 @@ func (s *Service) openStreamer(
 	ctx context.Context,
 	subject resource.ID,
 	stream StreamerStream,
+	route func(channel.Keys) channel.Keys,
 ) (framer.Streamer, StreamerRequest, error) {
 	req, err := stream.Receive()
 	if err != nil {
@@ -632,6 +663,7 @@ func (s *Service) openStreamer(
 	// The ack fires only after the relay applies this streamer's demands, so a write
 	// issued after the client sees it is guaranteed to be delivered.
 	req.SendOpenAck = true
+	req.Keys = route(req.Keys)
 	streamer, err := s.internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, req, err

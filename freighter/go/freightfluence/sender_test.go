@@ -81,6 +81,24 @@ var _ = Describe("Sender", func() {
 				Expect(ok).To(BeFalse())
 			})
 		})
+		Describe("Sender Merged", func() {
+			It("Should send the messages of both sources", func(ctx SpecContext) {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+				merged := make(chan int)
+				sender := &freightfluence.Sender[int]{Sender: stream, Merged: merged}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				Eventually(receiverStream.Outlet()).Should(Receive(Equal(1)))
+				merged <- 2
+				Eventually(receiverStream.Outlet()).Should(Receive(Equal(2)))
+				close(merged)
+				senderStream.Inlet() <- 3
+				Eventually(receiverStream.Outlet()).Should(Receive(Equal(3)))
+			})
+		})
 		Describe("Sender KeepAlive", func() {
 			It(
 				"Should emit keep-alives on the configured cadence",

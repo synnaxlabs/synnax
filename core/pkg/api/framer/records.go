@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -96,13 +97,38 @@ func (s *recordSender) Send(res StreamerResponse) error {
 	return s.StreamSender.Send(res)
 }
 
+// referenceResponse returns a frame of key with the target of each change that the
+// subject can retrieve along with one of the holders that changed it, and false when it
+// would hold none. It leaves held alone, so it can run beside Send.
+func (s *recordSender) referenceResponse(
+	key channel.Key,
+	changes []signals.ReferenceChange,
+) (StreamerResponse, bool, error) {
+	policies, err := s.policies()
+	if err != nil {
+		return StreamerResponse{}, false, err
+	}
+	allowed := rbac.Allows(s.subject, policies, access.ActionRetrieve)
+	var data []byte
+	for _, c := range changes {
+		if allowed(c.Target) && slices.ContainsFunc(c.Holders, allowed) {
+			sample := telem.MarshalVariableSample([]byte(c.Target.String()))
+			data = append(data, sample...)
+		}
+	}
+	if len(data) == 0 {
+		return StreamerResponse{}, false, nil
+	}
+	series := telem.Series{DataType: telem.StringT, Data: data}
+	return StreamerResponse{
+		Frame: frame.NewMulti(channel.Keys{key}, []telem.Series{series}),
+	}, true, nil
+}
+
 // allowed returns the check of the subject's current policies and adds them to held.
 func (s *recordSender) allowed() (func(resource.ID) bool, error) {
-	var policies []policy.Policy
-	if err := s.service.db.WithSnapshot(s.ctx, func(snap gorp.Snapshot) (err error) {
-		policies, err = s.service.access.NewEnforcer(snap).Policies(s.ctx, s.subject)
-		return err
-	}); err != nil {
+	policies, err := s.policies()
+	if err != nil {
 		return nil, err
 	}
 	for _, p := range policies {
@@ -143,6 +169,16 @@ func admits(
 		return false, err
 	}
 	return allowed(id), nil
+}
+
+// policies returns the current policies of the subject.
+func (s *recordSender) policies() ([]policy.Policy, error) {
+	var policies []policy.Policy
+	err := s.service.db.WithSnapshot(s.ctx, func(snap gorp.Snapshot) (err error) {
+		policies, err = s.service.access.NewEnforcer(snap).Policies(s.ctx, s.subject)
+		return err
+	})
+	return policies, err
 }
 
 // keepAllowed returns a copy of the series with only the samples that a subject that

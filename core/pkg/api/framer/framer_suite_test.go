@@ -108,6 +108,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Calculation: svc.Calculation,
 		RBAC:        svc.RBAC,
 		Records:     svc.Signals.Records(),
+		References:  svc.Signals.ReferenceChanges(),
 		Errors:      errors.NewCodec(),
 	}))
 	Expect(svc.User.NewRetrieve().

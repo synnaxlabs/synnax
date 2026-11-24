@@ -277,7 +277,7 @@ func (s *Service) linkNeeds(
 	createdOrDeleted set.Set[gorp.Target],
 	needs accessNeeds,
 ) error {
-	need := func(l gorp.Link, action access.Action) error {
+	need := func(l placement, action access.Action) error {
 		if l.Target == owner || createdOrDeleted.Contains(l.Target) {
 			return nil
 		}
@@ -293,12 +293,13 @@ func (s *Service) linkNeeds(
 		}
 		return needs.add(action, l.Target)
 	}
-	for _, l := range c.Added {
+	added, removed := placementChanges(c)
+	for _, l := range added {
 		if err := need(l, addedLinkAction(l.Kind)); err != nil {
 			return err
 		}
 	}
-	for _, l := range c.Removed {
+	for _, l := range removed {
 		if l.Kind != gorp.Place {
 			continue
 		}
@@ -319,13 +320,7 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 	if c.Kind != gorp.ChangeUpdate {
 		return uses(c.Links, subject)
 	}
-	before := append(
-		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
-			return slices.Contains(c.Added, l)
-		}),
-		c.Removed...,
-	)
-	return uses(c.Links, subject) && uses(before, subject)
+	return uses(c.Links, subject) && uses(linksBefore(c), subject)
 }
 
 // owns reports whether target is a record of an owned table that uses subject.
@@ -445,14 +440,83 @@ func errMove(subject, target resource.ID) error {
 }
 
 // ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
-func (s *Service) ownedPlace(l gorp.Link) bool {
+func (s *Service) ownedPlace(l placement) bool {
 	return l.Kind == gorp.Place && slices.Contains(s.cfg.OwnedPlaces, l.Target.Table)
+}
+
+// placement is a link without its tag. Access maps by kind, so a change to the tag of
+// a link alone needs no check.
+type placement struct {
+	Target gorp.Target
+	Kind   gorp.LinkKind
+}
+
+// linearLimit is the most comparisons for which a walk of the links of a record scans
+// instead of building a set. A scan of a small record allocates no set.
+const linearLimit = 1024
+
+// placementsOf returns the placements of links, once each, in their order.
+func placementsOf(links []gorp.Link) []placement {
+	out := make([]placement, 0, len(links))
+	if len(links)*len(links) <= linearLimit {
+		for _, l := range links {
+			p := placement{Target: l.Target, Kind: l.Kind}
+			if !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	seen := make(set.Set[placement], len(links))
+	for _, l := range links {
+		p := placement{Target: l.Target, Kind: l.Kind}
+		if !seen.Contains(p) {
+			seen.Add(p)
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// subtract returns the values of from that are not in minus.
+func subtract[T comparable](from, minus []T) []T {
+	if len(from)*len(minus) <= linearLimit {
+		return lo.Reject(from, func(v T, _ int) bool {
+			return slices.Contains(minus, v)
+		})
+	}
+	in := make(set.Set[T], len(minus))
+	in.Add(minus...)
+	return lo.Reject(from, func(v T, _ int) bool { return in.Contains(v) })
+}
+
+// linksBefore returns the links that the record of c held before the transaction.
+func linksBefore(c gorp.Change) []gorp.Link {
+	switch c.Kind {
+	case gorp.ChangeCreate:
+		return nil
+	case gorp.ChangeDelete:
+		return c.Links
+	case gorp.ChangeUpdate:
+		return append(subtract(c.Links, c.Added), c.Removed...)
+	}
+	panic(errors.Newf("[bind] - unknown change kind %d", c.Kind))
+}
+
+// placementChanges returns the placements that c adds and the ones it removes.
+func placementChanges(c gorp.Change) (added, removed []placement) {
+	before := placementsOf(linksBefore(c))
+	var after []placement
+	if c.Kind != gorp.ChangeDelete {
+		after = placementsOf(c.Links)
+	}
+	return subtract(after, before), subtract(before, after)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error
 // unless the record holds exactly one place link.
 func ownerOf(c gorp.Change) (gorp.Target, error) {
-	places := lo.Filter(c.Links, func(l gorp.Link, _ int) bool {
+	places := lo.Filter(placementsOf(c.Links), func(l placement, _ int) bool {
 		return l.Kind == gorp.Place
 	})
 	if len(places) != 1 {

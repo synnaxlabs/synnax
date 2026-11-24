@@ -39,6 +39,9 @@ type Provider struct {
 	// frames that a stream buffers after the relay, plus the frames of a feed's request
 	// pipe as a margin. A stream that lags within its buffers finds each check.
 	checkCommits int
+	// references is the reference change channel and its changes, zero until
+	// PublishReferenceChanges runs.
+	references ReferenceChanges
 	// started is true once Start runs.
 	started bool
 }

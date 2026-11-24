@@ -86,6 +86,7 @@ const createStreamedClient = async ({
   answered,
 }: StreamedClientParams = {}) => {
   const dispatchKeys: string[] = [];
+  const usesRetrieves: channel.Key[][] = [];
   const unary: UnaryClient = {
     use: () => {},
     send: async <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
@@ -94,8 +95,16 @@ const createStreamedClient = async ({
       _: RQ,
       resSchema: RS,
     ): Promise<z.infer<RS>> => {
-      if (target === "/channel/retrieve")
+      if (target === "/channel/retrieve") {
+        const { includeUses, where } = channel.retrieveRequestZ.parse(req);
+        const keys = where?.key?.in;
+        if (includeUses === true && keys != null) {
+          usesRetrieves.push(keys);
+          const used = [RENAMED, OTHER, SENTINEL].filter((p) => keys.includes(p.key));
+          return resSchema.parse({ channels: used.map((p) => ({ ...p, uses: [] })) });
+        }
         return resSchema.parse({ channels: [RENAMED, OTHER, SENTINEL] });
+      }
       if (target === "/channel/dispatch") {
         dispatchKeys.push(channel.dispatchReqZ.parse(req).dispatchKey);
         await answered;
@@ -131,7 +140,6 @@ const createStreamedClient = async ({
     statuses: new status.Client({ unary, cache }),
     cache,
     batch: batches,
-    usesChannels: [],
   });
   await cache.ensureStreaming();
   // Frames apply in order, so the delete applies after the late echo.
@@ -153,7 +161,7 @@ const createStreamedClient = async ({
     await expect.poll(() => channels.store.has(SENTINEL.key)).toBe(false);
   };
   await channels.retrieve([RENAMED.key, OTHER.key, SENTINEL.key]);
-  return { stream, channels, batches, dispatchKeys, pushLateEcho };
+  return { stream, channels, batches, dispatchKeys, usesRetrieves, pushLateEcho };
 };
 
 describe("channel.Client", () => {
@@ -224,6 +232,27 @@ describe("channel.Client", () => {
         channel.set({ path: ["expression"], value: "return 1" }),
       );
       expect(channels.store.get(RENAMED.key)?.dataType).toEqual(DataType.INT64);
+    });
+  });
+
+  describe("a reference change", () => {
+    it("should refetch the watched uses of only the channels it names", async () => {
+      const { stream, channels, usesRetrieves } = await createStreamedClient();
+      const q = { where: { key: { in: [RENAMED.key, OTHER.key] } }, includeUses: true };
+      const list = channels.watch(q);
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      expect(usesRetrieves).toEqual([[RENAMED.key, OTHER.key]]);
+      stream.push(
+        new framer.Frame({
+          [query.REFERENCE_CHANGE_CHANNEL_NAME]: new Series([
+            `${channel.TYPE_RESOURCE_ID.type}:${RENAMED.key}`,
+            `secret:${OTHER.key}`,
+          ]),
+        }),
+      );
+      await expect.poll(() => usesRetrieves.length).toBe(2);
+      expect(usesRetrieves[1]).toEqual([RENAMED.key]);
     });
   });
 
