@@ -199,6 +199,53 @@ var _ = Describe("Framer", func() {
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
 		})
 
+		It("Should send an iterator error to the client with its channel named", func(
+			ctx SpecContext,
+		) {
+			index := createIndex(ctx)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  channel.Keys{index.Key()},
+			}))
+			Expect(w.Write(frame.NewUnary(
+				index.Key(),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			client, server := freightertestutil.NewStreams[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Iterate(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.IteratorRequest{
+				Keys:   channel.Keys{index.Key()},
+				Bounds: telem.TimeRangeMax,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandSeekFirst,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			faultyFS.SetOptions(WithFailReadAt())
+			DeferCleanup(func() { faultyFS.SetOptions() })
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandNext,
+				Span:    apiframer.IteratorAutoSpan,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeFalse()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandError,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Error", MatchError(SatisfyAll(
+				ContainSubstring(fmt.Sprintf("channel %q", index.Name)),
+				ContainSubstring(ErrFault.Error()),
+			))))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).
+				Should(Receive(MatchError(ContainSubstring(ErrFault.Error()))))
+		})
+
 		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
 			index := createIndex(ctx)
 			data := channel.Channel{
