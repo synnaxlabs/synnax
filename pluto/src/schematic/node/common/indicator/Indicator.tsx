@@ -38,7 +38,7 @@ export interface SlotProps {
   unknown: boolean;
 }
 
-/** Slot shows the indicators of a symbol in a row in its bottom slot, or nothing. */
+/** Slot shows the indicators of a symbol side by side below it, or nothing. */
 export const Slot = Grid.createItem(({ stale, unknown }: SlotProps) => {
   if (!stale && !unknown) return null;
   return (
