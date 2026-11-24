@@ -947,7 +947,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
+	t.ImExImport.BindHandler(bind.WriteRetrievable(l.binder, l.ImEx.Import))
 	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 

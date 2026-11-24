@@ -125,7 +125,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: rbacSvc,
 		Held: apiauth.HeldTables(),
 	}))
-	importEnvelope = bind.Write(binder, apiSvc.Import)
+	importEnvelope = bind.WriteRetrievable(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).

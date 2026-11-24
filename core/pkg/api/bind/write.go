@@ -105,6 +105,28 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 	}
 }
 
+// Retrievable reports whether the subject of a request can retrieve the record with id.
+type Retrievable func(id resource.ID) bool
+
+// WriteRetrievable returns a handler that runs apply as Write does, and passes apply
+// what the subject of the request can retrieve, read from committed policies as Write
+// reads them. apply uses it to reuse only records that the subject can retrieve, so the
+// access check of each use link that it adds passes.
+func WriteRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) freighter.UnaryHandler[RQ, RS] {
+	return Write(s, func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
+		allowed, err := s.cfg.RBAC.NewEnforcer(s.cfg.DB).
+			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+		if err != nil {
+			var zero RS
+			return zero, err
+		}
+		return apply(ctx, tx, allowed, req)
+	})
+}
+
 // WriteUnchecked returns a handler that runs apply in one write transaction of db and
 // commits it, with no access check. Use it only for an apply that checks its own
 // access. An error from apply rolls back every write and returns a zero response.
