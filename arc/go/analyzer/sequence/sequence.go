@@ -33,14 +33,17 @@ func RejectReactiveAssignment(
 	assign parser.IAssignmentContext,
 ) {
 	name := assign.IDENTIFIER().GetText()
-	d.Add(
-		codes.AssignmentTarget.Atf(
-			assign,
-			"use '<value> -> %s' to write to '%s'",
-			name,
-			name,
-		),
+	diag := codes.AssignmentTarget.Atf(
+		assign,
+		"use '<value> -> %s' to write to '%s'",
+		name,
+		name,
 	)
+	if assign.CompoundOp() == nil && assign.IndexOrSlice() == nil {
+		write := parser.GetExpressionText(assign.Expression()) + " -> " + name
+		diag = diag.WithEdits("Change to `"+write+"`", formatter.Replace(assign, write))
+	}
+	d.Add(diag)
 }
 
 // analyzeReactiveAssignment type-checks an '=' reassignment by the target's kind.

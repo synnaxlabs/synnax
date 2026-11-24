@@ -380,6 +380,47 @@ var _ = Describe("Statement", func() {
 				Entry("channel-read expression", "bad $= sensor + 1"),
 			)
 
+			DescribeTable(
+				"give a fix that changes a stateful channel initializer to ':='",
+				func(bCtx SpecContext, format string) {
+					analyze := func(source string) diagnostics.Diagnostics {
+						GinkgoHelper()
+						ctx := context.NewRoot(
+							bCtx,
+							MustSucceed(parser.Parse(source)),
+							NewRoot(nil, sensorChan...),
+						)
+						analyzer.AnalyzeProgram(ctx)
+						return *ctx.Diagnostics
+					}
+					source := fmt.Sprintf(format, "$=")
+					diag := analyze(source)
+					Expect(diag).To(HaveLen(1))
+					Expect(diag[0].Code).To(Equal(codes.StatefulVariable.Code))
+					Expect(diag[0].Fixes).To(HaveLen(1))
+					Expect(diag[0].Fixes[0].Title).To(Equal("Change to `:=`"))
+					fixed := testutil.ApplyFix(source, diag[0].Fixes[0])
+					Expect(fixed).To(Equal(fmt.Sprintf(format, ":=")))
+					Expect(analyze(fixed)).To(BeEmpty())
+				},
+				Entry(
+					"bare channel in a sequence",
+					"sequence main {\n    bad %s sensor\n    stage s {\n    }\n}\n",
+				),
+				Entry(
+					"channel-read expression in a sequence",
+					"sequence main {\n    bad %s sensor + 1\n    stage s {\n    }\n}\n",
+				),
+				Entry(
+					"bare channel in a stage",
+					"sequence main {\n    stage s {\n        bad %s sensor\n    }\n}\n",
+				),
+				Entry(
+					"declaration with a type",
+					"sequence main {\n    bad f64 %s sensor\n    stage s {\n    }\n}\n",
+				),
+			)
+
 			It("keeps a bare alias to a literal a literal", func(bCtx SpecContext) {
 				root := NewRoot(nil, sensorChan...)
 				declareIn(bCtx, root, "gain := 42.0")

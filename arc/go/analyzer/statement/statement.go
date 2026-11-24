@@ -124,9 +124,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		if bound, _ := rhsBindsChannel(ctx, expr); bound {
-			ctx.Diagnostics.Add(
-				codes.StatefulVariable.Atf(ctx.AST, statefulChannelInitMsg),
-			)
+			rejectStatefulChannelInit(ctx.Diagnostics, ctx.AST.StatefulVariable())
 			return
 		}
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
@@ -222,11 +220,19 @@ func CheckStatefulInitializers[T antlr.ParserRuleContext](ctx context.Context[T]
 			continue
 		}
 		if decl, ok := expr.GetParent().(parser.IStatefulVariableContext); ok {
-			ctx.Diagnostics.Add(
-				codes.StatefulVariable.Atf(decl, statefulChannelInitMsg),
-			)
+			rejectStatefulChannelInit(ctx.Diagnostics, decl)
 		}
 	}
+}
+
+func rejectStatefulChannelInit(
+	d *diagnostics.Diagnostics,
+	decl parser.IStatefulVariableContext,
+) {
+	d.Add(codes.StatefulVariable.Atf(decl, statefulChannelInitMsg).WithEdits(
+		"Change to `:=`",
+		formatter.ReplaceToken(decl.STATE_DECLARE().GetSymbol(), ":="),
+	))
 }
 
 // PromoteChannelReadLocals retypes a computed `:=` local as reactive when its
