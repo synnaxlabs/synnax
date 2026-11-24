@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal, TypeAlias, TypedDict, override as _override
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -53,7 +53,7 @@ class User(BaseModel):
         role: Is the role that grants the user its permissions.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     root_user: bool = False
     role: role_.Key
@@ -71,7 +71,6 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
-        usernames: Matches the users whose password has any of the given usernames.
         roles: Matches the users that hold any of the given roles.
     """
 
@@ -81,10 +80,9 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
-    usernames: list[str] | None = None
     roles: list[role_.Key] | None = None
 
-    @field_validator("usernames", "roles", mode="before")
+    @field_validator("roles", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -99,7 +97,6 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
-        "usernames": str | list[str],
         "roles": role_.Key | list[role_.Key],
     },
     total=False,

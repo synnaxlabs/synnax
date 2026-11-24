@@ -144,14 +144,14 @@ var _ = Describe("JSONEncoder", func() {
 						doc = []byte(*c.Text)
 					}
 					decoded := newSamples(messages)
-					MustSucceed2(dec.Decode(doc, decoded))
+					decode(dec, doc, decoded)
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)
-					routed, ok := MustSucceed2(dec.Decode(encoded, again))
+					routed, ok := decode(dec, encoded, again)
 					Expect(ok).To(BeTrue(), string(encoded))
 					Expect(routed).To(Equal(i), string(encoded))
 					Expect(again[i]).To(Equal(decoded[i]), string(encoded))

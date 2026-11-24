@@ -187,7 +187,7 @@ class SetAxisBoundsPayload(BaseModel):
     """
 
     key: AxisKey
-    bounds: spatial.Bounds
+    bounds: spatial.ClosedBounds | None = None
     manual_bounds: ManualBounds
 
 

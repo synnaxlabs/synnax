@@ -1,0 +1,2996 @@
+{
+  "edges": [],
+  "name": "Equipment",
+  "nodes": [
+    {
+      "key": "n000",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "cap",
+        "label": {
+          "label": "cap",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n001",
+      "position": {
+        "x": 120,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "filter",
+        "label": {
+          "label": "filter",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n002",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flow_straightener",
+        "label": {
+          "label": "flow_straightener",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n003",
+      "position": {
+        "x": 360,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "heater_element",
+        "label": {
+          "label": "heater_element",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n004",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "iso_cap",
+        "label": {
+          "label": "iso_cap",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n005",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "iso_filter",
+        "label": {
+          "label": "iso_filter",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n006",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "nozzle",
+        "label": {
+          "label": "nozzle",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n007",
+      "position": {
+        "x": 840,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "orifice",
+        "label": {
+          "label": "orifice",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n008",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "orifice_plate",
+        "label": {
+          "label": "orifice_plate",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n009",
+      "position": {
+        "x": 1080,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "strainer",
+        "label": {
+          "label": "strainer",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n010",
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "strainer_cone",
+        "label": {
+          "label": "strainer_cone",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n011",
+      "position": {
+        "x": 120,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "vent",
+        "label": {
+          "label": "vent",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n012",
+      "position": {
+        "x": 240,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_general",
+        "label": {
+          "label": "flowmeter_general",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n013",
+      "position": {
+        "x": 360,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_electromagnetic",
+        "label": {
+          "label": "flowmeter_electromagnetic",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n014",
+      "position": {
+        "x": 480,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_variable_area",
+        "label": {
+          "label": "flowmeter_variable_area",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n015",
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_coriolis",
+        "label": {
+          "label": "flowmeter_coriolis",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n016",
+      "position": {
+        "x": 720,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_nozzle",
+        "label": {
+          "label": "flowmeter_nozzle",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n017",
+      "position": {
+        "x": 840,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_venturi",
+        "label": {
+          "label": "flowmeter_venturi",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n018",
+      "position": {
+        "x": 960,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_ring_piston",
+        "label": {
+          "label": "flowmeter_ring_piston",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n019",
+      "position": {
+        "x": 1080,
+        "y": 120
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_positive_displacement",
+        "label": {
+          "label": "flowmeter_positive_displacement",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n020",
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_turbine",
+        "label": {
+          "label": "flowmeter_turbine",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n021",
+      "position": {
+        "x": 120,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_pulse",
+        "label": {
+          "label": "flowmeter_pulse",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n022",
+      "position": {
+        "x": 240,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_float_sensor",
+        "label": {
+          "label": "flowmeter_float_sensor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n023",
+      "position": {
+        "x": 360,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flowmeter_orifice",
+        "label": {
+          "label": "flowmeter_orifice",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n024",
+      "position": {
+        "x": 480,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "heat_exchanger_general",
+        "label": {
+          "label": "heat_exchanger_general",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n025",
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "heat_exchanger_m",
+        "label": {
+          "label": "heat_exchanger_m",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n026",
+      "position": {
+        "x": 720,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "heat_exchanger_straight_tube",
+        "label": {
+          "label": "heat_exchanger_straight_tube",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n027",
+      "position": {
+        "x": 840,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "static_mixer",
+        "label": {
+          "label": "static_mixer",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n028",
+      "position": {
+        "x": 960,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "burst_disc",
+        "label": {
+          "label": "burst_disc",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n029",
+      "position": {
+        "x": 1080,
+        "y": 240
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flame_arrestor",
+        "label": {
+          "label": "flame_arrestor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n030",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flame_arrestor_detonation",
+        "label": {
+          "label": "flame_arrestor_detonation",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n031",
+      "position": {
+        "x": 120,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flame_arrestor_explosion",
+        "label": {
+          "label": "flame_arrestor_explosion",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n032",
+      "position": {
+        "x": 240,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flame_arrestor_fire_res",
+        "label": {
+          "label": "flame_arrestor_fire_res",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n033",
+      "position": {
+        "x": 360,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flame_arrestor_fire_res_detonation",
+        "label": {
+          "label": "flame_arrestor_fire_res_detonation",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n034",
+      "position": {
+        "x": 480,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "iso_burst_disc",
+        "label": {
+          "label": "iso_burst_disc",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n035",
+      "position": {
+        "x": 600,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "check_valve",
+        "label": {
+          "label": "check_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n036",
+      "position": {
+        "x": 720,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "check_valve_with_arrow",
+        "label": {
+          "label": "check_valve_with_arrow",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n037",
+      "position": {
+        "x": 840,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "electric_regulator",
+        "label": {
+          "label": "electric_regulator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n038",
+      "position": {
+        "x": 960,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "electric_regulator_motorized",
+        "label": {
+          "label": "electric_regulator_motorized",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n039",
+      "position": {
+        "x": 1080,
+        "y": 360
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "iso_check_valve",
+        "label": {
+          "label": "iso_check_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n040",
+      "position": {
+        "x": 0,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "regulator",
+        "label": {
+          "label": "regulator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n041",
+      "position": {
+        "x": 120,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "regulator_manual",
+        "label": {
+          "label": "regulator_manual",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n042",
+      "position": {
+        "x": 240,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "cross_junction",
+        "label": {
+          "label": "cross_junction",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n043",
+      "position": {
+        "x": 360,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "t_junction",
+        "label": {
+          "label": "t_junction",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n044",
+      "position": {
+        "x": 480,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "thruster",
+        "label": {
+          "label": "thruster",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n045",
+      "position": {
+        "x": 600,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "switch",
+        "label": {
+          "label": "switch",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n046",
+      "position": {
+        "x": 720,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "agitator",
+        "label": {
+          "label": "agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n047",
+      "position": {
+        "x": 840,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "cross_beam_agitator",
+        "label": {
+          "label": "cross_beam_agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n048",
+      "position": {
+        "x": 960,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "flat_blade_agitator",
+        "label": {
+          "label": "flat_blade_agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n049",
+      "position": {
+        "x": 1080,
+        "y": 480
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "helical_agitator",
+        "label": {
+          "label": "helical_agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n050",
+      "position": {
+        "x": 0,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "paddle_agitator",
+        "label": {
+          "label": "paddle_agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n051",
+      "position": {
+        "x": 120,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "propeller_agitator",
+        "label": {
+          "label": "propeller_agitator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n052",
+      "position": {
+        "x": 240,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "rotary_mixer",
+        "label": {
+          "label": "rotary_mixer",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n053",
+      "position": {
+        "x": 360,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "cavity_pump",
+        "label": {
+          "label": "cavity_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n054",
+      "position": {
+        "x": 480,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "centrifugal_compressor",
+        "label": {
+          "label": "centrifugal_compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n055",
+      "position": {
+        "x": 600,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "compressor",
+        "label": {
+          "label": "compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n056",
+      "position": {
+        "x": 720,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "diaphragm_pump",
+        "label": {
+          "label": "diaphragm_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n057",
+      "position": {
+        "x": 840,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "ejection_pump",
+        "label": {
+          "label": "ejection_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n058",
+      "position": {
+        "x": 960,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "ejector_compressor",
+        "label": {
+          "label": "ejector_compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n059",
+      "position": {
+        "x": 1080,
+        "y": 600
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "liquid_ring_compressor",
+        "label": {
+          "label": "liquid_ring_compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n060",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "piston_pump",
+        "label": {
+          "label": "piston_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n061",
+      "position": {
+        "x": 120,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "pump",
+        "label": {
+          "label": "pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n062",
+      "position": {
+        "x": 240,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "roller_vane_compressor",
+        "label": {
+          "label": "roller_vane_compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n063",
+      "position": {
+        "x": 360,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "screw_pump",
+        "label": {
+          "label": "screw_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n064",
+      "position": {
+        "x": 480,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "turbo_compressor",
+        "label": {
+          "label": "turbo_compressor",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n065",
+      "position": {
+        "x": 600,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "vacuum_pump",
+        "label": {
+          "label": "vacuum_pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n066",
+      "position": {
+        "x": 720,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "angled_valve",
+        "label": {
+          "label": "angled_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n067",
+      "position": {
+        "x": 840,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "ball_valve",
+        "label": {
+          "label": "ball_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n068",
+      "position": {
+        "x": 960,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "butterfly_valve_one",
+        "label": {
+          "label": "butterfly_valve_one",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n069",
+      "position": {
+        "x": 1080,
+        "y": 720
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "butterfly_valve_two",
+        "label": {
+          "label": "butterfly_valve_two",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n070",
+      "position": {
+        "x": 0,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "four_way_valve",
+        "label": {
+          "label": "four_way_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n071",
+      "position": {
+        "x": 120,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "gate_valve",
+        "label": {
+          "label": "gate_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n072",
+      "position": {
+        "x": 240,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "solenoid_valve",
+        "label": {
+          "label": "solenoid_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "normally_open": false
+      }
+    },
+    {
+      "key": "n073",
+      "position": {
+        "x": 360,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "three_way_valve",
+        "label": {
+          "label": "three_way_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n074",
+      "position": {
+        "x": 480,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "three_way_ball_valve",
+        "label": {
+          "label": "three_way_ball_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n075",
+      "position": {
+        "x": 600,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "valve",
+        "label": {
+          "label": "valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n076",
+      "position": {
+        "x": 720,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "angled_relief_valve",
+        "label": {
+          "label": "angled_relief_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n077",
+      "position": {
+        "x": 840,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "angled_spring_loaded_relief_valve",
+        "label": {
+          "label": "angled_spring_loaded_relief_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n078",
+      "position": {
+        "x": 960,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "breather_valve",
+        "label": {
+          "label": "breather_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n079",
+      "position": {
+        "x": 1080,
+        "y": 840
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "manual_valve",
+        "label": {
+          "label": "manual_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n080",
+      "position": {
+        "x": 0,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "needle_valve",
+        "label": {
+          "label": "needle_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n081",
+      "position": {
+        "x": 120,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "relief_valve",
+        "label": {
+          "label": "relief_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n082",
+      "position": {
+        "x": 240,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "spring_loaded_relief_valve",
+        "label": {
+          "label": "spring_loaded_relief_valve",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n083",
+      "position": {
+        "x": 360,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "light",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585
+      }
+    },
+    {
+      "key": "n084",
+      "position": {
+        "x": 480,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_actuator",
+        "label": {
+          "label": "custom_actuator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "spec_key": "9287f219-b51f-42ef-b572-da6e885cd1a7",
+        "state_overrides": []
+      }
+    },
+    {
+      "key": "n085",
+      "position": {
+        "x": 600,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_static",
+        "label": {
+          "label": "custom_static",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "spec_key": "b5f2d3ae-fab9-4037-aa18-eba4984e9135",
+        "state_overrides": []
+      }
+    },
+    {
+      "key": "n086",
+      "position": {
+        "x": 720,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "filter",
+        "label": {
+          "label": "Red filter",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1.5,
+        "stroke_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n087",
+      "position": {
+        "x": 840,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "vent",
+        "label": {
+          "label": "",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1
+      }
+    },
+    {
+      "key": "n088",
+      "position": {
+        "x": 960,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "valve",
+        "label": {
+          "label": "Command only",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 0,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n089",
+      "position": {
+        "x": 1080,
+        "y": 960
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "valve",
+        "label": {
+          "label": "State only",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 0,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n090",
+      "position": {
+        "x": 0,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "valve",
+        "label": {
+          "label": "No channels",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 0,
+        "command_channel": 0,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n091",
+      "position": {
+        "x": 120,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "valve",
+        "label": {
+          "label": "Deleted channel",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048586,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0"
+      }
+    },
+    {
+      "key": "n092",
+      "position": {
+        "x": 240,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "pump",
+        "label": {
+          "label": "Styled pump",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 2,
+        "staleness_timeout": "10000000000",
+        "staleness_color": "#2850dc",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "authority": 200,
+          "hidden": false,
+          "chip_hidden": true,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "500000000",
+        "stroke_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n093",
+      "position": {
+        "x": 360,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "solenoid_valve",
+        "label": {
+          "label": "Normally open",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "normally_open": true
+      }
+    },
+    {
+      "key": "n094",
+      "position": {
+        "x": 480,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "manual_valve",
+        "label": {
+          "label": "Manual enabled=False clickable=False",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": false
+      }
+    },
+    {
+      "key": "n095",
+      "position": {
+        "x": 600,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "manual_valve",
+        "label": {
+          "label": "Manual enabled=False clickable=True",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": false,
+        "clickable": true
+      }
+    },
+    {
+      "key": "n096",
+      "position": {
+        "x": 720,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "manual_valve",
+        "label": {
+          "label": "Manual enabled=True clickable=False",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": true,
+        "clickable": false,
+        "stroke_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n097",
+      "position": {
+        "x": 840,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "manual_valve",
+        "label": {
+          "label": "Manual enabled=True clickable=True",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "enabled": true,
+        "clickable": true,
+        "stroke_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n098",
+      "position": {
+        "x": 960,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "Default threshold",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "threshold": {
+          "lower": 0.9,
+          "upper": 1.1
+        }
+      }
+    },
+    {
+      "key": "n099",
+      "position": {
+        "x": 1080,
+        "y": 1080
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "Differing threshold",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "threshold": {
+          "lower": 10,
+          "upper": 20
+        }
+      }
+    },
+    {
+      "key": "n100",
+      "position": {
+        "x": 0,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "Inverted threshold",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "threshold": {
+          "lower": 20,
+          "upper": 10
+        }
+      }
+    },
+    {
+      "key": "n101",
+      "position": {
+        "x": 120,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "Empty threshold",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "threshold": {
+          "lower": 5,
+          "upper": 5
+        }
+      }
+    },
+    {
+      "key": "n102",
+      "position": {
+        "x": 240,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "On color",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "on_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n103",
+      "position": {
+        "x": 360,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "Same on color",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "on_color": "#dc2828"
+      }
+    },
+    {
+      "key": "n104",
+      "position": {
+        "x": 480,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "No channel",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 0
+      }
+    },
+    {
+      "key": "n105",
+      "position": {
+        "x": 600,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "light",
+        "label": {
+          "label": "",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "channel": 1048585,
+        "stroke_color": "#dc2828",
+        "on_color": "#2850dc"
+      }
+    },
+    {
+      "key": "n106",
+      "position": {
+        "x": 720,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_actuator",
+        "label": {
+          "label": "Red vent",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "spec_key": "9287f219-b51f-42ef-b572-da6e885cd1a7",
+        "state_overrides": [
+          {
+            "key": "base",
+            "name": "Base",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#2850dc",
+                "fill_color": "#2850dc"
+              }
+            ]
+          },
+          {
+            "key": "active",
+            "name": "Active",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#dc2828",
+                "fill_color": "#dc2828"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "n107",
+      "position": {
+        "x": 840,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_actuator",
+        "label": {
+          "label": "Red vent twin",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "spec_key": "9287f219-b51f-42ef-b572-da6e885cd1a7",
+        "state_overrides": [
+          {
+            "key": "base",
+            "name": "Base",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#2850dc",
+                "fill_color": "#2850dc"
+              }
+            ]
+          },
+          {
+            "key": "active",
+            "name": "Active",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#dc2828",
+                "fill_color": "#dc2828"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "n108",
+      "position": {
+        "x": 960,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_actuator",
+        "label": {
+          "label": "Vent equal overrides",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 0,
+        "command_channel": 0,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "spec_key": "9287f219-b51f-42ef-b572-da6e885cd1a7",
+        "state_overrides": [
+          {
+            "key": "base",
+            "name": "Base",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#2850dc",
+                "fill_color": "#2850dc"
+              }
+            ]
+          },
+          {
+            "key": "active",
+            "name": "Active",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#28c85a",
+                "fill_color": "#28c85a"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "n109",
+      "position": {
+        "x": 1080,
+        "y": 1200
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_actuator",
+        "label": {
+          "label": "Missing actuator",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "staleness_timeout": "5000000000",
+        "state_channel": 1048583,
+        "command_channel": 1048584,
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        },
+        "on_click_delay": "0",
+        "spec_key": "8c10471e-6e57-4560-9f38-8d68d58ee6d5",
+        "state_overrides": [
+          {
+            "key": "base",
+            "name": "Base",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#2850dc",
+                "fill_color": "#2850dc"
+              }
+            ]
+          },
+          {
+            "key": "active",
+            "name": "Active",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#dc2828",
+                "fill_color": "#dc2828"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "n110",
+      "position": {
+        "x": 0,
+        "y": 1320
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_static",
+        "label": {
+          "label": "Red tank custom",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "spec_key": "b5f2d3ae-fab9-4037-aa18-eba4984e9135",
+        "state_overrides": [
+          {
+            "key": "base",
+            "name": "Base",
+            "regions": [
+              {
+                "key": "body",
+                "name": "Body",
+                "selectors": [".body"],
+                "stroke_color": "#dc2828",
+                "fill_color": "#dc2828"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "n111",
+      "position": {
+        "x": 120,
+        "y": 1320
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "custom_static",
+        "label": {
+          "label": "Missing static",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "scale": 1,
+        "spec_key": "e040ea6d-24f5-4e8d-ba3a-fc1143909e72",
+        "state_overrides": []
+      }
+    }
+  ],
+  "type": "schematic",
+  "version": 13
+}

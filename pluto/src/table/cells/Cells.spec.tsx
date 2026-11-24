@@ -178,7 +178,7 @@ describe("Cells.Value deleted channel", () => {
 
 describe("Cells.Value", () => {
   it("should send its staleness timeout to the worker in nanoseconds", async () => {
-    renderValue({ stalenessTimeout: 2 });
+    renderValue({ stalenessTimeout: TimeSpan.seconds(2).nanoseconds });
     await waitFor(() =>
       expect(CapturingValue.states.at(-1)?.stalenessTimeout).toBe(
         Number(TimeSpan.seconds(2).valueOf()),
