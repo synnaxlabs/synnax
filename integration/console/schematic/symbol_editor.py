@@ -125,8 +125,12 @@ class SymbolEditor:
         )
 
     def _paint(self, label: str, part_index: int) -> Locator:
-        """Locate the paint button of a part, "Fill" or "Stroke"."""
-        return self._part_rows().nth(part_index).get_by_label(label, exact=True)
+        """Select a part and locate its paint button in the inspector, "Fill" or
+        "Stroke".
+        """
+        self._part_rows().nth(part_index).click()
+        inspector = self.modal.locator(".console-schematic-inspector")
+        return inspector.get_by_label(label, exact=True)
 
     def _pick_paint_kind(self, paint: Locator, kind: str) -> Locator:
         """Open the dialog of a paint button, pick a kind, and return the dialog."""

@@ -104,10 +104,11 @@ func (d *Documents) Channels() channel.Keys { return d.channels }
 // Reset forgets every command.
 func (d *Documents) Reset() { clear(d.received) }
 
-// From returns the documents of fr. It counts each command in skips as read, and each
-// command or document that it drops as skipped.
-func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq[[]byte] {
-	return func(yield func([]byte) bool) {
+// From returns the documents of fr, each with its row: the index in fr of the commands
+// that it holds. It counts each command in skips as read, and each command or document
+// that it drops as skipped.
+func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []byte] {
+	return func(yield func(int, []byte) bool) {
 		for i := range d.gather(fr) {
 			good := false
 			for b, commands := range d.commands {
@@ -130,7 +131,7 @@ func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq[[]byte] 
 				d.skip(skips, err)
 				continue
 			}
-			if !yield(doc) {
+			if !yield(i, doc) {
 				return
 			}
 		}

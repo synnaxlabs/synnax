@@ -158,6 +158,7 @@ jobs:
       scripts: ${{ steps.filter.outputs.scripts }}
       suppressions_py: ${{ steps.filter.outputs.suppressions_py }}
       runners: ${{ steps.filter.outputs.runners }}
+      tls: ${{ steps.filter.outputs.tls }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       studio: ${{ steps.filter.outputs.studio }}
@@ -1330,6 +1331,16 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  tls:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.tls == 'true' || needs.changes.outputs.core
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'tls')
+    uses: ./.github/workflows/test.tls.yaml
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   vite-plugin:
     needs: changes
     if:
@@ -1590,6 +1601,7 @@ jobs:
       - stylelint
       - stylelint-config
       - suppressions-py
+      - tls
       - vite-plugin
       - www
       - www-site
