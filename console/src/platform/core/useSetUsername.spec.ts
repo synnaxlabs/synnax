@@ -66,7 +66,7 @@ describe("Core.useSetUsername", () => {
       },
       {
         cmd: "keychain_delete",
-        args: { account: keychainAccount(CORE) },
+        args: { account: keychainAccount(CORE), expected: "token" },
         record: "before",
       },
     ]);

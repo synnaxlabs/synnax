@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, waitFor } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
@@ -40,12 +41,12 @@ import {
   disableActEnvironment,
 } from "@/testutil";
 
-/** Records the keychain writes and deletes the keeper issues. */
-const recordKeychain = () => {
+/** Records the keychain calls the keeper issues. Every read answers with `stored`. */
+const recordKeychain = (stored?: string) => {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   mockIPC((cmd, args) => {
     if (cmd.startsWith("keychain_")) calls.push({ cmd, args });
-    return undefined;
+    return cmd === "keychain_get" ? (stored ?? null) : undefined;
   });
   onTestFinished(clearMocks);
   return calls;
@@ -74,15 +75,33 @@ describe("Core.TokenKeeper", () => {
     });
   });
 
+  // the client resumes the saved token once, and forgets it when the Core rejects it
+  const REJECTED = (core: ReturnType<typeof createCore>) => {
+    const account = keychainAccount(core);
+    return [
+      { cmd: "keychain_get", args: { account } },
+      { cmd: "keychain_get", args: { account } },
+      { cmd: "keychain_delete", args: { account, expected: "sys_dead" } },
+    ];
+  };
+
   it("should forget the token once the Core rejects the session", async () => {
+    const calls = recordKeychain("sys_dead");
+    const core = createCore("Local", { password: "wrong" });
+    await renderKeeper(core);
+    await waitFor(() => expect(calls).toEqual(REJECTED(core)));
+  });
+
+  it("should leave the keychain alone when it holds no token", async () => {
     const calls = recordKeychain();
     const core = createCore("Local", { password: "wrong" });
     await renderKeeper(core);
-    await waitFor(() => expect(calls).toHaveLength(2));
-    expect(calls).toEqual([
-      { cmd: "keychain_get", args: { account: keychainAccount(core) } },
-      { cmd: "keychain_delete", args: { account: keychainAccount(core) } },
-    ]);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await expectAlways(() =>
+      expect(calls).toEqual([
+        { cmd: "keychain_get", args: { account: keychainAccount(core) } },
+      ]),
+    );
   });
 
   it("should not save its token again over a later login's token", async () => {
@@ -127,21 +146,18 @@ describe("Core.TokenKeeper", () => {
   });
 
   it("should not replay a rejection onto a later login's token", async () => {
-    const calls = recordKeychain();
+    const calls = recordKeychain("sys_dead");
     const core = createCore("Local", { password: "wrong" });
     const { wrapper, store } = await createSessionConsoleWrapper({
       client: null,
       preloadedState: createCoreState([core], core.key),
     });
     render(<Core.TokenKeeper />, { wrapper });
-    await waitFor(() => expect(calls).toHaveLength(2));
+    await waitFor(() => expect(calls).toEqual(REJECTED(core)));
     await act(async () => {
       store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
     });
-    expect(calls).toEqual([
-      { cmd: "keychain_get", args: { account: keychainAccount(core) } },
-      { cmd: "keychain_delete", args: { account: keychainAccount(core) } },
-    ]);
+    expect(calls).toEqual(REJECTED(core));
   });
 
   it("should save the new token after the user sets its own password", async () => {
@@ -354,11 +370,31 @@ describe("Core.TokenKeeper", () => {
     const openWindows = async () => {
       disableActEnvironment();
       const keychain = new Map<string, string>();
+      // a write held back lands right after the next read, as a write from window A
+      // would between window B's read and B's delete
+      const race: { held: boolean; pending?: [string, string] } = { held: false };
       mockIPC((cmd, args) => {
-        const { account, secret } = args as { account: string; secret?: string };
-        if (cmd === "keychain_get") return keychain.get(account) ?? null;
-        if (cmd === "keychain_set" && secret != null) keychain.set(account, secret);
-        if (cmd === "keychain_delete") keychain.delete(account);
+        const { account, secret, expected } = args as {
+          account: string;
+          secret?: string;
+          expected?: string;
+        };
+        if (cmd === "keychain_get") {
+          const token = keychain.get(account) ?? null;
+          if (race.pending != null) keychain.set(...race.pending);
+          race.pending = undefined;
+          return token;
+        }
+        if (cmd === "keychain_set" && secret != null)
+          if (race.held) {
+            race.held = false;
+            race.pending = [account, secret];
+          } else keychain.set(account, secret);
+        if (
+          cmd === "keychain_delete" &&
+          (expected == null || keychain.get(account) === expected)
+        )
+          keychain.delete(account);
         return undefined;
       });
       onTestFinished(clearMocks);
@@ -397,7 +433,7 @@ describe("Core.TokenKeeper", () => {
       const clients = windows.map((w) => w.client);
       const [a, b] = clients;
       if (a == null || b == null) throw new Error("no client");
-      return { admin, a, b, windows, keychain, store, core, u, clients };
+      return { admin, a, b, windows, keychain, race, store, core, u, clients };
     };
 
     // window A sets its own password, which ends the session both windows resumed
@@ -419,6 +455,25 @@ describe("Core.TokenKeeper", () => {
       });
       expect(windows.map((w) => w.client)).toEqual(clients);
       expect(keychain.get(keychainAccount(core))).toBe(fresh);
+    });
+
+    it("should keep a token saved between another window's read and delete", async () => {
+      const { a, b, windows, keychain, race, core, clients } = await openWindows();
+      race.held = true;
+      await a.auth.passwords.set({ password: "new", currentPassword: "old" });
+      const fresh = a.auth.token;
+      await waitFor(() => expect(race.pending?.[1]).toBe(fresh));
+      await b.auth.sessions.retrieve().catch(() => undefined);
+      // window B read the dead token, so it logs in again; window A's token stays
+      await waitFor(() =>
+        expect(windows[1].status).toMatchObject({
+          variant: "error",
+          details: { reason: "auth" },
+        }),
+      );
+      await expectAlways(() => expect(keychain.get(keychainAccount(core))).toBe(fresh));
+      expect(b.auth.token).not.toBe(fresh);
+      expect(windows.map((w) => w.client)).toEqual(clients);
     });
 
     it("should resume the session under the new username after a rename", async () => {

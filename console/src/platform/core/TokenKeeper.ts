@@ -72,8 +72,9 @@ export const TokenKeeper = (): null => {
       const last = held.current?.client === client ? held.current.token : undefined;
       handleError(async () => {
         const saved = await readToken(core);
-        if (saved == null || saved === last) {
-          await deleteToken(core);
+        if (saved == null) return;
+        if (saved === last) {
+          await deleteToken(core, saved);
           return;
         }
         held.current = { client, token: saved };
