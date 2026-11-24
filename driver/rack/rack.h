@@ -347,6 +347,34 @@ inline bool waits_out(const x::errors::Error &err, const bool reconnecting) {
            (reconnecting && kind == synnax::errors::Kind::INTERRUPTED);
 }
 
+/// @brief the warning that the rack status shows while its task manager waits for the
+/// Core. Not safe for concurrent use.
+class WaitWarning {
+    x::telem::TimeSpan delay;
+    common::CoreWait wait;
+    task::RackWarning warning;
+
+public:
+    explicit WaitWarning(const x::telem::TimeSpan delay): delay(delay), wait(delay) {}
+
+    /// @returns the warning to show after a run of the task manager failed with err at
+    /// now.
+    task::RackWarning
+    failed(const x::errors::Error &err, const x::telem::TimeStamp now) {
+        const auto w = this->wait.failed(err, now);
+        this->warning = {.message = w.message, .description = w.description};
+        return this->warning;
+    }
+
+    /// @returns the warning to show after a run reached the Core at now. It clears once
+    /// the run lasts the delay, so a run that fails sooner keeps it without a flicker.
+    task::RackWarning reached(const x::telem::TimeStamp now) {
+        this->wait.opened(now);
+        this->warning.clears_at = now + this->delay;
+        return this->warning;
+    }
+};
+
 /// @brief rack is the entry point for driver operation. It is responsible for
 /// communicating its identity to the Synnax cluster and managing the lifecycle
 /// of tasks that are assigned to it.
@@ -357,12 +385,8 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
-    /// @brief how long the rack waits for the Core before its status warns.
-    x::telem::TimeSpan warning_delay = task::DEFAULT_CORE_WARNING_DELAY;
-    /// @brief the wait of the task manager for the Core.
-    common::CoreWait wait{task::DEFAULT_CORE_WARNING_DELAY};
-    /// @brief the warning that the rack status shows for wait.
-    task::RackWarning warning;
+    /// @brief the warning that the rack status shows while the task manager waits.
+    WaitWarning wait_warning{task::DEFAULT_CORE_WARNING_DELAY};
 
     /// @brief shows the warning of err in the rack status once the wait for the Core
     /// has lasted the warning delay, or at once for a license error.
