@@ -192,11 +192,18 @@ func (c *core) check(r *log.Check, pre []Preload) error {
 	return nil
 }
 
+// reserve raises the limits to those of r. In repair mode, a rebuild may have raised
+// them past r, and r keeps them.
 func (c *core) reserve(r *log.Reserve) error {
 	switch {
 	case r.Alignments > uint64(telem.LeadingDomain):
 		return refuse("reserve of alignment number limit %d, above %d", r.Alignments,
 			telem.LeadingDomain)
+	case c.repairing:
+		r = &log.Reserve{
+			Segments:   max(r.Segments, c.limits.Segments),
+			Alignments: max(r.Alignments, c.limits.Alignments),
+		}
 	case r.Segments < c.limits.Segments || r.Alignments < c.limits.Alignments:
 		return refuse("reserve of limits %d and %d, below %d and %d", r.Segments,
 			r.Alignments, c.limits.Segments, c.limits.Alignments)

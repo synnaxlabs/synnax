@@ -95,6 +95,15 @@ var _ = Describe("Rebuild", func() {
 			Expect(s.ReplaySegments(6)).To(Equal(sample().Channels[1].Segments))
 		})
 
+	It("Should keep the limits of a rebuild above those of a later Reserve", func() {
+		MustSucceed(s.Rebuild(state.Rebuild{Sequence: 9, Limits: limits}))
+		Expect(s.Replay(10, []log.Record{
+			&log.Reserve{Segments: 25, Alignments: 12},
+		})).To(Succeed())
+		run(s)
+		Expect(MustSucceed(s.Snapshot()).Limits).To(Equal(limits))
+	})
+
 	It("Should keep limits above those of the rebuild", func() {
 		MustSucceed(s.Rebuild(state.Rebuild{
 			Sequence: 9,
