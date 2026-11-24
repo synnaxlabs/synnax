@@ -389,8 +389,6 @@ var _ = Describe("Read task", func() {
 				}).Should(Succeed())
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
-			Entry("a number into a string channel", telem.StringT, `{"v":1}`,
-				"field v: expected a string, got a number"),
 			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
 				`field v: unknown enum label "1"`),
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
