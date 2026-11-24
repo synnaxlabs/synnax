@@ -9,13 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  DisconnectedError,
-  type icd,
-  mqtt,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -448,42 +442,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-/**
- * Gives each channel binding of target a command channel that its field takes: the one
- * it has, the one that dev stores for its field, or a new one. A new channel takes the
- * data type of the binding, or the default of its field when the binding names none or
- * one that the field no longer takes. Updates the write properties of dev in place.
- */
-const configureBindings = async (
-  client: Synnax,
-  dev: Device.Device,
-  target: PlainWriteTarget,
-): Promise<void> => {
-  const bindings = target.message.bindings.filter(
-    (b): b is icd.ChannelWriteBinding => b.type === "channel",
-  );
-  if (bindings.length === 0) return;
-  const messages = await ICD.retrieveMessages(client, [target.icd]);
-  const fields = ICD.jsonFields(
-    messages.get(target.icd)?.find(({ key }) => key === target.message.message),
-  );
-  const prefix = namePrefix(dev.name, target.topic);
-  for (const binding of bindings) {
-    const field = fields.find(({ key }) => key === binding.field);
-    // The Core rejects a binding to a field that the message lacks.
-    if (field == null) continue;
-    const { dataType = "" } = binding;
-    const suited = dataType !== "" && ICD.encodes(field, dataType);
-    binding.channel = await Task.configureCommandChannel(client, dev.properties.write, {
-      propertiesKey: `${target.topic}#${binding.field}`,
-      channel: binding.channel,
-      name: commandName(prefix, field),
-      dataType: ICD.bindingDataType(suited ? binding : {}, field),
-      suits: (ch) => ICD.encodes(field, ch.dataType.toString()),
-    });
-  }
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -497,7 +455,11 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        await configureBindings(client, dev, target);
+        const prefix = namePrefix(dev.name, target.topic);
+        await ICD.Write.configureChannels(client, dev.properties.write, target, {
+          key: (field) => `${target.topic}#${field.key}`,
+          name: (field) => commandName(prefix, field),
+        });
         continue;
       }
       target.channel = await Task.configureCommandChannel(
