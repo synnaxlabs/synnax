@@ -99,6 +99,29 @@ var _ = Describe("Rewrites", func() {
 			Expect(candidates(s)).To(Equal([]uint64{2}))
 		})
 
+		DescribeTable("Should name a segment only when its Replace fits in a frame",
+			func(n int, named bool) {
+				head := sample()
+				head.Channels[0].Segments = head.Channels[0].Segments[:1]
+				seg := &head.Channels[0].Segments[0]
+				seg.Length = uint32(32 * n)
+				seg.Pointers = make([]state.Pointer, n)
+				for i := range n {
+					at := int64(10 + i)
+					seg.Pointers[i] = pointer(1, uint32(i), at, at, uint32(32*i), 8, 1)
+				}
+				s := MustSucceed(state.Open(config(&appended{}), head))
+				run(s)
+				if named {
+					Expect(candidates(s)).To(Equal([]uint64{2}))
+					return
+				}
+				Expect(candidates(s)).To(BeEmpty())
+			},
+			Entry("at the most pointers", log.MaxReplacePointers, true),
+			Entry("past the most pointers", log.MaxReplacePointers+1, false),
+		)
+
 		It("Should not name a segment of another format version", func() {
 			head := sample()
 			seg := &head.Channels[0].Segments[0]
