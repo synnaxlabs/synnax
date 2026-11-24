@@ -44,14 +44,6 @@ InsertPayload = patch.Insert
 MovePayload = patch.Move
 
 
-class SetUsernamePayload(BaseModel):
-    """Changes the username of the user's password. The Core refuses a username that
-    another user holds.
-    """
-
-    username: str
-
-
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
@@ -77,19 +69,9 @@ class MoveAction(BaseModel):
     move: MovePayload
 
 
-class SetUsernameAction(BaseModel):
-    type: Literal["set_username"] = "set_username"
-    set_username: SetUsernamePayload
-
-
 # Action is a discriminated union for all User mutations.
 Action = Annotated[
-    CreateAction
-    | SetAction
-    | RemoveAction
-    | InsertAction
-    | MoveAction
-    | SetUsernameAction,
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
 
@@ -112,7 +94,3 @@ def insert(payload: InsertPayload) -> InsertAction:
 
 def move(payload: MovePayload) -> MoveAction:
     return MoveAction(move=payload)
-
-
-def set_username(payload: SetUsernamePayload) -> SetUsernameAction:
-    return SetUsernameAction(set_username=payload)

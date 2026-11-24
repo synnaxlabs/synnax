@@ -90,8 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -117,7 +116,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators: noActuators,
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
@@ -250,3 +250,5 @@ func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
 	return nil, nil
 }
+
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

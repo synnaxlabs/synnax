@@ -10,7 +10,7 @@
 import fs from "fs";
 import { describe, expect, it } from "vitest";
 
-import { render } from "@/theming/static/render";
+import { render } from "@/theming/static";
 
 // Prettier rewraps long values after generation.
 const collapse = (css: string): string => css.replace(/\s+/g, " ").trim();

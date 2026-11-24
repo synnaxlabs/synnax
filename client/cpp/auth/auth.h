@@ -19,9 +19,13 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/auth/json.gen.h"
+#include "client/cpp/auth/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
@@ -45,12 +49,6 @@ using SessionRetrieveClient = freighter::UnaryClient<
 /// @brief transport that ends sessions.
 using SessionDeleteClient = freighter::
     UnaryClient<grpc::auth::SessionDeleteRequest, google::protobuf::Empty>;
-using KeyCreateClient = freighter::
-    UnaryClient<grpc::auth::KeyCreateRequest, grpc::auth::KeyCreateResponse>;
-using KeyRetrieveClient = freighter::
-    UnaryClient<grpc::auth::KeyRetrieveRequest, grpc::auth::KeyRetrieveResponse>;
-using KeyDeleteClient = freighter::
-    UnaryClient<grpc::auth::KeyDeleteRequest, google::protobuf::Empty>;
 
 const x::errors::Error ERR = x::errors::SY.sub("auth");
 const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
@@ -67,19 +65,11 @@ const std::vector ENDED_ERRORS = {
     ERR_SESSION_ENDED
 };
 
-/// @brief the subject a session belongs to: a user or a rack.
-struct Subject {
-    /// @brief the resource type of the subject.
-    std::string type;
-    /// @brief the key of the subject within its type.
-    std::string key;
-};
-
 /// @brief returns a proof that logs in with a username and password.
 inline grpc::auth::Proof
 password_proof(const std::string &username, const std::string &password) {
     grpc::auth::Proof proof;
-    proof.set_method("password");
+    proof.set_method(METHOD_PASSWORD);
     proof.set_username(username);
     proof.set_password(password);
     return proof;
@@ -88,117 +78,40 @@ password_proof(const std::string &username, const std::string &password) {
 /// @brief returns a proof that logs in with an API key.
 inline grpc::auth::Proof api_key_proof(const std::string &key) {
     grpc::auth::Proof proof;
-    proof.set_method("api_key");
+    proof.set_method(METHOD_API_KEY);
     proof.set_key(key);
     return proof;
 }
 
-/// @brief an API key as the Core returns it, without its secret.
-struct APIKey {
-    /// @brief the unique key of the API key.
-    std::string key;
-    /// @brief the user or rack the key logs in as.
-    Subject subject;
-    /// @brief a label that tells the subject's keys apart.
-    std::string name;
-    /// @brief when the key was created.
-    x::telem::TimeStamp created = x::telem::TimeStamp(0);
+/// @brief returns the resource ID that a gRPC subject names.
+inline resource::ID subject_from_pb(const grpc::auth::Subject &pb) {
+    return resource::ID{.type = pb.type(), .key = pb.key()};
+}
 
-    APIKey() = default;
+/// @brief writes the resource ID into a gRPC subject.
+inline void subject_to_pb(const resource::ID &id, grpc::auth::Subject *pb) {
+    pb->set_type(id.type);
+    pb->set_key(id.key);
+}
 
-    explicit APIKey(const grpc::auth::APIKey &k):
-        key(k.key()),
-        subject{k.subject().type(), k.subject().key()},
-        name(k.name()),
-        created(k.created()) {}
-};
-
-/// @brief an API key just created, with the token that holds its secret.
-struct NewKey {
-    /// @brief the token to log in with. It is the only copy of the key's secret.
-    std::string token;
-    /// @brief the stored key.
-    APIKey key;
-};
-
-/// @brief creates, lists, and deletes API keys.
-class KeyClient {
-    std::unique_ptr<KeyCreateClient> create_client;
-    std::unique_ptr<KeyRetrieveClient> retrieve_client;
-    std::unique_ptr<KeyDeleteClient> delete_client;
-
-public:
-    KeyClient(
-        std::unique_ptr<KeyCreateClient> create_client,
-        std::unique_ptr<KeyRetrieveClient> retrieve_client,
-        std::unique_ptr<KeyDeleteClient> delete_client
-    ):
-        create_client(std::move(create_client)),
-        retrieve_client(std::move(retrieve_client)),
-        delete_client(std::move(delete_client)) {}
-
-    /// @brief creates an API key for the subject, or for the caller when the subject
-    /// is empty.
-    [[nodiscard]] std::pair<NewKey, x::errors::Error>
-    create(const std::string &name, const Subject &subject = {}) const {
-        grpc::auth::KeyCreateRequest req;
-        req.set_name(name);
-        if (!subject.type.empty()) {
-            req.mutable_subject()->set_type(subject.type);
-            req.mutable_subject()->set_key(subject.key);
-        }
-        auto [res, err] = this->create_client->send("/auth/key/create", req);
-        if (err) return {{}, err};
-        return {NewKey{res.token(), APIKey(res.key())}, x::errors::NIL};
-    }
-
-    /// @brief lists the caller's API keys, or those of the given subjects when the
-    /// caller may retrieve them.
-    [[nodiscard]] std::pair<std::vector<APIKey>, x::errors::Error>
-    retrieve(const std::vector<Subject> &subjects = {}) const {
-        grpc::auth::KeyRetrieveRequest req;
-        for (const auto &s: subjects) {
-            auto *id = req.add_subjects();
-            id->set_type(s.type);
-            id->set_key(s.key);
-        }
-        auto [res, err] = this->retrieve_client->send("/auth/key/retrieve", req);
-        if (err) return {{}, err};
-        std::vector<APIKey> keys;
-        keys.reserve(res.keys_size());
-        for (const auto &k: res.keys())
-            keys.emplace_back(k);
-        return {keys, x::errors::NIL};
-    }
-
-    /// @brief deletes API keys and ends their sessions. Unknown keys are ignored.
-    [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
-        grpc::auth::KeyDeleteRequest req;
-        for (const auto &k: keys)
-            req.add_keys(k);
-        return this->delete_client->send("/auth/key/delete", req).second;
-    }
-};
-
-/// @brief a session a login opened, without its token.
-struct Session {
-    /// @brief the unique key of the session.
-    std::string key;
-    /// @brief the subject that logged in.
-    Subject subject;
-    /// @brief the key of the credential the login matched.
-    std::string credential;
-    /// @brief the last time a request used the session.
-    x::telem::TimeStamp last_active = x::telem::TimeStamp(0);
-
-    Session() = default;
-
-    explicit Session(const grpc::auth::Session &s):
-        key(s.key()),
-        subject{s.subject().type(), s.subject().key()},
-        credential(s.credential()),
-        last_active(s.last_active()) {}
-};
+/// @brief returns the session in a gRPC message. Returns an error when a key in the
+/// message is not a UUID.
+inline std::pair<Session, x::errors::Error>
+session_from_pb(const grpc::auth::Session &pb) {
+    auto [key, key_err] = SessionKey::parse(pb.key());
+    if (key_err) return {{}, key_err};
+    auto [credential, credential_err] = x::uuid::UUID::parse(pb.credential());
+    if (credential_err) return {{}, credential_err};
+    return {
+        Session{
+            .key = key,
+            .subject = subject_from_pb(pb.subject()),
+            .credential = credential,
+            .last_active = x::telem::TimeStamp(pb.last_active()),
+        },
+        x::errors::NIL,
+    };
+}
 
 /// @brief auth::Middleware logs in with a username and password, holds the session,
 /// and attaches its token to every request. Middleware has no preference on order when
@@ -296,8 +209,10 @@ public:
         *req.mutable_proof() = this->proof;
         auto [res, err] = create_client->send("/auth/session/create", req);
         if (err) return err;
+        auto [session, session_err] = session_from_pb(res.session());
+        if (session_err) return session_err;
         this->token = res.token();
-        this->session = Session(res.session());
+        this->session = session;
         this->authenticated = true;
         return x::errors::NIL;
     }
@@ -324,16 +239,13 @@ public:
     /// sessions of the given subjects. Returns an access-denied error when the client
     /// may not retrieve another subject.
     std::pair<std::vector<Session>, x::errors::Error>
-    retrieve_sessions(const std::vector<Subject> &subjects = {}) {
+    retrieve_sessions(const std::vector<resource::ID> &subjects = {}) {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return {{}, err};
         const auto sent = this->current_token();
         grpc::auth::SessionRetrieveRequest req;
-        for (const auto &subject: subjects) {
-            auto *s = req.add_subjects();
-            s->set_type(subject.type);
-            s->set_key(subject.key);
-        }
+        for (const auto &subject: subjects)
+            subject_to_pb(subject, req.add_subjects());
         auto [res, err] = retrieve_client->send("/auth/session/retrieve", req);
         if (err) {
             if (err.matches(ENDED_ERRORS)) this->forget(sent);
@@ -341,22 +253,25 @@ public:
         }
         std::vector<Session> sessions;
         sessions.reserve(res.sessions_size());
-        for (const auto &s: res.sessions())
-            sessions.emplace_back(s);
+        for (const auto &s: res.sessions()) {
+            auto [session, session_err] = session_from_pb(s);
+            if (session_err) return {{}, session_err};
+            sessions.push_back(session);
+        }
         return {sessions, x::errors::NIL};
     }
 
     /// @brief ends the given sessions. Unknown keys are ignored. Returns an
     /// access-denied error when the client may not end another subject's sessions.
     /// Ending the client's own session forgets it, and a later request logs in again.
-    x::errors::Error delete_sessions(const std::vector<std::string> &keys) {
+    x::errors::Error delete_sessions(const std::vector<SessionKey> &keys) {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return err;
         const auto sent = this->current_token();
         const auto own = this->current_session().key;
         grpc::auth::SessionDeleteRequest req;
         for (const auto &key: keys)
-            req.add_keys(key);
+            req.add_keys(key.to_string());
         auto [_, err] = delete_client->send("/auth/session/delete", req);
         if (err.matches(ENDED_ERRORS)) this->forget(sent);
         if (err) return err;
@@ -371,7 +286,7 @@ public:
         if (!this->authenticated) return x::errors::NIL;
         const auto sent = this->current_token();
         grpc::auth::SessionDeleteRequest req;
-        req.add_keys(this->current_session().key);
+        req.add_keys(this->current_session().key.to_string());
         auto [_, err] = delete_client->send("/auth/session/delete", req);
         if (err && !err.matches(ENDED_ERRORS)) return err;
         this->forget(sent);

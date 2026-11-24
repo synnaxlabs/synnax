@@ -177,3 +177,10 @@ The TypeScript client supports:
   [Baseline Widely available](https://web.dev/baseline), and at least Chrome 122,
   Firefox 127, or Safari 17.4.
 - **Deno and Bun** -> the latest stable release. Deno needs the `--allow-net` flag.
+
+The TypeScript client does not support:
+
+- **Cloudflare Workers and the Vercel Edge runtime** -> the client starts a connection
+  check loop and opens a stream that stays open. These runtimes stop the work of a
+  request when it ends.
+- **React Native** -> it does not have the stream APIs that file downloads use.
