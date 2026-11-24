@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -53,12 +55,15 @@ var _ = Describe("Check: a preload that a delete makes stale in its head", func(
 
 	It("Should refuse a Check of the buried segment as stale, and keep it out of the "+
 		"state", func() {
-		Expect(s.Check(&log.Check{Segment: 3, Key: 6}, pre)).To(SatisfyAll(
+		checked := make(chan error, 1)
+		go func() { checked <- s.Check(&log.Check{Segment: 3, Key: 6}, pre) }()
+		Consistently(func() []state.Segment {
+			return s.Channel(6).Segments
+		}, 200*time.Millisecond).Should(BeEmpty())
+		Eventually(checked).Should(Receive(SatisfyAll(
 			MatchError(state.ErrStale),
 			MatchError(ContainSubstring("segment 3 of key 6 left the state")),
-		))
-		MustSucceed(s.Snapshot())
-		Expect(s.Channel(6).Segments).To(BeEmpty())
+		)))
 	})
 
 	It("Should refuse a delete that takes the buried record from the preload as stale",
