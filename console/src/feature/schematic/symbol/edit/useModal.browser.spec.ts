@@ -1296,6 +1296,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("toggles to the second command that the inspector picks", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      await within(getInspector()).findByText("Second command");
+      // The first command list also holds Full.
+      fireEvent.click(within(getInspector()).getAllByText("full")[1]);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["off", "full"] },
+        ]);
+      });
+    });
+
     it("sends one command again from a toggle click", async () => {
       const symbol = await openPainted({
         states: [createState()],
