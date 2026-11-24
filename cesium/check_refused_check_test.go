@@ -67,9 +67,7 @@ func oldFilesOf(fs xfs.FS, keys ...cesium.ChannelKey) map[cesium.ChannelKey]int 
 }
 
 var _ = Describe("Check: a Check whose log sync fails", func() {
-	It(
-		"Should keep the check file, then check each segment and read each sample after "+
-			"the restart that the failed log needs",
+	It("Should keep the check file, then check and read every sample after a restart",
 		func(ctx SpecContext) {
 			keys := []cesium.ChannelKey{oldIdx, oldI32, oldStr}
 			disk := MustSucceed(fault.New(fault.Config{}))
