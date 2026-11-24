@@ -26,11 +26,6 @@ export interface Values {
   list: Schematic.Node.Custom.Value[];
   /** entryState is the key of the state when it has an enumeration to color it. */
   entryState?: string;
-  /**
-   * @returns the color of the entry for value, or of the entry for the default value of
-   * the state when value has none.
-   */
-  entryColor: (value: number) => color.Color | undefined;
 }
 
 /**
@@ -55,7 +50,6 @@ export const useValues = (key?: string): Values => {
   const res = Enumeration.useResult(
     state?.enumeration == null ? null : { key: state.enumeration },
   );
-  const resolve = Color.useResolve();
   const entries = res.variant === "success" ? res.data.entries : undefined;
   const listOther = (): Schematic.Node.Custom.Value[] => {
     if (state?.enumeration != null && res.variant === "loading") return [];
@@ -80,11 +74,26 @@ export const useValues = (key?: string): Values => {
     states,
     list,
     entryState: state?.enumeration == null ? undefined : stateKey,
-    entryColor: (value) => {
-      const entry =
-        entries?.find((e) => e.value === value) ??
-        entries?.find((e) => e.value === state?.default);
-      return entry?.color == null ? undefined : resolve(entry.color);
-    },
   };
+};
+
+/**
+ * @returns the color of the entry for value in the enumeration of the state key, or of
+ * the entry for the default value of the state when value has none.
+ */
+export const useEntryColor = (
+  key: string | undefined,
+  value: number,
+): color.Color | undefined => {
+  const states = Form.useFieldValue(path.data.states);
+  const state = states.find((s) => s.key === key);
+  const enumeration = state?.type === "enumeration" ? state.enumeration : undefined;
+  const res = Enumeration.useResult(enumeration == null ? null : { key: enumeration });
+  const resolve = Color.useResolve();
+  if (state?.type !== "enumeration" || res.variant !== "success") return undefined;
+  const { entries } = res.data;
+  const entry =
+    entries.find((e) => e.value === value) ??
+    entries.find((e) => e.value === state.default);
+  return entry?.color == null ? undefined : resolve(entry.color);
 };

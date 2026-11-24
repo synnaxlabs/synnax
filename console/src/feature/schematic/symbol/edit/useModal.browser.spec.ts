@@ -697,6 +697,32 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("shows an entry paint in the color of its own state", async () => {
+      const active = await createEnumeration();
+      const red = color.construct("#d64545");
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: red } },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(active.key),
+          { ...createState(faults.key), key: "fault", name: "Fault" },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      const fill = await screen.findByLabelText("Fill");
+      await waitFor(() =>
+        expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
+      );
+    });
+
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({

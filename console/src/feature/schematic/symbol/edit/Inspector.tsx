@@ -26,7 +26,11 @@ import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
-import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
+import {
+  useEntryColor,
+  useValues,
+  type Values,
+} from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -208,6 +212,11 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
+  // An entry paint stores its own state, which can differ from the state shown.
+  const entryColor = useEntryColor(
+    value?.type === "entry" ? value.state : undefined,
+    shown.value,
+  );
   return (
     <Paint
       aria-label={label}
@@ -217,7 +226,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(shown.value)}
+      entryColor={entryColor}
     />
   );
 };
