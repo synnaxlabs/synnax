@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"math/rand/v2"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -264,6 +265,58 @@ var _ = Describe("Recovery", func() {
 		))
 	})
 
+	It(
+		"Should refuse a log with a valid frame after a bad one that only a second read "+
+			"finds",
+		func(ctx SpecContext) {
+			cycle(ctx)
+			cycle(ctx)
+			offsets := frameOffsets()
+			Expect(offsets).To(HaveLen(2))
+			flip(offsets[0] + 8)
+			fs = damageFS{FS: fs, at: offsets[1] + 8, done: &atomic.Bool{}}
+			Expect(open(ctx)).Error().To(And(
+				MatchError(place.ErrCorrupt),
+				MatchError(ContainSubstring("holds a valid frame at")),
+			))
+		},
+	)
+
+	It("Should refuse a log whose valid frame after its last one only a second read "+
+		"finds, across the end of a block of that read", func(ctx SpecContext) {
+		// block is the size of the blocks of the second read.
+		const block = 4 << 20
+		cycle(ctx)
+		cycle(ctx)
+		f := MustSucceed(fs.Open(log.Name(1), os.O_RDWR))
+		b := make([]byte, 1<<20)
+		MustSucceed(f.ReadAt(b, 0))
+		end := int64(0)
+		for off := int64(log.FramesStart); off+log.FrameHeaderSize <= int64(len(b)); off += 8 {
+			if n, ok := log.FrameSize(b[off:]); ok {
+				end = off + int64(n)
+			}
+		}
+		Expect(end).ToNot(BeZero())
+		// The frame starts in the last 64 bytes of the first block from the end of the
+		// last frame, and ends past it.
+		at := (end + block - 64) &^ 7
+		frame := log.Frame{Count: 1, Sequence: 1, Entries: make([]byte, 256)}
+		MustSucceed(f.WriteAt(
+			frame.Append(nil, binary.LittleEndian.Uint64(b[16:]), 1, uint64(at)),
+			at,
+		))
+		Expect(f.Close()).To(Succeed())
+		fs = tailFS{FS: fs, from: at, done: &atomic.Bool{}}
+		Expect(open(ctx)).Error().To(And(
+			MatchError(place.ErrCorrupt),
+			MatchError(ContainSubstring("holds a valid frame at "+strconv.FormatInt(
+				at,
+				10,
+			))),
+		))
+	})
+
 	It("Should start a new database over a head 1 that is not complete and a log 1 "+
 		"with no frame", func(ctx SpecContext) {
 		cycle(ctx)
@@ -317,6 +370,43 @@ type logReadFile struct {
 func (f logReadFile) ReadAt(p []byte, off int64) (int, error) {
 	n, err := f.File.ReadAt(p, off)
 	f.read.Add(int64(n))
+	return n, err
+}
+
+// tailFS zeroes the bytes of log 1 from from on in the first read that covers from.
+type tailFS struct {
+	xfs.FS
+	from int64
+	done *atomic.Bool
+}
+
+func (f tailFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return tailFS{FS: sub, from: f.from, done: f.done}, nil
+}
+
+func (f tailFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return tailFile{File: file, fs: f}, nil
+}
+
+type tailFile struct {
+	xfs.File
+	fs tailFS
+}
+
+func (f tailFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	covers := f.fs.from >= off && f.fs.from < off+int64(n)
+	if covers && f.fs.done.CompareAndSwap(false, true) {
+		clear(p[f.fs.from-off : n])
+	}
 	return n, err
 }
 
