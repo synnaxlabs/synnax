@@ -43,6 +43,7 @@ const createFakeCore = () => {
     heldDeletes,
     holdOutputs: false,
     holdDelete: false,
+    refuseOutputs: false,
   };
   const select = (where: Where | undefined): calculation.Calculation[] =>
     [...calcs.values()].filter((c) => {
@@ -62,6 +63,8 @@ const createFakeCore = () => {
     switch (target) {
       case "/calculation/retrieve": {
         const answer = () => res.parse({ calculations: select(req.where) });
+        if (core.refuseOutputs && req.where?.output != null)
+          throw new Error("the Core refused the lookup");
         if (!core.holdOutputs || req.where?.output == null) return answer();
         return await new Promise((resolve) => {
           let reply: unknown;
@@ -144,6 +147,22 @@ const deletedFrame = (key: string) =>
 
 describe("calculation.Client breaker", () => {
   describe("outputs", () => {
+    it("should look a failed channel up again once a later lookup answers", async () => {
+      const { core, calcs } = createDetached();
+      core.calcs.set(A, {
+        key: A,
+        output: X,
+        expression: "return 1",
+        operations: [],
+        reads: [],
+      });
+      core.refuseOutputs = true;
+      await expect(calcs.outputs.retrieve([X])).rejects.toThrow();
+      core.refuseOutputs = false;
+      await calcs.outputs.retrieve([Y]);
+      await expect.poll(() => calcs.outputs.get(X)?.calculation).toBe(A);
+    });
+
     it("should not restore a calculation deleted while a lookup by output is in flight", async () => {
       const { core, calcs } = createDetached();
       core.holdOutputs = true;

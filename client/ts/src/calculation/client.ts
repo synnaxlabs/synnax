@@ -114,7 +114,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Stored>;
   /**
    * Maps each channel to the calculation that writes it. Its fetch merges the lookups
-   * of a tick into one retrieve by output. An absent entry is not yet loaded.
+   * of a tick into one retrieve by output. A lookup that answers fetches again each
+   * channel whose last lookup failed. An absent entry is not yet loaded.
    */
   readonly outputs: query.Table<channel.Key, Output>;
   private readonly dispatcher: actions.Controller<Key, Stored, Action>;
@@ -138,24 +139,41 @@ export class Client extends query.Retriever<
       createOf,
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    const outputs = cache.createTable<channel.Key, Output>({
+    const failed = new Set<channel.Key>();
+    const outputs: query.Table<channel.Key, Output> = cache.createTable<
+      channel.Key,
+      Output
+    >({
       name: "calculation.outputs",
-      fetch: async (channels) =>
-        // A reply older than a delete, a reset, or a newer write leaves the record as
-        // the table holds it, and maps no channel to a record the table dropped.
-        await store.track(async (since) => {
-          const calcs = await this.execRetrieve({
-            where: { output: { in: channels } },
+      fetch: async (channels) => {
+        let answered: Output[] | undefined;
+        try {
+          // A reply older than a delete, a reset, or a newer write leaves the record as
+          // the table holds it, and maps no channel to a record the table dropped.
+          answered = await store.track(async (since) => {
+            const calcs = await this.execRetrieve({
+              where: { output: { in: channels } },
+            });
+            store.ingest(calcs.map(stripStatus), { since });
+            const writers = new Map(
+              calcs.flatMap(({ key, output }) =>
+                store.has(key) ? [[output, key]] : [],
+              ),
+            );
+            return channels.map((key) => ({
+              key,
+              calculation: writers.get(key) ?? null,
+            }));
           });
-          store.ingest(calcs.map(stripStatus), { since });
-          const writers = new Map(
-            calcs.flatMap(({ key, output }) => (store.has(key) ? [[output, key]] : [])),
-          );
-          return channels.map((key) => ({
-            key,
-            calculation: writers.get(key) ?? null,
-          }));
-        }),
+        } finally {
+          if (answered == null) channels.forEach((key) => failed.add(key));
+        }
+        const asked = new Set(channels);
+        const retry = [...failed].filter((key) => !asked.has(key));
+        failed.clear();
+        outputs.refetch(retry);
+        return answered;
+      },
     });
     // The output of a calculation never changes, so a set or a delete is all that moves
     // a channel between written and not written. A delete clears only the outputs that
