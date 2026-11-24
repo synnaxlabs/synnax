@@ -160,7 +160,7 @@ describe("Tooltip.Panel", () => {
       );
       const send = spyOnSend(client);
       const { unmount } = render(
-        <Tooltip
+        <Tooltip.Panel
           anchor={createAnchor()}
           config={Node.createConfig({ variant: "value", channel: ch.key })}
         />,
@@ -290,7 +290,7 @@ describe("Tooltip.Panel", () => {
       observer.observe(document.body, { childList: true, subtree: true });
       try {
         render(
-          <Tooltip
+          <Tooltip.Panel
             anchor={createAnchor()}
             config={Node.createConfig({ variant: "value", channel: calc.output })}
           />,
