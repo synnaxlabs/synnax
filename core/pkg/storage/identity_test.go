@@ -176,7 +176,8 @@ func writeOld(fs xfs.FS, dir string, starts ...int) map[cesium.ChannelKey][]byte
 		{Channel: indexCh, Counter: 1},
 		{Channel: dataCh, Counter: 1},
 	}
-	var stamps, values []byte
+	stamps := make([]byte, 0, 24*len(starts))
+	values := make([]byte, 0, 24*len(starts))
 	for _, start := range starts {
 		tr := telem.TimeRange{
 			Start: telem.TimeStamp(start) * telem.SecondTS,

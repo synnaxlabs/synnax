@@ -150,12 +150,10 @@ func fixtureGroup(first, group, files, samples int) []oldlayout.Key {
 			}
 			k.Files[uint16(f+1)] = data
 			k.Pointers = append(k.Pointers, oldlayout.Pointer{
-				TimeRange: telem.TimeRange{
-					Start: stamps[0],
-					End:   stamps[perFile-1] + 1,
-				},
-				File: uint16(f + 1),
-				Size: uint32(len(data)),
+				Start: stamps[0],
+				End:   stamps[perFile-1] + 1,
+				File:  uint16(f + 1),
+				Size:  uint32(len(data)),
 			})
 		}
 		out[i] = k

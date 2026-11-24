@@ -202,11 +202,9 @@ var _ = Describe("Conversion on the pointer log", func() {
 		Expect(oldlayout.Write(disk, MustSucceed(oldlayout.Read(ctx, root))...)).
 			To(Succeed())
 		held = samples{data: make(map[cesium.ChannelKey][]byte)}
-		var (
-			stamps []telem.TimeStamp
-			ints   []int32
-			strs   []string
-		)
+		stamps := make([]telem.TimeStamp, 0, 40)
+		ints := make([]int32, 0, 40)
+		strs := make([]string, 0, 40)
 		for _, start := range []telem.TimeStamp{1, 1000} {
 			for n := range telem.TimeStamp(20) {
 				stamps = append(stamps, (start+n)*telem.SecondTS)
