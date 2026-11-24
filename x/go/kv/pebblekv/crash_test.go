@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -385,25 +386,76 @@ func run(
 	ordered bool,
 ) (int, error) {
 	count := 0
+	_, err := crash.Run(ctx, config(profile, runKey, ordered, &count))
+	return count, err
+}
+
+// config returns the config of a run of the harness on Pebble, which counts the
+// Durable acks of the workload in count.
+func config(
+	profile crash.Profile,
+	runKey uint64,
+	ordered bool,
+	count *int,
+) crash.Config {
 	forced := profile != crash.SyncErrors && profile != crash.FullDisk &&
 		profile != crash.Mixed
-	_, err := crash.Run(ctx, crash.Config{
+	return crash.Config{
 		RunKey: runKey,
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 			e, err := openCrashEngine(ctx, fs, forced)
 			if err != nil {
 				return nil, err
 			}
-			return acks{Engine: e, count: &count}, nil
+			return acks{Engine: e, count: count}, nil
 		},
-		Corrupt:        func(err error) bool { return errors.Is(err, pebble.ErrCorruption) },
+		Corrupt: func(err error) bool {
+			return errors.Is(err, pebble.ErrCorruption)
+		},
 		Commits:        20,
 		Stride:         1,
 		Profile:        profile,
 		EntriesOrdered: ordered,
-	})
-	return count, err
+	}
 }
+
+var _ = Describe("Crash harness, one order of events", func() {
+	It("Should give a run key the same result on one processor and on each of them",
+		func(ctx SpecContext) {
+			results := func() []string {
+				GinkgoHelper()
+				out := make([]string, 0, 3)
+				for _, c := range []struct {
+					profile crash.Profile
+					runKey  uint64
+				}{
+					{crash.OldCorruption, 0},
+					{crash.SyncErrors, 4},
+					{crash.Mixed, 0},
+				} {
+					count := 0
+					cfg := config(c.profile, c.runKey, false, &count)
+					res, err := crash.Run(ctx, cfg)
+					out = append(out, fmt.Sprintf(
+						"%d %d %d %d %d %v",
+						res.Recoveries,
+						res.Refusals,
+						res.Losses,
+						res.ReadFaults,
+						count,
+						err,
+					))
+				}
+				return out
+			}
+			procs := runtime.GOMAXPROCS(1)
+			DeferCleanup(func() { runtime.GOMAXPROCS(procs) })
+			one := results()
+			runtime.GOMAXPROCS(runtime.NumCPU())
+			Expect(results()).To(Equal(one))
+		},
+	)
+})
 
 // Each entry is what the harness finds in Pebble at FormatNewest, and why, with the
 // count of read faults at the break. The workload of each run flushes 4 times and
