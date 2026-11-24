@@ -291,8 +291,11 @@ const createKey = (name: string, taken: string[]): string => {
   return key;
 };
 
-/** @returns spec with a new enumeration state, State N, with the lowest free N. */
-export const addState = (spec: Spec): Spec => {
+/**
+ * @returns spec with a new enumeration state, State N with the lowest free N, and the
+ * key of the state.
+ */
+export const addState = (spec: Spec): [Spec, string] => {
   const taken = new Set(spec.states.map((s) => s.name));
   let n = 2;
   while (taken.has(`State ${n}`)) n++;
@@ -301,7 +304,7 @@ export const addState = (spec: Spec): Spec => {
     name,
     spec.states.map((s) => s.key),
   );
-  return { ...spec, states: [...spec.states, { ...createState(), key, name }] };
+  return [{ ...spec, states: [...spec.states, { ...createState(), key, name }] }, key];
 };
 
 const reads = (v: Look["fill"] | Look["motion"], state: string): boolean =>

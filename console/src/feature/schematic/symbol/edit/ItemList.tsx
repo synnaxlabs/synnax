@@ -52,15 +52,15 @@ export interface ItemListProps<T extends Item> {
   name: (key: string) => deep.Target<string>;
   /** detail returns the second line of an item. */
   detail: (item: T) => string;
-  /** add returns spec with a new item. */
-  add: (spec: schematic.symbol.Spec) => schematic.symbol.Spec;
+  /** add returns spec with a new item, and the key of the item. */
+  add: (spec: schematic.symbol.Spec) => [schematic.symbol.Spec, string];
   /** remove returns spec without an item, and what goes with it. */
   remove: (
     spec: schematic.symbol.Spec,
     key: string,
   ) => [schematic.symbol.Spec, Spec.Removed];
-  /** onRemove is called with the key of an item after it goes. */
-  onRemove?: (key: string) => void;
+  /** onRemove is called after an item goes. */
+  onRemove?: () => void;
 }
 
 /**
@@ -92,7 +92,13 @@ export const ItemList = <T extends Item>({
     )
       return;
     set(path.data, next);
-    onRemove?.(item.key);
+    onRemove?.();
+  };
+  const nameID = (key: string) => `symbol-${noun}-${key}`;
+  const handleAdd = () => {
+    const [next, key] = add(get(path.data).value);
+    set(path.data, next);
+    Text.edit(nameID(key));
   };
   return (
     <Flex.Box y gap={1}>
@@ -102,7 +108,7 @@ export const ItemList = <T extends Item>({
         </Header.Title>
         <Header.Actions>
           <Button.Button
-            onClick={() => set(path.data, add(get(path.data).value))}
+            onClick={handleAdd}
             size="small"
             variant="text"
             tooltip={`Add ${noun}`}
@@ -116,7 +122,12 @@ export const ItemList = <T extends Item>({
           <Flex.Box y gap={0}>
             <Form.Field path={name(item.key)} showLabel={false} padHelpText={false}>
               {({ onChange, value }) => (
-                <Text.MaybeEditable level="small" value={value} onChange={onChange} />
+                <Text.MaybeEditable
+                  id={nameID(item.key)}
+                  level="small"
+                  value={value}
+                  onChange={onChange}
+                />
               )}
             </Form.Field>
             <Text.Text level="small" color={9}>

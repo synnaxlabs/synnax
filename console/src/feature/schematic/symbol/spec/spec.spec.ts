@@ -703,7 +703,9 @@ describe("symbol editor spec", () => {
 
   describe("addState", () => {
     it("should add an enumeration state with a key from its name", () => {
-      expect(Spec.addState(createSpec()).states[1]).toEqual({
+      const [spec, key] = Spec.addState(createSpec());
+      expect(key).toBe("state-2");
+      expect(spec.states[1]).toEqual({
         ...Spec.createState(),
         key: "state-2",
         name: "State 2",
@@ -714,14 +716,14 @@ describe("symbol editor spec", () => {
       const spec = createSpec({
         states: [Spec.createState(), { ...FAULT, key: "state-2", name: "Trip" }],
       });
-      expect(Spec.addState(spec).states[2]).toMatchObject({ key: "state-2-2" });
+      expect(Spec.addState(spec)[0].states[2]).toMatchObject({ key: "state-2-2" });
     });
 
     it("should skip a name that a state has", () => {
       const spec = createSpec({
         states: [Spec.createState(), { ...FAULT, name: "State 2" }],
       });
-      expect(Spec.addState(spec).states[2]).toMatchObject({
+      expect(Spec.addState(spec)[0].states[2]).toMatchObject({
         key: "state-3",
         name: "State 3",
       });

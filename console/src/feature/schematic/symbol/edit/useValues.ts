@@ -13,6 +13,7 @@ import { Color, Enumeration, Schematic } from "@synnaxlabs/pluto";
 import type { color } from "@synnaxlabs/x";
 
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 
 const path = Schematic.Symbol.formPath;
 
@@ -35,10 +36,10 @@ export interface Values {
 
 /**
  * @returns the values of the enumeration state key of the symbol in the form. With no
- * such state, it edits STATE, or else the first enumeration state. STATE keeps the
- * values of the variant. Another state takes the entries of its enumeration, or 0 and 1
- * as an actuator draws them when it has none, and each value that a look names. It
- * lists no values while the enumeration loads.
+ * such state, it edits STATE, or else the first enumeration state. With symbolNodes
+ * off, STATE keeps the values of the variant. A state takes the entries of its
+ * enumeration, or 0 and 1 as an actuator draws them when it has none, and each value
+ * that a look names. It lists no values while the enumeration loads, or with no state.
  */
 export const useValues = (key?: string): Values => {
   const all = Form.useFieldValue(path.data.states);
@@ -72,9 +73,11 @@ export const useValues = (key?: string): Values => {
     return [...listed, ...extra].sort((a, b) => a.value - b.value);
   };
   const list =
-    stateKey === Spec.STATE
+    stateKey === Spec.STATE && !FLAGS.symbolNodes
       ? Schematic.Node.Custom.listValues({ variant }, entries)
-      : listOther();
+      : state == null
+        ? []
+        : listOther();
   return {
     state: stateKey,
     states,

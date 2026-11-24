@@ -287,9 +287,20 @@ const Editor = ({
                     detail={(s) => STATE_TYPES[s.type]}
                     add={Spec.addState}
                     remove={Spec.removeState}
-                    onRemove={(key) => {
-                      if (key === preview.state)
-                        setPreview({ state: Spec.STATE, value: 0 });
+                    onRemove={() => {
+                      // The preview moves to the first state left when its state goes.
+                      const left = form
+                        .get(path.data.states)
+                        .value.filter(
+                          (s): s is schematic.symbol.EnumerationState =>
+                            s.type === "enumeration",
+                        );
+                      if (left.some((s) => s.key === preview.state)) return;
+                      const first = left.at(0);
+                      setPreview({
+                        state: first?.key ?? Spec.STATE,
+                        value: first?.default ?? 0,
+                      });
                     }}
                   />
                 ) : (
