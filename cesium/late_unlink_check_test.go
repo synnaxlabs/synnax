@@ -62,18 +62,17 @@ var _ = Describe("Check: a removal that fails at the last unpin of a dropped key
 				mem := xfs.NewMem()
 				dir := strconv.FormatUint(uint64(data), 10)
 				armed := &atomic.Bool{}
-				open := func(fs xfs.FS) (*cesium.DB, func()) {
+				open := func(fs xfs.FS, opts ...cesium.Option) (*cesium.DB, func()) {
 					GinkgoHelper()
-					db := MustSucceed(cesium.Open(
-						ctx,
-						"",
+					db := MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{
 						cesium.WithFS(fs),
 						cesium.WithPointerLog(),
 						cesium.WithRandom(rand.NewPCG(1, 2)),
-					))
+					}, opts...)...))
 					return db, StartRun(db.Run)
 				}
 				db, stop := open(removeFailFS{FS: mem, dir: dir, armed: armed})
+				id := db.Identity()
 				Expect(db.CreateChannel(
 					ctx,
 					cesium.Channel{
@@ -126,7 +125,7 @@ var _ = Describe("Check: a removal that fails at the last unpin of a dropped key
 				armed.Store(false)
 				stop()
 				Expect(db.Close()).To(Succeed())
-				db, stop = open(mem)
+				db, stop = open(mem, cesium.WithIdentity(id))
 				Eventually(segments).WithTimeout(time.Minute).Should(BeZero())
 				stop()
 				Expect(db.Close()).To(Succeed())
