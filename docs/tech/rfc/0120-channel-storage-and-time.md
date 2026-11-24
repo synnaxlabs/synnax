@@ -77,21 +77,22 @@ long as that producer names it.
 | Metrics service | Core memory, allocated at start                                              | one Core run                                                                     |
 
 - **Named at open**: A task writer names the clocks that its config holds, each with its
-  kind (§4.8). From Phase 6 the task service allocates, in the save transaction, each
-  clock key that a hardware or Arc task config lacks, so a task keeps its clock across
-  restarts. A client writer names no clock. It sends a client ID (NEW), a UUID that each
-  client object makes at construction, and the framer picks the clock.
+  kind (§4.8). In the save transaction, the task service allocates each clock key that
+  an Arc task config lacks from Phase 6, and that a hardware task config lacks from
+  Phase 9 (§4.9), so a task keeps its clock across restarts. A client writer names no
+  clock. It sends a client ID (NEW), a UUID that each client object makes at
+  construction, and the framer picks the clock.
 - **The framer's entries**: The framer writer service keeps one entry per subject,
   client ID, and channel set, so a subject that sends another's client ID gets a clock
   of its own. A session reuses the entry's clock, so `client.write` in a loop writes one
   clock, and parallel sessions on time ranges that do not overlap share it (RFC 0121
-  §5.8). A session whose claim overlaps an open session's claim on that clock, or whose
-  kind differs from the entry's last session, takes a new clock; the entry keeps its
-  first. A sweep on the injected time source removes an entry one hour after its last
-  session closes (a `Config` field), and a Core restart drops them all. The open
-  response carries the session's clock key, which the client library sets on the wire
-  for that session only. No client library keeps a clock between sessions or shows one
-  to a user.
+  §5.8). A session whose claim overlaps an open session's claim on that clock takes a
+  new clock; the entry keeps its first. The kind is per session (§4.8), so the framer
+  picks the clock at open, before the first write fixes the kind. A sweep on the
+  injected time source removes an entry one hour after its last session closes (a
+  `Config` field), and a Core restart drops them all. The open response carries the
+  session's clock key, which the client library sets on the wire for that session only.
+  No client library keeps a clock between sessions or shows one to a user.
 - **Who may name a clock**: A subject that may update a producer may name a clock that
   the producer's config holds. The API checks it through an injected owner lookup over
   the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
@@ -107,15 +108,18 @@ long as that producer names it.
 - **One clock, one producer**: Stored writes of two producers never share a clock. An
   index channel that several sessions still write stays under write control until Phase
   9, as today: the framer gates its writers by authority.
-- **Key ranges**: A channel key stays below 2^20 until Phase 9
-  (`core/pkg/distribution/channel/counter.go:30-31`), because a v2 channel record cannot
-  hold a larger one. From Phase 6, clock keys come from their own counter in
-  [`0x00200000`, `0xFFF00000`). The free keys of today sit at `0xFFF00000` and up, and
-  their counter is frozen. The v3 record of Phase 9 stores `key` whole and drops
-  `leaseholder` and `local_key` (RFC 0119 §4.0); from then one counter serves both,
-  above the largest key issued. So no value is both a channel and a clock. The channel
-  table answers "issued" for the leased range, the clock range, and the free range up to
-  its frozen counter. One new clock per second lasts 136 years.
+- **Key ranges**: A channel's local key stays below 2^20 until Phase 9
+  (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
+  hold a larger one. From Phase 6, clock keys come from their own counter below
+  `0xFFF00000`. It starts above the host's lease (`0x00200000` for host key 1), or above
+  the largest channel key that the table holds when that is higher, since a Core from a
+  cluster before 0.61 can have another host key and hold keys on other leases. The free
+  keys of today sit at `0xFFF00000` and up, and their counter is frozen. The v3 record
+  of Phase 9 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
+  from then one counter serves both, above the largest key issued below `0xFFF00000`,
+  and it never enters the free range. So no value is both a channel and a clock. The
+  channel table answers "issued" for the leased range, the clock range, and the free
+  range up to its frozen counter. One new clock per second lasts 136 years.
 - **Index keys**: The key of each index channel of today becomes the key of its clock,
   so stored configs, stored data, and frames keep their numbers.
 
@@ -378,8 +382,8 @@ names no clock key.
   series, within the chunk size. A reduced read reduces them as it does the data.
 - **Calculations**: A calculation session stores nothing, names no clock, and takes no
   claim: its series carry the clocks of its inputs. Its relay frame holds the outputs,
-  with `Clock` set to the primary's key, and the primary's time series for the same
-  alignments. The calculator reads a relay stream and writes through a writer
+  with `Clock` set to the primary's clock key, and the primary's time series for the
+  same alignments. The calculator reads a relay stream and writes through a writer
   (`core/pkg/service/framer/calculation/transform.go:45-63`), so its outputs cannot ride
   in the input's frame. A subscriber of both gets those stamps twice: 8 bytes per output
   sample.
@@ -418,17 +422,19 @@ Inputs whose series have equal clock key, alignment, and length pair by position
 today. Every other case goes through a join node, which pairs inputs of one clock by
 alignment and inputs of two clocks by sample time:
 
-| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the shortest sample interval over its newest stored stretch, or the first channel in `reads` when no input has stored data. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule |
-| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals. No limit for an input with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                  |
-| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a stale status on the calculation                                                                                                                                                                                                                                                                                                                                                                                             |
-| Live wait budget                              | 0. Live judges the hold limit by arrival: a held value stays valid while its input's frames arrive within one hold limit of the primary frame. History judges it by stamps                                                                                                                                                                                                                                                                                                                     |
-| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators                                                                                                                                                                                                                                                                                                                                                                                 |
-| History look back                             | One hold limit per input; one window for a window; to the last reset for a running operation, or to the first sample when it never resets                                                                                                                                                                                                                                                                                                                                                      |
+| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule |
+| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                        |
+| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a stale status on the calculation                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. History judges by stamps                                                                                                                                                                                                                                                                                                                                        |
+| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Live open                                     | Each input starts from its last 17 stored samples, one read per input, so its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                              |
+| Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                      |
+| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the last reset for a running operation, or to the first sample when it never resets                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
   budget of 0 it differs from history only where an input was late. The TypeScript cache
@@ -444,9 +450,14 @@ alignment and inputs of two clocks by sample time:
   (`core/pkg/service/channel/writer.go:548`), the history rounds
   (`core/pkg/service/framer/iterator/calculation.go:102-129`), and the window reset at
   the first stamp (`arc/go/stl/math/math.go:441-447`).
+- **Stored `<name>_time` records**: Phase 5 deletes each `<name>_time` index channel
+  that a v0.62 Core stored. First it retargets every reference to the record onto the
+  output's new clock, the primary's index, through the references of RFC 0119, and it
+  lists each holder that it cannot retarget.
 
 An XY plot whose x and y are on two clocks pairs them by time in Pluto with the same
-hold rule (`pluto/src/vis/line/aether/bounds.ts:37`).
+hold rule (`pluto/src/vis/line/aether/bounds.ts:37`). The y channel gives the stamps and
+x holds, so each y sample stays one point.
 
 ### 4.8 Writing time
 
@@ -534,7 +545,9 @@ writes a warning status.
    typed device stores an index key.
 2. **Task configs** (RFC 0081 Phase 22): A config holds the typed device key, ports,
    hardware facts, scales, and one `clock` per sample clock. Each takes one index key of
-   the integration. Until Phase 9 of this RFC the Console still makes channels.
+   the integration. Where several configs name one index key, as v0.62 analog tasks on
+   one NI device do, the config with the lowest task key keeps it and each other config
+   gets a new clock key. Until Phase 9 of this RFC the Console still makes channels.
 3. **Provisioning** (Phase 9 of this RFC): Saving a hardware task makes the channels and
    clock keys it lacks in the same transaction. An injected proposer per integration
    gives names (the port) and a folder (named after the device).
@@ -553,9 +566,9 @@ writes a warning status.
 
 **Retiring index channels**: Phase 9 has a fixed order. RFC 0081 Phase 22 has moved
 every integration's index keys into its task config. The migration then applies, to
-every holder of an index channel key, the link policy of RFC 0119 §4.3, and deletes the
-index channel records last. Storage keeps the stamps: `Drop` in RFC 0121 never refuses,
-and it keeps stamps that segments of other keys name.
+every holder of an index channel key, the rule for its holder in the table below, and
+deletes the index channel records last. Storage keeps the stamps: `Drop` in RFC 0121
+never refuses, and it keeps stamps that segments of other keys name.
 
 | Holder                                                  | Rule                                                                                                  |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -648,30 +661,31 @@ Dependencies on other RFCs:
 - Phases 6, 7, and 8 follow RFC 0121 Phase 7 (the conversion to the new segment format),
   because a clock per producer is a clock per segment.
 - Phase 8 follows RFC 0119 Phase 31 (names unique within a folder). Phase 9 follows RFC
-  0116 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed
+  0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed
   MQTT and Kafka devices.
 
 Compatibility: Phase 3 changes the wire once, with the handshake of §4.2. Phase 5 picks
-a primary for each calculation record that has none. Phase 6 mints a schema version for
-the Arc task config (`schemas/synnax/arc_task.oracle`, shipped in `core/v0.61.4` and
-unchanged in `core/v0.62.0`) with a migration that sets `clock` and removes
-`timestamps_included` from the HTTP read. Phase 9 mints one schema version each for the
-channel record (from v1), the NI device (from v1), and Sift (from v0, first stable in
-`core/v0.62.0`), with migrations; line plot v10 and log v5 need none, since detach
-changes no shape. A Sift flow, named after an index channel in `core/v0.62.0`, keeps
-that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
+a primary for each calculation record that has none, and it deletes the stored
+`<name>_time` records after it retargets their references. Phase 6 mints a schema
+version for the Arc task config (`schemas/synnax/arc_task.oracle`, shipped in
+`core/v0.61.4` and unchanged in `core/v0.62.0`) with a migration that sets `clock` and
+removes `timestamps_included` from the HTTP read. Phase 9 mints one schema version each
+for the channel record (from v1), the NI device (from v1), and Sift (from v0, first
+stable in `core/v0.62.0`), with migrations; line plot v10 and log v5 need none, since
+detach changes no shape. A Sift flow, named after an index channel in `core/v0.62.0`,
+keeps that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
 
-| Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Depends on |
-| ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Record performance baselines before the channel work       | `cesium`, `core/pkg/service/framer`, `client/ts/src/framer`, `client/py`, `client/cpp/framer`, `driver/common`, `scripts`                                                                                                                                                                                                                                                                                                                                                                                                                                | -          |
-| 2     | Move and rename code ahead of the channel work             | `core/pkg/storage/ts`, `core/pkg/distribution/channel`, `core/pkg/service/channel`, `core/pkg/service/arc`, `arc/go/analyzer`, `client/ts/src/framer/cache`, `cesium/internal/control`, `x/go/control`                                                                                                                                                                                                                                                                                                                                                   | 1          |
-| 3     | Name each series' clock, on the wire and in every reader   | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`, `core/pkg/distribution/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/sift`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`, `pluto/src/telem/aether`, `arc/cpp/stl/channels`, `driver/common`                                                                                                                                                                                                                                                      | 1          |
-| 4     | Accept mixed data types in every reader                    | `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`, `client/ts/src/framer/cache`, `pluto/src/lineplot`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/framer/calculation`                                                                                                                                                                                                                                                                                                                                                      | 2, 3       |
-| 5     | Pair calculation inputs and XY plots by sample time        | `arc/go/stl`, `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `client/ts/src/framer/cache`, `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                                                                                                                                                                                                               | 1, 3       |
-| 6     | Give each writer its own clock                             | `core/pkg/service/framer`, `schemas/synnax/sift.oracle`, `core/pkg/distribution/framer`, `core/pkg/api/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/sift`, `client/ts/src/framer/cache`, `driver/bypass`, `pluto/src/telem/aether`, `core/pkg/service/channel`, `core/pkg/distribution/channel`, `core/pkg/service/metrics`, `client/py/synnax`, `client/ts/src`, `client/clib`, `core/pkg/service/arc/runtime`, `schemas/synnax/arc_task.oracle`, `cesium`, `arc/cpp/runtime`, `pluto/src/telem/control`, `console/src/feature/channel` | 3          |
-| 7     | Allow data type and clock changes                          | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 4, 6       |
-| 8     | Delete the old Cesium format and move tests to clocks      | `cesium`, `client/py/tests`, `client/ts/src`, `client/cpp`, `client/py/examples`, `client/ts/examples`, `integration`                                                                                                                                                                                                                                                                                                                                                                                                                                    | 6          |
-| 9     | Create task channels in the Core and retire index channels | `schemas/synnax/ni_device.oracle`, `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/ni`, `core/pkg/service/task`, `core/pkg/service/channel`, `schemas/synnax/channel.oracle`, `schemas/synnax/lineplot.oracle`, `core/pkg/service/lineplot`, `core/pkg/api/channel`, `client/ts`, `client/py`                                                                                                                                                                                                                                   | 6, 8       |
+| Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Depends on |
+| ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Record performance baselines before the channel work       | `cesium`, `core/pkg/service/framer`, `client/ts/src/framer`, `client/py`, `client/cpp/framer`, `driver/common`, `scripts`                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -          |
+| 2     | Move and rename code ahead of the channel work             | `core/pkg/storage/ts`, `core/pkg/distribution/channel`, `core/pkg/service/channel`, `core/pkg/service/arc`, `arc/go/analyzer`, `client/ts/src/framer/cache`, `cesium/internal/control`, `x/go/control`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                            | 1          |
+| 3     | Name each series' clock, on the wire and in every reader   | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`, `core/pkg/distribution/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/sift`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`, `pluto/src/telem/aether`, `arc/cpp/stl/channels`, `driver/common`                                                                                                                                                                                                                                                                               | 1          |
+| 4     | Accept mixed data types in every reader                    | `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`, `client/ts/src/framer/cache`, `pluto/src/lineplot`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/framer/calculation`                                                                                                                                                                                                                                                                                                                                                                               | 2, 3       |
+| 5     | Pair calculation inputs and XY plots by sample time        | `arc/go/stl`, `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `client/ts/src/framer/cache`, `pluto/src/vis/line`, `pluto/src/lineplot`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                            | 1, 2, 3    |
+| 6     | Give each writer its own clock                             | `core/pkg/service/framer`, `schemas/synnax/sift.oracle`, `core/pkg/distribution/framer`, `core/pkg/api/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/sift`, `client/ts/src/framer/cache`, `driver/bypass`, `pluto/src/telem/aether`, `core/pkg/service/channel`, `core/pkg/distribution/channel`, `core/pkg/service/metrics`, `client/py/synnax`, `client/ts/src`, `client/clib`, `core/pkg/service/arc/runtime`, `schemas/synnax/arc_task.oracle`, `cesium`, `arc/cpp/runtime`, `pluto/src/telem/control`, `console/src/feature/channel`, `core/pkg/service/task` | 2, 3       |
+| 7     | Allow data type changes                                    | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 4, 6       |
+| 8     | Delete the old Cesium format and move tests to clocks      | `cesium`, `client/py/tests`, `client/ts/src`, `client/cpp`, `client/py/examples`, `client/ts/examples`, `integration`                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 6          |
+| 9     | Create task channels in the Core and retire index channels | `schemas/synnax/ni_device.oracle`, `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/ni`, `core/pkg/service/task`, `core/pkg/service/channel`, `schemas/synnax/channel.oracle`, `schemas/synnax/lineplot.oracle`, `core/pkg/service/lineplot`, `core/pkg/api/channel`, `client/ts`, `client/py`                                                                                                                                                                                                                                                            | 6, 8       |
 
 ## 6 What this RFC does not cover
 
@@ -737,10 +751,12 @@ that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
 16. **`int64` and `timestamp` stay equal**: Arc writes times as either (SY-4150).
 17. **Clock keys take their own range until the v3 record**: One counter from Phase 6
     was rejected: a key above 2^20 does not fit a v2 channel record.
+18. **The hold limit is computed, not stored**: 3 times the median of the last 16
+    intervals, the same live and in history. Rejected: a limit picked at save, which
+    goes stale as a rate changes, and a steady rate judged by the largest interval,
+    which one late sample decides.
 
 ## 8 Open questions
 
-- **Hold limit multiple**: The count of sample intervals of an input that make its hold
-  limit, and how many samples estimate the interval.
 - **Status text**: The stale status of a calculation.
 - **Arrival stamp spacing**: The step between the arrival stamps of one frame.

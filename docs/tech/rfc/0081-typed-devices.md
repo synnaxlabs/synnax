@@ -165,6 +165,9 @@ struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
 `@search`, and a `status` of its own `Status` type with `@go marshal omit`. A base
 struct would carry nothing else, so the three fields repeat.
 
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: a device name follows
+the channel name rule of RFC 0119 and is unique across device types.)_
+
 Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
 `ni.Device` shares a table with the legacy `Device`.
 
@@ -454,8 +457,9 @@ green at every step. The migration brings 0.59 data forward near the end.
   config migrations of §4.8 step 4 reading the map. _(Amended by
   [RFC 0120](0120-channel-storage-and-time.md) §4.9: a config holds the typed device
   key, ports, hardware facts, scales, and one `clock` per sample clock, each taking one
-  index key of the integration. Until Phase 9 of RFC 0120 the Console still makes
-  channels.)_
+  index key of the integration. Where several configs name one index key, the lowest
+  task key keeps it and each other config gets a new clock key. Until Phase 9 of RFC
+  0120 the Console still makes channels.)_
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.
