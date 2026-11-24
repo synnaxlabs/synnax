@@ -164,7 +164,7 @@ func (e *clockEntry) warn(err error, msg string) {
 // leave removes m from e and drops the samples parked on it. When m holds the clock,
 // leave makes the commits of its writer durable and keeps the writer for follow to hand
 // to the next holder. The caller holds e.mu.
-func (e *clockEntry) leave(m *clockMember) error {
+func (e *clockEntry) leave(ctx context.Context, m *clockMember) error {
 	delete(e.members, m.subject)
 	var err error
 	if m.parked != nil {
@@ -176,7 +176,7 @@ func (e *clockEntry) leave(m *clockMember) error {
 	e.end = max(e.end, m.last)
 	e.holder, e.handing = nil, true
 	if e.w != nil {
-		err = errors.Join(err, e.w.Sync())
+		err = errors.Join(err, e.w.Sync(ctx))
 	}
 	return err
 }
@@ -328,14 +328,14 @@ func (c *clockWriter) commitParked(
 }
 
 // Sync syncs the writer of the clock when the session holds it.
-func (c *clockWriter) Sync() error {
+func (c *clockWriter) Sync(ctx context.Context) error {
 	c.lock()
 	defer c.unlock()
 	w, err := c.held()
 	if err != nil || w == nil {
 		return err
 	}
-	return w.Sync()
+	return w.Sync(ctx)
 }
 
 // EndStretch ends the stretch of the writer of the clock when the session holds it.

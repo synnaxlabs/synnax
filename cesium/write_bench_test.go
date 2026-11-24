@@ -160,7 +160,7 @@ func benchmarkCommit(b *testing.B, db *cesium.DB, indexes, channels, samples int
 			}
 		}
 		for _, w := range writers {
-			if err := w.Sync(); err != nil {
+			if err := w.Sync(b.Context()); err != nil {
 				b.Fatal(err)
 			}
 		}

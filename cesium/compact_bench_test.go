@@ -182,7 +182,7 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 			if _, _, err := w.Commit(b.Context(), nil); err != nil {
 				b.Fatal(err)
 			}
-			if err := w.Sync(); err != nil {
+			if err := w.Sync(b.Context()); err != nil {
 				b.Fatal(err)
 			}
 			start += telem.TimeStamp(samples)

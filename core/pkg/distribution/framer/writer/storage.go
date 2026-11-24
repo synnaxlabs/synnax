@@ -64,7 +64,7 @@ func (s *Service) newStorage(
 		err = s.openOwn(ctx, cfg, ws)
 	}
 	if err != nil {
-		err = errors.Join(err, closeClocks(ws))
+		err = errors.Join(err, closeClocks(ctx, ws))
 		transfers = append(transfers, g.release()...)
 		followAll(ctx, s.cfg.TS, ws)
 		s.controls.notify(transfers)
@@ -164,14 +164,14 @@ func (s *Service) openOwn(ctx context.Context, cfg Config, ws []*clockWriter) er
 
 // closeClocks closes the own writer of each handle of ws, and leaves each shared clock.
 // The caller holds the entries' locks.
-func closeClocks(ws []*clockWriter) error {
+func closeClocks(ctx context.Context, ws []*clockWriter) error {
 	var err error
 	for _, c := range ws {
 		switch {
 		case c.own != nil:
 			err = errors.Join(err, c.own.Close())
 		case c.shares:
-			err = errors.Join(err, c.entry.leave(c.member))
+			err = errors.Join(err, c.entry.leave(ctx, c.member))
 		}
 	}
 	return err

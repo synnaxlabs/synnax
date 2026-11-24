@@ -2464,7 +2464,7 @@ var _ = Describe("Writer Behavior", func() {
 								func(ctx SpecContext) {
 									w := DeferClose(open(ctx))
 									writeAndCommit(ctx, w)
-									Expect(w.Sync()).To(Succeed())
+									Expect(w.Sync(ctx)).To(Succeed())
 									expectPersisted()
 								},
 							)
@@ -4705,7 +4705,7 @@ var _ = Describe("Writer commit order", func() {
 			}))
 			mustWrite(ctx, w, telem.MultiFrame(keys, series))
 			mustCommit(ctx, w)
-			Expect(w.Sync()).To(Succeed())
+			Expect(w.Sync(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			Expect(readErrs).To(BeEmpty())
 		}
@@ -4795,7 +4795,7 @@ var _ = Describe("Writer commit order", func() {
 			for i := range 3 {
 				mustWrite(ctx, w, frame(10+i))
 				mustCommit(ctx, w)
-				Expect(w.Sync()).To(Succeed())
+				Expect(w.Sync(ctx)).To(Succeed())
 			}
 			Expect(w.Close()).To(Succeed())
 			Expect(len(counts)).To(BeNumerically(">=", 6))
@@ -4818,19 +4818,19 @@ var _ = Describe("Writer commit order", func() {
 				low := openWriter(ctx, "low", 100)
 				mustWrite(ctx, low, frame(10))
 				mustCommit(ctx, low)
-				Expect(low.Sync()).To(Succeed())
+				Expect(low.Sync(ctx)).To(Succeed())
 				// high takes over the domain that low wrote, and commits to it.
 				high := openWriter(ctx, "high", 200)
 				mustWrite(ctx, high, frame(11))
 				mustCommit(ctx, high)
-				Expect(high.Sync()).To(Succeed())
+				Expect(high.Sync(ctx)).To(Succeed())
 				Expect(count(ctx, indexKey)).To(Equal(int64(2)))
 				Expect(count(ctx, dataKey)).To(Equal(int64(2)))
 				Expect(high.Close()).To(Succeed())
 				// low has control again, and commits to the same domain.
 				mustWrite(ctx, low, frame(12))
 				mustCommit(ctx, low)
-				Expect(low.Sync()).To(Succeed())
+				Expect(low.Sync(ctx)).To(Succeed())
 				Expect(low.Close()).To(Succeed())
 				Expect(len(counts)).To(BeNumerically(">=", 6))
 				for _, c := range counts {
@@ -4857,7 +4857,7 @@ var _ = Describe("Writer commit order", func() {
 				w := openWriter(ctx, "writer", control.AuthorityAbsolute)
 				mustWrite(ctx, w, frame(10))
 				mustCommit(ctx, w)
-				Expect(w.Sync()).To(MatchError(errPersist))
+				Expect(w.Sync(ctx)).To(MatchError(errPersist))
 				// The commit published what it committed, so nothing waits on a
 				// publish.
 				Expect(count(ctx, indexKey)).To(Equal(int64(1)))

@@ -107,7 +107,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		w := openWriter(ctx, 10*telem.SecondTS)
 		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 		MustSucceed2(w.Commit(ctx, nil))
-		Expect(w.Sync()).To(Succeed())
+		Expect(w.Sync(ctx)).To(Succeed())
 		Expect(w.Close()).To(Succeed())
 		reopen(ctx)
 		Expect(MustSucceed(db.RetrieveChannel(ctx, data)).Index).To(Equal(idx))

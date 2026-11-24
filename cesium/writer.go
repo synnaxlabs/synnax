@@ -67,7 +67,7 @@ func (w *Writer) fail(err error) error {
 
 // Sync makes the commits of the writer durable. On the old layout, it persists the
 // index of each channel that the writer stores, and syncs no file.
-func (w *Writer) Sync() error {
+func (w *Writer) Sync(ctx context.Context) error {
 	if err := w.check(); err != nil {
 		return err
 	}

@@ -125,7 +125,7 @@ func (s *session) run(ctx context.Context) error {
 // otherwise cause.
 func (s *session) close(cause error) error {
 	unlock := lockEntries(s.ws)
-	err := errors.Join(s.err, closeClocks(s.ws))
+	err := errors.Join(s.err, closeClocks(context.Background(), s.ws))
 	s.controls.notify(s.gates.release())
 	followAll(context.Background(), s.ts, s.ws)
 	unlock()
@@ -170,7 +170,7 @@ func (s *session) exec(
 	case CommandEndDomain:
 		err = s.endDomain(ctx, req.Config.Keys)
 		if err == nil || errors.Is(err, control.ErrUnauthorized) {
-			if syncErr := s.maybeSync(); syncErr != nil {
+			if syncErr := s.maybeSync(ctx); syncErr != nil {
 				err = syncErr
 			}
 		}
@@ -239,7 +239,7 @@ func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 		refused = refused || clockRefused
 		end = max(end, clockEnd)
 	}
-	if syncErr := s.maybeSync(); syncErr != nil {
+	if syncErr := s.maybeSync(ctx); syncErr != nil {
 		return 0, false, syncErr
 	}
 	if refused {
@@ -283,7 +283,7 @@ func (s *session) fail(err error) error {
 
 // maybeSync syncs the Cesium writers on every commit when the session does not auto
 // commit, and otherwise once persistInterval has passed since the last sync.
-func (s *session) maybeSync() error {
+func (s *session) maybeSync(ctx context.Context) error {
 	if s.autoCommit && s.persistInterval > 0 {
 		now := s.clock.Now()
 		if now.Sub(s.lastSync) < s.persistInterval.Duration() {
@@ -292,7 +292,7 @@ func (s *session) maybeSync() error {
 		s.lastSync = now
 	}
 	for _, w := range s.ws {
-		if err := w.Sync(); err != nil {
+		if err := w.Sync(ctx); err != nil {
 			return err
 		}
 	}

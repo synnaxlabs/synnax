@@ -294,7 +294,7 @@ var _ = Describe("Data against stamps that parts hold", func() {
 			telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6),
 		), nil))
 		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(6*telem.SecondTS + 1))
-		Expect(w.Sync()).To(Succeed())
+		Expect(w.Sync(ctx)).To(Succeed())
 		crashed := xfs.NewMem()
 		Expect(xfs.CopyDir(fs, crashed, "")).To(Succeed())
 		Expect(w.Close()).To(Succeed())

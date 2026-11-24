@@ -244,7 +244,7 @@ var _ = Describe("Writer sync durability", func() {
 					expectVisible("commit")
 				case op < 82:
 					log = append(log, "sync")
-					each(func(w *cesium.Writer) { Expect(w.Sync()).To(Succeed()) })
+					each(func(w *cesium.Writer) { Expect(w.Sync(ctx)).To(Succeed()) })
 					expectDurable("sync")
 				case op < 92:
 					idx := []cesium.ChannelKey{i1, i2}[rng.IntN(2)]
@@ -273,7 +273,9 @@ var _ = Describe("Writer sync durability", func() {
 					commitAll()
 					expectVisible("handoff commit")
 					if rng.IntN(2) == 0 {
-						each(func(w *cesium.Writer) { Expect(w.Sync()).To(Succeed()) })
+						each(
+							func(w *cesium.Writer) { Expect(w.Sync(ctx)).To(Succeed()) },
+						)
 						expectDurable("sync during handoff")
 					}
 					Expect(high.Close()).To(Succeed())
@@ -336,7 +338,7 @@ var _ = Describe("Writer persist faults", func() {
 
 		mustCommit(ctx, w)
 		fails = 1
-		Expect(w.Sync()).To(MatchError(errPersist))
+		Expect(w.Sync(ctx)).To(MatchError(errPersist))
 		Expect(w.Close()).To(MatchError(errPersist))
 		cp := xfs.NewMem()
 		Expect(xfs.CopyDir(mem, cp, "")).To(Succeed())
