@@ -571,3 +571,19 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
 	}
 }
+
+// storedAfter reports whether readers see a sample of key after stamp.
+func (e *engine) storedAfter(key ChannelKey, stamp telem.TimeStamp) bool {
+	ch := e.state.Channel(key)
+	if ch == nil {
+		return false
+	}
+	for _, seg := range ch.Segments {
+		for _, p := range seg.Pointers {
+			if p.Last > stamp {
+				return true
+			}
+		}
+	}
+	return false
+}
