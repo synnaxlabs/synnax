@@ -156,8 +156,8 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should keep a saved key that the Core accepts", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createKey({ name: "saved" });
-    const keys = (await client.auth.retrieveKeys()).length;
+    const { token } = await client.auth.createAPIKey({ name: "saved" });
+    const keys = (await client.auth.retrieveAPIKeys()).length;
     const { file, handlers } = createDiscoveryFile(token);
     const { commands } = mockSupervisor(() => live, handlers);
     await renderGuard();
@@ -165,7 +165,7 @@ describe("Embedded.Guard API key for scripts", () => {
       expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
     );
     expect(file.apiKey).toBe(token);
-    expect(await client.auth.retrieveKeys()).toHaveLength(keys);
+    expect(await client.auth.retrieveAPIKeys()).toHaveLength(keys);
   });
 
   it("should delete the new key when the save fails", async () => {
@@ -187,7 +187,7 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should use the key that another window saved first", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token: other } = await client.auth.createKey({ name: "other window" });
+    const { token: other } = await client.auth.createAPIKey({ name: "other window" });
     const before = await retrieveKeyIDs(client);
     const { file, handlers } = createDiscoveryFile(null, (f) => {
       f.apiKey ??= other;
@@ -200,8 +200,8 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should replace a saved key that the Core no longer accepts", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createKey({ name: "deleted" });
-    await client.auth.deleteKeys(key.key);
+    const { token, key } = await client.auth.createAPIKey({ name: "deleted" });
+    await client.auth.deleteAPIKeys(key.key);
     const { file, handlers } = createDiscoveryFile(token);
     mockSupervisor(() => live, handlers);
     await renderGuard();
@@ -215,7 +215,7 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should revoke a Desktop 1.1 key and save a new one in its place", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { token, key } = await client.auth.createAPIKey({ name: "desktop 1.1" });
     const { file, handlers } = createDiscoveryFile();
     file.legacy = token;
     mockSupervisor(() => live, handlers);
@@ -232,11 +232,11 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should keep a Desktop 1.1 key in the file when its revoke fails", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { token, key } = await client.auth.createAPIKey({ name: "desktop 1.1" });
     const { file, handlers } = createDiscoveryFile();
     file.legacy = token;
     const deleteKeys = vi
-      .spyOn(auth.Client.prototype, "deleteKeys")
+      .spyOn(auth.Client.prototype, "deleteAPIKeys")
       .mockRejectedValueOnce(new Error("Core restarted"));
     const { commands } = mockSupervisor(() => live, handlers);
     await renderGuard();
@@ -249,7 +249,7 @@ describe("Embedded.Guard API key for scripts", () => {
     expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
     expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
     expect(file.legacy).toBe(token);
-    await client.auth.deleteKeys(key.key);
+    await client.auth.deleteAPIKeys(key.key);
   });
 
   it("should replace a saved key that is not an API key", async () => {

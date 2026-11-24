@@ -9,11 +9,26 @@
 
 import type { group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ symbolNodes: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const original = await importOriginal<{ FLAGS: typeof FLAGS }>();
+  return {
+    FLAGS: {
+      ...original.FLAGS,
+      get symbolNodes() {
+        return mocks.symbolNodes;
+      },
+    },
+  };
+});
 
 import { Schematic } from "@/feature/schematic";
 import {
@@ -25,15 +40,22 @@ import {
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
+import type { FLAGS } from "@/flags";
 import {
   findButton,
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
+import {
+  fakePickedFile,
+  getIconButton,
+  interceptFilePicker,
+  queryIcon,
+} from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mocks.symbolNodes = true;
 });
 
 // A shapeless SVG exercises the production load path.
@@ -132,7 +154,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("0 elements")).toBeDefined();
     });
 
-    it("saves a region stroke picked from its swatch", async () => {
+    it("saves a region stroke picked from its paint", async () => {
       const createKey = uuid.create();
       const { picker, handle } = await openCreateModal(createKey);
       await loadSVG(picker);
@@ -143,10 +165,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(item);
       expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
-      const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
-      expect(swatches).toHaveLength(2);
-      fireEvent.click(swatches[0]);
-      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(within(item).getByLabelText("Stroke"));
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.change(await screen.findByLabelText("Hex"), {
+        target: { value: "ff0000" },
+      });
       fireEvent.change(findNameInput(), {
         target: { value: uniqueName("colored_symbol") },
       });
@@ -157,6 +180,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(created.data.looks.find((l) => l.part === part)?.stroke).toEqual({
           type: "color",
           value: { type: "fixed", value: color.construct("#ff0000") },
+        });
+      });
+    });
+
+    it("saves the node color as a region fill", async () => {
+      const createKey = uuid.create();
+      const { picker, handle } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      fireEvent.click(within(item).getByLabelText("Fill"));
+      expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
+      expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("Node color"));
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("node_colored_symbol") },
+      });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
+        const part = created.data.parts[0].key;
+        expect(created.data.looks.find((l) => l.part === part)?.fill).toEqual({
+          type: "node",
         });
       });
     });
@@ -296,8 +346,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ".console-schematic-region-list-item",
       );
       assertDefined(item);
-      fireEvent.click(item.querySelectorAll<HTMLElement>(".lyra-color-swatch")[0]);
-      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(within(item).getByLabelText("Stroke"));
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.change(await screen.findByLabelText("Hex"), {
+        target: { value: "ff0000" },
+      });
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
@@ -362,6 +415,187 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
+      });
+    });
+
+    const BODY: schematic.symbol.Part = {
+      key: "body",
+      name: "Body",
+      selectors: ["#a"],
+    };
+    const GREEN = color.construct("#2fb36b");
+
+    const createState = (enumeration?: string): schematic.symbol.State => ({
+      type: "enumeration",
+      key: "active",
+      name: "Active",
+      enumeration,
+      match: { type: "exact" },
+      default: 0,
+    });
+
+    // createEnumeration creates an enumeration whose one entry, Closed at 0, is green.
+    const createEnumeration = async () =>
+      await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+
+    // openPainted opens the editor on a new symbol whose one part, Body, selects #a.
+    const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("painted"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, parts: [BODY], ...data },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      const item = (await screen.findByText("Body")).closest<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      return { symbol, fill: within(item).getByLabelText("Fill") };
+    };
+
+    it("hides Node color on a static symbol while symbol nodes are off", async () => {
+      mocks.symbolNodes = false;
+      const { fill } = await openPainted({});
+      fireEvent.click(fill);
+      await screen.findByText("Contrast");
+      expect(screen.queryByText("Node color")).toBeNull();
+    });
+
+    it("offers Node color on an actuator while symbol nodes are off", async () => {
+      mocks.symbolNodes = false;
+      const { fill } = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(fill);
+      expect(await screen.findByText("Node color")).toBeDefined();
+    });
+
+    it("draws a node color paint in a sample color in the preview", async () => {
+      await openPainted({
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        looks: [{ key: "node", part: "body", fill: { type: "node" } }],
+      });
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        expect(shape?.getAttribute("fill")).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("names the field and the kind in the tooltip of a paint", async () => {
+      const { fill } = await openPainted({});
+      fireEvent.pointerEnter(fill);
+      expect((await screen.findByRole("tooltip")).textContent).toBe("Fill: Drawing");
+    });
+
+    it("saves the state color and shows the default entry where no entry matches", async () => {
+      const enumeration = await createEnumeration();
+      const { symbol, fill } = await openPainted({
+        variant: "actuator",
+        states: [createState(enumeration.key)],
+      });
+      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("State color"));
+      await waitFor(() =>
+        expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "active", values: [1] },
+            fill: { type: "entry", state: "active" },
+          },
+        ]);
+      });
+    });
+
+    it("saves a contrast paint on the state", async () => {
+      const enumeration = await createEnumeration();
+      const { symbol, fill } = await openPainted({
+        variant: "actuator",
+        states: [createState(enumeration.key)],
+      });
+      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("Contrast"));
+      await waitFor(() => expect(queryIcon(fill, "contrast")).not.toBeNull());
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "active", values: [1] },
+            fill: { type: "contrast", state: "active" },
+          },
+        ]),
+      );
+    });
+
+    it("clears the paint of a part at the value when Drawing is picked", async () => {
+      const { symbol, fill } = await openPainted({
+        states: [createState()],
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("Drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks).toEqual([]);
+      });
+    });
+
+    it("starts a picked color from the color of the drawing", async () => {
+      const { symbol, fill } = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect id="a" width="10" height="10" fill="#2fb36b"/></svg>',
+        },
+      });
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks.find((l) => l.part === "body")?.fill).toEqual({
+          type: "color",
+          value: { type: "fixed", value: GREEN },
+        });
       });
     });
 

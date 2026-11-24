@@ -19,7 +19,7 @@ import svg from "@/schematic/node/pumps/Centrifugal.svg?raw";
 export interface CentrifugalProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "pump",
   svg,
   handles: [
     { key: "1", position: { x: 0.0455, y: 0.5 }, orientation: "left" },

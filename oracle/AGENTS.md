@@ -199,6 +199,14 @@ its own doc in place of the struct's. Generators keep the `SetPayload` name as a
 (in Go, a defined type that can carry `Handle`). The target must be a struct with no
 type parameters, and no two actions of a type may share one.
 
+## Duration defaults
+
+A field's own `telem.TimeSpan` default takes Go-style units: `ns`, `us`, `ms`, `s`, `m`,
+`h`, and compounds such as `1m30s`. Write `staleness_timeout telem.TimeSpan = 5s`, never
+`= 5000000000`. Struct and array literals take no units. The analyzer stores
+nanoseconds, so generated code does not change. It rejects a unit on any other type and
+a value that is not whole nanoseconds.
+
 ## Union discriminators
 
 A union's discriminator is a generated `<Union>Type` with one constant per variant. When

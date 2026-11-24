@@ -108,7 +108,7 @@ var _ = Describe("OIDC links", func() {
 			})).To(Succeed())
 			key := MustSucceed(createKey(
 				authed(ctx, rootToken),
-				apiauth.KeyCreateRequest{Subject: r.ResourceID(), Name: "rack"},
+				apiauth.APIKeyCreateRequest{Subject: r.ResourceID(), Name: "rack"},
 			))
 			Expect(linkOIDC(
 				authed(ctx, login(ctx, keyProof(key.Token))),

@@ -1326,3 +1326,25 @@ var _ = Describe("PrimitiveBase", func() {
 		).To(Equal(""))
 	})
 })
+
+var _ = Describe("SameValue", func() {
+	It("Should ignore how a duration literal spelled a value", func() {
+		a := resolution.ExpressionValue{
+			Kind: resolution.ValueKindInt, IntValue: 90e9, Duration: "1m30s",
+		}
+		b := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 90e9}
+		Expect(resolution.SameValue(&a, &b)).To(BeTrue())
+	})
+
+	It("Should compare the values", func() {
+		a := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 1}
+		b := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 2}
+		Expect(resolution.SameValue(&a, &b)).To(BeFalse())
+	})
+
+	It("Should equal a nil value only to another nil value", func() {
+		a := resolution.ExpressionValue{Kind: resolution.ValueKindInt}
+		Expect(resolution.SameValue(nil, nil)).To(BeTrue())
+		Expect(resolution.SameValue(&a, nil)).To(BeFalse())
+	})
+})
