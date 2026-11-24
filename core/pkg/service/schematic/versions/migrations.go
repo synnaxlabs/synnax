@@ -22,10 +22,10 @@ import (
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 )
 
-// MigrationsConfig is the configuration for NewMigrations.
+// MigrationsConfig configures the stored-schematic migration chain.
 type MigrationsConfig = v14.MigrationConfig
 
-// NewMigrations returns the migration chain of the schematic table.
+// NewMigrations returns the ordered migration chain for stored schematics.
 func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return []gorp.Migration{
 		v0.NormalizeKeys,

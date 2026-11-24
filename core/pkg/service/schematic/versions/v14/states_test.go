@@ -104,67 +104,52 @@ var _ = Describe("Select and state indicator states", func() {
 			Entry(&s).Exec(ctx, db)).To(Succeed())
 		return s, calls
 	}
-	enumerationOf := func(n v14.Node) *enumerationv0.Key {
+	options := func(n v14.Node) []v14.StateMapping {
 		GinkgoHelper()
 		switch cfg := n.Config.Variant.(type) {
 		case v14.SelectNodeConfig:
-			Expect(cfg.Options).To(BeEmpty())
-			return cfg.Enumeration
+			return cfg.Options
 		case v14.StateIndicatorNodeConfig:
-			Expect(cfg.Options).To(BeEmpty())
-			return cfg.Enumeration
+			return cfg.Options
 		}
 		Fail("not a select or a state indicator")
 		return nil
 	}
-	schematic := func(nodes ...v13.Node) v13.Schematic {
-		return v13.Schematic{Key: uuid.New(), Name: "Valve panel", Nodes: nodes}
-	}
 
-	It("Should give each select and state indicator an enumeration named for it",
+	It("Should give each select and indicator with options a named enumeration",
 		func(ctx SpecContext) {
-			s, calls := internAll(ctx, schematic(
+			transparent := &xcolor.Color{R: 9}
+			s, calls := internAll(ctx, schematicOf(
+				"Valve panel",
 				selectNode("mode", "Mode", state("off", 0, "Off", shade(1))),
-				indicatorNode("tank", " Tank ", state("full", 1, "Full", nil)),
+				indicatorNode("tank", " Tank ", state("idle", 0, "Idle", transparent)),
+				selectNode("blank", "  ", state("off", 0, "Off", nil)),
+				selectNode("empty", "Unused"),
 			))
-			Expect(calls).To(HaveLen(2))
-			Expect(calls[0].name).To(Equal("Select: Mode"))
-			Expect(calls[0].entries).To(Equal([]enumerationv0.Entry{
-				{Key: "off", Value: 0, Name: "Off", Color: fixed(1)},
+			Expect(calls).To(HaveLen(3))
+			Expect(calls[0]).To(Equal(interned{
+				name: "Select: Mode",
+				entries: []enumerationv0.Entry{
+					{Key: "off", Value: 0, Name: "Off", Color: fixed(1)},
+				},
 			}))
 			Expect(calls[1].name).To(Equal("State indicator: Tank"))
-			Expect(calls[1].entries[0].Color).To(BeNil())
-			Expect(enumerationOf(s.Nodes[0])).ToNot(BeNil())
-			Expect(enumerationOf(s.Nodes[1])).ToNot(BeNil())
+			Expect(calls[1].entries[0].Color).To(Equal(&servicecolor.Ref{
+				Variant: servicecolor.FixedRef{Value: *transparent},
+			}))
+			Expect(calls[2].name).To(Equal("Select: Valve panel"))
+			Expect(calls[2].entries[0].Color).To(BeNil())
+			for _, n := range s.Nodes {
+				Expect(options(n)).To(BeEmpty())
+			}
+			empty, ok := s.Nodes[3].Config.Variant.(v14.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(empty.Enumeration).To(BeNil())
 		})
-
-	It("Should name the enumeration of a node with no label for its schematic",
-		func(ctx SpecContext) {
-			_, calls := internAll(ctx, schematic(
-				selectNode("a", "  ", state("off", 0, "Off", nil)),
-			))
-			Expect(calls[0].name).To(Equal("Select: Valve panel"))
-		})
-
-	It("Should give a node with no options no enumeration", func(ctx SpecContext) {
-		s, calls := internAll(ctx, schematic(selectNode("a", "Mode")))
-		Expect(calls).To(BeEmpty())
-		Expect(enumerationOf(s.Nodes[0])).To(BeNil())
-	})
-
-	It("Should keep a transparent color as a fixed color", func(ctx SpecContext) {
-		transparent := &xcolor.Color{R: 9}
-		_, calls := internAll(ctx, schematic(
-			indicatorNode("a", "Idle", state("idle", 0, "Idle", transparent)),
-		))
-		Expect(calls[0].entries[0].Color).To(Equal(&servicecolor.Ref{
-			Variant: servicecolor.FixedRef{Value: *transparent},
-		}))
-	})
 
 	It("Should give an entry with an empty or repeated key a new key",
 		func(ctx SpecContext) {
-			_, calls := internAll(ctx, schematic(selectNode(
+			_, calls := internAll(ctx, schematicOf("Panel", selectNode(
 				"a",
 				"Mode",
 				state("", 0, "Off", nil),
@@ -182,7 +167,8 @@ var _ = Describe("Select and state indicator states", func() {
 		})
 
 	It("Should drop a state whose value is not finite", func(ctx SpecContext) {
-		s, calls := internAll(ctx, schematic(
+		s, calls := internAll(ctx, schematicOf(
+			"Panel",
 			selectNode(
 				"a",
 				"Mode",
@@ -194,13 +180,16 @@ var _ = Describe("Select and state indicator states", func() {
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].entries).To(HaveLen(1))
 		Expect(calls[0].entries[0].Key).To(Equal("on"))
-		Expect(enumerationOf(s.Nodes[1])).To(BeNil())
+		spare, ok := s.Nodes[1].Config.Variant.(v14.SelectNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(spare.Enumeration).To(BeNil())
 	})
 
 	It("Should fail the migration with the node when the intern fails",
 		func(ctx SpecContext) {
 			refusal = errors.New("refused")
-			db := store(ctx, schematic(
+			db := store(ctx, schematicOf(
+				"Panel",
 				selectNode("mode", "Mode", state("off", 0, "Off", nil)),
 			))
 			Expect(lift(ctx, db)).To(SatisfyAll(
