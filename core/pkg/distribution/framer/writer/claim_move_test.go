@@ -140,8 +140,12 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 				Authorities: []control.Authority{50},
 			})).To(Succeed())
 			Expect(clock.Write(both(seconds(14), 5))).To(BeTrue())
-			Expect(MustCommit(clock)).To(Equal(14*telem.SecondTS + 1))
-			_, authorized := MustSucceed2(moved.Commit())
+			end, authorized := MustSucceed2(clock.Commit())
+			Expect(end).To(Equal(14*telem.SecondTS + 1))
+			Expect(
+				authorized,
+			).To(BeFalse(), "a write since the last commit was refused")
+			_, authorized = MustSucceed2(moved.Commit())
 			Expect(authorized).To(BeFalse(), "the session gave the data channel back")
 			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Close()).To(Succeed())

@@ -83,12 +83,27 @@ type clockMember struct {
 type parkedRun struct {
 	pending *cesium.Pending
 	keys    []cesium.ChannelKey
+	// moved is true for the samples of a key that moved to another writer.
+	moved bool
 }
 
 // park adds the samples of p, which are of keys, to m.
 func (m *clockMember) park(p *cesium.Pending, keys []cesium.ChannelKey) {
 	if p != nil {
 		m.parked = append(m.parked, parkedRun{pending: p, keys: keys})
+	}
+}
+
+// keep adds the samples of p, which are of k after k moved to another writer, to m.
+// They commit once the clock holds their stamps, whether or not the session still
+// controls k.
+func (m *clockMember) keep(p *cesium.Pending, k cesium.ChannelKey) {
+	if p != nil {
+		m.parked = append(m.parked, parkedRun{
+			pending: p,
+			keys:    []cesium.ChannelKey{k},
+			moved:   true,
+		})
 	}
 }
 
@@ -468,23 +483,23 @@ func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error 
 	// the stored stamps from there.
 	next := append(slices.Clone(c.claimed), keys...)
 	cfg := cesium.WriterConfig{Channels: next, Clock: c.clock, Start: c.member.start}
-	adopt := c.member.adopt(next)
-	var err error
-	if c.own == nil {
+	opened := c.own == nil
+	if opened {
+		var err error
 		if c.own, err = c.ts.OpenWriter(ctx, cfg); err != nil {
-			c.member.park(adopt, nil)
 			return err
 		}
-		if adopt == nil {
-			c.claim(keys, next)
-			return nil
-		}
 	}
-	var parked *cesium.Pending
-	c.own, parked, err = c.ts.Handoff(ctx, c.own, cfg, adopt)
-	c.member.park(parked, nil)
-	if err != nil {
-		return err
+	if adopt := c.member.adopt(next); !opened || adopt != nil {
+		var (
+			parked *cesium.Pending
+			err    error
+		)
+		c.own, parked, err = c.ts.Handoff(ctx, c.own, cfg, adopt)
+		c.member.park(parked, nil)
+		if err != nil {
+			return err
+		}
 	}
 	c.claim(keys, next)
 	return nil
@@ -516,7 +531,7 @@ func (e *clockEntry) release(
 		}
 		w, parked, err := ts.Handoff(ctx, x.own, cfg, nil)
 		x.own, x.claimed = w, rest
-		x.member.park(parked, []cesium.ChannelKey{k})
+		x.member.keep(parked, k)
 		return err
 	}
 	if e.w == nil || !slices.Contains(e.keys, k) {
@@ -530,7 +545,7 @@ func (e *clockEntry) release(
 	cfg := cesium.WriterConfig{Channels: rest, Clock: e.clock, Start: start}
 	w, parked, err := ts.Handoff(ctx, e.w, cfg, nil)
 	e.w, e.keys = w, rest
-	e.owner.park(parked, []cesium.ChannelKey{k})
+	e.owner.keep(parked, k)
 	return err
 }
 
@@ -650,9 +665,9 @@ func (c *clockWriter) commitParked(
 }
 
 // commitRuns commits each run parked on the session once the clock holds its stamps,
-// and
-// drops each run of a channel that the session lacks. It returns whether it dropped a
-// run, and whether a run still waits for its stamps. The caller holds the entry's lock.
+// and drops each run that a handoff parked for a channel that the session lacks. It
+// returns whether it dropped a run, and whether a run still waits for its stamps. The
+// caller holds the entry's lock.
 func (c *clockWriter) commitRuns(
 	ctx context.Context,
 	skip func(cesium.ChannelKey) bool,
@@ -660,7 +675,7 @@ func (c *clockWriter) commitRuns(
 	m := c.member
 	kept := m.parked[:0]
 	for _, r := range m.parked {
-		if c.lacksAny(r.keys, skip) {
+		if !r.moved && c.lacksAny(r.keys, skip) {
 			err, dropped = errors.Join(err, r.pending.Close()), true
 			continue
 		}
