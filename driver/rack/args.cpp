@@ -18,6 +18,7 @@ x::errors::Error Config::load_args(x::args::Parser &args) {
     this->connection.override(args);
     this->timing.override(args);
     this->manager.override(args);
+    this->arc.override(args);
     this->remote_info.override(args);
     const auto enable = args.field("enable-integrations", std::vector<std::string>{});
     const auto disable = args.field("disable-integrations", std::vector<std::string>{});

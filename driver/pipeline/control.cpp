@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <utility>
+#include <vector>
+
+#include "absl/log/log.h"
 
 #include "absl/log/log.h"
 
@@ -61,11 +64,28 @@ void Control::stopped_with_err(const x::errors::Error &err) {
     this->sink->stopped_with_err(err);
 }
 
+void Control::set_channels(const std::vector<synnax::channel::Key> &channels) {
+    std::lock_guard lock{this->streamer_mu};
+    this->config.channels = channels;
+    if (this->streamer == nullptr) return;
+    if (const auto err = this->streamer->set_channels(channels))
+        LOG(WARNING) << "[control] failed to set streamer channels: " << err;
+}
+
 bool Control::run_once() {
-    auto [s, open_err] = this->factory->open_streamer(this->config);
+    synnax::framer::StreamerConfig config;
+    {
+        std::lock_guard lock{this->streamer_mu};
+        config = this->config;
+    }
+    auto [s, open_err] = this->factory->open_streamer(config);
     {
         std::lock_guard lock{this->streamer_mu};
         this->streamer = std::move(s);
+        // A set_channels that ran during the open missed this streamer.
+        if (this->streamer != nullptr && this->config.channels != config.channels)
+            if (const auto err = this->streamer->set_channels(this->config.channels))
+                LOG(WARNING) << "[control] failed to set streamer channels: " << err;
     }
     if (open_err) {
         if (this->wait_for_core(open_err)) return true;
@@ -87,7 +107,11 @@ bool Control::run_once() {
         }
         this->breaker.reset();
     }
-    const auto close_err = this->streamer->close();
+    x::errors::Error close_err;
+    {
+        std::lock_guard lock{this->streamer_mu};
+        close_err = this->streamer->close();
+    }
     if (this->wait_for_core(close_err)) return true;
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
@@ -109,6 +133,11 @@ x::errors::Error SynnaxStreamer::close() {
 
 void SynnaxStreamer::close_send() {
     this->internal.close_send();
+}
+
+x::errors::Error
+SynnaxStreamer::set_channels(const std::vector<synnax::channel::Key> &channels) {
+    return this->internal.set_channels(channels);
 }
 
 SynnaxStreamerFactory::SynnaxStreamerFactory(

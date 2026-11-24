@@ -77,8 +77,17 @@ public:
         this->cv.notify_all();
     }
 
-    const std::vector<synnax::channel::Key> &subscribed_keys() const {
+    std::vector<synnax::channel::Key> subscribed_keys() const {
+        std::lock_guard lock(this->mu);
         return this->keys;
+    }
+
+    /// @brief replaces the channels of the subscription. A frame published after the
+    /// call is filtered by the new channels, with no gap for a channel in both sets.
+    void set_keys(std::vector<synnax::channel::Key> keys) {
+        std::lock_guard lock(this->mu);
+        this->key_set = {keys.begin(), keys.end()};
+        this->keys = std::move(keys);
     }
 
     /// @brief returns true if the queue has no pending frames.
@@ -98,6 +107,7 @@ public:
         const x::telem::Frame &frame,
         const std::vector<x::telem::Alignment> &alignments
     ) {
+        std::lock_guard lock(this->mu);
         bool all_match = true;
         for (const auto &[key, _]: frame) {
             if (!this->key_set.contains(key)) {
@@ -109,7 +119,7 @@ public:
             auto copy = frame.shallow_copy();
             for (size_t i = 0; i < copy.size(); i++)
                 copy.series->at(i).alignment = alignments[i];
-            this->push(std::move(copy));
+            this->push_locked(std::move(copy));
             return true;
         }
         x::telem::Frame filtered;
@@ -124,27 +134,30 @@ public:
             }
         }
         if (!any_match) return false;
-        this->push(std::move(filtered));
+        this->push_locked(std::move(filtered));
         return true;
     }
 
     void push(x::telem::Frame frame) {
-        {
-            std::lock_guard lock(this->mu);
-            while (this->queue.size() >= this->cap) {
-                const auto &oldest = this->queue.front();
-                LOG_FIRST_N(WARNING, 10)
-                    << "[bus] subscription to " << this->keys.size()
-                    << " channels is full at " << this->cap
-                    << " frames: dropped oldest frame with " << oldest.size()
-                    << " channels, first channel "
-                    << (oldest.empty() ? 0 : oldest.channels->front());
-                this->queue.pop_front();
-            }
-            this->queue.push_back(std::move(frame));
-            this->cv.notify_one();
-            if (this->on_push) this->on_push();
+        std::lock_guard lock(this->mu);
+        this->push_locked(std::move(frame));
+    }
+
+private:
+    /// @brief requires mu.
+    void push_locked(x::telem::Frame frame) {
+        while (this->queue.size() >= this->cap) {
+            const auto &oldest = this->queue.front();
+            LOG_FIRST_N(WARNING, 10) << "[bus] subscription to " << this->keys.size()
+                                     << " channels is full at " << this->cap
+                                     << " frames: dropped oldest frame with "
+                                     << oldest.size() << " channels, first channel "
+                                     << (oldest.empty() ? 0 : oldest.channels->front());
+            this->queue.pop_front();
         }
+        this->queue.push_back(std::move(frame));
+        this->cv.notify_one();
+        if (this->on_push) this->on_push();
     }
 };
 

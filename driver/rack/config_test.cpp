@@ -600,6 +600,26 @@ TEST_F(RackConfigTest, LoadTimingConfigFromFile) {
     std::remove(config_path.c_str());
 }
 
+/// @brief it should load the Arc calculation reload delay from the config file.
+TEST_F(RackConfigTest, LoadArcConfigFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"arc": {"calculation_reload_delay": 0.5}})";
+    config_file.close();
+    x::args::Parser config_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--config",
+            config_path
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
+    ASSERT_EQ(cfg.arc.calculation_reload_delay, 500 * x::telem::MILLISECOND);
+    std::remove(config_path.c_str());
+}
+
 /// @brief it should load task manager configuration from config file.
 TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     const std::string config_path = "/tmp/rack-config-test/manager-config.json";

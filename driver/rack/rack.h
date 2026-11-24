@@ -128,6 +128,8 @@ struct Config {
     common::TimingConfig timing;
     /// @brief configuration for the task manager.
     task::ManagerConfig manager;
+    /// @brief settings of the Arc integration.
+    arc::Config arc;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.

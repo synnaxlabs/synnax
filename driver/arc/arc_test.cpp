@@ -992,6 +992,10 @@ public:
     void close_send() override { this->closed = true; }
 
     x::errors::Error close() override { return x::errors::NIL; }
+
+    x::errors::Error set_channels(const std::vector<synnax::channel::Key> &) override {
+        return x::errors::NIL;
+    }
 };
 
 class TriggerStreamerFactory final : public pipeline::StreamerFactory {
@@ -4217,6 +4221,28 @@ TEST_F(OutageTest, KeepsCalculationsWhenReloadFails) {
     // The Arc names the channel, so it no longer compiles.
     this->dispatch(
         doubled,
+        {{"type", "rename"},
+         {"rename", {{"name", make_unique_channel_name("renamed")}}}}
+    );
+    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
+    this->publish(a.key, 4.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 8.0f));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should keep a calculation and warn when the Core can no longer compile it,
+/// as the Core keeps computing its last good version.
+TEST_F(OutageTest, KeepsCalculationThatNoLongerCompiles) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
+    const auto task = this->create_task(doubled.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 2.0f));
+    // The expression names the input, so it no longer compiles.
+    this->dispatch(
+        a,
         {{"type", "rename"},
          {"rename", {{"name", make_unique_channel_name("renamed")}}}}
     );

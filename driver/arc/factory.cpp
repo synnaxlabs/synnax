@@ -30,6 +30,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(
     auto parser = x::json::Parser(task.config);
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) return {std::move(result), cfg_err};
+    cfg.reload_delay = this->config.calculation_reload_delay;
 
     auto [arc_task, task_err] = Task::create(
         task,

@@ -33,6 +33,8 @@ Config::load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker) {
     this->timing.override(timing_config);
     auto manager_config = p.optional_child("manager");
     this->manager.override(manager_config);
+    auto arc_config = p.optional_child("arc");
+    this->arc.override(arc_config);
     this->integrations = p.field("integrations", this->integrations);
     if (const auto dir = p.field<std::string>("secrets_dir", ""); !dir.empty())
         this->secrets_dir = x::path::resolve_relative(dir);
