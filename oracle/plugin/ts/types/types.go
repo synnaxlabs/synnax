@@ -1877,15 +1877,23 @@ func (p *Plugin) wrapArray(
 	table *resolution.Table,
 	data *templateData,
 ) {
-	isAnyOptional := field.Optional
-	if isAnyOptional {
+	switch {
+	case field.Optional:
 		addXImport(data, xImport{name: "zod", submodule: "zod"})
 		fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
 		fd.ZodSchemaType = fmt.Sprintf(
 			"ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>",
 			fd.ZodSchemaType,
 		)
-	} else {
+	case validation.NonEmpty(field):
+		// The analyzer refuses a default here, so a missing list fails too.
+		fd.ZodType = fmt.Sprintf(
+			"%s.array().min(1, \"%s is required\")",
+			fd.ZodType,
+			field.Name,
+		)
+		fd.ZodSchemaType = fmt.Sprintf("z.ZodArray<%s>", fd.ZodSchemaType)
+	default:
 		// The server omits a nil ("not loaded") array, so a missing array defaults to
 		// []; an allocated empty array still arrives as [].
 		arrayZod := fd.ZodType + ".array()"

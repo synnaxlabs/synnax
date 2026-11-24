@@ -482,6 +482,23 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.min(1, "name is required")`)
 	})
 
+	It("Should require a required list to hold an element", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				names string[] @validate { required }
+				tags string[]? @validate { required }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`names: z.string().array().min(1, "names is required"),`,
+				`tags: zod.nullToUndefined(z.string().array()),`,
+			)
+	})
+
 	It("Should leave fields without validation untouched", func() {
 		source := `
 			@ts output "out"

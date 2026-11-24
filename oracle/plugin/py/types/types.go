@@ -1063,7 +1063,7 @@ func processField(
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType += " | None"
-	} else if factory, ok := emptyFactory(field.Type, table); ok {
+	} else if factory, ok := emptyFactory(field, table); ok {
 		fieldConstraints = ensureDefaultFactory(fieldConstraints, factory)
 	}
 
@@ -1082,17 +1082,18 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		field.Type.TypeParam.Optional {
 		return false
 	}
-	_, hasEmpty := emptyFactory(field.Type, table)
+	_, hasEmpty := emptyFactory(field, table)
 	return !hasEmpty
 }
 
-// emptyFactory returns the factory of the empty value that a missing collection
-// defaults to. A fixed-size array has no empty value, so it has no factory.
-func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
-	kind, isCollection := resolution.CollectionKind(typeRef, table)
-	_, fixed := resolution.ArraySize(typeRef, table)
+// emptyFactory returns the factory of the empty value that a missing collection field
+// defaults to. A fixed-size array has no empty value, and a required list must hold an
+// element, so neither has a factory.
+func emptyFactory(field resolution.Field, table *resolution.Table) (string, bool) {
+	kind, isCollection := resolution.CollectionKind(field.Type, table)
+	_, fixed := resolution.ArraySize(field.Type, table)
 	switch {
-	case !isCollection, fixed:
+	case !isCollection, fixed, validation.NonEmpty(field):
 		return "", false
 	case kind == "Array":
 		return "list", true
@@ -1215,6 +1216,9 @@ func collectValidation(
 	}
 	if resolution.IsNumberPrimitive(primitive) {
 		constraints = appendNumberConstraints(constraints, rules, primitive, required)
+	}
+	if required && validation.IsList(typeRef) {
+		constraints = append(constraints, "min_length=1")
 	}
 	if defaultVal != nil {
 		constraints = appendDefault(
