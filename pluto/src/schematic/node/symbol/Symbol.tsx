@@ -22,14 +22,7 @@ import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import {
-  bindSpec,
-  dataMissing,
-  sources,
-  stale,
-  stateChannels,
-  values,
-} from "@/schematic/node/symbol/bind";
+import { bind } from "@/schematic/node/symbol/bind";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -58,7 +51,7 @@ const useResolved = (ref: schematic.symbol.Ref): Resolved => {
 // useBound resolves the symbol of a node, with the bindings of its states applied.
 const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Resolved => {
   const { spec, ...rest } = useResolved(ref);
-  return { ...rest, spec: spec == null ? undefined : bindSpec(spec, states) };
+  return { ...rest, spec: spec == null ? undefined : bind.spec(spec, states) };
 };
 
 interface DrawnProps extends Resolved, Pick<Config, "color" | "orientation" | "scale"> {
@@ -110,12 +103,12 @@ export const Node = ({
   const { label, orientation, scale, color, states, stalenessTimeout } = config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(stateChannels(states)),
+    sources: bind.sources(bind.stateChannels(states)),
     sinks: {},
     stalenessTimeout,
   });
   const bound = useBound(config);
-  const value = values(states, readings);
+  const value = bind.values(states, readings);
   const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
@@ -128,8 +121,8 @@ export const Node = ({
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot
-        stale={stale(states, readings)}
-        unknown={dataMissing(states, readings) || unmatched}
+        stale={bind.stale(states, readings)}
+        unknown={bind.dataMissing(states, readings) || unmatched}
       />
       <Drawn
         {...bound}
