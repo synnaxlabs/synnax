@@ -688,16 +688,21 @@ describe("symbol editor spec", () => {
   });
 
   describe("removePart", () => {
-    it("should remove the part and the looks on it", () => {
+    it("should remove the part and the looks and clicks on it", () => {
       const spec = createSpec({
         looks: [
           { key: "a", part: "body", stroke: fixed(RED) },
           { key: "b", part: "seat", stroke: fixed(RED) },
         ],
+        interactions: [
+          { type: "fire", key: "c", part: "body", command: "go" },
+          { type: "fire", key: "d", command: "go" },
+        ],
       });
       const next = Spec.removePart(spec, "body");
       expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
       expect(next.looks.map((l) => l.key)).toEqual(["b"]);
+      expect(next.interactions.map((i) => i.key)).toEqual(["d"]);
     });
   });
 
@@ -800,6 +805,32 @@ describe("symbol editor spec", () => {
       expect(() => Spec.addInteraction(createSpec())).toThrow(
         "a symbol with no free target or no command takes no click",
       );
+    });
+
+    it("should throw on an add when every target has a click", () => {
+      const spec = createSpec({
+        commands: [send("a", 1)],
+        interactions: [undefined, "body", "seat"].map((part, i) => ({
+          type: "fire" as const,
+          key: `c${i}`,
+          part,
+          command: "a",
+        })),
+      });
+      expect(Spec.freeTargets(spec)).toEqual([]);
+      expect(() => Spec.addInteraction(spec)).toThrow(
+        "a symbol with no free target or no command takes no click",
+      );
+    });
+
+    it("should remove a click and take nothing with it", () => {
+      const spec = createSpec({
+        interactions: [{ type: "fire", key: "c", command: "a" }],
+      });
+      expect(Spec.removeInteraction(spec, "c")).toEqual([
+        { ...spec, interactions: [] },
+        { looks: [], commands: [], interactions: [] },
+      ]);
     });
   });
 

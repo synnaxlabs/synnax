@@ -271,11 +271,12 @@ export const nextPartName = (parts: schematic.symbol.Part[]): string =>
     parts.map((p) => p.name),
   );
 
-/** @returns spec without part and the looks on it. */
+/** @returns spec without part and the looks and clicks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
+  interactions: spec.interactions.filter((i) => i.part !== part),
 });
 
 /** Removed holds the keys of what an edit takes with the item, for its confirm. */
