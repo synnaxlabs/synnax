@@ -25,10 +25,11 @@ save.
 - **A type change breaks every stream**: The frame codec fails the encode of a series
   whose type differs from its key's
   (`core/pkg/distribution/framer/codec/codec.go:625-643`), and the TypeScript cache
-  drops every block of the channel (`client/ts/src/framer/cache/store.ts:487-505`).
+  drops every block of the channel
+  (`client/ts/src/framer/cache/store/store.ts:535-546`).
 - **No series names its time source**: Pluto swaps a channel for its index channel
   (`pluto/src/telem/aether/remote.ts:247-256`), and calculations pair inputs by arrival
-  (`site/docs/src/pages/reference/channels/calculated.mdx:200-205`).
+  (`site/docs/src/docs/reference/channels/calculated.mdx:200-205`).
 - **Task configs copy channel facts**: The Console creates channels and their `_time`
   indexes (`console/src/platform/task/channels.ts:31-36`).
 
@@ -88,11 +89,13 @@ long as that producer names it.
   clock, and parallel sessions on time ranges that do not overlap share it (RFC 0121
   §5.8). A session whose claim overlaps an open session's claim on that clock takes a
   new clock; the entry keeps its first. The kind is per session (§4.8), so the framer
-  picks the clock at open, before the first write fixes the kind. A sweep on the
-  injected time source removes an entry one hour after its last session closes (a
-  `Config` field), and a Core restart drops them all. The open response carries the
-  session's clock key, which the client library sets on the wire for that session only.
-  No client library keeps a clock between sessions or shows one to a user.
+  picks the clock at open, before the first write fixes the kind. The pick and the claim
+  run under one lock per entry, so two sessions that open at once never pick one clock.
+  A sweep on the injected time source removes an entry one hour after its last session
+  closes (a `Config` field), skips an entry with an open session, and a Core restart
+  drops them all. The open response carries the session's clock key, which the client
+  library sets on the wire for that session only. No client library keeps a clock
+  between sessions or shows one to a user.
 - **Who may name a clock**: A subject that may update a producer may name a clock that
   the producer's config holds. The API checks it through an injected owner lookup over
   the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
@@ -101,7 +104,10 @@ long as that producer names it.
   channel.
 - **Claims**: A clock key takes claims like a channel key (RFC 0121 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
-  overlaps fails. A calculation session names no clock and takes no claim (§4.5).
+  overlaps fails. The exception, until Phase 9, is an index key that the framer gives to
+  several sessions (§4.8): a later session joins the control region of the clock, as a
+  second writer does in RFC 0121 §5.8, and does not fail. A calculation session names no
+  clock and takes no claim (§4.5).
 - **Unique**: Clock keys in producer configs share one unique space (RFC 0119 §4.1), so
   a save that names another producer's clock fails. A task copy and an import allocate
   new clock keys. A spooled Driver frame keeps its key.
@@ -112,14 +118,16 @@ long as that producer names it.
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 6, clock keys come from their own counter below
   `0xFFF00000`. It starts above the host's lease (`0x00200000` for host key 1), or above
-  the largest channel key that the table holds when that is higher, since a Core from a
-  cluster before 0.61 can have another host key and hold keys on other leases. The free
-  keys of today sit at `0xFFF00000` and up, and their counter is frozen. The v3 record
+  the largest channel key below `0xFFF00000` that the table holds when that is higher,
+  since a Core from a cluster before 0.61 can have another host key and hold keys on
+  other leases. The free keys of today sit at `0xFFF00000` and up, and their counter
+  still serves virtual channels, such as signals and calculation outputs. The v3 record
   of Phase 9 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
   from then one counter serves both, above the largest key issued below `0xFFF00000`,
   and it never enters the free range. So no value is both a channel and a clock. The
   channel table answers "issued" for the leased range, the clock range, and the free
-  range up to its frozen counter. One new clock per second lasts 136 years.
+  range up to the current value of its counter. One new clock per second lasts 136
+  years.
 - **Index keys**: The key of each index channel of today becomes the key of its clock,
   so stored configs, stored data, and frames keep their numbers.
 
@@ -146,7 +154,8 @@ and one data type per key (`codec.go:35-42`, `:227-236`). A 4-byte sequence numb
 each frame names the state. Bit 7 of the flags byte is reserved, and every shipped
 decoder rejects it (`codec.go:854-859`, and the same in the three clients).
 
-**The layout**: Byte order is little endian. K is the count of keys the request named.
+**The layout**: Byte order is little endian. K is the count of unique keys the request
+named.
 
 | Order | Bytes  | Field                                                               | Present when                                        |
 | ----- | ------ | ------------------------------------------------------------------- | --------------------------------------------------- |
@@ -200,17 +209,20 @@ override sits before the length, so a decoder knows the type before it reads dat
   agreed clock at once: it reaches its own series and every later series of that key in
   the frame. A golden frame pins the reach in all four languages.
 - **Declared clocks**: A time series travels under its clock key, which a request need
-  not name (§4.5, §4.8). The list that a frame needs holds each key of a series in the
-  frame that the request did not name, plus each key already in the list that the agreed
-  clock of a timed requested key still names. The encoder's state takes the request's
-  `untimed_keys`; the decoder needs none. So a stream that carries no time series
-  declares nothing, and its frames stay the frames of today. The encoder sends the whole
-  list in field 5 when it differs from the list of the state, and it becomes the list of
-  the state; N can be 0. A list applies to the frame that holds it. A state's key list
-  is the sorted, unique union of the requested and the declared keys in all four codecs,
-  and `allChannelsPresent` compares with it. A declared key has the agreed type
-  `timestamp` and is its own agreed clock. It takes no type and no clock override; the
-  override chain can sit on it for another kind.
+  not name (§4.5, §4.8). The encoder first drops each series whose key the request did
+  not name and that no kept timed series names as its clock. The list that a frame needs
+  then holds each clock key that a kept timed series names and the request did not name,
+  plus each key already in the list that the agreed clock of a timed requested key still
+  names. Any change to a request, of its keys or its `untimed_keys`, swaps the encoder's
+  state when the relay applies it, not when the transport decodes it. The encoder's
+  state takes the request's `untimed_keys`; the decoder needs none. So a stream that
+  carries no time series declares nothing, and its frames stay the frames of today. The
+  encoder sends the whole list in field 5 when it differs from the list of the state,
+  and it becomes the list of the state; N can be 0. A list applies to the frame that
+  holds it. A state's key list is the sorted, unique union of the requested and the
+  declared keys in all four codecs, and `allChannelsPresent` compares with it. A
+  declared key has the agreed type `timestamp` and is its own agreed clock. It takes no
+  type and no clock override; the override chain can sit on it for another kind.
 - **Sequence numbers**: Only a client request that lists keys makes a state and a
   sequence number (`core/pkg/transport/grpc/framer/handler.go:210`,
   `core/pkg/transport/http/framer/codec.go:269`). The Core never adds a key to a
@@ -332,7 +344,7 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   TypeScript cache, line plots, Python frames, and the Arc C++ `on` node change.
 - **Order**: A reader orders the stretches of a channel by time and uses alignment only
   inside one. The floor walk of the TypeScript cache compares alignments across blocks
-  today (`client/ts/src/framer/cache/store.ts:549-559`) and changes to time.
+  today (`client/ts/src/framer/cache/store/store.ts:370-387`) and changes to time.
 - **Reader API**: `frame.time(series)` gives the times of a series: the time series of
   the frame under `series.clock` with the same multiple, whose alignments hold the
   data's. It fails when none is there. A DataFrame of channels on one clock has one
@@ -345,11 +357,12 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   of coverage and eviction. A block holds the series of every type, and from Phase 6 of
   every clock, each clock in an alignment space of its own, so a type or clock change
   keeps history and no read loses part of a tile. The cache trusts the Core it is
-  connected to, not `leaseholder` (`cache/store.ts:290`). A line plot draws one line
-  through a change, a TDMS export writes one column per type, and an Arc node converts
-  an input per series with no recompile.
-- **Variable samples**: A sample over 4 GiB fails loud instead of wrapping its `uint32`
-  length prefix (`x/go/telem/series_factory.go:134-136`).
+  connected to, not `leaseholder` (`cache/store/store.ts:289`). A line plot draws one
+  line through a change, a TDMS export writes one column per type, and an Arc node
+  converts an input per series with no recompile.
+- **Variable samples**: A sample, or a variable series in field 15, of 2^32 bytes or
+  more fails loud instead of wrapping its `uint32` length
+  (`x/go/telem/series_factory.go:134-136`, `codec.go:757`).
 
 ### 4.5 Time in reads and streams
 
@@ -371,7 +384,7 @@ names no clock key.
   never per frame. A request that lists in `untimed_keys` a key it does not request
   fails. The API `ReadRequest` (`core/pkg/api/framer/framer.go:181-199`) takes the same
   field. The TypeScript client shares one stream across every display
-  (`client/ts/src/framer/cache/streamer.ts`), so it marks a key untimed only while every
+  (`client/ts/src/framer/cache/streamer`), so it marks a key untimed only while every
   display that holds the key marks it. A change of `untimed_keys` takes effect at one
   point: the relay applies the new set and the codec takes its new state when the relay
   applies the request, not when the transport decodes it. The response to the request is
@@ -395,8 +408,8 @@ names no clock key.
   The relay (`core/pkg/distribution/framer/relay/streamer.go:220`), the calculation
   transform, and the iterator's calculation step take the rule.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
-  `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:188-190`, `:207-210`), and
-  clients stop adding index keys (`client/ts/src/framer/cache/reader.ts:275-299`,
+  `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:192-194`, `:228-231`), and
+  clients stop adding index keys (`client/ts/src/framer/cache/reader/reader.ts:270-276`,
   `client/py/synnax/framer/adapter.py:68-69`). Until Phase 9 a read or a stream that
   names an index channel works. After Phase 9 it fails with an error that names
   `frame.time(series)`.
@@ -427,19 +440,19 @@ alignment and inputs of two clocks by sample time:
 | Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule |
 | Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                        |
+| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                    |
 | Past the hold limit                           | No output for that stamp, a new output series after the gap, and a stale status on the calculation                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. History judges by stamps                                                                                                                                                                                                                                                                                                                                        |
 | Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Live open                                     | Each input starts from its last 17 stored samples, one read per input, so its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                              |
+| Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                              |
 | Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                      |
 | History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the last reset for a running operation, or to the first sample when it never resets                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
   budget of 0 it differs from history only where an input was late. The TypeScript cache
-  replaces a live block of a calculation output with the block of a historical read for
-  the same alignments.
+  replaces the alignment range that a historical read of a calculation output covered,
+  and keeps the live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
 - **Running operations**: One that never resets costs the whole history on every read,
@@ -456,7 +469,7 @@ alignment and inputs of two clocks by sample time:
   lists each holder that it cannot retarget.
 
 An XY plot whose x and y are on two clocks pairs them by time in Pluto with the same
-hold rule (`pluto/src/vis/line/aether/bounds.ts:37`). The y channel gives the stamps and
+hold rule (`pluto/src/vis/line/aether/pair/pair.ts`). The y channel gives the stamps and
 x holds, so each y sample stays one point.
 
 ### 4.8 Writing time
@@ -476,9 +489,11 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 - **Index channels** (Phases 6 to 8): While a channel has an index channel, the clock of
   a writer that is not a control writer is that index key, and `"time"` carries its
   stamps. A write to such a channel with no index series is the stored kind, as today.
-  One `"time"` key is one clock for the whole write: channels with no index channel join
-  it, and two index channels in one write fail. `is_index=`, `index=`, and index keys in
-  a write work until Phase 9, after which no channel has an index channel.
+  Its relay frame carries the stamps that its data takes, which the writer reads from
+  the clock as the commit check does, so every frame keeps its time series. One `"time"`
+  key is one clock for the whole write: channels with no index channel join it, and two
+  index channels in one write fail. `is_index=`, `index=`, and index keys in a write
+  work until Phase 9, after which no channel has an index channel.
 - **Control writers**: Arc tasks, the Python `Controller`, and Pluto control write their
   command channels on their own clocks from Phase 6 and never write an index channel.
   Authority applies to command channels only.
@@ -509,7 +524,7 @@ one clock key per sample clock of the task, each in the unique space.
 
 **Port lists**: Gorp tracks a reference in a list entry and not in a map value, so the
 port maps of a typed device become lists, and every channel field of a typed device
-carries a tracked link. For the NI device (`schemas/synnax/ni_device.oracle:126-138`):
+carries a tracked link. For the NI device (`schemas/synnax/ni_device.oracle:128-141`):
 
 ```
 PortChannel struct {
@@ -532,12 +547,13 @@ AnalogInputPorts struct {
 (`schemas/synnax/http.oracle:100-104`). Digital lines take the same form with
 `line uint8`, a map whose value is a struct of channels becomes a list of that struct
 with a `port` field, and `command` and `state` of `CommandStatePair`
-(`ni_device.oracle:114-119`) get the same `@ref` lines. Ports are unique within one
+(`ni_device.oracle:116-126`) get the same `@ref` lines. Ports are unique within one
 list, and a channel appears once across the port lists of a device; both are checked at
-save. The five index fields leave in the same schema version (`ni_device.oracle:127`,
-`:142`, `:157`, `:169`, `:181`). Its migration drops an entry whose channel is 0 or has
-no record. For a channel on two ports it keeps the first port, drops the others, and
-writes a warning status.
+save. The five index fields leave in the same schema version (`ni_device.oracle:129`,
+`:144`, `:159`, `:171`, `:183`). Its migration drops an entry whose channel is 0 or has
+no record. For a channel on two ports it keeps the first in the order of the port lists
+in the schema, then of port numbers, drops the others, and writes a warning status. A
+`CommandStatePair` with one key of 0 keeps the other one.
 
 **Amendments to RFC 0081:**
 
@@ -642,15 +658,18 @@ each read series with the channel's one stored type, so Phase 4 tests mixed type
 it can build them, and Phase 7 carries the specs of an export that reads two types of
 one channel.
 
-Readers take the clock from the channel record between Phases 3 and 6, while each
-channel has one clock: the Driver's bypass bus stamps `clock` from the index of each
-channel it carries; CSV, TDMS, and Sift exports group by the record's index; the
-TypeScript cache join places a series on the join of the record's index; and Pluto
-requests the index key of its x channel. An export and the cache join fail on a series
-whose clock differs, with an error that names the channel and its index channel; neither
-drops it. Phase 6 ends all of them: the Driver sets `clock` on each series it builds,
-exports and the cache group by series clock across a clock move, and Pluto takes time
-from closed frames.
+Readers take the clock from the channel record between Phases 3 and 6, except for a
+calculated channel: from Phase 5 its series carries its primary's clock, and a v2 record
+cannot name a host-leased index for a free channel, so readers take its clock from the
+series, and Phase 5 clears the index of its record when it deletes the `<name>_time`
+record. Otherwise, while each channel has one clock: the Driver's bypass bus stamps
+`clock` from the index of each channel it carries; CSV, TDMS, and Sift exports group by
+the record's index; the TypeScript cache join places a series on the join of the
+record's index; and Pluto requests the index key of its x channel. An export and the
+cache join fail on a series whose clock differs, with an error that names the channel
+and its index channel; neither drops it. Phase 6 ends all of them: the Driver sets
+`clock` on each series it builds, exports and the cache group by series clock across a
+clock move, and Pluto takes time from closed frames.
 
 Dependencies on other RFCs:
 
@@ -668,12 +687,12 @@ Compatibility: Phase 3 changes the wire once, with the handshake of §4.2. Phase
 a primary for each calculation record that has none, and it deletes the stored
 `<name>_time` records after it retargets their references. Phase 6 mints a schema
 version for the Arc task config (`schemas/synnax/arc_task.oracle`, shipped in
-`core/v0.61.4` and unchanged in `core/v0.62.0`) with a migration that sets `clock` and
-removes `timestamps_included` from the HTTP read. Phase 9 mints one schema version each
-for the channel record (from v1), the NI device (from v1), and Sift (from v0, first
-stable in `core/v0.62.0`), with migrations; line plot v10 and log v5 need none, since
-detach changes no shape. A Sift flow, named after an index channel in `core/v0.62.0`,
-keeps that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
+`core/v0.61.4` and unchanged in `core/v0.62.0`) with a migration that sets `clock`.
+Phase 9 mints one schema version each for the channel record (from v1), the NI device
+(from v1), and Sift (from v0, first stable in `core/v0.62.0`), with migrations; line
+plot v10 and log v5 need none, since detach changes no shape. A Sift flow, named after
+an index channel in `core/v0.62.0`, keeps that name in its config from Phase 6. Keys of
+`core/v0.62.0` keep their numbers.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Depends on |
 | ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
