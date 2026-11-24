@@ -388,8 +388,8 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
         level: Is the typography level of the tick labels.
     """
 
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     level_color: color__.Ref | None = None
     axis_color: color__.Ref | None = None
@@ -419,7 +419,7 @@ class StateBinding(FormatConfig):
     source: Source | None = None
     enumeration: enumeration_.Key | None = None
     match: symbol.Matcher | None = None
-    bounds: spatial.Bounds | None = None
+    bounds: spatial.ClosedBounds | None = None
     default: float | None = None
 
 
@@ -444,30 +444,44 @@ class RetrieveRequest(BaseModel):
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pipe edges."""
+
     variant: Literal["pipe"] = "pipe"
 
 
 class ElectricEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for electrical edges."""
+
     variant: Literal["electric"] = "electric"
 
 
 class SecondaryEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for secondary edges."""
+
     variant: Literal["secondary"] = "secondary"
 
 
 class JacketedEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for jacketed edges."""
+
     variant: Literal["jacketed"] = "jacketed"
 
 
 class HydraulicEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for hydraulic edges."""
+
     variant: Literal["hydraulic"] = "hydraulic"
 
 
 class PneumaticEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pneumatic edges."""
+
     variant: Literal["pneumatic"] = "pneumatic"
 
 
 class DataEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for data edges."""
+
     variant: Literal["data"] = "data"
 
 
@@ -559,104 +573,154 @@ class ToggleSymbolConfig(ToggleConfig):
 
 
 class CapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for cap symbols."""
+
     variant: Literal["cap"] = "cap"
 
 
 class FilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for filter symbols."""
+
     variant: Literal["filter"] = "filter"
 
 
 class FlowStraightenerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for flow straightener symbols."""
+
     variant: Literal["flow_straightener"] = "flow_straightener"
 
 
 class HeaterElementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for heater element symbols."""
+
     variant: Literal["heater_element"] = "heater_element"
 
 
 class IsoCapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO cap symbols."""
+
     variant: Literal["iso_cap"] = "iso_cap"
 
 
 class IsoFilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO filter symbols."""
+
     variant: Literal["iso_filter"] = "iso_filter"
 
 
 class NozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle symbols."""
+
     variant: Literal["nozzle"] = "nozzle"
 
 
 class OrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice symbols."""
+
     variant: Literal["orifice"] = "orifice"
 
 
 class OrificePlateNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice plate symbols."""
+
     variant: Literal["orifice_plate"] = "orifice_plate"
 
 
 class StrainerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer symbols."""
+
     variant: Literal["strainer"] = "strainer"
 
 
 class StrainerConeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer cone symbols."""
+
     variant: Literal["strainer_cone"] = "strainer_cone"
 
 
 class ThrusterNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for thruster symbols."""
+
     variant: Literal["thruster"] = "thruster"
 
 
 class VentNodeConfig(StaticSymbolConfig):
+    """Is the configuration for vent symbols."""
+
     variant: Literal["vent"] = "vent"
 
 
 class FlowmeterGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general flowmeter symbols."""
+
     variant: Literal["flowmeter_general"] = "flowmeter_general"
 
 
 class FlowmeterElectromagneticNodeConfig(StaticSymbolConfig):
+    """Is the configuration for electromagnetic flowmeter symbols."""
+
     variant: Literal["flowmeter_electromagnetic"] = "flowmeter_electromagnetic"
 
 
 class FlowmeterVariableAreaNodeConfig(StaticSymbolConfig):
+    """Is the configuration for variable area flowmeter symbols."""
+
     variant: Literal["flowmeter_variable_area"] = "flowmeter_variable_area"
 
 
 class FlowmeterCoriolisNodeConfig(StaticSymbolConfig):
+    """Is the configuration for Coriolis flowmeter symbols."""
+
     variant: Literal["flowmeter_coriolis"] = "flowmeter_coriolis"
 
 
 class FlowmeterNozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle flowmeter symbols."""
+
     variant: Literal["flowmeter_nozzle"] = "flowmeter_nozzle"
 
 
 class FlowmeterVenturiNodeConfig(StaticSymbolConfig):
+    """Is the configuration for venturi flowmeter symbols."""
+
     variant: Literal["flowmeter_venturi"] = "flowmeter_venturi"
 
 
 class FlowmeterRingPistonNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ring piston flowmeter symbols."""
+
     variant: Literal["flowmeter_ring_piston"] = "flowmeter_ring_piston"
 
 
 class FlowmeterPositiveDisplacementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for positive displacement flowmeter symbols."""
+
     variant: Literal["flowmeter_positive_displacement"] = (
         "flowmeter_positive_displacement"
     )
 
 
 class FlowmeterTurbineNodeConfig(StaticSymbolConfig):
+    """Is the configuration for turbine flowmeter symbols."""
+
     variant: Literal["flowmeter_turbine"] = "flowmeter_turbine"
 
 
 class FlowmeterPulseNodeConfig(StaticSymbolConfig):
+    """Is the configuration for pulse flowmeter symbols."""
+
     variant: Literal["flowmeter_pulse"] = "flowmeter_pulse"
 
 
 class FlowmeterFloatSensorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for float sensor flowmeter symbols."""
+
     variant: Literal["flowmeter_float_sensor"] = "flowmeter_float_sensor"
 
 
 class FlowmeterOrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice flowmeter symbols."""
+
     variant: Literal["flowmeter_orifice"] = "flowmeter_orifice"
 
 
@@ -703,8 +767,8 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     stroke_color: color__.Ref | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     bar_width: int = Field(default=10, ge=1, le=65535)
     location: spatial.LocationXY = Field(
@@ -850,6 +914,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
 
 
 class SwitchNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for switch symbols."""
+
     variant: Literal["switch"] = "switch"
 
 
@@ -884,98 +950,146 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
 
 class AgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for agitator symbols."""
+
     variant: Literal["agitator"] = "agitator"
 
 
 class CrossBeamAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cross beam agitator symbols."""
+
     variant: Literal["cross_beam_agitator"] = "cross_beam_agitator"
 
 
 class FlatBladeAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for flat blade agitator symbols."""
+
     variant: Literal["flat_blade_agitator"] = "flat_blade_agitator"
 
 
 class HeatExchangerGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_general"] = "heat_exchanger_general"
 
 
 class HeatExchangerMNodeConfig(StaticSymbolConfig):
+    """Is the configuration for M-type heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_m"] = "heat_exchanger_m"
 
 
 class HeatExchangerStraightTubeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for straight tube heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_straight_tube"] = "heat_exchanger_straight_tube"
 
 
 class HelicalAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for helical agitator symbols."""
+
     variant: Literal["helical_agitator"] = "helical_agitator"
 
 
 class PaddleAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for paddle agitator symbols."""
+
     variant: Literal["paddle_agitator"] = "paddle_agitator"
 
 
 class PropellerAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for propeller agitator symbols."""
+
     variant: Literal["propeller_agitator"] = "propeller_agitator"
 
 
 class RotaryMixerNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for rotary mixer symbols."""
+
     variant: Literal["rotary_mixer"] = "rotary_mixer"
 
 
 class StaticMixerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for static mixer symbols."""
+
     variant: Literal["static_mixer"] = "static_mixer"
 
 
 class CavityPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cavity pump symbols."""
+
     variant: Literal["cavity_pump"] = "cavity_pump"
 
 
 class CentrifugalCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for centrifugal compressor symbols."""
+
     variant: Literal["centrifugal_compressor"] = "centrifugal_compressor"
 
 
 class CompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for compressor symbols."""
+
     variant: Literal["compressor"] = "compressor"
 
 
 class DiaphragmPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for diaphragm pump symbols."""
+
     variant: Literal["diaphragm_pump"] = "diaphragm_pump"
 
 
 class EjectionPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejection pump symbols."""
+
     variant: Literal["ejection_pump"] = "ejection_pump"
 
 
 class EjectorCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejector compressor symbols."""
+
     variant: Literal["ejector_compressor"] = "ejector_compressor"
 
 
 class LiquidRingCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for liquid ring compressor symbols."""
+
     variant: Literal["liquid_ring_compressor"] = "liquid_ring_compressor"
 
 
 class PistonPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for piston pump symbols."""
+
     variant: Literal["piston_pump"] = "piston_pump"
 
 
 class PumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for pump symbols."""
+
     variant: Literal["pump"] = "pump"
 
 
 class RollerVaneCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for roller vane compressor symbols."""
+
     variant: Literal["roller_vane_compressor"] = "roller_vane_compressor"
 
 
 class ScrewPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for screw pump symbols."""
+
     variant: Literal["screw_pump"] = "screw_pump"
 
 
 class TurboCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for turbo compressor symbols."""
+
     variant: Literal["turbo_compressor"] = "turbo_compressor"
 
 
 class VacuumPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for vacuum pump symbols."""
+
     variant: Literal["vacuum_pump"] = "vacuum_pump"
 
 
@@ -1137,8 +1251,8 @@ class TankNodeConfig(LabeledConfig):
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     level_color: color__.Ref | None = None
     axis_color: color__.Ref | None = None

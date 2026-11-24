@@ -346,7 +346,7 @@ const createSampledRecord = (offset: number, value: object) => ({
 /** Creates a Kafka scan task on the rack of dev, with a heartbeat. */
 const createScanTask = async (dev: device.Device) => {
   const rck = await client.racks.retrieve({ key: dev.rack });
-  await startRackHeartbeat(client, rck);
+  onTestFinished(await startRackHeartbeat(client, rck));
   return await rck.createTask({
     name: uniqueName("kafka_scan"),
     type: Kafka.Device.SCAN_TYPE,
@@ -955,6 +955,40 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].disabled).toBe(false),
       );
+    });
+
+    it("should copy a record after it in its topic, each field on a new channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const { draft } = await renderRead({
+        fields: [temperature],
+        recordKey: "pump",
+        bound: { [temperature.key]: ch.key },
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*pump/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const [original, copy] = await waitFor(async () => {
+        const [topic] = await retrieveTopics(draft.key);
+        expect(topic.records).toHaveLength(2);
+        return topic.records;
+      });
+      expect(copy.key).not.toBe(original.key);
+      expect(copy).toEqual({
+        ...original,
+        key: copy.key,
+        messages: [
+          {
+            ...original.messages[0],
+            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          },
+        ],
+      });
     });
 
     it.each([

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -59,7 +60,7 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should encode and decode multiple channels", func(ctx SpecContext) {
@@ -85,13 +86,13 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(3))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2)))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(1),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[float32](1.1, 2.2)))
+			).To(MatchSeriesData(telem.NewSeriesV[float32](1.1, 2.2)))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(2),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[uint64](100, 200)))
+			).To(MatchSeriesData(telem.NewSeriesV[uint64](100, 200)))
 		})
 
 		It("Should encode and decode open command", func(ctx SpecContext) {
@@ -351,7 +352,7 @@ var _ = Describe("FramerCodec", func() {
 				var resDecoded http.WSMessage[framer.StreamerResponse]
 				Expect(v.Decode(resEncoded, &resDecoded)).To(Succeed())
 				Expect(resDecoded.Payload.Frame.SeriesAt(0)).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
+					To(MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
 			},
 		)
 	})
@@ -407,7 +408,7 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should encode and decode multiple channels", func(ctx SpecContext) {
@@ -430,10 +431,10 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(2))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
+			).To(MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(1),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
+			).To(MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
 		})
 		It("Should encode and decode empty frame", func(ctx SpecContext) {
 			v := framer.NewCodec(ctx, codec.NewStatic(
@@ -566,7 +567,7 @@ var _ = Describe("FramerCodec", func() {
 				Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 				Expect(
 					resMsg.Payload.Frame.SeriesAt(0),
-				).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+				).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 			},
 		)
 
@@ -676,7 +677,7 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Payload.SeqNum).To(Equal(0))
 			Expect(
 				resMsg.Payload.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 	})
 
@@ -792,7 +793,7 @@ var _ = Describe("FramerCodec", func() {
 				Expect(v.Decode(encoded, &dec)).To(Succeed())
 				Expect(
 					dec.Payload.Frame.SeriesAt(0),
-				).To(telem.MatchSeriesData(telem.NewSeriesV[int32](7, 8)))
+				).To(MatchSeriesData(telem.NewSeriesV[int32](7, 8)))
 			},
 		)
 

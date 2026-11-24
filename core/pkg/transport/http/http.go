@@ -93,17 +93,17 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/session/delete",
 		),
-		AuthKeyCreate: unary[auth.KeyCreateRequest, auth.KeyCreateResponse](
+		AuthAPIKeyCreate: unary[auth.APIKeyCreateRequest, auth.APIKeyCreateResponse](
 			router,
-			"/api/v1/auth/key/create",
+			"/api/v1/auth/api-key/create",
 		),
-		AuthKeyRetrieve: unary[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse](
+		AuthAPIKeyRetrieve: unary[auth.APIKeyRetrieveRequest, auth.APIKeyRetrieveResponse](
 			router,
-			"/api/v1/auth/key/retrieve",
+			"/api/v1/auth/api-key/retrieve",
 		),
-		AuthKeyDelete: unary[auth.KeyDeleteRequest, struct{}](
+		AuthAPIKeyDelete: unary[auth.APIKeyDeleteRequest, struct{}](
 			router,
-			"/api/v1/auth/key/delete",
+			"/api/v1/auth/api-key/delete",
 		),
 		AuthOIDCLink: unary[auth.OIDCLinkRequest, auth.OIDCLinkResponse](
 			router,
@@ -120,6 +120,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AuthPasswordCreate: unary[auth.PasswordCreateRequest, struct{}](
 			router,
 			"/api/v1/auth/password/create",
+		),
+		AuthPasswordRetrieve: unary[
+			auth.PasswordRetrieveRequest,
+			auth.PasswordRetrieveResponse,
+		](router, "/api/v1/auth/password/retrieve"),
+		AuthPasswordDispatch: unary[auth.PasswordDispatchRequest, struct{}](
+			router,
+			"/api/v1/auth/password/dispatch",
 		),
 		AuthPasswordSet: unary[auth.PasswordSetRequest, auth.PasswordSetResponse](
 			router,

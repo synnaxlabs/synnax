@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type color, lineplot, NotFoundError, type project } from "@synnaxlabs/client";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { array, color as xcolor, DataType, type require, verbs } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
@@ -99,16 +100,6 @@ export interface ResolvedColor {
   autoColor: xcolor.Color;
 }
 
-interface Colors {
-  resolve: (ref: color.Ref) => xcolor.Color | undefined;
-  series: color.Key[];
-}
-
-const useColors = (): Colors => ({
-  resolve: Color.useResolve(),
-  series: Color.useSeries(),
-});
-
 // autoKeys returns the key of the series color that each element takes when it has no
 // stored color: the one that the fewest other elements use, with a tie going to the
 // first. Each element with no stored color counts as using the key it takes. The Core
@@ -135,42 +126,48 @@ const autoKeys = (
   });
 };
 
-// resolveColor resolves a line or rule color. Lines and rules both route through
-// it so the chart and the toolbar resolve an element to the same color.
-const resolveColor = (
-  stored: color.Ref | undefined,
-  auto: color.Key | undefined,
-  colors: Colors,
-): ResolvedColor => {
-  const autoColor =
-    (auto == null ? undefined : colors.resolve({ type: "named", key: auto })) ??
-    xcolor.TRANSPARENT;
-  const resolved = stored == null ? undefined : colors.resolve(stored);
-  return { color: resolved ?? autoColor, pickedColor: stored, autoColor };
+const seriesKeys = (series: color.Named[]): color.Key[] => series.map((c) => c.key);
+
+// useResolvedColors resolves line, range, and rule colors, so the chart and the toolbar
+// resolve an element to the same color. It re-renders only when a named color that it
+// reads changes.
+const useResolvedColors = (
+  stored: (color.Ref | undefined)[],
+  auto: (color.Key | undefined)[],
+  series: color.Named[],
+): ResolvedColor[] => {
+  const t = Theming.use();
+  const values = Color.useValues(stored);
+  return stored.map((pickedColor, i) => {
+    const named = series.find((c) => c.key === auto[i]);
+    const autoColor = named == null ? xcolor.TRANSPARENT : Theming.resolve(named, t);
+    return { color: values[i] ?? autoColor, pickedColor, autoColor };
+  });
 };
 
 const useStoredLines = createSelector(({ lines }) => lines);
 
 const useLinesBase = (params: KeyParams): DerivedLine[] => {
   const lines = useStoredLines(params);
-  const colors = useColors();
-  const auto = autoKeys(
-    lines.map((l) => l.color),
-    colors.series,
+  const stored = lines.map((l) => l.color);
+  const series = Color.useSeries();
+  const resolved = useResolvedColors(
+    stored,
+    autoKeys(stored, seriesKeys(series)),
+    series,
   );
   return lines.map(({ color, ...line }, i) => ({
     ...line,
-    ...resolveColor(color, auto[i], colors),
+    ...resolved[i],
     isDefaultLabel: line.label == null,
   }));
 };
 
 const useRangeColorsBase = (params: KeyParams): xcolor.Color[] => {
-  const ranges = useRanges(params);
-  const colors = useColors();
-  const stored = ranges.map((r) => r.color);
-  const auto = autoKeys(stored, colors.series);
-  return stored.map((c, i) => resolveColor(c, auto[i], colors).color);
+  const stored = useRanges(params).map((r) => r.color);
+  const series = Color.useSeries();
+  const auto = autoKeys(stored, seriesKeys(series));
+  return useResolvedColors(stored, auto, series).map((r) => r.color);
 };
 
 /**
@@ -301,15 +298,16 @@ const useRawLine = createSelector<RawLine, LineParams & SeriesParams>(
 );
 
 const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> => {
-  const colors = useColors();
-  const raw = useRawLine({ ...params, series: colors.series });
+  const series = Color.useSeries();
+  const raw = useRawLine({ ...params, series: seriesKeys(series) });
+  const [resolved] = useResolvedColors([raw.line.color], [raw.auto], series);
   const { yChannel } = raw.line;
   const { data: chanName } = Channel.useResultName(
     yChannel > 0 ? { key: yChannel } : null,
   );
   return {
     ...raw.line,
-    ...resolveColor(raw.line.color, raw.auto, colors),
+    ...resolved,
     label: raw.line.label ?? chanName ?? "",
     isDefaultLabel: raw.line.label == null,
   };
@@ -328,15 +326,14 @@ const useRawRules = createSelector(({ rules }) => rules);
 
 const useRulesBase = (params: KeyParams): DerivedRule[] => {
   const rules = useRawRules(params);
-  const colors = useColors();
-  const auto = autoKeys(
-    rules.map((r) => r.color),
-    colors.series,
+  const stored = rules.map((r) => r.color);
+  const series = Color.useSeries();
+  const resolved = useResolvedColors(
+    stored,
+    autoKeys(stored, seriesKeys(series)),
+    series,
   );
-  return rules.map(({ color, ...rule }, i) => ({
-    ...rule,
-    ...resolveColor(color, auto[i], colors),
-  }));
+  return rules.map(({ color, ...rule }, i) => ({ ...rule, ...resolved[i] }));
 };
 
 // useRules returns the plot's rules, each with its render color resolved for the
@@ -367,9 +364,10 @@ const useRawRule = createSelector<RawRule, RuleParams & SeriesParams>(
 );
 
 const useRuleBase = (params: RuleParams): DerivedRule => {
-  const colors = useColors();
-  const raw = useRawRule({ ...params, series: colors.series });
-  return { ...raw.rule, ...resolveColor(raw.rule.color, raw.auto, colors) };
+  const series = Color.useSeries();
+  const raw = useRawRule({ ...params, series: seriesKeys(series) });
+  const [resolved] = useResolvedColors([raw.rule.color], [raw.auto], series);
+  return { ...raw.rule, ...resolved };
 };
 
 // useRule returns a single rule with its color resolved the same way as useRules. It

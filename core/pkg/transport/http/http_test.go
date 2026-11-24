@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -625,19 +626,19 @@ var _ = Describe("HTTP", func() {
 			rootToken := login(
 				auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
 			)
-			var created apiauth.KeyCreateResponse
+			var created apiauth.APIKeyCreateResponse
 			Expect(call(
-				"/api/v1/auth/key/create",
+				"/api/v1/auth/api-key/create",
 				rootToken,
-				apiauth.KeyCreateRequest{Name: "ci"},
+				apiauth.APIKeyCreateRequest{Name: "ci"},
 				&created,
 			)).To(Equal(http.StatusOK))
 			Expect(created.Token).To(HavePrefix("syk_"))
-			var listed apiauth.KeyRetrieveResponse
+			var listed apiauth.APIKeyRetrieveResponse
 			Expect(call(
-				"/api/v1/auth/key/retrieve",
+				"/api/v1/auth/api-key/retrieve",
 				rootToken,
-				apiauth.KeyRetrieveRequest{},
+				apiauth.APIKeyRetrieveRequest{},
 				&listed,
 			)).To(Equal(http.StatusOK))
 			Expect(listed.Keys).To(ConsistOf(created.Key))
@@ -647,13 +648,39 @@ var _ = Describe("HTTP", func() {
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusOK))
 			Expect(call(
-				"/api/v1/auth/key/delete",
+				"/api/v1/auth/api-key/delete",
 				rootToken,
-				apiauth.KeyDeleteRequest{Keys: []apikey.Key{created.Key.Key}},
+				apiauth.APIKeyDeleteRequest{Keys: []apikey.Key{created.Key.Key}},
 				nil,
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should list the caller's password and dispatch a rename", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			var res apiauth.PasswordRetrieveResponse
+			Expect(call(
+				"/api/v1/auth/password/retrieve",
+				token,
+				apiauth.PasswordRetrieveRequest{},
+				&res,
+			)).To(Equal(http.StatusOK))
+			Expect(res.Passwords).To(ConsistOf(HaveField("Username", creds.Username)))
+			Expect(call(
+				"/api/v1/auth/password/dispatch",
+				token,
+				apiauth.PasswordDispatchRequest{
+					Key: res.Passwords[0].Key,
+					Actions: []password.Action{password.NewSetUsernameAction(
+						password.SetUsernamePayload{Username: "renamed"},
+					)},
+				},
+				nil,
+			)).To(Equal(http.StatusOK))
+			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
+				Username: "renamed",
+				Password: creds.Password,
+			}}})
 		})
 		It("Should refuse a first password for a caller that has one", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
@@ -706,11 +733,11 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			keyFor := func(r rack.Rack) string {
 				GinkgoHelper()
-				var created apiauth.KeyCreateResponse
+				var created apiauth.APIKeyCreateResponse
 				Expect(call(
-					"/api/v1/auth/key/create",
+					"/api/v1/auth/api-key/create",
 					rootToken,
-					apiauth.KeyCreateRequest{
+					apiauth.APIKeyCreateRequest{
 						Subject: rack.ResourceIDs([]rack.Key{r.Key})[0],
 					},
 					&created,

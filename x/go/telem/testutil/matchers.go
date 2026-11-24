@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package testutil
 
 import (
 	"bytes"
@@ -17,81 +17,58 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	xtypes "github.com/synnaxlabs/x/types"
 )
 
-// SeriesMatcherOption configures the behavior of the series matcher.
-type SeriesMatcherOption func(*seriesMatcher)
-
-// ExcludeSeriesFields returns an option that configures the series matcher to exclude
-// specific fields from comparison. Valid fields are "DataType", "TimeRange",
-// "Alignment", and "Data".
-func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
-	return func(m *seriesMatcher) {
-		m.excludedFields = set.New(fields...)
-	}
-}
+// writtenExcluded holds the fields that storage can change in a written series.
+var writtenExcluded = []string{"TimeRange", "Alignment"}
 
 type seriesMatcher struct {
 	excludedFields set.Set[string]
-	expected       Series
+	expected       telem.Series
 }
 
 // MatchSeries returns a Gomega matcher that compares two Series for equality.
 // Two series are considered equal if they have the same:
-// - DataType (unless excluded)
-// - TimeRange (unless excluded)
-// - Data contents (unless excluded)
-// - Alignment and AlignmentMultiple (unless excluded).
-func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
-	return newSeriesMatcher(expected, opts...)
+// - DataType
+// - TimeRange
+// - Data contents
+// - Alignment and AlignmentMultiple.
+func MatchSeries(expected telem.Series) types.GomegaMatcher {
+	return newSeriesMatcher(expected)
 }
 
-func newSeriesMatcher(expected Series, opts ...SeriesMatcherOption) *seriesMatcher {
-	m := &seriesMatcher{
-		expected:       expected,
-		excludedFields: make(set.Set[string]),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
+// newSeriesMatcher returns a matcher that skips the excluded fields: "DataType",
+// "TimeRange", "Alignment", or "Data".
+func newSeriesMatcher(expected telem.Series, excluded ...string) *seriesMatcher {
+	return &seriesMatcher{expected: expected, excludedFields: set.New(excluded...)}
 }
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
-// but excludes TimeRange and Alignment fields by default. This is useful when comparing
+// but excludes TimeRange and Alignment. This is useful when comparing
 // Series that have been written to and read from storage, where these fields might
 // differ but the actual data remains the same.
-func MatchWrittenSeries(
-	expected Series,
-	opts ...SeriesMatcherOption,
-) types.GomegaMatcher {
-	m := &seriesMatcher{
-		expected:       expected,
-		excludedFields: set.New("TimeRange", "Alignment"),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
+func MatchWrittenSeries(expected telem.Series) types.GomegaMatcher {
+	return newSeriesMatcher(expected, writtenExcluded...)
 }
 
 // MatchSeriesData returns a matcher that only compares the data contents of two Series,
 // ignoring DataType, TimeRange, and Alignment.
-func MatchSeriesData(expected Series) types.GomegaMatcher {
-	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
+func MatchSeriesData(expected telem.Series) types.GomegaMatcher {
+	return newSeriesMatcher(expected, writtenExcluded...)
 }
 
 // MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from
 // the provided sample data and returns a matcher. This is a convenience function for
 // testing when you want to directly provide data values instead of constructing a
 // Series first.
-func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
-	return MatchSeriesData(NewSeriesV(data...))
+func MatchSeriesDataV[T telem.Sample](data ...T) types.GomegaMatcher {
+	return MatchSeriesData(telem.NewSeriesV(data...))
 }
 
 func (m *seriesMatcher) Match(actual any) (success bool, err error) {
-	actualSeries, ok := actual.(Series)
+	actualSeries, ok := actual.(telem.Series)
 	if !ok {
 		return false, errors.Newf(
 			"MatchSeries matcher expects a Series but got %K",
@@ -101,7 +78,7 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	return m.matches(actualSeries), nil
 }
 
-func (m *seriesMatcher) matches(actual Series) bool {
+func (m *seriesMatcher) matches(actual telem.Series) bool {
 	if !m.excludedFields.Contains("DataType") &&
 		actual.DataType != m.expected.DataType {
 		return false
@@ -120,7 +97,7 @@ func (m *seriesMatcher) matches(actual Series) bool {
 }
 
 func (m *seriesMatcher) FailureMessage(actual any) string {
-	actualSeries, ok := actual.(Series)
+	actualSeries, ok := actual.(telem.Series)
 	if !ok {
 		return fmt.Sprintf("Expected Series but got %K", actual)
 	}
@@ -187,35 +164,26 @@ func formatDifferences(differences []string) string {
 }
 
 type frameMatcher[K xtypes.SizedNumeric] struct {
-	matchSeriesOpts []SeriesMatcherOption
-	expected        Frame[K]
+	expected telem.Frame[K]
+	excluded []string
 }
 
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
 // The matcher verifies that both frames have the same number of series and that each
 // series matches its corresponding one in the expected frame. K must be a numeric type.
-func MatchFrame[K xtypes.SizedNumeric](
-	expected Frame[K],
-	matchSeriesOpts ...SeriesMatcherOption,
-) types.GomegaMatcher {
-	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
+func MatchFrame[K xtypes.SizedNumeric](expected telem.Frame[K]) types.GomegaMatcher {
+	return &frameMatcher[K]{expected: expected}
 }
 
+// MatchWrittenFrame is MatchFrame with each series compared as MatchWrittenSeries does.
 func MatchWrittenFrame[K xtypes.SizedNumeric](
-	expected Frame[K],
-	opts ...SeriesMatcherOption,
+	expected telem.Frame[K],
 ) types.GomegaMatcher {
-	return &frameMatcher[K]{
-		expected: expected,
-		matchSeriesOpts: append(
-			[]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")},
-			opts...,
-		),
-	}
+	return &frameMatcher[K]{expected: expected, excluded: writtenExcluded}
 }
 
 func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return false, errors.Newf(
 			"MatchFrame matcher expects a Frame but got %K",
@@ -232,7 +200,7 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 			return false, nil
 		}
 		for i, s := range decodedSeries.Series {
-			if !newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...).
+			if !newSeriesMatcher(originalSeries.Series[i], m.excluded...).
 				matches(s) {
 				return false, nil
 			}
@@ -242,7 +210,7 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 }
 
 func (m *frameMatcher[K]) FailureMessage(actual any) string {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
@@ -254,7 +222,7 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			sm := newSeriesMatcher(originalSeries.Series[i], m.excluded...)
 			if !sm.matches(s) {
 				return sm.FailureMessage(s)
 			}
@@ -264,7 +232,7 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 }
 
 func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
@@ -279,7 +247,7 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			sm := newSeriesMatcher(originalSeries.Series[i], m.excluded...)
 			if sm.matches(s) {
 				return fmt.Sprintf("Frames match for key %v", k)
 			}

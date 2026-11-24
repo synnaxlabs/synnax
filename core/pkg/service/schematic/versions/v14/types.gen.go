@@ -123,19 +123,19 @@ func (s SegmentedEdgeConfig) Validate() error {
 type EdgeConfigType string
 
 const (
-	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	// PipeEdgeConfigType is the configuration for pipe edges.
 	PipeEdgeConfigType EdgeConfigType = "pipe"
-	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	// ElectricEdgeConfigType is the configuration for electrical edges.
 	ElectricEdgeConfigType EdgeConfigType = "electric"
-	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
+	// SecondaryEdgeConfigType is the configuration for secondary edges.
 	SecondaryEdgeConfigType EdgeConfigType = "secondary"
-	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	// JacketedEdgeConfigType is the configuration for jacketed edges.
 	JacketedEdgeConfigType EdgeConfigType = "jacketed"
-	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
+	// HydraulicEdgeConfigType is the configuration for hydraulic edges.
 	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
-	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
+	// PneumaticEdgeConfigType is the configuration for pneumatic edges.
 	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
-	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	// DataEdgeConfigType is the configuration for data edges.
 	DataEdgeConfigType EdgeConfigType = "data"
 )
 
@@ -144,6 +144,7 @@ type EdgeConfigVariant interface {
 	isEdgeConfigVariant()
 }
 
+// PipeEdgeConfig is the configuration for pipe edges.
 type PipeEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -163,6 +164,7 @@ func (p PipeEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricEdgeConfig is the configuration for electrical edges.
 type ElectricEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -182,6 +184,7 @@ func (e ElectricEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// SecondaryEdgeConfig is the configuration for secondary edges.
 type SecondaryEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -201,6 +204,7 @@ func (s SecondaryEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// JacketedEdgeConfig is the configuration for jacketed edges.
 type JacketedEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -220,6 +224,7 @@ func (j JacketedEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// HydraulicEdgeConfig is the configuration for hydraulic edges.
 type HydraulicEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -239,6 +244,7 @@ func (h HydraulicEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// PneumaticEdgeConfig is the configuration for pneumatic edges.
 type PneumaticEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -258,6 +264,7 @@ func (p PneumaticEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// DataEdgeConfig is the configuration for data edges.
 type DataEdgeConfig struct {
 	SegmentedEdgeConfig
 }
@@ -606,7 +613,7 @@ type ScaleIndicatorConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Bounds is the numeric range the indicator maps onto its extent.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border, a named color or a fixed color.
 	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
@@ -649,6 +656,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(s.Bounds.Validate(), "bounds") })
 	if s.LevelColor != nil {
 		v.Exec(func() error { return validate.PathedError(s.LevelColor.Validate(), "level_color") })
 	}
@@ -716,7 +724,7 @@ type StateBinding struct {
 	// Match replaces the match of the state.
 	Match *symbol.Matcher `json:"match,omitzero" msgpack:"match,omitempty"`
 	// Bounds replaces the bounds of a number state.
-	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	Bounds *spatial.ClosedBounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
 	// Default replaces the default of the state.
 	Default *float64 `json:"default,omitzero" msgpack:"default,omitempty"`
 }
@@ -731,6 +739,9 @@ func (s StateBinding) Validate() error {
 	}
 	if s.Match != nil {
 		v.Exec(func() error { return validate.PathedError(s.Match.Validate(), "match") })
+	}
+	if s.Bounds != nil {
+		v.Exec(func() error { return validate.PathedError(s.Bounds.Validate(), "bounds") })
 	}
 	return v.Error()
 }
@@ -872,60 +883,66 @@ type CommandBinding struct {
 type NodeConfigType string
 
 const (
-	// CapNodeConfigType selects the CapNodeConfig variant.
+	// CapNodeConfigType is the configuration for cap symbols.
 	CapNodeConfigType NodeConfigType = "cap"
-	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	// FilterNodeConfigType is the configuration for filter symbols.
 	FilterNodeConfigType NodeConfigType = "filter"
-	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	// FlowStraightenerNodeConfigType is the configuration for flow straightener
+	// symbols.
 	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
-	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = "heater_element"
-	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
 	IsoCapNodeConfigType NodeConfigType = "iso_cap"
-	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
 	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
-	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = "nozzle"
-	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	// OrificeNodeConfigType is the configuration for orifice symbols.
 	OrificeNodeConfigType NodeConfigType = "orifice"
-	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	// OrificePlateNodeConfigType is the configuration for orifice plate symbols.
 	OrificePlateNodeConfigType NodeConfigType = "orifice_plate"
-	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	// StrainerNodeConfigType is the configuration for strainer symbols.
 	StrainerNodeConfigType NodeConfigType = "strainer"
-	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	// StrainerConeNodeConfigType is the configuration for strainer cone symbols.
 	StrainerConeNodeConfigType NodeConfigType = "strainer_cone"
-	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	// ThrusterNodeConfigType is the configuration for thruster symbols.
 	ThrusterNodeConfigType NodeConfigType = "thruster"
-	// VentNodeConfigType selects the VentNodeConfig variant.
+	// VentNodeConfigType is the configuration for vent symbols.
 	VentNodeConfigType NodeConfigType = "vent"
-	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	// FlowmeterGeneralNodeConfigType is the configuration for general flowmeter
+	// symbols.
 	FlowmeterGeneralNodeConfigType NodeConfigType = "flowmeter_general"
-	// FlowmeterElectromagneticNodeConfigType selects the
-	// FlowmeterElectromagneticNodeConfig variant.
+	// FlowmeterElectromagneticNodeConfigType is the configuration for electromagnetic
+	// flowmeter symbols.
 	FlowmeterElectromagneticNodeConfigType NodeConfigType = "flowmeter_electromagnetic"
-	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
-	// variant.
+	// FlowmeterVariableAreaNodeConfigType is the configuration for variable area
+	// flowmeter symbols.
 	FlowmeterVariableAreaNodeConfigType NodeConfigType = "flowmeter_variable_area"
-	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	// FlowmeterCoriolisNodeConfigType is the configuration for Coriolis flowmeter
+	// symbols.
 	FlowmeterCoriolisNodeConfigType NodeConfigType = "flowmeter_coriolis"
-	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	// FlowmeterNozzleNodeConfigType is the configuration for nozzle flowmeter symbols.
 	FlowmeterNozzleNodeConfigType NodeConfigType = "flowmeter_nozzle"
-	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	// FlowmeterVenturiNodeConfigType is the configuration for venturi flowmeter
+	// symbols.
 	FlowmeterVenturiNodeConfigType NodeConfigType = "flowmeter_venturi"
-	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
-	// variant.
+	// FlowmeterRingPistonNodeConfigType is the configuration for ring piston flowmeter
+	// symbols.
 	FlowmeterRingPistonNodeConfigType NodeConfigType = "flowmeter_ring_piston"
-	// FlowmeterPositiveDisplacementNodeConfigType selects the
-	// FlowmeterPositiveDisplacementNodeConfig variant.
+	// FlowmeterPositiveDisplacementNodeConfigType is the configuration for positive
+	// displacement flowmeter symbols.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = "flowmeter_positive_displacement"
-	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	// FlowmeterTurbineNodeConfigType is the configuration for turbine flowmeter
+	// symbols.
 	FlowmeterTurbineNodeConfigType NodeConfigType = "flowmeter_turbine"
-	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	// FlowmeterPulseNodeConfigType is the configuration for pulse flowmeter symbols.
 	FlowmeterPulseNodeConfigType NodeConfigType = "flowmeter_pulse"
-	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
-	// variant.
+	// FlowmeterFloatSensorNodeConfigType is the configuration for float sensor
+	// flowmeter symbols.
 	FlowmeterFloatSensorNodeConfigType NodeConfigType = "flowmeter_float_sensor"
-	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	// FlowmeterOrificeNodeConfigType is the configuration for orifice flowmeter
+	// symbols.
 	FlowmeterOrificeNodeConfigType NodeConfigType = "flowmeter_orifice"
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = "box"
@@ -957,64 +974,69 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = "string_display"
-	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	// SwitchNodeConfigType is the configuration for switch symbols.
 	SwitchNodeConfigType NodeConfigType = "switch"
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = "text_box"
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
 	ValueNodeConfigType NodeConfigType = "value"
-	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	// AgitatorNodeConfigType is the configuration for agitator symbols.
 	AgitatorNodeConfigType NodeConfigType = "agitator"
-	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	// CrossBeamAgitatorNodeConfigType is the configuration for cross beam agitator
+	// symbols.
 	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
-	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	// FlatBladeAgitatorNodeConfigType is the configuration for flat blade agitator
+	// symbols.
 	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
-	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
-	// variant.
+	// HeatExchangerGeneralNodeConfigType is the configuration for general heat
+	// exchanger symbols.
 	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
-	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	// HeatExchangerMNodeConfigType is the configuration for M-type heat exchanger
+	// symbols.
 	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
-	// HeatExchangerStraightTubeNodeConfigType selects the
-	// HeatExchangerStraightTubeNodeConfig variant.
+	// HeatExchangerStraightTubeNodeConfigType is the configuration for straight tube
+	// heat exchanger symbols.
 	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
-	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	// HelicalAgitatorNodeConfigType is the configuration for helical agitator symbols.
 	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
-	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	// PaddleAgitatorNodeConfigType is the configuration for paddle agitator symbols.
 	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
-	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	// PropellerAgitatorNodeConfigType is the configuration for propeller agitator
+	// symbols.
 	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
-	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	// RotaryMixerNodeConfigType is the configuration for rotary mixer symbols.
 	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
-	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	// StaticMixerNodeConfigType is the configuration for static mixer symbols.
 	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
-	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	// CavityPumpNodeConfigType is the configuration for cavity pump symbols.
 	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
-	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
-	// variant.
+	// CentrifugalCompressorNodeConfigType is the configuration for centrifugal
+	// compressor symbols.
 	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
-	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	// CompressorNodeConfigType is the configuration for compressor symbols.
 	CompressorNodeConfigType NodeConfigType = "compressor"
-	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	// DiaphragmPumpNodeConfigType is the configuration for diaphragm pump symbols.
 	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
-	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	// EjectionPumpNodeConfigType is the configuration for ejection pump symbols.
 	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
-	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	// EjectorCompressorNodeConfigType is the configuration for ejector compressor
+	// symbols.
 	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
-	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
-	// variant.
+	// LiquidRingCompressorNodeConfigType is the configuration for liquid ring
+	// compressor symbols.
 	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
-	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	// PistonPumpNodeConfigType is the configuration for piston pump symbols.
 	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
-	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	// PumpNodeConfigType is the configuration for pump symbols.
 	PumpNodeConfigType NodeConfigType = "pump"
-	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
-	// variant.
+	// RollerVaneCompressorNodeConfigType is the configuration for roller vane
+	// compressor symbols.
 	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
-	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	// ScrewPumpNodeConfigType is the configuration for screw pump symbols.
 	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
-	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
 	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
-	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
 	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
 	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
@@ -1111,6 +1133,7 @@ type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
 
+// CapNodeConfig is the configuration for cap symbols.
 type CapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1130,6 +1153,7 @@ func (c CapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FilterNodeConfig is the configuration for filter symbols.
 type FilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1149,6 +1173,7 @@ func (f FilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowStraightenerNodeConfig is the configuration for flow straightener symbols.
 type FlowStraightenerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1168,6 +1193,7 @@ func (f FlowStraightenerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1187,6 +1213,7 @@ func (h HeaterElementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCapNodeConfig is the configuration for ISO cap symbols.
 type IsoCapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1206,6 +1233,7 @@ func (i IsoCapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoFilterNodeConfig is the configuration for ISO filter symbols.
 type IsoFilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1225,6 +1253,7 @@ func (i IsoFilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1244,6 +1273,7 @@ func (n NozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificeNodeConfig is the configuration for orifice symbols.
 type OrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1263,6 +1293,7 @@ func (o OrificeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificePlateNodeConfig is the configuration for orifice plate symbols.
 type OrificePlateNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1282,6 +1313,7 @@ func (o OrificePlateNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerNodeConfig is the configuration for strainer symbols.
 type StrainerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1301,6 +1333,7 @@ func (s StrainerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerConeNodeConfig is the configuration for strainer cone symbols.
 type StrainerConeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1320,6 +1353,7 @@ func (s StrainerConeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThrusterNodeConfig is the configuration for thruster symbols.
 type ThrusterNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1339,6 +1373,7 @@ func (t ThrusterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VentNodeConfig is the configuration for vent symbols.
 type VentNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1358,6 +1393,7 @@ func (ve VentNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1377,6 +1413,8 @@ func (f FlowmeterGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+// symbols.
 type FlowmeterElectromagneticNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1396,6 +1434,8 @@ func (f FlowmeterElectromagneticNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1415,6 +1455,7 @@ func (f FlowmeterVariableAreaNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1434,6 +1475,7 @@ func (f FlowmeterCoriolisNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1453,6 +1495,7 @@ func (f FlowmeterNozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1472,6 +1515,7 @@ func (f FlowmeterVenturiNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
 type FlowmeterRingPistonNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1491,6 +1535,8 @@ func (f FlowmeterRingPistonNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1510,6 +1556,7 @@ func (f FlowmeterPositiveDisplacementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1529,6 +1576,7 @@ func (f FlowmeterTurbineNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1548,6 +1596,8 @@ func (f FlowmeterPulseNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1567,6 +1617,7 @@ func (f FlowmeterFloatSensorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1721,7 +1772,7 @@ type GaugeNodeConfig struct {
 	// StrokeColor is the color of the gauge arc, a named color or a fixed color.
 	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
 	BarWidth uint16 `json:"bar_width" msgpack:"bar_width"`
 	// Location is the anchor of the value within the gauge.
@@ -1758,6 +1809,7 @@ func (g GaugeNodeConfig) Validate() error {
 	if g.StrokeColor != nil {
 		v.Exec(func() error { return validate.PathedError(g.StrokeColor.Validate(), "stroke_color") })
 	}
+	v.Exec(func() error { return validate.PathedError(g.Bounds.Validate(), "bounds") })
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -2205,6 +2257,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2329,6 +2382,7 @@ func (va ValueNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2348,6 +2402,7 @@ func (a AgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2367,6 +2422,7 @@ func (c CrossBeamAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2386,6 +2442,8 @@ func (f FlatBladeAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2405,6 +2463,7 @@ func (h HeatExchangerGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2424,6 +2483,8 @@ func (h HeatExchangerMNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2443,6 +2504,7 @@ func (h HeatExchangerStraightTubeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2462,6 +2524,7 @@ func (h HelicalAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2481,6 +2544,7 @@ func (p PaddleAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2500,6 +2564,7 @@ func (p PropellerAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2519,6 +2584,7 @@ func (r RotaryMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2538,6 +2604,7 @@ func (s StaticMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2557,6 +2624,8 @@ func (c CavityPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2576,6 +2645,7 @@ func (c CentrifugalCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2595,6 +2665,7 @@ func (c CompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2614,6 +2685,7 @@ func (d DiaphragmPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2633,6 +2705,7 @@ func (e EjectionPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2652,6 +2725,8 @@ func (e EjectorCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2671,6 +2746,7 @@ func (l LiquidRingCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2690,6 +2766,7 @@ func (p PistonPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2709,6 +2786,8 @@ func (p PumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2728,6 +2807,7 @@ func (r RollerVaneCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2747,6 +2827,7 @@ func (s ScrewPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2766,6 +2847,7 @@ func (t TurboCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -3450,7 +3532,7 @@ type TankNodeConfig struct {
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// Bounds is the numeric range the indicator maps onto its extent.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border, a named color or a fixed color.
 	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
@@ -3515,6 +3597,7 @@ func (t TankNodeConfig) Validate() error {
 	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(t.Bounds.Validate(), "bounds") })
 	if t.LevelColor != nil {
 		v.Exec(func() error { return validate.PathedError(t.LevelColor.Validate(), "level_color") })
 	}
