@@ -126,8 +126,7 @@ one shared behavior, and it stays in the status service (§4.2).
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
 5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group. A LabJack device
-   has no groups, so its scanner writes only `rack` and `connection` (§4.3).
+   the configuration group. Neither write path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -210,10 +209,10 @@ the port maps are the configuration group. The port maps are the typed form of t
 
 Field groups per make:
 
-- **LabJack**: `labjack.Device` is a union on `model` (`t4`, `t7`, `t8`) with no field
-  groups, because each model has different ports. Every variant carries `serial`,
-  `connection` (USB or TCP), `identifier`, `read_index`, and `write_state_index`, and
-  adds channel maps keyed by its own port enums. An update replaces the whole device.
+- **LabJack**: identity `rack`, `serial`, `model`, `connection` (USB, Ethernet, Wi-Fi);
+  configuration `name`, `identifier`, `read_index`, `write_state_index`, `ports`.
+  `ports` is a union on `model` with its port maps; the T7's `AIN48`-`AIN127` need its
+  `mux80_attached`. `model` never changes.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
@@ -377,7 +376,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key. OPC UA rows change as follows:
+   `master` set to the new key. OPC UA and LabJack rows change as follows:
    - Timeouts in ms become `TimeSpan`; 0 takes the default, a lower value the minimum.
    - A user name becomes `username` auth; a password alone becomes `anonymous`, warned.
    - Mode `None` plus a policy is `sign`; secured with no policy gets `Basic256Sha256`.
@@ -385,6 +384,10 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - A read takes its channel's index; a binding to a missing channel drops, warned.
    - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
+   - LabJack `model` `LJM_dtT4`-`T8` maps to `t4`-`t8`; a non-`uint32` key quarantines.
+   - LabJack `location` `WIFI` types map to `LJM_ctWIFI`; `TCP`, `ETHERNET`, `NETWORK`
+     types to `LJM_ctETHERNET`; anything else to `LJM_ctUSB`.
+   - LabJack T7s mapping `AIN48`-`AIN127` get `mux80_attached`; bad identifiers clear.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.
@@ -408,10 +411,9 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 ### 4.10 Testing
 
 Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade; LabJack gets a whole-device update in place of the two
-group updates. The migration suite seeds 0.59-shaped rows for every make, including one
-that quarantines. Driver specs build devices from generated structs. Console specs for
-each make's forms and tree items run against the typed client.
+refused delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
+including one that quarantines. Driver specs build devices from generated structs.
+Console specs for each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
