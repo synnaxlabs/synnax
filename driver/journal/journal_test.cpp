@@ -1001,6 +1001,14 @@ TEST_F(JournalTest, OffsetAndLockCallOnCreate) {
     lock.reset();
     ASSERT_NIL_P(Lock::open(this->dir, record));
     EXPECT_EQ(created.size(), 2);
+    const auto other = this->dir / "other";
+    std::filesystem::create_directories(other);
+    const auto failed = x::errors::Error(BASE_ERROR, "chown failed");
+    ASSERT_OCCURRED_AS_P(
+        Lock::open(other, [&](const std::filesystem::path &) { return failed; }),
+        BASE_ERROR
+    );
+    EXPECT_FALSE(std::filesystem::exists(other / "LOCK"));
 }
 
 /// @brief it should refuse a second lock on a directory until the first releases.

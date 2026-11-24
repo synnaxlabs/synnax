@@ -538,7 +538,11 @@ Lock::open(const std::filesystem::path &dir, const OnCreate &on_create) {
     auto [file, err] = File::open(path);
     if (err) return {nullptr, err};
     if (!existed)
-        if (err = on_create(path); err) return {nullptr, err};
+        if (err = on_create(path); err) {
+            file.reset();
+            std::filesystem::remove(path, ec);
+            return {nullptr, err};
+        }
     if (err = file->lock(); err.matches(LOCKED))
         return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
     if (err) return {nullptr, err};
