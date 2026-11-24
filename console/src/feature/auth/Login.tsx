@@ -130,10 +130,9 @@ export const useCompleteBrowserLogin = (): void => {
 
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry after
- * the active Core rejects auth, where submitting resumes its connection.
+ * the active Core rejects auth. Each submit is a new login, with a new client.
  */
 export const Login = (): ReactElement => {
-  const client = Synnax.use();
   const message = errorMessage(Synnax.useConnectionStatus());
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
@@ -206,10 +205,14 @@ export const Login = (): ReactElement => {
     if (!methods.validate() || coreToConnect == null) return;
     const credentials = methods.value();
     const { key } = coreToConnect;
-    // A same-credentials resubmit leaves the connection params untouched, so the
-    // provider never swaps the client; nudge the existing one to reconnect.
-    if (client != null && key === activeKey) client.reauthenticate(credentials);
-    dispatch(Session.Core.set({ ...coreToConnect, ...credentials, oidc: undefined }));
+    dispatch(
+      Session.Core.set({
+        ...coreToConnect,
+        ...credentials,
+        oidc: undefined,
+        lastLogin: Date.now(),
+      }),
+    );
     dispatch(Session.Core.select(key));
   };
 

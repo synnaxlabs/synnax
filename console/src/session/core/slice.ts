@@ -25,8 +25,8 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    */
   oidc: synnaxParamsZ.shape.oidc,
   /**
-   * When a login on this machine last saved a session for the Core in the keychain.
-   * Each window reads the keychain again when it changes.
+   * When a person last logged in to the Core on this machine. Each window connects
+   * again, and on desktop reads the keychain again, when it changes.
    */
   lastLogin: z.number().optional(),
   key: z.string(),

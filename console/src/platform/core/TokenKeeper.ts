@@ -13,7 +13,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 
-import { addressOf, deleteToken, writeToken } from "@/platform/core/token";
+import { deleteToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
@@ -40,13 +40,10 @@ export const TokenKeeper = (): null => {
     core != null &&
     owner?.client === client &&
     owner.key === core.key &&
-    addressOf(core) ===
-      addressOf({
-        host: client.params.host,
-        port: Number(client.params.port),
-        secure: client.params.secure,
-        username: client.params.username ?? "",
-      });
+    // the client outlives a rename of its user, so the username stays out
+    core.host === client.params.host &&
+    core.port === Number(client.params.port) &&
+    core.secure === client.params.secure;
   const rejected =
     current && status.variant === "error" && status.details.reason === "auth";
   const token = current && status.details.authenticated ? client.auth.token : undefined;

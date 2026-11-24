@@ -145,7 +145,7 @@ const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
   const core = Session.Core.useSelectSelected();
   const set = Credential.Password.useSet({
     afterSuccess: () => {
-      // a client rebuilt from the record, such as after a rename, logs in with it
+      // the live client follows the change itself; the next launch logs in with it
       if (own && core != null && core.password !== "")
         dispatch(Session.Core.set({ ...core, password }));
       setPassword("");
