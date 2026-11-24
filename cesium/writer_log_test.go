@@ -375,7 +375,10 @@ var _ = Describe("Writer on the pointer log", func() {
 		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 		Expect(w.Write(ctx, frame(11), nil)).Error().To(And(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("must be after")),
+			MatchError(ContainSubstring(
+				"index out of order: timestamp 1970-01-01T00:00:11Z at sample 0 "+
+					"must be after 1970-01-01T00:00:11Z",
+			)),
 		))
 		Expect(w.Close()).To(MatchError(validate.ErrValidation))
 	})
@@ -385,8 +388,80 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10),
 			telem.NewSeriesV[float32](1),
-		}), nil)).Error().To(MatchError(ContainSubstring("invalid data type")))
+		}), nil)).Error().To(MatchError(ContainSubstring(
+			"invalid data type, expected int64, got float32",
+		)))
 		Expect(w.Close()).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should refuse a writer that starts in stored data", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"cannot open writer because there is already data in the writer's "+
+					"time range",
+			)),
+		))
+	})
+
+	// claimed returns the claim refusal in err, and the key of its channel.
+	claimed := func(err error) (cesium.ClaimError, cesium.ChannelKey) {
+		GinkgoHelper()
+		var (
+			refusal cesium.ClaimError
+			ch      cesium.ChannelError
+		)
+		Expect(xerrors.As(err, &refusal)).To(BeTrue())
+		Expect(xerrors.As(err, &ch)).To(BeTrue())
+		return refusal, ch.Key
+	}
+
+	It("Should refuse a writer that reaches the claim of a live writer with a claim "+
+		"refusal of its channel", func(ctx SpecContext) {
+		live := openWriter(ctx, 10*telem.SecondTS)
+		_, err := db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    20 * telem.SecondTS,
+		})
+		refusal, key := claimed(err)
+		Expect(refusal.Open).To(BeTrue())
+		Expect(refusal.TimeRange.Start).To(Equal(20 * telem.SecondTS))
+		Expect(keys).To(ContainElement(key))
+		Expect(err).To(MatchError(ContainSubstring("cannot access time range")))
+		Expect(live.Close()).To(Succeed())
+	})
+
+	It("Should refuse a commit that reaches the claim of a live writer with a claim "+
+		"refusal of its channel", func(ctx SpecContext) {
+		behind := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+			Bounded:  true,
+		}))
+		live := openWriter(ctx, 20*telem.SecondTS)
+		MustSucceed2(behind.Write(ctx, frame(10, 25), nil))
+		_, _, err := behind.Commit(ctx, nil)
+		refusal, key := claimed(err)
+		Expect(refusal.Open).To(BeFalse())
+		reached := (20 * telem.SecondTS).Range(25*telem.SecondTS + 1)
+		Expect(refusal.TimeRange).To(Equal(reached))
+		Expect(keys).To(ContainElement(key))
+		Expect(err).To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("cannot write to time range")),
+		))
+		Expect(behind.Close()).Error().To(MatchError(validate.ErrValidation))
+		Expect(live.Close()).To(Succeed())
 	})
 
 	It("Should skip every key of a frame when the clock is skipped", func(

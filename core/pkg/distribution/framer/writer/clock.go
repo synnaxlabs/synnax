@@ -126,7 +126,7 @@ func (e *clockEntry) handTo(
 	cfg cesium.WriterConfig,
 ) {
 	owner, adopt := e.owner, leader.parked
-	w, parked, err := ts.Handoff(ctx, e.w, cfg, adopt)
+	w, parked, err := ts.Handoff(ctx, e.w, cfg, adopt, cesium.NewRun)
 	e.w, e.owner, leader.parked = w, leader, nil
 	if err != nil {
 		owner.dropped, owner.pending = owner.pending, false
