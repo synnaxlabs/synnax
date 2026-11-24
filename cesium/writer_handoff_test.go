@@ -255,6 +255,55 @@ var _ = Describe("Handoff", func() {
 	}
 	carry()
 
+	DescribeTable(
+		"Should keep a run that a skipped data channel held back across a handoff "+
+			"that drops the channel",
+		func(ctx SpecContext, run cesium.HandoffRun) {
+			w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+			keys := []cesium.ChannelKey{clock, data}
+			mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11),
+				telem.NewSeriesV[int64](1, 2),
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(12, 13),
+				telem.NewSeriesV[int64](3, 4),
+			}), func(k cesium.ChannelKey) bool { return k == data }))
+			next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil, run))
+			end, _ := MustSucceed2(next.Commit(ctx, nil))
+			Expect(end).To(Equal(13*telem.SecondTS + 1))
+			Expect(p).ToNot(BeNil())
+			pending, committed := MustSucceed2(p.Commit(ctx))
+			Expect(committed).To(BeTrue())
+			Expect(pending).To(Equal(13*telem.SecondTS + 1))
+			Expect(next.Close()).To(Succeed())
+			Expect(stored(ctx, clock)).To(Equal(int64(4)))
+			Expect(stored(ctx, data)).To(Equal(int64(2)))
+		},
+		Entry("a new run", cesium.NewRun),
+		Entry("the same run", cesium.SameRun),
+	)
+
+	It("Should return no pending samples once a commit covers a run that a skipped "+
+		"channel held back", func(ctx SpecContext) {
+		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		keys := []cesium.ChannelKey{clock, data}
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11),
+			telem.NewSeriesV[int64](1, 2),
+		}), func(k cesium.ChannelKey) bool { return k == data }))
+		mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(12, 13),
+			telem.NewSeriesV[int64](3, 4),
+		}))
+		MustSucceed2(w.Commit(ctx, nil))
+		cfg := config(clock)
+		cfg.Start = 13*telem.SecondTS + 1
+		next, p := MustSucceed2(db.Handoff(ctx, w, cfg, nil, cesium.NewRun))
+		Expect(p).To(BeNil())
+		Expect(next.Close()).To(Succeed())
+	})
+
 	It("Should move the uncommitted clock samples into the new writer", func(
 		ctx SpecContext,
 	) {

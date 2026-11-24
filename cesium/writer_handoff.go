@@ -184,7 +184,7 @@ func (w *Writer) uncommitted() (telem.TimeRange, bool) {
 		return tr, w.log.samples > 0
 	}
 	tr := telem.TimeRange{Start: w.idx.lastCommitEnd, End: w.idx.idx.highWaterMark + 1}
-	return tr, w.idx.hasUncommittedData || w.idx.dataPending
+	return tr, w.idx.holdsUncommitted()
 }
 
 // handoffIdx moves the unary writers of the keys of cfg out of old and adopt into a new
@@ -199,7 +199,7 @@ func (db *DB) handoffIdx(
 	adopt *Pending,
 	run HandoffRun,
 ) (*idxWriter, *Pending, error) {
-	if !old.hasUncommittedData && !old.dataPending {
+	if !old.holdsUncommitted() {
 		next, done, err := db.handoffIdle(ctx, old, cfg, adopt, run)
 		if done || err != nil {
 			return next, nil, err
@@ -234,12 +234,21 @@ func (db *DB) handoffIdx(
 			next.Close(),
 		)
 	}
+	// A run that skipped data channels held back is the new writer's to commit once the
+	// handoff drops every one of them.
+	for _, key := range old.held {
+		if slices.Contains(cfg.Channels, key) {
+			next.held = append(next.held, key)
+		}
+	}
+	if len(old.held) > 0 && len(next.held) == 0 {
+		next.hasUncommittedData = true
+	}
 	if len(old.internal) == 0 {
 		return next, nil, nil
 	}
 	p := old.runState(old.internal)
-	p.dataPending, p.hasUncommittedData = old.hasUncommittedData ||
-		old.dataPending, false
+	p.dataPending, p.hasUncommittedData = old.holdsUncommitted(), false
 	if !p.dataPending {
 		return next, nil, p.Close()
 	}

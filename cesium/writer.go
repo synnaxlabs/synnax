@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -235,6 +236,8 @@ type idxWriter struct {
 	// Commit commits it once the writer commits the index again, or once another holder
 	// commits index stamps past the high water mark.
 	dataPending bool
+	// held holds the data channels whose skip held back the run since the last commit.
+	held []ChannelKey
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
@@ -322,6 +325,7 @@ func (w *idxWriter) write(
 		}
 		if keySkipped {
 			*excluded = append(*excluded, key)
+			w.hold(key)
 			skipped = true
 			continue
 		}
@@ -339,6 +343,19 @@ func (w *idxWriter) write(
 		w.holdBack(idx.skipped)
 	}
 	return fr, nil
+}
+
+// hold records that the skip of key held back the run of w.
+func (w *idxWriter) hold(key ChannelKey) {
+	if !slices.Contains(w.held, key) {
+		w.held = append(w.held, key)
+	}
+}
+
+// holdsUncommitted reports whether w holds samples that no commit covers, with a run
+// that a skipped data channel held back.
+func (w *idxWriter) holdsUncommitted() bool {
+	return w.hasUncommittedData || w.dataPending || len(w.held) > 0
 }
 
 // holdBack ends the uncommitted data of a write that skipped a channel. The data that a
@@ -492,6 +509,7 @@ func (w *idxWriter) Commit(
 	if skipped {
 		return 0, true, nil
 	}
+	w.held = w.held[:0]
 	w.lastCommitEnd = end.Lower
 	return end.Lower, false, nil
 }
