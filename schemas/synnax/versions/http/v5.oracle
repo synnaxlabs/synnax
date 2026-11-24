@@ -12,7 +12,34 @@ import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
-Method = v2.Method
+Method enum {
+    get     = "GET" {
+        @doc value "reads a resource."
+    }
+    head    = "HEAD" {
+        @doc value "reads the headers of a resource, with no body."
+    }
+    post    = "POST" {
+        @doc value "submits data to a resource."
+    }
+    put     = "PUT" {
+        @doc value "replaces a resource."
+    }
+    delete  = "DELETE" {
+        @doc value "removes a resource."
+    }
+    patch   = "PATCH" {
+        @doc value "changes part of a resource."
+    }
+    options = "OPTIONS" {
+        @doc value "asks which communication options a resource supports."
+    }
+    query   = "QUERY" {
+        @doc value "reads a resource with a query in the body, safely and idempotently."
+    }
+
+    @doc value "is the HTTP method used when requesting an endpoint."
+}
 
 Header = v2.Header
 

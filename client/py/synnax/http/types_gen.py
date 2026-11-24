@@ -33,14 +33,10 @@ METHOD_PATCH: Literal["PATCH"] = "PATCH"
 
 METHOD_OPTIONS: Literal["OPTIONS"] = "OPTIONS"
 
-METHOD_TRACE: Literal["TRACE"] = "TRACE"
-
-METHOD_CONNECT: Literal["CONNECT"] = "CONNECT"
+METHOD_QUERY: Literal["QUERY"] = "QUERY"
 
 
-Method = Literal[
-    "GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT"
-]
+Method = Literal["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "QUERY"]
 
 
 class Header(BaseModel):

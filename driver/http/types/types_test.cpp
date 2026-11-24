@@ -55,16 +55,18 @@ TEST(ParseMethodTest, ParsesOPTIONS) {
     EXPECT_TRUE(p.ok());
 }
 
-TEST(ParseMethodTest, ParsesTRACE) {
-    x::json::Parser p(x::json::json{{"method", "TRACE"}});
-    EXPECT_EQ(parse_method(p, "method"), Method::TRACE);
+TEST(ParseMethodTest, ParsesQUERY) {
+    x::json::Parser p(x::json::json{{"method", "QUERY"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::QUERY);
     EXPECT_TRUE(p.ok());
 }
 
-TEST(ParseMethodTest, ParsesCONNECT) {
-    x::json::Parser p(x::json::json{{"method", "CONNECT"}});
-    EXPECT_EQ(parse_method(p, "method"), Method::CONNECT);
-    EXPECT_TRUE(p.ok());
+TEST(ParseMethodTest, RejectsTRACEAndCONNECT) {
+    for (const auto *method: {"TRACE", "CONNECT"}) {
+        x::json::Parser p(x::json::json{{"method", method}});
+        parse_method(p, "method");
+        EXPECT_FALSE(p.ok());
+    }
 }
 
 TEST(ParseMethodTest, UnknownMethodErrors) {
@@ -109,12 +111,8 @@ TEST(ToStringTest, OPTIONS) {
     EXPECT_STREQ(to_string(Method::OPTIONS), "OPTIONS");
 }
 
-TEST(ToStringTest, TRACE) {
-    EXPECT_STREQ(to_string(Method::TRACE), "TRACE");
-}
-
-TEST(ToStringTest, CONNECT) {
-    EXPECT_STREQ(to_string(Method::CONNECT), "CONNECT");
+TEST(ToStringTest, QUERY) {
+    EXPECT_STREQ(to_string(Method::QUERY), "QUERY");
 }
 
 TEST(ToStringTest, InvalidMethodThrows) {
@@ -149,12 +147,8 @@ TEST(HasRequestBodyTest, DEL) {
     EXPECT_FALSE(has_request_body(Method::DEL));
 }
 
-TEST(HasRequestBodyTest, CONNECT) {
-    EXPECT_FALSE(has_request_body(Method::CONNECT));
-}
-
-TEST(HasRequestBodyTest, TRACE) {
-    EXPECT_FALSE(has_request_body(Method::TRACE));
+TEST(HasRequestBodyTest, QUERY) {
+    EXPECT_TRUE(has_request_body(Method::QUERY));
 }
 
 TEST(HasResponseBodyTest, GET) {
@@ -181,16 +175,12 @@ TEST(HasResponseBodyTest, OPTIONS) {
     EXPECT_TRUE(has_response_body(Method::OPTIONS));
 }
 
-TEST(HasResponseBodyTest, TRACE) {
-    EXPECT_TRUE(has_response_body(Method::TRACE));
+TEST(HasResponseBodyTest, QUERY) {
+    EXPECT_TRUE(has_response_body(Method::QUERY));
 }
 
 TEST(HasResponseBodyTest, HEAD) {
     EXPECT_FALSE(has_response_body(Method::HEAD));
-}
-
-TEST(HasResponseBodyTest, CONNECT) {
-    EXPECT_FALSE(has_response_body(Method::CONNECT));
 }
 
 /// @brief it should escape line breaks in a short body and keep the rest.

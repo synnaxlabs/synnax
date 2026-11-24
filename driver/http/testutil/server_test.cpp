@@ -397,15 +397,9 @@ TEST(MockServerTest, HEADRouteRegistrationErrors) {
     EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
-TEST(MockServerTest, TRACERouteRegistrationErrors) {
+TEST(MockServerTest, QUERYRouteRegistrationErrors) {
     testutil::ServerConfig cfg;
-    cfg.routes = {{.method = Method::TRACE, .path = "/x", .response_body = "x"}};
-    EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
-}
-
-TEST(MockServerTest, CONNECTRouteRegistrationErrors) {
-    testutil::ServerConfig cfg;
-    cfg.routes = {{.method = Method::CONNECT, .path = "/x", .response_body = "x"}};
+    cfg.routes = {{.method = Method::QUERY, .path = "/x", .response_body = "x"}};
     EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 

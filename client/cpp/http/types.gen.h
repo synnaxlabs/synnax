@@ -38,8 +38,7 @@ constexpr const char *METHOD_PUT = "PUT";
 constexpr const char *METHOD_DELETE = "DELETE";
 constexpr const char *METHOD_PATCH = "PATCH";
 constexpr const char *METHOD_OPTIONS = "OPTIONS";
-constexpr const char *METHOD_TRACE = "TRACE";
-constexpr const char *METHOD_CONNECT = "CONNECT";
+constexpr const char *METHOD_QUERY = "QUERY";
 
 /// @brief Header is a single HTTP header sent with a request.
 struct Header {

@@ -24,8 +24,7 @@ export const METHODS = [
   "DELETE",
   "PATCH",
   "OPTIONS",
-  "TRACE",
-  "CONNECT",
+  "QUERY",
 ] as const;
 export const methodZ = z.enum(METHODS);
 export type Method = z.infer<typeof methodZ>;

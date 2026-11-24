@@ -102,6 +102,24 @@ func noteLift(
 	}
 }
 
+// warnRemovedMethod logs a warning when method is TRACE or CONNECT, which v5 removes.
+// The task refuses to configure until a user picks another method.
+func warnRemovedMethod(
+	ins alamos.Instrumentation,
+	config uuid.UUID,
+	ep, method string,
+) {
+	if method != "TRACE" && method != "CONNECT" {
+		return
+	}
+	ins.L.Warn(
+		"an HTTP endpoint uses a method that is no longer supported",
+		zap.Stringer("config", config),
+		zap.String("endpoint", ep),
+		zap.String("method", method),
+	)
+}
+
 // StagedFieldsKVPrefix is the KV key prefix under which ReadMigration stages the fields
 // of each config. The rest of the key is the config key as a string, and the value is
 // the InlineRead that holds the fields, as JSON.
@@ -117,7 +135,7 @@ func StagedFieldsKVKey(key uuid.UUID) []byte {
 // Inline, so ReadMigration stages it under StagedFieldsKVPrefix.
 var ReadMigration = migrate.New(
 	"v63_http_read_stage",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 		var olds []v4.ReadConfig
 		if err := gorp.NewRetrieve[uuid.UUID, v4.ReadConfig]().
 			Entries(&olds).
@@ -126,6 +144,9 @@ var ReadMigration = migrate.New(
 		}
 		news := make([]ReadConfig, len(olds))
 		for i, old := range olds {
+			for _, ep := range old.Endpoints {
+				warnRemovedMethod(ins, old.Key, ep.Key, string(ep.Method))
+			}
 			cfg, err := MigrateReadConfig(ctx, old)
 			if err != nil {
 				return errors.Wrapf(err, "config %s", old.Key)
