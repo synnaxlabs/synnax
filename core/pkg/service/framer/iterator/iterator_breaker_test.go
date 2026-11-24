@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -78,7 +79,7 @@ var _ = Describe("Iterator breaker", func() {
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 		Expect(merged(iter.Value().Get(output.Key()).Series)).
-			To(telem.MatchSeriesDataV[float32](2, 4, 6))
+			To(MatchSeriesDataV[float32](2, 4, 6))
 		// The iterator lives in the context of the spec, which ends before a cleanup.
 		Expect(iter.Close()).To(Succeed())
 	})

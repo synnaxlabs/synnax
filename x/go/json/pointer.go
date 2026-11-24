@@ -13,6 +13,7 @@
 package json
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -68,6 +69,11 @@ func (p Pointer) String() string {
 		)
 	}
 	return b.String()
+}
+
+// HasPrefix returns true if p equals prefix or leads into the value at prefix.
+func (p Pointer) HasPrefix(prefix Pointer) bool {
+	return len(p) >= len(prefix) && slices.Equal(p[:len(prefix)], prefix)
 }
 
 // MarshalText implements encoding.TextMarshaler.

@@ -495,6 +495,15 @@ var _ = Describe("Join", func() {
 		Entry("half the median", 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0),
 	)
 
+	It("Should settle a history join at once", func() {
+		j := newJoin(2, 0, 0)
+		Expect(j.Push(0, values(1), stamps(0, 1))).To(Succeed())
+		var out join.Output
+		j.Next(telem.TimeStamp(telem.Second), &out)
+		Expect(out.Dropped).To(Equal(1))
+		Expect(out.Settled).To(BeTrue())
+	})
+
 	Describe("Live", func() {
 		var now telem.TimeStamp
 		BeforeEach(func() { now = 0 })
@@ -636,6 +645,21 @@ var _ = Describe("Join", func() {
 			},
 		)
 
+		It("Should settle one window after the primary's first frame", func() {
+			// An input that never pushes drops every stamp. The primary's gaps of 1 s
+			// give a window of 3 s, which passes at its frame at 4 s.
+			j := newLive(0)
+			var out join.Output
+			settled := make([]bool, 0, 4)
+			for _, stamp := range []float64{1, 2, 3, 4} {
+				Expect(primaryAt(j, stamp, &out)).To(Equal(1))
+				settled = append(settled, out.Settled)
+			}
+			Expect(settled).To(Equal([]bool{false, false, false, true}))
+			out.Reset()
+			Expect(out.Settled).To(BeFalse())
+		})
+
 		Describe("Arrival", func() {
 			newArrival := func() *join.Join {
 				return MustSucceed(join.New(join.Config{
@@ -690,6 +714,20 @@ var _ = Describe("Join", func() {
 					Expect(drops).To(Equal([]int{0, 0, 1}))
 				},
 			)
+
+			It("Should compute the window again at each primary frame", func() {
+				// The primary's gap of 20 s holds the input at 40 s. Its later gaps of
+				// 1 s shrink the window below the 41 s since the input's push.
+				j := newArrival()
+				now = 0
+				Expect(j.Push(1, values(9), telem.Series{})).To(Succeed())
+				var out join.Output
+				drops := make([]int, 0, 6)
+				for _, stamp := range []float64{20, 40, 41, 42, 43, 44} {
+					drops = append(drops, primaryAt(j, stamp, &out))
+				}
+				Expect(drops).To(Equal([]int{0, 0, 1, 1, 1, 1}))
+			})
 
 			It(
 				"Should take the primary's frame gaps until its pushes have a gap",

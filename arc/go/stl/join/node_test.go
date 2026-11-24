@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -157,8 +158,8 @@ var _ = Describe("Node", func() {
 		Expect(j.next(ctx)).To(ConsistOf(0, 1))
 		a, aTime := j.output(0)
 		b, bTime := j.output(1)
-		Expect(a).To(telem.MatchSeriesDataV[float64](1, 2, 3))
-		Expect(b).To(telem.MatchSeriesDataV[float64](10, 20, 20))
+		Expect(a).To(MatchSeriesDataV[float64](1, 2, 3))
+		Expect(b).To(MatchSeriesDataV[float64](10, 20, 20))
 		for _, s := range []telem.Series{a, aTime, b, bTime} {
 			Expect(s.Alignment).To(Equal(telem.Alignment(100)))
 			Expect(s.TimeRange).To(Equal(telem.TimeRange{
@@ -166,7 +167,7 @@ var _ = Describe("Node", func() {
 				End:   4*telem.SecondTS + 1,
 			}))
 		}
-		Expect(bTime).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(2, 3, 4)))
+		Expect(bTime).To(MatchSeriesData(telem.NewSeriesSecondsTSV(2, 3, 4)))
 		Expect(j.self).To(BeZero())
 		Expect(j.n.(*join.Node).Dropped()).To(BeZero())
 	})
@@ -178,15 +179,15 @@ var _ = Describe("Node", func() {
 		Expect(j.next(ctx)).To(ConsistOf(0, 1))
 		Expect(j.self).To(Equal(1))
 		first, firstTime := j.output(0)
-		Expect(first).To(telem.MatchSeriesDataV[float64](1, 2))
-		Expect(firstTime).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
+		Expect(first).To(MatchSeriesDataV[float64](1, 2))
+		Expect(firstTime).To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
 		Expect(first.Alignment).To(Equal(telem.Alignment(0)))
 		Expect(j.next(ctx)).To(ConsistOf(0, 1))
 		Expect(j.self).To(Equal(1))
 		second, _ := j.output(0)
 		b, _ := j.output(1)
-		Expect(second).To(telem.MatchSeriesDataV[float64](5))
-		Expect(b).To(telem.MatchSeriesDataV[float64](20))
+		Expect(second).To(MatchSeriesDataV[float64](5))
+		Expect(b).To(MatchSeriesDataV[float64](20))
 		Expect(second.Alignment).To(Equal(telem.Alignment(4)))
 		Expect(j.n.(*join.Node).Dropped()).To(Equal(2))
 	})
@@ -208,6 +209,6 @@ var _ = Describe("Node", func() {
 		j.push("a", 0, []float64{1, 2}, 2, 3)
 		Expect(j.next(ctx)).To(ConsistOf(0, 1))
 		b, _ := j.output(1)
-		Expect(b).To(telem.MatchSeriesDataV[float64](10, 10))
+		Expect(b).To(MatchSeriesDataV[float64](10, 10))
 	})
 })

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"go.uber.org/zap"
 )
 
@@ -177,6 +178,38 @@ func MigrateCounterReadConfig(
 	old v3.CounterReadConfig,
 ) (CounterReadConfig, error) {
 	return autoMigrateCounterReadConfig(ctx, old)
+}
+
+// MigrateCIChannel lifts a v3 counter input channel to v4. A frequency or period
+// measurement time in seconds becomes a span of at least 1 ns, and one that is not a
+// positive number takes the default.
+func MigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, error) {
+	ch, err := autoMigrateCIChannel(ctx, old)
+	if err != nil {
+		return CIChannel{}, err
+	}
+	switch o := old.Variant.(type) {
+	case v3.CIFrequencyChannel:
+		n := as[CIFrequencyChannel](ch.Variant)
+		n.MeasTime = migrateMeasTime(o.MeasTime, 6*telem.Microsecond)
+		ch.Variant = n
+	case v3.CIPeriodChannel:
+		n := as[CIPeriodChannel](ch.Variant)
+		n.MeasTime = migrateMeasTime(o.MeasTime, telem.Millisecond)
+		ch.Variant = n
+	}
+	return ch, nil
+}
+
+// maxMeasTime is the largest span a JavaScript number holds exactly.
+const maxMeasTime telem.TimeSpan = 1<<53 - 1
+
+func migrateMeasTime(seconds float64, def telem.TimeSpan) telem.TimeSpan {
+	if math.IsNaN(seconds) || seconds <= 0 {
+		return def
+	}
+	ns := math.Round(seconds * float64(telem.Second))
+	return telem.TimeSpan(min(max(ns, 1), float64(maxMeasTime)))
 }
 
 // MigrateDigitalReadConfig lifts a v3 digital read config to v4.

@@ -15,6 +15,7 @@ import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
+import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/table"
@@ -115,11 +116,11 @@ CellConfig union on variant {
         units             string = "" {
             @doc value "is the unit suffix displayed after the value."
         }
-        staleness_timeout float64 = 5 {
-            @doc value    """
-                is the duration in seconds after which the value is considered stale.
-            """
-            @validate min 1
+        staleness_timeout telem.TimeSpan = 5s {
+            @doc value    "is the span after which the value is considered stale."
+            @ts type      telem.NumericTimeSpan
+            @validate max 9007199254740991
+            @validate min 1000000000
         }
         staleness_color   color.Ref?        {
             @doc value """

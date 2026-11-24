@@ -51,7 +51,6 @@ import {
   type Payload,
   payloadZ,
   resourceID,
-  retrieveBuiltInsResponseZ,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
@@ -74,11 +73,15 @@ import { group } from "@/group";
 import { query } from "@/query";
 import type { resource } from "@/resource";
 import type { status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
 export const ACTION_CHANNEL_NAME = "sy_channel_action_set";
 export const DELETE_CHANNEL_NAME = "sy_channel_delete";
+
+// A compiled Zod schema generates code on its first parse, so the constructor shares
+// one schema instead of building one for each channel.
+const operationsZ = operationZ.array();
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
@@ -172,7 +175,7 @@ export class Channel {
     this.internal = internal;
     this.virtual = virtual;
     this.expression = expression;
-    this.operations = zod.parse(operationZ.array(), operations, {
+    this.operations = zod.parse(operationsZ, operations, {
       label: "channel operations",
     });
     this.calculated = calculated;
@@ -431,14 +434,14 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // The built-in keys arrive with the first connection, and the Core checks the
-    // internal line until then. A reconnect fetches them again and keeps the last keys
-    // until the answer lands, since a list that checks the line itself needs them.
+    // Each connection asks the Core for the internal channels, and the Core checks the
+    // internal line until the first answer lands. A reconnect keeps the last keys until
+    // the next answer, since a list that checks the line itself needs them.
     let builtIns: Set<Key> | null = null;
     cache.onEpoch(() => {
-      this.retrieveBuiltIns()
-        .then((keys) => {
-          builtIns = new Set(keys);
+      this.execRetrieve({ where: { internal: { eq: true } } })
+        .then((channels) => {
+          builtIns = new Set(channels.map(({ key }) => key));
         })
         .catch((exc: unknown) => {
           if (isConnectionError(exc)) return;
@@ -632,7 +635,7 @@ export class Client extends query.Retriever<
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
       if (isSingle)
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           "channel",
           { where: singleWhere(rawNormalized[0]) },
           [],
@@ -646,7 +649,7 @@ export class Client extends query.Retriever<
       ? singleWhere(normalized[0])
       : shortcutZ.parse(normalized).where;
     const res = await super.retrieve({ where });
-    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
+    util.checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -683,20 +686,6 @@ export class Client extends query.Retriever<
       countLimitedResponseZ,
     );
     return count;
-  }
-
-  /**
-   * Retrieves the keys of the built-in channels, which Core services declare for their
-   * own work. Any caller may retrieve them.
-   */
-  async retrieveBuiltIns(): Promise<Key[]> {
-    const { keys } = await this.cfg.unary.send(
-      "/channel/retrieve-built-ins",
-      {},
-      z.object({}),
-      retrieveBuiltInsResponseZ,
-    );
-    return keys;
   }
 
   /** Renames the channels in one transaction, giving each key the name at its index. */
@@ -798,7 +787,7 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults(
+      util.checkForMultipleOrNoResults(
         "channel",
         { where: { key: { eq: key } } },
         fetched,

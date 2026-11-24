@@ -162,9 +162,7 @@ class TestClient:
     def test_retrieve_drafts(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should keep a draft's owner and filter by owners and owned."""
         role = client.access.roles.create(sy.Role(name="panel drafts"))
-        user = client.users.create(
-            username=str(uuid4()), password="test", role=role.key
-        )
+        user = client.users.create(name=str(uuid4()), role=role.key)
         shared = client.panels.create(name="Shared", project=project)
         draft = client.panels.create(
             sy.Panel(name="Draft", project=project, owner=user.key)

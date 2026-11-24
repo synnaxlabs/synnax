@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	symbolv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -89,12 +90,13 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
-	cfg     ServiceConfig
-	Symbol  *symbol.Service
-	closer  io.MultiCloser
-	table   *gorp.Table[Key, Schematic]
-	indexes indexes
-	state   *actions.State[Key, Action]
+	cfg      ServiceConfig
+	Symbol   *symbol.Service
+	builtins map[string]symbol.Builtin
+	closer   io.MultiCloser
+	table    *gorp.Table[Key, Schematic]
+	indexes  indexes
+	state    *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -109,15 +111,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:     cfg,
 		state:   actions.NewState[Key, Action](cfg.DB),
 		indexes: newIndexes(),
+		builtins: lo.KeyBy(
+			symbol.Builtins(),
+			func(b symbol.Builtin) string { return b.Name },
+		),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Intern: func(tx gorp.Tx) symbolv5.Intern {
+				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+			},
+		}),
 		Instrumentation: cfg.Instrumentation,
 		// An enumeration retarget or a named color delete rewrites the schematic
 		// outside any schematic write, so the service sends the schematic as a create.
@@ -140,6 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ImEx:            cfg.ImEx,
 		Enumeration:     cfg.Enumeration,
 		Actuators:       s.actuatorSymbols,
+		RemoveOrphans:   s.removeOrphans,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
@@ -181,6 +192,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
 		table:      s.table,
+		symbols:    s.Symbol,
+		builtins:   s.builtins,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
