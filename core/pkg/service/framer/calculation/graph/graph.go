@@ -920,7 +920,8 @@ func (g *Graph) CalculateGrouped() map[int][]compiler.Module {
 
 // CalculateFlat returns all modules in a flat list sorted in topological order
 // (dependencies first). Unlike CalculateGrouped, this does not group modules and
-// returns a single sorted list.
+// returns a single sorted list. The order is the same on each call for the same
+// channels: a channel with a lower key comes first unless it depends on the other.
 func (g *Graph) CalculateFlat() []compiler.Module {
 	if len(g.channels) == 0 {
 		return nil
@@ -939,6 +940,7 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 				deps = append(deps, depKey)
 			}
 		}
+		slices.Sort(deps)
 		graph[key] = deps
 	}
 
@@ -967,7 +969,7 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 		return nil
 	}
 
-	for key := range g.channels {
+	for _, key := range slices.Sorted(maps.Keys(g.channels)) {
 		if err := visit(key); err != nil {
 			continue
 		}
