@@ -56,10 +56,10 @@ func (e *engine) load(key ChannelKey, prev held) (*state.Channel, held, error) {
 // each of parts to the parts of its range, from one step of the state. It pins each of
 // their segments and parts under the same lock that release takes, so release never
 // unlinks a segment that a Channel it returned still names, and a switch keeps each
-// part. It pins a key that keys names twice once. It unpins prev, the pins of an earlier
-// load, as unpin does, and returns the new pins and the error of parts that e no longer
-// holds. It puts the segments that it pins in buf when it has room, which must not
-// share an array with prev.
+// part. It pins a key that keys names twice once. It unpins prev, the pins of an
+// earlier load, as unpin does, and returns the new pins and the error of parts that e
+// no longer holds. It puts the segments that it pins in buf when it has room, which
+// must not share an array with prev.
 func (e *engine) loadView(
 	keys []ChannelKey,
 	chs []*state.Channel,
@@ -88,22 +88,23 @@ func (e *engine) loadView(
 		h.segments = make([]uint64, 0, n)
 	}
 	for i, ch := range chs {
-		if j := slices.Index(keys[:i], keys[i]); j >= 0 {
-			parts[i] = parts[j]
+		key, dst := keys[i], &parts[i]
+		if j := slices.Index(keys[:i], key); j >= 0 {
+			*dst = parts[j]
 			continue
 		}
-		parts[i] = nil
+		*dst = nil
 		if ch == nil {
 			continue
 		}
 		for _, seg := range ch.Segments {
 			h.segments = append(h.segments, seg.ID)
 		}
-		p, partErr := e.partsOf(keys[i], ch.Parts)
-		parts[i], err = p, errors.Join(err, partErr)
+		p, partErr := e.partsOf(key, ch.Parts)
+		*dst, err = p, errors.Join(err, partErr)
 		h.parts = append(h.parts, p...)
 		if len(p) > 0 {
-			h.keys = append(h.keys, keys[i])
+			h.keys = append(h.keys, key)
 		}
 	}
 	e.pins.pin(h)
