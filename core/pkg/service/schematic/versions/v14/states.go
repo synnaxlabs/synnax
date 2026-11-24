@@ -52,8 +52,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err != nil {
 						return Schematic{}, err
 					}
-					lists := stateLists(old)
-					if err = internStates(ctx, &s, lists, intern, ins); err != nil {
+					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
 					return s, nil
@@ -77,21 +76,27 @@ func stateLists(s v13.Schematic) map[string][]v13.StateMapping {
 	return lists
 }
 
-// internStates gives each select and state indicator in s an enumeration with the
-// entries of its list in lists, through intern, and clears its options. A node with no
-// list, or with no entries left, gets no enumeration. The enumeration is named for the
-// node type and its label, or the schematic name when the label is empty.
+// InternStates gives each select and state indicator of s that old holds an enumeration
+// with the entries of its options in old, through intern, and clears its options. A
+// node with no entries left gets no enumeration, and a node that old does not hold
+// stays as it is. The enumeration is named for the node type and its label, or the
+// schematic name when the label is empty.
 //
 // An entry with an empty or repeated key gets a new key. A value that is not finite is
 // dropped with a warning, since the enumeration writer refuses one.
-func internStates(
+func InternStates(
 	ctx context.Context,
 	s *Schematic,
-	lists map[string][]v13.StateMapping,
+	old v13.Schematic,
 	intern symbol.Intern,
 	ins alamos.Instrumentation,
 ) error {
+	lists := stateLists(old)
 	for i, n := range s.Nodes {
+		list, held := lists[n.Key]
+		if !held {
+			continue
+		}
 		var (
 			kind, label string
 			link        func(*enumeration.Key) NodeConfigVariant
@@ -113,7 +118,7 @@ func internStates(
 			continue
 		}
 		var key *enumeration.Key
-		if entries := stateEntries(*s, n.Key, lists[n.Key], ins); len(entries) > 0 {
+		if entries := stateEntries(*s, n.Key, list, ins); len(entries) > 0 {
 			if label = strings.TrimSpace(label); label == "" {
 				label = s.Name
 			}

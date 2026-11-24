@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
@@ -295,3 +296,27 @@ var _ = Describe("Migrated states", func() {
 func schematicOf(name string, nodes ...v13.Node) v13.Schematic {
 	return v13.Schematic{Key: uuid.New(), Name: name, Nodes: nodes}
 }
+
+var _ = Describe("InternStates", func() {
+	It(
+		"Should leave a node that the old schematic does not hold",
+		func(ctx SpecContext) {
+			held := uuid.New()
+			cfg := v14.SelectNodeConfig{Enumeration: &held}
+			s := v14.Schematic{Nodes: []v14.Node{
+				{Key: "mode", Config: v14.NodeConfig{Variant: cfg}},
+			}}
+			Expect(v14.InternStates(
+				ctx,
+				&s,
+				v13.Schematic{},
+				func(context.Context, string, []enumerationv0.Entry) (enumerationv0.Key, error) {
+					Fail("interned a node that the old schematic does not hold")
+					return enumerationv0.Key{}, nil
+				},
+				alamos.Instrumentation{},
+			)).To(Succeed())
+			Expect(s.Nodes[0].Config.Variant).To(Equal(cfg))
+		},
+	)
+})
