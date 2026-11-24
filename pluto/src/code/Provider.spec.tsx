@@ -8,13 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, cleanup, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Code } from "@/code";
 
-const { initialize } = vi.hoisted(() => ({ initialize: vi.fn() }));
+const { initialize, registerLinkOpener } = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  registerLinkOpener: vi.fn(),
+}));
 
 // The real runtime does not load in jsdom, so each module the bootstrap imports is a
 // stub, and initialize records the start.
@@ -23,7 +33,9 @@ vi.mock("@codingame/monaco-vscode-api/extensions", () => ({
   ExtensionHostKind: { LocalProcess: 1 },
   registerExtension: () => ({ registerFileUrl: () => {} }),
 }));
-vi.mock("@codingame/monaco-vscode-editor-api", () => ({}));
+vi.mock("@codingame/monaco-vscode-editor-api", () => ({
+  editor: { registerLinkOpener },
+}));
 vi.mock("@codingame/monaco-vscode-extension-api/localExtensionHost", () => ({}));
 vi.mock("@codingame/monaco-vscode-languages-service-override", () => ({
   default: () => ({}),
@@ -57,6 +69,7 @@ describe("Code", () => {
   beforeEach(() => {
     vi.resetModules();
     initialize.mockClear();
+    registerLinkOpener.mockClear();
   });
 
   afterEach(() => {
@@ -146,6 +159,91 @@ describe("Code", () => {
         ),
       );
       await waitFor(() => expect(languageServer).toHaveBeenCalledOnce());
+    });
+
+    describe("openLink", () => {
+      interface Link {
+        scheme: string;
+        toString: () => string;
+      }
+
+      // A link as Monaco hands it to an opener.
+      const link = (url: string): Link => ({
+        scheme: url.split(":")[0],
+        toString: () => url,
+      });
+
+      /** Opens an editor under a provider that shows each status message. */
+      const renderEditor = async (
+        openLink?: (url: string) => Promise<void>,
+      ): Promise<void> => {
+        // Loaded after the reset, so the provider reads the same status context.
+        const { Status } = await import("@synnaxlabs/lyra/status");
+        const { Provider, useMonaco } = await loadProvider();
+        const Editor = (): null => {
+          useMonaco();
+          return null;
+        };
+        const Notifications = (): ReactElement => (
+          <>
+            {Status.useNotifications().statuses.map(({ key, message }) => (
+              <p key={key}>{message}</p>
+            ))}
+          </>
+        );
+        await act(async () =>
+          render(
+            <Status.Aggregator log={() => {}}>
+              <Provider openLink={openLink}>
+                <Notifications />
+                <Suspense fallback={null}>
+                  <Editor />
+                </Suspense>
+              </Provider>
+            </Status.Aggregator>,
+          ),
+        );
+        await waitFor(() => expect(initialize).toHaveBeenCalledOnce());
+      };
+
+      /** @returns the opener that the provider gives Monaco for openLink. */
+      const renderOpener = async (
+        openLink: (url: string) => Promise<void>,
+      ): Promise<{ open: (resource: Link) => boolean }> => {
+        await renderEditor(openLink);
+        await waitFor(() => expect(registerLinkOpener).toHaveBeenCalledOnce());
+        return registerLinkOpener.mock.calls[0][0];
+      };
+
+      it("should open a web link with openLink", async () => {
+        const openLink = vi.fn(async () => {});
+        const opener = await renderOpener(openLink);
+        expect(opener.open(link("https://example.com/w2000#top"))).toBe(true);
+        expect(openLink).toHaveBeenCalledExactlyOnceWith(
+          "https://example.com/w2000#top",
+        );
+      });
+
+      it("should leave a link that is not a web link to Monaco", async () => {
+        const openLink = vi.fn(async () => {});
+        const opener = await renderOpener(openLink);
+        expect(opener.open(link("command:editor.action.selectAll"))).toBe(false);
+        expect(openLink).not.toHaveBeenCalled();
+      });
+
+      it("should show a status when openLink fails", async () => {
+        const openLink = vi.fn(async () => {
+          throw new Error("no browser");
+        });
+        const opener = await renderOpener(openLink);
+        act(() => void opener.open(link("https://example.com/w2000")));
+        expect(await screen.findByText("Failed to open link")).toBeDefined();
+      });
+
+      it("should leave every link to Monaco when there is no openLink", async () => {
+        await renderEditor();
+        expect(registerLinkOpener).not.toHaveBeenCalled();
+      });
     });
   });
 });

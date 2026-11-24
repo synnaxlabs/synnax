@@ -388,8 +388,8 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
         level: Is the typography level of the tick labels.
     """
 
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     level_color: color__.Ref | None = None
     axis_color: color__.Ref | None = None
@@ -419,7 +419,7 @@ class StateBinding(FormatConfig):
     source: Source | None = None
     enumeration: enumeration_.Key | None = None
     match: symbol.Matcher | None = None
-    bounds: spatial.Bounds | None = None
+    bounds: spatial.ClosedBounds | None = None
     default: float | None = None
 
 
@@ -703,8 +703,8 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     stroke_color: color__.Ref | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     bar_width: int = Field(default=10, ge=1, le=65535)
     location: spatial.LocationXY = Field(
@@ -1137,8 +1137,8 @@ class TankNodeConfig(LabeledConfig):
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
     level_color: color__.Ref | None = None
     axis_color: color__.Ref | None = None

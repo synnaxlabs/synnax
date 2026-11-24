@@ -420,8 +420,8 @@ class NumberState(BaseState):
     """Is a state that shows a number."""
 
     type: Literal["number"] = "number"
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
 
 
