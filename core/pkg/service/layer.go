@@ -1170,6 +1170,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 			l.Kafka.ICDMigration(taskNames(l.Task)),
 			l.HTTP.ICDMigration(taskNames(l.Task)),
+			l.HTTP.WriteICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 		),
