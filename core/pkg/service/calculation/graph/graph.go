@@ -415,38 +415,59 @@ func (g *Graph) renameStatus(
 }
 
 // announcePrimary sets the status that the primary of c moved, when its expression no
-// longer reads the primary of held.
+// longer reads the primary of held, or when that primary is virtual and the new one is
+// stored.
 func (g *Graph) announcePrimary(
 	ctx context.Context,
 	tx gorp.Tx,
 	name string,
 	held, c calculation.Calculation,
 ) {
-	if held.Primary == nil || c.Primary == nil || *held.Primary == *c.Primary ||
-		slices.Contains(c.Reads, *held.Primary) {
+	if held.Primary == nil || c.Primary == nil || *held.Primary == *c.Primary {
 		return
 	}
+	from, fromFound := g.primaryChannel(ctx, tx, *held.Primary)
+	to, toFound := g.primaryChannel(ctx, tx, *c.Primary)
 	// A deleted channel has no name, so the status names it by key.
-	nameOf := func(key channel.Key) string {
-		ch, found, err := g.fetchChannel(ctx, tx, key)
-		if err != nil {
-			g.L.Warn(
-				"failed to retrieve primary",
-				zap.Stringer("channel", key),
-				zap.Error(err),
-			)
-		}
+	nameOf := func(ch channel.Channel, found bool, key channel.Key) string {
 		if !found {
 			return key.String()
 		}
 		return ch.Name
 	}
-	g.setNodeStatus(ctx, tx, calculation.PrimaryChangedStatus(
-		c.Key,
-		name,
-		nameOf(*held.Primary),
-		nameOf(*c.Primary),
-	))
+	fromName := nameOf(from, fromFound, *held.Primary)
+	toName := nameOf(to, toFound, *c.Primary)
+	switch {
+	case !slices.Contains(c.Reads, *held.Primary):
+		g.setNodeStatus(
+			ctx,
+			tx,
+			calculation.PrimaryChangedStatus(c.Key, name, fromName, toName),
+		)
+	case fromFound && toFound && from.Virtual && !to.Virtual:
+		g.setNodeStatus(
+			ctx,
+			tx,
+			calculation.PrimaryStoredStatus(c.Key, name, fromName, toName),
+		)
+	}
+}
+
+// primaryChannel returns the channel with key, and false when it is not found.
+func (g *Graph) primaryChannel(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+) (channel.Channel, bool) {
+	ch, found, err := g.fetchChannel(ctx, tx, key)
+	if err != nil {
+		g.L.Warn(
+			"failed to retrieve primary",
+			zap.Stringer("channel", key),
+			zap.Error(err),
+		)
+	}
+	return ch, found
 }
 
 // deletePrimaryStatus deletes the status that the primary of c moved, when c goes.
