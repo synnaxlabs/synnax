@@ -35,16 +35,16 @@ export const readZ = z.object({
    * node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
    * identifier alone in namespace 0.
    */
-  node: z.string().min(1, "node is required"),
+  node: z.string().min(1, "Node is required"),
   /**
    * field is the path to a member of the node's structure value. Names join with '.',
    * and '&' escapes the next character. Empty binds the whole value.
    */
   field: z.string().default(""),
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the node. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Read extends z.infer<typeof readZ> {}
 
@@ -54,9 +54,9 @@ export const writeZ = z.object({
    * node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
    * identifier alone in namespace 0.
    */
-  node: z.string().min(1, "node is required"),
+  node: z.string().min(1, "Node is required"),
   /** channel is the channel that commands the node. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Write extends z.infer<typeof writeZ> {}
 
@@ -73,7 +73,7 @@ export interface AnonymousAuth extends z.infer<typeof anonymousAuthZ> {}
 export const usernameAuthZ = z.object({
   type: z.literal("username"),
   /** username is the user name to log in with. */
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   /** password is the secret that holds the password. Absent for no password. */
   password: secret.keyZ.optional(),
 });
@@ -231,7 +231,7 @@ export const SECURITY_SCHEMAS: {
 /** Connection holds the settings that the Driver connects to a server with. */
 export const connectionZ = z.object({
   /** endpoint is the endpoint URL of the server. */
-  endpoint: z.string().min(1, "endpoint is required"),
+  endpoint: z.string().min(1, "Endpoint is required"),
   /** auth is how the Driver logs in. */
   auth: authZ.prefault({ type: "anonymous" }),
   /** security is the message security of the connection. */
@@ -256,7 +256,7 @@ export const serverZ = z.object({
   /** rack is the key of the rack whose Driver connects to the server. */
   rack: rack.keyZ,
   /** name is a human-readable name for the server. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** connection holds the settings that the Driver connects with. */
   connection: connectionZ,
   /** reads bind the nodes that read tasks sample to channels. */
