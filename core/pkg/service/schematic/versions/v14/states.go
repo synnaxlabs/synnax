@@ -62,24 +62,21 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 	)
 }
 
-// stateLists returns the options of each select and state indicator in s, by node key.
-func stateLists(s v13.Schematic) map[string][]v13.StateMapping {
-	lists := make(map[string][]v13.StateMapping)
-	for _, n := range s.Nodes {
-		switch cfg := n.Config.Variant.(type) {
-		case v13.SelectNodeConfig:
-			lists[n.Key] = cfg.Options
-		case v13.StateIndicatorNodeConfig:
-			lists[n.Key] = cfg.Options
-		}
+// stateList returns the options of n when n is a select or a state indicator.
+func stateList(n v13.Node) ([]v13.StateMapping, bool) {
+	switch cfg := n.Config.Variant.(type) {
+	case v13.SelectNodeConfig:
+		return cfg.Options, true
+	case v13.StateIndicatorNodeConfig:
+		return cfg.Options, true
 	}
-	return lists
+	return nil, false
 }
 
-// InternStates gives each select and state indicator of s that old holds an enumeration
-// with the entries of its options in old, through intern, and clears its options. A
-// node with no entries left gets no enumeration, and a node that old does not hold
-// stays as it is. The enumeration is named for the node type and its label, or the
+// InternStates gives each select and state indicator of s an enumeration with the
+// entries of its options in old, through intern, and clears its options. s must be old
+// lifted to v14, which keeps each node at its index. A node with no entries left gets
+// no enumeration. The enumeration is named for the node type and its label, or the
 // schematic name when the label is empty.
 //
 // An entry with an empty or repeated key gets a new key. A state whose value is not
@@ -91,10 +88,16 @@ func InternStates(
 	intern symbol.Intern,
 	ins alamos.Instrumentation,
 ) error {
-	lists := stateLists(old)
+	if len(s.Nodes) != len(old.Nodes) {
+		return errors.Newf(
+			"schematic has %d nodes, but its v13 shape has %d",
+			len(s.Nodes),
+			len(old.Nodes),
+		)
+	}
 	for i, n := range s.Nodes {
-		list, held := lists[n.Key]
-		if !held {
+		list, ok := stateList(old.Nodes[i])
+		if !ok {
 			continue
 		}
 		var (

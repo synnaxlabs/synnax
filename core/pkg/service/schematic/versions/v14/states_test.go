@@ -190,6 +190,20 @@ var _ = Describe("Select and state indicator states", func() {
 		},
 	)
 
+	It("Should give each node its own options when node keys repeat",
+		func(ctx SpecContext) {
+			_, calls := internAll(ctx, schematicOf(
+				"Panel",
+				selectNode("a", "Mode", state("off", 0, "Off", nil)),
+				indicatorNode("a", "Lamp", state("lit", 1, "Lit", nil)),
+			))
+			Expect(calls).To(HaveLen(2))
+			Expect(calls[0].name).To(Equal("Select: Mode"))
+			Expect(calls[0].entries[0].Key).To(Equal("off"))
+			Expect(calls[1].name).To(Equal("State indicator: Lamp"))
+			Expect(calls[1].entries[0].Key).To(Equal("lit"))
+		})
+
 	It("Should fail the migration with the node when the intern fails",
 		func(ctx SpecContext) {
 			refusal = errors.New("refused")
@@ -302,25 +316,23 @@ func schematicOf(name string, nodes ...v13.Node) v13.Schematic {
 }
 
 var _ = Describe("InternStates", func() {
-	It(
-		"Should leave a node that the old schematic does not hold",
+	It("Should fail when the schematic and its v13 shape differ in nodes",
 		func(ctx SpecContext) {
-			held := uuid.New()
-			cfg := v14.SelectNodeConfig{Enumeration: &held}
-			s := v14.Schematic{Nodes: []v14.Node{
-				{Key: "mode", Config: v14.NodeConfig{Variant: cfg}},
-			}}
+			s := v14.Schematic{Nodes: []v14.Node{{Key: "mode"}}}
 			Expect(v14.InternStates(
 				ctx,
 				&s,
 				v13.Schematic{},
-				func(context.Context, string, []enumerationv0.Entry) (enumerationv0.Key, error) {
-					Fail("interned a node that the old schematic does not hold")
-					return enumerationv0.Key{}, nil
+				func(
+					context.Context,
+					string,
+					[]enumerationv0.Entry,
+				) (enumerationv0.Key, error) {
+					return uuid.New(), nil
 				},
 				alamos.Instrumentation{},
-			)).To(Succeed())
-			Expect(s.Nodes[0].Config.Variant).To(Equal(cfg))
-		},
-	)
+			)).To(MatchError(ContainSubstring(
+				"schematic has 1 nodes, but its v13 shape has 0",
+			)))
+		})
 })

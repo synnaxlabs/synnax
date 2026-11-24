@@ -49,6 +49,7 @@ var _ = Describe("DecodeV13", func() {
 		},
 		Entry("v13", "testdata/import_v13_states.json"),
 		Entry("v7", "testdata/import_v7_states.json"),
+		Entry("a Console export", "testdata/import_console_states.json"),
 	)
 
 	It("Should report a file of v14 or newer as not old", func(ctx SpecContext) {
