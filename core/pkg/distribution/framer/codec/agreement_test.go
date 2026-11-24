@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -125,9 +126,9 @@ var _ = Describe("Agreement", func() {
 			}
 			decoded := roundTrip(ctx, float32Codec(), float32Codec(), series...)
 			Expect(decoded).To(HaveExactElements(
-				telem.MatchSeries(series[0]),
-				telem.MatchSeries(series[1]),
-				telem.MatchSeries(series[2]),
+				MatchSeries(series[0]),
+				MatchSeries(series[1]),
+				MatchSeries(series[2]),
 			))
 		})
 
@@ -136,10 +137,10 @@ var _ = Describe("Agreement", func() {
 		) {
 			enc, dec := float32Codec(), float32Codec()
 			wide := telem.NewSeriesV[float64](1)
-			Expect(roundTrip(ctx, enc, dec, wide)[0]).To(telem.MatchSeries(wide))
+			Expect(roundTrip(ctx, enc, dec, wide)[0]).To(MatchSeries(wide))
 			narrow := telem.NewSeriesV[float32](2)
-			Expect(roundTrip(ctx, enc, dec, narrow)[0]).To(telem.MatchSeries(narrow))
-			Expect(roundTrip(ctx, enc, dec, wide)[0]).To(telem.MatchSeries(wide))
+			Expect(roundTrip(ctx, enc, dec, narrow)[0]).To(MatchSeries(narrow))
+			Expect(roundTrip(ctx, enc, dec, wide)[0]).To(MatchSeries(wide))
 		})
 
 		It("Should label an int64 series on a timestamp key with no override", func(
@@ -282,6 +283,6 @@ var _ = Describe("Requested keys", func() {
 		decoded := MustSucceed(codec.NewStatic(keys, dataTypes).Decode(encoded))
 		Expect(
 			decoded.Get(1).Series[0],
-		).To(telem.MatchSeries(telem.NewSeriesV[float32](1)))
+		).To(MatchSeries(telem.NewSeriesV[float32](1)))
 	})
 })

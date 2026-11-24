@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
@@ -377,6 +378,50 @@ func closedAddress() string {
 	addr := l.Addr().String()
 	Expect(l.Close()).To(Succeed())
 	return addr
+}
+
+// consume reads at least n records from topic.
+func consume(ctx context.Context, topic string, n int) []*kgo.Record {
+	GinkgoHelper()
+	cl := newKafkaClient(
+		kgo.ConsumeTopics(topic),
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+	)
+	var recs []*kgo.Record
+	Eventually(func() int {
+		pollCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
+		recs = append(recs, cl.PollFetches(pollCtx).Records()...)
+		return len(recs)
+	}).WithTimeout(15 * time.Second).Should(BeNumerically(">=", n))
+	return recs
+}
+
+// decode returns the JSON value of rec.
+func decode(rec *kgo.Record) map[string]any {
+	GinkgoHelper()
+	var doc map[string]any
+	Expect(json.Unmarshal(rec.Value, &doc)).To(Succeed())
+	return doc
+}
+
+// writeFrame writes values to data and stamps to its index in one frame.
+func writeFrame(
+	ctx context.Context,
+	index, data channel.Channel,
+	stamps []telem.TimeStamp,
+	values telem.Series,
+) {
+	GinkgoHelper()
+	w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+		Keys:  channel.Keys{index.Key(), data.Key()},
+		Start: stamps[0],
+	}))
+	Expect(MustSucceed(w.Write(frame.NewMulti(
+		[]channel.Key{index.Key(), data.Key()},
+		[]telem.Series{telem.NewSeries(stamps), values},
+	)))).To(BeTrue())
+	Expect(w.Close()).To(Succeed())
 }
 
 // uniqueTopic returns a topic name no other spec uses.

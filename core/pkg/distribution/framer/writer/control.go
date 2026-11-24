@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/control"
@@ -44,6 +45,7 @@ func (r *region) Key() channel.Key { return r.key }
 // life of the service, and notifies handlers of every control transfer. A delete of a
 // channel drops its controller.
 type controls struct {
+	ins     alamos.Instrumentation
 	updates observe.Observer[ControlUpdate]
 	byKey   map[channel.Key]*controlled
 	mu      sync.Mutex
@@ -54,10 +56,33 @@ type controlled struct {
 	c *control.Controller[channel.Key, *region]
 	// index is the index of the channel, or zero.
 	index channel.Key
+	// clock is the Cesium writer of an index that the sessions on it share, or nil.
+	clock *clockEntry
 }
 
-func newControls() *controls {
+// clockEntry returns the entry of the writer that the sessions on the clock ch share,
+// creating it with the controller of ch.
+func (cs *controls) clockEntry(ch cesium.Channel) (*clockEntry, error) {
+	ctl, err := cs.acquire(ch)
+	if err != nil {
+		return nil, err
+	}
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if ctl.clock == nil {
+		ctl.clock = &clockEntry{
+			clock:   ch.Key,
+			ctl:     ctl,
+			members: make(map[string]*clockMember),
+			ins:     cs.ins,
+		}
+	}
+	return ctl.clock, nil
+}
+
+func newControls(ins alamos.Instrumentation) *controls {
 	return &controls{
+		ins:     ins,
 		updates: observe.New[ControlUpdate](),
 		byKey:   make(map[channel.Key]*controlled),
 	}

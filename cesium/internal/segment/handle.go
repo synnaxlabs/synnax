@@ -56,8 +56,10 @@ type Handle struct {
 	// newEntry is true until a sync makes the directory entry of a created file
 	// durable.
 	newEntry bool
-	failed   error
-	closed   bool
+	// held is true for a handle that stays open outside the limit of b until Close.
+	held   bool
+	failed error
+	closed bool
 	// prev and next link the handle in the idle ring of b while it is idle.
 	prev, next *Handle
 }
@@ -77,7 +79,7 @@ func (h *Handle) acquire() (xfs.File, error) {
 			h.refs++
 			h.unlink()
 			return h.file, nil
-		case b.open < b.limit:
+		case h.held || b.open < b.limit:
 			return h.openFile()
 		case b.idle.prev == &b.idle:
 			b.cond.Wait()
@@ -91,7 +93,9 @@ func (h *Handle) acquire() (xfs.File, error) {
 // the file opens.
 func (h *Handle) openFile() (xfs.File, error) {
 	b := h.b
-	b.open++
+	if !h.held {
+		b.open++
+	}
 	h.busy = true
 	b.mu.Unlock()
 	file, err := h.fs.Open(h.name, h.flag)
@@ -99,7 +103,9 @@ func (h *Handle) openFile() (xfs.File, error) {
 	h.busy = false
 	b.cond.Broadcast()
 	if err != nil {
-		b.open--
+		if !h.held {
+			b.open--
+		}
 		return nil, err
 	}
 	h.file, h.flag, h.refs = file, openFlag, 1
@@ -121,6 +127,10 @@ func (h *Handle) releaseLocked(wrote bool) {
 	}
 	h.refs--
 	if h.refs > 0 {
+		return
+	}
+	if h.held {
+		b.cond.Broadcast()
 		return
 	}
 	h.prev, h.next = &b.idle, b.idle.next
@@ -262,7 +272,9 @@ func (h *Handle) Close() error {
 	h.unlink()
 	file := h.file
 	h.file = nil
-	b.open--
+	if !h.held {
+		b.open--
+	}
 	b.cond.Broadcast()
 	return file.Close()
 }

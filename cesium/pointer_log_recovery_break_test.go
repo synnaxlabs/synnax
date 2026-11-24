@@ -259,6 +259,7 @@ var _ = Describe("Pointer log recovery breaker", func() {
 				)).To(Succeed())
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    1 * telem.SecondTS,
 				}))
 				for i := range syncs {

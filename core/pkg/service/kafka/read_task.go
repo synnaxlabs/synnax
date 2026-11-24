@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -758,9 +757,9 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 	for _, g := range t.groups {
 		keys = append(keys, g.keys...)
 	}
-	mode := cesium.WriterModePersistStream
+	mode := framer.WriterModePersistStream
 	if t.cfg.DataSavingDisabled {
-		mode = cesium.WriterModeStreamOnly
+		mode = framer.WriterModeStreamOnly
 	}
 	return t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
 		ControlSubject: control.Subject{
@@ -1001,7 +1000,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
-	m, ok, err := rd.decoder.Decode(rec.Value, rd.samples)
+	m, ok, failures, err := rd.decoder.Decode(rec.Value, rd.samples)
 	if err != nil {
 		t.skip(r, "Record value: "+err.Error())
 		return
@@ -1011,6 +1010,13 @@ func (t *readTask) convert(rec *kgo.Record) {
 		return
 	}
 	g := rd.groups[m]
+	if failures != nil {
+		for i := range g.data {
+			g.data[i] = g.data[i][:g.columns[i].end(len(g.rows))]
+		}
+		t.skip(r, "Record value: "+failures[0].Err.Error())
+		return
+	}
 	r.pos = len(g.rows)
 	for i := range g.columns {
 		g.columns[i].appended(g.data[i])

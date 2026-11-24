@@ -231,7 +231,7 @@ func (w *freeWriter) transform(
 	case CommandWrite:
 		fr, refused := w.exclude(req.Frame)
 		w.writeRefused = w.writeRefused || refused
-		if w.mode.Stream() {
+		if w.mode.stream() {
 			if err = signal.SendUnderContext(
 				ctx, w.writes.Inlet(),
 				relay.Response{Frame: w.alignFrame(fr), Group: w.group},

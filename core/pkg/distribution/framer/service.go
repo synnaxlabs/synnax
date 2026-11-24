@@ -21,10 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -34,11 +32,10 @@ import (
 // for writing data, iterators for reading historical data, and streamers for consuming
 // real-time data.
 //
-// To create a new service, call Open with a valid ServiceConfig. The framer service
-// must be closed after used.
+// To create a new service, call OpenService with a valid ServiceConfig. Streamers
+// need Run to run.
 type Service struct {
 	relay    *relay.Relay
-	closer   io.MultiCloser
 	writer   *writer.Service
 	iterator *iterator.Service
 	deleter  *deleter.Service
@@ -52,6 +49,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL]
@@ -71,6 +72,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.PointerLogEnabled = override.Nil(c.PointerLogEnabled, other.PointerLogEnabled)
 	return c
 }
 
@@ -82,43 +84,48 @@ const writePipelineBuffer = 4000
 //
 // Returns the Service and a nil error if opened successfully, and a nil Service and
 // non-nil error if the configuration is invalid or another error occurs.
-//
-// The Service must be closed after use.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
-	cleanup, ok := service.NewOpener(ctx, &s.closer)
-	defer func() { err = cleanup(err) }()
+	s := &Service{cfg: cfg}
 	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
 		TS:              cfg.TS,
-	}); !ok(err, nil) {
+	}); err != nil {
 		return nil, err
 	}
 	writes := confluence.NewStream[relay.Response](writePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		Writes:          writes,
-	}); !ok(err, s.relay) {
+	}); err != nil {
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
-		Instrumentation: cfg.Child("writer"),
-		TS:              cfg.TS,
-		Writes:          writes,
-	}); !ok(err, nil) {
+		Instrumentation:   cfg.Child("writer"),
+		TS:                cfg.TS,
+		PointerLogEnabled: cfg.PointerLogEnabled,
+		Writes:            writes,
+	}); err != nil {
 		return nil, err
 	}
 	if s.deleter, err = deleter.NewService(deleter.ServiceConfig{
 		TS: cfg.TS,
-	}); !ok(err, nil) {
+	}); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
+
+// Run runs the relay that streamers read from until ctx ends, then stops every
+// streamer and returns. A second Run returns an error.
+func (s *Service) Run(ctx context.Context) error { return s.relay.Run(ctx) }
+
+// Close fails streamers that wait for a Run that has not started, and makes a later
+// Run fail. Close while Run runs returns an error.
+func (s *Service) Close() error { return s.relay.Close() }
 
 // OpenIterator opens a new iterator for reading historical data from channels. If the
 // returned error is nil, the iterator must be closed after use. For information on
@@ -197,14 +204,12 @@ func (s *Service) OnControlUpdate(
 	return s.writer.OnControlUpdate(handler)
 }
 
-// DeleteTimeRange deletes a time range in the specified channels.
+// DeleteTimeRange deletes a time range in the specified channels. It fails with
+// control.ErrUnauthorized, naming the writer, when a writer holds part of tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
-	return s.deleter.DeleteTimeRange(ctx, keys, tr)
+	return s.writer.NameHolder(s.deleter.DeleteTimeRange(ctx, keys, tr))
 }
-
-// Close closes the Service.
-func (s *Service) Close() error { return s.closer.Close() }

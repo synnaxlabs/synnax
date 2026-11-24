@@ -14,6 +14,7 @@ import (
 	"math/rand/v2"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,7 @@ import (
 	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -81,6 +83,7 @@ var _ = Describe("Writer on the pointer log", func() {
 	openWriter := func(ctx context.Context, start telem.TimeStamp) *cesium.Writer {
 		GinkgoHelper()
 		return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: keys,
 			Start:    start,
 		}))
@@ -106,6 +109,60 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 	})
 
+	It("Should open an unstored writer beside a live writer of the same channels, at "+
+		"a start in their stored data", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		stream := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+			Unstored: true,
+		}))
+		written, _ := MustSucceed2(stream.Write(ctx, frame(10, 11), nil))
+		Expect(written.Get(idx).Series[0].Alignment.DomainIndex()).
+			To(BeNumerically(">", telem.LeadingDomain))
+		Expect(MustSucceed2(stream.Commit(ctx, nil))).To(Equal(11*telem.SecondTS + 1))
+		Expect(stream.Close()).To(Succeed())
+		MustSucceed2(w.Write(ctx, frame(12), nil))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx)
+		Expect(stored.Series[0]).To(
+			MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+		)
+	})
+
+	It("Should let a persist-only writer fill the time between the stretches of a "+
+		"live writer", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.EndStretch(ctx)).To(Succeed())
+		MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		fill := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    12 * telem.SecondTS,
+			Bounded:  true,
+		}))
+		MustSucceed2(fill.Write(ctx, frame(12, 13), nil))
+		MustSucceed2(fill.Commit(ctx, nil))
+		Expect(fill.Close()).To(Succeed())
+		Expect(w.Close()).To(Succeed())
+		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx)
+		got := make([]telem.TimeStamp, 0, 6)
+		for _, s := range stored.Series {
+			got = append(got, s.Unmarshal[telem.TimeStamp]()...)
+		}
+		Expect(got).To(Equal([]telem.TimeStamp{
+			10 * telem.SecondTS, 11 * telem.SecondTS, 12 * telem.SecondTS,
+			13 * telem.SecondTS, 20 * telem.SecondTS, 21 * telem.SecondTS,
+		}))
+	})
+
 	It("Should keep the channel list and the commits of a synced writer across a "+
 		"reopen", func(ctx SpecContext) {
 		w := openWriter(ctx, 10*telem.SecondTS)
@@ -116,6 +173,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		reopen(ctx)
 		Expect(MustSucceed(db.RetrieveChannel(ctx, data)).Index).To(Equal(idx))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: keys,
 			Start:    10 * telem.SecondTS,
 		})).Error().To(MatchError(validate.ErrValidation))
@@ -138,12 +196,12 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(1))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
 			Expect(values.Series[0].Alignment).To(
 				Equal(written.Get(data).Series[0].Alignment),
 			)
 			Expect(read(ctx, idx).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
 			)
 			Expect(w.Close()).To(Succeed())
 		})
@@ -151,6 +209,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{idx},
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -175,9 +234,9 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			Expect(w.Close()).To(Succeed())
 			Expect(read(ctx, idx).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
 			)
-			Expect(read(ctx, data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+			Expect(read(ctx, data).Series[0]).To(MatchSeriesDataV[int64](1, 2))
 		})
 		It("Should report a commit before the newest data of a key to history", func(
 			ctx SpecContext,
@@ -204,6 +263,62 @@ var _ = Describe("Writer on the pointer log", func() {
 				cesium.HistoryChange{Key: data, TimeRange: tr},
 			))
 		})
+		It("Should report each later commit of a stretch from the end of the commit "+
+			"before it", func(ctx SpecContext) {
+			w := openWriter(ctx, 20*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			var changes []cesium.HistoryChange
+			disconnect := db.OnHistoryChange(
+				func(_ context.Context, c cesium.HistoryChange) {
+					changes = append(changes, c)
+				},
+			)
+			DeferCleanup(disconnect)
+			w = openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			MustSucceed2(w.Write(ctx, frame(12, 13), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			first := (10 * telem.SecondTS).Range(11*telem.SecondTS + 1)
+			second := (11*telem.SecondTS + 1).Range(13*telem.SecondTS + 1)
+			Expect(changes).To(ConsistOf(
+				cesium.HistoryChange{Key: idx, TimeRange: first},
+				cesium.HistoryChange{Key: data, TimeRange: first},
+				cesium.HistoryChange{Key: idx, TimeRange: second},
+				cesium.HistoryChange{Key: data, TimeRange: second},
+			))
+		})
+
+		It("Should report the first commit of a new stretch from its first stamp",
+			func(ctx SpecContext) {
+				w := openWriter(ctx, 20*telem.SecondTS)
+				MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				var changes []cesium.HistoryChange
+				DeferCleanup(db.OnHistoryChange(
+					func(_ context.Context, c cesium.HistoryChange) {
+						changes = append(changes, c)
+					},
+				))
+				w = openWriter(ctx, 10*telem.SecondTS)
+				MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.EndStretch(ctx)).To(Succeed())
+				changes = nil
+				MustSucceed2(w.Write(ctx, frame(12, 13), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				tr := (12 * telem.SecondTS).Range(13*telem.SecondTS + 1)
+				Expect(changes).To(ConsistOf(
+					cesium.HistoryChange{Key: idx, TimeRange: tr},
+					cesium.HistoryChange{Key: data, TimeRange: tr},
+				))
+			})
+
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
@@ -222,7 +337,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			reopen(ctx)
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(1))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
 		})
 		It("Should read the stretches of two writers in time order", func(
 			ctx SpecContext,
@@ -235,8 +350,8 @@ var _ = Describe("Writer on the pointer log", func() {
 			}
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(2))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-			Expect(values.Series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11))
+			Expect(values.Series[1]).To(MatchSeriesDataV[int64](20, 21))
 			Expect(values.Series[0].Alignment.DomainIndex()).ToNot(
 				Equal(values.Series[1].Alignment.DomainIndex()),
 			)
@@ -247,6 +362,7 @@ var _ = Describe("Writer on the pointer log", func() {
 				Key: text, Name: "text", Index: idx, DataType: telem.StringT,
 			})).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Clock:    idx,
 				Channels: []cesium.ChannelKey{idx, text},
 				Start:    10 * telem.SecondTS,
 			}))
@@ -260,7 +376,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			Expect(w.Close()).To(Succeed())
 			Expect(read(ctx, text).Series[0]).To(
-				telem.MatchSeriesDataV("hello", "world"),
+				MatchSeriesDataV("hello", "world"),
 			)
 		})
 	})
@@ -323,6 +439,7 @@ var _ = Describe("Writer on the pointer log", func() {
 				Expect(highest).To(Equal(idx))
 				Expect(segments(data)).To(BeEmpty())
 				Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+					Clock:    idx,
 					Channels: []cesium.ChannelKey{idx},
 					Start:    20 * telem.SecondTS,
 				})).Error().To(MatchError(cesium.ErrChannelNotFound))
@@ -350,7 +467,10 @@ var _ = Describe("Writer on the pointer log", func() {
 		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 		Expect(w.Write(ctx, frame(11), nil)).Error().To(And(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("must be after")),
+			MatchError(ContainSubstring(
+				"index out of order: timestamp 1970-01-01T00:00:11Z at sample 0 "+
+					"must be after 1970-01-01T00:00:11Z",
+			)),
 		))
 		Expect(w.Close()).To(MatchError(validate.ErrValidation))
 	})
@@ -360,8 +480,80 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10),
 			telem.NewSeriesV[float32](1),
-		}), nil)).Error().To(MatchError(ContainSubstring("invalid data type")))
+		}), nil)).Error().To(MatchError(ContainSubstring(
+			"invalid data type, expected int64, got float32",
+		)))
 		Expect(w.Close()).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should refuse a writer that starts in stored data", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"cannot open writer because there is already data in the writer's "+
+					"time range",
+			)),
+		))
+	})
+
+	// claimed returns the claim refusal in err, and the key of its channel.
+	claimed := func(err error) (cesium.ClaimError, cesium.ChannelKey) {
+		GinkgoHelper()
+		var (
+			refusal cesium.ClaimError
+			ch      cesium.ChannelError
+		)
+		Expect(xerrors.As(err, &refusal)).To(BeTrue())
+		Expect(xerrors.As(err, &ch)).To(BeTrue())
+		return refusal, ch.Key
+	}
+
+	It("Should refuse a writer that reaches the claim of a live writer with a claim "+
+		"refusal of its channel", func(ctx SpecContext) {
+		live := openWriter(ctx, 10*telem.SecondTS)
+		_, err := db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    20 * telem.SecondTS,
+		})
+		refusal, key := claimed(err)
+		Expect(refusal.Open).To(BeTrue())
+		Expect(refusal.TimeRange.Start).To(Equal(20 * telem.SecondTS))
+		Expect(keys).To(ContainElement(key))
+		Expect(err).To(MatchError(ContainSubstring("cannot access time range")))
+		Expect(live.Close()).To(Succeed())
+	})
+
+	It("Should refuse a commit that reaches the claim of a live writer with a claim "+
+		"refusal of its channel", func(ctx SpecContext) {
+		behind := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+			Bounded:  true,
+		}))
+		live := openWriter(ctx, 20*telem.SecondTS)
+		MustSucceed2(behind.Write(ctx, frame(10, 25), nil))
+		_, _, err := behind.Commit(ctx, nil)
+		refusal, key := claimed(err)
+		Expect(refusal.Open).To(BeFalse())
+		reached := (20 * telem.SecondTS).Range(25*telem.SecondTS + 1)
+		Expect(refusal.TimeRange).To(Equal(reached))
+		Expect(keys).To(ContainElement(key))
+		Expect(err).To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("cannot write to time range")),
+		))
+		Expect(behind.Close()).Error().To(MatchError(validate.ErrValidation))
+		Expect(live.Close()).To(Succeed())
 	})
 
 	It("Should skip every key of a frame when the clock is skipped", func(
@@ -386,12 +578,179 @@ var _ = Describe("Writer on the pointer log", func() {
 			Key: other, Name: "other", IsIndex: true, DataType: telem.TimestampT,
 		})).To(Succeed())
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: []cesium.ChannelKey{idx, data, other},
 			Start:    10 * telem.SecondTS,
-		})).Error().To(MatchError(xerrors.ErrUnsupported))
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("channel is not timed by the writer clock")),
+		))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: []cesium.ChannelKey{data},
 			Start:    10 * telem.SecondTS,
 		})).Error().To(MatchError(xerrors.ErrUnsupported))
 	})
 })
+
+var _ = Describe("Writer handles on the pointer log", func() {
+	It("Should keep each written segment open past the handle limit, with no sync "+
+		"before a commit", func(ctx SpecContext) {
+		var syncs atomic.Int64
+		db := mustOpenDBOnFS(
+			ctx,
+			segmentSyncFS{FS: xfs.NewMem(), syncs: &syncs},
+			cesium.WithPointerLog(),
+		)
+		const count = 1100
+		clock := GenerateChannelKey()
+		channels := append(make([]cesium.Channel, 0, count+1), cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})
+		keys := append(make([]cesium.ChannelKey, 0, count+1), clock)
+		series := append(
+			make([]telem.Series, 0, count+1),
+			telem.NewSeriesSecondsTSV(10),
+		)
+		for i := range count {
+			key := GenerateChannelKey()
+			channels = append(channels, cesium.Channel{
+				Key:      key,
+				Name:     "data_" + strconv.Itoa(i),
+				Index:    clock,
+				DataType: telem.Int64T,
+			})
+			keys = append(keys, key)
+			series = append(series, telem.NewSeriesV[int64](1))
+		}
+		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.MultiFrame(keys, series))
+		Expect(syncs.Load()).To(BeZero())
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(syncs.Load()).To(BeNumerically(">=", len(keys)))
+	})
+})
+
+// segmentSyncFS counts the syncs of segment files.
+type segmentSyncFS struct {
+	xfs.FS
+	syncs *atomic.Int64
+}
+
+func (f segmentSyncFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return segmentSyncFS{FS: sub, syncs: f.syncs}, nil
+}
+
+func (f segmentSyncFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !strings.HasSuffix(name, ".seg") {
+		return file, err
+	}
+	return segmentSyncFile{File: file, syncs: f.syncs}, nil
+}
+
+type segmentSyncFile struct {
+	xfs.File
+	syncs *atomic.Int64
+}
+
+func (f segmentSyncFile) Sync() error {
+	f.syncs.Add(1)
+	return f.File.Sync()
+}
+
+var _ = Describe("Drop on the pointer log", func() {
+	It("Should remove the files of a key only once the log covers its Drop", func(
+		ctx SpecContext,
+	) {
+		gate := &logGate{release: make(chan struct{})}
+		mem := xfs.NewMem()
+		db := mustOpenDBOnFS(
+			ctx,
+			logGateFS{FS: mem, gate: gate},
+			cesium.WithPointerLog(),
+		)
+		clock := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10)))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(db.Intend([]cesium.ChannelKey{clock})).To(Succeed())
+		dir := strconv.Itoa(int(clock))
+		gate.after(1)
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{clock}) }()
+		Consistently(dropped).ShouldNot(Receive())
+		Expect(mem.Exists(dir)).To(BeTrue())
+		close(gate.release)
+		Eventually(dropped).Should(Receive(BeNil()))
+		Expect(mem.Exists(dir)).To(BeFalse())
+	})
+})
+
+// logGate holds each log sync after the next n until release closes.
+type logGate struct {
+	armed   atomic.Bool
+	left    atomic.Int64
+	release chan struct{}
+}
+
+func (g *logGate) after(n int64) {
+	g.left.Store(n)
+	g.armed.Store(true)
+}
+
+func (g *logGate) wait() {
+	if g.armed.Load() && g.left.Add(-1) < 0 {
+		<-g.release
+	}
+}
+
+// logGateFS holds the syncs of log files at its gate.
+type logGateFS struct {
+	xfs.FS
+	gate *logGate
+}
+
+func (f logGateFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return logGateFS{FS: sub, gate: f.gate}, nil
+}
+
+func (f logGateFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !strings.HasSuffix(name, ".log") {
+		return file, err
+	}
+	return logGateFile{File: file, gate: f.gate}, nil
+}
+
+type logGateFile struct {
+	xfs.File
+	gate *logGate
+}
+
+func (f logGateFile) Sync() error {
+	f.gate.wait()
+	return f.File.Sync()
+}

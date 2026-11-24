@@ -18,7 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,6 +31,7 @@ func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB
 		append([]cesium.Option{
 			cesium.WithFS(fs),
 			cesium.WithInstrumentation(PanicLogger()),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
 		}, opts...)...,
 	))
 }

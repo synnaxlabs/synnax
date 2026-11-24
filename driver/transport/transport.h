@@ -12,17 +12,21 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <span>
+#include <string>
 #include <system_error>
 #include <thread>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "asio/error.hpp"
 #include "asio/io_context.hpp"
+#include "asio/ip/address.hpp"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -78,6 +82,9 @@ struct Completion {
         return this->cancelled && this->ec == asio::error::operation_aborted;
     }
 };
+
+/// @brief Handler is the completion handler that run_for gives an operation.
+using Handler = std::function<void(const std::error_code &, std::size_t)>;
 
 /// @brief starts one asynchronous operation and runs ctx on the calling thread until
 /// the operation completes or timeout elapses, then cancels it. It returns only after
@@ -144,5 +151,33 @@ auto abandon_after(const x::telem::TimeSpan timeout, Call call)
         }))
         return {{}, std::make_error_code(std::errc::timed_out)};
     return std::move(*state->result);
+}
+
+/// @brief resolves host on port. An IP address resolves at once. A name resolves
+/// through getaddrinfo, which cannot be cancelled, so a resolve that times out finishes
+/// on its own thread.
+/// @tparam Protocol is asio::ip::tcp or asio::ip::udp.
+/// @returns the endpoints of host, or the error of the resolve. std::errc::timed_out
+/// when timeout elapses first.
+template<typename Protocol>
+std::pair<std::vector<typename Protocol::endpoint>, std::error_code> resolve(
+    const std::string &host,
+    const std::uint16_t port,
+    const x::telem::TimeSpan timeout
+) {
+    using Endpoint = Protocol::endpoint;
+    std::error_code ec;
+    if (const auto literal = asio::ip::make_address(host, ec); !ec)
+        return {{Endpoint(literal, port)}, {}};
+    return abandon_after(timeout, [host, port] {
+        asio::io_context ctx;
+        typename Protocol::resolver resolver(ctx);
+        std::error_code err;
+        const auto results = resolver.resolve(host, std::to_string(port), err);
+        std::vector<Endpoint> endpoints;
+        for (const auto &result: results)
+            endpoints.push_back(result.endpoint());
+        return std::pair{endpoints, err};
+    });
 }
 }

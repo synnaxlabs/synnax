@@ -12,6 +12,7 @@ package api
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -32,6 +33,13 @@ func channelNamesMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		return oCtx, apichannel.NameErrors(ctx, db, channels, rbacSvc, err)
+		return oCtx, apichannel.NameErrors(
+			ctx,
+			db,
+			channels,
+			rbacSvc,
+			auth.GetSubject(ctx),
+			err,
+		)
 	})
 }

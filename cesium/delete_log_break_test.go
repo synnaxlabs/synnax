@@ -63,6 +63,7 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
@@ -111,7 +112,8 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 		Expect(iter.Value().Get(data).Series[0].Unmarshal[int64]()).
 			To(Equal([]int64{10, 11}))
 		Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
-		Expect(segments(data)).To(HaveLen(1))
+		// The unlink also waits for the log to cover the Tombstone.
+		Eventually(func() []string { return segments(data) }).Should(HaveLen(1))
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
 		Expect(iter.Value().Get(data).Series[0].Unmarshal[int64]()).
@@ -156,6 +158,6 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 				To(Succeed())
 			write(ctx, 20, 21)
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
-			Expect(segments(data)).To(HaveLen(1))
+			Eventually(func() []string { return segments(data) }).Should(HaveLen(1))
 		})
 })
