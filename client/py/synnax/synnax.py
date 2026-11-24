@@ -286,7 +286,7 @@ class Synnax(framer.Client):
 
     @_Lazy
     def users(self) -> user.Client:
-        return user.Client(self._transport.unary)
+        return user.Client(self._transport.unary, self.auth)
 
     @_Lazy
     def ranges(self) -> ranger.Client:

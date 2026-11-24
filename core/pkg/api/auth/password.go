@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -228,7 +229,7 @@ func (s *Service) SetPassword(
 		return PasswordSetResponse{}, err
 	}
 	if err := s.password.NewWriter(tx).
-		Apply(ctx, subject, password.NewSetHashAction(hash)); err != nil {
+		SetHash(ctx, subject, hash); err != nil {
 		return PasswordSetResponse{}, err
 	}
 	w := s.auth.NewWriter(tx)
@@ -246,4 +247,102 @@ func (s *Service) SetPassword(
 		Token:   s.deliver(ctx, token, req.Cookie),
 		Session: &session,
 	}, nil
+}
+
+// Password is a password as the API returns it: its key, subject, and username,
+// without its hash.
+type Password struct {
+	// Key is the unique identifier of the password.
+	Key password.Key `json:"key" msgpack:"key"`
+	// Subject is the user the password logs in as.
+	Subject resource.ID `json:"subject" msgpack:"subject"`
+	// Username is the name the password logs in with.
+	Username string `json:"username" msgpack:"username"`
+}
+
+// PasswordRetrieveRequest selects passwords to list. Empty fields mean the caller's.
+type PasswordRetrieveRequest struct {
+	// Subjects limits the result to these subjects' passwords.
+	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
+	// Usernames limits the result to the passwords with these usernames.
+	Usernames []string `json:"usernames" msgpack:"usernames"`
+}
+
+// Holders implements bind.Held.
+func (r PasswordRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+
+// PasswordRetrieveResponse lists passwords without their hashes.
+type PasswordRetrieveResponse struct {
+	// Passwords are the passwords that matched.
+	Passwords []Password `json:"passwords" msgpack:"passwords"`
+}
+
+// RetrievePasswords lists the caller's password in snap, or the passwords of the given
+// subjects or usernames. It leaves out the passwords of other users for which allowed
+// returns false, and ignores unknown subjects and usernames.
+func (s *Service) RetrievePasswords(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	allowed func(resource.ID) bool,
+	req PasswordRetrieveRequest,
+) (PasswordRetrieveResponse, error) {
+	caller := GetSubject(ctx)
+	q := s.password.NewRetrieve()
+	if len(req.Subjects) == 0 && len(req.Usernames) == 0 {
+		q = q.Where(password.MatchSubjects(caller))
+	}
+	if len(req.Subjects) > 0 {
+		q = q.Where(password.MatchSubjects(req.Subjects...))
+	}
+	if len(req.Usernames) > 0 {
+		q = q.Where(password.MatchUsernames(req.Usernames...))
+	}
+	var passwords []password.Password
+	if err := q.Entries(&passwords).Exec(ctx, snap); err != nil &&
+		!errors.Is(err, query.ErrNotFound) {
+		return PasswordRetrieveResponse{}, err
+	}
+	return PasswordRetrieveResponse{Passwords: lo.FilterMap(
+		passwords,
+		func(p password.Password, _ int) (Password, bool) {
+			return Password{Key: p.Key, Subject: p.Subject, Username: p.Username},
+				p.Subject == caller || allowed(p.Subject)
+		},
+	)}, nil
+}
+
+// PasswordDispatchRequest carries actions to apply to one password, keyed by the
+// password's key.
+type PasswordDispatchRequest = actions.DispatchRequest[password.Key, password.Action]
+
+// DispatchPassword applies the actions of req to a password in order. Sessions stay
+// open. It returns access.ErrDenied when the caller cannot update the password's user,
+// [auth.ErrRepeatedUsername] when another user holds the username that the actions
+// set, a validation error when the password method is off or an action sets an empty
+// username, and an error wrapping query.ErrNotFound when no password has the key.
+func (s *Service) DispatchPassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordDispatchRequest,
+) (struct{}, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
+	var p password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchKeys(req.Key)).
+		Entry(&p).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	// The binder lets a user change the passwords it holds, but the Core makes root
+	// whichever user holds the root username, so renaming even one's own needs update.
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []resource.ID{p.Subject},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.password.NewWriter(tx).Apply(ctx, req.Key, req.Actions...)
 }
