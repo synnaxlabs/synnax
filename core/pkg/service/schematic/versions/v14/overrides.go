@@ -14,7 +14,6 @@ import (
 	"encoding/json/v2"
 	"reflect"
 	"slices"
-	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -81,6 +80,7 @@ func (o *overrides) source(
 	return src, err == nil, err
 }
 
+// node returns cfg with the enumeration or the copy of src that draws states.
 func (o *overrides) node(
 	ctx context.Context,
 	cfg SymbolNodeConfig,
@@ -97,11 +97,8 @@ func (o *overrides) node(
 		cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: key}}
 		return cfg, err
 	}
-	label := strings.TrimSpace(cfg.Label.Label)
-	if label == "" {
-		label = schematic
-	}
-	key, err := o.intern(ctx, src.Name+": "+label, entries)
+	name := src.Name + ": " + labelOr(cfg.Label.Label, schematic)
+	key, err := o.intern(ctx, name, entries)
 	cfg.States[0].Enumeration = &key
 	return cfg, err
 }

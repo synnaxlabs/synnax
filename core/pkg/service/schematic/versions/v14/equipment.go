@@ -254,11 +254,8 @@ func internLights(
 		if err != nil {
 			return err
 		}
-		label := strings.TrimSpace(light.Label.Label)
-		if label == "" {
-			label = s.Name
-		}
-		k, err := intern(ctx, "Light: "+label, []enumeration.Entry{
+		name := "Light: " + labelOr(light.Label.Label, s.Name)
+		k, err := intern(ctx, name, []enumeration.Entry{
 			{Key: "off", Value: 0, Name: "Off"},
 			{Key: "on", Value: 1, Name: "On", Color: fixed(on)},
 		})
@@ -269,4 +266,12 @@ func internLights(
 		s.Nodes[i].Config.Variant = cfg
 	}
 	return nil
+}
+
+// labelOr returns label with no outer spaces, or schematic when label is empty.
+func labelOr(label, schematic string) string {
+	if l := strings.TrimSpace(label); l != "" {
+		return l
+	}
+	return schematic
 }
