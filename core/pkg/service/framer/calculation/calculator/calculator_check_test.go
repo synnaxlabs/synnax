@@ -11,7 +11,6 @@ package calculator_test
 
 import (
 	"fmt"
-	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,30 +67,40 @@ var _ = Describe("Calculator check", Ordered, func() {
 
 	It("Should take the stamps of the lowest key among equal inputs, whatever order "+
 		"the expression names them in", func(ctx SpecContext) {
-		bases := make([]channel.Channel, 3)
+		indexes := make([]channel.Channel, 2)
+		for i := range indexes {
+			indexes[i] = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &indexes)
+		})).To(Succeed())
+		bases := make([]channel.Channel, 2)
 		for i := range bases {
 			bases[i] = channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.Int64T,
-				Virtual:  true,
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				LocalIndex: indexes[i].LocalKey,
 			}
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 		})).To(Succeed())
-		// The expression names the inputs from the highest key down.
-		byKey := slices.Clone(bases)
-		slices.SortFunc(byKey, func(a, b channel.Channel) int {
-			return int(b.Key()) - int(a.Key())
-		})
+		lo, hi := 0, 1
+		if bases[1].Key() < bases[0].Key() {
+			lo, hi = 1, 0
+		}
+		// The expression names the higher key first.
 		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:     UniqueChannelName(),
 			DataType: telem.Int64T,
 			Expression: fmt.Sprintf(
-				"return %s + %s + %s",
-				byKey[0].Name,
-				byKey[1].Name,
-				byKey[2].Name,
+				"return %s + %s",
+				bases[hi].Name,
+				bases[lo].Name,
 			),
 		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
@@ -100,17 +109,23 @@ var _ = Describe("Calculator check", Ordered, func() {
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 		}))
 		c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
-		keys := make([]channel.Key, len(bases))
-		series := make([]telem.Series, len(bases))
-		for i, b := range byKey {
-			keys[i] = b.Key()
-			series[i] = telem.NewSeriesV[int64](int64(i + 1))
-			series[i].Alignment = telem.NewAlignment(uint32(10*(i+1)), uint32(i))
+		stamps := make([][]telem.TimeStamp, 2)
+		stamps[lo] = []telem.TimeStamp{1 * telem.SecondTS, 2 * telem.SecondTS}
+		stamps[hi] = []telem.TimeStamp{5 * telem.SecondTS, 6 * telem.SecondTS}
+		keys := make([]channel.Key, 0, 2*len(bases))
+		series := make([]telem.Series, 0, 2*len(bases))
+		for _, i := range []int{hi, lo} {
+			keys = append(keys, indexes[i].Key(), bases[i].Key())
+			series = append(
+				series,
+				telem.NewSeries(stamps[i]),
+				telem.NewSeriesV[int64](int64(10*(i+1)), int64(10*(i+1))),
+			)
 		}
 		fr := frame.NewMulti(keys, series)
 		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 		Expect(changed).To(BeTrue())
-		lowest := series[len(series)-1].Alignment
-		Expect(o.Get(out.Key()).Series[0].Alignment).To(Equal(lowest))
+		Expect(o.Get(out.Index()).Series[0]).
+			To(telem.MatchSeriesData(telem.NewSeries(stamps[lo])))
 	})
 })
