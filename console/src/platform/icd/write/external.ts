@@ -9,4 +9,5 @@
 
 export * from "@/platform/icd/write/Bindings";
 export * from "@/platform/icd/write/Suit";
+export * from "@/platform/icd/write/useAddField";
 export * from "@/platform/icd/write/write";

@@ -419,6 +419,61 @@ describe("Kafka Write form", () => {
     await clickDeploy(container);
     await screen.findByText("Topic is required");
   });
+  describe("adding fields", () => {
+    const fieldGroup = async (name: string) =>
+      within(await screen.findByRole("group", { name }));
+
+    const retrieveFields = async (ic: icd.ICD, message: icd.Message) => {
+      const [retrieved] = await client.icds.retrieve([ic.key]);
+      return ICD.jsonFields(retrieved.messages.find(({ key }) => key === message.key));
+    };
+
+    const selectTarget = async () =>
+      fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+
+    it("should add a field to the message in its ICD, with its editor open, then put it on a channel", async () => {
+      const speed = createField("speed", "float");
+      const { target, ic, message } = await createTarget([speed]);
+      const { draft } = await renderWrite([target]);
+      await selectTarget();
+      await fieldGroup(speed.name);
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      const group = await fieldGroup("Field 2");
+      group.getByDisplayValue("Field 2");
+      group.getByDisplayValue("/field_2");
+      fireEvent.change(group.getByPlaceholderText("/temperature"), {
+        target: { value: "/limit" },
+      });
+      let added: icd.JSONField | undefined;
+      await waitFor(async () => {
+        added = (await retrieveFields(ic, message)).find((f) => f.pointer === "/limit");
+        expect(added).toBeDefined();
+      });
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: speed.key },
+              { type: "channel", field: added?.key, channel: 0 },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should add a first field to a message with no fields", async () => {
+      const { target } = await createTarget([]);
+      await renderWrite([target]);
+      await selectTarget();
+      await screen.findByText("Message has no fields");
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      await fieldGroup("Field 1");
+      await waitFor(() =>
+        expect(screen.queryByText("Message has no fields")).toBeNull(),
+      );
+    });
+  });
+
   describe("deploying against a live Core", () => {
     it("should create a command channel for each channel binding and keep it in the cluster", async () => {
       const speed = createField("speed", "float");

@@ -387,6 +387,7 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
   const isPreview = Task.useIsPreview();
   const target = PForm.useFieldValue(path);
   const message = ICD.useMessage(target.icd, target.message.message);
+  const { add, added } = ICD.Write.useAddField(target.icd, target.message.message);
   const prefix = commandPrefix(deviceName, target);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
@@ -407,7 +408,12 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
             inputProps={RECORD_KEY_INPUT_PROPS}
           />
         </PForm.Section>
-        <PForm.Section title="Message">
+        <PForm.Section
+          title="Message"
+          actions={
+            <ICD.AddField onClick={add} disabled={message?.payload.format !== "json"} />
+          }
+        >
           <ICD.MessageFormatField
             icdKey={target.icd}
             message={target.message.message}
@@ -425,6 +431,7 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
           message={target.message.message}
           channelName={(field) => commandName(prefix, field)}
           skipped={target.disabled}
+          opened={added}
         />
       </PForm.Sections>
     </Flex.Box>
