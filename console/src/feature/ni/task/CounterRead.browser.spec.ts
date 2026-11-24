@@ -29,7 +29,11 @@ import {
   preloadForms,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getIconButton } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  getIconButton,
+  getInputByItemLabel,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -130,6 +134,30 @@ describe("CounterRead", () => {
     );
     await waitFor(() => expect(screen.getByText("Measurement time")).toBeTruthy());
     expect(screen.queryByText("Divisor")).toBeNull();
+  });
+
+  it("should show a measurement time stored in nanoseconds", async () => {
+    const { container } = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr", measTime: 2e6 }),
+      ]),
+    );
+    await waitFor(() =>
+      expect(getInputByItemLabel(container, "Measurement time").value).toBe("2ms"),
+    );
+  });
+
+  it("should read a measurement time typed alone as seconds", async () => {
+    const { container } = await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
+    );
+    const input = await waitFor(() =>
+      getInputByItemLabel(container, "Measurement time"),
+    );
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "0.003" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(input.value).toBe("3ms"));
   });
 
   it("should reveal the divisor field for two-counter large-range measurement", async () => {

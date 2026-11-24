@@ -16,53 +16,6 @@ import { Node } from "@/arc/graph/node";
 import { useNodeConfig, useSingleDispatch } from "@/arc/queries";
 import { Diagram as Base } from "@/vis/diagram";
 
-// nodeChangesToActions converts diagram node gestures into Arc actions. Dimension
-// changes are dropped: Arc graph nodes carry no measured field, so the diagram
-// re-measures them on mount.
-export const nodeChangesToActions = (changes: Base.NodeChange[]): arc.Action[] => {
-  const actions: arc.Action[] = [];
-  changes.forEach((ch) => {
-    switch (ch.type) {
-      case "position":
-        actions.push(arc.setNodePosition({ key: ch.key, position: ch.position }));
-        return;
-      case "remove":
-        actions.push(arc.removeNode({ key: ch.key }));
-        break;
-      case "select":
-        break;
-    }
-  });
-  return actions;
-};
-
-// edgeChangesToActions converts diagram edge gestures into Arc actions. The
-// diagram edge key is the edge's stable identity, carried through to the graph.
-export const edgeChangesToActions = (changes: Base.EdgeChange[]): arc.Action[] =>
-  changes.flatMap((ch) => {
-    switch (ch.type) {
-      case "add":
-        return [
-          arc.addEdge({
-            edge: {
-              key: ch.edge.key,
-              source: ch.edge.source,
-              target: ch.edge.target,
-              kind: arc.ir.EdgeKind.continuous,
-            },
-          }),
-        ];
-      case "remove":
-        return [arc.removeEdge({ key: ch.key })];
-      case "reconnect":
-        return [
-          arc.reconnectEdge({ key: ch.key, source: ch.source, target: ch.target }),
-        ];
-      default:
-        return [];
-    }
-  });
-
 const NodeRenderer = ({
   nodeKey,
   position,
