@@ -53,7 +53,10 @@ var _ = Describe("Primary breaker", func() {
 			return channelSvc.NewWriter(tx).Rename(ctx, key, name, false)
 		})).To(Succeed())
 	}
-	calculationOf := func(ctx context.Context, output channel.Key) calculation.Calculation {
+	calculationOf := func(
+		ctx context.Context,
+		output channel.Key,
+	) calculation.Calculation {
 		GinkgoHelper()
 		return MustSucceed(creator.CalculationOf(ctx, output))
 	}
