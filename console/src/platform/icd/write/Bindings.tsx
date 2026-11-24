@@ -85,9 +85,12 @@ interface FieldBindingProps {
   opened: boolean;
 }
 
-/** Shows a field that opens on mount, such as one just added below the fold. */
+/**
+ * Shows a field that opens on mount, such as one just added below the fold. A stacked
+ * section has no box, so its header scrolls to the top.
+ */
 const reveal = (el: HTMLElement | null): void =>
-  el?.scrollIntoView({ block: "nearest" });
+  el?.firstElementChild?.scrollIntoView({ block: "start" });
 
 const FieldBinding = ({
   path,
