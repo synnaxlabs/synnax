@@ -190,7 +190,7 @@ func newHostFactory(ctx context.Context, cs calcState) (node.CompoundFactory, er
 	if err != nil {
 		return nil, err
 	}
-	mathMod, err := stlmath.NewHost(ctx, nil)
+	mathMod, err := stlmath.NewHost(ctx, nil, stlmath.WindowFromEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func openGuest(
 	if err != nil {
 		return nil, runtime.Budget{}, err
 	}
-	if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {
+	if _, err = stlmath.NewHost(ctx, wasmRT, stlmath.WindowFromEpoch); err != nil {
 		return nil, runtime.Budget{}, err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
@@ -280,6 +280,7 @@ func openGuest(
 		Memory:        guest.Memory(),
 		Strings:       cs.strings,
 		NodeKeySetter: statefulMod,
+		StampBounds:   true,
 	}, budget, nil
 }
 

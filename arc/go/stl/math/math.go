@@ -297,12 +297,29 @@ func NewSymbols() []*symbol.Symbol {
 // Host is the runtime host-side support for math: it registers the WASM
 // host-function bindings (pow_*, neg_*) and acts as the node factory for
 // avg / min / max / derivative.
-type Host struct{}
+// Windowing picks where the windows of the window operations start.
+type Windowing uint8
+
+const (
+	// WindowFromFirst starts a window at the first stamp it reads, as Arc flows do.
+	WindowFromFirst Windowing = iota
+	// WindowFromEpoch starts each window at a multiple of its duration from the Unix
+	// epoch and splits a frame at a boundary, as calculations do. Its outputs take the
+	// bounds of the input alone.
+	WindowFromEpoch
+)
+
+type Host struct{ windowing Windowing }
 
 // NewHost registers math's WASM host bindings with rt and returns a Host
-// handle that satisfies node.Factory for math's runtime nodes.
-func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{}
+// handle that satisfies node.Factory for math's runtime nodes, whose windows start as
+// windowing says.
+func NewHost(
+	ctx context.Context,
+	rt wazero.Runtime,
+	windowing Windowing,
+) (*Host, error) {
+	h := &Host{windowing: windowing}
 	if rt == nil {
 		return h, nil
 	}
@@ -339,7 +356,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	return h, nil
 }
 
-func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
+func (h *Host) Create(nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}
@@ -384,6 +401,7 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
+		epoch:       h.windowing == WindowFromEpoch,
 	}, nil
 }
 
@@ -399,49 +417,105 @@ var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
 
 type avgNode struct {
 	*node.State
-	process     reductionFn
-	inputIdx    int
-	resetIdx    int
-	sampleCount int64
-	// running holds the reduction of the samples in the current window.
-	running telem.Series
-	// window counts the current window in window lengths from the Unix epoch. It is
-	// meaningful only while windowed.
-	window        int64
-	windowed      bool
+	process       reductionFn
+	inputIdx      int
+	resetIdx      int
+	sampleCount   int64
+	startTime     telem.TimeStamp
 	lastResetTime telem.TimeStamp
+	// epoch is set for a calculation, whose windows start at multiples of the duration
+	// from the Unix epoch and whose outputs take the bounds of the input alone.
+	epoch bool
+	// running holds the reduction of the current epoch window.
+	running telem.Series
+	// window counts the current epoch window in durations from the Unix epoch. It is
+	// meaningful only while windowed.
+	window   int64
+	windowed bool
 }
 
 var _ node.Node = (*avgNode)(nil)
 
 func (r *avgNode) Reset(ctx node.Context) {
 	r.State.Reset(ctx)
-	r.restart()
-	r.windowed = false
+	r.sampleCount = 0
+	r.startTime = 0
 	r.lastResetTime = 0
+	r.restartRunning()
+	r.windowed = false
 }
 
-// restart starts a new window of the reduction.
-func (r *avgNode) restart() {
+// restartRunning starts a new epoch window of the reduction.
+func (r *avgNode) restartRunning() {
 	r.sampleCount = 0
 	r.running = r.running.Resized(0)
 }
 
-// Next reduces the new input samples into windows whose boundaries are multiples of
-// the duration from the Unix epoch, so a frame that crosses a boundary splits there. It
-// emits the value of each window that the frame touches, stamped with the window's last
-// sample in the frame.
 func (r *avgNode) Next(ctx node.Context) {
 	if !r.RefreshInputs() {
 		return
 	}
+	if r.epoch {
+		r.nextEpoch(ctx)
+		return
+	}
+
+	inputTime := r.InputTime(r.inputIdx)
+	if r.startTime == 0 && inputTime.Len() > 0 {
+		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
+	}
+
+	shouldReset := r.resetSignaled()
+
+	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
+	if duration > 0 && inputTime.Len() > 0 {
+		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
+		if telem.TimeSpan(currentTime-r.startTime) >= duration {
+			shouldReset = true
+			r.startTime = currentTime
+		}
+	}
+
+	count := r.NumericInput[int64](countInputParam)
+	if count > 0 && r.sampleCount >= count {
+		shouldReset = true
+	}
+
+	if shouldReset {
+		r.sampleCount = 0
+		out := r.Output(0)
+		*out = out.Resized(0)
+	}
+	inputData := r.Input(r.inputIdx)
+	if inputData.Len() == 0 {
+		return
+	}
+	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
+	if r.HasTime(r.inputIdx) {
+		*r.OutputTime(0) = telem.NewSeriesV(inputTime.ValueAt[telem.TimeStamp](-1))
+	} else {
+		r.StampCycle(ctx, 0)
+	}
+	alignment, timeRange := r.outputBounds(inputData)
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
+	r.Emit(ctx, 0)
+}
+
+// nextEpoch reduces the new input samples into windows whose boundaries are multiples
+// of the duration from the Unix epoch, so a frame that crosses a boundary splits there.
+// It emits the value of each window that the frame touches, stamped with the window's
+// last sample in the frame.
+func (r *avgNode) nextEpoch(ctx node.Context) {
 	shouldReset := r.resetSignaled()
 	count := r.NumericInput[int64](countInputParam)
 	if count > 0 && r.sampleCount >= count {
 		shouldReset = true
 	}
 	if shouldReset {
-		r.restart()
+		r.restartRunning()
 	}
 	inputData := r.Input(r.inputIdx)
 	length := inputData.Len()
@@ -462,7 +536,7 @@ func (r *avgNode) Next(ctx node.Context) {
 		if timed && duration > 0 {
 			w := windowOf(inputTime.ValueAt[telem.TimeStamp](int(start)), duration)
 			if !r.windowed || w != r.window {
-				r.restart()
+				r.restartRunning()
 				r.window, r.windowed = w, true
 			}
 			for end = start + 1; end < length; end++ {
@@ -534,6 +608,27 @@ func (r *avgNode) resetSignaled() bool {
 		r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
 	}
 	return signaled
+}
+
+// outputBounds returns the alignment and time range of the output for inputData,
+// widened to cover the reset input.
+func (r *avgNode) outputBounds(
+	inputData telem.Series,
+) (telem.Alignment, telem.TimeRange) {
+	alignment := inputData.Alignment
+	timeRange := inputData.TimeRange
+	if r.resetIdx >= 0 {
+		resetData := r.Input(r.resetIdx)
+		alignment += resetData.Alignment
+		if !resetData.TimeRange.Start.IsZero() &&
+			(timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
+			timeRange.Start = resetData.TimeRange.Start
+		}
+		if resetData.TimeRange.End > timeRange.End {
+			timeRange.End = resetData.TimeRange.End
+		}
+	}
+	return alignment, timeRange
 }
 
 // withMean gives an Avg reduction its own running state. Avg clears the state when

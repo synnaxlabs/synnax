@@ -52,6 +52,7 @@ type nodeImpl struct {
 	stack         []uint64
 	offsets       []int
 	selIdx        int
+	stampBounds   bool
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
@@ -238,16 +239,17 @@ func (n *nodeImpl) resizeOutputs(maxLength int64) [][]string {
 	return stringResults
 }
 
-// copyInputBounds gives every output the alignment and time range of input src, the
-// longest input, whose stamps the outputs take. With no streamed input, both are zero.
+// copyInputBounds gives every output an alignment and time range. With stampBounds
+// they are those of input src, the longest input, whose stamps the outputs take.
+// Otherwise they are summedBounds.
 func (n *nodeImpl) copyInputBounds(src int) {
-	var (
-		alignment telem.Alignment
-		timeRange telem.TimeRange
-	)
-	if src >= 0 {
-		input := n.Input(src)
-		alignment, timeRange = input.Alignment, input.TimeRange
+	alignment, timeRange := n.summedBounds()
+	if n.stampBounds {
+		alignment, timeRange = 0, telem.TimeRange{}
+		if src >= 0 {
+			input := n.Input(src)
+			alignment, timeRange = input.Alignment, input.TimeRange
+		}
 	}
 	for i := range n.ir.Outputs {
 		n.Output(i).Alignment = alignment
@@ -255,6 +257,29 @@ func (n *nodeImpl) copyInputBounds(src int) {
 		n.OutputTime(i).Alignment = alignment
 		n.OutputTime(i).TimeRange = timeRange
 	}
+}
+
+// summedBounds returns the sum of the alignments of the streamed inputs, which keeps
+// them unique across sources, and the time range that spans them.
+func (n *nodeImpl) summedBounds() (telem.Alignment, telem.TimeRange) {
+	var (
+		alignment telem.Alignment
+		timeRange telem.TimeRange
+	)
+	for i := range n.ir.Inputs {
+		if !n.streamed(i) {
+			continue
+		}
+		input := n.Input(i)
+		alignment += input.Alignment
+		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
+			timeRange.Start = input.TimeRange.Start
+		}
+		if input.TimeRange.End > timeRange.End {
+			timeRange.End = input.TimeRange.End
+		}
+	}
+	return alignment, timeRange
 }
 
 // sampleStamps picks the timestamp of each output sample: the longest input's, or a

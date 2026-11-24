@@ -317,7 +317,7 @@ func (t *impl) newHosts(
 	); err != nil {
 		return hosts{}, err
 	}
-	if h.math, err = math.NewHost(ctx, wasmRT); err != nil {
+	if h.math, err = math.NewHost(ctx, wasmRT, math.WindowFromFirst); err != nil {
 		return hosts{}, err
 	}
 	if h.errors, err = stlerrors.NewHost(ctx, wasmRT, nil); err != nil {

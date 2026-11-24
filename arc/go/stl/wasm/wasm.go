@@ -27,7 +27,11 @@ type Module struct {
 	Memory        api.Memory
 	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
-	arena         *arena
+	// StampBounds gives the outputs of each node the alignment and time range of the
+	// input whose stamps they take, as calculations do. Otherwise the outputs sum the
+	// alignments of the inputs and span their time ranges, as Arc flows do.
+	StampBounds bool
+	arena       *arena
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -70,6 +74,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		ir:            cfg.Node,
 		fn:            fn,
 		mem:           w.Memory,
+		stampBounds:   w.StampBounds,
 		fnOutputs:     irFn.Outputs,
 		memOffsets:    memOffsets,
 		outputValues:  make([]result, len(irFn.Outputs)),

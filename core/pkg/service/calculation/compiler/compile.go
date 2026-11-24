@@ -12,6 +12,7 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/arc"
@@ -271,7 +272,10 @@ func addReads(
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
 ) error {
-	for k, v := range reads {
+	// The inputs take the order of their keys, so a tie between inputs breaks the same
+	// way on every compile.
+	for _, k := range slices.Sorted(maps.Keys(reads)) {
+		v := reads[k]
 		sym, err := symbols.Resolve(ctx, v)
 		if err != nil {
 			return err
