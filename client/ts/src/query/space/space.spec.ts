@@ -1197,7 +1197,9 @@ describe("Answers", () => {
       found = false;
       foreign.set("f", rec("f", 1));
       await expect.poll(() => answers.getCached(qA)).toBeUndefined();
-      expect(handler).toHaveBeenLastCalledWith(undefined);
+      const [result, error] = handler.mock.lastCall ?? [];
+      expect(result).toBeUndefined();
+      expect(NotFoundError.matches(error)).toBe(true);
       await expect(answers.retrieve(qA)).rejects.toThrow(NotFoundError);
     });
 
