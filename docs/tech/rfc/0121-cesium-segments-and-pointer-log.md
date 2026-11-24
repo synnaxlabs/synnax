@@ -31,7 +31,7 @@ telemetry (§9.0).
 - **A clock and its channels commit one by one**: A crash leaves data with no stamps,
   and `TruncateToIndex` deletes that data at the next open (`cesium/open.go:142`).
 - **A channel delete can lose data and keep the record**: The Core deletes storage
-  inside the Gorp commit (`core/pkg/service/channel/writer.go:960-966`), and a failed
+  inside the Gorp commit (`core/pkg/service/channel/writer.go:991-999`), and a failed
   commit does not undo it (`:35-39`).
 - **Cesium holds facts that belong to the Core**: A name, a virtual flag, a concurrency
   setting (`cesium/internal/channel/channel.go:45-49`, `:69-78`), sessions, and write
@@ -105,7 +105,7 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    releases the claim. A public hook, `gorp.AfterEnd` (NEW), queues the keys. It runs
    once, after the store commit returns, so the record delete is durable before `Drop`
    can run, and it reports whether the transaction committed. It is not built on
-   `txState.OnCleanup` (`gorp/gorp.go:347`), which runs when the writes become visible,
+   `txState.OnCleanup` (`gorp/gorp.go:321`), which runs when the writes become visible,
    before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
    removes the segments of the key when reader pins drop. An error of `Drop` raises a
    status. A removal that fails after `Drop` returns goes to the injected error handler
@@ -149,17 +149,18 @@ deletes costs one sync, and a crash that keeps some blocks of a batch fails its 
 whole. A failed sync closes the file, and every later `Intend` fails until a restart (as
 every failed sync, §6). `Drop` marks the key gone at once, so a new writer or iterator
 on it fails, and when its last open iterator closes removes its data files, then its
-metadata files, then its directory, then appends and syncs a clear record. An open skips
-a channel directory whose key has an intent, so a directory that a removal cut short
-never stops an open. It still loads such a directory when a kept directory's `meta.json`
-names it as its index, and `Sweep` drops it after the last such channel goes. `Sweep`
-appends a clear record for each intent that it clears; a failed sync there fails the
-start. Only the last batch can tear: an open cuts a torn last batch, and a bad batch
-before a valid one raises a status. When `Sweep` leaves no live intent, it truncates the
-file to 0 and syncs it, which needs no rename; a crash leaves the old length or 0, and
-both hold no live intent. A delete costs at most 32 bytes of file between two
-truncations. The old binary warns about the unknown root file and ignores it
-(`cesium/open.go:59-63`).
+metadata files, then its directory unless it holds `.undone` files (§9.0), then appends
+and syncs a clear record. A key that a kept directory's `meta.json` names as its index
+keeps its files at `Drop`, as on the new layout. An open skips a channel directory whose
+key has an intent, so a directory that a removal cut short never stops an open. It still
+loads such a directory when a kept directory's `meta.json` names it as its index, and
+`Sweep` drops it after the last such channel goes. `Sweep` appends a clear record for
+each intent that it clears; a failed sync there fails the start. Only the last batch can
+tear: an open cuts a torn last batch, and a bad batch before a valid one raises a
+status. When `Sweep` leaves no live intent, it truncates the file to 0 and syncs it,
+which needs no rename; a crash leaves the old length or 0, and both hold no live intent.
+A delete costs at most 32 bytes of file between two truncations. The old binary warns
+about the unknown root file and ignores it (`cesium/open.go:59-63`).
 
 | Crash after                                     | State at the next start       | `Sweep`                                                             |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
@@ -191,7 +192,7 @@ The conversion carries the records of `delete-intents` into section 9 of the fir
 | `DB.Intend`, `DB.Drop`, `DB.Sweep`                                    | NEW                           | §4.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `cesium.Repair`                                                       | NEW                           | `Repair(ctx, dir, confirm, opts...)` runs §6.0 on a closed database: it builds the report of step 4, calls `confirm` with it, and writes only when `confirm` returns true                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and progression encoding change no sample and report nothing                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:80`, `:107`. No Core code calls them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:78`, `:105`. No Core code calls them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 The errors `ErrCorrupt`, `ErrDiskFull`, and `ErrFatal` are NEW. The framer calls `Sync`
@@ -299,10 +300,10 @@ the block, stored in the log with each commit. A writer continues from that valu
   `tail_crc`. On a mismatch the reader reads once more, then returns `ErrCorrupt` with
   key, segment, and offset, and no byte of the block, as for a missing file. For a
   variable type, a search of the trailers finds a sample's block.
-- **Handles**: One budget for the database, the smaller of half the file limit and 4096,
-  replaces the cap per channel (`cesium/internal/domain/db.go:76`). A handle with
-  unsynced bytes is synced before the budget closes it, in the job that needs the slot.
-  A sync that fails, from any caller, marks the segment failed (§5.4).
+- **Handles**: One budget for the database, a fixed 1,024 handles, replaces the cap per
+  channel (`cesium/internal/domain/db.go:76`). A handle with unsynced bytes is synced
+  before the budget closes it, in the job that needs the slot. A sync that fails, from
+  any caller, marks the segment failed (§5.4).
 
 **Version 2, a sealed clock as progressions**: The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
@@ -368,10 +369,14 @@ a format version it does not know.
 
 A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` has no
 allocate call, and a written file gives each log sync no size change. Commit records
-stop 1 MiB before the end, so a delete can be logged on a full disk. A smaller log, set
-by an option, must be at least 4 MiB, so that three quarters of it lies before the
-commit limit and every switch starts before commits stop; `Open` refuses a smaller size.
-The file header is 64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
+stop 1 MiB before the end, so a delete can be logged on a full disk. The log owner takes
+its size as a `Config` field: 64 MiB in a database, and at least 4 MiB. `C` makes the
+file of the next log right after each switch, so a switch at three quarters finds it
+ready. A batch goes out as frames of at most 16 MiB, and a frame that would cross three
+quarters of the log goes to the next log once its file is ready. An entry larger than a
+frame is refused, so the compactor and progression encoding try no rewrite whose Replace
+would be larger than a frame. The file header is 64 bytes at offset 0, and again at
+4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                      |
 | ------ | ---- | -------- | ------------------------------------------------------------ |
@@ -528,11 +533,13 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    make. Then tell `L` that the file exists; `L` switches only after that.
 2. `L`, after the sync of the last frame of log `g`: write both header copies of log
    `g + 1` and sync. Put one request in the state owner's queue right after the last
-   entries of log `g`, so the state that it answers covers exactly log `g`. The state
-   owner sends that state, as references to immutable channel states, to `C`, and the
-   open segments that no writer holds to `L`, which logs a Seal for each in log `g + 1`.
-   `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and both
-   logs.
+   entries of log `g`. The state owner keeps a durable view, fed by acked entries in log
+   order, apart from the visible view that `Commit` publishes, and it answers with the
+   durable view, which covers exactly log `g`. In the same step it marks sealed each
+   open segment that no writer holds, so no writer takes it over, and sends those
+   segments to `L`, which logs a Seal for each in log `g + 1`. It sends the durable
+   view, as references to immutable channel states, to `C`. `L` sends later batches to
+   log `g + 1`. A crash now recovers from head `g` and both logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -569,9 +576,10 @@ next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
    of data against stored stamps first waits until those stamps are durable. The wait
    ends with an error when the stamps are pulled back.
 6. The log owner writes every queued entry as one frame with one `WriteAt`, syncs it,
-   and acks each entry. There is no timer: a batch is what queued while the last sync
-   ran. After a crash the recovered state is a prefix of entry order and holds every
-   acked entry. Visible samples that no `Sync` covered are lost.
+   and acks each entry, which the state owner then applies to its durable view. There is
+   no timer: a batch is what queued while the last sync ran. After a crash the recovered
+   state is a prefix of entry order and holds every acked entry. Visible samples that no
+   `Sync` covered are lost.
 
 ### 5.5 Recovery
 
@@ -734,7 +742,7 @@ A second read comes before every verdict of lasting corruption, and the verdict 
 two failed reads of the same bytes: failures of two different byte ranges, such as a
 frame header and then its body, are two one-time faults, and each range gets its own
 second read. After a sync error on the log or a `SyncDir` error (fault 7), every Cesium
-call returns `ErrFatal`, and the Core shuts down through `DB.Run` (`cesium/db.go:193`),
+call returns `ErrFatal`, and the Core shuts down through `DB.Run` (`cesium/db.go:158`),
 `storage.Layer.Run` (`core/pkg/storage/layer.go:303-308`), and the lifetime stack.
 Cesium does not panic.
 
@@ -1012,13 +1020,21 @@ again from the old files as they are now. A Drop removes every file of its key's
 directory but the `.undone` files, so a channel that reuses an undone channel's key
 never deletes that telemetry. A crash between the commit point and the identity write
 converts again with nothing lost, since the Core serves only after the write. Telemetry
-that the new binary wrote is lost, so `synnax update undo` across the conversion warns
-and asks before it runs; `--yes` skips the question, and with no answer or no terminal
-the undo refuses. An update that keeps the Cesium formats backs up and restores no
-Cesium file: its undo leaves the live state, and `Sweep` handles the keys that the
-restored channel table does not hold. No background work rewrites a version 0 file while
-a backup from a release older than the first that writes segments exists (§5.1), so
-every undo finds the old files that it needs.
+that the new binary wrote is lost, so the new binary's `synnax update undo` across the
+conversion warns and asks before it runs; `--yes` skips the question, and with no answer
+or no terminal the undo refuses. The old binary's undo cannot ask: the conversion writes
+a warning status at its start that names the cost of an undo, and the release notes say
+it too. An update that keeps the Cesium formats backs up and restores no Cesium file:
+from Phase 7, a restore accepts a backup with no Cesium files and runs no `RestoreMeta`
+for it, and it still runs `RestoreMeta` for a backup from a release older than the first
+that writes segments. Its undo leaves the live state, and `Sweep` handles the keys that
+the restored channel table does not hold. No background work rewrites or unlinks a
+version 0 file while a backup from a release older than the first that writes segments
+exists (§5.1), so an undo finds every old file that the user did not delete. A user
+delete may unlink one. The old binary then fails a read over that range, and the next
+conversion drops each pointer whose file is gone, with a warning that names it. Nothing
+removes `.undone` files: a person deletes them by hand once their telemetry is not
+needed.
 
 ### 9.1 What is owed
 
@@ -1089,15 +1105,15 @@ comes after RFC 0120 Phases 1 and 2, and RFC 0120 Phases 6 to 8 come after Phase
 phase lands as several pieces, grouped into pull requests of about 2,000 hand-written
 lines.
 
-| Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
-| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Add a directory sync to the file system interface          | `x/go/io/fs`                                                                                                                                                  | -          |
-| 2     | Add a fault file system for storage tests                  | `x/go/io/fs/testutil/fault`                                                                                                                                   | 1          |
-| 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                                         | 2          |
-| 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                     | 3          |
-| 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge` | -          |
-| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                                               | 3, 4, 5    |
-| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`              | 6          |
+| Phase | Scope                                                      | Touches                                                                                                                                                             | Depends on |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Add a directory sync to the file system interface          | `x/go/io/fs`                                                                                                                                                        | -          |
+| 2     | Add a fault file system for storage tests                  | `x/go/io/fs/testutil/fault`                                                                                                                                         | 1          |
+| 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                                               | 2          |
+| 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                           | 3          |
+| 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge`       | 1          |
+| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                                                     | 3, 4, 5    |
+| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update` | 6          |
 
 ## 13 Resolved decisions
 
