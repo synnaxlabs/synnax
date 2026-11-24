@@ -19,7 +19,7 @@ import type { z } from "zod";
 
 import {
   type Connector,
-  DEFAULT_CONNECTOR,
+  defaultConnector,
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
@@ -61,6 +61,9 @@ const UNREACHABLE_CODES = new Set([
 
 const DENO_TCP_CONNECT_ERROR = "client error (Connect): tcp connect error";
 
+// Undici's ProxyAgent fails with this when the proxy cannot reach the target.
+const PROXY_TUNNEL_FAILURE = /^Proxy response \(50[234]\) !== 200 when HTTP Tunneling$/;
+
 const shouldCastToUnreachable = (
   err: Error & { code?: unknown; errno?: unknown },
 ): boolean => {
@@ -80,8 +83,13 @@ const shouldCastToUnreachable = (
     err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
   )
     return true;
+  if (isProxyTunnelFailure(err.cause)) return true;
   return isBrowserFetchFailure(err);
 };
+
+const isProxyTunnelFailure = (err: unknown): boolean =>
+  err instanceof Error &&
+  (PROXY_TUNNEL_FAILURE.test(err.message) || isProxyTunnelFailure(err.cause));
 
 // Browsers hide the cause of a failed fetch, so a certificate failure looks like this.
 const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network error/i;
@@ -176,7 +184,7 @@ export interface HTTPClientConfig {
    * sets no limit. File transfers have no limit, since their bodies can take longer.
    */
   timeout?: CrudeTimeSpan;
-  /** Sends the requests. Defaults to the global fetch. */
+  /** Sends the requests. Defaults to {@link defaultConnector}. */
   connector?: Connector;
 }
 
@@ -195,7 +203,7 @@ export class HTTPClient
     codec,
     secure = false,
     timeout = DEFAULT_TIMEOUT,
-    connector = DEFAULT_CONNECTOR,
+    connector = defaultConnector(),
   }: HTTPClientConfig) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });

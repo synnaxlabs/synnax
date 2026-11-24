@@ -25,6 +25,7 @@ import (
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -209,6 +210,19 @@ var _ = Describe("MigrateNodeConfig", func() {
 		),
 	)
 
+	It("Should keep the ends of gauge and tank bounds", func(ctx SpecContext) {
+		b := spatial.Bounds{Lower: -5, Upper: 5}
+		want := spatial.ClosedBounds{Lower: -5, Upper: 5}
+		gauge := MustSucceed(v14.MigrateNodeConfig(ctx, v13.NodeConfig{
+			Variant: v13.GaugeNodeConfig{Bounds: b},
+		}))
+		Expect(gauge.Variant).To(HaveField("Bounds", want))
+		tank := MustSucceed(v14.MigrateNodeConfig(ctx, v13.NodeConfig{
+			Variant: v13.TankNodeConfig{Bounds: b},
+		}))
+		Expect(tank.Variant).To(HaveField("Bounds", want))
+	})
+
 	It("Should keep an absent look color absent", func(ctx SpecContext) {
 		out := MustSucceed(v14.MigrateNodeConfig(ctx, v13.NodeConfig{
 			Variant: v13.BoxNodeConfig{},
@@ -261,6 +275,35 @@ var _ = Describe("MigrateScaleIndicatorConfig", func() {
 			Expect(out.AxisColor).To(Equal(fixed(2)))
 			Expect(out.TextColor).To(Equal(fixed(3)))
 		},
+	)
+
+	DescribeTable("Should lift the bounds into valid closed bounds",
+		func(ctx SpecContext, old spatial.Bounds, want spatial.ClosedBounds) {
+			out := MustSucceed(v14.MigrateScaleIndicatorConfig(
+				ctx,
+				v13.ScaleIndicatorConfig{Bounds: old},
+			))
+			Expect(out.Bounds).To(Equal(want))
+		},
+		Entry(
+			"keeping bounds in order",
+			spatial.Bounds{
+				Lower: 1,
+				Upper: 9,
+			},
+			spatial.ClosedBounds{Lower: 1, Upper: 9},
+		),
+		Entry(
+			"swapping reversed bounds",
+			spatial.Bounds{
+				Lower: 9,
+				Upper: 1,
+			},
+			spatial.ClosedBounds{Lower: 1, Upper: 9},
+		),
+		Entry("giving equal bounds the default",
+			spatial.Bounds{Lower: 4, Upper: 4},
+			spatial.ClosedBounds{Lower: 0, Upper: 100}),
 	)
 })
 

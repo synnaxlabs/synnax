@@ -21,6 +21,7 @@ from synnax.exceptions import ConfigurationError
 from synnax.options import Options
 from tests.cli.scripted import Scripted
 from tests.memory_keyring import MemoryKeyring, NoKeychain
+from tests.user import create_user
 
 
 class WinError(Exception):
@@ -277,9 +278,7 @@ class TestLogin:
         first = clusters.get()
         assert first is not None
         other_username = f"cli-{uuid4()}"
-        other = client.users.create(
-            username=other_username, password="password123", role=empty_role.key
-        )
+        other = create_user(client, other_username, "password123", empty_role.key)
         assert connect.login(
             Scripted(host, port, other_username, "password123", "n").prompt, clusters
         )
