@@ -66,32 +66,32 @@ var _ = Describe("Accuracy", func() {
 						},
 					)).To(Succeed())
 					Expect(
-						db.WriteSeries(
-							ctx,
+						writeSeries(
+							ctx, db,
 							idxKey,
 							2*telem.SecondTS,
 							telem.NewSeriesSecondsTSV(firstTS...),
 						),
 					).To(Succeed())
 					Expect(
-						db.WriteSeries(
-							ctx,
+						writeSeries(
+							ctx, db,
 							idxKey,
 							22*telem.SecondTS,
 							telem.NewSeriesSecondsTSV(secondTS...),
 						),
 					).To(Succeed())
 					Expect(
-						db.WriteSeries(
-							ctx,
+						writeSeries(
+							ctx, db,
 							key,
 							2*telem.SecondTS,
 							telem.NewSeries(first),
 						),
 					).To(Succeed())
 					Expect(
-						db.WriteSeries(
-							ctx,
+						writeSeries(
+							ctx, db,
 							key,
 							22*telem.SecondTS,
 							telem.NewSeries(second),
@@ -223,32 +223,32 @@ var _ = Describe("Accuracy", func() {
 							},
 						)).To(Succeed())
 						Expect(
-							db.WriteSeries(
-								ctx,
+							writeSeries(
+								ctx, db,
 								idxKey1,
 								1*telem.SecondTS,
 								telem.NewSeriesSecondsTSV(idxData1...),
 							),
 						).To(Succeed())
 						Expect(
-							db.WriteSeries(
-								ctx,
+							writeSeries(
+								ctx, db,
 								idxKey2,
 								1*telem.SecondTS,
 								telem.NewSeriesSecondsTSV(idxData2...),
 							),
 						).To(Succeed())
 						Expect(
-							db.WriteSeries(
-								ctx,
+							writeSeries(
+								ctx, db,
 								key1,
 								1*telem.SecondTS,
 								telem.NewSeries(data1),
 							),
 						).To(Succeed())
 						Expect(
-							db.WriteSeries(
-								ctx,
+							writeSeries(
+								ctx, db,
 								key2,
 								1*telem.SecondTS,
 								telem.NewSeries(data2),

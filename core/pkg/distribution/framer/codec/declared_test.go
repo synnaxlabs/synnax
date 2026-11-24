@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -59,7 +60,7 @@ func multi(entries ...keyed) framer.Frame {
 
 func expectSeries(fr framer.Frame, entries ...keyed) {
 	GinkgoHelper()
-	Expect(fr.Frame).To(telem.MatchFrame(multi(entries...).Frame))
+	Expect(fr.Frame).To(MatchFrame(multi(entries...).Frame))
 }
 
 var _ = Describe("Declared clocks", func() {

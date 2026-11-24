@@ -133,7 +133,11 @@ func writePartsStretch(
 		stamps[i] = telem.TimeStamp(first+i+1) * telem.SecondTS
 		values[i] = int64(first + i)
 	}
-	w, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: keys, Start: stamps[0]})
+	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: keys,
+		Clock:    keys[0],
+		Start:    stamps[0],
+	})
 	if err != nil {
 		b.Fatal(err)
 	}

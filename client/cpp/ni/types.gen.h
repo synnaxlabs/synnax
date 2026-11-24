@@ -732,18 +732,14 @@ struct Hardware {
     /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
     /// the device does not support the attribute.
     ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
-    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
-    /// included.
-    std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
-    /// @brief ai_current_ranges are the analog input current ranges of the device, ends
-    /// included.
-    std::vector<::x::spatial::Bounds> ai_current_ranges = {};
-    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device,
-    /// ends included.
-    std::vector<::x::spatial::Bounds> ao_voltage_ranges = {};
-    /// @brief ao_current_ranges are the analog output current ranges of the device,
-    /// ends included.
-    std::vector<::x::spatial::Bounds> ao_current_ranges = {};
+    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ai_voltage_ranges = {};
+    /// @brief ai_current_ranges are the analog input current ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ai_current_ranges = {};
+    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ao_voltage_ranges = {};
+    /// @brief ao_current_ranges are the analog output current ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ao_current_ranges = {};
 
     static Hardware parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1297,9 +1293,8 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public Min
     std::string edge = CI_EDGE_RISING;
     /// @brief meas_method selects the measurement method.
     std::string meas_method = CI_MEAS_METHOD_DYNAMIC_AVG;
-    /// @brief meas_time is the averaging window for high-frequency measurement, in
-    /// seconds.
-    double meas_time = 0.000006;
+    /// @brief meas_time is the averaging window for high-frequency measurement.
+    ::x::telem::TimeSpan meas_time = ::x::telem::TimeSpan(6000);
     /// @brief divisor is the counter divisor for large-range measurement.
     std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
@@ -1339,9 +1334,8 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMax
     std::string starting_edge = CI_EDGE_RISING;
     /// @brief meas_method selects the measurement method.
     std::string meas_method = CI_MEAS_METHOD_DYNAMIC_AVG;
-    /// @brief meas_time is the averaging window for high-frequency measurement, in
-    /// seconds.
-    double meas_time = 0.001000;
+    /// @brief meas_time is the averaging window for high-frequency measurement.
+    ::x::telem::TimeSpan meas_time = ::x::telem::TimeSpan(1000000);
     /// @brief divisor is the counter divisor for large-range measurement.
     std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.

@@ -14,7 +14,7 @@ import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
-import { Button } from "@/schematic/node/general/button/Primitive";
+import { Primitive } from "@/schematic/node/general/button/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 
@@ -52,7 +52,7 @@ export const Symbol = ({
         channel={commandChannel}
         onChange={onConfigChange}
       />
-      <Button
+      <Primitive.Button
         label={label}
         mode={mode}
         onClick={onClick}
@@ -72,5 +72,5 @@ export const Preview = ({
   ...rest
 }: schematic.ButtonNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
-  return <Button {...rest} fillColor={resolve(fillColor)} />;
+  return <Primitive.Button {...rest} fillColor={resolve(fillColor)} />;
 };
