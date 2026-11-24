@@ -66,12 +66,12 @@ TimeFormat enum {
 
 Header struct {
     name  string = "" {
-        @doc value           "is the header name, unique within a request."
+        @doc value         "is the header name, unique within a request."
+        @go validate       pattern "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" "Header name must be a token: letters, digits, and !#$%&'*+-.^_`|~"
         @validate required
-        @go validate pattern "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" "Header name must be a token: letters, digits, and !#$%&'*+-.^_`|~"
     }
     value string = "" {
-        @doc value           "is the header value."
+        @doc value   "is the header value."
         @go validate pattern "^([^[:cntrl:]]|[[:blank:]])*$" "Header value must not hold a line break or other control character"
     }
 
@@ -263,7 +263,7 @@ BaseWriteField struct {
         @key
     }
     pointer string = "" {
-        @doc value           "is the JSON Pointer where the value is placed in the body."
+        @doc value   "is the JSON Pointer where the value is placed in the body."
         @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
 

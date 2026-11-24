@@ -21,9 +21,6 @@ QueryParam = v2.QueryParam
 
 ReadField struct extends v2.ReadField {
     disabled
-    pointer     {
-        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
-    }
     optional    bool = false {
         @doc value """
             is true when a missing value is normal for this field. The task writes
@@ -35,6 +32,9 @@ ReadField struct extends v2.ReadField {
             is the value written when an optional field is missing, typed by the
             channel. Unset writes NaN, which needs a float channel.
         """
+    }
+    pointer     {
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
     time_format payload.TimeFormat? {
         @doc value """

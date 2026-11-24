@@ -301,8 +301,6 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	w.String(rf.Key)
 	w.String(rf.Name)
 	w.Bool(rf.Disabled)
-	w.Uint32(uint32(rf.Channel))
-	w.String(rf.Pointer)
 	w.Bool(rf.Optional)
 	if rf.FillValue != nil {
 		w.Bool(true)
@@ -316,6 +314,8 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.Uint32(uint32(rf.Channel))
+	w.String(rf.Pointer)
 	w.String(string(rf.DataType))
 	if rf.TimeFormat != nil {
 		w.Bool(true)
@@ -347,16 +347,6 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 	if rf.Disabled, err = r.Bool(); err != nil {
 		return err
 	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		rf.Channel = channel.Key(rawV)
-	}
-	if rf.Pointer, err = r.String(); err != nil {
-		return err
-	}
 	if rf.Optional, err = r.Bool(); err != nil {
 		return err
 	}
@@ -376,6 +366,16 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rf.Channel = channel.Key(rawV)
+	}
+	if rf.Pointer, err = r.String(); err != nil {
+		return err
 	}
 	{
 		rawV, err := r.String()

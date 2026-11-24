@@ -71,16 +71,16 @@ type ReadField struct {
 	Name string `json:"name" msgpack:"name"`
 	// Disabled is true when the field is excluded from polling.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Channel is the Synnax channel the extracted value is written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Pointer is the JSON Pointer to the value within the response body.
-	Pointer string `json:"pointer" msgpack:"pointer"`
 	// Optional is true when a missing value is normal for this field. The task writes
 	// fill_value, or NaN on a float channel, and sends no warning.
 	Optional bool `json:"optional" msgpack:"optional"`
 	// FillValue is the value written when an optional field is missing, typed by the
 	// channel. Unset writes NaN, which needs a float channel.
 	FillValue *any `json:"fill_value,omitzero" msgpack:"fill_value,omitempty"`
+	// Channel is the Synnax channel the extracted value is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Pointer is the JSON Pointer to the value within the response body.
+	Pointer string `json:"pointer" msgpack:"pointer"`
 	// DataType is the data type of the extracted value.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds

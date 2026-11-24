@@ -90,15 +90,6 @@ ReadField struct {
     disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
-    channel     channel.Key = 0 {
-        @doc value     "is the Synnax channel the extracted value is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    pointer     string = "" {
-        @doc value   "is the JSON Pointer to the value within the response body."
-        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
-    }
     optional    bool = false {
         @doc value """
             is true when a missing value is normal for this field. The task writes
@@ -110,6 +101,15 @@ ReadField struct {
             is the value written when an optional field is missing, typed by the
             channel. Unset writes NaN, which needs a float channel.
         """
+    }
+    channel     channel.Key = 0 {
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    pointer     string = "" {
+        @doc value   "is the JSON Pointer to the value within the response body."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
     data_type   telem.DataType = "float64" {
         @doc value "is the data type of the extracted value."
