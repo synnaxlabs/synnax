@@ -71,7 +71,6 @@ var _ = Describe("Calculator", Ordered, func() {
 					DB:      db,
 					Channel: channelSvc,
 					Framer:  node.Framer,
-					Status:  statusSvc,
 				},
 			)),
 		}

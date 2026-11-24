@@ -69,7 +69,6 @@ func newBenchEnv(b *testing.B) *benchEnv {
 			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
-			Status:  statusSvc,
 		},
 	))
 	return &benchEnv{

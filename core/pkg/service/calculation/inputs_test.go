@@ -32,7 +32,7 @@ func openChannels(
 	ctx context.Context,
 	node testutil.Node,
 	cfgs ...channel.ServiceConfig,
-) (*channel.Service, *status.Service) {
+) *channel.Service {
 	GinkgoHelper()
 	statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
 	return MustOpen(channel.OpenService(ctx, append([]channel.ServiceConfig{{
@@ -41,7 +41,7 @@ func openChannels(
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statuses,
-	}}, cfgs...)...)), statuses
+	}}, cfgs...)...))
 }
 
 var _ = Describe("Service", func() {
@@ -53,13 +53,11 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		db = node.DB
-		var statuses *status.Service
-		channels, statuses = openChannels(ctx, node)
+		channels = openChannels(ctx, node)
 		svc = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      db,
 			Channel: channels,
 			Framer:  node.Framer,
-			Status:  statuses,
 		}))
 	})
 	// createChannel creates ch, and the calculation of expression and ops that writes
@@ -217,7 +215,7 @@ var _ = Describe("Service", func() {
 				limited  atomic.Bool
 			)
 			node := testutil.NewNode(ctx)
-			limitSvc, statuses := openChannels(ctx, node, channel.ServiceConfig{
+			limitSvc := openChannels(ctx, node, channel.ServiceConfig{
 				Limit: func(types.Uint20) error {
 					if limited.Load() {
 						return errLimit
@@ -251,7 +249,6 @@ var _ = Describe("Service", func() {
 					DB:      node.DB,
 					Channel: limitSvc,
 					Framer:  node.Framer,
-					Status:  statuses,
 				},
 			))
 			Expect(limitCalcs.Inputs(

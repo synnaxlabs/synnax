@@ -62,7 +62,6 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 		DB:      n.DB,
 		Channel: channelSvc,
 		Framer:  n.Framer,
-		Status:  statusSvc,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:          n.DB,

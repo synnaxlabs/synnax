@@ -50,7 +50,6 @@ var _ = Describe("Creator", Ordered, func() {
 					DB:      dist.DB,
 					Channel: svc,
 					Framer:  dist.Framer,
-					Status:  statusSvc,
 				},
 			)),
 		}

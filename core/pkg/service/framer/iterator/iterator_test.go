@@ -62,7 +62,6 @@ func openServices(
 		DB:      node.DB,
 		Channel: channelSvc,
 		Framer:  node.Framer,
-		Status:  statusSvc,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
 		DB:          node.DB,

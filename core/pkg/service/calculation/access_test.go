@@ -59,7 +59,6 @@ var _ = Describe("Access", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
-			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})
