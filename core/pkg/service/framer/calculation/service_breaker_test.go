@@ -58,6 +58,7 @@ var _ = Describe("Calculation breaker", Ordered, func() {
 			DB:      dist.DB,
 			Channel: channelSvc,
 			Framer:  dist.Framer,
+			Status:  statusSvc,
 		}))
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,

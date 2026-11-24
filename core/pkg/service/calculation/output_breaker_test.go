@@ -47,6 +47,7 @@ var _ = Describe("CreateOutput breaker", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
+			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})

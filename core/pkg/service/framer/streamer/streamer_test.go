@@ -62,6 +62,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
+			Status:  statusSvc,
 		}))
 		creator = calctestutil.Creator{
 			DB:          node.DB,

@@ -48,6 +48,7 @@ func benchServices(b *testing.B) (*calculation.Service, *gorp.DB) {
 		DB:      node.DB,
 		Channel: channels,
 		Framer:  node.Framer,
+		Status:  statuses,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)
