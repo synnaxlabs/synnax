@@ -282,12 +282,12 @@ class TestSessions:
         assert client.auth.subject is not None
         assert client.auth.subject.type == "user"
         assert client.auth.renew().key == session.key
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key in keys
         client.auth.logout()
         assert not client.auth.authenticated
         # The next request logs in again with a fresh session.
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key not in keys
         assert client.auth.session is not None
         assert client.auth.session.key in keys
@@ -313,10 +313,10 @@ class TestSessions:
         )
         assert ending.auth.session is not None
         assert other.auth.session is not None
-        other.auth.delete_sessions(ending.auth.session.key)
+        other.auth.sessions.delete(ending.auth.session.key)
         ending.auth.logout()
         assert not ending.auth.authenticated
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         ending.close()
         other.close()
@@ -341,10 +341,10 @@ class TestSessions:
             host=host, port=port, username=user_name, password="seldon", secure=False
         )
         assert other.auth.session is not None
-        assert len(other.auth.retrieve_sessions()) == 2
+        assert len(other.auth.sessions.retrieve()) == 2
         closing.close()
         assert not closing.connectivity._thread.is_alive()
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         other.close()
         admin.close()
@@ -404,7 +404,7 @@ class TestAPIKeys:
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon", secure=False
         )
-        token, key = owner.auth.create_api_key("script")
+        token, key = owner.auth.api_keys.create("script")
         assert token.startswith("syk_")
         assert key.name == "script"
         assert key.subject == owner.auth.subject
@@ -412,9 +412,9 @@ class TestAPIKeys:
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential == key.key
-        assert [k.key for k in owner.auth.retrieve_api_keys()] == [key.key]
-        owner.auth.delete_api_keys(key.key)
-        assert owner.auth.retrieve_api_keys() == []
+        assert [k.key for k in owner.auth.api_keys.retrieve()] == [key.key]
+        owner.auth.api_keys.delete(key.key)
+        assert owner.auth.api_keys.retrieve() == []
         keyed.close()
         owner.close()
         admin.close()
@@ -425,11 +425,11 @@ class TestAPIKeys:
         admin = sy.Synnax(
             host=host, port=port, username=username, password=password, secure=False
         )
-        token, key = admin.auth.create_api_key("deleted")
+        token, key = admin.auth.api_keys.create("deleted")
         keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
-        admin.auth.delete_api_keys(key.key)
+        admin.auth.api_keys.delete(key.key)
         with pytest.raises(sy.AuthError):
-            keyed.auth.retrieve_sessions()
+            keyed.auth.sessions.retrieve()
         keyed.close()
         admin.close()
 
@@ -451,7 +451,7 @@ class TestPasswords:
             host=host, port=port, username=username, password=password, secure=False
         )
         with pytest.raises(sy.ValidationError):
-            admin.auth.create_password(str(uuid4()), "p")
+            admin.auth.passwords.create(str(uuid4()), "p")
         admin.close()
 
     def test_create_for_new_user(
@@ -466,7 +466,7 @@ class TestPasswords:
         )
         user = admin.users.create(name="First Password", role=empty_role.key)
         new_username = str(uuid4())
-        admin.auth.create_password(new_username, "first", subject=user.resource_id)
+        admin.auth.passwords.create(new_username, "first", subject=user.resource_id)
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="first", secure=False
         )
@@ -484,7 +484,7 @@ class TestPasswords:
         )
         user = admin.users.create(name="Repeated Username", role=empty_role.key)
         with pytest.raises(sy.AuthError):
-            admin.auth.create_password(username, "p", subject=user.resource_id)
+            admin.auth.passwords.create(username, "p", subject=user.resource_id)
         admin.close()
 
     def test_retrieve_own(
@@ -500,7 +500,7 @@ class TestPasswords:
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="test", secure=False
         )
-        [p] = client.auth.retrieve_passwords()
+        [p] = client.auth.passwords.retrieve()
         assert (p.subject, p.username) == (user.resource_id, new_username)
         client.close()
         admin.close()
@@ -515,7 +515,7 @@ class TestPasswords:
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
-        res = admin.auth.retrieve_passwords(usernames=[new_username, str(uuid4())])
+        res = admin.auth.passwords.retrieve(usernames=[new_username, str(uuid4())])
         assert [(p.subject, p.username) for p in res] == [
             (user.resource_id, new_username)
         ]
@@ -531,7 +531,7 @@ class TestPasswords:
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
-        res = admin.auth.retrieve_passwords(subjects=[user.resource_id])
+        res = admin.auth.passwords.retrieve(subjects=[user.resource_id])
         assert [(p.subject, p.username) for p in res] == [
             (user.resource_id, new_username)
         ]

@@ -83,7 +83,7 @@ class Client:
         users: list[New] | None = None,
     ) -> User | list[User]:
         """Creates users with no password. Give a user its first password with
-        client.auth.create_password.
+        client.auth.passwords.create.
         """
         if name is not None:
             if role is None:
@@ -110,10 +110,10 @@ class Client:
         :raises AccessDenied: if the caller may not retrieve or update the user.
         :raises ValidationError: if the username is empty.
         """
-        passwords = self._auth.retrieve_passwords(subjects=[resource_id(key)])
+        passwords = self._auth.passwords.retrieve(subjects=[resource_id(key)])
         if len(passwords) == 0:
             raise NotFoundError(f"user {key} has no password")
-        self._auth.dispatch_password(
+        self._auth.passwords.dispatch(
             passwords[0].key,
             password.set_username(password.SetUsernamePayload(username=username)),
         )

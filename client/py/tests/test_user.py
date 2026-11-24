@@ -121,12 +121,12 @@ class TestUserClient:
         )
         new_username = str(uuid())
         client.users.change_username(user.key, new_username)
-        [p] = client.auth.retrieve_passwords()
+        [p] = client.auth.passwords.retrieve()
         assert p.username == new_username
         session = client.auth.session
         assert session is not None
-        client.auth.delete_sessions(session.key)
-        [p] = client.auth.retrieve_passwords()
+        client.auth.sessions.delete(session.key)
+        [p] = client.auth.passwords.retrieve()
         assert p.username == new_username
         assert client.auth.session is not None
         assert client.auth.session.key != session.key
