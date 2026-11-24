@@ -11,6 +11,7 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,10 +42,10 @@ var _ = Describe("Delete claim", func() {
 			}))
 		}
 		a := open("a", 200)
-		Expect(db.svc.ClaimDelete(keys)).Error().To(SatisfyAll(
-			MatchError(writer.ErrChannelInUse),
-			MatchError(ContainSubstring("1 unclosed writers")),
-		))
+		Expect(db.svc.ClaimDelete(keys)).Error().To(MatchError(fmt.Sprintf(
+			"there are 1 unclosed writers on channel %v: channel in use",
+			keys[0],
+		)))
 		b := open("b", 100)
 		Expect(b.Write(frame.NewUnary(keys[0], telem.NewSeriesV[int64](7)))).
 			To(BeFalse())

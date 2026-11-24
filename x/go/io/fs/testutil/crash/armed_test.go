@@ -49,7 +49,7 @@ var _ = Describe("Faults after the open", func() {
 				Commits: 8,
 				Stride:  1,
 				Profile: profile,
-			})).To(MatchError(crash.ErrNoFault))
+			})).To(MatchError(ContainSubstring("crash: no fault of the profile fired")))
 		},
 		Entry("under Partial", crash.Partial),
 		Entry("under SyncErrors", crash.SyncErrors),

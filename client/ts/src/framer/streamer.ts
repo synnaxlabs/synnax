@@ -32,6 +32,7 @@ const reqZ = z.object({
   excludeGroups: z.uint32().array().optional(),
   keepAlive: TimeSpan.z.optional(),
   ackRequested: z.boolean().optional(),
+  missedRequested: z.boolean().optional(),
 });
 
 /**
@@ -46,6 +47,8 @@ const resZ = z.object({
   keepAlive: z.boolean().optional(),
   /** Marks the empty response that answers a request with ackRequested set. */
   ack: z.boolean().optional(),
+  /** Marks the empty response the Core sends after it drops frames for the streamer. */
+  missed: z.boolean().optional(),
 });
 
 /**
@@ -80,8 +83,20 @@ export const streamerConfigZ = intermediateStreamerConfigZ.or(
   ),
 );
 
+/** Callbacks a streamer config can carry beside its schema fields. */
+export interface StreamerCallbacks {
+  /**
+   * Called when the Core drops frames because the streamer fell behind. The changes
+   * in those frames never arrive, so state built from the stream must be read again.
+   * Called once for each run of drops. The stream continues.
+   */
+  onMissed?: () => void;
+}
+
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */
-export type StreamerConfig = z.input<typeof streamerConfigZ>;
+export type StreamerConfig =
+  | (z.input<typeof intermediateStreamerConfigZ> & StreamerCallbacks)
+  | z.input<typeof channel.paramsZ>;
 
 /** Options for {@link Streamer.update}. */
 export interface StreamerUpdateOptions {
@@ -142,6 +157,8 @@ export const createStreamOpener =
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
+    const onMissed =
+      typeof config === "object" && "onMissed" in config ? config.onMissed : undefined;
     const streamer = new BaseStreamer(
       stream,
       adapter,
@@ -149,6 +166,7 @@ export const createStreamOpener =
       cfg.throttleRate,
       cfg.excludeGroups,
       cfg.keepAlive,
+      onMissed,
     );
     await stream.send({
       keys: Array.from(adapter.keys),
@@ -156,6 +174,7 @@ export const createStreamOpener =
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
       keepAlive: cfg.keepAlive,
+      missedRequested: onMissed != null,
     });
     // A keep-alive can beat the open ack onto the wire, so the ack is the first
     // non-keep-alive response.
@@ -193,6 +212,7 @@ class BaseStreamer implements Streamer {
   private readonly throttleRate: Rate;
   private readonly excludeGroups: number[];
   private readonly deadline: TimeSpan;
+  private readonly onMissed?: () => void;
   // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
@@ -207,6 +227,7 @@ class BaseStreamer implements Streamer {
     throttleRate: Rate = new Rate(0),
     excludeGroups: number[] = [],
     keepAlive: TimeSpan = TimeSpan.ZERO,
+    onMissed?: () => void,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -216,6 +237,7 @@ class BaseStreamer implements Streamer {
     this.deadline = TimeSpan.milliseconds(
       keepAlive.milliseconds * KEEP_ALIVE_DEADLINE_FACTOR,
     );
+    this.onMissed = onMissed;
   }
 
   get keys(): channel.Key[] {
@@ -252,6 +274,10 @@ class BaseStreamer implements Streamer {
         if (ack == null)
           throw new UnexpectedError("received an ack with no pending update");
         ack.resolve();
+        continue;
+      }
+      if (res.missed === true) {
+        this.onMissed?.();
         continue;
       }
       const { keys, series } = res.frame;

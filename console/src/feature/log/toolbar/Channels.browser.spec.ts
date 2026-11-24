@@ -13,7 +13,7 @@ import { color, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channels } from "@/feature/log/toolbar/Channels";
+import { Toolbar } from "@/feature/log/toolbar";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 import { pickOption } from "@/testutil";
 
@@ -37,13 +37,13 @@ const entry = (
 const roles = new RoleClients(client);
 
 const renderChannels = (channels: log.ChannelEntry[] = [], as?: Client) =>
-  renderLog(Channels, { log: { channels }, as });
+  renderLog(Toolbar, { log: { channels }, as });
 
 // The channel rows, not counting the add-channel row.
 const channelRows = (): HTMLElement[] =>
   within(screen.getByRole("list", { name: "Log channels" })).queryAllByRole("listitem");
 
-describe("log/toolbar/Channels", () => {
+describe("Log toolbar channels tab", () => {
   it("renders no channel rows when there are no channels", async () => {
     await renderChannels();
     expect(await screen.findByText("Add channel")).toBeDefined();
@@ -292,7 +292,7 @@ describe("log/toolbar/Channels", () => {
   });
 });
 
-describe("log/toolbar/Channels permissions", () => {
+describe("Log toolbar channels tab permissions", () => {
   const isAddRowFrozen = (result: { container: HTMLElement }) =>
     result.container.querySelector(".console-log__channel-select .lyra--disabled") !=
     null;

@@ -100,19 +100,11 @@ var _ = Describe("Alignment", func() {
 })
 
 var _ = Describe("Leading alignments", func() {
-	Describe("LeadingAlignment", func() {
-		It("Should offset the domain index from LeadingDomain", func() {
-			Expect(telem.LeadingAlignment(3, 7)).To(Equal(
-				telem.NewAlignment(telem.LeadingDomain+3, 7),
-			))
-		})
-	})
-
 	Describe("AlignmentCounter", func() {
 		It("Should start at the domain after start", func() {
 			c := telem.NewAlignmentCounter(telem.LeadingDomain)
-			Expect(c.Next()).To(Equal(telem.LeadingAlignment(1, 0)))
-			Expect(c.Next()).To(Equal(telem.LeadingAlignment(2, 0)))
+			Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+			Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+2, 0)))
 		})
 
 		It("Should hand out the last domain index", func() {
@@ -120,11 +112,13 @@ var _ = Describe("Leading alignments", func() {
 			Expect(c.Next()).To(Equal(telem.NewAlignment(math.MaxUint32, 0)))
 		})
 
-		It("Should return ErrAlignmentsExhausted once every domain is used", func() {
+		It("Should fail once every domain is used", func() {
 			c := telem.NewAlignmentCounter(math.MaxUint32 - 1)
 			MustSucceed(c.Next())
-			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
-			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
+			Expect(c.Next()).Error().
+				To(MatchError("alignment domains exhausted, restart to reset"))
+			Expect(c.Next()).Error().
+				To(MatchError("alignment domains exhausted, restart to reset"))
 		})
 
 		It("Should hand out distinct domains to concurrent callers", func() {

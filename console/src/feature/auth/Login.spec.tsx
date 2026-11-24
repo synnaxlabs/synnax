@@ -20,6 +20,7 @@ import {
   MissingCredentialsError,
   SessionEndedError,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -30,7 +31,7 @@ vi.mock("@/platform/core/detectConnection", () => ({
   detectConnection: () => null,
 }));
 
-import { Login } from "@/feature/auth/Login";
+import { Auth } from "@/feature/auth";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -38,6 +39,8 @@ import {
   createStatusConsoleWrapper,
   getBySelector,
 } from "@/testutil";
+
+const client = createTestClient();
 
 // Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
@@ -93,11 +96,16 @@ const renderLogin = async (alpha = ALPHA): Promise<HTMLElement> => {
       },
     },
   });
-  const { container } = render(<Login />, { wrapper });
+  const { container } = render(
+    <Auth.Guard>
+      <span>workspace</span>
+    </Auth.Guard>,
+    { wrapper },
+  );
   return container;
 };
 
-describe("auth/Login", () => {
+describe("Auth login", () => {
   it("should start on the Core list when no Core is selected", async () => {
     await renderLogin();
     expect(await screen.findByText(ALPHA.name)).toBeTruthy();
@@ -165,7 +173,7 @@ describe("auth/Login", () => {
 
   const renderRejected = async (error: Error): Promise<HTMLElement> => {
     const { wrapper } = await createStatusConsoleWrapper({
-      client: null,
+      client,
       status: rejected(error),
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
@@ -175,7 +183,12 @@ describe("auth/Login", () => {
         },
       },
     });
-    const { container } = render(<Login />, { wrapper });
+    const { container } = render(
+      <Auth.ConnectionGuard>
+        <span>workspace</span>
+      </Auth.ConnectionGuard>,
+      { wrapper },
+    );
     await screen.findByPlaceholderText(USERNAME_PLACEHOLDER);
     return container;
   };

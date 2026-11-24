@@ -98,26 +98,12 @@ type headParts struct {
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
-// root. It refuses a root that holds the old layout with errors.ErrUnsupported.
+// root. It converts a root of the old layout that holds no head that passes.
 func openEngine(o *options) (*engine, error) {
 	r := &recovery{fs: o.fs}
-	old, err := r.list()
+	old, snapshot, err := r.loadHead(o)
 	if err != nil {
 		return nil, err
-	}
-	snapshot, err := r.pickHead()
-	if err != nil {
-		return nil, err
-	}
-	// An undo that a crash cut short can have moved the parts already, so the check
-	// comes before they load.
-	if snapshot, err = checkIdentity(o, r, snapshot); err != nil {
-		return nil, err
-	}
-	if snapshot != nil {
-		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
-			return nil, err
-		}
 	}
 	e := &engine{
 		ins:      o.Instrumentation,
@@ -623,4 +609,26 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
 		Bare:     seg.Version == 0,
 	}
+}
+
+// storedAfter reports whether readers see a sample of key after stamp, in a segment of
+// the state or in a record that a part holds.
+func (e *engine) storedAfter(key ChannelKey, stamp telem.TimeStamp) (bool, error) {
+	if ch := e.state.Channel(key); ch != nil && endsAfter(ch.Segments, stamp) {
+		return true, nil
+	}
+	pre, err := e.records(key, stamp+1, telem.TimeStampMax)
+	return err == nil && endsAfter(pre.Segments, stamp), err
+}
+
+// endsAfter reports whether a pointer of segs ends after stamp.
+func endsAfter(segs []state.Segment, stamp telem.TimeStamp) bool {
+	for _, seg := range segs {
+		for _, p := range seg.Pointers {
+			if p.Last > stamp {
+				return true
+			}
+		}
+	}
+	return false
 }

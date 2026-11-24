@@ -100,6 +100,30 @@ func generationOf(name, suffix string) (uint64, bool) {
 	return g, err == nil
 }
 
+// loadHead lists the root, returns the snapshot of the head in use, and loads the parts
+// that the head names into r.parts. old is true when the root holds files of the old
+// layout. The snapshot is nil in a root with no head, and after checkIdentity undoes
+// the database.
+func (r *recovery) loadHead(
+	o *options,
+) (old bool, snapshot *state.Snapshot, err error) {
+	if old, err = r.list(); err != nil {
+		return false, nil, err
+	}
+	if snapshot, err = r.pickHead(); err != nil {
+		return false, nil, err
+	}
+	// An undo that a crash cut short can have moved the parts already, so the check
+	// comes before they load.
+	if snapshot, err = checkIdentity(o, r, snapshot); err != nil || snapshot == nil {
+		return old, snapshot, err
+	}
+	if r.parts, err = checkpoint.LoadParts(r.fs, r.db, r.head); err != nil {
+		return false, nil, err
+	}
+	return old, snapshot, nil
+}
+
 // pickHead takes the newest head that passes, and removes each newer head that is not
 // complete. It returns nil when the root holds no head that passes and may start as a
 // new database: no head at all, or only an incomplete head 1 whose log holds no frame.
@@ -241,7 +265,9 @@ func (r *recovery) verifiedHeader(
 
 // frameAt returns the frame at off of the log of generation in b when it is valid: its
 // magic, bounds, and check pass, and it continues sequence with a link to prev. A frame
-// that fails is read a second time before frameAt decides.
+// that fails is read a second time before frameAt decides: its header, and then the
+// bytes that the header bounds, so the padding after a synced frame costs one small
+// read.
 func (r *recovery) frameAt(
 	b []byte,
 	generation uint64,
@@ -259,9 +285,15 @@ func (r *recovery) frameAt(
 	if f, ok := valid(); ok {
 		return f, true, nil
 	}
-	end := min(off+log.MaxFrame, int64(len(b)))
-	if err := r.reread(generation, b[off:end], off); err != nil {
+	head := min(off+log.FrameHeaderSize, int64(len(b)))
+	if err := r.reread(generation, b[off:head], off); err != nil {
 		return log.Frame{}, false, err
+	}
+	if size, ok := log.FrameSize(b[off:head]); ok {
+		end := min(off+int64(size), int64(len(b)))
+		if err := r.reread(generation, b[head:end], head); err != nil {
+			return log.Frame{}, false, err
+		}
 	}
 	f, ok := valid()
 	return f, ok, nil

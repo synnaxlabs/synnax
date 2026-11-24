@@ -9,10 +9,7 @@
 
 package control
 
-import (
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/x/errors"
 
 // Gate controls access to a resource for a given region of time.
 type Gate[K comparable, R Resource[K]] struct {
@@ -29,12 +26,6 @@ type Gate[K comparable, R Resource[K]] struct {
 	authority Authority
 }
 
-// Subject returns information about the subject controlling this gate.
-func (g *Gate[K, R]) Subject() Subject { return g.subject }
-
-// Authority returns the control authority for this gate.
-func (g *Gate[K, R]) Authority() Authority { return g.authority }
-
 // State returns the current control State of the gate.
 func (g *Gate[K, R]) state() *State[K] {
 	return &State[K]{
@@ -42,14 +33,6 @@ func (g *Gate[K, R]) state() *State[K] {
 		Resource:  g.region.resource.Key(),
 		Authority: g.authority,
 	}
-}
-
-// PeekResource returns the resource controlled by the gate. The resource is NOT valid
-// for modification or use.
-func (g *Gate[K, R]) PeekResource() R {
-	g.region.RLock()
-	defer g.region.RUnlock()
-	return g.region.resource
 }
 
 // Authorize calls f with the resource if the gate has control over it, returning the
@@ -87,7 +70,7 @@ func (g *Gate[K, R]) authorize() (r R, err error) {
 		return r, errors.Wrapf(
 			ErrUnauthorized,
 			"%s has no control authority - gate was already released",
-			g.Subject(),
+			g.subject,
 		)
 	}
 	// In the case of exclusive concurrency, we only need to check if the gate is the
@@ -102,27 +85,13 @@ func (g *Gate[K, R]) authorize() (r R, err error) {
 	return r, errors.Wrapf(
 		ErrUnauthorized,
 		"%s has no control authority - it is currently held by %s",
-		g.Subject(),
-		g.region.curr.Subject(),
+		g.subject,
+		g.region.curr.subject,
 	)
 }
 
-// MoveStart moves the start of the gate's region to start, which frees any time before
-// it. It fails when the region would reach another region. A bounded region only moves
-// back, and a start at or after the end of the region does nothing.
-func (g *Gate[K, R]) MoveStart(start telem.TimeStamp) error {
-	return g.region.controller.moveStart(g.region, start)
-}
-
-// Reach moves the end of the gate's region forward to end. It does nothing when the
-// region already holds end, and fails when the region would reach another region.
-func (g *Gate[K, R]) Reach(end telem.TimeStamp) error {
-	return g.region.controller.reach(g.region, end)
-}
-
-// Release releases the gate's access to the resource. If the gate is the last gate in a
-// region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
-// the zero value of the resource will be returned.
+// Release releases the gate's access to the resource. It returns the resource when the
+// gate is the last gate of its region, and the zero value otherwise.
 func (g *Gate[K, R]) Release() (resource R, transfer Transfer[K]) {
 	return g.region.release(g)
 }

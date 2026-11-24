@@ -53,8 +53,8 @@ func switchState(keys int) *state.Snapshot {
 }
 
 // BenchmarkSwitch measures one switch of the checkpointer at a steady state: the match
-// against the parts of the last head, the head, and Clean, which reads and checks the
-// older head because its log exists, as at every switch of a running database. The
+// against the parts of the last head, the head, and the clean, which reads and checks
+// the older head because its log exists, as at every switch of a running database. The
 // first switch, which writes the parts of a state past the part size, runs before the
 // timer, and so does the file of each log.
 func BenchmarkSwitch(b *testing.B) {
@@ -78,7 +78,10 @@ func BenchmarkSwitch(b *testing.B) {
 			ran := make(chan error, 1)
 			go func() { ran <- c.Run(b.Context()) }()
 			b.Cleanup(func() {
-				if err := <-ran; !errors.Is(err, context.Canceled) {
+				if err := c.Close(); err != nil {
+					b.Error(err)
+				}
+				if err := <-ran; err != nil && !errors.Is(err, context.Canceled) {
 					b.Error(err)
 				}
 			})
@@ -95,9 +98,6 @@ func BenchmarkSwitch(b *testing.B) {
 				b.StartTimer()
 				c.Head(generation, s)
 				<-stepped
-				if err := c.Err(); err != nil {
-					b.Fatal(err)
-				}
 			}
 			step()
 			b.ReportAllocs()

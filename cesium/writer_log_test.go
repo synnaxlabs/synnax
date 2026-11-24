@@ -147,6 +147,63 @@ var _ = Describe("Writer on the pointer log", func() {
 			)
 			Expect(w.Close()).To(Succeed())
 		})
+		It("Should read an index with samples together with a data key that holds none",
+			func(ctx SpecContext) {
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{idx},
+					Start:    10 * telem.SecondTS,
+				}))
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(
+					[]cesium.ChannelKey{idx},
+					[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+				), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx, data))
+				Expect(fr.Get(idx).Series).To(HaveLen(1))
+				Expect(fr.Get(data).Series).To(BeEmpty())
+			})
+		It("Should take int64 stamps for the index, as the old layout does", func(
+			ctx SpecContext,
+		) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			stamps := []int64{int64(10 * telem.SecondTS), int64(11 * telem.SecondTS)}
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries([]int64{1, 2}),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(read(ctx, idx).Series[0]).To(
+				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
+			)
+			Expect(read(ctx, data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		})
+		It("Should report a commit before the newest data of a key to history", func(
+			ctx SpecContext,
+		) {
+			var changes []cesium.HistoryChange
+			disconnect := db.OnHistoryChange(
+				func(_ context.Context, c cesium.HistoryChange) {
+					changes = append(changes, c)
+				},
+			)
+			DeferCleanup(disconnect)
+			w := openWriter(ctx, 20*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(changes).To(BeEmpty())
+			w = openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			tr := (10 * telem.SecondTS).Range(11*telem.SecondTS + 1)
+			Expect(changes).To(ConsistOf(
+				cesium.HistoryChange{Key: idx, TimeRange: tr},
+				cesium.HistoryChange{Key: data, TimeRange: tr},
+			))
+		})
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
@@ -236,7 +293,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			commit(ctx)
 			Expect(segments(data)).To(HaveLen(1))
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			Expect(db.RetrieveChannel(ctx, data)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
 			Expect(fs.Exists(strconv.Itoa(int(data)))).To(BeFalse())
@@ -249,7 +306,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			ctx SpecContext,
 		) {
 			commit(ctx)
-			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{idx})).To(Succeed())
 			Expect(MustSucceed(db.RetrieveChannel(ctx, idx)).Key).To(Equal(idx))
 			Expect(segments(idx)).To(HaveLen(1))
 		})
