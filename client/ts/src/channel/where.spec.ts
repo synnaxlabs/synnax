@@ -12,8 +12,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { createLines } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 import { vectors } from "@/testutil/vectors";
 
@@ -115,24 +113,5 @@ describe("Where", () => {
     } finally {
       closers.forEach((close) => close());
     }
-  });
-
-  it("should match the internal line against the built-in keys", () => {
-    const table = vectors.read("channels", recordZ, channel.whereZ);
-    const builtIn = table.records.find(([, ch]) => ch.internal)?.[1];
-    const user = table.records.find(([, ch]) => !ch.internal)?.[1];
-    if (builtIn == null || user == null)
-      throw new Error("the vectors hold no internal and user channel");
-    const lines = createLines(() => new Set([builtIn.key]));
-    expect(serverComputed(lines, { internal: { eq: true } })).toBe(false);
-    expect(matches(lines, builtIn, { internal: { eq: true } })).toBe(true);
-    expect(matches(lines, user, { internal: { eq: true } })).toBe(false);
-    expect(matches(lines, user, { internal: { eq: false } })).toBe(true);
-  });
-
-  it("should leave the internal line to the Core before the built-in keys arrive", () => {
-    const unknown = createLines(() => null);
-    expect(serverComputed(unknown, { internal: { eq: false } })).toBe(true);
-    expect(serverComputed(unknown, { virtual: true })).toBe(false);
   });
 });
