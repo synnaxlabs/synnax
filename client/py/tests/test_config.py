@@ -97,6 +97,7 @@ def home_env(home: Path) -> dict[str, str]:
         "HOME": str(home),
         "USERPROFILE": str(home),
         "APPDATA": str(home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(home / "AppData" / "Local"),
         "XDG_CONFIG_HOME": str(home / ".config"),
     }
 
@@ -128,6 +129,7 @@ class TestConfigDirs:
             ("win32", {}, "AppData/Roaming/Synnax"),
             ("win32", {"APPDATA": "roaming"}, "roaming/Synnax"),
             ("win32", {"APPDATA": "relative"}, "AppData/Roaming/Synnax"),
+            ("win32", {"LOCALAPPDATA": "local"}, "AppData/Roaming/Synnax"),
         ],
     )
     def test_dirs(
@@ -141,6 +143,29 @@ class TestConfigDirs:
             k: v if v in ("", "relative") else str(tmp_path / v) for k, v in env.items()
         }
         assert config_dirs(tmp_path, env, platform) == (
+            tmp_path / current,
+            tmp_path / ".synnax",
+        )
+
+    @pytest.mark.parametrize(
+        ("platform", "env", "current"),
+        [
+            ("win32", {}, "AppData/Local/Synnax"),
+            ("win32", {"LOCALAPPDATA": "local"}, "local/Synnax"),
+            ("win32", {"LOCALAPPDATA": "relative"}, "AppData/Local/Synnax"),
+            ("win32", {"APPDATA": "roaming"}, "AppData/Local/Synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "xdg"}, "xdg/synnax"),
+            ("darwin", {}, "Library/Application Support/Synnax"),
+        ],
+    )
+    def test_local_dirs(
+        self, platform: str, env: dict[str, str], current: str, tmp_path: Path
+    ) -> None:
+        """Should place files of this computer in %LOCALAPPDATA% on Windows, and in
+        the config directory elsewhere.
+        """
+        env = {k: v if v == "relative" else str(tmp_path / v) for k, v in env.items()}
+        assert config_dirs(tmp_path, env, platform, local=True) == (
             tmp_path / current,
             tmp_path / ".synnax",
         )
@@ -393,7 +418,7 @@ class TestLoadDesktopOptions:
             monkeypatch.setenv(k, v)
         write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
         if current:
-            write_desktop_file(config_dirs()[0] / "desktop.json", port=2)
+            write_desktop_file(config_dirs(local=True)[0] / "desktop.json", port=2)
         opts = load_desktop_options(run=FakeHelper())
         assert opts is not None
         assert opts.port == (2 if current else 1)
@@ -407,7 +432,7 @@ class TestLoadDesktopOptions:
         for k, v in home_env(tmp_path).items():
             monkeypatch.setenv(k, v)
         write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
-        (config_dirs()[0] / "desktop.json").mkdir(parents=True)
+        (config_dirs(local=True)[0] / "desktop.json").mkdir(parents=True)
         opts = load_desktop_options(run=FakeHelper())
         assert opts is not None
         assert opts.port == 1
