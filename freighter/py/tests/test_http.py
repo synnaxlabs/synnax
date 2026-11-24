@@ -58,13 +58,13 @@ class TestConstruction:
 
 
 @pytest.fixture
-def unreachable_client() -> HTTPClient:
+def unreachable_client(host: str) -> HTTPClient:
     """A client whose endpoint is a closed local port."""
     with socket.socket() as sock:
-        sock.bind(("localhost", 0))
+        sock.bind((host, 0))
         port = sock.getsockname()[1]
     return HTTPClient(
-        url=URL(host="localhost", port=port),
+        url=URL(host=host, port=port),
         codec=JSONCodec(),
         registry=create_registry(),
     )
@@ -97,11 +97,11 @@ def _hang(conn: socket.socket) -> None:
 
 
 @pytest.fixture
-def broken_server(request: pytest.FixtureRequest) -> Generator[URL]:
+def broken_server(host: str, request: pytest.FixtureRequest) -> Generator[URL]:
     """A server that reads one request, then applies the parametrized behavior to its
     connection instead of a response."""
     behavior: Callable[[socket.socket], None] = request.param
-    listener = socket.create_server(("localhost", 0))
+    listener = socket.create_server((host, 0))
 
     def serve() -> None:
         conn, _ = listener.accept()
@@ -111,7 +111,7 @@ def broken_server(request: pytest.FixtureRequest) -> Generator[URL]:
 
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
-    yield URL(host="localhost", port=listener.getsockname()[1])
+    yield URL(host=host, port=listener.getsockname()[1])
     thread.join(5)
     listener.close()
 
