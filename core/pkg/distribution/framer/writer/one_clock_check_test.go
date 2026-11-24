@@ -124,7 +124,6 @@ var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 		"Should report a stream-only end of domain over an index that another writer "+
 			"controls as not authorized",
 		func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "holder"},
 				Channels:       keys,
@@ -148,7 +147,6 @@ var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 		"Should stream nothing of a group whose index a stream-only writer does not "+
 			"control",
 		func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "holder"},
 				Channels:       keys,
@@ -215,21 +213,38 @@ var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 	)
 
 	It(
-		"Should refuse a stream-only writer whose start lies in stored data",
+		"Should refuse a stream-only writer whose start lies in stored data on the "+
+			"old layout, and open it to store nothing on the pointer log",
 		func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			p := open(ctx, storageConfig{Channels: keys, Start: 10 * telem.SecondTS})
 			MustSucceed(p.Write(ctx, fr(secs(10, 11, 12), 1, 2, 3)))
 			MustSucceed(p.Commit(ctx))
 			Expect(p.Close()).To(Succeed())
-			Expect(db.OpenWriter(ctx, storageConfig{
+			cfg := storageConfig{
 				Channels: keys,
 				Start:    11 * telem.SecondTS,
 				Mode:     writer.ModeStreamOnly,
-			})).Error().To(MatchError(ContainSubstring(
-				"cannot open writer because there is already data in the writer's " +
-					"time range",
-			)))
+			}
+			if !pointerLog {
+				Expect(db.OpenWriter(ctx, cfg)).Error().To(MatchError(ContainSubstring(
+					"cannot open writer because there is already data in the " +
+						"writer's time range",
+				)))
+				return
+			}
+			// On the pointer log, a stream-only writer takes no claim, so it opens over
+			// stored data, and the stored samples stay.
+			s := MustSucceed(db.OpenWriter(ctx, cfg))
+			MustSucceed(s.Write(ctx, fr(secs(11, 12), 7, 8)))
+			MustSucceed(s.Commit(ctx))
+			Expect(s.Close()).To(Succeed())
+			var values []byte
+			for _, series := range MustSucceed(
+				db.Read(ctx, telem.TimeRangeMax, data),
+			).Get(data).Series {
+				values = append(values, series.Data...)
+			}
+			Expect(values).To(Equal(telem.NewSeriesV[int64](1, 2, 3).Data))
 		},
 	)
 
