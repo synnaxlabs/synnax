@@ -37,18 +37,21 @@ type later struct {
 	named map[uint64]*log.Commit
 	// sealed maps each segment that a Seal seals to the first Seal of it.
 	sealed map[uint64]*log.Seal
-	// dropped holds the keys that a Drop drops.
-	dropped set.Set[ChannelKey]
+	// dropped holds the keys that a Drop drops, and replaced the segments that a
+	// Replace retires.
+	dropped  set.Set[ChannelKey]
+	replaced set.Set[uint64]
 	// limits are above every segment identity and alignment number that a record names.
 	limits state.Limits
 }
 
 func newLater() *later {
 	return &later{
-		created: make(map[uint64]uint32),
-		named:   make(map[uint64]*log.Commit),
-		sealed:  make(map[uint64]*log.Seal),
-		dropped: set.New[ChannelKey](),
+		created:  make(map[uint64]uint32),
+		named:    make(map[uint64]*log.Commit),
+		sealed:   make(map[uint64]*log.Seal),
+		dropped:  set.New[ChannelKey](),
+		replaced: set.New[uint64](),
 	}
 }
 
@@ -79,6 +82,7 @@ func (l *later) add(_ uint64, records []log.Record) error {
 		case *log.Replace:
 			l.name(rec.Old)
 			l.name(rec.New)
+			l.replaced.Add(rec.Old)
 		case *log.Check:
 			l.name(rec.Segment)
 		case *log.Drop:

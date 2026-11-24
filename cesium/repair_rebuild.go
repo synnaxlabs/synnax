@@ -260,7 +260,8 @@ func (g group) ranges() (rebuilt, unplaced []Range) {
 }
 
 // spans returns the span of each segment with bytes in the gap: each open segment of
-// the state with bytes past its committed length, and each placed orphan.
+// the state with bytes past its committed length, and each placed orphan. A segment
+// that a later Replace retires has none, since the copy holds its bytes.
 func (e *engine) spans(l *later, placed []placement) ([]span, error) {
 	keys, err := e.keyDirs()
 	if err != nil {
@@ -276,7 +277,7 @@ func (e *engine) spans(l *later, placed []placement) ([]span, error) {
 	}
 	for _, key := range keys {
 		for _, seg := range e.state.ReplaySegments(key) {
-			if seg.Sealed {
+			if seg.Sealed || l.replaced.Contains(seg.ID) {
 				continue
 			}
 			prev := telem.TimeStampMin
