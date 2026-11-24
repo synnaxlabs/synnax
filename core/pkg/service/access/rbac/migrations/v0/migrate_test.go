@@ -65,12 +65,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 			db := gorp.Wrap(kvDB)
 			StartRun(db.Run)
 			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			passwordSvc := MustOpen(
-				password.OpenService(ctx, password.ServiceConfig{DB: db}),
-			)
 			userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:       db,
-				Password: passwordSvc,
+				DB: db,
 			}))
 			rootUser := storeLegacyUser(
 				ctx,
@@ -169,12 +165,8 @@ var _ = Describe("Legacy Permission Migration", func() {
 	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		passwordSvc := MustOpen(
-			password.OpenService(ctx, password.ServiceConfig{DB: db}),
-		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Password: passwordSvc,
+			DB: db,
 		}))
 		root := storeLegacyUser(ctx, db, user.User{Name: "root", RootUser: true})
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
@@ -219,8 +211,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Password: passwordSvc,
+			DB: db,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
