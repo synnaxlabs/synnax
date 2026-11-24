@@ -83,12 +83,16 @@ var _ = Describe("Check: the adopt of a Pending that sealed a segment", func() {
 			// A handoff to the clock alone leaves the data as a Pending. Its commit
 			// seals the full segment of data, then waits on the stamps that the clock
 			// has not made durable.
-			w1, pending := MustSucceed2(db.Handoff(ctx, w0, cfg(idx), nil))
+			w1, pending := MustSucceed2(
+				db.Handoff(ctx, w0, cfg(idx), nil, cesium.NewRun),
+			)
 			Expect(pending).ToNot(BeNil())
 			MustSucceed2(w1.Commit(ctx, nil))
 			_, released := MustSucceed2(pending.Commit(ctx))
 			Expect(released).To(BeFalse())
-			w2, rest := MustSucceed2(db.Handoff(ctx, w1, cfg(keys...), pending))
+			w2, rest := MustSucceed2(
+				db.Handoff(ctx, w1, cfg(keys...), pending, cesium.NewRun),
+			)
 			Expect(rest).To(BeNil())
 			Expect(w2.Sync(ctx)).To(Succeed())
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
