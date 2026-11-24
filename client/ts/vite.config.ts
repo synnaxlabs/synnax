@@ -56,7 +56,6 @@ export default defineConfig({
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",
         "@synnaxlabs/x",
-        "undici",
       ],
     },
   },

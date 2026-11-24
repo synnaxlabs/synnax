@@ -1,0 +1,235 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/certificate/v1"
+import "schemas/synnax/versions/channel/v1"
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+import "schemas/synnax/versions/status/v2"
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "uniquely identifies an OPC UA server."
+}
+
+SecurityPolicy enum {
+    basic128_rsa15         = "Basic128Rsa15" {
+        @doc value "is the deprecated Basic128Rsa15 policy."
+    }
+    basic256               = "Basic256" {
+        @doc value "is the deprecated Basic256 policy."
+    }
+    basic256_sha256        = "Basic256Sha256" {
+        @doc value "is the Basic256Sha256 policy."
+    }
+    aes128_sha256_rsa_oaep = "Aes128_Sha256_RsaOaep" {
+        @doc value "is the Aes128_Sha256_RsaOaep policy."
+    }
+    aes256_sha256_rsa_pss  = "Aes256_Sha256_RsaPss" {
+        @doc value "is the Aes256_Sha256_RsaPss policy."
+    }
+
+    @doc value "is the OPC UA security policy of a secured connection."
+}
+
+Auth union on type {
+    anonymous {
+        @doc value "logs in with no credentials."
+    }
+    username {
+        username string      {
+            @doc value "is the user name to log in with."
+        }
+        password secret.Key? {
+            @doc value "is the secret that holds the password. Absent for no password."
+        }
+
+        @doc value "logs in with a user name and password."
+    }
+    certificate {
+        certificate certificate.Key {
+            @doc value """
+                is the user certificate to log in with. It holds a private key and is
+                not the certificate that secures the channel.
+            """
+        }
+
+        @doc value "logs in with a user certificate."
+    }
+
+    @doc value  "is how the Driver logs in to the server."
+    @go marshal
+}
+
+ServerTrust union on type {
+    first_use {
+        @doc value """
+            trusts the first certificate that the server presents, which the scanner
+            then pins.
+        """
+    }
+    pinned {
+        certificate certificate.Key {
+            @doc value "is the only server certificate that the Driver trusts."
+        }
+
+        @doc value "trusts one stored server certificate."
+    }
+    validation_disabled {
+        @doc value "accepts any server certificate."
+    }
+
+    @doc value  "is which server certificates the Driver trusts."
+    @go marshal
+}
+
+SecuredChannel struct {
+    policy             SecurityPolicy   {
+        @doc value "is the security policy."
+    }
+    client_certificate certificate.Key? {
+        @doc value """
+            is the certificate that the Driver presents. Absent for the Driver
+            certificate.
+        """
+    }
+    server_trust       ServerTrust = first_use {
+        @doc value "is which server certificates the Driver trusts."
+    }
+
+    @doc value  "holds the settings of a signed or encrypted connection."
+    @go marshal
+}
+
+Security union on mode {
+    none {
+        @doc value "signs and encrypts no messages."
+    }
+    sign extends SecuredChannel {
+        @doc value "signs every message."
+    }
+    sign_and_encrypt extends SecuredChannel {
+        @doc value "signs and encrypts every message."
+    }
+
+    @doc value  "is the message security of a connection."
+    @go marshal
+}
+
+Connection struct {
+    endpoint                string         {
+        @doc value   "is the endpoint URL of the server."
+        @go validate pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host and an optional port and path"
+    }
+    auth                    Auth = anonymous {
+        @doc value "is how the Driver logs in."
+    }
+    security                Security = none {
+        @doc value "is the message security of the connection."
+    }
+    client_timeout          telem.TimeSpan = 5000000000 {
+        @doc value "is the timeout of each request and connection attempt."
+    }
+    secure_channel_lifetime telem.TimeSpan = 600000000000 {
+        @doc value "is the lifetime of the secure channel."
+    }
+    session_timeout         telem.TimeSpan = 1200000000000 {
+        @doc value "is the timeout of the session."
+    }
+
+    @doc value  "holds the settings that the Driver connects to a server with."
+    @go marshal
+}
+
+Read struct {
+    node    string      {
+        @doc value """
+            is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
+            identifier alone in namespace 0.
+        """
+    }
+    field   string = "" {
+        @doc value """
+            is the path to a member of the node's structure value. Names join with '.',
+            and '&' escapes the next character. Empty binds the whole value.
+        """
+    }
+    index   channel.Key {
+        @doc value "is the index channel of the channel."
+    }
+    channel channel.Key {
+        @doc value "is the channel that holds the samples of the node."
+    }
+
+    @doc value  "binds a node, or a member of its structure value, to a channel."
+    @go marshal
+}
+
+Write struct {
+    node    string      {
+        @doc value """
+            is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
+            identifier alone in namespace 0.
+        """
+    }
+    channel channel.Key {
+        @doc value "is the channel that commands the node."
+    }
+
+    @doc value  "binds a node to the channel that commands it."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the server belongs to."
+    }
+    server    Key      {
+        @doc value "is the key of the server."
+    }
+    connected bool = false {
+        @doc value "is true when the server answered the last health check."
+    }
+
+    @doc value "identifies the server and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a server."
+}
+
+Server struct {
+    key        Key = create {
+        @doc value "uniquely identifies the server."
+        @key
+    }
+    rack       rack.Key   {
+        @doc value "is the key of the rack whose Driver connects to the server."
+    }
+    name       string     {
+        @doc value "is a human-readable name for the server."
+    }
+    connection Connection {
+        @doc value "holds the settings that the Driver connects with."
+    }
+    reads      Read[] = [] {
+        @doc value "bind the nodes that read tasks sample to channels."
+    }
+    writes     Write[] = [] {
+        @doc value "bind the nodes that write tasks command to channels."
+    }
+    status     Status?    {
+        @doc value  "is the current connection status of the server."
+        @go marshal omit
+    }
+
+    @doc value  "is an OPC UA server that a rack's Driver connects to."
+    @go marshal
+    @go migrate
+}
