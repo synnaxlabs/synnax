@@ -85,6 +85,7 @@ type Service struct {
 	// Scan stores kafka_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
 	resolver readResolver
+	writes   writeResolver
 	closer   xio.MultiCloser
 }
 
@@ -111,7 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Read) {
 		return nil, err
 	}
-	writes := writeResolver{
+	s.writes = writeResolver{
 		icds:     cfg.ICD,
 		channels: channels,
 		writes:   write.NewResolver(cfg.ICD, channels),
@@ -131,9 +132,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:    (*WriteConfig).SetKey,
 			PatchEntry:     (*WriteConfig).Patch,
 			HashEntry:      (*WriteConfig).HashContent,
-			HashReferences: writes.hash,
+			HashReferences: s.writes.hash,
 			HashedTables:   []string{"icd"},
-			ResolveEntry:   writes.resolve,
+			ResolveEntry:   s.writes.resolve,
 			ValidateEntry:  (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
