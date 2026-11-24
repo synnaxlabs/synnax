@@ -859,6 +859,37 @@ var _ = Describe("Repair", func() {
 			})
 	})
 
+	Describe("Removed", func() {
+		It("Should take out of the state a sealed segment whose file is gone",
+			func(ctx SpecContext) {
+				db := MustSucceed(open(ctx))
+				stop := GoRun(ctx, db.Run)
+				write(ctx, db, 100*telem.SecondTS)
+				Expect(errors.Join(stop(), db.Close())).To(Succeed())
+				seg := segmentIDs(fs, idx)[0]
+				Expect(fs.Remove(fmt.Sprintf("%d/%016x.seg", idx, seg))).To(Succeed())
+				frames := framesOf(fs, id)
+				spoil(plainFrame(frames, len(frames)-3), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(
+					rep.Removed,
+				).To(Equal([]cesium.Segment{{Key: idx, Segment: seg}}))
+			})
+
+		It("Should take out of the state each segment of a key whose directory is gone",
+			func(ctx SpecContext) {
+				seg := segmentIDs(fs, data)[0]
+				Expect(fs.Remove(strconv.Itoa(int(data)))).To(Succeed())
+				spoil(plainFrame(framesOf(fs, id), 2), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(
+					rep.Removed,
+				).To(Equal([]cesium.Segment{{Key: data, Segment: seg}}))
+			})
+	})
+
 	It(
 		"Should list a sealed segment of the head with no pointer, which an open refuses",
 		func(ctx SpecContext) {

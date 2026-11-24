@@ -39,6 +39,9 @@ type Report struct {
 	// Unrecovered holds each segment file that the repair cannot place, which it
 	// renames <S>.seg.unrecovered, by key and segment.
 	Unrecovered []File
+	// Removed holds each segment whose file is gone, which leaves the state: a sealed
+	// segment, or any segment of a key that has no directory, by key and segment.
+	Removed []Segment
 	// Buried holds each sealed segment of the head with no pointer, which leaves the
 	// state, by key and segment.
 	Buried []Segment
@@ -176,22 +179,23 @@ func Repair(
 	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
 		return rep, nil
 	}
-	if err = e.rebuildGaps(ctx, r, l, &rep); err != nil {
+	if err = e.repairState(ctx, r, l, &rep); err != nil {
 		return Report{}, err
 	}
 	return rep, nil
 }
 
-// rebuildGaps rebuilds the gap of each bad frame of rep in log order: it places the
-// orphans of the gap, rebuilds its ranges into the state of e, and applies the entries
-// up to the next bad frame, and lists them in rep. l holds what the entries after the
-// first bad frame name.
-func (e *engine) rebuildGaps(
+// repairState repairs the state of e, as rep lists it. It rebuilds the gap of each bad
+// frame in log order: it places the orphans of the gap, rebuilds its ranges, and
+// applies the entries up to the next bad frame. Then it takes out the segments whose
+// files are gone. first holds what the entries after the first bad frame name.
+func (e *engine) repairState(
 	ctx context.Context,
 	r *recovery,
-	l *later,
+	first *later,
 	rep *Report,
-) error {
+) (err error) {
+	l := first
 	for k, d := range rep.Damage {
 		placed, unrecovered, err := e.place(r, l)
 		if err != nil {
@@ -237,7 +241,8 @@ func (e *engine) rebuildGaps(
 	slices.SortFunc(rep.Unrecovered, func(a, b File) int {
 		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
 	})
-	return nil
+	rep.Removed, err = e.removeMissing(first)
+	return err
 }
 
 // sortRanges sorts ranges by key, segment, and time.

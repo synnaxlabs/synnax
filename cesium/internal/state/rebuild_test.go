@@ -201,3 +201,52 @@ var _ = Describe("ReplayEach", func() {
 		))
 	})
 })
+
+var _ = Describe("Remove", func() {
+	var s *state.State
+	open := func(h *state.Snapshot) {
+		cfg := config(&appended{})
+		cfg.Repairing = true
+		s = MustSucceed(state.Open(cfg, h))
+	}
+
+	It("Should give the keys of the state", func() {
+		open(sample())
+		Expect(s.ReplayKeys()).To(Equal([]uint32{5, 6}))
+	})
+
+	It("Should take a segment of the head out of the state", func() {
+		open(sample())
+		Expect(s.Remove(5, 4, false)).To(Succeed())
+		Expect(s.ReplaySegments(5)).To(Equal(sample().Channels[0].Segments[:1]))
+		run(s)
+		want := sample()
+		want.Channels[0].Segments = want.Channels[0].Segments[:1]
+		Expect(MustSucceed(s.Snapshot())).To(Equal(want))
+	})
+
+	It("Should kill the record of a segment that a part holds", func() {
+		h := sample()
+		h.Channels[0].Parts = &state.Parts{Oldest: 1, Newest: 1}
+		open(h)
+		Expect(s.Remove(5, 30, true)).To(Succeed())
+		parts, ok := s.ReplayParts(5)
+		Expect(ok).To(BeTrue())
+		Expect(
+			parts.Kills,
+		).To(Equal([]state.Kill{{Key: 5, Segment: 30, Generation: 1}}))
+	})
+
+	DescribeTable("Should refuse a removal of a segment that the state does not hold",
+		func(key uint32, segment uint64) {
+			open(sample())
+			Expect(s.Remove(key, segment, false)).To(SatisfyAll(
+				MatchError(state.ErrRefused),
+				MatchError(ContainSubstring("which the state does not hold")),
+			))
+		},
+		Entry("of a key that it lacks", uint32(9), uint64(4)),
+		Entry("of another key", uint32(6), uint64(4)),
+		Entry("of no segment", uint32(5), uint64(30)),
+	)
+})

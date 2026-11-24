@@ -10,6 +10,9 @@
 package state
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -132,4 +135,46 @@ func (c *core) applyEach(
 	}
 	c.sequence = sequence
 	return skipped, nil
+}
+
+// ReplayKeys returns the keys that the state holds, in rising order. Call it in replay
+// mode, before Run.
+func (s *State) ReplayKeys() []uint32 {
+	return slices.Sorted(maps.Keys(s.core.channels))
+}
+
+// Remove takes segment of key out of the state for a repair whose file is gone, in
+// replay mode, before Run. A segment that a part holds gets a kill, when parted is true
+// or the state holds the record of the part. It returns an error that wraps ErrRefused
+// when the state holds neither the segment nor key.
+func (s *State) Remove(key uint32, segment uint64, parted bool) error {
+	defer s.core.count.end()
+	return s.core.remove(key, segment, parted)
+}
+
+func (c *core) remove(key uint32, id uint64, parted bool) error {
+	ch := c.channels[key]
+	seg := c.segments[id]
+	switch {
+	case ch == nil:
+		return refuse("removal of segment %d of key %d, which the state does not hold",
+			id, key)
+	case seg != nil && seg.key == key:
+		ch.remove(id)
+		delete(c.segments, id)
+		c.candidates.Remove(id)
+		parted = parted || seg.vis.Part != 0
+	case !parted:
+		return refuse("removal of segment %d of key %d, which the state does not hold",
+			id, key)
+	}
+	if parted {
+		ch.kills = append(
+			ch.kills,
+			Kill{Key: key, Segment: id, Generation: c.generation},
+		)
+		ch.repart()
+	}
+	ch.publish()
+	return nil
 }

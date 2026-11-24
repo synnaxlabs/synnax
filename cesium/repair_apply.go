@@ -195,3 +195,65 @@ func (e *engine) replayEach(sequence uint64, records []log.Record) ([]Record, er
 	}
 	return out, nil
 }
+
+// removeMissing takes out of the state of e each segment whose file is gone when a
+// lost record explains it: a sealed segment, one that a later Replace of l retires
+// after a lost Seal, or any segment of a key that has no directory. It returns them by
+// key and segment. An open segment whose file is gone while its key has a directory
+// fails it with an error that wraps os.ErrNotExist.
+func (e *engine) removeMissing(l *later) ([]Segment, error) {
+	var out []Segment
+	for _, key := range e.state.ReplayKeys() {
+		kept, err := e.fs.Exists(strconv.FormatUint(uint64(key), 10))
+		if err != nil {
+			return nil, err
+		}
+		held := e.state.ReplaySegments(key)
+		pre, err := e.records(key, telem.TimeStampMin, telem.TimeStampMax)
+		if err != nil {
+			return nil, err
+		}
+		check := func(seg state.Segment, parted bool) error {
+			name := segmentName(key, seg.ID, seg.File)
+			ok, err := e.segmentExists(name, seg.File)
+			switch {
+			case err != nil || ok:
+				return err
+			case kept && !seg.Sealed && !l.replaced.Contains(seg.ID):
+				return errors.Wrapf(os.ErrNotExist, "file %s of open segment %d", name,
+					seg.ID)
+			}
+			out = append(out, Segment{Key: key, Segment: seg.ID})
+			return e.state.Remove(key, seg.ID, parted)
+		}
+		for _, seg := range held {
+			if err = check(seg, false); err != nil {
+				return nil, err
+			}
+		}
+		for _, seg := range pre.Segments {
+			if slices.ContainsFunc(held, func(s state.Segment) bool {
+				return s.ID == seg.ID
+			}) {
+				continue
+			}
+			if err = check(seg, true); err != nil {
+				return nil, err
+			}
+		}
+	}
+	slices.SortFunc(out, func(a, b Segment) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
+	})
+	return out, nil
+}
+
+// segmentExists reports whether the file name of a segment whose old file is n exists,
+// under the name of an old compaction too for a version 0 segment.
+func (e *engine) segmentExists(name string, n uint16) (bool, error) {
+	ok, err := e.fs.Exists(name)
+	if err != nil || ok || n == 0 {
+		return ok, err
+	}
+	return e.fs.Exists(name + tempSuffix)
+}
