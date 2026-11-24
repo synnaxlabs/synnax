@@ -399,11 +399,16 @@ var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
 
 type avgNode struct {
 	*node.State
-	process       reductionFn
-	inputIdx      int
-	resetIdx      int
-	sampleCount   int64
-	startTime     telem.TimeStamp
+	process     reductionFn
+	inputIdx    int
+	resetIdx    int
+	sampleCount int64
+	// running holds the reduction of the samples in the current window.
+	running telem.Series
+	// window counts the current window in window lengths from the Unix epoch. It is
+	// meaningful only while windowed.
+	window        int64
+	windowed      bool
 	lastResetTime telem.TimeStamp
 }
 
@@ -411,58 +416,102 @@ var _ node.Node = (*avgNode)(nil)
 
 func (r *avgNode) Reset(ctx node.Context) {
 	r.State.Reset(ctx)
-	r.sampleCount = 0
-	r.startTime = 0
+	r.restart()
+	r.windowed = false
 	r.lastResetTime = 0
 }
 
+// restart starts a new window of the reduction.
+func (r *avgNode) restart() {
+	r.sampleCount = 0
+	r.running = r.running.Resized(0)
+}
+
+// Next reduces the new input samples into windows whose boundaries are multiples of
+// the duration from the Unix epoch, so a frame that crosses a boundary splits there. It
+// emits the value of each window that the frame touches, stamped with the window's last
+// sample in the frame.
 func (r *avgNode) Next(ctx node.Context) {
 	if !r.RefreshInputs() {
 		return
 	}
-
-	inputTime := r.InputTime(r.inputIdx)
-	if r.startTime == 0 && inputTime.Len() > 0 {
-		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
-	}
-
 	shouldReset := r.resetSignaled()
-
-	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
-	if duration > 0 && inputTime.Len() > 0 {
-		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
-		if telem.TimeSpan(currentTime-r.startTime) >= duration {
-			shouldReset = true
-			r.startTime = currentTime
-		}
-	}
-
 	count := r.NumericInput[int64](countInputParam)
 	if count > 0 && r.sampleCount >= count {
 		shouldReset = true
 	}
-
 	if shouldReset {
-		r.sampleCount = 0
-		out := r.Output(0)
-		*out = out.Resized(0)
+		r.restart()
 	}
 	inputData := r.Input(r.inputIdx)
-	if inputData.Len() == 0 {
+	length := inputData.Len()
+	if length == 0 {
 		return
 	}
-	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
-	if r.HasTime(r.inputIdx) {
-		*r.OutputTime(0) = telem.NewSeriesV(inputTime.ValueAt[telem.TimeStamp](-1))
+	inputTime := r.InputTime(r.inputIdx)
+	timed := r.HasTime(r.inputIdx)
+	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
+	out, outTime := r.Output(0), r.OutputTime(0)
+	if r.running.DataType != out.DataType {
+		r.running = telem.Series{DataType: out.DataType}
+	}
+	out.Data = out.Data[:0]
+	var stamps []telem.TimeStamp
+	for start := int64(0); start < length; {
+		end := length
+		if timed && duration > 0 {
+			w := windowOf(inputTime.ValueAt[telem.TimeStamp](int(start)), duration)
+			if !r.windowed || w != r.window {
+				r.restart()
+				r.window, r.windowed = w, true
+			}
+			for end = start + 1; end < length; end++ {
+				if windowOf(
+					inputTime.ValueAt[telem.TimeStamp](int(end)),
+					duration,
+				) != w {
+					break
+				}
+			}
+		} else {
+			r.windowed = false
+		}
+		r.sampleCount = r.process(
+			fixedSlice(inputData, start, end),
+			r.sampleCount,
+			&r.running,
+		)
+		out.Data = append(out.Data, r.running.Data...)
+		if timed {
+			stamps = append(stamps, inputTime.ValueAt[telem.TimeStamp](int(end-1)))
+		}
+		start = end
+	}
+	if timed {
+		*outTime = telem.NewSeries(stamps)
 	} else {
 		r.StampCycle(ctx, 0)
 	}
-	alignment, timeRange := r.outputBounds(inputData)
-	r.Output(0).Alignment = alignment
-	r.Output(0).TimeRange = timeRange
-	r.OutputTime(0).Alignment = alignment
-	r.OutputTime(0).TimeRange = timeRange
+	// The outputs take the stamps of the input, so they take its alignment and range.
+	out.Alignment, out.TimeRange = inputData.Alignment, inputData.TimeRange
+	outTime.Alignment, outTime.TimeRange = inputData.Alignment, inputData.TimeRange
 	r.Emit(ctx, 0)
+}
+
+// windowOf returns the window that holds stamp, counted in window lengths of duration
+// from the Unix epoch.
+func windowOf(stamp telem.TimeStamp, duration telem.TimeSpan) int64 {
+	return int64(stamp) / int64(duration)
+}
+
+// fixedSlice returns the samples of s, a series of a fixed-size type, from start to
+// end, with the alignment of the first one.
+func fixedSlice(s telem.Series, start, end int64) telem.Series {
+	density := int64(s.DataType.Density())
+	out := s
+	out.Data = s.Data[start*density : end*density]
+	out.Alignment = s.Alignment + telem.Alignment(start)
+	return out
 }
 
 // resetSignaled reports whether the reset input holds a true sample newer than the last
@@ -485,27 +534,6 @@ func (r *avgNode) resetSignaled() bool {
 		r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
 	}
 	return signaled
-}
-
-// outputBounds returns the alignment and time range of the output for inputData,
-// widened to cover the reset input.
-func (r *avgNode) outputBounds(
-	inputData telem.Series,
-) (telem.Alignment, telem.TimeRange) {
-	alignment := inputData.Alignment
-	timeRange := inputData.TimeRange
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
-		alignment += resetData.Alignment
-		if !resetData.TimeRange.Start.IsZero() &&
-			(timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
-			timeRange.Start = resetData.TimeRange.Start
-		}
-		if resetData.TimeRange.End > timeRange.End {
-			timeRange.End = resetData.TimeRange.End
-		}
-	}
-	return alignment, timeRange
 }
 
 // withMean gives an Avg reduction its own running state. Avg clears the state when

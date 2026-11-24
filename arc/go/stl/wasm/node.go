@@ -138,7 +138,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.offsets[j] = 0
 	}
 	stringResults := n.resizeOutputs(maxLength)
-	n.copyInputBounds()
+	n.copyInputBounds(longestInputIdx)
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	stamps := sampleStamps{clock: longestInputIdx < 0 || n.selIdx >= 0}
 	if longestInputIdx >= 0 {
@@ -238,28 +238,21 @@ func (n *nodeImpl) resizeOutputs(maxLength int64) [][]string {
 	return stringResults
 }
 
-// copyInputBounds copies alignment and time range from the inputs to the outputs.
-// Alignments are summed to guarantee uniqueness across different input sources.
-func (n *nodeImpl) copyInputBounds() {
-	var alignmentSum telem.Alignment
-	var timeRange telem.TimeRange
-	for i := range n.ir.Inputs {
-		if !n.streamed(i) {
-			continue
-		}
-		input := n.Input(i)
-		alignmentSum += input.Alignment
-		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
-			timeRange.Start = input.TimeRange.Start
-		}
-		if input.TimeRange.End > timeRange.End {
-			timeRange.End = input.TimeRange.End
-		}
+// copyInputBounds gives every output the alignment and time range of input src, the
+// longest input, whose stamps the outputs take. With no streamed input, both are zero.
+func (n *nodeImpl) copyInputBounds(src int) {
+	var (
+		alignment telem.Alignment
+		timeRange telem.TimeRange
+	)
+	if src >= 0 {
+		input := n.Input(src)
+		alignment, timeRange = input.Alignment, input.TimeRange
 	}
 	for i := range n.ir.Outputs {
-		n.Output(i).Alignment = alignmentSum
+		n.Output(i).Alignment = alignment
 		n.Output(i).TimeRange = timeRange
-		n.OutputTime(i).Alignment = alignmentSum
+		n.OutputTime(i).Alignment = alignment
 		n.OutputTime(i).TimeRange = timeRange
 	}
 }
