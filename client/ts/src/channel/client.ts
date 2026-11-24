@@ -67,7 +67,7 @@ import {
   shortcutZ,
 } from "@/channel/where.gen";
 import type { Writer } from "@/channel/writer";
-import { isConnectionError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import type { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
@@ -391,7 +391,8 @@ export class Client extends query.Retriever<
           builtIns = new Set(channels.map(({ key }) => key));
         })
         .catch((exc: unknown) => {
-          if (isConnectionError(exc)) return;
+          // The next connection fetches the built-in keys again.
+          if (query.isOffline(exc)) return;
           cache.onError(new Error("failed to fetch built-in channels", { cause: exc }));
         });
     });
