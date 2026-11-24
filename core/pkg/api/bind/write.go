@@ -47,8 +47,8 @@ type Returns interface {
 //     placed in, its owner. A held record (ServiceConfig.Held) needs the action of the
 //     change on its owner instead, unless the subject is that owner;
 //   - update on the target of each place link added or removed, except a link to the
-//     owner. For an owned record, a target in ServiceConfig.OwnedPlaces needs only
-//     retrieve;
+//     owner or to an owned record that the subject owns. For an owned record, a target
+//     in ServiceConfig.OwnedPlaces needs only retrieve;
 //   - retrieve on the target of each use link added. A rack is denied a new use of a
 //     record that ServiceConfig.Vouched reports, and a move onto a rack of a record
 //     that uses one or holds a record that uses one;
@@ -104,6 +104,27 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 			return apply(ctx, tx, req, prepared)
 		})(ctx, req)
 	}
+}
+
+// Retrievable reports whether the subject of a request can retrieve the record with id.
+type Retrievable func(id resource.ID) bool
+
+// WriteRetrievable returns a handler that runs apply as Write does, and passes apply
+// what the subject can retrieve, by the committed policies that Write checks. Use it
+// when apply reuses stored records, so that each use link it adds passes the check.
+func WriteRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) freighter.UnaryHandler[RQ, RS] {
+	return Write(s, func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
+		allowed, err := s.cfg.RBAC.NewEnforcer(s.cfg.DB).
+			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+		if err != nil {
+			var zero RS
+			return zero, err
+		}
+		return apply(ctx, tx, allowed, req)
+	})
 }
 
 // WriteUnchecked returns a handler that runs apply in one write transaction of db and
@@ -224,7 +245,7 @@ func (s *Service) changeNeeds(
 	if err := s.checkVouched(ctx, tx, subject, c); err != nil {
 		return err
 	}
-	return s.linkNeeds(c, owner, owned, createdOrDeleted, needs)
+	return s.linkNeeds(ctx, tx, subject, c, owner, owned, createdOrDeleted, needs)
 }
 
 // recordNeeds adds the access that subject needs on the record of c, or on its owner
@@ -256,37 +277,44 @@ func (s *Service) recordNeeds(
 }
 
 // linkNeeds adds the access that the links c adds and removes need to needs. A link to
-// owner or to a record that the write creates or deletes needs none.
+// owner, a link to a record that the write creates or deletes, and a place link into a
+// record that subject owns need none.
 func (s *Service) linkNeeds(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
 	c gorp.Change,
 	owner gorp.Target,
 	owned bool,
 	createdOrDeleted set.Set[gorp.Target],
 	needs accessNeeds,
 ) error {
-	for _, l := range c.Added {
+	need := func(l gorp.Link, action access.Action) error {
 		if l.Target == owner || createdOrDeleted.Contains(l.Target) {
-			continue
+			return nil
 		}
-		action := addedLinkAction(l.Kind)
-		if owned && s.ownedPlace(l) {
-			action = access.ActionRetrieve
+		if l.Kind == gorp.Place {
+			// The target reads as the write leaves it. A write that makes subject its
+			// owner changes the target, which needs update on its own.
+			if own, err := s.owns(ctx, tx, subject, l.Target); err != nil || own {
+				return err
+			}
+			if owned && s.ownedPlace(l) {
+				action = access.ActionRetrieve
+			}
 		}
-		if err := needs.add(action, l.Target); err != nil {
+		return needs.add(action, l.Target)
+	}
+	for _, l := range c.Added {
+		if err := need(l, addedLinkAction(l.Kind)); err != nil {
 			return err
 		}
 	}
 	for _, l := range c.Removed {
-		if l.Kind != gorp.Place ||
-			l.Target == owner ||
-			createdOrDeleted.Contains(l.Target) {
+		if l.Kind != gorp.Place {
 			continue
 		}
-		action := access.ActionUpdate
-		if owned && s.ownedPlace(l) {
-			action = access.ActionRetrieve
-		}
-		if err := needs.add(action, l.Target); err != nil {
+		if err := need(l, access.ActionUpdate); err != nil {
 			return err
 		}
 	}
@@ -299,15 +327,9 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 	if !slices.Contains(s.cfg.Owned, c.Record.Table) {
 		return false
 	}
-	usesSubject := func(links []gorp.Link) bool {
-		return slices.ContainsFunc(links, func(l gorp.Link) bool {
-			id, ok := resourceOf(l.Target)
-			return l.Kind == gorp.Use && ok && id == subject
-		})
-	}
 	// Links holds the links after a create or an update, and before a delete.
 	if c.Kind != gorp.ChangeUpdate {
-		return usesSubject(c.Links)
+		return uses(c.Links, subject)
 	}
 	before := append(
 		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
@@ -315,7 +337,32 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 		}),
 		c.Removed...,
 	)
-	return usesSubject(c.Links) && usesSubject(before)
+	return uses(c.Links, subject) && uses(before, subject)
+}
+
+// owns reports whether target is a record of an owned table that uses subject.
+func (s *Service) owns(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+	target gorp.Target,
+) (bool, error) {
+	if !slices.Contains(s.cfg.Owned, target.Table) {
+		return false, nil
+	}
+	links, err := gorp.LinksOf(ctx, tx, target)
+	if err != nil {
+		return false, err
+	}
+	return uses(links, subject), nil
+}
+
+// uses reports whether links hold a use link to subject.
+func uses(links []gorp.Link, subject resource.ID) bool {
+	return slices.ContainsFunc(links, func(l gorp.Link) bool {
+		id, ok := resourceOf(l.Target)
+		return l.Kind == gorp.Use && ok && id == subject
+	})
 }
 
 // checkVouched returns an error wrapping access.ErrDenied when subject is a rack and c

@@ -18,9 +18,9 @@ import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { Input } from "@/schematic/node/general/input/Primitive";
+import { Primitive } from "@/schematic/node/general/input/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Input as InputTelem } from "@/vis/input";
@@ -48,12 +48,12 @@ const useReadback = ({
   stalenessTimeout,
 }: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
-  const cell = Primitive.useCanvasBox<HTMLParagraphElement>(position);
+  const cell = BasePrimitive.useCanvasBox<HTMLParagraphElement>(position);
   const { stale } = StringValue.use({
     aetherKey: `${nodeKey}-readback`,
     box: cell.box,
     telem: telem.streamChannelStringValue({ channel }),
-    level: Primitive.READOUT_LEVELS[size],
+    level: BasePrimitive.READOUT_LEVELS[size],
     color: theme.colors.gray.l10,
     stalenessTimeout,
   });
@@ -104,14 +104,16 @@ export const Symbol = ({
       </Control.State>
       {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />
-      <Input
+      <Primitive.Input
         onSend={set}
         fillColor={resolve(fillColor)}
         value={value}
         size={size}
         inlineSize={inlineSize}
         readback={
-          stateChannel !== 0 && <Primitive.Readout size={size} valueRef={valueRef} />
+          stateChannel !== 0 && (
+            <BasePrimitive.Readout size={size} valueRef={valueRef} />
+          )
         }
         {...rest}
         disabled={rest.disabled || deleted}

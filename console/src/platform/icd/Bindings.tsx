@@ -7,25 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, ICD as PICD } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect } from "react";
+import { ICD as PICD } from "@synnaxlabs/pluto";
+import type { deep } from "@synnaxlabs/x";
+import type { FC, ReactElement } from "react";
 
-import { converts } from "@/platform/icd/dataType";
+import { converts, unbind } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import {
-  isReadable,
-  jsonFields,
-  type ReadSource,
-  suit,
-  type TreeField,
-} from "@/platform/icd/read";
+import { isReadable, type ReadSource, suit, type TreeField } from "@/platform/icd/read";
+import { useSuit } from "@/platform/icd/useSuit";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -91,26 +86,6 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({
   );
 };
 
-interface UnbindProps {
-  path: deep.Target<channel.Key>;
-  field: icd.JSONField;
-  channel: channel.Key;
-}
-
-/**
- * Unbinds a channel that the field can no longer convert to, so deploying creates a new
- * one.
- */
-const Unbind = ({ path, field, channel: key }: UnbindProps) => {
-  const { set } = PForm.useContext();
-  const dataType = Channel.useResultDataType({ key }).data?.toString();
-  const { type, scale, offset } = field;
-  useEffect(() => {
-    if (dataType != null && !converts({ type, scale, offset }, dataType)) set(path, 0);
-  }, [dataType, type, scale, offset]);
-  return null;
-};
-
 export interface SuitReadProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
@@ -118,40 +93,27 @@ export interface SuitReadProps {
 }
 
 /**
- * Keeps the read of a message suited to its format, whose edits can leave a read that
- * the Core refuses to save. Unbinds each channel that its field can no longer convert
- * to.
+ * Keeps the read of a message suited to its format, and unbinds each channel that its
+ * field can no longer convert to.
  */
 export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const { get, set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const icdKey = PForm.useFieldValue(path.icd);
   const readPath = path.messages[read];
-  const readMessage = PForm.useFieldValue(readPath);
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
+  const key = PForm.useFieldValue(readPath.message);
+  const message = PForm.useFieldValue(PICD.formPath.messages[key], {
     optional: true,
     ctx: formats.get(icdKey),
   });
-  const fields = jsonFields(message);
-  useEffect(() => {
-    if (isPreview || message?.payload.format !== "json") return;
-    // An Unbind effect runs first and can change the read after this render.
-    const current = get(readPath).value;
-    const suited = suit(current, fields);
-    if (!deep.equal(suited, current)) set(readPath, suited);
-  }, [isPreview, readMessage, message]);
-  if (isPreview) return null;
-  return readMessage.bindings.map((b, i) => {
-    const field = fields.find(({ key }) => key === b.field);
-    if (field == null || b.channel === 0) return null;
-    return (
-      <Unbind
-        key={b.field}
-        path={readPath.bindings[i].channel}
-        field={field}
-        channel={b.channel}
-      />
-    );
+  useSuit({
+    path: readPath,
+    message,
+    suit,
+    bound: ({ bindings }) => bindings.map((b) => b.channel),
+    unbind: (readMessage, fields, channels) => ({
+      ...readMessage,
+      bindings: unbind(readMessage.bindings, fields, channels, converts),
+    }),
   });
+  return null;
 };

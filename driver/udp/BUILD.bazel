@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "udp",
+    srcs = ["socket.cpp"] + select({
+        "@platforms//os:windows": ["icmp_windows.cpp"],
+        "//conditions:default": ["icmp_posix.cpp"],
+    }),
+    hdrs = [
+        "icmp.h",
+        "socket.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_test(
+    name = "udp_test",
+    srcs = ["socket_test.cpp"],
+    deps = [
+        ":udp",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)

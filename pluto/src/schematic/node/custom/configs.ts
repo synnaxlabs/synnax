@@ -10,11 +10,10 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { z } from "zod";
 
+import { Custom } from "@/schematic/node/common/custom";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { Actuator } from "@/schematic/node/custom/Actuator";
-import { Static } from "@/schematic/node/custom/Static";
 import type { Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
@@ -30,8 +29,8 @@ export const customActuatorSpec: Spec<
   key: CUSTOM_ACTUATOR_VARIANT,
   name: "Custom actuator",
   Form: Form.ToggleForm,
-  Node: Toggle.createToggle<CustomActuatorConfig>(Actuator),
-  Preview: Actuator,
+  Node: Toggle.createToggle<CustomActuatorConfig>(Custom.Actuator),
+  Preview: Custom.Actuator,
   zIndex: 4,
 };
 
@@ -46,7 +45,7 @@ export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticCo
     key: CUSTOM_STATIC_VARIANT,
     name: "Custom static",
     Form: Form.StyleForm,
-    Node: Label.createLabeled<CustomStaticConfig>(Static),
-    Preview: Static,
+    Node: Label.createLabeled<CustomStaticConfig>(Custom.Static),
+    Preview: Custom.Static,
     zIndex: 4,
   };

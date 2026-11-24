@@ -213,6 +213,37 @@
     }
 }
 
+/* "View Problem" widget */
+.monaco-editor .marker-widget .descriptioncontainer .message {
+    & > div:has(> .details) {
+        display: flex !important;
+    }
+
+    & .details {
+        order: -1 !important;
+        padding-left: 0 !important;
+    }
+
+    & .code,
+    & a.code-link {
+        margin-right: 1rem !important;
+    }
+
+    & .source {
+        display: none !important;
+    }
+
+    & a.code-link::before,
+    & a.code-link::after {
+        content: none !important;
+    }
+
+    & a.code-link,
+    & a.code-link > span {
+        text-decoration: none !important;
+    }
+}
+
 /* Stacked diagnostics: a marker whose row immediately follows another
    marker row is a middle/tail entry — square its top corners so the
    boxes butt up cleanly instead of showing a rounded notch. */

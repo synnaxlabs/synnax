@@ -18,7 +18,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
 import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
-import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
+import { Primitive } from "@/schematic/node/general/stateIndicator/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
@@ -58,7 +58,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
       {deleted && <Deleted.Item />}
-      <StateIndicator
+      <Primitive.StateIndicator
         matchedOptionKey={optKey}
         options={options}
         strokeColor={resolve(strokeColor)}
