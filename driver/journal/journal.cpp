@@ -505,8 +505,14 @@ x::errors::Error commit_offset(
     Record record{.type = OFFSET_TYPE};
     put(record.payload, offset.segment);
     put(record.payload, offset.pos);
-    auto buf = encode_header(magic, 0);
-    encode_record(buf, get<std::uint32_t>(buf.data() + SALT_OFFSET), record);
+    // The file is renamed into place whole, so no bytes are unsynced.
+    const Header header{
+        .salt = static_cast<std::uint32_t>(std::random_device()()),
+        .sync_bytes = 0,
+        .max_payload = OFFSET_SIZE,
+    };
+    auto buf = encode_header(magic, header);
+    encode_record(buf, header.salt, record);
     return create(path, buf);
 }
 

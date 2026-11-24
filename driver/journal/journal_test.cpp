@@ -96,6 +96,15 @@ void set_header(
     write_file(path, data);
 }
 
+/// @brief sets the max_payload of the file start of data, with a valid checksum.
+void set_max_payload(std::string &data, const std::uint32_t max_payload) {
+    data.replace(24, 4, le32(max_payload));
+    const auto crc = static_cast<std::uint32_t>(
+        absl::ComputeCrc32c(data.substr(0, HEADER_SIZE - 4))
+    );
+    data.replace(HEADER_SIZE - 4, 4, le32(crc));
+}
+
 std::vector<Record> read_all(Reader &reader) {
     std::vector<Record> records;
     while (true) {
@@ -253,6 +262,7 @@ TEST_F(JournalTest, WritesV1Offset) {
     const auto fixture = read_file(TESTDATA / "v1_offset.bin");
     EXPECT_EQ(written.size(), fixture.size());
     EXPECT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    EXPECT_EQ(written.substr(16, 12), fixture.substr(16, 12));
     const auto offset = ASSERT_NIL_P(read_offset(offset_path, OFFSET));
     EXPECT_EQ(offset.value().segment, 7);
     EXPECT_EQ(offset.value().pos, 42);
@@ -262,7 +272,9 @@ TEST_F(JournalTest, WritesV1Offset) {
 TEST_F(JournalTest, ReadsLongerOffsetRecord) {
     const auto offset_path = this->dir / "0.offset";
     ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
-    const auto data = read_file(offset_path).substr(0, HEADER_SIZE);
+    // A later Driver writes a larger max_payload.
+    auto data = read_file(offset_path).substr(0, HEADER_SIZE);
+    set_max_payload(data, 24);
     std::string payload;
     for (const std::uint64_t v:
          {std::uint64_t{3}, std::uint64_t{30}, std::uint64_t{99}})
