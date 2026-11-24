@@ -14,6 +14,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -25,14 +26,22 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	manifestVersion       = 2
-	legacyManifestVersion = 1
-	manifestType          = "symbol_group"
+	manifestVersion        = 3
+	keylessManifestVersion = 2
+	legacyManifestVersion  = 1
+	manifestType           = "symbol_group"
 )
+
+// groupManifest is the manifest of a group bundle. Version 3 adds the group key.
+type groupManifest struct {
+	imex.Manifest
+	Key group.Key `json:"key,omitzero"`
+}
 
 // ExportGroup serializes every symbol in the group identified by key, as snap holds it,
 // into a flat file namespace: one envelope per symbol, encoded by encoder, beside a
@@ -90,10 +99,9 @@ func (s *Service) ExportGroup(
 			return nil, nil, err
 		}
 	}
-	manifest, err := encoder.Encode(imex.Manifest{
-		Version: manifestVersion,
-		Type:    manifestType,
-		Name:    g.Name,
+	manifest, err := encoder.Encode(groupManifest{
+		Manifest: imex.Manifest{Version: manifestVersion, Type: manifestType, Name: g.Name},
+		Key:      g.Key,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -110,42 +118,81 @@ type legacyGroupManifest struct {
 	} `json:"symbols"`
 }
 
-// ImportGroup creates a top-level symbol group named by the manifest, then imports
-// every member into it on tx. Bundles are JSON: the manifest is
-// manifest.json and members are the JSON files beside it. A version 1 manifest lists
-// its members; version 2 infers them from the files beside the manifest. It returns a
-// validation error naming the offending file for a missing or invalid manifest, member
-// names that collide case-folded, or a member that is not a schematic symbol.
+// ImportGroup imports every member of a bundle on tx into the top-level symbol group
+// with the manifest's key, or into a new group named by the manifest when the Core has
+// none. A member reuses a stored symbol as Decode does, with retrievable. Bundles are
+// JSON: the manifest is manifest.json and members are the JSON files beside it. A
+// version 1 manifest lists its members; later versions infer them from the files
+// beside the manifest. It returns a validation error naming the offending file for a
+// missing or invalid manifest, member names that collide case-folded, a member that is
+// not a schematic symbol, or a manifest key of a group that is not a top-level symbol
+// group.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	files zip.Files,
+	retrievable func(resource.ID) bool,
 ) (group.Group, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifest, manifestData, err := decodeGroupManifest(files, manifestFileName)
 	if err != nil {
 		return group.Group{}, err
 	}
-	members, err := groupMembers(manifest, manifestData, files, manifestFileName)
+	members, err := groupMembers(manifest.Version, manifestData, files, manifestFileName)
 	if err != nil {
 		return group.Group{}, err
 	}
-	g := group.Group{Name: manifest.Name, Scope: resource.TypeSchematicSymbol}
-	if err = s.cfg.Group.NewWriter(tx).Create(ctx, &g); err != nil {
+	g, err := s.bundleGroup(ctx, tx, manifest)
+	if err != nil {
 		return group.Group{}, err
 	}
 	for _, name := range members {
-		if err = s.importMember(
-			ctx,
-			tx,
-			name,
-			files[name],
-			g.Key,
-		); err != nil {
+		if err = s.importMember(ctx, tx, name, files[name], imex.ImportOptions{
+			FileName:    name,
+			Group:       &g.Key,
+			Retrievable: retrievable,
+		}); err != nil {
 			return group.Group{}, err
 		}
 	}
 	return g, nil
+}
+
+// bundleGroup returns the top-level symbol group with the key of manifest, or creates a
+// group named by manifest under that key when the Core has no group with it. A
+// manifest with no key always gets a new group. It returns a validation error when the
+// key names a group that is not a top-level symbol group.
+func (s *Service) bundleGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	manifest groupManifest,
+) (group.Group, error) {
+	g := group.Group{
+		Key:   manifest.Key,
+		Name:  manifest.Name,
+		Scope: resource.TypeSchematicSymbol,
+	}
+	if manifest.Key == uuid.Nil() {
+		return g, s.cfg.Group.NewWriter(tx).Create(ctx, &g)
+	}
+	var stored group.Group
+	err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(manifest.Key)).
+		Entry(&stored).
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return g, s.cfg.Group.NewWriter(tx).Create(ctx, &g)
+	}
+	if err != nil {
+		return group.Group{}, err
+	}
+	if stored.Scope != resource.TypeSchematicSymbol || stored.Parent != nil {
+		return group.Group{}, errors.Wrapf(
+			validate.ErrValidation,
+			"group %q is not a top-level schematic symbol group", stored.Name,
+		)
+	}
+	return stored, nil
 }
 
 // decodeGroupManifest reads and validates the bundle's manifest, returning it with its
@@ -153,30 +200,30 @@ func (s *Service) ImportGroup(
 func decodeGroupManifest(
 	files zip.Files,
 	manifestFileName string,
-) (imex.Manifest, []byte, error) {
+) (groupManifest, []byte, error) {
 	manifestData, ok := files[manifestFileName]
 	if !ok {
-		return imex.Manifest{}, nil, errors.Wrapf(
+		return groupManifest{}, nil, errors.Wrapf(
 			validate.ErrValidation, "bundle holds no %s", manifestFileName,
 		)
 	}
-	var manifest imex.Manifest
+	var manifest groupManifest
 	if err := imex.Codec.Decode(manifestData, &manifest); err != nil {
-		return imex.Manifest{}, nil, errors.Wrap(err, manifestFileName)
+		return groupManifest{}, nil, errors.Wrap(err, manifestFileName)
 	}
 	if manifest.Type != manifestType {
-		return imex.Manifest{}, nil, errors.Wrapf(
+		return groupManifest{}, nil, errors.Wrapf(
 			validate.ErrValidation,
 			"bundle is a %q, not a %s", manifest.Type, manifestType,
 		)
 	}
 	if manifest.Version > manifestVersion {
-		return imex.Manifest{}, nil, imex.NewErrUnsupportedVersion(
+		return groupManifest{}, nil, imex.NewErrUnsupportedVersion(
 			manifestType, imex.Version(manifest.Version), manifestVersion,
 		)
 	}
 	if manifest.Name == "" {
-		return imex.Manifest{}, nil, errors.Wrapf(
+		return groupManifest{}, nil, errors.Wrapf(
 			validate.ErrValidation, "%s names no group", manifestFileName,
 		)
 	}
@@ -186,7 +233,7 @@ func decodeGroupManifest(
 // groupMembers resolves the member file names for the manifest's version and rejects
 // names that collide case-folded.
 func groupMembers(
-	manifest imex.Manifest,
+	version uint8,
 	manifestData []byte,
 	files zip.Files,
 	manifestFileName string,
@@ -195,14 +242,14 @@ func groupMembers(
 		members []string
 		err     error
 	)
-	switch manifest.Version {
+	switch version {
 	case legacyManifestVersion:
 		members, err = declaredMembers(manifestData, files, manifestFileName)
-	case manifestVersion:
+	case keylessManifestVersion, manifestVersion:
 		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
 	default:
 		err = errors.Wrapf(
-			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
+			validate.ErrValidation, "unsupported manifest version %d", version,
 		)
 	}
 	if err != nil {
@@ -285,14 +332,14 @@ func validateMemberNames(members []string) error {
 	return nil
 }
 
-// importMember decodes one member file and imports it into group g through the leaf
+// importMember decodes one member file and imports it with opts through the leaf
 // registry. Every error names the member's file.
 func (s *Service) importMember(
 	ctx context.Context,
 	tx gorp.Tx,
 	name string,
 	data []byte,
-	g group.Key,
+	opts imex.ImportOptions,
 ) error {
 	var env imex.Envelope
 	if err := imex.Codec.Decode(data, &env); err != nil {
@@ -309,10 +356,7 @@ func (s *Service) importMember(
 		)
 	}
 	env.Type = typ
-	if _, err = s.cfg.ImEx.Import(ctx, tx, env, imex.ImportOptions{
-		FileName: name,
-		Group:    &g,
-	}); err != nil {
+	if _, err = s.cfg.ImEx.Import(ctx, tx, env, opts); err != nil {
 		return errors.Wrap(err, name)
 	}
 	return nil

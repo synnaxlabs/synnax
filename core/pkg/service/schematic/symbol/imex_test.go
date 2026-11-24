@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -249,20 +250,73 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It(
-			"Should generate a fresh key, discarding the key on the wire",
-			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					tx,
-					LoadEnvelope(
-						"versions/testdata/import_v2.json",
-					),
-					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
-				))
-				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
-			},
-		)
+		Describe("Keys", func() {
+			const wireKey = "11111111-2222-3333-4444-555555555555"
+			importWire := func(
+				ctx SpecContext,
+				path string,
+				opts imex.ImportOptions,
+			) (resource.ID, error) {
+				return imexSvc.Import(ctx, tx, LoadEnvelope(path), opts)
+			}
+			createStored := func(ctx SpecContext) symbol.Symbol {
+				GinkgoHelper()
+				stored := defaults.Fill(symbol.Symbol{
+					Key:   MustSucceed(uuid.Parse(wireKey)),
+					Name:  "Stored",
+					Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+					Group: createImportGroup(ctx, tx),
+				})
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				return stored
+			}
+			retrievable := func(retrievable bool) func(resource.ID) bool {
+				return func(resource.ID) bool { return retrievable }
+			}
+
+			DescribeTable("Should create the symbol under the key in the file",
+				func(ctx SpecContext, path string) {
+					id := MustSucceed(importWire(ctx, path, imex.ImportOptions{
+						Group: createImportGroup(ctx, tx),
+					}))
+					Expect(id.Key).To(Equal(wireKey))
+				},
+				Entry("a server export", "versions/testdata/import_v2.json"),
+				Entry("a Console export", "versions/testdata/import_console.json"),
+			)
+			It("Should reuse the symbol with the key in the file as it is, in its group",
+				func(ctx SpecContext) {
+					stored := createStored(ctx)
+					id := MustSucceed(importWire(ctx, "versions/testdata/import_v2.json",
+						imex.ImportOptions{
+							Group:       createImportGroup(ctx, tx),
+							Retrievable: retrievable(true),
+						},
+					))
+					Expect(id).To(Equal(stored.ResourceID()))
+					var res symbol.Symbol
+					Expect(svc.NewRetrieve().
+						Where(symbol.MatchKeys(stored.Key)).
+						Entry(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(Equal(stored))
+				},
+			)
+			It("Should refuse to reuse a symbol that the importer cannot retrieve",
+				func(ctx SpecContext) {
+					createStored(ctx)
+					Expect(importWire(ctx, "versions/testdata/import_v2.json",
+						imex.ImportOptions{
+							Group:       createImportGroup(ctx, tx),
+							Retrievable: retrievable(false),
+						},
+					)).Error().To(SatisfyAll(
+						MatchError(access.ErrDenied),
+						MatchError(ContainSubstring("cannot retrieve symbol "+wireKey)),
+					))
+				},
+			)
+		})
 	})
 
 	Describe("Enumerations", func() {
@@ -367,6 +421,7 @@ var _ = Describe("ImEx", func() {
 				})
 				env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(original.Key)))
 				tx := DeferClose(db.OpenTx())
+				Expect(svc.NewWriter(tx).Delete(ctx, original.Key)).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					tx,
@@ -374,7 +429,7 @@ var _ = Describe("ImEx", func() {
 					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
-				Expect(key).ToNot(Equal(original.Key))
+				Expect(key).To(Equal(original.Key))
 				var res symbol.Symbol
 				Expect(svc.NewRetrieve().
 					Where(symbol.MatchKeys(key)).

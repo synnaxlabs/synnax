@@ -805,7 +805,7 @@ func (l *Layer) BindTo(t Transport) {
 		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
 	t.SchematicSymbolImportGroup.BindHandler(
-		bind.Write(l.binder, l.Symbol.ImportGroup),
+		bind.WriteRetrievable(l.binder, l.Symbol.ImportGroup),
 	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		bind.Write(l.binder, l.Symbol.DeleteGroup),

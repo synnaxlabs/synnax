@@ -11,7 +11,6 @@ package versions
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
@@ -20,8 +19,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// DecodeImExEnvelope materializes env's body as a current-version Symbol, keyless and
-// named after the envelope. An unknown version is a path-scoped validation error.
+// DecodeImExEnvelope materializes env's body as a current-version Symbol with the key
+// the body holds, named after the envelope. An unknown version is a path-scoped
+// validation error.
 func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) {
 	var (
 		sym Symbol
@@ -44,9 +44,6 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	if sym.Data.Scale <= 0 {
 		sym.Data.Scale = 1
 	}
-	// Importing always materializes a new resource, so any key on the wire is dropped
-	// and the importer mints a fresh one.
-	sym.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
@@ -68,5 +65,11 @@ func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (Symbol, erro
 	if err != nil {
 		return Symbol{}, err
 	}
-	return liftFirst(ctx, v2.Symbol{Data: v2.SpecFromConsole(d.Spec)})
+	keyed, err := env.Decode[struct {
+		Key Key `json:"key"`
+	}]()
+	if err != nil {
+		return Symbol{}, err
+	}
+	return liftFirst(ctx, v2.Symbol{Key: keyed.Key, Data: v2.SpecFromConsole(d.Spec)})
 }

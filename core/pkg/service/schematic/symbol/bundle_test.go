@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -46,8 +47,8 @@ type failEncoder struct{ onManifest bool }
 var _ encoding.FileEncoder = failEncoder{}
 
 func (e failEncoder) refuses(value any) bool {
-	_, isManifest := value.(imex.Manifest)
-	return isManifest == e.onManifest
+	_, isMember := value.(imex.Envelope)
+	return isMember != e.onManifest
 }
 
 func (e failEncoder) Encode(value any) ([]byte, error) {
@@ -115,9 +116,9 @@ var _ = Describe("ExportGroup", func() {
 	fileNames := func(files zip.Files) []string {
 		return slices.Collect(maps.Keys(files))
 	}
-	manifestOf := func(files zip.Files) imex.Manifest {
+	manifestOf := func(files zip.Files) map[string]any {
 		GinkgoHelper()
-		var m imex.Manifest
+		var m map[string]any
 		Expect(json.Unmarshal(files["manifest.json"], &m)).To(Succeed())
 		return m
 	}
@@ -129,12 +130,15 @@ var _ = Describe("ExportGroup", func() {
 		Expect(fileNames(exportFiles(ctx, g.Key))).
 			To(ConsistOf("Inlet.json", "Outlet.json", "manifest.json"))
 	})
-	It("Should stamp the manifest with the group's name", func(ctx SpecContext) {
+	It("Should stamp the manifest with the group's name and key", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(manifestOf(exportFiles(ctx, g.Key))).To(Equal(
-			imex.Manifest{Version: 2, Type: "symbol_group", Name: "Valves"},
-		))
+		Expect(manifestOf(exportFiles(ctx, g.Key))).To(Equal(map[string]any{
+			"version": 3.0,
+			"type":    "symbol_group",
+			"name":    "Valves",
+			"key":     g.Key.String(),
+		}))
 	})
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
@@ -154,7 +158,7 @@ var _ = Describe("ExportGroup", func() {
 		files, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json"))
 		Expect(members).To(BeEmpty())
-		Expect(manifestOf(files).Name).To(Equal("Empty"))
+		Expect(manifestOf(files)).To(HaveKeyWithValue("name", "Empty"))
 	})
 	It("Should replace characters a file name cannot hold", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
@@ -260,9 +264,26 @@ var _ = Describe("ImportGroup", func() {
 			"data":    map[string]any{"svg": "<svg/>", "variant": "valve"},
 		}))
 	}
+	keyedMember := func(name string, key symbol.Key) []byte {
+		GinkgoHelper()
+		return MustSucceed(json.Marshal(map[string]any{
+			"version": 2,
+			"type":    "schematic_symbol",
+			"key":     key.String(),
+			"name":    name,
+			"data":    map[string]any{"svg": "<svg/>", "variant": "valve"},
+		}))
+	}
+	keyedManifest := func(name string, key group.Key) []byte {
+		GinkgoHelper()
+		return MustSucceed(json.Marshal(map[string]any{
+			"version": 3, "type": "symbol_group", "name": name, "key": key.String(),
+		}))
+	}
+	retrieveAll := func(resource.ID) bool { return true }
 	importGroup := func(ctx SpecContext, files zip.Files) group.Group {
 		GinkgoHelper()
-		return MustSucceed(svc.ImportGroup(ctx, tx, files))
+		return MustSucceed(svc.ImportGroup(ctx, tx, files, nil))
 	}
 	childNames := func(ctx SpecContext, g group.Group) []string {
 		GinkgoHelper()
@@ -294,34 +315,92 @@ var _ = Describe("ImportGroup", func() {
 		})
 		Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
 	})
-	It("Should import an exported bundle back as an equal group", func(
-		ctx SpecContext,
-	) {
-		src := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
-		Expect(groupSvc.NewWriter(tx).Create(ctx, &src)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
-			})).To(Succeed())
+	Describe("Bundled keys", func() {
+		var (
+			src group.Group
+			sym symbol.Symbol
+		)
+		BeforeEach(func(ctx SpecContext) {
+			src = group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &src)).To(Succeed())
+			sym = defaults.Fill(symbol.Symbol{
+				Name:  "Inlet",
+				Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+				Group: &src.Key,
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		})
-		sym := defaults.Fill(symbol.Symbol{
-			Name:  "Inlet",
-			Data:  symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
-			Group: &src.Key,
+		bundle := func(member []byte) zip.Files {
+			return zip.Files{
+				"manifest.json": keyedManifest("Valves", src.Key),
+				"Inlet.json":    member,
+			}
+		}
+
+		It("Should reuse the group and each symbol that the Core has", func(
+			ctx SpecContext,
+		) {
+			g := MustSucceed(svc.ImportGroup(
+				ctx, tx, bundle(keyedMember("Inlet", sym.Key)), retrieveAll,
+			))
+			Expect(g).To(Equal(src))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
 		})
-		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, sym.Key)
-			})).To(Succeed())
+		It("Should add a new symbol to the group that the Core has", func(
+			ctx SpecContext,
+		) {
+			g := importGroup(ctx, bundle(member("Outlet")))
+			Expect(g.Key).To(Equal(src.Key))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
 		})
-		Expect(tx.Commit(ctx)).To(Succeed())
-		files, _ := MustSucceed2(svc.ExportGroup(ctx, db, src.Key, xjson.Codec))
-		tx = DeferClose(db.OpenTx())
-		g := importGroup(ctx, files)
-		Expect(g.Key).ToNot(Equal(src.Key))
-		Expect(g.Name).To(Equal(src.Name))
-		Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
+		It("Should create the group and its symbols under their bundled keys", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(groupSvc.NewWriter(tx).Delete(ctx, src.Key)).To(Succeed())
+			g := importGroup(ctx, bundle(keyedMember("Inlet", sym.Key)))
+			Expect(g.Key).To(Equal(src.Key))
+			Expect(g.Name).To(Equal("Valves"))
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(sym.Key)).
+				Where(symbol.MatchGroups(src.Key)).
+				Exists(ctx, tx)).To(BeTrue())
+		})
+		It("Should refuse to reuse a symbol that the importer cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.ImportGroup(
+				ctx, tx, bundle(keyedMember("Inlet", sym.Key)), nil,
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring("Inlet.json")),
+			))
+		})
+		DescribeTable("Should reject a key of a group that is not a top-level symbol group",
+			func(ctx SpecContext, g func() group.Group) {
+				other := g()
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				Expect(svc.ImportGroup(ctx, tx, zip.Files{
+					"manifest.json": keyedManifest("Valves", other.Key),
+				}, nil)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`group "Other" is not a top-level schematic symbol group`,
+					)),
+				))
+			},
+			Entry("a nested group", func() group.Group {
+				parent := group.ResourceID(src.Key)
+				return group.Group{
+					Name:   "Other",
+					Scope:  resource.TypeSchematicSymbol,
+					Parent: &parent,
+				}
+			}),
+			Entry("a group of another scope", func() group.Group {
+				return group.Group{Name: "Other", Scope: resource.TypeSchematic}
+			}),
+		)
 	})
 	It("Should name a nameless member after its file", func(ctx SpecContext) {
 		nameless := MustSucceed(json.Marshal(map[string]any{
@@ -399,14 +478,14 @@ var _ = Describe("ImportGroup", func() {
 			ctx SpecContext,
 		) {
 			files := zip.Files{"manifest.json": v1Manifest("Valves", "Missing.json")}
-			Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
+			Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("Missing.json")),
 			))
 		})
 		It("Should reject a manifest that lists itself", func(ctx SpecContext) {
 			files := zip.Files{"manifest.json": v1Manifest("Valves", "manifest.json")}
-			Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
+			Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("lists itself")),
 			))
@@ -468,7 +547,7 @@ var _ = Describe("ImportGroup", func() {
 
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
-			Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
+			Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(reason)),
 			))
@@ -490,10 +569,10 @@ var _ = Describe("ImportGroup", func() {
 	)
 	It("Should reject a manifest version newer than supported", func(ctx SpecContext) {
 		files := zip.Files{"manifest.json": []byte(
-			`{"version":3,"type":"symbol_group","name":"Valves"}`,
+			`{"version":4,"type":"symbol_group","name":"Valves"}`,
 		)}
-		Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("symbol_group version 3")),
+		Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("symbol_group version 4")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
 	})
@@ -505,7 +584,7 @@ var _ = Describe("ImportGroup", func() {
 			"Inlet.json":    member("Inlet"),
 			"inlet.json":    member("inlet"),
 		}
-		Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
+		Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("have the same file name")),
 		))
@@ -517,7 +596,7 @@ var _ = Describe("ImportGroup", func() {
 				`{"version":1,"type":"lineplot","name":"Plot"}`,
 			),
 		}
-		Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(
+		Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("not a schematic symbol")),
 		))
@@ -529,7 +608,7 @@ var _ = Describe("ImportGroup", func() {
 			"manifest.json": manifest("Valves"),
 			"Inlet.json":    []byte("not json"),
 		}
-		Expect(svc.ImportGroup(ctx, tx, files)).Error().
+		Expect(svc.ImportGroup(ctx, tx, files, nil)).Error().
 			To(MatchError(ContainSubstring("Inlet.json")))
 	})
 })

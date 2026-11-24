@@ -237,20 +237,30 @@ type (
 	// ImportGroupRequest holds a bundle's contents keyed by file name. The HTTP
 	// transport decodes it from a zip archive.
 	ImportGroupRequest = zip.Files
-	// ImportGroupResponse carries the group the import created.
+	// ImportGroupResponse carries the group that holds the imported symbols.
 	ImportGroupResponse struct {
-		// Group is the created group holding the imported symbols.
+		// Group is the group that the import used or created.
 		Group group.Group `json:"group" msgpack:"group"`
 	}
 )
 
-// ImportGroup imports a symbol group bundle into a new top-level group.
+var _ bind.Returns = ImportGroupResponse{}
+
+// Returned implements bind.Returns.
+func (r ImportGroupResponse) Returned() []resource.ID {
+	return []resource.ID{group.ResourceID(r.Group.Key)}
+}
+
+// ImportGroup imports a symbol group bundle. It reuses the group and each symbol that
+// the Core has under a bundled key, and refuses a reused symbol that the user cannot
+// retrieve.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
+	retrievable bind.Retrievable,
 	req ImportGroupRequest,
 ) (ImportGroupResponse, error) {
-	g, err := s.internal.ImportGroup(ctx, tx, req)
+	g, err := s.internal.ImportGroup(ctx, tx, req, retrievable)
 	if err != nil {
 		return ImportGroupResponse{}, err
 	}
