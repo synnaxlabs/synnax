@@ -18,6 +18,7 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -827,6 +828,7 @@ TEST_F(OutboxTest, SkipsOldSegmentsAfterCrashInCompaction) {
 /// offset reached the disk.
 TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
     std::atomic<int> saves = 0;
+    std::optional<journal::Offset> first;
     {
         Config cfg{
             .dir = this->dir,
@@ -838,8 +840,11 @@ TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
             ),
             .max_bytes = 4096,
             .on_save = [&](const x::errors::Error &err) {
-                if (++saves == 1)
+                // The first save comes before the compaction writes its segment, and
+                // the second ends the compaction.
+                if (++saves == 2)
                     return x::errors::Error(journal::BASE_ERROR, "disk failed");
+                first = journal::read_offset(this->dir / "offset", OFFSET_MAGIC).first;
                 return err;
             },
         };
@@ -847,7 +852,7 @@ TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
         cfg.retry.max_interval = x::telem::HOUR;
         const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
         ASSERT_NIL(outbox->set_status(set_of("keep"), nullptr));
-        for (int i = 0; saves == 0; i++) {
+        for (int i = 0; saves < 2; i++) {
             ASSERT_LT(i, 100000);
             (void) outbox->set_status(
                 set_of(std::to_string(i), i % 2 == 0 ? "a" : "b"),
@@ -856,6 +861,9 @@ TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     }
+    ASSERT_TRUE(first.has_value());
+    EXPECT_EQ(first->segment, 0);
+    EXPECT_EQ(first->pos, journal::HEADER_SIZE);
     const auto transport = transport_of(
         std::vector<x::errors::Error>(1000, x::errors::NIL)
     );
