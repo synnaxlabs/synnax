@@ -849,9 +849,9 @@ bound, a log precision, or the line plot X channel.
 - The Ports view keeps each title over its grid, with a thin line between sections or
   devices and 2.5 rem above and below it. Labels beside or above each bank were
   rejected.
-- An NI device's location ("Dev3") is a chip at the right end of its title line:
-  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
-  alone was rejected, because it stands out too little.
+- An NI device's location ("Dev3") is a chip at the right end of its title line: small,
+  on gray step 3. The usage text does not repeat it. Plain text alone was rejected,
+  because it stands out too little.
 - In a map, a click on a used port selects its channel. A click on a free port adds a
   channel there: the port shows a + under the pointer, and its tooltip reads "Add a
   channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its
@@ -928,8 +928,8 @@ says why in a sentence, then gives the raw error.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
   cut by the plot edge has square corners and fades out over 40 px, and the name stays
   at the edge. A fade means only "more of this range is outside the view".
-- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
-  the short length (`10min`) for any other. The name gets the room first.
+- The time sits at the bar's end with tabular digits: `T+h:mm:ss` for a running range,
+  and the short length (`10min`) for any other. The name gets the room first.
 - A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
   cap in the range color that bends around the corners, with a glow that pulses every
   1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a
