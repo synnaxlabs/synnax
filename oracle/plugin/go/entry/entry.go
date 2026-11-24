@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -68,9 +69,10 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 
 const uuidImportPath = "github.com/google/uuid"
 
-// primitiveKeys are the primitive key types whose Go type has the primitive's name.
+// primitiveKeys are the primitives a key may resolve to.
 var primitiveKeys = set.New(
-	"string", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
+	"string", "uuid", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32",
+	"uint64",
 )
 
 // Generate emits one file per version package that declares a @go entry type.
@@ -212,7 +214,7 @@ func (p *Plugin) newEntry(
 	)
 	switch form := t.Form.(type) {
 	case resolution.StructForm:
-		field, found = ownKey(form.Fields)
+		field, found = keyField(t, table)
 		params := resolution.NonDefaultedTypeParams(form.TypeParams)
 		if len(params) > 0 {
 			names := make([]string, len(params))
@@ -222,7 +224,17 @@ func (p *Plugin) newEntry(
 			e.Params = "[" + strings.Join(names, ", ") + "]"
 		}
 	case resolution.UnionForm:
-		field, found = baseKey(form, table)
+		ref, ok := resolver.SharedBase(form, "go", table)
+		if !ok {
+			return entryData{}, errors.New(
+				"@go entry on a union needs one base that every variant inherits",
+			)
+		}
+		base, _, ok := resolution.Dealias(ref, table)
+		if !ok {
+			return entryData{}, errors.Newf("unresolved union base %s", ref.Name)
+		}
+		field, found = keyField(base, table)
 		access += ".Base()"
 	default:
 		return entryData{}, errors.New("@go entry applies only to a struct or union")
@@ -236,11 +248,14 @@ func (p *Plugin) newEntry(
 		}
 		return e, nil
 	}
-	keyType, err := goKeyType(field.Type, table, ns, data)
+	k, err := resolveKey(field.Type, table, ns)
 	if err != nil {
 		return entryData{}, err
 	}
-	e.KeyType = keyType
+	if k.goType == "uuid.UUID" {
+		data.imports.Add(uuidImportPath)
+	}
+	e.KeyType = k.goType
 	e.Key = access + "." + naming.GetFieldName(field)
 	if resourceType == "" {
 		return e, nil
@@ -251,82 +266,89 @@ func (p *Plugin) newEntry(
 	}
 	data.imports.Add(p.options.ResourceImportPath)
 	e.ResourceType = constant
-	e.ResourceKey = keyString(field.Type, table, e.Key)
+	e.ResourceKey = k.toString(e.Key, data)
 	return e, nil
 }
 
-// ownKey returns the @key field a struct declares itself. A key inherited through
-// extends is left to the embedded parent, whose GorpKey Go promotes.
-func ownKey(fields []resolution.Field) (resolution.Field, bool) {
-	return lo.Find(fields, key.HasKey)
+// keyField returns the @key field of a struct, its own or inherited through extends.
+func keyField(t resolution.Type, table *resolution.Table) (resolution.Field, bool) {
+	return lo.Find(resolution.UnifiedFields(t, table), key.HasKey)
 }
 
-// baseKey returns the @key field of the struct a union extends.
-func baseKey(
-	form resolution.UnionForm,
-	table *resolution.Table,
-) (resolution.Field, bool) {
-	for _, ext := range form.Extends {
-		base, _, ok := resolution.Dealias(ext, table)
-		if !ok {
-			continue
-		}
-		if f, ok := ownKey(resolution.UnifiedFields(base, table)); ok {
-			return f, true
-		}
-	}
-	return resolution.Field{}, false
+// keyInfo describes the Go type of a key field.
+type keyInfo struct {
+	// goType is the Go type GorpKey returns.
+	goType string
+	// primitive is the primitive the key's type resolves to.
+	primitive string
+	// distinct is true when the key's type is a distinct type rather than the
+	// primitive or an alias of it.
+	distinct bool
 }
 
-// goKeyType returns the Go type of a key field: a type the package declares, or a
-// primitive.
-func goKeyType(
+// resolveKey resolves a key field's type: a primitive, or a type the version declares.
+func resolveKey(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 	ns string,
-	data *fileData,
-) (string, error) {
-	if ref.Name == "uuid" {
-		data.imports.Add(uuidImportPath)
-		return "uuid.UUID", nil
-	}
+) (keyInfo, error) {
+	var k keyInfo
 	if resolution.IsPrimitive(ref.Name) {
-		if !primitiveKeys.Contains(ref.Name) {
-			return "", errors.Newf("unsupported key type %s", ref.Name)
+		k.goType = ref.Name
+		if ref.Name == "uuid" {
+			k.goType = "uuid.UUID"
 		}
-		return ref.Name, nil
-	}
-	t, ok := ref.Resolve(table)
-	if !ok || t.Namespace != ns {
-		return "", errors.Newf(
-			"key type %s must be declared in the same version",
-			ref.Name,
-		)
-	}
-	return naming.GetGoName(t), nil
-}
-
-// keyString returns the expression that converts the key at access to a string.
-func keyString(ref resolution.TypeRef, table *resolution.Table, access string) string {
-	for {
-		if ref.Name == "string" {
-			return access
+	} else {
+		t, ok := ref.Resolve(table)
+		if !ok || t.Namespace != ns {
+			return keyInfo{}, errors.Newf(
+				"key type %s must be declared in the same version",
+				ref.Name,
+			)
 		}
+		k.goType = naming.GetGoName(t)
+	}
+	for !resolution.IsPrimitive(ref.Name) {
 		t, ok := ref.Resolve(table)
 		if !ok {
-			return access + ".String()"
+			return keyInfo{}, errors.Newf("unresolved key type %s", ref.Name)
 		}
 		switch form := t.Form.(type) {
 		case resolution.AliasForm:
 			ref = form.Target
 		case resolution.DistinctForm:
-			if key.ResolvePrimitive(form.Base, table) == "string" {
-				return "string(" + access + ")"
-			}
-			return access + ".String()"
+			k.distinct = true
+			ref = form.Base
 		default:
-			return access + ".String()"
+			return keyInfo{}, errors.Newf("unsupported key type %s", ref.Name)
 		}
+	}
+	k.primitive = ref.Name
+	if !primitiveKeys.Contains(k.primitive) {
+		return keyInfo{}, errors.Newf("unsupported key type %s", k.primitive)
+	}
+	return k, nil
+}
+
+// toString returns the expression that converts the key at access to the decimal or
+// canonical string a resource.ID holds.
+func (k keyInfo) toString(access string, data *fileData) string {
+	switch {
+	case k.primitive == "string" && k.distinct:
+		return "string(" + access + ")"
+	case k.primitive == "string":
+		return access
+	case k.primitive == "uuid" && k.distinct:
+		data.imports.Add(uuidImportPath)
+		return "uuid.UUID(" + access + ").String()"
+	case k.primitive == "uuid":
+		return access + ".String()"
+	case strings.HasPrefix(k.primitive, "uint"):
+		data.imports.Add("strconv")
+		return "strconv.FormatUint(uint64(" + access + "), 10)"
+	default:
+		data.imports.Add("strconv")
+		return "strconv.FormatInt(int64(" + access + "), 10)"
 	}
 }
 

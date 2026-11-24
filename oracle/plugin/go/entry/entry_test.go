@@ -10,8 +10,10 @@
 package entry_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +45,16 @@ func generate(
 	packageDirs ...string,
 ) (*plugin.Response, error) {
 	GinkgoHelper()
+	return generateWith(map[string]string{resource: live}, versionFiles, packageDirs...)
+}
+
+// generateWith is generate for several live sources, keyed by resource.
+func generateWith(
+	lives map[string]string,
+	versionFiles map[string]string,
+	packageDirs ...string,
+) (*plugin.Response, error) {
+	GinkgoHelper()
 	root := GinkgoT().TempDir()
 	for _, dir := range packageDirs {
 		Expect(os.MkdirAll(filepath.Join(root, dir), 0o755)).To(Succeed())
@@ -60,10 +72,16 @@ func generate(
 		resourceSchema, "schemas/synnax/resource.oracle", "resource", loader, table,
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	diag = analyzer.AnalyzeSeeded(
-		live, "schemas/synnax/"+resource+".oracle", resource, loader, table,
-	)
-	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	for _, resource := range slices.Sorted(maps.Keys(lives)) {
+		diag = analyzer.AnalyzeSeeded(
+			lives[resource],
+			"schemas/synnax/"+resource+".oracle",
+			resource,
+			loader,
+			table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+	}
 	return entry.New(entry.DefaultOptions()).Generate(&plugin.Request{
 		Resolutions: table, RepoRoot: root, Versions: resolver,
 	})
@@ -280,14 +298,12 @@ Status struct<Details?> {
 			))
 	})
 
-	It("Should name only the table of a type whose key Go promotes", func() {
+	It("Should read an inherited key", func() {
 		resp := MustSucceed(generate("opcua", `
 @go output "core/pkg/service/opcua"
 
 Keyed struct {
 	key uuid @key
-
-	@go entry
 }
 
 ReadConfig struct extends Keyed {
@@ -299,8 +315,6 @@ ReadConfig struct extends Keyed {
 			"opcua/v0.oracle": `
 Keyed struct {
 	key uuid @key
-
-	@go entry
 }
 
 ReadConfig struct extends Keyed {
@@ -310,14 +324,116 @@ ReadConfig struct extends Keyed {
 }
 `,
 		}))
-		content := fileAt(resp, "core/pkg/service/opcua/versions/v0/entry.gen.go")
-		Expect(content).To(And(
-			ContainSubstring("func (k Keyed) GorpKey() uuid.UUID { return k.Key }"),
-			ContainSubstring(
-				`func (ReadConfig) CustomTypeName() string { return "opc_read_config" }`,
-			),
-			Not(ContainSubstring("func (r ReadConfig) GorpKey()")),
-		))
+		Expect(fileAt(resp, "core/pkg/service/opcua/versions/v0/entry.gen.go")).
+			To(And(
+				ContainSubstring(
+					`func (ReadConfig) CustomTypeName() string { return "opc_read_config" }`,
+				),
+				ContainSubstring(
+					"func (r ReadConfig) GorpKey() uuid.UUID { return r.Key }",
+				),
+				Not(ContainSubstring("func (k Keyed)")),
+			))
+	})
+
+	DescribeTable("Should convert the key to the string a resource ID holds",
+		func(decls, expected string) {
+			source := decls + `
+Label struct {
+	key Key @key
+
+	@go entry
+	@resource type "label"
+}
+`
+			resp := MustSucceed(generate("label",
+				"@go output \"core/pkg/service/label\"\n"+source,
+				map[string]string{"label/v0.oracle": source},
+			))
+			Expect(fileAt(resp, "core/pkg/service/label/versions/v0/entry.gen.go")).
+				To(ContainSubstring("Key: " + expected + "}"))
+		},
+		Entry("a distinct string", "Key string", "string(l.Key)"),
+		Entry("an unsigned integer", "Key uint32",
+			"strconv.FormatUint(uint64(l.Key), 10)"),
+		Entry("a signed integer alias", "Key = int64",
+			"strconv.FormatInt(int64(l.Key), 10)"),
+		Entry("a distinct uuid", "Key uuid", "uuid.UUID(l.Key).String()"),
+	)
+
+	DescribeTable("Should fail on a type it cannot generate methods for",
+		func(source, message string) {
+			Expect(generate("label",
+				"@go output \"core/pkg/service/label\"\n"+source,
+				map[string]string{"label/v0.oracle": source},
+			)).Error().To(MatchError(ContainSubstring(message)))
+		},
+		Entry("a resource type without a key", `
+Label struct {
+	name string
+
+	@go entry
+	@resource type "label"
+}
+`, "@resource type needs a @key field"),
+		Entry("an unsupported key type", `
+Label struct {
+	key float64 @key
+
+	@go entry
+}
+`, "unsupported key type float64"),
+		Entry("a union without a shared base", `
+A struct {
+	key uuid @key
+}
+
+B struct {
+	name string
+}
+
+Label union on type extends A, B {
+	first { size int32 }
+
+	@go entry
+}
+`, "needs one base that every variant inherits"),
+		Entry("an enum", `
+Label enum {
+	a = "a"
+
+	@go entry
+}
+`, "applies only to a struct or union"),
+	)
+
+	It("Should fail on a key type from another package", func() {
+		// The live files only name the outputs; the version files drive generation.
+		Expect(generateWith(map[string]string{
+			"label": `
+@go output "core/pkg/service/label"
+
+Label struct {
+	key uint32 @key
+}
+`,
+			"other": `
+@go output "core/pkg/service/other"
+
+Key uint32
+`,
+		}, map[string]string{
+			"other/v0.oracle": "Key uint32\n",
+			"label/v0.oracle": `
+import "schemas/synnax/versions/other/v0"
+
+Label struct {
+	key other.Key @key
+
+	@go entry
+}
+`,
+		})).Error().To(MatchError(ContainSubstring("must be declared in the same version")))
 	})
 
 	It("Should fail on a resource type the enum does not declare", func() {

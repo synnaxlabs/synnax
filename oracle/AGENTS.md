@@ -36,8 +36,8 @@ or generator logic and schemas disagree.
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`,
   `@resource type` (stored ontology keys hold it), and the `@go` persistence set
-  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`).
-  Codecs are explicit: a struct or union gets one iff its declaration carries
+  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`,
+  `entry`). Codecs are explicit: a struct or union gets one iff its declaration carries
   `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
   codec methods: nothing generates, references stay valid. Generation fails when a
   codec's persisted graph reaches a struct or union carrying neither form.
@@ -148,11 +148,11 @@ or generator logic and schemas disagree.
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
   type must declare its exported `Migrate<Type>` step.
 - `@go entry` on a struct or union in a version file emits `entry.gen.go` in every
-  `versions/vN` package that declares the type: `GorpKey` from its own `@key` field (a
-  union's from its base), and `ResourceID` when it has `@resource type`. A struct that
-  inherits its key through `extends` gets `GorpKey` from the embedded parent.
-  `@go entry "name"` also emits `CustomTypeName`, which sets the Gorp key prefix, so the
-  name is storage: never change it. A computed or composite key stays hand-written.
+  `versions/vN` package that declares the type: `GorpKey` from its `@key` field, own or
+  inherited (a union reads its shared base), and `ResourceID` when it has
+  `@resource type`. `@go entry "name"` also emits `CustomTypeName`, which sets the Gorp
+  key prefix, so the name is storage: never change it. A computed or composite key stays
+  hand-written.
 
 ## Field optionality
 
