@@ -14,7 +14,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"slices"
 	"sync/atomic"
@@ -190,7 +189,7 @@ func (f *factory) buildReadRecords(
 			}
 		}
 	}
-	channels, err := f.readChannels(ctx, lo.Uniq(keys))
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(keys))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,33 +269,6 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 		)
 	}
 	return enabled, nil
-}
-
-// readChannels returns the channels of keys and the index channel of each, so that an
-// error can name an index channel that no binding names.
-func (f *factory) readChannels(
-	ctx context.Context,
-	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
-	if err != nil {
-		return nil, err
-	}
-	var indexes channel.Keys
-	for _, ch := range channels {
-		if _, ok := channels[ch.Index()]; !ok && !ch.IsIndex && ch.Index() != 0 {
-			indexes = append(indexes, ch.Index())
-		}
-	}
-	if len(indexes) == 0 {
-		return channels, nil
-	}
-	found, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(indexes))
-	if err != nil {
-		return nil, err
-	}
-	maps.Copy(channels, found)
-	return channels, nil
 }
 
 // newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
