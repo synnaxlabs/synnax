@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { describe, expect, it } from "vitest";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { ICD } from "@/platform/icd";
 
@@ -97,5 +99,29 @@ describe("ICD.Write.unbind", () => {
       ...message,
       bindings: [onChannel(setpoint), message.bindings[1]],
     });
+  });
+});
+
+describe("ICD.Write.addMessages", () => {
+  const client = createTestClient();
+
+  it("should send the time of each write from a timestamp field with no default", async () => {
+    const time = createField("time", "timestamp", { timeFormat: "unix_ms" });
+    const setpoint = createField("setpoint", "float");
+    const { icd: key, messages } = await ICD.Write.addMessages({
+      client,
+      formats: new Map(),
+      targets: [],
+      name: uniqueName("valves"),
+      messages: [{ name: "command", fields: [time, setpoint] }],
+    });
+    onTestFinished(async () => await client.icds.delete(key));
+    const payload = {
+      format: "json",
+      fields: [{ ...time, default: { type: "now" } }, setpoint],
+    };
+    expect(messages[0].payload).toEqual(payload);
+    const [stored] = (await client.icds.retrieve({ key })).messages;
+    expect(stored.payload).toEqual(payload);
   });
 });
