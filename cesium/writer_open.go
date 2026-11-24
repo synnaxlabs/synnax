@@ -104,6 +104,14 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	if err != nil {
 		return nil, err
 	}
+	clock, ok := db.channelOf(cfg.Clock)
+	if ok && cfg.Start.IsZero() && !slices.Contains(cfg.Channels, cfg.Clock) {
+		return nil, channel.Wrap(cfg.Channels[0], errors.Wrapf(
+			validate.ErrValidation,
+			"writer needs a start to write the channel without its index %v",
+			clock,
+		))
+	}
 	if db.engine != nil {
 		lw, err := db.openLogWriter(cfg)
 		if err != nil {
@@ -141,12 +149,6 @@ func (db *DB) openClockWriter(
 			return nil, err
 		}
 		idx.writingToIdx = true
-	} else if cfg.Start.IsZero() {
-		return nil, channel.Wrap(cfg.Channels[0], errors.Wrapf(
-			validate.ErrValidation,
-			"writer needs a start to write the channel without its index %v",
-			idx.idx.ch,
-		))
 	}
 	for _, key := range cfg.Channels {
 		if key == cfg.Clock {

@@ -215,7 +215,7 @@ var _ = Describe("Tombstone", func() {
 			s = MustSucceed(state.Open(config(a), sample()))
 			a.s, a.seq = s, sample().Sequence
 			run(s)
-			d := MustSucceed(s.BeginDelete(6, 100, 200))
+			d := MustSucceed(s.BeginDelete(6, 35, 45))
 			w := MustSucceed(s.OpenWriter(state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
@@ -223,20 +223,19 @@ var _ = Describe("Tombstone", func() {
 			}))
 			held, ok := MustSucceed2(w.Held(6))
 			Expect(ok).To(BeTrue(), "the writer takes over open segment 3")
-			n := MustSucceed(w.NewAlignment())
-			backfill := commit(1, n, 0, 150, 150, slot(held.ID, held.Length+4))
+			backfill := commit(1, 2, 0, 40, 40, slot(held.ID, held.Length+4))
 			Expect(w.Commit(backfill)).To(SatisfyAll(
 				conflict(),
-				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
+				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
 			Expect(s.OpenWriter(state.WriterConfig{
 				Keys:    []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock:   5,
-				Start:   150,
+				Start:   40,
 				Bounded: true,
 			})).Error().To(SatisfyAll(
 				conflict(),
-				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
+				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
 			Expect(d.Release()).To(Succeed())
 			Expect(w.Commit(backfill)).To(Succeed())

@@ -36,7 +36,9 @@ func newDiscontinuousTRError(tr telem.TimeRange) error {
 	)
 }
 
-func newDiscontinuousOffsetError(offset, domainLen int64) error {
+// NewDiscontinuousOffsetError is returned when the index holds no sample at offset,
+// past the domainLen samples that it holds from the start of a lookup.
+func NewDiscontinuousOffsetError(offset, domainLen int64) error {
 	return errors.Wrapf(
 		ErrDiscontinuous,
 		"failed to resolve position %d in continuous index of length %d",

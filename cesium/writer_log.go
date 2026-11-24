@@ -31,36 +31,68 @@ const segmentLimit = 1 << 30
 const entryLimit = log.MaxFrame / 4
 
 // logWriter writes one clock and the channels it times to the segments of the pointer
-// log layout. Write appends with no sync, Commit makes the written samples visible, and
-// Sync makes the commits durable with one log entry.
+// log layout, or only channels of a clock whose stamps another writer stored. Write
+// appends with no sync, Commit makes the written samples visible, and Sync makes the
+// commits durable with one log entry.
 type logWriter struct {
 	e  *engine
 	st *state.Writer
-	// clock is the key of the clock, and keys holds the clock first.
-	clock ChannelKey
-	keys  []*logKey
-	byKey map[ChannelKey]*logKey
+	// clock is the key of the clock, and keys holds the clock first when the writer
+	// writes it.
+	clock   ChannelKey
+	clockCh Channel
+	keys    []*logKey
+	byKey   map[ChannelKey]*logKey
 	// unstored is true for a writer that stamps and commits no bytes.
 	unstored bool
+	// stamps places the samples of a writer that does not write its clock, and is nil
+	// for a writer that does.
+	stamps *placer
 	// number is the alignment number of the stretch, or zero before its first write,
 	// and next the index of the next sample in it.
 	number, next uint32
 	// last is the last stamp written.
 	last telem.TimeStamp
-	// The uncommitted run: the index of its first sample, its first and last stamps,
-	// and its sample count.
-	from        uint32
-	first, end  telem.TimeStamp
-	samples     uint32
+	// runs are the uncommitted runs, in the order that Commit logs them.
+	runs        []run
 	lastCommit  telem.TimeStamp
 	frames      int
 	entry       log.Entry
 	excluded    []ChannelKey
 	sealed      []*segment.Handle
 	keySegments []log.Slot
+	// from and to hold the segment end of each key at the start and the end of the run
+	// in commit.
+	from, to []segmentEnd
+	// whole and cuts hold the series of the frame in writeData and the byte offset that
+	// each has written, or -1 for a series that it skips.
+	whole []telem.Series
+	cuts  []int
 	// committed holds the keys of the commit in progress, and pre their preloads.
 	committed []ChannelKey
 	pre       []state.Preload
+}
+
+// run is the samples that one Commit logs: their alignments touch, and their stamps
+// rise strictly.
+type run struct {
+	alignment   telem.Alignment
+	samples     uint32
+	first, last telem.TimeStamp
+	// stored is the run of stored stamps that holds the stamps of a run of a writer
+	// that does not write its clock.
+	stored stampRun
+	// ends holds the segment end of each key, in the order of keys, at the end of a run
+	// that a later run follows.
+	ends []segmentEnd
+}
+
+// segmentEnd is the identity, stream length, and running checksum of the open segment
+// of a key at the end of a run, or zero when the key has no open segment.
+type segmentEnd struct {
+	id     uint64
+	length uint32
+	crc    uint32
 }
 
 // logKey is the open segment of one key of a logWriter.
@@ -89,7 +121,8 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
 		unstored: cfg.Unstored,
 	}
-	if clock, ok := db.channelOf(cfg.Clock); !ok {
+	clock, ok := db.channelOf(cfg.Clock)
+	if !ok {
 		return nil, channel.NewNotFoundError(cfg.Clock)
 	} else if !clock.IsIndex {
 		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
@@ -97,6 +130,7 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 			"writer clock is not an index",
 		))
 	}
+	w.clockCh = clock
 	keys := make([]state.WriterKey, 0, len(cfg.Channels))
 	for _, key := range cfg.Channels {
 		ch, ok := db.channelOf(key)
@@ -116,10 +150,7 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 		keys = append(keys, state.WriterKey{Key: key, DataType: uint8(lk.code)})
 	}
 	if _, ok := w.byKey[w.clock]; !ok {
-		return nil, errors.Wrap(
-			errors.ErrUnsupported,
-			"a writer of the pointer log writes its clock",
-		)
+		w.stamps = &placer{e: db.engine, clock: w.clock, start: cfg.Start}
 	}
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
@@ -193,6 +224,9 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil || n == 0 {
 		return fr, false, err
 	}
+	if w.stamps != nil {
+		return w.writeData(fr, uint32(n), skip)
+	}
 	if skip != nil && skip(w.clock) {
 		for _, k := range fr.RawKeys() {
 			if _, ok := w.byKey[k]; ok {
@@ -230,11 +264,12 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 		s.Alignment, s.TimeRange = alignment, tr
 		fr.SetRawSeriesAt(i, s)
 	}
-	if w.samples == 0 {
-		w.from, w.first = w.next, first
+	if len(w.runs) == 0 {
+		w.runs = append(w.runs, run{alignment: alignment, first: first})
 	}
-	w.end, w.last = last, last
-	w.samples += uint32(n)
+	r := &w.runs[len(w.runs)-1]
+	r.last, r.samples = last, r.samples+uint32(n)
+	w.last = last
 	w.next += uint32(n)
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
 }
@@ -307,13 +342,15 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 // missingError returns the error for a frame of the current write that leaves out a key
 // of w.
 func (w *logWriter) missingError() error {
-	data := make([]Channel, 0, len(w.keys)-1)
-	for _, lk := range w.keys[1:] {
-		data = append(data, lk.ch)
+	data := make([]Channel, 0, len(w.keys))
+	for _, lk := range w.keys {
+		if lk.ch.Key != w.clock {
+			data = append(data, lk.ch)
+		}
 	}
 	for _, lk := range w.keys {
 		if lk.frame != w.frames {
-			return missingChannelError(w.keys[0].ch, lk.ch, data)
+			return missingChannelError(w.clockCh, lk.ch, data)
 		}
 	}
 	return nil
@@ -386,13 +423,16 @@ func (w *logWriter) putBack() {
 		}
 		lk.skipped = false
 	}
-	w.samples, w.number = 0, 0
+	w.runs, w.number = w.runs[:0], 0
 }
 
 // commit makes the uncommitted run visible and returns its end. It commits nothing and
 // returns true when skip holds a key with samples to commit.
 func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, error) {
-	if w.samples == 0 {
+	if w.stamps != nil && w.stamps.err != nil {
+		return 0, false, w.stamps.err
+	}
+	if len(w.runs) == 0 {
 		return w.lastCommit, false, nil
 	}
 	if skip != nil {
@@ -402,35 +442,21 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			}
 		}
 	}
-	end := w.end + 1
-	if !w.unstored {
-		c := &log.Commit{
-			Samples:   w.samples,
-			Alignment: uint64(telem.NewAlignment(w.number, w.from)),
-			First:     int64(w.first),
-			Last:      int64(w.end),
-		}
-		w.collectSlots()
-		c.Slots = slices.Clone(w.keySegments)
-		var err error
-		w.pre, err = w.e.withPreloads(w.pre, w.committed, w.first, w.end, false, func(
-			pre []state.Preload,
-		) error {
-			return w.st.Commit(c, pre...)
-		})
-		if err != nil {
+	w.from = w.ends(w.from, false)
+	for i := range w.runs {
+		if err := w.commitRun(i); err != nil {
 			w.putBack()
 			return 0, false, err
 		}
-		for _, lk := range w.keys {
-			if lk.w != nil && lk.w.Len() != lk.committed {
-				length, _ := lk.w.Commit()
-				lk.committed = int64(length)
-			}
-		}
-		w.entry.Add(c)
 	}
-	w.samples, w.lastCommit = 0, end
+	for _, lk := range w.keys {
+		if lk.w != nil && lk.w.Len() != lk.committed {
+			length, _ := lk.w.Commit()
+			lk.committed = int64(length)
+		}
+	}
+	end := w.runs[len(w.runs)-1].last + 1
+	w.runs, w.lastCommit = w.runs[:0], end
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
@@ -441,20 +467,82 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 	return end, false, err
 }
 
-// collectSlots sets keySegments to a slot for each segment with uncommitted samples, in
-// rising order of segment, and committed to the keys of those segments in rising order.
-func (w *logWriter) collectSlots() {
-	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
+// commitRun logs the Commit of run i once the state accepts it. A run of a writer that
+// does not write its clock first reads its first and last stamps.
+func (w *logWriter) commitRun(i int) error {
+	r := &w.runs[i]
+	if w.stamps != nil {
+		var err error
+		if r.first, r.last, err = w.e.stampEnds(w.clock, *r); err != nil {
+			return err
+		}
+	}
+	if w.unstored {
+		return nil
+	}
+	to := r.ends
+	if i == len(w.runs)-1 {
+		w.to = w.ends(w.to, true)
+		to = w.to
+	}
+	w.collectSlots(w.from, to)
+	w.from = append(w.from[:0], to...)
+	c := &log.Commit{
+		Samples:   r.samples,
+		Alignment: uint64(r.alignment),
+		First:     int64(r.first),
+		Last:      int64(r.last),
+		Slots:     slices.Clone(w.keySegments),
+	}
+	if w.stamps != nil {
+		w.committed = append(w.committed, w.clock)
+		slices.Sort(w.committed)
+	}
+	var err error
+	w.pre, err = w.e.withPreloads(w.pre, w.committed, r.first, r.last, false, func(
+		pre []state.Preload,
+	) error {
+		return w.st.Commit(c, pre...)
+	})
+	if err != nil {
+		return err
+	}
+	w.entry.Add(c)
+	return nil
+}
+
+// ends sets dst to the segment end of each key, in the order of keys: at its written
+// bytes when pending is true, and at its last commit otherwise.
+func (w *logWriter) ends(dst []segmentEnd, pending bool) []segmentEnd {
+	dst = dst[:0]
 	for _, lk := range w.keys {
-		if lk.w == nil || lk.w.Len() == lk.committed {
+		var e segmentEnd
+		if lk.w != nil {
+			e.id, e.length = lk.id, uint32(lk.committed)
+			if pending {
+				e.length, e.crc = lk.w.Pending()
+			}
+		}
+		dst = append(dst, e)
+	}
+	return dst
+}
+
+// collectSlots sets keySegments to a slot for each segment that grows from from to to,
+// in rising order of segment, and committed to the keys of those segments in rising
+// order.
+func (w *logWriter) collectSlots(from, to []segmentEnd) {
+	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
+	for i, lk := range w.keys {
+		e := to[i]
+		if e.id == 0 || (e.id == from[i].id && e.length == from[i].length) {
 			continue
 		}
 		w.committed = append(w.committed, lk.ch.Key)
-		length, crc := lk.w.Pending()
 		w.keySegments = append(w.keySegments, log.Slot{
-			Segment: lk.id,
-			Length:  length,
-			TailCRC: crc,
+			Segment: e.id,
+			Length:  e.length,
+			TailCRC: e.crc,
 		})
 	}
 	slices.SortFunc(w.keySegments, func(a, b log.Slot) int {

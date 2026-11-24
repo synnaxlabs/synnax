@@ -97,6 +97,72 @@ func (c *chanState) stored(first, last telem.TimeStamp, pre []Segment) (Pointer,
 	return Pointer{}, false
 }
 
+// holds reports whether the visible pointers of c, a clock, hold a stamp for each of
+// the n samples from alignment a, with first and last as the stamps of the first and
+// last. A segment that a part holds counts through its record in pre.
+func (c *chanState) holds(
+	a telem.Alignment,
+	n uint32,
+	first, last telem.TimeStamp,
+	pre []Segment,
+) bool {
+	lo, hi := a.SampleIndex(), a.SampleIndex()+n-1
+	for i := lo; ; i++ {
+		p, ok := c.pointerAt(a.DomainIndex(), i, pre)
+		if !ok || (i == lo && !stampAt(p, lo, first)) {
+			return false
+		}
+		if hi <= p.end() {
+			return stampAt(p, hi, last)
+		}
+		i = p.end()
+	}
+}
+
+// pointerAt returns the visible pointer of c whose alignment number is number and that
+// holds sample index i, and false when there is none.
+func (c *chanState) pointerAt(number, i uint32, pre []Segment) (Pointer, bool) {
+	for _, s := range c.segs {
+		if s.vis.Part != 0 {
+			continue
+		}
+		if p, ok := pointerAt(s.vis.Pointers, number, i); ok {
+			return p, true
+		}
+	}
+	for _, s := range pre {
+		if p, ok := pointerAt(s.Pointers, number, i); ok {
+			return p, true
+		}
+	}
+	return Pointer{}, false
+}
+
+func pointerAt(ptrs []Pointer, number, i uint32) (Pointer, bool) {
+	for _, p := range ptrs {
+		if p.Alignment.DomainIndex() == number && p.Alignment.SampleIndex() <= i &&
+			i <= p.end() {
+			return p, true
+		}
+	}
+	return Pointer{}, false
+}
+
+// end returns the sample index of the last sample of p.
+func (p Pointer) end() uint32 { return p.Alignment.SampleIndex() + p.Samples - 1 }
+
+// stampAt reports whether stamp can be the stamp of sample index i of p: its first or
+// last stamp at an end, and strictly between them inside.
+func stampAt(p Pointer, i uint32, stamp telem.TimeStamp) bool {
+	switch i {
+	case p.Alignment.SampleIndex():
+		return stamp == p.First
+	case p.end():
+		return stamp == p.Last
+	}
+	return p.First < stamp && stamp < p.Last
+}
+
 type beginDropRequest struct {
 	key  uint32
 	pre  []Preload

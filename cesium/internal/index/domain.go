@@ -281,7 +281,7 @@ func (i *Domain) AppendSegments(
 		}
 		prevEnd := iter.TimeRange().End
 		if !iter.Next() || iter.TimeRange().Start != prevEnd {
-			return nil, newDiscontinuousOffsetError(end, base)
+			return nil, NewDiscontinuousOffsetError(end, base)
 		}
 	}
 }
@@ -495,7 +495,10 @@ func (i *Domain) forwardStamp(
 	if continuous &&
 		((startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
 			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1)) {
-		err = newDiscontinuousOffsetError(startApprox.Upper+offset, effectiveDomainLen)
+		err = NewDiscontinuousOffsetError(
+			startApprox.Upper+offset,
+			effectiveDomainLen,
+		)
 		return approx, err
 	}
 
@@ -503,7 +506,7 @@ func (i *Domain) forwardStamp(
 		var found bool
 		if endOffset, found = seekForward(&iter, endOffset, domainLen); !found {
 			if continuous {
-				err = newDiscontinuousOffsetError(endOffset, effectiveDomainLen)
+				err = NewDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 				return approx, err
 			}
 			approx = Between(iter.TimeRange().End, telem.TimeStampMax)
@@ -537,7 +540,7 @@ func (i *Domain) seekFirstDomain(
 
 	if !effectiveDomainBounds.ContainsStamp(ref) ||
 		(continuous && offset >= effectiveDomainLen) {
-		return 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
+		return 0, NewDiscontinuousOffsetError(offset, effectiveDomainLen)
 	}
 
 	if !iter.SeekFirst(ctx) {
@@ -663,7 +666,7 @@ func (i *Domain) backwardStamp(
 	// If they are not exact, and the lower bound is the first sample, then the upper
 	// bound must be discontinuous as well.
 	if continuous && endOffset+startApprox.Span() > effectiveDomainLen {
-		err = newDiscontinuousOffsetError(endOffset, 0)
+		err = NewDiscontinuousOffsetError(endOffset, 0)
 		return approx, err
 	}
 
@@ -677,7 +680,7 @@ func (i *Domain) backwardStamp(
 			domainLen,
 		); !found {
 			if continuous {
-				err = newDiscontinuousOffsetError(endOffset, domainLen)
+				err = NewDiscontinuousOffsetError(endOffset, domainLen)
 				return approx, err
 			}
 			approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
@@ -716,7 +719,7 @@ func (i *Domain) seekLastDomain(
 
 	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
 		(continuous && absOffset >= effectiveDomainLen) {
-		return 0, 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
+		return 0, 0, NewDiscontinuousOffsetError(offset, effectiveDomainLen)
 	}
 
 	if !iter.SeekLast(ctx) {

@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -321,7 +320,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 	})
 
-	It("Should refuse a writer of two clocks, and a writer without its clock", func(
+	It("Should refuse a writer of two clocks", func(
 		ctx SpecContext,
 	) {
 		other := GenerateChannelKey()
@@ -336,10 +335,5 @@ var _ = Describe("Writer on the pointer log", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("channel is not timed by the writer clock")),
 		))
-		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
-			Clock:    idx,
-			Channels: []cesium.ChannelKey{data},
-			Start:    10 * telem.SecondTS,
-		})).Error().To(MatchError(xerrors.ErrUnsupported))
 	})
 })

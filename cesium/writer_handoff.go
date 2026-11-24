@@ -121,7 +121,7 @@ func (db *DB) handoffLog(
 			"a handoff on the pointer log layout adopts no pending samples",
 		)
 	}
-	if w.log.samples > 0 {
+	if len(w.log.runs) > 0 {
 		return nil, errors.Wrap(
 			errors.ErrUnsupported,
 			"the pointer log layout does not move uncommitted samples",
@@ -137,8 +137,14 @@ func (db *DB) handoffLog(
 // when it has none.
 func (w *Writer) uncommitted() (telem.TimeRange, bool) {
 	if w.log != nil {
-		tr := telem.TimeRange{Start: w.log.first, End: w.log.end + 1}
-		return tr, w.log.samples > 0
+		runs := w.log.runs
+		if len(runs) == 0 {
+			return telem.TimeRange{}, false
+		}
+		return telem.TimeRange{
+			Start: runs[0].first,
+			End:   runs[len(runs)-1].last + 1,
+		}, true
 	}
 	tr := telem.TimeRange{Start: w.idx.lastCommitEnd, End: w.idx.idx.highWaterMark + 1}
 	return tr, w.idx.hasUncommittedData || w.idx.dataPending

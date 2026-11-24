@@ -123,6 +123,12 @@ func (w *Writer) Close() error {
 // index then commits nothing. Write validates every series of fr. When skip returns
 // true with no lock held, Write skips at once. If not, it calls skip again under the
 // lock of each channel's claim. A nil skip skips nothing.
+//
+// On the pointer log layout, a writer that does not write its clock puts each sample on
+// the next stored stamp of the clock, and leaves the time range unset. A series that
+// reaches the end of a run of stamps comes back as one series for each run, with the
+// alignment of the run's stamps. A sample with no stored stamp comes back with no
+// alignment, and the next Commit fails.
 func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,

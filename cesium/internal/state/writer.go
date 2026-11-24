@@ -448,9 +448,11 @@ func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c, r.pre) }
 
 // Commit checks c against the claims and the stored data of its keys, and makes its
 // samples visible. pre holds the preload of each key of c from First to Last, in rising
-// order of key. The caller logs c at its next sync. It returns an error that wraps
-// validate.ErrValidation when c overlaps stored data of a key or reaches another
-// writer's claim, ErrStale when a preload is stale, and another error when c breaks a
+// order of key, and of the clock for a writer that does not write it. The caller logs c
+// at its next sync. It returns an error that wraps validate.ErrValidation when c
+// overlaps stored data of a key or reaches another writer's claim, or, for a writer
+// that does not write its clock, when the clock holds no visible stamp for a sample of
+// c. It returns ErrStale when a preload is stale, and another error when c breaks a
 // value rule.
 func (w *Writer) Commit(c *log.Commit, pre ...Preload) error {
 	return w.call(&commitRequest{w: w, c: c, pre: pre})
@@ -502,7 +504,37 @@ func (s *State) checkVisible(w *Writer, c *log.Commit, pre []Preload) error {
 			}
 		}
 	}
-	return nil
+	if _, written := w.types[w.cfg.Clock]; written {
+		return nil
+	}
+	return s.checkStamps(w.cfg.Clock, c, pre)
+}
+
+// checkStamps refuses c, a commit of data against the stored stamps of clock, unless
+// the visible pointers of clock hold a stamp for each of its samples, with its first
+// and last stamps at its ends.
+func (s *State) checkStamps(clock uint32, c *log.Commit, pre []Preload) error {
+	a := telem.Alignment(c.Alignment)
+	if ch := s.core.channels[clock]; ch != nil {
+		records, err := s.core.preloadOf(ch, pre)
+		if err != nil {
+			return err
+		}
+		if ch.holds(a, c.Samples, telem.TimeStamp(c.First), telem.TimeStamp(c.Last),
+			records) {
+			return nil
+		}
+	}
+	return errors.Wrapf(
+		errConflict,
+		"commit of %d samples at alignment %d from %d to %d "+
+			"finds no stored stamps of clock %d",
+		c.Samples,
+		uint64(a),
+		c.First,
+		c.Last,
+		clock,
+	)
 }
 
 func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
