@@ -141,6 +141,37 @@ func New(cfg Config) (*Join, error) {
 // would leave more than most samples of the input that Next has not passed, since a
 // history read paces its inputs.
 func (j *Join) Push(i int, data, t telem.Series) error {
+	if err := j.validate(i, data, t); err != nil {
+		return err
+	}
+	in := j.inputs[i]
+	stamps, alignments := len(in.stamps), len(in.alignments)
+	last, pushed := in.last, in.pushed
+	for k := range t.Len() {
+		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
+		if pushed && stamp <= last {
+			in.stamps, in.alignments = in.stamps[:stamps], in.alignments[:alignments]
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"stamp %s of input %d does not follow %s",
+				stamp,
+				i,
+				last,
+			)
+		}
+		last, pushed = stamp, true
+		in.stamps = append(in.stamps, stamp)
+		if i == j.primary {
+			in.alignments = append(in.alignments, t.Alignment+telem.Alignment(k))
+		}
+	}
+	in.data = append(in.data, data.Data...)
+	in.last, in.pushed = last, pushed
+	return nil
+}
+
+// validate returns why Push refuses the samples data of input i with stamps t, or nil.
+func (j *Join) validate(i int, data, t telem.Series) error {
 	if i < 0 || i >= len(j.inputs) {
 		return errors.Wrapf(validate.ErrValidation, "input %d does not exist", i)
 	}
@@ -184,28 +215,6 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 			t.Multiple(),
 		)
 	}
-	stamps, alignments := len(in.stamps), len(in.alignments)
-	last, pushed := in.last, in.pushed
-	for k := range t.Len() {
-		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
-		if pushed && stamp <= last {
-			in.stamps, in.alignments = in.stamps[:stamps], in.alignments[:alignments]
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"stamp %s of input %d does not follow %s",
-				stamp,
-				i,
-				last,
-			)
-		}
-		last, pushed = stamp, true
-		in.stamps = append(in.stamps, stamp)
-		if i == j.primary {
-			in.alignments = append(in.alignments, t.Alignment+telem.Alignment(k))
-		}
-	}
-	in.data = append(in.data, data.Data...)
-	in.last, in.pushed = last, pushed
 	return nil
 }
 
