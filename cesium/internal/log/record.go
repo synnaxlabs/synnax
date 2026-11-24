@@ -35,6 +35,7 @@ const (
 	typeRestart   uint16 = 8
 	typeCheck     uint16 = 9
 	typeIntent    uint16 = 10
+	typeKept      uint16 = 11
 	// typeSkippable marks a record type that an older binary skips.
 	typeSkippable uint16 = 1 << 15
 
@@ -52,7 +53,7 @@ const (
 )
 
 // Record is a record of a log entry: a *Reserve, *Create, *Commit, *Seal, *Tombstone,
-// *Replace, *Drop, *Restart, *Check, or *Intent.
+// *Replace, *Drop, *Restart, *Check, *Intent, or *Kept.
 type Record interface {
 	append(dst []byte) []byte
 	decode(body []byte) error
@@ -182,6 +183,13 @@ type Restart struct{}
 
 // Check turns on the checks of a version 0 segment that now has a check file.
 type Check struct {
+	// Segment is the identity of the segment.
+	Segment uint64
+}
+
+// Kept marks a sealed version 1 clock segment whose encoding as progressions failed the
+// half rule. It is then no candidate of encoding.
+type Kept struct {
 	// Segment is the identity of the segment.
 	Segment uint64
 }
@@ -432,6 +440,18 @@ func (r *Check) append(dst []byte) []byte {
 func (r *Check) decode(b []byte) error {
 	if len(b) != 8 {
 		return sizeError("check", len(b), 8)
+	}
+	r.Segment = binary.LittleEndian.Uint64(b)
+	return nil
+}
+
+func (r *Kept) append(dst []byte) []byte {
+	return le64(appendHeader(dst, typeKept, 8), r.Segment)
+}
+
+func (r *Kept) decode(b []byte) error {
+	if len(b) != 8 {
+		return sizeError("kept", len(b), 8)
 	}
 	r.Segment = binary.LittleEndian.Uint64(b)
 	return nil

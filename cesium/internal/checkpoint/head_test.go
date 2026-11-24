@@ -108,6 +108,17 @@ var _ = Describe("Head", func() {
 		Expect(b[intents : intents+8]).To(Equal(le32(2, 6)))
 	})
 
+	It("Should keep the Kept mark of a segment record in flag bit 2", func() {
+		s := sample(2)
+		s.Channels[0].Segments[0].Kept = true
+		b := checkpoint.Encode(db, generation, s)
+		segs, _ := section(b, 5)
+		Expect(b[segs+27]).To(Equal(uint8(5)), "sealed and kept")
+		_, got := MustSucceed2(decode(b))
+		Expect(got.Channels[0].Segments[0].Kept).To(BeTrue())
+		Expect(got.Channels[0].Segments[1].Kept).To(BeFalse())
+	})
+
 	It("Should encode one state to the same bytes every time", func() {
 		Expect(checkpoint.Encode(db, generation, sample(300))).
 			To(Equal(checkpoint.Encode(db, generation, sample(300))))

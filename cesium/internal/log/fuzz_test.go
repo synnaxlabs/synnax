@@ -19,7 +19,7 @@ import (
 )
 
 // knownTypes are the record types that this binary decodes.
-var knownTypes = set.New[uint16](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+var knownTypes = set.New[uint16](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 
 // walkEntry reads the structure of the entry at the start of b with no decoder: an
 // entry header whose length and count fit, then records whose headers have a zero
@@ -116,11 +116,12 @@ func FuzzDecodeEntry(f *testing.F) {
 		&log.Drop{Key: 8},
 		&log.Restart{},
 		&log.Check{Segment: 3},
+		&log.Kept{Segment: 4},
 		&log.Intent{Key: 8, Cleared: true},
 	))
 	f.Add(rawEntry(raw{1<<15 | 40, []byte{1, 2, 3, 4, 5, 6, 7, 8}}))
 	f.Add(entryOf())
-	f.Add(rawEntry(raw{11, make([]byte, 8)}))
+	f.Add(rawEntry(raw{12, make([]byte, 8)}))
 	for _, r := range entryRefusals {
 		f.Add(r.b)
 	}

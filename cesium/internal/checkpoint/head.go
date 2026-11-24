@@ -45,6 +45,7 @@ const (
 	// of a part with no dead segment.
 	noPart        uint32 = 0xFFFFFFFF
 	flagSealed    uint8  = 1
+	flagKept      uint8  = 4
 	sectionParts         = 1
 	sectionDead          = 2
 	sectionKills         = 3
@@ -284,6 +285,9 @@ func putChannels(b []byte, l *layout, bd body) {
 			b[sAt+26] = seg.DataType
 			if seg.Sealed {
 				b[sAt+27] = flagSealed
+			}
+			if seg.Kept {
+				b[sAt+27] |= flagKept
 			}
 			sAt += uint64(l.f.sizes[sectionSegs])
 			for _, p := range seg.Pointers {

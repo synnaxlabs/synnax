@@ -213,6 +213,7 @@ var _ = Describe("Checkpointer", func() {
 					Versions:   set.New[uint16](1),
 					Version:    1,
 					Threshold:  0.2,
+					Block:      4,
 					Append:     func(e *log.Entry) { l.Append(e) },
 					Executor:   goExec,
 					OnHead:     func(g uint64, s *state.Snapshot) { cp.Head(g, s) },

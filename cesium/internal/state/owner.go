@@ -33,9 +33,12 @@ type Config struct {
 	Versions set.Set[uint16]
 	// Version is the segment format version of new segments, one of Versions.
 	Version uint16
-	// Threshold is the dead share of a sealed segment of Version above which the
-	// segment is a candidate for a rewrite.
+	// Threshold is the share of the length of a sealed segment of Version that a
+	// rewrite must free for the segment to be a candidate of it.
 	Threshold float32
+	// Block is the stream bytes of a block of a segment. A rewrite pads its output to
+	// whole blocks, and a candidate of encoding holds 2 blocks or more live.
+	Block uint32
 	// Append queues an entry for the log and returns at once. The state appends a
 	// Reserve with it before it gives out a value above the durable limit.
 	Append func(e *log.Entry)
@@ -54,6 +57,7 @@ func (c Config) validate() error {
 	v := validate.New("state.Config")
 	v.Ternary("versions", !c.Versions.Contains(c.Version), "must hold version")
 	v.Ternary("threshold", c.Threshold <= 0 || c.Threshold >= 1, "must be in (0, 1)")
+	v.Ternary("block", c.Block == 0, "must be set")
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_head", c.OnHead)

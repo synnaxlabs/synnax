@@ -502,8 +502,9 @@ func (f *format) decodeSegment(r []byte) (state.Segment, uint64, error) {
 		Version:  binary.LittleEndian.Uint16(r[24:]),
 		DataType: r[26],
 		Sealed:   r[27]&flagSealed != 0,
+		Kept:     r[27]&flagKept != 0,
 	}
-	if r[27]&^flagSealed != 0 || !allZero(r[28:32]) {
+	if r[27]&^(flagSealed|flagKept) != 0 || !allZero(r[28:32]) {
 		return seg, 0, f.corrupt(
 			"segment %d has unknown flags or a set reserved byte",
 			seg.ID,

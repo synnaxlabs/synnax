@@ -171,7 +171,7 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 	r, err := c.copyLive(ctx, key, old, id)
 	copied := err == nil
 	if copied {
-		if err = c.e.state.Replace(r); err == nil {
+		if err = c.e.state.Replace(r, old.Version); err == nil {
 			if err = c.e.reap(); err != nil {
 				c.e.ins.L.Error("unlink of a rewritten segment failed", zap.Error(err))
 			}

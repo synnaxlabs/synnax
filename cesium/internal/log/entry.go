@@ -75,6 +75,7 @@ type Decoder struct {
 	restart   Restart
 	check     Check
 	intent    Intent
+	kept      Kept
 }
 
 // Reset starts reading the entry at the start of b, and returns the length of the
@@ -188,6 +189,8 @@ func (d *Decoder) record(t uint16) Record {
 		return &d.check
 	case typeIntent:
 		return &d.intent
+	case typeKept:
+		return &d.kept
 	default:
 		return nil
 	}
@@ -230,6 +233,8 @@ func Clone(r Record) Record {
 	case *Check:
 		return copyOf(r)
 	case *Intent:
+		return copyOf(r)
+	case *Kept:
 		return copyOf(r)
 	default:
 		panic(fmt.Sprintf("log: clone of an unknown record %T", r))

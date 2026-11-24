@@ -22,6 +22,13 @@ import (
 // errRefused is the error of a log record or a head that breaks a rule of the state.
 var errRefused = errors.New("refused by the state")
 
+const (
+	// progressionVersion is the format version of a sealed clock segment that holds its
+	// stamps as progressions. Its pointers keep the offsets of raw stamps, so they end
+	// past its length, and no rewrite takes it.
+	progressionVersion uint16 = 2
+)
+
 func refuse(format string, args ...any) error {
 	return errors.Wrapf(errRefused, format, args...)
 }
@@ -33,6 +40,8 @@ type core struct {
 	// test.
 	version   uint16
 	threshold float32
+	// block is the stream bytes of a block of a segment.
+	block int64
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
 	// count counts the publishes of the owner for readers of more than one Channel.
@@ -80,6 +89,7 @@ func newCore(cfg Config) *core {
 		versions:    cfg.Versions,
 		version:     cfg.Version,
 		threshold:   cfg.Threshold,
+		block:       int64(cfg.Block),
 		candidates:  set.Set[uint64]{},
 		count:       &pubCount{},
 		channels:    map[uint32]*chanState{},
@@ -139,6 +149,8 @@ func (c *core) record(r log.Record, pre []Preload) error {
 		return c.tombstone(r, pre)
 	case *log.Replace:
 		return c.replace(r)
+	case *log.Kept:
+		return c.keep(r)
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}
@@ -311,22 +323,54 @@ func (c *core) seal(r *log.Seal) error {
 	return nil
 }
 
-// test adds s to the candidates when it is sealed in the durable view, untagged, of the
-// format version of new segments, and its dead share is above the threshold, and takes
-// it out when not. A segment that a part holds gets no test until a Tombstone puts its
-// record back in the head.
+// test adds s to the candidates when it is sealed in the durable view, untagged, and of
+// the format version of new segments, and either a rewrite of its live bytes, padded to
+// whole blocks, frees more than the threshold of its length, or it is a candidate of
+// encoding. It takes s out when not. A segment that a part holds gets no test until a
+// Tombstone puts its record back in the head.
 func (c *core) test(s *segState) {
-	var live uint64
-	for _, p := range s.dur.pointers {
-		live += uint64(p.Length)
-	}
-	length := uint64(s.dur.length)
-	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
-		float64(length-live) > float64(c.threshold)*float64(length) {
-		c.candidates.Add(s.vis.ID)
-		return
+	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version {
+		length := int64(s.dur.length)
+		padded := (live(s) + c.block - 1) / c.block * c.block
+		if float64(length-padded) > float64(c.threshold)*float64(length) ||
+			c.encodable(s) {
+			c.candidates.Add(s.vis.ID)
+			return
+		}
 	}
 	c.candidates.Remove(s.vis.ID)
+}
+
+// live returns the live stream bytes of s in the durable view.
+func live(s *segState) int64 {
+	var n int64
+	for _, p := range s.dur.pointers {
+		n += int64(p.Length)
+	}
+	return n
+}
+
+// encodable reports whether s is a candidate of encoding as progressions: a sealed,
+// untagged clock segment of the format version of new segments, with 2 blocks or more
+// live and no Kept mark.
+func (c *core) encodable(s *segState) bool {
+	return s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
+		s.key == s.vis.Clock && !s.vis.Kept && live(s) >= 2*c.block
+}
+
+// keep marks the segment of r, a candidate of encoding, so that no try encodes it
+// again.
+func (c *core) keep(r *log.Kept) error {
+	s := c.segments[r.Segment]
+	if s == nil || !c.encodable(s) {
+		return refuse(
+			"kept of segment %d, which is no candidate of encoding",
+			r.Segment,
+		)
+	}
+	s.vis.Kept = true
+	c.test(s)
+	return nil
 }
 
 // replace takes the old segment of r out of the state, and seals in its place the new
@@ -341,16 +385,21 @@ func (c *core) replace(r *log.Replace) error {
 		return refuse("replace of segment %d by %d, which is not a new segment",
 			r.Old, r.New)
 	case s.key != old.key || s.vis.Clock != old.vis.Clock ||
-		s.vis.DataType != old.vis.DataType:
-		return refuse("replace of segment %d by %d, which differs in key, clock, or "+
-			"type", r.Old, r.New)
+		s.vis.DataType != old.vis.DataType ||
+		(s.vis.Version != old.vis.Version && s.vis.Version != progressionVersion):
+		return refuse("replace of segment %d by %d, which differs in key, clock, "+
+			"type, or version", r.Old, r.New)
+	case s.vis.Version == progressionVersion && !c.encodable(old):
+		return refuse("replace of segment %d by the progressions of %d, which is no "+
+			"candidate of encoding", r.Old, r.New)
 	case !copied(old.dur.pointers, r.Pointers):
 		return refuse("replace of segment %d, whose pointers differ from the copy",
 			r.Old)
 	case !rising(r.Pointers):
 		return refuse("replace of segment %d by %d, whose pointers overlap or fall "+
 			"out of stream order", r.Old, r.New)
-	case end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
+	case s.vis.Version != progressionVersion &&
+		end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
 		return refuse("replace of segment %d by %d, whose pointers end past its "+
 			"length %d", r.Old, r.New, r.Length)
 	// A candidate is never in a part, and live and replay name the same candidates,
@@ -374,6 +423,7 @@ func (c *core) replace(r *log.Replace) error {
 		r.TailCRC, ptrs
 	s.vis.Sealed, s.vis.Length, s.vis.TailCRC, s.vis.Pointers = true, r.Length,
 		r.TailCRC, ptrs
+	s.vis.Kept = old.vis.Kept
 	old.dur.pointers = nil
 	c.bury(old)
 	return nil

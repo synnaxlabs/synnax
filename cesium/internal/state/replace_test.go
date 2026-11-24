@@ -99,14 +99,15 @@ var _ = Describe("Rewrites", func() {
 
 		DescribeTable(
 			"Should name a segment that a Tombstone cut while open once it seals",
-			func(sealing log.Record) {
+			func(sealing log.Record, want []uint64) {
 				s := open(config(&appended{}), cut)
 				Expect(candidates(s)).To(BeEmpty())
 				Expect(s.Durable(11, []log.Record{sealing})).To(Succeed())
-				Expect(candidates(s)).To(Equal([]uint64{3}))
+				Expect(candidates(s)).To(Equal(want))
 			},
-			Entry("by a Seal", seal),
-			Entry("by a Restart", &log.Restart{}),
+			Entry("by a Seal", seal, []uint64{3}),
+			// The Restart also seals clock segment 4, a candidate of encoding.
+			Entry("by a Restart", &log.Restart{}, []uint64{3, 4}),
 		)
 
 		It("Should name a segment of the head above the dead share at open", func() {
@@ -122,7 +123,7 @@ var _ = Describe("Rewrites", func() {
 		It("Should not name a segment of another format version", func() {
 			head := sample()
 			seg := &head.Channels[0].Segments[0]
-			seg.Version = 2
+			seg.Version, seg.Kept = 2, false
 			seg.Pointers = []state.Pointer{pointer(1, 0, 10, 10, 0, 8, 1)}
 			cfg := config(&appended{})
 			cfg.Versions = set.New[uint16](1, 2)
@@ -187,21 +188,30 @@ var _ = Describe("Rewrites", func() {
 					MatchError(ContainSubstring(message)),
 				))
 			},
-			Entry("by a new segment of another key",
+			Entry(
+				"by a new segment of another key",
 				[]log.Record{
 					&log.Create{Segment: 9, Key: 5, Clock: 5, Version: 1, DataType: 4},
-				}, nil,
-				"replace of segment 3 by 9, which differs in key, clock, or type"),
-			Entry("by a new segment of another clock",
+				},
+				nil,
+				"replace of segment 3 by 9, which differs in key, clock, type, or version",
+			),
+			Entry(
+				"by a new segment of another clock",
 				[]log.Record{
 					&log.Create{Segment: 9, Key: 6, Clock: 8, Version: 1, DataType: 4},
-				}, nil,
-				"replace of segment 3 by 9, which differs in key, clock, or type"),
-			Entry("by a new segment of another data type",
+				},
+				nil,
+				"replace of segment 3 by 9, which differs in key, clock, type, or version",
+			),
+			Entry(
+				"by a new segment of another data type",
 				[]log.Record{
 					&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 7},
-				}, nil,
-				"replace of segment 3 by 9, which differs in key, clock, or type"),
+				},
+				nil,
+				"replace of segment 3 by 9, which differs in key, clock, type, or version",
+			),
 			Entry("by a segment that no Create made", nil, nil,
 				"replace of segment 3 by 9, which is not a new segment"),
 			Entry("by a new segment that holds bytes",
@@ -297,7 +307,7 @@ var _ = Describe("Rewrites", func() {
 			GinkgoHelper()
 			n := count()
 			done := make(chan error, 1)
-			go func() { done <- s.Replace(r) }()
+			go func() { done <- s.Replace(r, 1) }()
 			Eventually(count).Should(Equal(n + 1))
 			return done
 		}
@@ -372,7 +382,7 @@ var _ = Describe("Rewrites", func() {
 		DescribeTable("Should refuse a Replace as stale when its segment may change",
 			func(change func(), r *log.Replace, message string) {
 				change()
-				Expect(s.Replace(r)).To(SatisfyAll(
+				Expect(s.Replace(r, 1)).To(SatisfyAll(
 					MatchError(state.ErrStale),
 					MatchError(ContainSubstring(message)),
 				))
@@ -400,7 +410,7 @@ var _ = Describe("Rewrites", func() {
 
 		It("Should refuse a second Replace while one is in flight", func() {
 			begin(replace(nil))
-			Expect(s.Replace(replace(nil))).To(SatisfyAll(
+			Expect(s.Replace(replace(nil), 1)).To(SatisfyAll(
 				Not(MatchError(state.ErrStale)),
 				MatchError(ContainSubstring("replace of segment 3 while the "+
 					"replace of segment 3 is in flight")),
@@ -575,7 +585,7 @@ var _ = Describe("Replace of a put-back record", func() {
 	})
 
 	It("Should refuse the check of a Replace of the record as a defect", func() {
-		Expect(s.Replace(replace)).To(SatisfyAll(
+		Expect(s.Replace(replace, 1)).To(SatisfyAll(
 			Not(MatchError(state.ErrStale)),
 			MatchError(ContainSubstring(message)),
 		))

@@ -57,6 +57,8 @@ func decodeAll(b []byte) ([]any, error) {
 			out = append(out, *v)
 		case *log.Check:
 			out = append(out, *v)
+		case *log.Kept:
+			out = append(out, *v)
 		case *log.Intent:
 			out = append(out, *v)
 		}
@@ -177,6 +179,7 @@ var _ = Describe("Record", func() {
 			&log.Check{Segment: 12},
 			&log.Intent{Key: 8},
 			&log.Intent{Key: 8, Cleared: true},
+			&log.Kept{Segment: 13},
 		}
 		Expect(decodeAll(entryOf(records...))).To(Equal([]any{
 			log.Reserve{Segments: 17, Alignments: 1 << 20},
@@ -191,6 +194,7 @@ var _ = Describe("Record", func() {
 			log.Check{Segment: 12},
 			log.Intent{Key: 8},
 			log.Intent{Key: 8, Cleared: true},
+			log.Kept{Segment: 13},
 		}))
 	})
 
@@ -295,6 +299,11 @@ var _ = Describe("Record", func() {
 			&log.Check{Segment: 12},
 			concat([]byte{9, 0, 0, 0}, le32(8), le64(12)),
 		),
+		Entry(
+			"kept",
+			&log.Kept{Segment: 13},
+			concat([]byte{11, 0, 0, 0}, le32(8), le64(13)),
+		),
 	)
 
 	It(
@@ -336,10 +345,10 @@ var _ = Describe("Record", func() {
 	It(
 		"Should refuse a record of an unknown type that an older binary may not skip",
 		func() {
-			Expect(decodeAll(rawEntry(raw{11, make([]byte, 8)}))).Error().
+			Expect(decodeAll(rawEntry(raw{12, make([]byte, 8)}))).Error().
 				To(SatisfyAll(
 					MatchError(log.ErrUnknown),
-					MatchError(ContainSubstring("record type 11")),
+					MatchError(ContainSubstring("record type 12")),
 				))
 		},
 	)

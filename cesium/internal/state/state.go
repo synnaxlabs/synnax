@@ -47,6 +47,9 @@ type Segment struct {
 	// Part is the identity of a part that holds this record as it is, or 0. A reader
 	// may read the pointers of the segment from that part.
 	Part uint64
+	// Kept is true for a clock segment whose encoding as progressions failed the half
+	// rule. It is then no candidate of encoding.
+	Kept bool
 }
 
 // Channel is the state of one key. A Channel that the state publishes never changes.

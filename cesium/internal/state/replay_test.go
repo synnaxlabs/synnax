@@ -32,7 +32,7 @@ func sample() *state.Snapshot {
 			{Key: 5, Segments: []state.Segment{
 				{
 					ID: 2, Clock: 5, Version: 1, DataType: 7, Sealed: true,
-					Length: 24, TailCRC: 1,
+					Length: 24, TailCRC: 1, Kept: true,
 					Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 24, 3)},
 				},
 				{
@@ -62,6 +62,7 @@ var _ = Describe("Config", func() {
 		},
 		Entry("a version it does not read", func(c *state.Config) { c.Version = 2 },
 			"versions"),
+		Entry("block", func(c *state.Config) { c.Block = 0 }, "block"),
 		Entry("append", func(c *state.Config) { c.Append = nil }, "append"),
 		Entry("executor", func(c *state.Config) { c.Executor = nil }, "executor"),
 		Entry("on head", func(c *state.Config) { c.OnHead = nil }, "on_head"),

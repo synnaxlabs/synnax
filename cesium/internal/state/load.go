@@ -73,6 +73,9 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 	case !c.versions.Contains(seg.Version):
 		return errors.Wrapf(log.ErrUnknown, "segment %d has format version %d", seg.ID,
 			seg.Version)
+	case seg.Kept && (!seg.Sealed || seg.Version != c.version || seg.Clock != key):
+		return refuse("head names segment %d, kept but no sealed clock segment of "+
+			"version %d", seg.ID, c.version)
 	}
 	var end uint32
 	for _, p := range seg.Pointers {
@@ -93,7 +96,8 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 			uint64(a.SampleIndex())+uint64(p.Samples)-1 > math.MaxUint32:
 			return refuse("segment %d has a pointer with alignment %d of %d samples",
 				seg.ID, uint64(a), p.Samples)
-		case uint64(p.Offset)+uint64(p.Length) > uint64(seg.Length):
+		case seg.Version != progressionVersion &&
+			uint64(p.Offset)+uint64(p.Length) > uint64(seg.Length):
 			return refuse("segment %d has a pointer past its length %d", seg.ID,
 				seg.Length)
 		}

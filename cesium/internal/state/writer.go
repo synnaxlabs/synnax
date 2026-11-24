@@ -410,8 +410,8 @@ func (r *refusedRequest) run(s *State) {
 			s.idBlocks, s.alignBlocks = s.refusedBlocks[0], s.refusedBlocks[1]
 			s.failParked(r.err)
 			return
-		case *log.Replace:
-			if s.rep != nil && rec.Old == s.rep.old {
+		case *log.Replace, *log.Kept:
+			if s.rep != nil && rewrites(rec, s.rep.old) {
 				s.endReplace(r.err)
 			}
 			return

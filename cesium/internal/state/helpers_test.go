@@ -154,6 +154,7 @@ func config(a *appended) state.Config {
 		Versions:   set.New[uint16](1),
 		Version:    1,
 		Threshold:  0.2,
+		Block:      4,
 		Append:     a.append,
 		Executor:   func(f func()) { go f() },
 		OnHead:     a.onHead,

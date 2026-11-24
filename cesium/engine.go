@@ -138,9 +138,10 @@ func openEngine(o *options) (*engine, error) {
 		e.stored.Add(ch.Key)
 	}
 	if e.state, err = state.Open(state.Config{
-		Versions:   set.New[uint16](segmentVersion),
+		Versions:   set.New[uint16](segmentVersion, segment.ProgressionVersion),
 		Version:    segmentVersion,
 		Threshold:  o.gcCfg.Threshold,
+		Block:      segment.BlockSize,
 		Append:     e.append,
 		Executor:   e.exec,
 		OnHead:     e.onHead,
