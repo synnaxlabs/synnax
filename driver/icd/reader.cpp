@@ -63,6 +63,15 @@ bool has_default(const Field &f) {
     return std::visit([](const auto &v) { return v.default_.has_value(); }, f);
 }
 
+/// @brief returns the name of the field of payload with key, or key when payload has no
+/// such field.
+template<typename Payload>
+std::string field_name(const Payload &payload, const synnax::icd::FieldKey &key) {
+    for (const auto &f: payload.fields)
+        if (const auto &b = synnax::icd::base(f); b.key == key) return b.name;
+    return key.to_string();
+}
+
 /// @brief rejects an index field that takes a default, since each payload that leaves
 /// it out would then write the same timestamp.
 template<typename Payload>
@@ -151,6 +160,7 @@ struct Decoded {
 
 std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
     const synnax::icd::ReadMessage &rm,
+    const synnax::icd::Message &msg,
     const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
     Message &m
 ) {
@@ -179,14 +189,21 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
                     "the index field must write to an index channel"
                 ),
             };
-        if (!index_field && ch.is_index)
+        if (!index_field && ch.is_index) {
+            const auto name = std::visit(
+                [&](const auto &p) { return field_name(p, b.field); },
+                msg.payload
+            );
             return {
                 {},
                 x::errors::Error(
                     driver::errors::CONFIGURATION_ERROR,
-                    "only the index field can write to an index channel"
+                    "field " + name + " cannot write to index channel " + ch.name +
+                        ", because only the index field can. Bind field " + name +
+                        " to a data channel"
                 ),
             };
+        }
         if (index_field) m.index_field = i;
         const auto key = index_field ? ch.key : ch.index;
         if (key == 0) {
@@ -253,7 +270,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
                 ),
             };
         Message m;
-        auto [bindings, err] = bind(rm, channels, m);
+        auto [bindings, err] = bind(rm, *msg, channels, m);
         if (!err)
             err = std::visit(
                 [&](const auto &p) { return check_index(rm, p); },
@@ -317,11 +334,23 @@ std::pair<Reader, x::errors::Error> Reader::create(
     return {std::move(r), x::errors::NIL};
 }
 
+std::vector<synnax::channel::Key> Reader::channels() const {
+    std::vector<synnax::channel::Key> keys;
+    for (const auto &m: this->messages)
+        for (std::size_t k = 0; k < m.channels.size(); k++)
+            if (k != m.index_field) keys.push_back(m.channels[k]);
+    for (const auto &m: this->messages)
+        for (const auto &idx: m.indexes)
+            keys.push_back(idx.key);
+    return keys;
+}
+
 std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const std::span<const std::uint8_t> payload,
     const x::telem::TimeStamp received,
     x::telem::Frame &fr,
-    const std::size_t cap
+    const std::size_t cap,
+    const std::optional<double> fill
 ) {
     const auto [i, err] = std::visit(
         [&]<typename D>(D &d) {
@@ -337,6 +366,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    this->failed.clear();
     if (err || !i.has_value()) return {std::nullopt, err};
     const auto msg = *i;
     const auto &m = this->messages[msg];
@@ -346,9 +376,23 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    this->filled.assign(samples.size(), false);
+    if (const auto *json = std::get_if<codec::JSON>(&this->decoder); json != nullptr)
+        for (const auto &f: json->failures(msg)) {
+            this->failed.push_back(
+                {.channel = m.channels[f.binding],
+                 .missing = f.missing,
+                 .error = f.error}
+            );
+            if (const auto dt = samples[f.binding].data_type();
+                fill.has_value() &&
+                (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
+                this->filled[f.binding] = true;
+        }
     this->present.assign(m.indexes.size(), true);
     for (std::size_t k = 0; k < samples.size(); k++)
-        if (const auto group = m.groups[k]; samples[k].empty() && group.has_value())
+        if (const auto group = m.groups[k];
+            samples[k].empty() && !this->filled[k] && group.has_value())
             this->present[*group] = false;
     for (std::size_t g = 0; g < m.indexes.size(); g++) {
         if (!this->present[g]) continue;
@@ -360,10 +404,14 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
             );
     }
     for (std::size_t k = 0; k < samples.size(); k++) {
-        if (k == m.index_field || samples[k].empty()) continue;
+        if (k == m.index_field) continue;
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
-        series(fr, m.channels[k], samples[k].data_type(), cap).write(samples[k]);
+        const auto &dt = samples[k].data_type();
+        if (fill.has_value() && this->filled[k])
+            series(fr, m.channels[k], dt, cap).write(dt.cast(*fill));
+        else if (!samples[k].empty())
+            series(fr, m.channels[k], dt, cap).write(samples[k]);
     }
     return {msg, x::errors::NIL};
 }

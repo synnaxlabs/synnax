@@ -61,6 +61,21 @@ x::errors::Error create_error(const x::telem::DataType &dt) {
     return JSON::create({reading<F>(dt)}).second;
 }
 
+/// @brief returns a message named reading with integer fields v and w at /v and /w,
+/// each bound to an int64 channel.
+JSONMessage two_integers() {
+    const auto v = field<icd::IntegerJSONField>("v");
+    const auto w = field<icd::IntegerJSONField>("w");
+    return {
+        .name = "reading",
+        .payload = {.fields = {v, w}},
+        .bindings = {
+            {.field = v.key, .data_type = x::telem::INT64_T},
+            {.field = w.key, .data_type = x::telem::INT64_T},
+        },
+    };
+}
+
 /// @brief returns two messages that first and second match: other, with one field, and
 /// status, with a scaled float, an integer, and a string.
 std::vector<JSONMessage>
@@ -229,6 +244,55 @@ TEST(JSON, DecodesWithoutAllocatingByPresence) {
         present("/other"),
         present("/temp"),
         R"({"other":null,"temp":40,"count":3,"state":"run"})"
+    );
+}
+
+/// @brief it should give a field whose value does not convert no sample, list it in the
+/// failures of its message, and decode the other fields.
+TEST(JSON, ListsFieldThatDoesNotConvert) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1.5, "w": 2})")), std::size_t{0});
+    ASSERT_TRUE(dec.samples(0)[0].empty());
+    ASSERT_EQ(dec.samples(0)[1].at<std::int64_t>(0), 2);
+    ASSERT_EQ(dec.failures(0).size(), 1U);
+    ASSERT_EQ(dec.failures(0)[0].binding, 0U);
+    ASSERT_FALSE(dec.failures(0)[0].missing);
+    ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
+    ASSERT_EQ(dec.failures(0)[0].error.data, "field v: 1.5 is not an integer");
+}
+
+/// @brief it should list a field with no value and no default as missing.
+TEST(JSON, ListsMissingField) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), std::size_t{0});
+    ASSERT_TRUE(dec.samples(0)[1].empty());
+    ASSERT_EQ(dec.failures(0).size(), 1U);
+    ASSERT_EQ(dec.failures(0)[0].binding, 1U);
+    ASSERT_TRUE(dec.failures(0)[0].missing);
+    ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
+    ASSERT_EQ(dec.failures(0)[0].error.data, "field w: no value at /w");
+}
+
+/// @brief it should list no failures for a decode after one that had them.
+TEST(JSON, ClearsFailuresOnEachDecode) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1.5, "w": 2})")), std::size_t{0});
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1, "w": 2})")), std::size_t{0});
+    ASSERT_TRUE(dec.failures(0).empty());
+    ASSERT_EQ(dec.samples(0)[0].at<std::int64_t>(0), 1);
+}
+
+/// @brief it should name the message of a failure when the decoder holds more than one.
+TEST(JSON, NamesMessageOfFailure) {
+    auto dec = ASSERT_NIL_P(JSON::create(routed(present("/other"), present("/temp"))));
+    ASSERT_EQ(
+        ASSERT_NIL_P(dec.decode(R"({"temp": 40, "count": 1.5, "state": "run"})")),
+        std::size_t{1}
+    );
+    ASSERT_EQ(dec.failures(1).size(), 1U);
+    ASSERT_EQ(
+        dec.failures(1)[0].error.data,
+        "message status: field count: 1.5 is not an integer"
     );
 }
 }

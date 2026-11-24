@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -44,6 +46,13 @@ func next(keys ...string) symbol.Interaction {
 	return symbol.Interaction{Variant: symbol.NextInteraction{
 		BaseInteraction: symbol.BaseInteraction{Key: "click", Part: new("body")},
 		Commands:        keys,
+	}}
+}
+
+func fire(key string, part *string, command string) symbol.Interaction {
+	return symbol.Interaction{Variant: symbol.FireInteraction{
+		BaseInteraction: symbol.BaseInteraction{Key: key, Part: part},
+		Command:         command,
 	}}
 }
 
@@ -120,6 +129,48 @@ var _ = Describe("Checks", func() {
 
 	It("Should accept a symbol that keeps every rule", func(ctx SpecContext) {
 		Expect(create(ctx, valveSpec())).To(Succeed())
+	})
+
+	It("Should accept one click on the whole drawing and one on each part", func(
+		ctx SpecContext,
+	) {
+		data := valveSpec()
+		data.Parts = append(data.Parts, symbol.Part{
+			Key:       "lamp",
+			Name:      "Lamp",
+			Selectors: []string{"#lamp"},
+		})
+		data.Interactions = append(
+			data.Interactions,
+			fire("vent", nil, "on"),
+			fire("test", new("lamp"), "off"),
+		)
+		Expect(create(ctx, data)).To(Succeed())
+	})
+
+	It("Should keep a negative spin and flow rate", func(ctx SpecContext) {
+		data := valveSpec()
+		data.Looks[1].Motion = motion(
+			symbol.SpinMotion{Rate: -0.5, State: new("level")},
+		)
+		data.Looks = append(data.Looks, symbol.Look{
+			Key:    "flow",
+			Part:   new("body"),
+			Motion: motion(symbol.FlowMotion{Rate: -2}),
+		})
+		sym := symbol.Symbol{Name: "pump", Data: data}
+		tx := DeferClose(db.OpenTx())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+		var res symbol.Symbol
+		Expect(svc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res.Data.Looks[1].Motion.Variant).To(Equal(symbol.SpinMotion{
+			Rate:  -0.5,
+			State: new("level"),
+		}))
+		Expect(res.Data.Looks[2].Motion.Variant).To(Equal(symbol.FlowMotion{Rate: -2}))
 	})
 
 	DescribeTable("Should refuse a symbol that breaks a rule",
@@ -203,18 +254,27 @@ var _ = Describe("Checks", func() {
 				Side:  spatial.OuterLocationBottom,
 			})
 		}, `data.looks.1.motion.state: "active" names an enumeration state`),
+		Entry("a spin rate that is not a number", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.SpinMotion{Rate: math.NaN()})
+		}, "data.looks.1.motion.rate: must be finite"),
+		Entry("an infinite flow rate", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.FlowMotion{Rate: math.Inf(-1)})
+		}, "data.looks.1.motion.rate: must be finite"),
 		Entry("an interaction on no part", func(s *symbol.Spec) {
-			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
-				BaseInteraction: symbol.BaseInteraction{Key: "click", Part: new("lid")},
-				Command:         "on",
-			}}
+			s.Interactions[0] = fire("click", new("lid"), "on")
 		}, `data.interactions.0.part: "lid" names no part`),
 		Entry("a fire of no command", func(s *symbol.Spec) {
-			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
-				BaseInteraction: symbol.BaseInteraction{Key: "click"},
-				Command:         "vent",
-			}}
+			s.Interactions[0] = fire("click", nil, "vent")
 		}, `data.interactions.0.command: "vent" names no command`),
+		Entry("a second interaction on one part", func(s *symbol.Spec) {
+			s.Interactions = append(s.Interactions, fire("vent", new("body"), "on"))
+		}, `data.interactions.1.part: another interaction is on part "body"`),
+		Entry("a second interaction on the whole drawing", func(s *symbol.Spec) {
+			s.Interactions = []symbol.Interaction{
+				fire("open", nil, "on"),
+				fire("close", nil, "off"),
+			}
+		}, "data.interactions.1.part: another interaction is on the whole drawing"),
 		Entry("a next with one command", func(s *symbol.Spec) {
 			s.Interactions[0] = next("on")
 		}, "data.interactions.0.commands: next needs two commands, got 1"),
@@ -267,5 +327,28 @@ var _ = Describe("Migrated selectors", func() {
 			".1a",
 		),
 		Entry("a name that selects no shape", `<svg><rect/></svg>`, "#a,b"),
+	)
+})
+
+var _ = Describe("CheckBounds", func() {
+	It("Should accept bounds whose lower is below their upper", func() {
+		Expect(symbol.CheckBounds(
+			[]string{"bounds"},
+			spatial.Bounds{Lower: 0.9, Upper: 1.1},
+		)).To(Succeed())
+	})
+
+	DescribeTable(
+		"Should refuse bounds whose lower is not below their upper",
+		func(b spatial.Bounds, msg string) {
+			Expect(symbol.CheckBounds([]string{"match", "bounds"}, b)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry("equal", spatial.Bounds{Lower: 1, Upper: 1},
+			"match.bounds: lower 1 must be below upper 1"),
+		Entry("inverted", spatial.Bounds{Lower: 2, Upper: 1},
+			"match.bounds: lower 2 must be below upper 1"),
 	)
 })

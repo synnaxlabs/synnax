@@ -5,32 +5,6 @@
   ],
   "pending": [
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "JSONEncoder",
-      "name": "Encode",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "JSONEncoder",
-      "name": "HasDefault",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/write",
-      "name": "Encoder",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/write",
-      "name": "Hash",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
-    },
-    {
       "module": "x/go",
       "package": "github.com/synnaxlabs/x/validate",
       "receiver": "Validator",

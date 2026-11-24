@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/selector"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -23,8 +24,8 @@ import (
 // that breaks a rule of the symbol model: a repeated key in a list, a key that names no
 // part, state, or command, a paint, condition, or motion on the wrong type of state, an
 // ask command with no state, bounds whose lower is not below their upper, a next that
-// is not two fixed commands on one state with different values, or a selector that does
-// not name shapes.
+// is not two fixed commands on one state with different values, a second interaction
+// on one part or on the whole drawing, or a selector that does not name shapes.
 func checkSpec(s Spec) error {
 	c, err := newChecker(s)
 	if err != nil {
@@ -61,7 +62,7 @@ func checkSpec(s Spec) error {
 			return err
 		}
 	}
-	return nil
+	return checkTargets(s.Interactions)
 }
 
 // newChecker indexes the parts, states, and commands of s by key. It refuses a key that
@@ -107,15 +108,17 @@ func checkState(i int, st State) error {
 	switch v := st.Variant.(type) {
 	case EnumerationState:
 		if w, ok := v.Match.Variant.(WithinMatcher); ok {
-			return checkBounds(at("states", i, "match", "bounds"), w.Bounds)
+			return CheckBounds(at("states", i, "match", "bounds"), w.Bounds)
 		}
 	case NumberState:
-		return checkBounds(at("states", i, "bounds"), v.Bounds)
+		return CheckBounds(at("states", i, "bounds"), v.Bounds)
 	}
 	return nil
 }
 
-func checkBounds(p []string, b spatial.Bounds) error {
+// CheckBounds returns an error wrapping validate.ErrValidation at path p when the lower
+// of b is not below its upper.
+func CheckBounds(p []string, b spatial.Bounds) error {
 	if b.Lower < b.Upper {
 		return nil
 	}
@@ -208,6 +211,36 @@ func (c checker) checkInteraction(i int, in Interaction) error {
 		return err
 	case NextInteraction:
 		return c.next(at("interactions", i, "commands"), v.Commands)
+	}
+	return nil
+}
+
+// checkTargets refuses a second interaction on one part, or on the whole drawing.
+func checkTargets(ins []Interaction) error {
+	var (
+		parts   = make(set.Set[string], len(ins))
+		drawing bool
+	)
+	for i, in := range ins {
+		part := in.Base().Part
+		if part == nil {
+			if drawing {
+				return invalid(
+					at("interactions", i, "part"),
+					"another interaction is on the whole drawing",
+				)
+			}
+			drawing = true
+			continue
+		}
+		if parts.Contains(*part) {
+			return invalid(
+				at("interactions", i, "part"),
+				"another interaction is on part %q",
+				*part,
+			)
+		}
+		parts.Add(*part)
 	}
 	return nil
 }

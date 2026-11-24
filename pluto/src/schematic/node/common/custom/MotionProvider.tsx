@@ -11,6 +11,7 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -35,6 +36,12 @@ interface MotionContextValue {
 
 const Context = createContext<MotionContextValue | null>(null);
 Context.displayName = "Custom.MotionContext";
+
+/**
+ * @returns the loop and Reduce motion setting of the nearest MotionProvider, or null
+ * outside of one.
+ */
+export const useMotionContext = (): MotionContextValue | null => use(Context);
 
 /**
  * MotionProvider moves the parts of every drawing inside it on one loop. Under the

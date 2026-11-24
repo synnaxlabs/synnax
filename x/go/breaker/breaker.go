@@ -90,7 +90,10 @@ type Breaker struct {
 
 // NewBreaker creates a new breaker with the given configuration.
 func NewBreaker(configs ...Config) (Breaker, error) {
-	cfg, err := config.New(Config{Scale: 1, Clock: xtime.Real}, configs...)
+	cfg, err := config.New(
+		Config{BaseInterval: time.Second, Scale: 1, Clock: xtime.Real},
+		configs...,
+	)
 	if err != nil {
 		return Breaker{}, err
 	}

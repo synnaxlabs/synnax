@@ -217,9 +217,9 @@ Field groups per make:
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
-- **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
-  certificates), `read_indexes`, node channel maps
-  (`console/src/feature/opcua/device/types/versions/v1.ts:18-30`).
+- **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
+  nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
+  namespace by URI.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -228,9 +228,10 @@ Field groups per make:
   injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
   `host` and `secure` in generated code.
 
-A connected resource has no identity group: the user owns every field, `rack` included,
-and sets them in the connect form. `configured` does not exist. A discovered resource is
-unconfigured while `identifier` is empty.
+A connected resource has no scanned identity: the connect form writes its identity
+group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
+`server_trust` from `first_use` to `pinned`. `configured` does not exist. A discovered
+resource is unconfigured while `identifier` is empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
 (`schemas/synnax/ni.oracle:489,941,1389`), `labjack.Device.Key` on `labjack.oracle:216`,
@@ -308,7 +309,10 @@ Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
 that dispatches on a union over the identity and configuration groups, so one request
 writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
-`include_status`, and `include_parent`. The generic `/device/*` routes are deleted.
+`include_status`, and `include_parent`. The generic `/device/*` routes are deleted. Two
+narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin (§4.1), and
+`/opcua/server/resolve`, which appends resolved `ns=` bindings, skips duplicates, and
+rewrites the parked task node IDs.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -371,10 +375,17 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key.
+   `master` set to the new key. OPC UA rows change as follows:
+   - Timeouts in ms become `TimeSpan`; 0 takes the default, a lower value the minimum.
+   - A user name becomes `username` auth; a password alone becomes `anonymous`, warned.
+   - Mode `None` plus a policy is `sign`; secured with no policy gets `Basic256Sha256`.
+   - Trust: `validation_disabled`, else `pinned` to its certificate, else `first_use`.
+   - A read takes its channel's index; a binding to a missing channel drops, warned.
+   - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
+   - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
-   map.
+   map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.
 5. Delete the legacy table and the map.
 
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
@@ -426,7 +437,8 @@ green at every step. The migration brings 0.59 data forward near the end.
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
-  client. Phase 9 also adds `common::Sync<D>`.
+  client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
+  scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
@@ -492,3 +504,4 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 - Whether `rack` on an EtherCAT slave stays a filter column or is read through the
   master.
 - The retention period for quarantined rows.
+- How the OPC UA connect form keeps a pin that the scanner wrote after the form loaded.

@@ -18,7 +18,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -338,7 +338,7 @@ describe("table/Toolbar", () => {
     expect(configOf(t, "a")).not.toHaveProperty("precision");
   });
 
-  it("stores a multi-cell staleness timeout in seconds", async () => {
+  it("stores a multi-cell staleness timeout in nanoseconds", async () => {
     const { key } = await renderTable(TabToolbar, {
       table: {
         name: uniqueName("table"),
@@ -357,8 +357,8 @@ describe("table/Toolbar", () => {
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
       expect([configOf(t, "a"), configOf(t, "b")]).toMatchObject([
-        { stalenessTimeout: 7 },
-        { stalenessTimeout: 7 },
+        { stalenessTimeout: TimeSpan.seconds(7).nanoseconds },
+        { stalenessTimeout: TimeSpan.seconds(7).nanoseconds },
       ]);
     });
   });
