@@ -113,7 +113,103 @@ describe("ICD.Stored", () => {
     const source = (
       messages: icd.ReadMessage[],
       legacy?: string,
-    ): ICD.Stored.Source => ({ key: "t", legacy, messages });
+      disabled = false,
+    ): ICD.Stored.Source => ({ key: "t", legacy, messages, disabled });
+
+    describe("split", () => {
+      const t1 = ICD.Stored.key("t", m1);
+      const t2 = ICD.Stored.key("t", m2);
+
+      it("should give each other message the channels that it binds", () => {
+        const stored = { t: props(1, { "/a": 2, "/b": 3 }) };
+        expect(
+          ICD.Stored.split(stored, [
+            source([read(m1, [2])], "t"),
+            source([read(m2, [3])], "t"),
+          ]),
+        ).toEqual({
+          [t1]: props(1, { "/a": 2, "/b": 3 }),
+          [t2]: props(0, { "/b": 3 }),
+        });
+        expect(stored).toEqual({ t: props(1, { "/a": 2, "/b": 3 }) });
+      });
+
+      it("should give the legacy channels to the first message that binds one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
+            source([read(m1), read(m2, [3])], "t"),
+          ]),
+        ).toEqual({
+          [t1]: props(0, { "/a": 2, "/b": 3 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
+      });
+
+      it("should give each message that binds none every legacy channel, with no index", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [
+            source([read(m1), read(m2)], "t"),
+          ]),
+        ).toEqual({ [t1]: props(1, { "/a": 2 }), [t2]: props(0, { "/a": 2 }) });
+      });
+
+      it("should give the legacy index to an enabled message before a disabled one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
+            source([read(m1, [2])], "t", true),
+            source([read(m2, [3])], "t"),
+          ]),
+        ).toEqual({
+          [t1]: props(0, { "/a": 2 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
+      });
+
+      it("should give the legacy index to a disabled message that binds one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2, "/b": 3 }) }, [
+            source([read(m1)], "t"),
+            source([read(m2, [2])], "t", true),
+          ]),
+        ).toEqual({
+          [t1]: props(0, { "/a": 2, "/b": 3 }),
+          [t2]: props(1, { "/a": 2, "/b": 3 }),
+        });
+      });
+
+      it("should give the legacy index to the first enabled message when none binds one", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [
+            source([read(m1)], "t", true),
+            source([read(m2)], "t"),
+          ]),
+        ).toEqual({ [t1]: props(0, { "/a": 2 }), [t2]: props(1, { "/a": 2 }) });
+      });
+
+      it("should keep the channels under the key of a message", () => {
+        const own = props(4, { "/b": 5 });
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }), [t1]: own }, [
+            source([read(m1)], "t"),
+          ]),
+        ).toEqual({ [t1]: own });
+      });
+
+      it("should keep the legacy key while a source that reads it has no messages", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [
+            source([read(m1)], "t"),
+            source([], "t"),
+          ]),
+        ).toEqual({ t: props(1, { "/a": 2 }), [t1]: props(1, { "/a": 2 }) });
+      });
+
+      it("should split no channels for a source with no legacy key", () => {
+        expect(
+          ICD.Stored.split({ t: props(1, { "/a": 2 }) }, [source([read(m1)])]),
+        ).toEqual({ t: props(1, { "/a": 2 }) });
+      });
+    });
 
     describe("of", () => {
       it("should return the channels stored under the key of the message", () => {
@@ -126,26 +222,6 @@ describe("ICD.Stored", () => {
           ),
         ).toBe(own);
       });
-
-      it("should give the legacy channels to the message that binds one", () => {
-        const held = props(1, { "/a": 2 });
-        const messages = [read(m1), read(m2, [2])];
-        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 0)).toBeUndefined();
-        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 1)).toBe(held);
-      });
-
-      it("should give the legacy channels to the first message by default", () => {
-        const held = props(1, { "/a": 2 });
-        const messages = [read(m1), read(m2)];
-        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 0)).toBe(held);
-        expect(ICD.Stored.of({ t: held }, source(messages, "t"), 1)).toBeUndefined();
-      });
-
-      it("should read no legacy channels for a source with no legacy key", () => {
-        expect(
-          ICD.Stored.of({ t: props(1, { "/a": 2 }) }, source([read(m1)]), 0),
-        ).toBeUndefined();
-      });
     });
 
     describe("channels", () => {
@@ -153,7 +229,6 @@ describe("ICD.Stored", () => {
         expect(
           ICD.Stored.channels(
             {
-              t: props(1, { "/a": 2, "/b": 3 }),
               [ICD.Stored.key("t", m2)]: props(1, { "/b": 4, "/c": 5 }),
               [ICD.Stored.key("t", m1)]: props(1, { "/c": 6 }),
               [ICD.Stored.key("u", m1)]: props(1, { "/d": 7 }),
@@ -161,7 +236,7 @@ describe("ICD.Stored", () => {
             source([read(m1)], "t"),
             m1,
           ),
-        ).toEqual({ "/a": 2, "/b": 4, "/c": 6 });
+        ).toEqual({ "/b": 4, "/c": 6 });
       });
 
       it("should leave the channels of a later read with that read", () => {
@@ -177,9 +252,13 @@ describe("ICD.Stored", () => {
         ).toEqual({ "/a": 2 });
       });
 
-      it("should merge no bare key for a source with no legacy key", () => {
+      it("should merge no channels under the legacy key", () => {
         expect(
-          ICD.Stored.channels({ t: props(1, { "/a": 2 }) }, source([read(m1)]), m1),
+          ICD.Stored.channels(
+            { t: props(1, { "/a": 2 }) },
+            source([read(m1)], "t"),
+            m1,
+          ),
         ).toEqual({});
       });
 
@@ -208,25 +287,6 @@ describe("ICD.Stored", () => {
             m1,
           ),
         ).toEqual({ "/a": 2 });
-      });
-    });
-
-    describe("moveLegacy", () => {
-      it("should move the legacy channels to the key of their read", () => {
-        const held = props(1, { "/a": 2 });
-        const stored: Record<string, ReturnType<typeof props>> = { t: held };
-        ICD.Stored.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 0);
-        expect(stored).toEqual({ t: held });
-        ICD.Stored.moveLegacy(stored, source([read(m1), read(m2, [2])], "t"), 1);
-        expect(stored).toEqual({ [ICD.Stored.key("t", m2)]: held });
-      });
-
-      it("should keep the legacy channels when the read has its own", () => {
-        const held = props(1, { "/a": 2 });
-        const own = props(1, { "/b": 3 });
-        const stored = { t: held, [ICD.Stored.key("t", m1)]: own };
-        ICD.Stored.moveLegacy(stored, source([read(m1)], "t"), 0);
-        expect(stored).toEqual({ t: held, [ICD.Stored.key("t", m1)]: own });
       });
     });
   });

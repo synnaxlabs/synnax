@@ -963,7 +963,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		DB:          cfg.Distribution.DB,
 		RBAC:        cfg.Service.RBAC,
 		Held:        auth.HeldTables(),
-		Owned:       panel.OwnedTables(),
+		Owned:       append(panel.OwnedTables(), certificate.OwnedTables()...),
 		OwnedPlaces: panel.OwnedPlaces(),
 		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {

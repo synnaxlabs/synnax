@@ -115,6 +115,22 @@ TEST(Text, DecodeTagged) {
     EXPECT_EQ(value(dec, 0, 1), 101.3);
 }
 
+/// @brief it should give each tagged item to the field with the longest tag that starts
+/// it, bound or not.
+TEST(Text, DecodeLongestTag) {
+    const auto t = tagged("t", "T");
+    const auto te = tagged("te", "TE");
+    auto both = ASSERT_NIL_P(Text::create({message("line", {t, te})}));
+    ASSERT_NIL_P(both.decode("TE5,T3"));
+    EXPECT_EQ(value(both, 0, 0), 3);
+    EXPECT_EQ(value(both, 0, 1), 5);
+    auto m = message("line", {t, te});
+    m.bindings.pop_back();
+    auto one = ASSERT_NIL_P(Text::create({m}));
+    ASSERT_NIL_P(one.decode("TE5,T3"));
+    EXPECT_EQ(value(one, 0, 0), 3);
+}
+
 /// @brief it should trim spaces, tabs, and carriage returns around a value.
 TEST(Text, DecodeTrimmed) {
     auto dec = ASSERT_NIL_P(Text::create({message("line", {at("a", 0), at("b", 1)})}));
