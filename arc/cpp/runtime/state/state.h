@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -70,6 +71,24 @@ T scale_input(const T v, const double up, const double down) {
     if (whole(up)) return v * static_cast<T>(up);
     if (whole(down)) return v / static_cast<T>(down);
     return static_cast<T>(static_cast<double>(v) * up);
+}
+
+/// @brief returns the period of the rate v, which an integer rounds, or 0 for 0.
+template<typename T>
+T period_input(const T v, const double factor) {
+    if (v == 0) return 0;
+    const double period = factor / static_cast<double>(v);
+    if constexpr (std::is_floating_point_v<T>) return static_cast<T>(period);
+    return static_cast<T>(std::nearbyint(period));
+}
+
+/// @brief converts v, the value of a variable, to the unit of the input that reads it.
+template<typename T>
+T convert_input(const T v, const types::Type &type) {
+    if (const double factor = types::input_period(type); factor != 0)
+        return period_input(v, factor);
+    const auto [up, down] = types::input_scale(type);
+    return scale_input(v, up, down);
 }
 
 class Node {
@@ -273,10 +292,8 @@ public:
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
         const auto &p = this->params[i];
-        if (const auto s = this->ref_input(i); s != nullptr && !s->empty()) {
-            const auto [up, down] = types::input_scale(p.type);
-            return scale_input(s->at<T>(-1), up, down);
-        }
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
+            return convert_input(s->at<T>(-1), p.type);
         if (const auto v = types::to_sample_value(p.value, p.type))
             return x::telem::cast<T>(*v);
         return 0;

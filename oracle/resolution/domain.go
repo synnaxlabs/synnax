@@ -10,6 +10,8 @@
 package resolution
 
 import (
+	"reflect"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/parser"
@@ -70,10 +72,24 @@ type ExpressionValue struct {
 	FloatValue  float64
 	Kind        ValueKind
 	BoolValue   bool
+	// Duration is the duration literal an int value was written as, such as 1m30s.
+	// IntValue holds its nanoseconds. It is empty for a plain integer.
+	Duration string
 	// Elements holds the ordered element values when Kind is ValueKindArray.
 	Elements []ExpressionValue
 	// Fields holds the ordered field values when Kind is ValueKindStruct.
 	Fields []StructFieldValue
+}
+
+// SameValue reports whether a and b hold the same value, however a duration literal
+// spelled it. A nil value equals only another nil value.
+func SameValue(a, b *ExpressionValue) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	x, y := *a, *b
+	x.Duration, y.Duration = "", ""
+	return reflect.DeepEqual(x, y)
 }
 
 // StructFieldValue is a single `name = value` binding within a struct default

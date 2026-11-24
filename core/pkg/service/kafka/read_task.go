@@ -1001,7 +1001,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
-	m, ok, err := rd.decoder.Decode(rec.Value, rd.samples)
+	m, ok, failures, err := rd.decoder.Decode(rec.Value, rd.samples)
 	if err != nil {
 		t.skip(r, "Record value: "+err.Error())
 		return
@@ -1011,6 +1011,13 @@ func (t *readTask) convert(rec *kgo.Record) {
 		return
 	}
 	g := rd.groups[m]
+	if failures != nil {
+		for i := range g.data {
+			g.data[i] = g.data[i][:g.columns[i].end(len(g.rows))]
+		}
+		t.skip(r, "Record value: "+failures[0].Err.Error())
+		return
+	}
 	r.pos = len(g.rows)
 	for i := range g.columns {
 		g.columns[i].appended(g.data[i])
