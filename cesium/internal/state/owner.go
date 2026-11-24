@@ -82,6 +82,8 @@ type State struct {
 	// betweenLoads, when set, runs in Pair between the loads of its two Channels. Only
 	// a spec of this package sets it.
 	betweenLoads func()
+	// replayed is true once replay mode ends.
+	replayed bool
 	// The fields below belong to the owner.
 	nextID, nextAlign uint64
 	idBlocks          int
@@ -125,15 +127,25 @@ func (s *State) Replay(sequence uint64, records []log.Record) error {
 	return s.core.apply(sequence, records)
 }
 
-// Run ends replay mode, publishes the visible state of every key, and runs one step of
-// the owner on the executor each time requests are queued, until Close, until ctx is
-// done, or until a step fails the state. It returns the error of ctx, the error that
-// failed the state, or nil at Close. A request that Run leaves queued gets the error.
-func (s *State) Run(ctx context.Context) error {
-	defer close(s.exit)
+// EndReplay ends replay mode and publishes the visible state of every key, so readers
+// see the replayed state before Run. Replay must not follow it.
+func (s *State) EndReplay() {
 	s.core.endReplay()
 	s.storeKeys()
 	s.core.count.end()
+	s.replayed = true
+}
+
+// Run ends replay mode unless EndReplay did, publishes the visible state of every key,
+// and runs one step of the owner on the executor each time requests are queued, until
+// Close, until ctx is done, or until a step fails the state. It returns the error of
+// ctx, the error that failed the state, or nil at Close. A request that Run leaves
+// queued gets the error.
+func (s *State) Run(ctx context.Context) error {
+	defer close(s.exit)
+	if !s.replayed {
+		s.EndReplay()
+	}
 	s.nextID = max(s.nextID, s.core.limits.Segments, 1)
 	s.nextAlign = max(s.nextAlign, s.core.limits.Alignments)
 	for {

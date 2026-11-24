@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -139,6 +140,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, frame(seconds...), nil))
@@ -225,6 +227,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    10 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -240,8 +243,8 @@ var _ = Describe("Delete on the pointer log", func() {
 			To(Succeed())
 		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, text)).Get(text).Series
 		Expect(series).To(HaveLen(2))
-		Expect(series[0]).To(telem.MatchSeriesDataV("a"))
-		Expect(series[1]).To(telem.MatchSeriesDataV("dddd"))
+		Expect(series[0]).To(MatchSeriesDataV("a"))
+		Expect(series[1]).To(MatchSeriesDataV("dddd"))
 	})
 
 	DescribeTable(
@@ -291,6 +294,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -381,6 +385,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12, 13)
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    30 * telem.SecondTS,
 			}))
 			tr := span(12, 15)

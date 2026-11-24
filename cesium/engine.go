@@ -75,7 +75,7 @@ type engine struct {
 // openEngine recovers the database of the root of o, or makes a new one in an empty
 // root. It refuses a root that holds the old layout with errors.ErrUnsupported.
 func openEngine(o *options) (*engine, error) {
-	r := &recovery{fs: o.fs}
+	r := &recovery{fs: o.fs, logSize: o.logFileSize}
 	old, err := r.list()
 	if err != nil {
 		return nil, err
@@ -121,6 +121,8 @@ func openEngine(o *options) (*engine, error) {
 	if err = e.recover(r); err != nil {
 		return nil, err
 	}
+	// Readers see the recovered state before Run.
+	e.state.EndReplay()
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
@@ -148,7 +150,7 @@ func (e *engine) create(o *options, r *recovery) (*state.Snapshot, error) {
 	for db == 0 {
 		db = o.random.Uint64()
 	}
-	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
+	if err := log.Prepare(o.fs, 1, o.logFileSize); err != nil {
 		return nil, err
 	}
 	snapshot := &state.Snapshot{}
@@ -207,7 +209,7 @@ func (e *engine) recover(r *recovery) (err error) {
 	e.ckpt, err = checkpoint.New(checkpoint.Config{
 		FS:       e.fs,
 		DB:       r.db,
-		LogSize:  log.FileSize,
+		LogSize:  r.logSize,
 		Prepared: e.log.Prepared,
 		Executor: e.exec,
 	})

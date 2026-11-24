@@ -16,6 +16,8 @@ import (
 	"math"
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
+	claimed "github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -79,6 +81,17 @@ func (c *claim) owner() string {
 	return "another writer"
 }
 
+// refusal returns the refusal of the stamps from first to last of key, which reach c,
+// as an open when open is true or else as a commit.
+func (c *claim) refusal(key uint32, first, last telem.TimeStamp, open bool) error {
+	end := min(last, c.end)
+	if end < telem.TimeStampMax {
+		end++
+	}
+	reached := telem.TimeRange{Start: max(first, c.start), End: end}
+	return channel.Wrap(key, claimed.Error{TimeRange: reached, Open: open})
+}
+
 // Writer is the state of one Cesium writer: its claims and the open segment that it
 // holds for each key. Its calls block until the owner runs them. A Writer is not safe
 // for concurrent use.
@@ -90,6 +103,9 @@ type Writer struct {
 	claims map[uint32]*claim
 	held   map[uint32]*segState
 	types  map[uint32]uint8
+	// stretch is the alignment number of the writer's last commit, or zero before its
+	// first.
+	stretch uint32
 }
 
 // call queues r for the owner and waits for its error.
@@ -132,38 +148,10 @@ func (s *State) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, erro
 }
 
 func (s *State) openWriter(w *Writer) error {
-	start := w.cfg.Start
-	for key := range w.types {
-		ch := s.core.channels[key]
-		if ch == nil {
-			continue
-		}
-		if p, ok := ch.overlaps(start, start, false); ok {
-			return errors.Wrapf(
-				errConflict,
-				"writer of key %d starts at %d, inside its "+
-					"stored data from %d to %d",
-				key,
-				start,
-				p.First,
-				p.Last,
-			)
-		}
-		for _, o := range ch.claims {
-			refused := false
-			switch {
-			case o.pinned:
-			case w.cfg.Bounded, o.w == nil:
-				refused = o.reaches(start, start)
-			default:
-				refused = !o.bounded
-			}
-			if refused {
-				return errors.Wrapf(errConflict, "writer of key %d starting at %d "+
-					"reaches the claim of %s from %d", key, start, o.owner(), o.start)
-			}
-		}
+	if err := s.checkOpen(w); err != nil {
+		return err
 	}
+	start := w.cfg.Start
 	end := telem.TimeStamp(math.MaxInt64)
 	if w.cfg.Bounded {
 		end = start
@@ -187,6 +175,55 @@ func (s *State) openWriter(w *Writer) error {
 	}
 	s.takeOver(w)
 	s.storeKeysIfChanged()
+	return nil
+}
+
+// checkOpen refuses the open of w when its start lies in stored data of one of its
+// keys, or when the claim of w would reach another writer's claim.
+func (s *State) checkOpen(w *Writer) error {
+	start := w.cfg.Start
+	for key := range w.types {
+		ch := s.core.channels[key]
+		if ch == nil {
+			continue
+		}
+		if p, ok := ch.overlaps(start, start, false); ok {
+			return errors.Wrapf(
+				errConflict,
+				"cannot open writer because there is already data in the writer's "+
+					"time range: writer of key %d starts at %d, inside its stored data "+
+					"from %d to %d",
+				key,
+				start,
+				p.First,
+				p.Last,
+			)
+		}
+		for _, o := range ch.claims {
+			refused := false
+			switch {
+			case o.pinned:
+			case w.cfg.Bounded, o.w == nil:
+				refused = o.reaches(start, start)
+			default:
+				refused = !o.bounded
+			}
+			if refused {
+				last := telem.TimeStampMax
+				if w.cfg.Bounded {
+					last = start
+				}
+				return errors.Wrapf(
+					o.refusal(key, start, last, true),
+					"writer of key %d starting at %d reaches the claim of %s from %d",
+					key,
+					start,
+					o.owner(),
+					o.start,
+				)
+			}
+		}
+	}
 	return nil
 }
 
@@ -462,14 +499,12 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 			return err
 		}
 		ch := s.core.channels[seg.key]
-		if p, ok := ch.overlaps(first, last, false); ok {
-			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
-				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
-		}
+		// The claim of an open writer names its holder, so it comes before the stored
+		// data that the writer committed.
 		for _, o := range ch.claims {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
-					errConflict,
+					o.refusal(seg.key, first, last, false),
 					"commit of key %d from %d to %d reaches the claim of %s from %d",
 					seg.key,
 					first,
@@ -478,6 +513,10 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 					o.start,
 				)
 			}
+		}
+		if p, ok := ch.overlaps(first, last, false); ok {
+			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
+				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
 	}
 	return nil
@@ -488,7 +527,15 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 		return err
 	}
 	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
+	// The first commit of a new stretch frees the time before it for another writer,
+	// as a new domain of the old layout does.
+	number := telem.Alignment(c.Alignment).DomainIndex()
+	moved := w.stretch != 0 && number != w.stretch
+	w.stretch = number
 	for _, cl := range w.claims {
+		if moved && !cl.pinned {
+			cl.start = first
+		}
 		cl.start = min(cl.start, first)
 		if cl.bounded || cl.pinned {
 			cl.end = max(cl.end, last)

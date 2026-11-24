@@ -40,20 +40,6 @@
       "receiver": "State",
       "name": "Err",
       "caller": "sy-6571-18e2-compactor"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MaxBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MinBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
     }
   ]
 }

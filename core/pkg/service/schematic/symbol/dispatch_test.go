@@ -55,11 +55,12 @@ var _ = Describe("Dispatch", func() {
 		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-			DB:          db,
-			Group:       groupSvc,
-			ImEx:        imex.NewService(),
-			Enumeration: openEnumerations(ctx, db),
-			Actuators:   noActuators,
+			DB:            db,
+			Group:         groupSvc,
+			ImEx:          imex.NewService(),
+			Enumeration:   openEnumerations(ctx, db),
+			Actuators:     noActuators,
+			RemoveOrphans: noOrphans,
 		}))
 		g = createGroup(ctx, resource.TypeSchematicSymbol)
 		sym = symbol.Symbol{

@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -27,69 +26,13 @@ import (
 )
 
 var _ = Describe("Writer errors", func() {
-	var (
-		db               *cesium.DB
-		idx1, d1         cesium.ChannelKey
-		idx2, d2         cesium.ChannelKey
-		createTwoIndexes func(ctx SpecContext)
-	)
-	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, xfs.NewMem())
-		idx1, d1 = GenerateChannelKey(), GenerateChannelKey()
-		idx2, d2 = GenerateChannelKey(), GenerateChannelKey()
-		createTwoIndexes = func(ctx SpecContext) {
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{
-					Key: idx1, Name: "i1", IsIndex: true, DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key: d1, Name: "d1", Index: idx1, DataType: telem.Int64T,
-				},
-				cesium.Channel{
-					Key: idx2, Name: "i2", IsIndex: true, DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key: d2, Name: "d2", Index: idx2, DataType: telem.Int64T,
-				},
-			)).To(Succeed())
-		}
-	})
-
-	It(
-		"Should return the commit error of DB.Write when another writer controls part of the frame",
-		func(ctx SpecContext) {
-			createTwoIndexes(ctx)
-			Expect(db.Write(ctx, 12*telem.SecondTS, telem.MultiFrame(
-				[]cesium.ChannelKey{idx2, d2},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(12, 20),
-					telem.NewSeriesV[int64](1, 2),
-				},
-			))).To(Succeed())
-			MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{idx1, d1},
-				Start:    5 * telem.SecondTS,
-			}))
-			// Group 2 overlaps its stored data, so its commit fails.
-			Expect(db.Write(ctx, 5*telem.SecondTS, telem.MultiFrame(
-				[]cesium.ChannelKey{idx1, d1, idx2, d2},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(5, 6),
-					telem.NewSeriesV[int64](3, 4),
-					telem.NewSeriesSecondsTSV(5, 15),
-					telem.NewSeriesV[int64](3, 4),
-				},
-			))).To(MatchError(domain.ErrWriteConflict))
-		},
-	)
-
 	It(
 		"Should join a persist error of Close with the error that broke the writer",
 		func(ctx SpecContext) {
 			var (
 				errPersist  = errors.New("persist failed")
 				failPersist bool
+				idx1, d1    = GenerateChannelKey(), GenerateChannelKey()
 			)
 			hooked := mustOpenDBOnFS(ctx, persistHookFS{
 				FS: xfs.NewMem(),
@@ -113,6 +56,7 @@ var _ = Describe("Writer errors", func() {
 			w := MustSucceed(hooked.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
 				Start:    10 * telem.SecondTS,
+				Clock:    idx1,
 			}))
 			mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
 				telem.NewSeriesSecondsTSV(10, 11),
@@ -171,6 +115,7 @@ var _ = Describe("Writer sync durability", func() {
 					i2: telem.SecondTS,
 				}
 				log []string
+				ws  map[cesium.ChannelKey]*cesium.Writer
 				// pending and committed count the samples of each index.
 				pending   = map[cesium.ChannelKey]int64{}
 				committed = map[cesium.ChannelKey]int64{}
@@ -208,13 +153,26 @@ var _ = Describe("Writer sync durability", func() {
 				},
 				cesium.Channel{Key: d2, Name: "d2", Index: i2, DataType: telem.StringT},
 			)).To(Succeed())
-			open := func() *cesium.Writer {
+			// open opens one writer for each clock, as the framer does.
+			open := func() map[cesium.ChannelKey]*cesium.Writer {
 				start := max(next[i1], next[i2])
 				next[i1], next[i2] = start, start
-				return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels: keys,
-					Start:    start,
-				}))
+				ws := make(map[cesium.ChannelKey]*cesium.Writer, 2)
+				for idx, data := range map[cesium.ChannelKey]cesium.ChannelKey{
+					i1: d1,
+					i2: d2,
+				} {
+					ws[idx] = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{idx, data},
+						Clock:    idx,
+						Start:    start,
+					}))
+				}
+				return ws
+			}
+			each := func(f func(w *cesium.Writer)) {
+				f(ws[i1])
+				f(ws[i2])
 			}
 			expectDurable := func(when string, of ...cesium.ChannelKey) {
 				GinkgoHelper()
@@ -257,50 +215,52 @@ var _ = Describe("Writer sync durability", func() {
 				}
 				return []telem.Series{telem.NewSeries(stamps), telem.NewSeries(data)}
 			}
-			w := open()
+			ws = open()
 			for range 80 {
 				switch op := rng.IntN(100); {
 				case op < 50:
 					var (
-						fKeys   []cesium.ChannelKey
-						fSeries []telem.Series
-						groups  = rng.IntN(3)
-						n       = 1 + rng.IntN(4)
+						groups = rng.IntN(3)
+						n      = 1 + rng.IntN(4)
 					)
+					log = append(log, fmt.Sprintf("write(%d,%d)", groups, n))
 					if groups != 2 {
-						fKeys = append(fKeys, i1, d1)
-						fSeries = append(fSeries, series(i1, n)...)
+						mustWrite(ctx, ws[i1], telem.MultiFrame(
+							[]cesium.ChannelKey{i1, d1},
+							series(i1, n),
+						))
 					}
 					if groups != 1 {
-						fKeys = append(fKeys, i2, d2)
-						fSeries = append(fSeries, series(i2, n)...)
+						mustWrite(ctx, ws[i2], telem.MultiFrame(
+							[]cesium.ChannelKey{i2, d2},
+							series(i2, n),
+						))
 					}
-					log = append(log, fmt.Sprintf("write(%d,%d)", groups, n))
-					mustWrite(ctx, w, telem.MultiFrame(fKeys, fSeries))
 					expectVisible("write")
 				case op < 70:
 					log = append(log, "commit")
-					mustCommit(ctx, w)
+					each(func(w *cesium.Writer) { mustCommit(ctx, w) })
 					commitAll()
 					expectVisible("commit")
 				case op < 82:
 					log = append(log, "sync")
-					Expect(w.Sync()).To(Succeed())
+					each(func(w *cesium.Writer) { Expect(w.Sync()).To(Succeed()) })
 					expectDurable("sync")
 				case op < 92:
 					idx := []cesium.ChannelKey{i1, i2}[rng.IntN(2)]
 					log = append(log, fmt.Sprintf("end(%d)", idx))
-					Expect(w.EndDomain(ctx, idx)).To(Succeed())
-					// EndDomain commits only the groups of the indexes it names.
+					Expect(ws[idx].EndStretch(ctx)).To(Succeed())
+					// EndStretch commits only the group of its writer's clock.
 					committed[idx] += pending[idx]
 					pending[idx] = 0
 					expectVisible("end domain")
 				case op < 96:
 					log = append(log, "handoff")
-					mustCommit(ctx, w)
+					each(func(w *cesium.Writer) { mustCommit(ctx, w) })
 					commitAll()
 					high := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{i1, d1},
+						Clock:    i1,
 						Start:    next[i1],
 					}))
 					n := 1 + rng.IntN(4)
@@ -313,7 +273,7 @@ var _ = Describe("Writer sync durability", func() {
 					commitAll()
 					expectVisible("handoff commit")
 					if rng.IntN(2) == 0 {
-						Expect(w.Sync()).To(Succeed())
+						each(func(w *cesium.Writer) { Expect(w.Sync()).To(Succeed()) })
 						expectDurable("sync during handoff")
 					}
 					Expect(high.Close()).To(Succeed())
@@ -322,14 +282,14 @@ var _ = Describe("Writer sync durability", func() {
 					expectDurable("handoff close", i1, d1)
 				default:
 					log = append(log, "close")
-					Expect(w.Close()).To(Succeed())
+					each(func(w *cesium.Writer) { Expect(w.Close()).To(Succeed()) })
 					pending = map[cesium.ChannelKey]int64{}
 					expectVisible("close")
 					expectDurable("close")
-					w = open()
+					ws = open()
 				}
 			}
-			Expect(w.Close()).To(Succeed())
+			each(func(w *cesium.Writer) { Expect(w.Close()).To(Succeed()) })
 			expectDurable("final close")
 		})
 	}
@@ -367,6 +327,7 @@ var _ = Describe("Writer persist faults", func() {
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
 			Start:    10 * telem.SecondTS,
+			Clock:    i,
 		}))
 		mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10, 11),

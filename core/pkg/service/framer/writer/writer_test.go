@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -29,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -351,7 +351,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:  keys,
 				Start: 12 * telem.SecondTS,
-				Mode:  cesium.WriterModePersistOnly,
+				Mode:  writer.ModePersistOnly,
 				Sync:  new(true),
 			}))
 			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
@@ -377,7 +377,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             cesium.WriterModePersistOnly,
+				Mode:             writer.ModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -583,9 +583,9 @@ var _ = Describe("Writer", func() {
 				).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				firstAlignment := writtenData.Alignment
 				groupDomain := firstAlignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
@@ -604,9 +604,9 @@ var _ = Describe("Writer", func() {
 				).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				writtenData = res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 				Expect(writtenData.Alignment).To(BeNumerically(">", firstAlignment))
