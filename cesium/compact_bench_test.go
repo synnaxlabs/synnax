@@ -131,21 +131,34 @@ func benchmarkCompact(b *testing.B, size int) {
 // the run fails when the rewrites end before the commits. It reports the 99th
 // percentile of the time of a commit.
 func BenchmarkCompactCommit(b *testing.B) {
-	for _, rewrite := range []bool{false, true} {
-		b.Run(fmt.Sprintf("rewrite=%t", rewrite), func(b *testing.B) {
-			benchmarkCompactCommit(b, rewrite)
+	rewrite := func(b *testing.B, db *cesium.DB, dir string) func() bool {
+		return startRewrite(b, db, dir, 7)
+	}
+	for _, on := range []bool{false, true} {
+		b.Run(fmt.Sprintf("rewrite=%t", on), func(b *testing.B) {
+			start := rewrite
+			if !on {
+				start = nil
+			}
+			benchmarkCompactCommit(b, start)
 		})
 	}
 }
 
-func benchmarkCompactCommit(b *testing.B, rewrite bool) {
+// benchmarkCompactCommit is BenchmarkCompactCommit with the background work that
+// background starts, or none when it is nil. The run fails when that work ends before
+// the commits.
+func benchmarkCompactCommit(
+	b *testing.B,
+	background func(b *testing.B, db *cesium.DB, dir string) func() bool,
+) {
 	b.Helper()
 	dir := b.TempDir()
 	db := runCompactDB(b, dir)
 	keys := createIndexedChannels(b, db, 1, 32)
 	running := func() bool { return true }
-	if rewrite {
-		running = startRewrite(b, db, dir, 7)
+	if background != nil {
+		running = background(b, db, dir)
 	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
@@ -190,7 +203,7 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 	}
 	b.StopTimer()
 	if !running() {
-		b.Fatal("the rewrites ended before the commits")
+		b.Fatal("the background work ended before the commits")
 	}
 	reportP99(b, took)
 	if err := w.Close(); err != nil {
