@@ -140,6 +140,9 @@ jobs:
       - name: Create the sample project
         run: node console/scripts/create_sample.ts "$URL"
 
+      - name: Create the preview workspace
+        run: node console/scripts/create_preview_workspace.ts "$URL"
+
       - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           header: preview
@@ -151,7 +154,18 @@ jobs:
             Log in with username `synnax` and password `seldon`. The preview is a
             throwaway Core with in-memory storage, and a push rebuilds it from empty.
             It has no Driver, so it has no hardware tasks. Open the sample project
-            for a simulated tank pressurization.
+            for a simulated tank pressurization. The other projects show the same
+            live data in more visualizations.
+
+            To test permissions, log in as one of these users. Each password is
+            `seldon`.
+
+            | Username   | Role     |
+            | ---------- | -------- |
+            | `admin`    | Owner    |
+            | `engineer` | Engineer |
+            | `operator` | Operator |
+            | `viewer`   | Viewer   |
 
             Built from ${{ github.event.pull_request.head.sha }}.
 

@@ -12,7 +12,8 @@ package analyzer
 import (
 	"fmt"
 	"maps"
-	"math"
+	"math/big"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -409,6 +410,7 @@ func analyze(c *analysisCtx) {
 	checkOptionalDefaultInvariant(c)
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
+	checkDurationDefaults(c)
 	checkUnionDefaultConstructible(c)
 	checkArrayDefaultSize(c)
 	checkDefaultGroups(c)
@@ -1327,6 +1329,9 @@ func collectFieldDefault(
 	if ev := fd.ExpressionValue(); ev != nil {
 		return collectValue(c, ev)
 	}
+	if d := fd.DURATION_LIT(); d != nil {
+		return collectDuration(c, fd, d.GetText())
+	}
 	if arr := fd.ArrayDefault(); arr != nil {
 		return collectArrayDefault(c, arr)
 	}
@@ -1444,6 +1449,52 @@ func parseInt(c *analysisCtx, node antlr.ParserRuleContext, lit string) int64 {
 		c.report(diagnostics.Errorf(node, "integer %s does not fit in an int64", lit))
 	}
 	return n
+}
+
+// collectDuration converts the duration literal lit of node, such as 1m30s, to an int
+// value in nanoseconds. It reports a literal that is not a whole number of nanoseconds
+// or does not fit in an int64.
+func collectDuration(
+	c *analysisCtx,
+	node antlr.ParserRuleContext,
+	lit string,
+) resolution.ExpressionValue {
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindInt, Duration: lit}
+	total := new(big.Rat)
+	for _, seg := range durationSegment.FindAllStringSubmatch(lit, -1) {
+		n, _ := new(big.Rat).SetString(seg[1])
+		total.Add(total, n.Mul(n, new(big.Rat).SetInt64(durationUnits[seg[2]])))
+	}
+	if strings.HasPrefix(lit, "-") {
+		total.Neg(total)
+	}
+	if !total.IsInt() {
+		c.report(diagnostics.Errorf(
+			node,
+			"duration %s is not a whole number of nanoseconds",
+			lit,
+		))
+		return out
+	}
+	if !total.Num().IsInt64() {
+		c.report(diagnostics.Errorf(node, "duration %s does not fit in an int64", lit))
+		return out
+	}
+	out.IntValue = total.Num().Int64()
+	return out
+}
+
+// durationSegment matches one number-unit segment of a duration literal.
+var durationSegment = regexp.MustCompile(`([0-9.]+)([a-z]+)`)
+
+// durationUnits maps each duration literal unit to its length in nanoseconds.
+var durationUnits = map[string]int64{
+	"ns": 1,
+	"us": 1e3,
+	"ms": 1e6,
+	"s":  1e9,
+	"m":  60e9,
+	"h":  3600e9,
 }
 
 // parseFloat parses a float literal of node and reports one that does not fit in a
@@ -2492,8 +2543,7 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 	}
 }
 
-// validateIntEnum reports an integer enum member that Go and C++ cannot hold in a
-// uint8, and two members that share a value.
+// validateIntEnum reports two members of an integer enum that share a value.
 func validateIntEnum(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.EnumForm)
 	if !ok || !form.IsIntEnum {
@@ -2502,14 +2552,6 @@ func validateIntEnum(c *analysisCtx, typ resolution.Type) {
 	byValue := make(map[int64]string, len(form.Values))
 	for _, v := range form.Values {
 		n := v.IntValue()
-		if n < 0 || n > math.MaxUint8 {
-			c.report(diagnostics.Errorf(
-				ruleCtx(typ.AST),
-				"enum %s member %s has value %d, which is not from 0 to 255",
-				typ.Name, v.Name, n,
-			))
-			continue
-		}
 		if other, dup := byValue[n]; dup {
 			c.report(diagnostics.Errorf(
 				ruleCtx(typ.AST),

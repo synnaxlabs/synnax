@@ -18,10 +18,7 @@ import {
   payloadZ,
   type Where,
 } from "@/channel/types.gen";
-import {
-  analyzeParams as baseAnalyzeParams,
-  type ParamAnalysisResult,
-} from "@/util/retrieve";
+import { util } from "@/util";
 
 /** One or many channels, named by key or by name. */
 export type PrimitiveParams = Key | Name | Key[] | Name[];
@@ -72,11 +69,11 @@ export const isCalculated = ({ virtual, expression }: Payload): boolean =>
  */
 export const analyzeParams = (
   channels: Params,
-): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
+): util.ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
   else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
-  return baseAnalyzeParams(
+  return util.analyzeParams(
     channels as PrimitiveParams,
     { number: "keys", string: "names" },
     { convertNumericStrings: false },

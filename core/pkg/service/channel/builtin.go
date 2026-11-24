@@ -12,12 +12,9 @@ package channel
 import (
 	"context"
 	"fmt"
-	mathbits "math/bits"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -65,25 +62,9 @@ func (b *builtInSet) with(k Key) *builtInSet {
 	return next
 }
 
-// keys returns the keys of b in ascending order.
-func (b *builtInSet) keys() Keys {
-	keys := slices.Clone(Keys(b.leased))
-	for word, bits := range b.free {
-		for ; bits != 0; bits &= bits - 1 {
-			local := LocalKey(word*64 + mathbits.TrailingZeros64(bits))
-			keys = append(keys, distchannel.NewKey(node.KeyFree, local))
-		}
-	}
-	return keys
-}
-
 // IsBuiltIn reports whether a Core service declared the channel with key k for its own
 // work through Writer.Declare.
 func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
-
-// BuiltIns returns the keys of the channels that Core services declared, in ascending
-// order.
-func (s *Service) BuiltIns() Keys { return s.builtIns.Load().keys() }
 
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the

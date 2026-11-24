@@ -69,7 +69,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.axes.x1.bounds.lower).toBe(-5);
+      expect(plot.axes.x1.bounds?.lower).toBe(-5);
       expect(plot.axes.x1.manualBounds.lower).toBe(true);
     });
   });
@@ -111,6 +111,50 @@ describe("lineplot/toolbar/Axes", () => {
     });
   });
 
+  const setBound = async (label: string, value: string): Promise<void> => {
+    const input = getLabeledInput(label);
+    fireEvent.change(input, { target: { value } });
+    fireEvent.blur(input);
+    await findIconButton(getInputItem(label), "auto");
+  };
+
+  it("moves the auto upper bound above a manual lower bound", async () => {
+    const { key } = await renderAxesTab();
+    await setBound("Lower bound", "500");
+    await waitFor(async () => {
+      const { bounds } = (await client.lineplots.retrieve(key)).axes.x1;
+      expect(bounds?.lower).toBe(500);
+      expect(bounds?.upper).toBeGreaterThan(500);
+    });
+  });
+
+  it("refuses a manual lower bound at or above the manual upper bound", async () => {
+    const { key } = await renderAxesTab();
+    await setBound("Upper bound", "10");
+    await setBound("Lower bound", "0");
+    const input = getLabeledInput("Lower bound");
+    fireEvent.change(input, { target: { value: "10" } });
+    fireEvent.blur(input);
+    expect(getLabeledInput("Lower bound").value).toBe("0");
+    await waitFor(async () => {
+      const { bounds } = (await client.lineplots.retrieve(key)).axes.x1;
+      expect(bounds).toEqual({ lower: 0, upper: 10 });
+    });
+  });
+
+  it("clears the bounds when both edges return to auto", async () => {
+    const { key } = await renderAxesTab();
+    await setBound("Lower bound", "0");
+    await setBound("Upper bound", "10");
+    fireEvent.click(await findIconButton(getInputItem("Lower bound"), "auto"));
+    fireEvent.click(await findIconButton(getInputItem("Upper bound"), "auto"));
+    await waitFor(async () => {
+      const axis = (await client.lineplots.retrieve(key)).axes.x1;
+      expect(axis.manualBounds).toEqual({ lower: false, upper: false });
+      expect(axis.bounds).toBeUndefined();
+    });
+  });
+
   it("persists a tick spacing change to the server", async () => {
     const { key } = await renderAxesTab();
     const input = getLabeledInput("Tick spacing");
@@ -129,7 +173,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.axes.x1.bounds.upper).toBe(50);
+      expect(plot.axes.x1.bounds?.upper).toBe(50);
       expect(plot.axes.x1.manualBounds.upper).toBe(true);
     });
   });

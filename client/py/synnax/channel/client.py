@@ -27,7 +27,6 @@ from synnax.channel.types_gen import (
     Operation,
     Order,
     Payload,
-    RetrieveBuiltInsResponse,
     RetrieveRequest,
     Status,
     Use,
@@ -247,19 +246,6 @@ class Client:
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
-
-    def retrieve_built_ins(self) -> list[Key]:
-        """Retrieves the keys of the built-in channels, which Core services declare
-        for their own work. Any caller may retrieve them.
-
-        :returns: The keys of the built-in channels.
-        """
-        return send_required(
-            self._client,
-            "/channel/retrieve-built-ins",
-            Empty(),
-            RetrieveBuiltInsResponse,
-        ).keys
 
     def count_limited(self) -> int:
         """Retrieves how many channels count against the license channel limit (not

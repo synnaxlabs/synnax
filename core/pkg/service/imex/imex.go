@@ -403,6 +403,10 @@ type ImportOptions struct {
 	// Group is the group a groupable resource sits in, or nil for none. An importer
 	// ignores any group the envelope carries.
 	Group *group.Key
+	// Retrievable reports whether the importer can retrieve a stored record. An import
+	// reuses only such records. Nil means none: a bundle import leaves it nil, so its
+	// members reuse no stored record.
+	Retrievable func(resource.ID) bool
 }
 
 // Write persists a decoded envelope on tx, under opts.Parent and opts.Group when the
