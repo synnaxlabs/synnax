@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH as Executable
 
 from review import (
     Finding,
@@ -674,3 +675,61 @@ class TestGH:
         with pytest.raises(subprocess.CalledProcessError):
             call_gh("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews")
         assert "HTTP 422: Unprocessable Entity" in capfd.readouterr().err
+
+    @pytest.fixture
+    def fake(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Executable:
+        fake = Executable(tmp_path)
+        fake.serve("api *", {"ok": 1})
+        monkeypatch.setenv("PATH", f"{fake.bin_dir}{os.pathsep}{os.environ['PATH']}")
+        monkeypatch.setenv("GH_API_RETRY_DELAY", "0")
+        return fake
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55", "--input", "-"),
+            ("api", f"repos/{REPO}/pulls/7", "--jq", ".body"),
+            ("api", "graphql", "-f", "query=query { viewer { login } }"),
+        ],
+    )
+    def test_should_retry_a_transient_failure_of_a_repeatable_call(
+        self, fake: Executable, args: tuple[str, ...]
+    ) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        assert call_gh(*args, stdin="{}") != ""
+        assert len(fake.calls()) == 2
+
+    def test_should_send_the_body_again_on_a_retry(self, fake: Executable) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        body = '{"status": "completed"}'
+        path = f"repos/{REPO}/check-runs/55"
+        call_gh("api", "-X", "PATCH", path, "--input", "-", stdin=body)
+        assert fake.inputs() == [body, body]
+
+    def test_should_fail_a_client_error_at_once(self, fake: Executable) -> None:
+        fake.fail("api *", "gh: Not Found (HTTP 404)")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55")
+        assert len(fake.calls()) == 1
+
+    def test_should_fail_when_every_attempt_fails(self, fake: Executable) -> None:
+        fake.fail("api *", "gh: Server Error (HTTP 502)", times=5)
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh("api", "-X", "PATCH", f"repos/{REPO}/check-runs/55")
+        assert len(fake.calls()) == 5
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("api", "-X", "POST", f"repos/{REPO}/pulls/7/reviews", "--input", "-"),
+            ("api", f"repos/{REPO}/issues/7/comments", "-f", "body=x"),
+            ("api", "graphql", "-f", "query=mutation { x }"),
+        ],
+    )
+    def test_should_send_a_create_only_once(
+        self, fake: Executable, args: tuple[str, ...]
+    ) -> None:
+        fake.fail("api *", "unexpected end of JSON input")
+        with pytest.raises(subprocess.CalledProcessError):
+            call_gh(*args, stdin="{}")
+        assert len(fake.calls()) == 1

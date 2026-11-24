@@ -3425,7 +3425,7 @@ func (cifc *CIFrequencyChannel) HashContent(h *content.Hash) {
 	h.String(string(cifc.Units))
 	h.String(string(cifc.Edge))
 	h.String(string(cifc.MeasMethod))
-	h.Float(cifc.MeasTime)
+	h.Uint(uint64(cifc.MeasTime))
 	h.Uint(uint64(cifc.Divisor))
 	h.String(cifc.Terminal)
 }
@@ -3545,7 +3545,7 @@ func (cipc *CIPeriodChannel) HashContent(h *content.Hash) {
 	h.String(string(cipc.Units))
 	h.String(string(cipc.StartingEdge))
 	h.String(string(cipc.MeasMethod))
-	h.Float(cipc.MeasTime)
+	h.Uint(uint64(cipc.MeasTime))
 	h.Uint(uint64(cipc.Divisor))
 	h.String(cipc.Terminal)
 }

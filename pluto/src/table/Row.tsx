@@ -14,12 +14,12 @@ import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Cell } from "@/table/cells";
-import { Indicator, type IndicatorProps } from "@/table/Indicator";
+import { Indicator } from "@/table/indicator";
 import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
 import { Shift } from "@/table/shift";
 
-export interface RowProps extends Pick<IndicatorProps, "itemKey" | "onMovePress"> {
+export interface RowProps extends Pick<Indicator.ItemProps, "itemKey" | "onMovePress"> {
   index: number;
   size: number;
   /** Canvas x coordinate of the row's first cell. */
@@ -94,7 +94,7 @@ export const Row = memo(
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"))}>
         {showIndicator && (
-          <Indicator
+          <Indicator.Item
             direction="y"
             index={index}
             itemKey={itemKey}

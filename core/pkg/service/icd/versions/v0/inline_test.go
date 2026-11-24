@@ -390,7 +390,7 @@ var _ = Describe("LiftMessage", func() {
 
 	It("Should note each change at the path of its field", func() {
 		unknown := inlineField("complex128")
-		unknown.Key = "f2"
+		unknown.Key, unknown.Pointer = "f2", "/flow"
 		v0.LiftMessage(
 			[]v0.InlineField{inlineField(telem.Float64T), unknown},
 			"gone",
@@ -403,6 +403,48 @@ var _ = Describe("LiftMessage", func() {
 			`unknown data type "complex128" became the float kind`,
 			"index field gone does not exist and was dropped",
 		}))
+	})
+
+	Describe("Overlapping pointers", func() {
+		// lift lifts the field level at /level, then the field flow at pointer.
+		lift := func(pointer string) {
+			flow := inlineField(telem.Float64T)
+			flow.Key, flow.Name, flow.Pointer = "f2", "flow", pointer
+			v0.LiftMessage(
+				[]v0.InlineField{
+					inlineField(telem.Float64T),
+					flow,
+				},
+				"",
+				found,
+				"e",
+				note,
+			)
+		}
+
+		DescribeTable("Should note a field that reads the value of an earlier field",
+			func(pointer, reads string) {
+				lift(pointer)
+				Expect(paths).To(Equal([]string{"e.fields.1"}))
+				Expect(changes).To(Equal([]string{
+					`field "flow" reads ` + reads + ` field "level", so keep one of ` +
+						"them before you edit the ICD",
+				}))
+			},
+			Entry("the same pointer", "/level", "the same value as"),
+			Entry("a pointer into its value", "/level/raw", "a value inside"),
+			Entry("a pointer that holds its value", "", "a value that holds"),
+		)
+
+		DescribeTable("Should not note a field whose value is apart",
+			func(pointer string) {
+				lift(pointer)
+				Expect(changes).To(BeEmpty())
+			},
+			Entry("a sibling pointer", "/flow"),
+			Entry("a pointer that extends a token", "/levels"),
+			Entry("a malformed pointer", "/level~2"),
+		)
 	})
 
 	It("Should drop an index that names no field", func() {

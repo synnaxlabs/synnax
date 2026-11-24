@@ -423,13 +423,17 @@ export class Client implements Handle {
     return true;
   }
 
-  private async runCheck(): Promise<void> {
+  /**
+   * Runs one check. Returns whether the Core answered healthy and the connection
+   * waits only on the change stream.
+   */
+  private async runCheck(): Promise<boolean> {
     const generation = this.generation;
     const prevKey = this.current.details.clusterKey;
     this.dispatch({ type: "check.started" });
     try {
       const info = await sendCheck(this.unary);
-      if (generation !== this.generation || this.closed) return;
+      if (generation !== this.generation || this.closed) return false;
       this.attempts = 0;
       this.dispatch({ type: "check.success", info });
       this.warn(this.current.details);
@@ -451,10 +455,11 @@ export class Client implements Handle {
             new Error("failed to bring up change stream", { cause: err }),
           );
         });
+      return this.current.variant === "loading";
     } catch (err) {
-      if (generation !== this.generation || this.closed) return;
+      if (generation !== this.generation || this.closed) return false;
       const info = await this.checkTokenless(err);
-      if (generation !== this.generation || this.closed) return;
+      if (generation !== this.generation || this.closed) return false;
       this.attempts += 1;
       this.dispatch({
         type: "check.failure",
@@ -465,6 +470,7 @@ export class Client implements Handle {
       // an incompatible Core answered, so its checks do not count toward escalation
       const { variant, details } = this.current;
       if (variant === "error" && details.reason === "incompatible") this.attempts = 0;
+      return false;
     }
   }
 
@@ -499,10 +505,11 @@ export class Client implements Handle {
     this.brk = brk;
     while (!this.closed)
       if (this.mode === "checking") {
-        await this.runCheck();
+        const awaitingStream = await this.runCheck();
         if (this.closed) return;
         if (this.mode !== "checking") continue;
-        if (await brk.wait()) continue;
+        // a healthy Core with a dark stream backs off without using the budget
+        if (await brk.wait({ exempt: awaitingStream })) continue;
         // finite budget exhausted: park until retryNow or a mode change
         this.dispatch({ type: "retry.exhausted" });
         if (this.closed) return;

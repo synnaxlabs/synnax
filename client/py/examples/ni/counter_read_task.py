@@ -86,8 +86,8 @@ tsk = sy.ni.CounterReadTask(
             edge="Rising",
             # Measurement method (LowFreq1Ctr, HighFreq2Ctr, or DynAvg)
             meas_method="LowFreq1Ctr",
-            # Measurement time in seconds
-            meas_time=0.001,
+            # Measurement time
+            meas_time=1 * sy.TimeSpan.MILLISECOND,
             # Divisor for internal timebase
             divisor=4,
         ),

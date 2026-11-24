@@ -13,15 +13,15 @@ import { render } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
-import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
+import { OffPageReference } from "@/schematic/node/general/offPageReference";
+import { Primitive } from "@/schematic/node/general/offPageReference/primitive";
 import { Theming } from "@/theming";
 
 const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Theming.Provider>{children}</Theming.Provider>
 );
 
-describe("OffPageReference", () => {
+describe("Primitive.OffPageReference", () => {
   describe("color CSS variables", () => {
     it("should set the source color var and carry the symbol-colored class", () => {
       // The --off-page-color/--off-page-text-color vars are mapped to the display/
@@ -29,7 +29,7 @@ describe("OffPageReference", () => {
       // the source var (the only dynamic value) and the marker class.
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference fillColor="#3774d0" />
+          <Primitive.OffPageReference fillColor="#3774d0" />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
@@ -44,7 +44,7 @@ describe("OffPageReference", () => {
     it("should leave the source color unset for a default reference", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference />
+          <Primitive.OffPageReference />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
@@ -54,7 +54,7 @@ describe("OffPageReference", () => {
     it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference fillColor={color.TRANSPARENT} />
+          <Primitive.OffPageReference fillColor={color.TRANSPARENT} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
@@ -66,7 +66,7 @@ describe("OffPageReference", () => {
     it("should render the page type's icon when linked", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference linked pageType="lineplot" />
+          <Primitive.OffPageReference linked pageType="lineplot" />
         </ThemeWrapper>,
       );
       expect(container.querySelector(".lyra-icon--line-plot")).not.toBeNull();
@@ -75,7 +75,7 @@ describe("OffPageReference", () => {
     it("should render the schematic icon by default when linked", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference linked />
+          <Primitive.OffPageReference linked />
         </ThemeWrapper>,
       );
       expect(container.querySelector(".lyra-icon--schematic")).not.toBeNull();
@@ -84,7 +84,7 @@ describe("OffPageReference", () => {
     it("should not render an icon when not linked", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference pageType="lineplot" />
+          <Primitive.OffPageReference pageType="lineplot" />
         </ThemeWrapper>,
       );
       expect(container.querySelector(".lyra-icon")).toBeNull();
@@ -95,7 +95,7 @@ describe("OffPageReference", () => {
     it("should add the linked class when linked", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference linked />
+          <Primitive.OffPageReference linked />
         </ThemeWrapper>,
       );
       expect(container.querySelector(".pluto-arrow")?.getAttribute("class")).toContain(
@@ -106,7 +106,7 @@ describe("OffPageReference", () => {
     it("should not add the linked class when not linked", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference />
+          <Primitive.OffPageReference />
         </ThemeWrapper>,
       );
       const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
@@ -119,7 +119,7 @@ describe("Symbol", () => {
   const renderSymbol = (page?: schematic.Page) =>
     render(
       <ThemeWrapper>
-        <Symbol
+        <OffPageReference.spec.Node
           nodeKey="n1"
           selected={false}
           onConfigChange={vi.fn()}
