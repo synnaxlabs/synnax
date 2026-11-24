@@ -38,8 +38,9 @@ import (
 // through snap with channels. A field binds no channel when it is disabled, when its
 // channel does not exist, or when an earlier field writes that channel. The index of a
 // read is the field that writes an index channel, and it takes no fill value. Any other
-// fill value becomes the default of its field. note receives the path and each change.
-// ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
+// fill value becomes the default of its field. An endpoint whose fields are all
+// disabled becomes disabled. note receives the path and each change. ResolveReadConfig
+// returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -93,6 +94,11 @@ func ResolveReadConfig(
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
 		ep.Messages = []icdv0.ReadMessage{read}
+		if !ep.Disabled && len(e.Fields) > 0 &&
+			lo.EveryBy(e.Fields, func(f ReadField) bool { return f.Disabled }) {
+			ep.Disabled = true
+			note(paths[i], "was disabled, because each of its fields is disabled")
+		}
 	}
 	ic, err := icdv1.MigrateICD(ctx, lifted)
 	if err != nil {
