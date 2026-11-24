@@ -52,6 +52,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL]
@@ -71,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.PointerLogEnabled = override.Nil(c.PointerLogEnabled, other.PointerLogEnabled)
 	return c
 }
 
@@ -106,9 +111,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
-		Instrumentation: cfg.Child("writer"),
-		TS:              cfg.TS,
-		Writes:          writes,
+		Instrumentation:   cfg.Child("writer"),
+		TS:                cfg.TS,
+		PointerLogEnabled: cfg.PointerLogEnabled,
+		Writes:            writes,
 	}); !ok(err, nil) {
 		return nil, err
 	}

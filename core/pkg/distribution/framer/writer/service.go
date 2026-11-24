@@ -238,6 +238,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout. The sessions on a
+	// clock then share one writer, and on the old layout each keeps its own.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic.
 	//
 	// [OPTIONAL] - Defaults to xtime.Real.
@@ -255,6 +260,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	v.NotNil("writes", cfg.Writes)
 	v.NotNil("ts", cfg.TS)
+	v.NotNil("pointer_log_enabled", cfg.PointerLogEnabled)
 	v.NotNil("clock", cfg.Clock)
 	return v.Error()
 }
@@ -263,6 +269,7 @@ func (cfg ServiceConfig) Validate() error {
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
 	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
@@ -334,7 +341,10 @@ func (s *Service) SetChannelResolver(r ChannelResolver) { s.resolver.Store(&r) }
 
 // NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{Clock: xtime.Real}, cfgs...)
+	cfg, err := config.New(
+		ServiceConfig{Clock: xtime.Real, PointerLogEnabled: new(false)},
+		cfgs...,
+	)
 	if err != nil {
 		return nil, err
 	}
