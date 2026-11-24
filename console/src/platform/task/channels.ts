@@ -97,7 +97,10 @@ export interface PlanReadChannelsArgs<F extends ReadChannelField> {
   props?: ReadChannelProps;
   /** The fields of the source. */
   fields: F[];
-  /** Prefix of a generated channel name. A new index is named `${namePrefix}_time`. */
+  /**
+   * Prefix of a generated channel name. A new index takes the name of the index field,
+   * or `${namePrefix}_time` when the source has none.
+   */
   namePrefix: string;
   /** Key of the field whose channel is the index. */
   indexKey: string;
@@ -240,12 +243,12 @@ export const planReadChannels = async <F extends ReadChannelField>({
   const takesIndex = createsIndex || primitive.isNonZero(props.index);
   if (indexField != null && !takesIndex && !(await bind(indexField)))
     unbound.push(indexField);
-  const planned = unbound.map((field) =>
+  const nameOf = (field: F): string =>
     primitive.isNonZero(field.name)
       ? field.name
-      : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`,
-  );
-  const indexName = `${namePrefix}_time`;
+      : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
+  const planned = unbound.map(nameOf);
+  const indexName = indexField == null ? `${namePrefix}_time` : nameOf(indexField);
   await namer.load([...planned, ...(createsIndex ? [indexName] : [])]);
   const renames: ReadChannelPlan["renames"] = [];
   for (const [i, field] of unbound.entries()) {
