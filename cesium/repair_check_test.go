@@ -19,15 +19,19 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -334,6 +338,196 @@ func rebuiltOf(key cesium.ChannelKey, segment uint64, p, n int) cesium.Range {
 			End:   repairStamp(p+n-1) + 1,
 		},
 	}
+}
+
+// confirmed returns the report of a repair of fs with the identity id that confirms
+// it.
+func confirmed(ctx context.Context, fs xfs.FS, id uint64) cesium.Report {
+	GinkgoHelper()
+	return MustSucceed(cesium.Repair(
+		ctx,
+		"",
+		func(cesium.Report) bool { return true },
+		cesium.WithFS(fs),
+		cesium.WithIdentity(id),
+	))
+}
+
+// readBack opens fs with the identity id, and returns the stamps of idx, the values of
+// data, and the alignment and time range of each series of data.
+func readBack(
+	ctx context.Context,
+	fs xfs.FS,
+	id uint64,
+	idx, data cesium.ChannelKey,
+) (stamps []telem.TimeStamp, values []int64, series []telem.Series) {
+	GinkgoHelper()
+	db := MustSucceed(cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(fs),
+		cesium.WithPointerLog(),
+		cesium.WithIdentity(id),
+	))
+	stop := StartRun(db.Run)
+	fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx, data))
+	for _, s := range fr.Get(idx).Series {
+		for i := 0; i+8 <= len(s.Data); i += 8 {
+			stamp := telem.TimeStamp(binary.LittleEndian.Uint64(s.Data[i:]))
+			stamps = append(stamps, stamp)
+		}
+	}
+	for _, s := range fr.Get(data).Series {
+		for i := 0; i+8 <= len(s.Data); i += 8 {
+			values = append(values, int64(binary.LittleEndian.Uint64(s.Data[i:])))
+		}
+		series = append(series, s)
+	}
+	stop()
+	Expect(db.Close()).To(Succeed())
+	return stamps, values, series
+}
+
+// positions returns the positions of the ranges, each from its start to before its
+// end, in order.
+func positions(ranges ...[2]int) []int64 {
+	var out []int64
+	for _, r := range ranges {
+		for p := r[0]; p < r[1]; p++ {
+			out = append(out, int64(p))
+		}
+	}
+	return out
+}
+
+// stampsOf returns the stamp of each of positions.
+func stampsOf(positions []int64) []telem.TimeStamp {
+	out := make([]telem.TimeStamp, len(positions))
+	for i, p := range positions {
+		out[i] = repairStamp(int(p))
+	}
+	return out
+}
+
+// recordOf returns a copy of the first record of the valid frames of log 1 that match
+// matches.
+func recordOf(fs xfs.FS, id uint64, match func(log.Record) bool) log.Record {
+	GinkgoHelper()
+	b := MustSucceed(xfs.ReadFile(fs, log.Name(1)))
+	for _, off := range frames(fs, id) {
+		fr := MustSucceed(log.DecodeFrame(b[off:], id, 1, uint64(off)))
+		var dec log.Decoder
+		entries := fr.Entries
+		for range fr.Count {
+			n := MustSucceed(dec.Reset(entries))
+			for {
+				rec, ok := MustSucceed2(dec.Next())
+				if !ok {
+					break
+				}
+				if match(rec) {
+					return log.Clone(rec)
+				}
+			}
+			entries = entries[n:]
+		}
+	}
+	Fail("no frame holds the record")
+	return nil
+}
+
+// repairsTo repairs fs with the identity id on confirm, then opens it and reports
+// whether data reads want. It makes no assertion, so a goroutine other than the spec's
+// can call it.
+func repairsTo(
+	ctx context.Context,
+	fs xfs.FS,
+	id uint64,
+	data cesium.ChannelKey,
+	want []int64,
+) error {
+	if _, err := cesium.Repair(
+		ctx,
+		"",
+		func(cesium.Report) bool { return true },
+		cesium.WithFS(fs),
+		cesium.WithIdentity(id),
+	); err != nil {
+		return err
+	}
+	db, err := cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(fs),
+		cesium.WithPointerLog(),
+		cesium.WithIdentity(id),
+	)
+	if err != nil {
+		return err
+	}
+	stop := GoRun(ctx, db.Run)
+	fr, err := db.Read(ctx, telem.TimeRangeMax, data)
+	if err = errors.Join(err, stop(), db.Close()); err != nil {
+		return err
+	}
+	var got []int64
+	for _, s := range fr.Get(data).Series {
+		for i := 0; i+8 <= len(s.Data); i += 8 {
+			got = append(got, int64(binary.LittleEndian.Uint64(s.Data[i:])))
+		}
+	}
+	if !slices.Equal(got, want) {
+		return errors.Newf("read %d values, not the %d that the repair keeps", len(got),
+			len(want))
+	}
+	return nil
+}
+
+// stepFS calls step before each sync, rename, and remove through it.
+type stepFS struct {
+	xfs.FS
+	step func()
+}
+
+func (f stepFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return stepFS{FS: sub, step: f.step}, nil
+}
+
+func (f stepFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	return stepFile{File: file, step: f.step}, nil
+}
+
+func (f stepFS) SyncDir(name string) error {
+	f.step()
+	return f.FS.SyncDir(name)
+}
+
+func (f stepFS) Rename(oldPath, newPath string) error {
+	f.step()
+	return f.FS.Rename(oldPath, newPath)
+}
+
+func (f stepFS) Remove(name string) error {
+	f.step()
+	return f.FS.Remove(name)
+}
+
+type stepFile struct {
+	xfs.File
+	step func()
+}
+
+func (f stepFile) Sync() error {
+	f.step()
+	return f.File.Sync()
 }
 
 // taken is a root whose second writer took over the cut segments of the first, with
@@ -785,5 +979,131 @@ var _ = Describe("Check: repair of log damage", func() {
 		))
 		Expect(rep.Unplaced).To(BeEmpty())
 		Expect(rep.Tails).To(BeEmpty())
+	})
+
+	// fixtureValues are the values that the 5b fixture holds after its later delete.
+	fixtureValues := positions([2]int{0, 15000}, [2]int{15010, 3 * commits})
+
+	It("Should open after a confirmed repair, and read every sample of the fixture "+
+		"but its later delete", func(ctx SpecContext) {
+		d := damage(ctx)
+		rep := confirmed(ctx, d.fs, d.id)
+		Expect(rep.Repaired).To(BeTrue())
+		Expect(MustSucceed(d.fs.Exists(log.Name(1) + ".damaged"))).To(BeTrue())
+		stamps, values, _ := readBack(ctx, d.fs, d.id, d.idx, d.data)
+		Expect(values).To(Equal(fixtureValues))
+		Expect(stamps).To(Equal(stampsOf(fixtureValues)))
+	})
+
+	It("Should keep out the cut tail of an open segment after a confirmed repair",
+		func(ctx SpecContext) {
+			const written = 3 * commits
+			t := takeover(ctx, written, written-5500, false)
+			Expect(confirmed(ctx, t.fs, t.id).Repaired).To(BeTrue())
+			stamps, values, _ := readBack(ctx, t.fs, t.id, t.idx, t.data)
+			want := positions(
+				[2]int{0, written - 5500},
+				[2]int{written, written + 2*commits},
+			)
+			Expect(values).To(Equal(want))
+			Expect(stamps).To(Equal(stampsOf(want)))
+		})
+
+	It("Should read the copy of a later Replace with its alignment after a confirmed "+
+		"repair", func(ctx SpecContext) {
+		t := takeover(ctx, commits, commits/2, true)
+		rp, ok := recordOf(t.fs, t.id, func(rec log.Record) bool {
+			r, ok := rec.(*log.Replace)
+			return ok && r.Old == t.cut[1]
+		}).(*log.Replace)
+		Expect(ok).To(BeTrue())
+		Expect(confirmed(ctx, t.fs, t.id).Repaired).To(BeTrue())
+		stamps, values, series := readBack(ctx, t.fs, t.id, t.idx, t.data)
+		want := positions([2]int{0, commits / 2}, [2]int{commits, 3 * commits})
+		Expect(values).To(Equal(want))
+		Expect(stamps).To(Equal(stampsOf(want)))
+		Expect(series[0].Alignment).To(Equal(telem.Alignment(rp.Pointers[0].Alignment)))
+		Expect(series[0].Len()).To(Equal(int64(commits / 2)))
+	})
+
+	It("Should repair again from a crash at each step of the write, and read the same "+
+		"samples", func(ctx SpecContext) {
+		d := damage(ctx)
+		disk := MustSucceed(fault.New(fault.Config{}))
+		for name, b := range bytesOf(d.fs) {
+			dir := MustSucceed(disk.Sub(path.Dir(name)))
+			Expect(xfs.WriteFile(dir, path.Base(name), b)).To(Succeed())
+		}
+		disk.Writeback()
+		// Each step checks an image of only the durable state, and two images that
+		// keep half of the rest, one at a time, so that no step holds every image.
+		var (
+			mu       sync.Mutex
+			steps    int
+			failures []string
+		)
+		check := func() {
+			mu.Lock()
+			defer mu.Unlock()
+			steps++
+			half := func(key uint64) fault.CrashConfig {
+				return fault.CrashConfig{
+					RunKey:            key,
+					DataSurvivalRate:  0.5,
+					TornRate:          0.5,
+					EntrySurvivalRate: 0.5,
+				}
+			}
+			for i, cfg := range []fault.CrashConfig{{}, half(1), half(2)} {
+				img, err := disk.Crash(cfg)
+				if err == nil {
+					err = repairsTo(ctx, img, d.id, d.data, fixtureValues)
+				}
+				if err != nil {
+					failures = append(failures, fmt.Sprintf("step %d image %d: %v",
+						steps, i, err))
+				}
+			}
+		}
+		rep := confirmed(ctx, stepFS{FS: disk, step: check}, d.id)
+		Expect(rep.Repaired).To(BeTrue())
+		check()
+		Expect(steps).To(BeNumerically(">", 3))
+		Expect(failures).To(BeEmpty())
+	})
+
+	It("Should repair a root after an undo, where a generation of a suffixed file "+
+		"repeats, and replace no file", func(ctx SpecContext) {
+		d := damage(ctx)
+		// newest is the newest generation of an unsuffixed head or log.
+		var newest uint64
+		for _, info := range MustSucceed(d.fs.List("")) {
+			hex, rest, ok := strings.Cut(info.Name(), ".")
+			if ok && (rest == "head" || rest == "log") {
+				newest = max(newest, MustSucceed(strconv.ParseUint(hex, 16, 64)))
+			}
+		}
+		g := newest + 1
+		undone := checkpoint.Name(g) + fmt.Sprintf(".%016x.undone", d.id+1)
+		damaged := log.Name(1) + ".damaged"
+		kept := map[string][]byte{undone: []byte("undone"), damaged: []byte("damaged")}
+		for name, b := range kept {
+			Expect(xfs.WriteFile(d.fs, name, b)).To(Succeed())
+		}
+		Expect(confirmed(ctx, d.fs, d.id).Repaired).To(BeTrue())
+		for name, b := range kept {
+			Expect(MustSucceed(xfs.ReadFile(d.fs, name))).To(Equal(b), name)
+		}
+		Expect(MustSucceed(d.fs.Exists(checkpoint.Name(g)))).To(BeTrue())
+		Expect(MustSucceed(d.fs.Exists(log.Name(1)))).To(BeFalse())
+		var aside int
+		for _, info := range MustSucceed(d.fs.List("")) {
+			if strings.HasPrefix(info.Name(), damaged) && info.Name() != damaged {
+				aside++
+			}
+		}
+		Expect(aside).To(Equal(1))
+		_, values, _ := readBack(ctx, d.fs, d.id, d.idx, d.data)
+		Expect(values).To(Equal(fixtureValues))
 	})
 })
