@@ -87,8 +87,12 @@ const UNTRUSTED_CODES = new Set([
   "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
 ]);
 const UNTRUSTED_MESSAGE = "invalid peer certificate: UnknownIssuer";
-// Node gives this OpenSSL code when a TLS client reads a plain HTTP response.
-const NO_TLS_CODE = "ERR_SSL_WRONG_VERSION_NUMBER";
+// OpenSSL codes for a TLS client that reads plain bytes as a TLS record. Node 22.22
+// reports an HTTP/1.1 response as a record that is too long.
+const NO_TLS_CODES = new Set([
+  "ERR_SSL_WRONG_VERSION_NUMBER",
+  "ERR_SSL_PACKET_LENGTH_TOO_LONG",
+]);
 
 const causedBy = (err: unknown, matches: (err: object) => boolean): boolean => {
   if (typeof err !== "object" || err === null) return false;
@@ -101,7 +105,8 @@ const isUntrusted = (err: object): boolean =>
     typeof err.message === "string" &&
     err.message.includes(UNTRUSTED_MESSAGE));
 
-const isNoTLS = (err: object): boolean => "code" in err && err.code === NO_TLS_CODE;
+const isNoTLS = (err: object): boolean =>
+  "code" in err && typeof err.code === "string" && NO_TLS_CODES.has(err.code);
 
 /**
  * @returns an UntrustedCertificate for the target when the error, or a cause of it, is
