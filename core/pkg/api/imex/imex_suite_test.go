@@ -72,8 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -104,7 +103,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators: noActuators,
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
@@ -126,7 +126,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: rbacSvc,
 		Held: apiauth.HeldTables(),
 	}))
-	importEnvelope = bind.Write(binder, apiSvc.Import)
+	importEnvelope = bind.WriteRetrievable(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
@@ -148,3 +148,5 @@ func subjectCtx(ctx SpecContext, u user.User) freighter.Context {
 func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
 	return nil, nil
 }
+
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

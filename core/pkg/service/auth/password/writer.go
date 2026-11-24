@@ -71,57 +71,52 @@ func (w Writer) Set(
 		Exec(ctx, w.tx)
 }
 
-// Action is a change to a stored password. It never leaves the Core, since it can carry
-// a hash. NewSetHashAction and NewSetUsernameAction make one.
-type Action struct {
-	hash     *Hash
-	username string
-}
-
-// NewSetHashAction returns an action that stores h as the password and keeps the
-// username.
-func NewSetHashAction(h Hash) Action { return Action{hash: &h} }
-
-// NewSetUsernameAction returns an action that changes the username of the password.
-func NewSetUsernameAction(username string) Action { return Action{username: username} }
-
-// Apply applies the actions in order to the password of the subject. It returns
-// [auth.ErrInvalidCredentials] when a hash was proven against a password the subject no
-// longer holds, [auth.ErrRepeatedUsername] when another subject holds a username that
-// an action sets, a validation error when that username is empty, and an error wrapping
-// query.ErrNotFound when the subject has no password.
-func (w Writer) Apply(ctx context.Context, subject resource.ID, acts ...Action) error {
+// SetHash stores h as the password of the subject and keeps its username. It returns
+// [auth.ErrInvalidCredentials] when h was proven against a password the subject no
+// longer holds, and an error wrapping query.ErrNotFound when the subject has no
+// password.
+func (w Writer) SetHash(ctx context.Context, subject resource.ID, h Hash) error {
 	p, err := w.retrieve(ctx, subject)
 	if err != nil {
 		return err
 	}
-	for _, a := range acts {
-		if a.hash != nil {
-			if err = a.hash.check(p); err != nil {
-				return err
-			}
-			continue
-		}
-		if a.username == "" {
-			return errors.Wrap(validate.ErrValidation, "username: required")
-		}
-		if err = w.assertUsernameFree(ctx, subject, a.username); err != nil {
-			return err
-		}
+	if err = h.check(p); err != nil {
+		return err
 	}
 	return w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
-			for _, a := range acts {
-				if a.hash == nil {
-					p.Username = a.username
-					continue
-				}
-				p.Hash = a.hash.value
-				p.Created = next(p.Created)
-			}
+			p.Hash = h.value
+			p.Created = next(p.Created)
 			return p
 		}).
+		Exec(ctx, w.tx)
+}
+
+// Apply applies the actions in order to the password with the given key. It returns
+// [auth.ErrRepeatedUsername] when another subject holds the username that the actions
+// set, the errors of Reduce, and an error wrapping query.ErrNotFound when no password
+// has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var p Password
+	if err := w.svc.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&p).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	changed, err := Reduce(p, acts...)
+	if err != nil {
+		return err
+	}
+	if changed.Username != p.Username {
+		if err = w.assertUsernameFree(ctx, p.Subject, changed.Username); err != nil {
+			return err
+		}
+	}
+	return w.svc.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Password](key)).
+		Change(func(gorp.Context, Password) Password { return changed }).
 		Exec(ctx, w.tx)
 }
 

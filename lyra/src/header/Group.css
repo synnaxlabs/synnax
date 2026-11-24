@@ -45,6 +45,13 @@
     }
 }
 
+/* Holds the toggle over the caret and under the actions. A pack raises a hovered or
+   focused button, so this rule outranks the pack rule by one class. */
+.lyra-header-group
+    > .lyra-btn.lyra-header-group__toggle:is(:hover, :focus, :focus-within, :active) {
+    z-index: 1;
+}
+
 .lyra-header-group__actions {
     position: relative;
     z-index: 2;
