@@ -239,12 +239,9 @@ Field groups per make:
   `groups`; unique `reads`, `writes` (`plain` or `sparkplug`), and `edge_commands`.
 - **Kafka cluster**: unique `brokers` (`host`, `port?`), `transport` (`plaintext`, or
   `tls` with an optional CA), `auth`; `reads` by topic, record key, message, pointer.
-- **Sift environment**: `host`, `port?`, `transport` (`tls` or `plaintext`), `api_key`;
-  `update` writes the whole record.
-- **Writer**: an MQTT or Kafka CA is optional, and the writer refuses a `file`
-  certificate of another rack. All three refuse a rack that does not run them.
-- **Credentials**: every typed device holds credentials as `secret.Key` and TLS material
-  as `certificate.Key`, never plaintext.
+- **Sift environment**: `host`, `port?`, `transport`, `api_key`; `update` replaces it.
+- **Writer**: credentials are `secret.Key`s and TLS material `certificate.Key`s. It
+  refuses a `file` certificate of another rack, or a rack that does not run them.
 
 A connected resource has no scanned identity: the connect form writes its identity
 group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
@@ -364,9 +361,8 @@ zero-serial slaves by the stored list, and only the last step writes it. A
 single-resource integration runs one `Sync`. Read and write tasks take the generated
 struct in place of `parser.field` reads. NI looks up the DAQmx alias for physical
 channel names from `resource_name` when a task starts. LabJack opens by `serial`
-(`driver/labjack/read_task.h:535` uses the key today). In the Core, `driver.ScanTask`,
-the MQTT, Kafka, and Sift factories, the MQTT edge session, and the Sift uploader read
-the typed resource, and each observer subscribes before its first read.
+(`driver/labjack/read_task.h:535` uses the key today). The Core's scan task, factories,
+MQTT edge session, and Sift uploader subscribe to the typed resource, then read it.
 
 ### 4.7 Console
 
@@ -374,13 +370,12 @@ Each integration's Console code consumes its generated types and resource client
 registers its own tree items, context menu, link handler, and palette commands, as task
 layouts do. Modules are named for the resource: `server` for OPC UA, Modbus, and HTTP,
 `master` and `slave` for EtherCAT, `chassis` and `device` for NI, and `broker`,
-`cluster`, and `environment` for MQTT, Kafka, and Sift.
-`console/src/feature/device/make.tsx` loses one entry per integration moved and is
-deleted with the last one. The unconfigured-device toast moves into the three discovered
-makes, each on its own `sy_<type>_set`. `platform/device` keeps `Configure`,
-`wrapTaskForm`, and the menu items as generics over a resource with an `identifier`. The
-Console property migrators for OPC UA and HTTP are deleted; the Core's migration chain
-owns both.
+`cluster`, `environment` for MQTT, Kafka, Sift. `console/src/feature/device/make.tsx`
+loses one entry per integration moved and is deleted with the last one. The
+unconfigured-device toast moves into the three discovered makes, each on its own
+`sy_<type>_set`. `platform/device` keeps `Configure`, `wrapTaskForm`, and the menu items
+as generics over a resource with an `identifier`. The Console property migrators for OPC
+UA and HTTP are deleted; the Core's migration chain owns both.
 
 ### 4.8 Migration
 
@@ -417,26 +412,23 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
 They are ordered by version, so a 0.59 Core runs all of them on its first start.
 
-Step 2 moves every plaintext password, token, or key of any make into a stored secret.
-It fixes MQTT, Kafka, and Sift rows:
+Step 2 moves every plaintext credential into a secret, and fixes MQTT, Kafka, and Sift:
 
-- **MQTT**: `location` is `host`; `secure` gives the transport; `verification_skipped`
-  gives `certificate_validation_disabled`; `ca_file` becomes a `file` certificate;
-  `cert_file` and `key_file` become a stored certificate with a secret key, and an
-  unreadable file quarantines the row.
+- **MQTT**: `location` is `host`; `secure` and `verification_skipped` set the transport;
+  `ca_file` becomes a `file` certificate, and `cert_file` with `key_file` a stored one
+  with a secret key, or the row is quarantined if they are unreadable.
 - **MQTT fields**: an empty `client_id` stores the ID derived from the legacy key; a
   password with no user name gives `none` and a warning; `keep_alive` seconds become a
-  span, absent 30 s; an empty `host_id` is `passive`.
+  span, absent 30 s; an empty `host_id` is `passive`; `groups` carry over.
 - **MQTT keys**: a `spBv1.0/` key takes four levels and the rest as the tag, unless a
-  plain task subscribes to that topic; other keys split at the last `#`. A bare
-  `<topic>` loses to `<topic>#<message>`, else takes the message that binds its
-  channels, else the first, else is dropped with a warning. `edge` keys become
-  `edge_commands`, and Sparkplug `groups` carry over.
-- **Kafka**: brokers split at the last `:` and deduplicate; `secure` gives the
-  transport; a PEM CA becomes a stored certificate; SASL follows MQTT auth; `read` keys
-  split at the first and last `#`.
-- **Sift**: a scheme and trailing `/` are dropped before the split; a loopback host is
-  `plaintext`, any other `tls`. `UploadDetails.device` is re-keyed.
+  plain task subscribes to that topic; others split at the last `#`. A bare `<topic>`
+  loses to `<topic>#<message>`, else takes the message that binds its channels, else the
+  first, else is dropped with a warning. `edge` keys become `edge_commands`.
+- **Kafka**: brokers split at the last `:` and deduplicate; `secure` sets the transport;
+  a PEM CA becomes a stored certificate; SASL follows MQTT auth; `read` keys split at
+  the first and last `#`.
+- **Sift**: drop the scheme and trailing `/`, split; a loopback host is `plaintext`,
+  others `tls`. `UploadDetails.device` is re-keyed.
 
 Between the typed services landing and this migration landing, a development Core with
 0.59 rows shows them only through the legacy path. Writes through that path in the
@@ -453,10 +445,9 @@ policy object `{type: "device"}` into the eleven typed objects and maps a per-ke
 ### 4.10 Testing
 
 Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade. The migration suite seeds 0.59- to 0.62-shaped rows for
-every make, including one that quarantines. Driver specs build devices from generated
-structs. Console specs for each make's forms and tree items run against the typed
-client.
+refused delete, and cascade. The migration suite seeds shipped rows for every make,
+including one that quarantines. Driver specs build devices from generated structs.
+Console specs for each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
@@ -479,23 +470,20 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 1: Legacy move.** `core/pkg/service/device` moves to
   `core/pkg/service/legacy/device` (SY-5190). The package name, proto package, and C++
   namespace stay `device`, so only import paths change. Mechanical, `review/bot`.
-- **Phase 2: Ontology types and roles.** The first eight `ResourceType` members,
-  regenerated clients, and the builtin role lists.
+- **Phase 2: Ontology types and roles.** The eight `ResourceType` members, regenerated
+  clients, and the builtin role lists.
 - **Phases 3 to 8: Schemas and services, one integration each.** NI, LabJack, EtherCAT,
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
-- **Phases 8a to 8c: Schemas and services.** MQTT, Kafka, and Sift, as Phases 3 to 8,
-  each with its `ResourceType` member and role grants.
+- **Phases 8a to 8c: Schemas and services.** MQTT, Kafka, Sift, with resource types.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
   client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
   scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
-- **Phases 14a to 14c: Core scanners and factories.** MQTT, Kafka, and Sift tasks on the
-  typed resource (§4.6). Phase 14a makes `driver.ScanTask` generic over the resource.
+- **Phases 14a to 14c: Core tasks.** MQTT, Kafka, Sift; 14a makes the scan task generic.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
-- **Phases 20a to 20c: Console.** MQTT, Kafka, and Sift, as Phases 15 to 19. Phase 20
-  waits for them.
+- **Phases 20a to 20c: Console.** MQTT, Kafka, and Sift. Phase 20 waits for them.
 - **Phase 21: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
 - **Phase 22: Task config references.** Typed device keys on every config, with the
