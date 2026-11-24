@@ -251,7 +251,8 @@ var _ = Describe("msgpack", func() {
 		},
 		Entry("plaintext", v0.Transport{Variant: v0.PlaintextTransport{}}),
 		Entry("TLS", v0.Transport{Variant: v0.TlsTransport{
-			CaCertificate: new(uuid.New()),
+			CaCertificate:     new(uuid.New()),
+			ClientCertificate: new(uuid.New()),
 		}}),
 		Entry("TLS with no CA", v0.Transport{Variant: v0.TlsTransport{}}),
 		Entry("no variant", v0.Transport{}),
