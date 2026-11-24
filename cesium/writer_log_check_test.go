@@ -177,7 +177,7 @@ var _ = Describe("Pointer log writer check", func() {
 		MustSucceed2(w.Commit(ctx, nil))
 		Expect(w.Close()).To(Succeed())
 		Expect(db.Intend(keys)).To(Succeed())
-		Expect(db.Drop(keys)).To(Succeed())
+		Expect(db.Drop(ctx, keys)).To(Succeed())
 		reopen(ctx, cesium.WithPointerLog())
 		for _, k := range keys {
 			Expect(db.RetrieveChannel(ctx, k)).Error().
@@ -194,7 +194,7 @@ var _ = Describe("Pointer log writer check", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			Expect(w.Close()).To(Succeed())
 			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{idx})).To(Succeed())
 			Expect(db.CreateChannel(ctx, cesium.Channel{
 				Key: idx, Name: "again", IsIndex: true, DataType: telem.TimestampT,
 			})).To(SatisfyAll(
