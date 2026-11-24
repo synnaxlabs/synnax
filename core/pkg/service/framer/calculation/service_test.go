@@ -1197,16 +1197,21 @@ var _ = Describe("Calculation", Ordered, func() {
 						ctx, base.Key(), false,
 					)
 				})).To(Succeed())
+				stored := func() (calculation.Status, error) {
+					var st calculation.Status
+					err := statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchOwners[struct{}](calc.ResourceID())).
+						Entry(&st).
+						Exec(ctx, dist.DB)
+					return st, err
+				}
+				Eventually(stored).
+					Should(HaveField("Message", "Failed to compile calculation"))
 				rm := c.OpenRequestManager()
 				Expect(
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
-				var st calculation.Status
-				owner := calc.ResourceID()
-				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
-					Entry(&st).
-					Exec(ctx, dist.DB)).To(Succeed())
+				st := MustSucceed(stored())
 				Expect(st.Variant).To(Equal(status.VariantError))
 				Expect(st.Name).To(Equal(calc.Name))
 				Expect(st.Message).To(Equal("Failed to request calculation"))
