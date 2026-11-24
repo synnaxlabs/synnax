@@ -23,6 +23,7 @@ dependencies = [
     "numpy>=2.5.5,<3",
     "pandas>=3.1.1,<4",
     "pydantic>=2.14.4,<3",
+    "truststore>=0.10.5,<1",
     "urllib3>=2.8.0,<3",
 ]
 
@@ -51,6 +52,7 @@ dev = [
     "protobuf>=7.36.2,<8",
     "types-protobuf>=7.35.1.20260906,<8",
     "nptdms>=1.14.0,<2",
+    "trustme>=1.2.1,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -58,6 +60,10 @@ packages = ["synnax"]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["examples"]
+
+[tool.hatch.build.hooks.version]
+path = "synnax/version.py"
+pattern = true
 
 [tool.ruff]
 extend = "../../pyproject.toml"

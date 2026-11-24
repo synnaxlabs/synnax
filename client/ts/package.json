@@ -31,7 +31,7 @@
     "watch": "vite build --watch",
     "test": "vitest",
     "bench": "vitest bench --config vitest.bench.config.ts",
-    "cov": "vitest --coverage",
+    "cov": "vitest --coverage --project client --project provided-core --project chromium",
     "lint": "eslint",
     "fix": "eslint --fix",
     "install-browsers": "playwright install chromium firefox webkit",
@@ -45,13 +45,9 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "undici": "catalog:node22",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
-    "undici": {
-      "optional": true
-    },
     "vitest": {
       "optional": true
     }
@@ -60,15 +56,17 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "esbuild": "catalog:",
     "eslint": "catalog:",
     "playwright": "catalog:",
     "typescript": "catalog:",
-    "undici": "catalog:node22",
     "vite": "catalog:",
     "vitest": "catalog:",
+    "webpack": "catalog:",
     "ws": "catalog:"
   },
   "type": "module",

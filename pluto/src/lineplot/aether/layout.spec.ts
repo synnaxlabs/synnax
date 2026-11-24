@@ -18,18 +18,11 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  collapse,
-  join,
-  Layout,
-  shownSpans,
-  spans,
-  type Trace,
-} from "@/lineplot/aether/layout";
+import { lineplot } from "@/lineplot/aether";
 
-describe("Layout", () => {
+describe("lineplot.Layout", () => {
   describe("one segment", () => {
-    const layout = new Layout([{ lower: 100, upper: 200 }], box.DECIMAL);
+    const layout = new lineplot.Layout([{ lower: 100, upper: 200 }], box.DECIMAL);
 
     it("should map the segment bounds onto the home view", () => {
       expect(layout.home(100)).toBeCloseTo(0);
@@ -49,7 +42,7 @@ describe("Layout", () => {
     });
 
     it("should map positions across the viewport", () => {
-      const zoomed = new Layout(
+      const zoomed = new lineplot.Layout(
         [{ lower: 100, upper: 200 }],
         box.construct({ x: 0.5, y: 0 }, { width: 0.25, height: 1 }),
       );
@@ -62,7 +55,7 @@ describe("Layout", () => {
 
   describe("several segments", () => {
     // Spans of 10, 30, and 60 share the home view as 0.1, 0.3, and 0.6.
-    const layout = new Layout(
+    const layout = new lineplot.Layout(
       [
         { lower: 0, upper: 10 },
         { lower: 1000, upper: 1030 },
@@ -131,32 +124,38 @@ const trace = (
   key: string,
   lower: number,
   upper: number,
-  extra: Partial<Trace> = {},
-): Trace => ({ key, group: "a", bounds: { lower, upper }, loading: false, ...extra });
+  extra: Partial<lineplot.Trace> = {},
+): lineplot.Trace => ({
+  key,
+  group: "a",
+  bounds: { lower, upper },
+  loading: false,
+  ...extra,
+});
 
-describe("spans", () => {
+describe("lineplot.spans", () => {
   describe("time", () => {
     it("should split the time between two windows at its middle", () => {
-      const s = spans([trace("1", 0, 10), trace("2", 30, 40)], "time");
+      const s = lineplot.spans([trace("1", 0, 10), trace("2", 30, 40)], "time");
       expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
       expect(s.get("2")).toEqual({ lower: 20, upper: Infinity });
     });
 
     it("should give an overlap to the window that starts first", () => {
-      const s = spans([trace("2", 5, 20), trace("1", 0, 10)], "time");
+      const s = lineplot.spans([trace("2", 5, 20), trace("1", 0, 10)], "time");
       expect(s.get("1")).toEqual({ lower: -Infinity, upper: 10 });
       expect(s.get("2")).toEqual({ lower: 10, upper: Infinity });
     });
 
     it("should give no time to a window that an earlier window holds", () => {
-      const s = spans([trace("1", 0, 100), trace("2", 10, 20)], "time");
+      const s = lineplot.spans([trace("1", 0, 100), trace("2", 10, 20)], "time");
       expect(s.get("1")).toEqual(bounds.INFINITE);
       const empty = s.get("2");
       expect(empty?.lower).toEqual(empty?.upper);
     });
 
     it("should give a rolling window the time of a fixed window inside it", () => {
-      const s = spans(
+      const s = lineplot.spans(
         [trace("fixed", 40, 60), trace("live", 0, 100, { edge: "rolling" })],
         "time",
       );
@@ -166,7 +165,7 @@ describe("spans", () => {
     });
 
     it("should give a fixed window only the time before a rolling window", () => {
-      const s = spans(
+      const s = lineplot.spans(
         [trace("fixed", 0, 60), trace("live", 40, 100, { edge: "rolling" })],
         "time",
       );
@@ -175,7 +174,7 @@ describe("spans", () => {
     });
 
     it("should split each group on its own", () => {
-      const s = spans(
+      const s = lineplot.spans(
         [trace("1", 0, 10), trace("2", 0, 10, { group: "b" }), trace("3", 30, 40)],
         "time",
       );
@@ -184,7 +183,7 @@ describe("spans", () => {
     });
 
     it("should give a trace with no group the time of its own group", () => {
-      const s = spans(
+      const s = lineplot.spans(
         [trace("1", 0, 10, { group: undefined }), trace("2", 30, 40)],
         "time",
       );
@@ -192,7 +191,7 @@ describe("spans", () => {
     });
 
     it("should give no span to a trace with no window", () => {
-      expect(spans([trace("1", Infinity, -Infinity)], "time").size).toBe(0);
+      expect(lineplot.spans([trace("1", Infinity, -Infinity)], "time").size).toBe(0);
     });
 
     it("should keep each span inside the segment of its window", () => {
@@ -200,7 +199,7 @@ describe("spans", () => {
         { lower: -1, upper: 11 },
         { lower: 90, upper: 110 },
       ];
-      const s = spans([trace("1", 0, 10), trace("2", 95, 105)], "time", segs);
+      const s = lineplot.spans([trace("1", 0, 10), trace("2", 95, 105)], "time", segs);
       expect(s.get("1")).toEqual({ lower: -Infinity, upper: 11 });
       expect(s.get("2")).toEqual({ lower: 90, upper: Infinity });
     });
@@ -210,7 +209,7 @@ describe("spans", () => {
         { lower: -1, upper: 41 },
         { lower: 90, upper: 110 },
       ];
-      const s = spans(
+      const s = lineplot.spans(
         [trace("1", 0, 10), trace("2", 30, 40), trace("3", 95, 105)],
         "time",
         segs,
@@ -223,55 +222,67 @@ describe("spans", () => {
 
   describe("relative", () => {
     it("should pad each window by a share of its span on each side", () => {
-      const s = spans([trace("1", 0, 10 * MINUTE)], "relative");
+      const s = lineplot.spans([trace("1", 0, 10 * MINUTE)], "relative");
       expect(s.get("1")).toEqual({ lower: -0.5 * MINUTE, upper: 10.5 * MINUTE });
     });
 
     it("should pad a short window by at least the floor", () => {
-      const s = spans([trace("1", 0, SECOND)], "relative");
+      const s = lineplot.spans([trace("1", 0, SECOND)], "relative");
       expect(s.get("1")).toEqual({ lower: -SECOND, upper: 2 * SECOND });
     });
 
     it("should not split windows of one group", () => {
-      const s = spans([trace("1", 0, MINUTE), trace("2", 0, MINUTE)], "relative");
+      const s = lineplot.spans(
+        [trace("1", 0, MINUTE), trace("2", 0, MINUTE)],
+        "relative",
+      );
       expect(s.get("1")).toEqual(s.get("2"));
     });
 
     it("should leave the end of a growing window open", () => {
-      const s = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
+      const s = lineplot.spans(
+        [trace("1", 0, MINUTE, { edge: "growing" })],
+        "relative",
+      );
       expect(s.get("1")).toEqual({ lower: -3 * SECOND, upper: Infinity });
     });
 
     it("should keep the margin before a growing window when it ends", () => {
-      const growing = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
-      const ended = spans([trace("1", 0, MINUTE)], "relative");
+      const growing = lineplot.spans(
+        [trace("1", 0, MINUTE, { edge: "growing" })],
+        "relative",
+      );
+      const ended = lineplot.spans([trace("1", 0, MINUTE)], "relative");
       expect(growing.get("1")?.lower).toEqual(ended.get("1")?.lower);
     });
   });
 
   it("should give no spans on a linear axis", () => {
-    expect(spans([trace("1", 0, 10)], "linear").size).toBe(0);
+    expect(lineplot.spans([trace("1", 0, 10)], "linear").size).toBe(0);
   });
 });
 
-describe("Layout.span", () => {
+describe("lineplot.Layout.span", () => {
   it("should give a line with no span every value", () => {
-    const layout = new Layout([{ lower: 0, upper: 1 }], box.DECIMAL);
+    const layout = new lineplot.Layout([{ lower: 0, upper: 1 }], box.DECIMAL);
     expect(layout.span("x")).toEqual(bounds.INFINITE);
   });
 });
 
-describe("collapse", () => {
+describe("lineplot.collapse", () => {
   const MIN = MINUTE;
 
   it("should give one segment padded by a share of its span for one window", () => {
-    expect(collapse([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
+    expect(lineplot.collapse([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
       { lower: -MIN, upper: 101 * MIN },
     ]);
   });
 
   it("should give each window far from the others its own segment", () => {
-    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)], 0);
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
+      0,
+    );
     expect(s).toEqual([
       { lower: 0, upper: 10.5 * MIN },
       { lower: 99.5 * MIN, upper: 110 * MIN },
@@ -279,12 +290,15 @@ describe("collapse", () => {
   });
 
   it("should merge windows whose margins overlap", () => {
-    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)], 0);
+    const s = lineplot.collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)],
+      0,
+    );
     expect(s).toEqual([{ lower: 0, upper: 20 * MIN }]);
   });
 
   it("should pad the outer edges by a share of the span of every segment", () => {
-    const s = collapse(
+    const s = lineplot.collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
       0.1,
     );
@@ -293,7 +307,7 @@ describe("collapse", () => {
   });
 
   it("should give a growing window a margin before it and none after", () => {
-    const s = collapse(
+    const s = lineplot.collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
       0,
     );
@@ -302,7 +316,7 @@ describe("collapse", () => {
 
   it("should keep the margin before a growing window when it ends", () => {
     const at = (edge?: "growing") =>
-      collapse(
+      lineplot.collapse(
         [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge })],
         0,
       );
@@ -310,7 +324,7 @@ describe("collapse", () => {
   });
 
   it("should give a rolling window a margin from its span before it", () => {
-    const s = collapse(
+    const s = lineplot.collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "rolling" })],
       0,
     );
@@ -318,16 +332,18 @@ describe("collapse", () => {
   });
 
   it("should pad a single sample by one on each side", () => {
-    expect(collapse([trace("1", 5, 5)], 0.01)).toEqual([{ lower: 4, upper: 6 }]);
+    expect(lineplot.collapse([trace("1", 5, 5)], 0.01)).toEqual([
+      { lower: 4, upper: 6 },
+    ]);
   });
 
   it("should give no segments when no trace has a window", () => {
-    expect(collapse([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
+    expect(lineplot.collapse([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
   });
 });
 
-describe("Layout.segment", () => {
-  const layout = new Layout(
+describe("lineplot.Layout.segment", () => {
+  const layout = new lineplot.Layout(
     [
       { lower: 0, upper: 10 },
       { lower: 100, upper: 110 },
@@ -354,7 +370,7 @@ describe("Layout.segment", () => {
   });
 });
 
-describe("join", () => {
+describe("lineplot.join", () => {
   const PIECES = [
     { lower: 0, upper: 10 },
     { lower: 100, upper: 110 },
@@ -362,7 +378,7 @@ describe("join", () => {
   ];
 
   it("should list a closed gap between each two pieces", () => {
-    expect(join(PIECES, [])).toEqual({
+    expect(lineplot.join(PIECES, [])).toEqual({
       segments: PIECES,
       gaps: [
         { bounds: { lower: 10, upper: 100 }, open: false },
@@ -372,7 +388,7 @@ describe("join", () => {
   });
 
   it("should merge the pieces on each side of an open gap", () => {
-    const { segments: s, gaps } = join(PIECES, [110]);
+    const { segments: s, gaps } = lineplot.join(PIECES, [110]);
     expect(s).toEqual([
       { lower: 0, upper: 10 },
       { lower: 100, upper: 210 },
@@ -381,19 +397,21 @@ describe("join", () => {
   });
 
   it("should give one segment when every gap is open", () => {
-    expect(join(PIECES, [10, 110]).segments).toEqual([{ lower: 0, upper: 210 }]);
+    expect(lineplot.join(PIECES, [10, 110]).segments).toEqual([
+      { lower: 0, upper: 210 },
+    ]);
   });
 });
 
-describe("Layout.gapAt", () => {
+describe("lineplot.Layout.gapAt", () => {
   const PIECES = [
     { lower: 0, upper: 10 },
     { lower: 100, upper: 110 },
     { lower: 200, upper: 210 },
   ];
   const layout = (open: number[]) => {
-    const { segments: s, gaps } = join(PIECES, open);
-    return new Layout(s, box.DECIMAL, new Map(), gaps);
+    const { segments: s, gaps } = lineplot.join(PIECES, open);
+    return new lineplot.Layout(s, box.DECIMAL, new Map(), gaps);
   };
 
   it("should find the closed gap whose seam is within tolerance", () => {
@@ -420,15 +438,15 @@ describe("Layout.gapAt", () => {
   });
 });
 
-describe("Layout breaks", () => {
+describe("lineplot.Layout breaks", () => {
   const PIECES = [
     { lower: 0, upper: 10 },
     { lower: 100, upper: 110 },
     { lower: 200, upper: 210 },
   ];
   const layout = (open: number[]) => {
-    const { segments: s, gaps } = join(PIECES, open);
-    return new Layout(s, box.DECIMAL, new Map(), gaps);
+    const { segments: s, gaps } = lineplot.join(PIECES, open);
+    return new lineplot.Layout(s, box.DECIMAL, new Map(), gaps);
   };
 
   it("should list the home position of each seam", () => {
@@ -452,7 +470,7 @@ describe("Layout breaks", () => {
   });
 });
 
-describe("shownSpans", () => {
+describe("lineplot.shownSpans", () => {
   const HOUR = Number(TimeSpan.HOUR.valueOf());
   const window = (start: number, hours: number) =>
     staticWindow(new TimeRange(start * HOUR, (start + hours) * HOUR));
@@ -460,7 +478,10 @@ describe("shownSpans", () => {
   const NOW = new TimeStamp(1000 * HOUR);
 
   it("should leave out the gaps between windows far apart", () => {
-    const shown = shownSpans([window(0, 1), window(100, 1)], { now: NOW, newest: NOW });
+    const shown = lineplot.shownSpans([window(0, 1), window(100, 1)], {
+      now: NOW,
+      newest: NOW,
+    });
     expect(shown).toHaveLength(2);
     expect(ns(shown[0].start)).toEqual(0);
     expect(ns(shown[1].end)).toEqual(101 * HOUR);
@@ -469,7 +490,7 @@ describe("shownSpans", () => {
   });
 
   it("should hold the time between windows close together in one span", () => {
-    const shown = shownSpans([window(0, 1), window(1.05, 1)], {
+    const shown = lineplot.shownSpans([window(0, 1), window(1.05, 1)], {
       now: NOW,
       newest: NOW,
     });
@@ -484,7 +505,7 @@ describe("shownSpans", () => {
       start.add(TimeSpan.days(2)),
       start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
     );
-    const shown = shownSpans([staticWindow(first), staticWindow(later)], {
+    const shown = lineplot.shownSpans([staticWindow(first), staticWindow(later)], {
       now: NOW,
       newest: NOW,
     });
@@ -495,7 +516,7 @@ describe("shownSpans", () => {
   it("should leave the span of a running window open", () => {
     const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
     const at101 = new TimeStamp(101 * HOUR);
-    const shown = shownSpans([window(0, 1), staticWindow(running)], {
+    const shown = lineplot.shownSpans([window(0, 1), staticWindow(running)], {
       now: at101,
       newest: at101,
     });
@@ -508,7 +529,7 @@ describe("shownSpans", () => {
   it("should hold the time of an open break in one span", () => {
     // The gap starts a margin of 5% of the first window after its end.
     const lower = HOUR + HOUR * 0.05;
-    const shown = shownSpans([window(0, 1), window(100, 1)], {
+    const shown = lineplot.shownSpans([window(0, 1), window(100, 1)], {
       now: NOW,
       newest: NOW,
       open: [lower],
@@ -522,7 +543,7 @@ describe("shownSpans", () => {
     // A fixed margin of 5% of eight hours would join the two windows.
     const planned = new TimeRange(1.25 * HOUR, 9.25 * HOUR);
     const at2 = new TimeStamp(2 * HOUR);
-    const shown = shownSpans([window(0, 1), staticWindow(planned)], {
+    const shown = lineplot.shownSpans([window(0, 1), staticWindow(planned)], {
       now: at2,
       newest: at2,
     });
@@ -536,7 +557,7 @@ describe("shownSpans", () => {
     // The channels stopped before the second window ended. As a running window, it
     // would stop at the newest sample, and its smaller margin would leave the gap
     // between the windows out.
-    const shown = shownSpans([window(0, 1), window(1.08, 1)], {
+    const shown = lineplot.shownSpans([window(0, 1), window(1.08, 1)], {
       now: new TimeStamp(3 * HOUR),
       newest: new TimeStamp(1.5 * HOUR),
     });
@@ -549,7 +570,7 @@ describe("shownSpans", () => {
     const at2 = new TimeStamp(2 * HOUR);
     const planned = staticWindow(new TimeRange(2 * HOUR + MINUTE, 3 * HOUR));
     const live = dynamicWindow(TimeSpan.minutes(40));
-    const shown = shownSpans([live, planned], {
+    const shown = lineplot.shownSpans([live, planned], {
       now: new TimeStamp(1.9 * HOUR),
       newest: at2,
     });
@@ -559,7 +580,10 @@ describe("shownSpans", () => {
   });
 
   it("should list the spans in time order", () => {
-    const shown = shownSpans([window(100, 1), window(0, 1)], { now: NOW, newest: NOW });
+    const shown = lineplot.shownSpans([window(100, 1), window(0, 1)], {
+      now: NOW,
+      newest: NOW,
+    });
     expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
   });
 });

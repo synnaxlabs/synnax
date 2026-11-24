@@ -41,23 +41,26 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name                         *gorp.SortedIndex[Key, Schematic, string]
-	group                        *gorp.KeyReference[Key, Schematic, group.Key]
-	project                      *gorp.KeyReference[Key, Schematic, project.Key]
-	nodesConfigStateChannel      *gorp.KeyReference[Key, Schematic, channel.Key]
-	nodesConfigCommandChannel    *gorp.KeyReference[Key, Schematic, channel.Key]
-	nodesConfigStrokeColorKey    *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigFillColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigChannel           *gorp.KeyReference[Key, Schematic, channel.Key]
-	nodesConfigEnumeration       *gorp.KeyReference[Key, Schematic, enumeration.Key]
-	nodesConfigLevelColorKey     *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigAxisColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigTextColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigSpecKey           *gorp.KeyReference[Key, Schematic, symbol.Key]
-	nodesConfigColorKey          *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigStatesEnumeration *gorp.KeyReference[Key, Schematic, enumeration.Key]
-	edgesConfigStrokeColorKey    *gorp.KeyReference[Key, Schematic, color.Key]
-	search                       *gorp.SearchIndex[Key, Schematic]
+	name                           *gorp.SortedIndex[Key, Schematic, string]
+	group                          *gorp.KeyReference[Key, Schematic, group.Key]
+	project                        *gorp.KeyReference[Key, Schematic, project.Key]
+	nodesConfigStateChannel        *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigCommandChannel      *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStrokeColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigFillColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigChannel             *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigEnumeration         *gorp.KeyReference[Key, Schematic, enumeration.Key]
+	nodesConfigLevelColorKey       *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigAxisColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigTextColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigSpecKey             *gorp.KeyReference[Key, Schematic, symbol.Key]
+	nodesConfigColorKey            *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigStatesSourceKey     *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStatesSourceCommand *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStatesEnumeration   *gorp.KeyReference[Key, Schematic, enumeration.Key]
+	nodesConfigCommandsChannel     *gorp.KeyReference[Key, Schematic, channel.Key]
+	edgesConfigStrokeColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
+	search                         *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -3011,6 +3014,140 @@ func newIndexes() indexes {
 				return nil
 			},
 		}),
+		nodesConfigStatesSourceKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.states.source.key",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.States {
+							if v3.Source != nil {
+								switch v4 := v3.Source.Variant.(type) {
+								case ChannelSource:
+									if v4.Key != nil {
+										if targets == nil {
+											targets = make([]channel.Key, 0, len(e.Nodes))
+										}
+										targets = append(targets, *v4.Key)
+									}
+								}
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i7 := range v6.States {
+							if v6.States[i7].Source != nil {
+								switch v8 := v6.States[i7].Source.Variant.(type) {
+								case ChannelSource:
+									if v8.Key != nil && *v8.Key == t {
+										v8.Key = nil
+									}
+									v6.States[i7].Source.Variant = v8
+								}
+							}
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i9 := range e.Nodes {
+					switch v10 := e.Nodes[i9].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i11 := range v10.States {
+							if v10.States[i11].Source != nil {
+								switch v12 := v10.States[i11].Source.Variant.(type) {
+								case ChannelSource:
+									if v12.Key != nil && *v12.Key == from {
+										*v12.Key = to
+									}
+									v10.States[i11].Source.Variant = v12
+								}
+							}
+						}
+						e.Nodes[i9].Config.Variant = v10
+					}
+				}
+			},
+		}),
+		nodesConfigStatesSourceCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.states.source.command",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.States {
+							if v3.Source != nil {
+								switch v4 := v3.Source.Variant.(type) {
+								case ChannelSource:
+									if v4.Command != nil {
+										if targets == nil {
+											targets = make([]channel.Key, 0, len(e.Nodes))
+										}
+										targets = append(targets, *v4.Command)
+									}
+								}
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i7 := range v6.States {
+							if v6.States[i7].Source != nil {
+								switch v8 := v6.States[i7].Source.Variant.(type) {
+								case ChannelSource:
+									if v8.Command != nil && *v8.Command == t {
+										v8.Command = nil
+									}
+									v6.States[i7].Source.Variant = v8
+								}
+							}
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i9 := range e.Nodes {
+					switch v10 := e.Nodes[i9].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i11 := range v10.States {
+							if v10.States[i11].Source != nil {
+								switch v12 := v10.States[i11].Source.Variant.(type) {
+								case ChannelSource:
+									if v12.Command != nil && *v12.Command == from {
+										*v12.Command = to
+									}
+									v10.States[i11].Source.Variant = v12
+								}
+							}
+						}
+						e.Nodes[i9].Config.Variant = v10
+					}
+				}
+			},
+		}),
 		nodesConfigStatesEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, enumeration.Key]{
 			Name:     "nodes.config.states.enumeration",
 			Table:    "enumeration",
@@ -3053,6 +3190,55 @@ func newIndexes() indexes {
 						for i9 := range v8.States {
 							if v8.States[i9].Enumeration != nil && *v8.States[i9].Enumeration == from {
 								*v8.States[i9].Enumeration = to
+							}
+						}
+						e.Nodes[i7].Config.Variant = v8
+					}
+				}
+			},
+		}),
+		nodesConfigCommandsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.commands.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.Commands {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v3.Channel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i4 := range e.Nodes {
+					switch v5 := e.Nodes[i4].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						v5.Commands = slices.DeleteFunc(v5.Commands, func(v6 CommandBinding) bool {
+							if v6.Channel == t {
+								return true
+							}
+							return false
+						})
+						e.Nodes[i4].Config.Variant = v5
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i7 := range e.Nodes {
+					switch v8 := e.Nodes[i7].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i9 := range v8.Commands {
+							if v8.Commands[i9].Channel == from {
+								v8.Commands[i9].Channel = to
 							}
 						}
 						e.Nodes[i7].Config.Variant = v8
@@ -3385,7 +3571,10 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 		i.nodesConfigTextColorKey,
 		i.nodesConfigSpecKey,
 		i.nodesConfigColorKey,
+		i.nodesConfigStatesSourceKey,
+		i.nodesConfigStatesSourceCommand,
 		i.nodesConfigStatesEnumeration,
+		i.nodesConfigCommandsChannel,
 		i.edgesConfigStrokeColorKey,
 	}
 }

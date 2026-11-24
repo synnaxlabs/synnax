@@ -9,10 +9,11 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type text } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
+import { size } from "@/schematic/node/common/size";
 
 const path = deep.path<{ size: Component.Size; level: text.Level }>();
 
@@ -24,7 +25,7 @@ export const SizeField = (
   </Form.Field>
 );
 
-const selectSize = Component.renderProp(Component.SelectSize);
+const selectSize = Component.renderProp(Select.Component.Size);
 
 /** A size field for symbols that store a text level instead of a size. */
 export const LevelSizeField = (
@@ -42,9 +43,9 @@ const SelectLevelSize = ({
   value: text.Level;
   onChange: (level: text.Level) => void;
 }): ReactElement => (
-  <Component.SelectSize
-    value={LEVEL_SIZES[value]}
-    onChange={(size: Component.Size) => onChange(SIZE_LEVELS[size])}
+  <Select.Component.Size
+    value={size.BY_LEVEL[value]}
+    onChange={(value: Component.Size) => onChange(size.LEVELS[value])}
   />
 );
 

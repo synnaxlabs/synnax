@@ -143,11 +143,7 @@ describe("role", () => {
 
     it("should refuse to delete a role that a user holds", async () => {
       const held = await client.access.roles.create({ name: `held-${id.create()}` });
-      const u = await client.users.create({
-        username: id.create(),
-        password: "test",
-        role: held.key,
-      });
+      const u = await client.users.create({ name: "test", role: held.key });
       await expect(client.access.roles.delete(held.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete role ${held.name} because user ${u.name} ` +
