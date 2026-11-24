@@ -13,6 +13,8 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +27,42 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// openGate parks the first open of 1.domain after it is armed until release closes,
+// and reports each later open of 1.domain on opened.
+type openGate struct {
+	fs.FS
+	armed   atomic.Bool
+	parked  atomic.Bool
+	entered chan struct{}
+	release chan struct{}
+	opened  chan struct{}
+}
+
+func newOpenGate(base fs.FS) *openGate {
+	return &openGate{
+		FS:      base,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+		opened:  make(chan struct{}, 1),
+	}
+}
+
+func (g *openGate) Open(name string, flag int) (fs.File, error) {
+	if name == "1.domain" {
+		if g.armed.CompareAndSwap(true, false) {
+			g.parked.Store(true)
+			close(g.entered)
+			<-g.release
+		} else if g.parked.Load() {
+			select {
+			case g.opened <- struct{}{}:
+			default:
+			}
+		}
+	}
+	return g.FS.Open(name, flag)
+}
+
 var _ = Describe("Garbage Collection", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
@@ -34,6 +72,114 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
+			})
+
+			Context("An iterator seeks before the collection", func() {
+				var (
+					i      *domain.Iterator
+					gate   *openGate
+					first  = (10 * telem.SecondTS).Range(14 * telem.SecondTS)
+					second = (20 * telem.SecondTS).Range(26 * telem.SecondTS)
+					data   = []byte{20, 21, 22, 23, 24, 25}
+				)
+				BeforeEach(func(ctx SpecContext) {
+					gate = newOpenGate(fs)
+					db = MustOpen(domain.Open(domain.Config{
+						FS:              gate,
+						FileSize:        9 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(
+						testutil.WriteDomain(ctx, db, first, []byte{10, 11, 12, 13}),
+					).To(Succeed())
+					Expect(testutil.WriteDomain(ctx, db, second, data)).To(Succeed())
+					i = DeferClose(
+						db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
+					)
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						first,
+						fixedOffset(0),
+						fixedOffset(4),
+					)).To(Succeed())
+				})
+				expectRead := func(ctx SpecContext, want []byte) {
+					GinkgoHelper()
+					r := MustOpen(i.OpenReader(ctx))
+					Expect(r.Size()).To(Equal(telem.Size(len(want))))
+					read := make([]byte, len(want))
+					MustSucceed(r.ReadAt(read, 0))
+					Expect(read).To(Equal(want))
+				}
+
+				It("Should read its domain at the new offset", func(ctx SpecContext) {
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					expectRead(ctx, data)
+				})
+
+				It("Should read the old offset if no collection ran", func(
+					ctx SpecContext,
+				) {
+					Expect(db.Delete(
+						ctx,
+						(23 * telem.SecondTS).Range(26*telem.SecondTS),
+						fixedOffset(3),
+						fixedOffset(6),
+					)).To(Succeed())
+					expectRead(ctx, data)
+				})
+
+				It("Should fail after a delete cuts the end of the domain", func(
+					ctx SpecContext,
+				) {
+					Expect(db.Delete(
+						ctx,
+						(23 * telem.SecondTS).Range(26*telem.SecondTS),
+						fixedOffset(3),
+						fixedOffset(6),
+					)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(i.OpenReader(ctx)).Error().To(
+						MatchError(ContainSubstring("domain changed")),
+					)
+					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
+					expectRead(ctx, data[:3])
+				})
+
+				It("Should open the current file for a reader during GC", func(
+					ctx SpecContext,
+				) {
+					gate.armed.Store(true)
+					collected := make(chan error, 1)
+					go func() { collected <- db.GarbageCollect(ctx) }()
+					Eventually(gate.entered).Should(BeClosed())
+					type result struct {
+						r   domain.RangeReader
+						err error
+					}
+					opened := make(chan result, 1)
+					go func() {
+						r, err := i.OpenReader(ctx)
+						opened <- result{r: r, err: err}
+					}()
+					// A reader that waits for GC before its open never enters it.
+					select {
+					case <-gate.opened:
+					case <-time.After(100 * time.Millisecond):
+					}
+					close(gate.release)
+					Eventually(collected).Should(Receive(BeNil()))
+					var res result
+					Eventually(opened).Should(Receive(&res))
+					Expect(res.err).ToNot(HaveOccurred())
+					r := DeferClose(res.r)
+					read := make([]byte, len(data))
+					MustSucceed(r.ReadAt(read, 0))
+					Expect(read).To(Equal(data))
+				})
 			})
 
 			Context("Happy path - one file", func() {
