@@ -175,6 +175,31 @@ var _ = Describe("Writer on the pointer log", func() {
 			)
 			Expect(read(ctx, data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
 		})
+		It("Should report a commit before the newest data of a key to history", func(
+			ctx SpecContext,
+		) {
+			var changes []cesium.HistoryChange
+			disconnect := db.OnHistoryChange(
+				func(_ context.Context, c cesium.HistoryChange) {
+					changes = append(changes, c)
+				},
+			)
+			DeferCleanup(disconnect)
+			w := openWriter(ctx, 20*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(changes).To(BeEmpty())
+			w = openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			tr := (10 * telem.SecondTS).Range(11*telem.SecondTS + 1)
+			Expect(changes).To(ConsistOf(
+				cesium.HistoryChange{Key: idx, TimeRange: tr},
+				cesium.HistoryChange{Key: data, TimeRange: tr},
+			))
+		})
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
