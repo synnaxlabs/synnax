@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"uuid"
@@ -91,7 +92,8 @@ func (c Channels) Of(
 // that message. A field takes the kind of its channel in found, and binds no channel
 // when found lacks it. A disabled field gets no binding. The field with key index
 // becomes the index of the read. note receives path.fields.<i> and each change to the
-// field at i, and path.index when no field has key index.
+// field at i, and path.index when no field has key index. A field whose pointer leads
+// to the value of an earlier field, or into or around it, gets a note that names both.
 func LiftMessage(
 	fields []InlineField,
 	index string,
@@ -117,8 +119,21 @@ func LiftMessage(
 			Scale:   1,
 			Pointer: old.Pointer,
 		})
+		at := path + ".fields." + strconv.Itoa(i)
 		for _, c := range changes {
-			note(path+".fields."+strconv.Itoa(i), c)
+			note(at, c)
+		}
+		for _, prior := range lifted[:i] {
+			if reads := overlap(prior.Base().Pointer, old.Pointer); reads != "" {
+				note(at, fmt.Sprintf(
+					"field %q reads %s field %q, so keep one of them before you edit "+
+						"the ICD",
+					field.Base().Name,
+					reads,
+					prior.Base().Name,
+				))
+				break
+			}
 		}
 		lifted[i] = field
 		if isIndex {
@@ -142,6 +157,25 @@ func LiftMessage(
 		Key:     read.Message,
 		Payload: Payload{Variant: JSONPayload{Fields: lifted}},
 	}, read
+}
+
+// overlap returns how the value at pointer b relates to the value at pointer a: "the
+// same value as", "a value inside", or "a value that holds". It returns "" when neither
+// value holds the other, or when either pointer is malformed.
+func overlap(a, b string) string {
+	pa, errA := xjson.ParsePointer(a)
+	pb, errB := xjson.ParsePointer(b)
+	switch {
+	case errA != nil || errB != nil:
+		return ""
+	case slices.Equal(pa, pb):
+		return "the same value as"
+	case pb.HasPrefix(pa):
+		return "a value inside"
+	case pa.HasPrefix(pb):
+		return "a value that holds"
+	}
+	return ""
 }
 
 // UniqueName returns name, or name with the lowest suffix " (n)" that taken lacks, and

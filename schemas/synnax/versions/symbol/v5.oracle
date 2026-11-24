@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/color/v0"
 import "schemas/synnax/versions/enumeration/v0"
 import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/resource/v0"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -103,7 +104,7 @@ State union on type extends BaseState {
         @doc value "is a state that shows the entries of an enumeration."
     }
     number {
-        bounds spatial.Bounds = { lower = 0, upper = 100 } {
+        bounds spatial.ClosedBounds = { lower = 0, upper = 100 } {
             @doc value "is the range of values that motion reads as 0 to 1."
         }
 
@@ -436,4 +437,12 @@ Ref union on type {
     @go marshal
 }
 
-Symbol struct extends v4.Symbol {}
+Symbol struct extends v4.Symbol {
+    uses resource.ID[]? {
+        @doc value  """
+            are the schematics that use the symbol and that the caller can read, filled
+            only when a retrieve request asks for them.
+        """
+        @go marshal omit
+    }
+}

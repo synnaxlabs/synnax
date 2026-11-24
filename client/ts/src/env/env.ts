@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Unreachable } from "@synnaxlabs/freighter";
-import { errors, url } from "@synnaxlabs/x";
+import type { ChildProcess } from "node:child_process";
+
+import { errors, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ValidationError } from "@/errors";
@@ -43,8 +44,11 @@ export interface System {
    * is the home directory.
    */
   readFile: (path: string) => string | null;
-  /** Runs the program at path with no arguments. Returns null if there is none. */
-  run: (path: string) => Run | null;
+  /**
+   * Runs the program at path with no arguments. Resolves null if there is none. The
+   * signal stops the program.
+   */
+  run: (path: string, signal?: AbortSignal) => Promise<Run | null>;
   /**
    * True in Deno, where TLS trusts only the store that --cert or DENO_CERT fills, so
    * the SYNNAX_CA_CERT file is not read.
@@ -56,6 +60,8 @@ interface Resolved {
   host: string;
   port: number | string;
   apiKey?: string;
+  /** Loads the API key from Synnax Desktop, when no other source gives one. */
+  loadAPIKey?: (signal?: AbortSignal) => Promise<string>;
   secure: boolean;
   caCert?: string;
 }
@@ -64,7 +70,7 @@ interface Desktop {
   host: string;
   port: number;
   secure: boolean;
-  apiKey: () => string;
+  loadAPIKey: (signal?: AbortSignal) => Promise<string>;
 }
 
 const DEFAULT_PORT = 9090;
@@ -83,7 +89,7 @@ const UNREADABLE_MSG =
   "Cannot read ~/.synnax/desktop.json. Update Synnax Desktop and open it.";
 const CA_NEEDS_SECURE_MSG =
   "SYNNAX_CA_CERT requires SYNNAX_SECURE; leave SYNNAX_SECURE out or set it to true";
-const HELPER_TIMEOUT_MS = 30_000;
+const HELPER_TIMEOUT = TimeSpan.seconds(30);
 
 const desktopFileZ = z.object({
   host: z.string(),
@@ -187,9 +193,13 @@ const resolveTLS = (
   return { secure: true, caCert: readCA(system, path) };
 };
 
-const runHelper = (system: System, helper: string): Run | null => {
+const runHelper = async (
+  system: System,
+  helper: string,
+  signal?: AbortSignal,
+): Promise<Run | null> => {
   try {
-    return system.run(helper);
+    return await system.run(helper, signal);
   } catch (e) {
     const err = errors.fromUnknown(e);
     if (!isNotCapable(err)) throw err;
@@ -200,9 +210,13 @@ const runHelper = (system: System, helper: string): Run | null => {
   }
 };
 
-const readKey = (system: System, helper: string, address: url.URL): string => {
-  const out = runHelper(system, helper);
-  if (out == null) throw new Unreachable({ message: NOT_RUNNING_MSG, url: address });
+const readKey = async (
+  system: System,
+  helper: string,
+  signal?: AbortSignal,
+): Promise<string> => {
+  const out = await runHelper(system, helper, signal);
+  if (out == null) throw new ValidationError(NOT_RUNNING_MSG);
   if (out.status !== 0)
     throw new ValidationError(
       out.stderr.trim() || "The key helper of Synnax Desktop failed",
@@ -225,15 +239,20 @@ const loadDesktop = (system: System | undefined): Desktop => {
   if (!parsed.success)
     throw new ValidationError(UNREADABLE_MSG, { cause: parsed.error });
   const { api_key_helper: helper, ...file } = parsed.data;
-  const address = new url.URL({ host: file.host, port: file.port });
-  return { ...file, apiKey: () => readKey(system, helper, address) };
+  return {
+    ...file,
+    loadAPIKey: async (signal) => await readKey(system, helper, signal),
+  };
 };
 
 /**
  * Returns the access to the operating system in Node.js, Deno, and Bun, or undefined
  * in a browser. Loads no module until a method runs.
+ * @param helperTimeout - How long the key helper of Synnax Desktop may run.
  */
-export const nodeSystem = (): System | undefined => {
+export const nodeSystem = (
+  helperTimeout: TimeSpan = HELPER_TIMEOUT,
+): System | undefined => {
   const proc = globalThis.process;
   if (proc?.getBuiltinModule == null) return undefined;
   return {
@@ -253,24 +272,44 @@ export const nodeSystem = (): System | undefined => {
         throw err;
       }
     },
-    run: (path) => {
-      const out = proc
-        .getBuiltinModule("node:child_process")
-        .spawnSync(path, { encoding: "utf8", timeout: HELPER_TIMEOUT_MS });
-      if (isNotFound(out.error)) return null;
-      if (out.error != null)
-        throw new ValidationError(
-          `Cannot run the key helper of Synnax Desktop at ${path}: ` +
-            `${out.error.message}. Update Synnax Desktop and open it.`,
-          { cause: out.error },
-        );
-      // Deno returns an empty result when the script has no permission to run.
-      if (out.status == null && out.signal == null)
-        throw new ValidationError(
-          `Cannot run ${path}. In Deno, run the script with the --allow-run flag.`,
-        );
-      return { status: out.status, stdout: out.stdout, stderr: out.stderr };
-    },
+    run: async (path, signal) =>
+      await new Promise((resolve, reject) => {
+        const timeout = AbortSignal.timeout(helperTimeout.milliseconds);
+        const stop = signal == null ? timeout : AbortSignal.any([signal, timeout]);
+        // older Deno versions give a child that failed to spawn no streams
+        const child: ChildProcess = proc
+          .getBuiltinModule("node:child_process")
+          .spawn(path, { signal: stop });
+        let stdout = "";
+        let stderr = "";
+        child.on("error", (err) => {
+          if (isNotFound(err)) return resolve(null);
+          if (isNotCapable(err)) return reject(err);
+          if (signal?.aborted === true)
+            return reject(
+              new Error(`Stopped the key helper of Synnax Desktop at ${path}`, {
+                cause: err,
+              }),
+            );
+          if (timeout.aborted)
+            return reject(
+              new ValidationError(
+                `The key helper of Synnax Desktop at ${path} did not finish in ` +
+                  `${helperTimeout.toString()}`,
+              ),
+            );
+          reject(
+            new ValidationError(
+              `Cannot run the key helper of Synnax Desktop at ${path}: ` +
+                `${err.message}. Update Synnax Desktop and open it.`,
+              { cause: err },
+            ),
+          );
+        });
+        child.on("close", (status) => resolve({ status, stdout, stderr }));
+        child.stdout?.setEncoding("utf8").on("data", (d: string) => (stdout += d));
+        child.stderr?.setEncoding("utf8").on("data", (d: string) => (stderr += d));
+      }),
   };
 };
 
@@ -278,10 +317,12 @@ export const nodeSystem = (): System | undefined => {
  * Fills each connection parameter from the params, then its environment variable, then
  * Synnax Desktop when neither gives a host, then its default (port 9090, secure false).
  * The API key comes from SYNNAX_API_KEY or Synnax Desktop only when the params give no
- * credentials, token, or OpenID Connect code. Secure and the CA certificate come as a
- * pair from the first source that sets either one: the params (secure, caCert), then
- * the variables (SYNNAX_SECURE, and SYNNAX_CA_CERT as the path of a PEM file), then
- * Synnax Desktop. A CA certificate with no secure turns secure on. When
+ * credentials, token, or OpenID Connect code. The key of Synnax Desktop comes as
+ * loadAPIKey, which runs its key helper and rejects with a ValidationError if the
+ * helper is gone, fails, or does not finish in time. Secure and the CA certificate come
+ * as a pair from the first source that sets either one: the params (secure, caCert),
+ * then the variables (SYNNAX_SECURE, and SYNNAX_CA_CERT as the path of a PEM file),
+ * then Synnax Desktop. A CA certificate with no secure turns secure on. When
  * system.caCertUnsupported is true, SYNNAX_CA_CERT turns secure on but its file is not
  * read. Reads only the variables of missing fields. Variable values are trimmed, and an
  * empty value is unset. In Deno, a variable the script has no permission to read is
@@ -291,10 +332,9 @@ export const nodeSystem = (): System | undefined => {
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
  * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
  * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
- * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
- * old, or if its key helper fails. In Deno, a missing permission to read
- * ~/.synnax/desktop.json is the same as no file.
- * @throws {Unreachable} If the key helper of Synnax Desktop is gone.
+ * cannot be read, if ~/.synnax/desktop.json cannot be read, or if Synnax Desktop is
+ * too old. In Deno, a missing permission to read ~/.synnax/desktop.json is the same as
+ * no file.
  */
 export const resolveParams = <P extends Given>(
   params: P,
@@ -307,15 +347,18 @@ export const resolveParams = <P extends Given>(
   const { apiKey, username, password, token, oidc } = params;
   const credentials = apiKey ?? username ?? password ?? token ?? oidc;
   let key = apiKey;
+  let loadAPIKey: (() => Promise<string>) | undefined;
   if (credentials == null) {
     const envKey = read(env, "SYNNAX_API_KEY");
-    key = envKey !== "" ? envKey : desktop?.apiKey();
+    if (envKey !== "") key = envKey;
+    else loadAPIKey = desktop?.loadAPIKey;
   }
   return {
     ...params,
     host: desktop?.host ?? given,
     port: params.port ?? readPort(env) ?? desktop?.port ?? DEFAULT_PORT,
     apiKey: key,
+    loadAPIKey,
     ...resolveTLS(params, env, system, desktop),
   };
 };

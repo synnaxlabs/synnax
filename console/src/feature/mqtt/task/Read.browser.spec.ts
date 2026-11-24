@@ -27,14 +27,17 @@ import {
   retype,
   searchMessageFormats,
   selectedIn,
+  setField,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
+  countFailedSaves,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   START_FAILURE,
+  toggleRefused,
 } from "@/platform/task/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
@@ -291,6 +294,60 @@ const createTimeChannel = async () =>
     isIndex: true,
   });
 
+/** A browsed topic that a nanosecond time indexes, with a second time. */
+const TIMED_TOPIC = {
+  topic: TOPIC,
+  payload:
+    '{"time": 1763900000000000000, "count": 3, "temperature": 21.5, ' +
+    '"updated": "2026-11-23T10:00:00Z"}',
+  fields: [
+    {
+      pointer: "/time",
+      type: "number",
+      sample: "1763900000000000000",
+      kind: "timestamp",
+      timeFormat: "unix_ns",
+    },
+    { pointer: "/count", type: "number", sample: "3", kind: "integer" },
+    { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
+    {
+      pointer: "/updated",
+      type: "string",
+      sample: '"2026-11-23T10:00:00Z"',
+      kind: "timestamp",
+      timeFormat: "iso8601",
+    },
+  ],
+  index: "/time",
+  retained: true,
+};
+
+/** Opens Add data on a broker that publishes the timed topic. */
+const openTimedTopic = async (rackKey: rack.Key) => {
+  const scanner = await openScanner(client, rackKey);
+  const dialog = await openAddData();
+  await scanner.answer({ data: { topics: [TIMED_TOPIC], truncated: false } });
+  scanner.close();
+  return dialog;
+};
+
+/** @returns the item of the value named name in the Add data dialog. */
+const findValue = async (
+  dialog: Awaited<ReturnType<typeof openAddData>>,
+  name: string,
+) => {
+  const box = await dialog.findByRole("checkbox", { name: `Record ${name}` });
+  const item = box.closest<HTMLElement>('[role="option"]');
+  assertDefined(item);
+  return within(item);
+};
+
+/** @returns the fields of the first message of the ICD. */
+const retrieveFields = async (key: string): Promise<icd.JSONField[]> => {
+  const [message] = (await client.icds.retrieve(key)).messages;
+  return message.payload.format === "json" ? message.payload.fields : [];
+};
+
 describe("MQTT read form", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
@@ -380,6 +437,142 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect(await retrieveBindings(draft.key)).toHaveLength(2),
     );
+  });
+
+  it("should show the inferred data type of each browsed value", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "count")).getByText("int64");
+    (await findValue(dialog, "temperature")).getByText("float64");
+    (await findValue(dialog, "updated")).getByText("timestamp");
+  });
+
+  it("should lock the index of a topic and add it with a picked field", async () => {
+    const { dev, draft } = await renderRead();
+    const dialog = await openTimedTopic(dev.rack);
+    const time = await findValue(dialog, "time");
+    time.getByText("Index");
+    expect(time.getByRole<HTMLInputElement>("checkbox").checked).toBe(true);
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record count" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries.map(plainOf);
+    });
+    const fields = await retrieveFields(entry.icd);
+    expect(fields).toMatchObject([
+      { name: "time", pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      { name: "count", pointer: "/count", type: "integer" },
+    ]);
+    const [read] = entry.messages;
+    expect(read.index).toBe(fields[0].key);
+    expect(read.bindings.map(({ field }) => field)).toEqual(fields.map((f) => f.key));
+  });
+
+  it("should add the index of a topic picked as a whole", async () => {
+    const { dev, draft } = await renderRead();
+    const dialog = await openTimedTopic(dev.rack);
+    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries.map(plainOf);
+    });
+    const fields = await retrieveFields(entry.icd);
+    expect(fields).toMatchObject([
+      { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      { pointer: "/count", type: "integer" },
+      { pointer: "/temperature", type: "float" },
+      { pointer: "/updated", type: "timestamp", timeFormat: "iso8601" },
+    ]);
+    expect(entry.messages[0].index).toBe(fields[0].key);
+  });
+
+  it("should not lock the index of a topic that the task reads", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("count", "integer")],
+    });
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "count")).getByText("In task");
+    (await findValue(dialog, "time")).getByText("timestamp");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record time" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(await retrieveFields(entry.icd)).toMatchObject([
+        { pointer: "/count", type: "integer" },
+        { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      ]);
+      expect(entry.messages[0].index).toBeUndefined();
+    });
+  });
+
+  it("should lock the index of a topic whose message has no fields", async () => {
+    const { dev, draft } = await renderRead({ fields: [] });
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "time")).getByText("Index");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record count" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([
+        { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+        { pointer: "/count", type: "integer" },
+      ]);
+      expect(entry.messages[0].index).toBe(fields[0].key);
+    });
+  });
+
+  it("should lock the index of a topic whose message is gone", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const { dev, draft } = await renderRead({
+      entries: [entry],
+      beforeRender: () => removeMessage(entry),
+    });
+    await screen.findByText("Message not found");
+    const dialog = await openTimedTopic(dev.rack);
+    (await findValue(dialog, "time")).getByText("Index");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record count" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([{ pointer: "/time" }, { pointer: "/count" }]);
+      expect(read.index).toBe(fields[0].key);
+    });
+  });
+
+  it("should pick the index of a topic whose only value is its index", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            ...TIMED_TOPIC,
+            payload: '{"time": 1763900000000000000}',
+            fields: [TIMED_TOPIC.fields[0]],
+          },
+        ],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    expect((await findValue(dialog, "time")).queryByText("Index")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      const fields = await retrieveFields(entry.icd);
+      expect(fields).toMatchObject([
+        { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      ]);
+      expect(entry.messages[0].index).toBe(fields[0].key);
+    });
   });
 
   it("should focus the topic of a topic added by name", async () => {
@@ -821,6 +1014,40 @@ describe("MQTT read form", () => {
     expect(option.textContent).toContain(
       "It has a default, so it cannot be the index.",
     );
+  });
+
+  it("should send a refused correction of a read once, and again on the next format change", async () => {
+    const time = createTimeField();
+    const temperature = createField("temperature", "float");
+    const mode = createField("mode", "string");
+    const entry = await createEntry({
+      fields: [time, temperature, mode],
+      index: time.key,
+    });
+    const { draft, statuses } = await renderRead({ entries: [entry] });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }));
+    const { message } = messageOf(entry);
+    const fields = ["messages", message, "payload", "fields"];
+    // The index field takes a default, so the Core refuses each save.
+    const defaulted = icd.jsonFieldZ.parse({
+      ...time,
+      default: { type: "constant", value: TimeStamp.milliseconds(1_700_000_000_000) },
+    });
+    await client.icds.dispatch(entry.icd, [
+      icd.remove({ path: fields, key: mode.key }),
+      icd.set({ path: [...fields, time.key], value: defaulted }),
+    ]);
+    await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+    await toggleRefused("Ignore retained");
+    expect(countFailedSaves(statuses)).toBe(2);
+    await setField(client, messageOf(entry), time);
+    await waitFor(async () =>
+      expect((await retrieveBindings(draft.key)).map(({ field }) => field)).toEqual([
+        time.key,
+        temperature.key,
+      ]),
+    );
+    expect(countFailedSaves(statuses)).toBe(2);
   });
 
   describe("messages", () => {
@@ -2872,7 +3099,7 @@ describe("MQTT read form", () => {
       ).toEqual([]);
     });
 
-    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+    it("should store the channels under a topic for their message when an earlier message fails", async () => {
       const time = await createTimeChannel();
       const createFloat = async (name: string) =>
         await client.channels.create({
@@ -2893,7 +3120,7 @@ describe("MQTT read form", () => {
         match("failing"),
       );
       const valueField = createField("value", "float");
-      await addMessage(entry, "owner", [valueField], match("owner"));
+      const owner = await addMessage(entry, "owner", [valueField], match("owner"));
       entry.messages[2].bindings = [
         { field: valueField.key, channel: value.key, dataType: "" },
       ];
@@ -2913,7 +3140,79 @@ describe("MQTT read form", () => {
           expect.objectContaining({ message: "Failed to start task" }),
         ),
       );
-      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+      const read = await retrieveRead(dev.key);
+      expect(read[`${TOPIC}#${owner.key}`]).toEqual(legacy);
+      expect(read).not.toHaveProperty(TOPIC);
+    });
+
+    it("should give the index stored under a topic to an enabled entry before a disabled one", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const enabled = await createEntry({
+        fields: [bField],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { container, dev, draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[1]).messages[0].bindings[0].channel).toBe(
+        b.key,
+      );
+      const read = await retrieveRead(dev.key);
+      expect(read).not.toHaveProperty(TOPIC);
+      expect(read[`${TOPIC}#${disabled.messages[0].message}`]).toEqual({
+        index: 0,
+        channels: { "/a": a.key },
+      });
+      expect(read[`${TOPIC}#${enabled.messages[0].message}`]).toEqual(legacy);
+    });
+
+    it("should read a new index field into the index stored under the topic before a disabled entry", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const stamp = createTimeField();
+      const enabled = await createEntry({
+        fields: [bField, stamp],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const topics = await screen.findAllByRole("treeitem", {
+        name: new RegExp(TOPIC),
+      });
+      fireEvent.click(topics[topics.length - 1]);
+      fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+      await waitFor(async () =>
+        expect(
+          plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
+        ).toContainEqual({ field: stamp.key, channel: time.key, dataType: "" }),
+      );
     });
 
     it("should give a new entry the stored channel that only a disabled entry binds", async () => {

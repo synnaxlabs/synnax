@@ -526,6 +526,104 @@ describe("Joins", () => {
       expect(joins.invalidate()).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([INDEX, DATA]);
     });
+
+    describe("missed", () => {
+      // Joins both members, streams the samples at seconds 1 to 4 and 7 to 8, and
+      // outdates the span of seconds 5 and 6 that the stream missed. Another writer
+      // wrote the missed samples, so the samples at 7 and 8 continue the alignments
+      // of the ones before, and the join covers the span.
+      const createMissed = () => {
+        const { store, joins } = createJoins();
+        store.setChannel(
+          new channel.Channel({
+            key: INDEX,
+            name: "time",
+            dataType: DataType.TIMESTAMP,
+            isIndex: true,
+          }).payload,
+        );
+        store.setChannel(
+          new channel.Channel({
+            key: DATA,
+            name: "data",
+            dataType: DataType.FLOAT32,
+            index: INDEX,
+          }).payload,
+        );
+        joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
+        joins.write(
+          createFrame(
+            [INDEX, createIndex([1, 2, 3, 4], 0n)],
+            [DATA, createData([10, 20, 30, 40], 0n, spanOf([1, 2, 3, 4]))],
+          ),
+        );
+        joins.write(
+          createFrame(
+            [INDEX, createIndex([7, 8], 4n)],
+            [DATA, createData([70, 80], 4n, spanOf([7, 8]))],
+          ),
+        );
+        const missed = new TimeRange(at(5), at(7));
+        joins.invalidate(INDEX, missed, true);
+        joins.invalidate(DATA, missed, true);
+        return { store, joins };
+      };
+
+      it("should keep the samples before the missed span", () => {
+        const { store } = createMissed();
+        for (const ch of [INDEX, DATA]) {
+          const block = store.raw(ch, BLOCK);
+          expect(block.coveredEnd).toEqual(at(5));
+          expect(block.coveredCount).toBe(4);
+          expect(block.fetched.map((s) => s.length)).toEqual([4]);
+        }
+        expect(Array.from(store.raw(DATA, BLOCK).fetched[0])).toEqual([10, 20, 30, 40]);
+      });
+
+      it("should number the samples after the span past the kept samples", () => {
+        const { store, joins } = createMissed();
+        expect(keysOf(joins)).toEqual([INDEX, DATA]);
+        // The stream delivers a sample while the members wait for their read.
+        joins.write(
+          createFrame([INDEX, createIndex([9], 6n)], [DATA, createData([90], 6n)]),
+        );
+        // The catch-up read fetches from the coverage end of the block.
+        const waits = waitsOf(joins, INDEX, DATA);
+        const seconds = [5, 6, 7, 8, 9];
+        const read = spanOf(seconds);
+        const alignment = block.alignmentOf(BLOCK, 4);
+        store.raw(INDEX, BLOCK).fill([createIndex(seconds, alignment)], read.end, 9);
+        store
+          .raw(DATA, BLOCK)
+          .fill([createData([50, 60, 70, 80, 90], alignment, read)], read.end, 9);
+        joins.landed(INDEX, waits);
+        joins.write(
+          createFrame([INDEX, createIndex([10], 7n)], [DATA, createData([100], 7n)]),
+        );
+        const values = seriesOf(store, DATA, BLOCK).flatMap((s) => Array.from(s));
+        expect(values).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+        expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 9));
+        expect(store.raw(INDEX, BLOCK).coveredCount).toBe(10);
+      });
+
+      it("should drop the block when the span starts before its samples", () => {
+        const { store, joins } = createJoins();
+        store.setChannel(
+          new channel.Channel({
+            key: INDEX,
+            name: "time",
+            dataType: DataType.TIMESTAMP,
+            isIndex: true,
+          }).payload,
+        );
+        joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
+        joins.write(createFrame([INDEX, createIndex([1, 2], 0n)]));
+        joins.invalidate(INDEX, new TimeRange(RANGE.start, at(1)), true);
+        const block = store.raw(INDEX, BLOCK);
+        expect(block.fetched).toEqual([]);
+        expect(block.coveredEnd).toEqual(RANGE.start);
+      });
+    });
   });
 
   describe("flush", () => {

@@ -227,19 +227,22 @@ func (t *readTopic) convert(msg message) (topicSample, error) {
 			samples[i] = samples[i][:0]
 		}
 	}
-	i, ok, err := t.decoder.Decode(msg.payload, t.samples)
+	i, ok, failures, err := t.decoder.Decode(msg.payload, t.samples)
 	if err != nil &&
 		!jsontext.Value(msg.payload).IsValid(jsontext.AllowDuplicateNames(true)) {
 		if t.text, err = jsontext.AppendQuote(t.text[:0], msg.payload); err != nil {
 			return topicSample{}, err
 		}
-		i, ok, err = t.decoder.Decode(t.text, t.samples)
+		i, ok, failures, err = t.decoder.Decode(t.text, t.samples)
 	}
 	if err != nil {
 		return topicSample{}, err
 	}
 	if !ok {
 		return topicSample{}, errors.New("the payload matches no message")
+	}
+	if failures != nil {
+		return topicSample{}, failures[0].Err
 	}
 	return t.messages[i].sample(t.samples[i], msg.received), nil
 }

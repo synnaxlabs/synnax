@@ -13,7 +13,7 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { ValueForm } from "@/schematic/node/general/value/Form";
-import { Value } from "@/schematic/node/general/value/Primitive";
+import { Primitive } from "@/schematic/node/general/value/primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -28,7 +28,7 @@ const Preview = ({
 }: schematic.ValueNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <Value
+    <Primitive.Value
       strokeColor={resolve(strokeColor)}
       orientation={orientation}
       units={units}
@@ -36,7 +36,7 @@ const Preview = ({
       dimensions={PREVIEW_DIMENSIONS}
     >
       <Text.Text color={resolve(textColor)}>50.00</Text.Text>
-    </Value>
+    </Primitive.Value>
   );
 };
 

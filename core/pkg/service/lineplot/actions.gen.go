@@ -244,9 +244,9 @@ type SetAxisLabelLevelPayload struct {
 // manual override flags. The two travel together: fixing a bound enables the manual
 // override for that edge, so callers set both at once.
 type SetAxisBoundsPayload struct {
-	Key          AxisKey        `json:"key" msgpack:"key"`
-	Bounds       spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	ManualBounds ManualBounds   `json:"manual_bounds" msgpack:"manual_bounds"`
+	Key          AxisKey               `json:"key" msgpack:"key"`
+	Bounds       *spatial.ClosedBounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	ManualBounds ManualBounds          `json:"manual_bounds" msgpack:"manual_bounds"`
 }
 
 // SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
