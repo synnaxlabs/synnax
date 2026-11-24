@@ -40,7 +40,7 @@ func observeControl(
 	)
 }
 
-var _ = Describe("Control moved from Cesium", func() {
+var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) {
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var fs fs.FS
@@ -58,7 +58,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs)
+					db = mustOpenDBOnFS(ctx, fs, pointerLog)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -139,6 +139,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				It(
 					"Should not take control from a live writer at any authority",
 					func(ctx SpecContext) {
+						skipOnPointerLog(pointerLog, errorTextOwner)
 						live := openLive(ctx, 1)
 						Expect(db.OpenWriter(ctx, persistConfig(15*telem.SecondTS))).
 							Error().To(And(
@@ -155,6 +156,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				It(
 					"Should stop at a commit that reaches a live writer, and keep it writing",
 					func(ctx SpecContext) {
+						skipOnPointerLog(pointerLog, errorTextOwner)
 						live := openLive(ctx, 1)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
@@ -206,6 +208,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				It(
 					"Should let a streaming writer take over next to an open persist writer",
 					func(ctx SpecContext) {
+						skipOnPointerLog(pointerLog, errorTextOwner)
 						live := openLive(ctx, 1)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
@@ -328,7 +331,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs)
+					db = mustOpenDBOnFS(ctx, fs, pointerLog)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
@@ -482,7 +485,7 @@ var _ = Describe("Control moved from Cesium", func() {
 				var db *testDB
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs)
+					db = mustOpenDBOnFS(ctx, fs, pointerLog)
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
@@ -1239,4 +1242,4 @@ var _ = Describe("Control moved from Cesium", func() {
 			})
 		})
 	}
-})
+}, Entry("old layout", false), Entry("pointer log", true))

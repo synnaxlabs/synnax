@@ -25,10 +25,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Stream only type check", func() {
+var _ = DescribeTableSubtree("Stream only type check", func(pointerLog bool) {
 	It("Should refuse a stream only series of a stored index of the wrong data type",
 		func(ctx SpecContext) {
-			db := mustOpenDBOnFS(ctx, fs.NewMem())
+			db := mustOpenDBOnFS(ctx, fs.NewMem(), pointerLog)
 			idx, data := GenerateChannelKey(), GenerateChannelKey()
 			Expect(db.CreateChannel(
 				ctx,
@@ -57,4 +57,4 @@ var _ = Describe("Stream only type check", func() {
 			Expect(w.Close()).To(MatchError(validate.ErrValidation))
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

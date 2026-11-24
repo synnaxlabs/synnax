@@ -21,13 +21,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Delete Claims", func() {
+var _ = DescribeTableSubtree("Delete Claims", func(pointerLog bool) {
 	var (
 		host      testutil.Node
 		idx, data channel.Channel
 	)
 	BeforeEach(func(ctx SpecContext) {
-		host = testutil.NewNode(ctx)
+		host = newNode(ctx, pointerLog)
 		idx = MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 			Name:     "claim_time",
 			IsIndex:  true,
@@ -109,7 +109,7 @@ var _ = Describe("Delete Claims", func() {
 	)
 
 	It("Should not count a writer of free channels", func(ctx SpecContext) {
-		s := freeWriterScenario(ctx)
+		s := freeWriterScenario(ctx, pointerLog)
 		defer func() { Expect(s.Close()).To(Succeed()) }()
 		w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 			Keys:  s.keys,
@@ -119,4 +119,4 @@ var _ = Describe("Delete Claims", func() {
 		release()
 		Expect(w.Close()).To(Succeed())
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))

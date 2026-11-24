@@ -30,6 +30,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -40,9 +42,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-var _ = Describe("Writer", func() {
+var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 	Describe("Happy Path", Ordered, func() {
-		scenarios := []func(context.Context) scenario{
+		scenarios := []func(context.Context, bool) scenario{
 			storageScenario,
 			freeWriterScenario,
 		}
@@ -50,7 +52,7 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				s = DeferClose(sF(ctx))
+				s = DeferClose(sF(ctx, pointerLog))
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -88,7 +90,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			node := testutil.OpenNode(GinkgoT().Context())
+			node, closer := openNode(GinkgoT().Context(), pointerLog)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
@@ -103,7 +105,7 @@ var _ = Describe("Writer", func() {
 			strCh = MustSucceed(node.CreateChannels(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
 				dist:   node,
-				closer: node,
+				closer: closer,
 				name:   "Variable",
 				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 			})
@@ -174,7 +176,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = DeferClose(storageScenario(ctx))
+			s = DeferClose(storageScenario(ctx, pointerLog))
 		})
 		DescribeTable("Should return ErrClosed when the pipeline ends first",
 			func(ctx SpecContext, exec func(*writer.Writer, frame.Frame)) {
@@ -218,7 +220,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = DeferClose(storageScenario(ctx))
+			s = DeferClose(storageScenario(ctx, pointerLog))
 		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -244,7 +246,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Requests", func() {
 		It("Should reject an unknown command", func(ctx SpecContext) {
-			host := testutil.NewNode(ctx)
+			host := newNode(ctx, pointerLog)
 			keys := channel.KeysFromChannels(
 				MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "unknown_time",
@@ -275,8 +277,8 @@ var _ = Describe("Writer", func() {
 	Describe("Write Group Propagation", func() {
 		DescribeTable(
 			"Should propagate the writer's group to the streamer response",
-			func(ctx SpecContext, open func(context.Context) scenario) {
-				s := DeferClose(open(ctx))
+			func(ctx SpecContext, open func(context.Context, bool) scenario) {
+				s := DeferClose(open(ctx, pointerLog))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -309,8 +311,8 @@ var _ = Describe("Writer", func() {
 		)
 		DescribeTable(
 			"Should set group to zero when the writer has no group",
-			func(ctx SpecContext, open func(context.Context) scenario) {
-				s := DeferClose(open(ctx))
+			func(ctx SpecContext, open func(context.Context, bool) scenario) {
+				s := DeferClose(open(ctx, pointerLog))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -346,7 +348,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should propagate distinct groups from different writers",
 			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+				s := DeferClose(freeWriterScenario(ctx, pointerLog))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -397,7 +399,8 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				skipOnPointerLog(pointerLog, errorTextOwner)
+				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
 					IsIndex:  true,
@@ -446,7 +449,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return false when another writer holds control",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				keys := channel.KeysFromChannels(
 					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 						Name:     "host_time",
@@ -478,7 +481,8 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should return no end from a commit that fails", func(ctx SpecContext) {
-			gw := testutil.NewNode(ctx)
+			skipOnPointerLog(pointerLog, errorTextOwner)
+			gw := newNode(ctx, pointerLog)
 			// Commits walk a map of indexes, so most commit before the one that fails.
 			channels := make([]channel.Channel, 8)
 			series := make([]telem.Series, len(channels))
@@ -517,7 +521,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should report a commit without control",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				keys := channel.KeysFromChannels(
 					MustSucceed(host.CreateChannels(ctx, []channel.Channel{
 						{Name: "held_time", IsIndex: true, DataType: telem.TimestampT},
@@ -556,7 +560,8 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
-			host := testutil.NewNode(ctx)
+			skipOnPointerLog(pointerLog, errorTextOwner)
+			host := newNode(ctx, pointerLog)
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
@@ -587,7 +592,7 @@ var _ = Describe("Writer", func() {
 			Expect(live.Close()).To(Succeed())
 		})
 		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
-			s := freeWriterScenario(ctx)
+			s := freeWriterScenario(ctx, pointerLog)
 			defer func() { Expect(s.Close()).To(Succeed()) }()
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
@@ -603,7 +608,7 @@ var _ = Describe("Writer", func() {
 		DescribeTable(
 			"Should report a refused write once and keep the end of a commit with control",
 			func(ctx SpecContext, sync bool) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				keys := channel.KeysFromChannels(
 					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 						Name:     "refused_time",
@@ -660,7 +665,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should hand off control to a waiting writer when a writer's context is canceled",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "handoff_time",
 					IsIndex:  true,
@@ -723,7 +728,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should hand off a clock while both writers write and commit",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "race_time",
 					IsIndex:  true,
@@ -807,85 +812,88 @@ var _ = Describe("Writer", func() {
 				Expect(fr.Get(data.Key()).Len()).To(Equal(fr.Get(idx.Key()).Len()))
 			},
 		)
-		It(
-			"Should drop with a warning the samples that the next holder of a clock "+
-				"cannot take",
-			func(ctx SpecContext) {
-				core, logs := observer.New(zapcore.WarnLevel)
-				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-					ZapLogger: zap.New(core),
-				}))
-				// A handoff on the pointer log does not move uncommitted samples.
-				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
-					InMemory:          new(true),
-					PointerLogEnabled: new(true),
-					Random:            rand.NewPCG(1, 2),
-				}))
-				DeferCleanup(StartRun(st.Run))
-				host := testutil.NewNode(ctx, distribution.LayerConfig{
-					Storage:         st,
-					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				})
-				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
-					Name:     "untaken_time",
-					IsIndex:  true,
-					DataType: telem.TimestampT,
-				}}))[0]
-				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
-					Name:       "untaken",
-					DataType:   telem.Int64T,
-					LocalIndex: idx.LocalKey,
-				}}))[0]
-				keys := channel.Keys{idx.Key(), data.Key()}
-				open := func(key string, authority control.Authority) *writer.Writer {
-					GinkgoHelper()
-					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
-						ControlSubject:   control.Subject{Key: key},
-						Keys:             keys,
-						Start:            10 * telem.SecondTS,
-						Authorities:      []control.Authority{authority},
-						EnableAutoCommit: new(false),
-						Sync:             new(true),
+		if pointerLog {
+			It(
+				"Should drop with a warning the samples that the next holder of a clock "+
+					"cannot take",
+				func(ctx SpecContext) {
+					skipOnPointerLog(pointerLog, "clients-b3, 6763c 3b9494c258")
+					core, logs := observer.New(zapcore.WarnLevel)
+					logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+						ZapLogger: zap.New(core),
 					}))
-				}
-				write := func(w *writer.Writer, at ...telem.TimeStamp) {
-					GinkgoHelper()
-					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesSecondsTSV(at...),
-						telem.NewSeries(make([]int64, len(at))),
-					}))).To(BeTrue())
-				}
-				holder := open("holder", 100)
-				write(holder, 10, 11, 12, 13)
-				taker := open("taker", 200)
-				warnings := logs.FilterMessage(
-					"dropped the uncommitted samples that the next holder of a clock " +
-						"could not take",
-				).All()
-				Expect(warnings).To(HaveLen(1))
-				Expect(warnings[0].ContextMap()).To(HaveKeyWithValue(
-					"clock",
-					uint32(idx.Key()),
-				))
-				Expect(warnings[0].ContextMap()["error"]).To(ContainSubstring(
-					"1970-01-01T00:00:10Z - :13.000000001",
-				))
-				_, authorized := MustSucceed2(holder.Commit())
-				Expect(authorized).To(BeFalse(), "the commit reports the drop")
-				write(taker, 14)
-				Expect(MustCommit(taker)).To(Equal(14*telem.SecondTS + 1))
-				Expect(taker.Close()).To(Succeed())
-				Expect(holder.Close()).To(Succeed())
-				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
-					Keys:   channel.Keys{data.Key()},
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				Expect(iter.Value().Get(data.Key()).Len()).To(Equal(int64(1)))
-				Expect(iter.Close()).To(Succeed())
-			},
-		)
+					// A handoff on the pointer log does not move uncommitted samples.
+					st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+						InMemory:          new(true),
+						PointerLogEnabled: new(true),
+						Random:            rand.NewPCG(1, 2),
+					}))
+					DeferCleanup(StartRun(st.Run))
+					host := testutil.NewNode(ctx, distribution.LayerConfig{
+						Storage:         st,
+						Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					})
+					idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+						Name:     "untaken_time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					}}))[0]
+					data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+						Name:       "untaken",
+						DataType:   telem.Int64T,
+						LocalIndex: idx.LocalKey,
+					}}))[0]
+					keys := channel.Keys{idx.Key(), data.Key()}
+					open := func(key string, authority control.Authority) *writer.Writer {
+						GinkgoHelper()
+						return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+							ControlSubject:   control.Subject{Key: key},
+							Keys:             keys,
+							Start:            10 * telem.SecondTS,
+							Authorities:      []control.Authority{authority},
+							EnableAutoCommit: new(false),
+							Sync:             new(true),
+						}))
+					}
+					write := func(w *writer.Writer, at ...telem.TimeStamp) {
+						GinkgoHelper()
+						Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+							telem.NewSeriesSecondsTSV(at...),
+							telem.NewSeries(make([]int64, len(at))),
+						}))).To(BeTrue())
+					}
+					holder := open("holder", 100)
+					write(holder, 10, 11, 12, 13)
+					taker := open("taker", 200)
+					warnings := logs.FilterMessage(
+						"dropped the uncommitted samples that the next holder of a clock " +
+							"could not take",
+					).All()
+					Expect(warnings).To(HaveLen(1))
+					Expect(warnings[0].ContextMap()).To(HaveKeyWithValue(
+						"clock",
+						uint32(idx.Key()),
+					))
+					Expect(warnings[0].ContextMap()["error"]).To(ContainSubstring(
+						"1970-01-01T00:00:10Z - :13.000000001",
+					))
+					_, authorized := MustSucceed2(holder.Commit())
+					Expect(authorized).To(BeFalse(), "the commit reports the drop")
+					write(taker, 14)
+					Expect(MustCommit(taker)).To(Equal(14*telem.SecondTS + 1))
+					Expect(taker.Close()).To(Succeed())
+					Expect(holder.Close()).To(Succeed())
+					iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:   channel.Keys{data.Key()},
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+					Expect(iter.Value().Get(data.Key()).Len()).To(Equal(int64(1)))
+					Expect(iter.Close()).To(Succeed())
+				},
+			)
+		}
 		Describe("Lost control of the index", func() {
 			var (
 				host        testutil.Node
@@ -893,7 +901,7 @@ var _ = Describe("Writer", func() {
 				both, index frameBuilder
 			)
 			BeforeEach(func(ctx SpecContext) {
-				host = testutil.NewNode(ctx)
+				host = newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "pending_time",
 					IsIndex:  true,
@@ -1031,6 +1039,7 @@ var _ = Describe("Writer", func() {
 				"Should keep the samples of a writer while a stream-only writer holds "+
 					"its clock",
 				func(ctx SpecContext) {
+					skipOnPointerLog(pointerLog, unstoredClaimOwner)
 					w1 := openFirst(ctx)
 					streamer := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 						ControlSubject: control.Subject{Key: "streamer"},
@@ -1069,7 +1078,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should commit a writer of stored and free channels that is not sync",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				stored := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "persist_only_stored",
 					Virtual:  true,
@@ -1105,7 +1114,8 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return a storage write error from a writer that is not sync",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				skipOnPointerLog(pointerLog, errorTextOwner)
+				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:        "persist_only_error_time",
 					IsIndex:     true,
@@ -1143,8 +1153,8 @@ var _ = Describe("Writer", func() {
 		)
 		DescribeTable(
 			"Should not stream the writes of a persist-only writer",
-			func(ctx SpecContext, open func(context.Context) scenario) {
-				s := DeferClose(open(ctx))
+			func(ctx SpecContext, open func(context.Context, bool) scenario) {
+				s := DeferClose(open(ctx, pointerLog))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -1181,7 +1191,7 @@ var _ = Describe("Writer", func() {
 			idx, data channel.Channel
 		)
 		BeforeEach(func(ctx SpecContext) {
-			host = testutil.NewNode(ctx)
+			host = newNode(ctx, pointerLog)
 			idx = MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:     "stream_only_time",
 				IsIndex:  true,
@@ -1288,7 +1298,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should stamp the index of a data channel",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := newNode(ctx, pointerLog)
 				idx := channel.Channel{
 					Name:     "auto_index_time",
 					IsIndex:  true,
@@ -1339,7 +1349,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should correctly set alignments on indexed free channels",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				var (
 					idxCh = channel.Channel{
 						Name:        "free_time",
@@ -1426,7 +1436,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should stamp index-less free channels with the host's clock",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				ch := channel.Channel{
 					Name:        "free_unindexed",
 					DataType:    telem.Int64T,
@@ -1471,7 +1481,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should give the samples of an index-less free channel distinct alignments",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				ch := channel.Channel{
 					Name:        "free_unindexed_aligned",
 					DataType:    telem.Int64T,
@@ -1520,7 +1530,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return an error when no channel resolver is configured",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				ch := channel.Channel{
 					Name:        "free_unresolved",
 					DataType:    telem.Int64T,
@@ -1597,8 +1607,8 @@ var _ = Describe("Writer", func() {
 
 		DescribeTable(
 			"Should stamp each sample of a virtual series 1ns after the one before",
-			func(ctx SpecContext, open func(context.Context) scenario) {
-				s := DeferClose(open(ctx))
+			func(ctx SpecContext, open func(context.Context, bool) scenario) {
+				s := DeferClose(open(ctx, pointerLog))
 				received, before, after := writeAndReceive(
 					ctx,
 					s,
@@ -1623,7 +1633,7 @@ var _ = Describe("Writer", func() {
 		DescribeTable(
 			"Should span a virtual series 1ns for each sample",
 			func(ctx SpecContext, length int) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				series := make([]telem.Series, len(s.keys))
 				for i := range series {
 					series[i] = telem.NewSeries(make([]int64, length))
@@ -1643,7 +1653,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should span a variable-length virtual series 1ns for each sample",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				ch := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:     "strings",
 					Virtual:  true,
@@ -1665,7 +1675,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should start every virtual series in one write at one instant",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				received, _, _ := writeAndReceive(
 					ctx,
 					s,
@@ -1685,8 +1695,8 @@ var _ = Describe("Writer", func() {
 
 		DescribeTable(
 			"Should stamp a channel's series in one frame 1ns for each sample, in order",
-			func(ctx SpecContext, open func(context.Context) scenario) {
-				s := DeferClose(open(ctx))
+			func(ctx SpecContext, open func(context.Context, bool) scenario) {
+				s := DeferClose(open(ctx, pointerLog))
 				k := s.keys[0]
 				received, _, _ := writeAndReceive(
 					ctx,
@@ -1707,7 +1717,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should align indexed free channels and stamp index-less ones in one frame",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(ctx, pointerLog))
 				idx := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:        "mixed_time",
 					IsIndex:     true,
@@ -1765,7 +1775,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))
 
 // indexResolver resolves the records of free channels from a fixed key-to-index map.
 type indexResolver map[channel.Key]channel.Key
@@ -1812,24 +1822,24 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func storageScenario(ctx context.Context) scenario {
+func storageScenario(ctx context.Context, pointerLog bool) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := testutil.OpenNode(GinkgoT().Context())
+	node, closer := openNode(GinkgoT().Context(), pointerLog)
 	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		name:   "Storage",
 		keys:   keys,
 		dist:   node,
-		closer: node,
+		closer: closer,
 	}
 }
 
-func freeWriterScenario(ctx context.Context) scenario {
+func freeWriterScenario(ctx context.Context, pointerLog bool) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := testutil.OpenNode(GinkgoT().Context())
+	dist, closer := openNode(GinkgoT().Context(), pointerLog)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
@@ -1837,7 +1847,48 @@ func freeWriterScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
+	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: closer}
+}
+
+// openNode opens a Node on an in-memory storage layer, on the pointer log when
+// pointerLog is true and on the old layout otherwise. The storage runs until the
+// returned closer closes the Node and then the storage, even when ctx ends first.
+func openNode(ctx context.Context, pointerLog bool) (testutil.Node, io.Closer) {
+	GinkgoHelper()
+	st := MustSucceed(storage.OpenLayer(ctx, storage.LayerConfig{
+		InMemory:          new(true),
+		PointerLogEnabled: new(pointerLog),
+	}))
+	stop := GoRun(GinkgoT().Context(), st.Run)
+	n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: st})
+	return n, xio.CloserFunc(func() error {
+		return errors.Join(n.Close(), stop(), st.Close())
+	})
+}
+
+// newNode opens a Node as openNode does. The Node closes when the spec or container
+// that opens it ends.
+func newNode(ctx context.Context, pointerLog bool) testutil.Node {
+	GinkgoHelper()
+	n, closer := openNode(ctx, pointerLog)
+	DeferClose(closer)
+	return n
+}
+
+// The owners of the specs that fail on the pointer log for now.
+const (
+	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
+	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
+	emptyHandoffOwner  = "time-2c, 6763d (empty-key Handoff, cesium-0c)"
+	recoveryOwner      = "cesium-0c, recovery reads a live MemFS size twice"
+)
+
+// skipOnPointerLog skips the spec on the pointer log until owner fixes it there.
+func skipOnPointerLog(pointerLog bool, owner string) {
+	GinkgoHelper()
+	if pointerLog {
+		Skip("pointer log: " + owner)
+	}
 }
 
 // frameBuilder builds a frame of the given data values at the given seconds.

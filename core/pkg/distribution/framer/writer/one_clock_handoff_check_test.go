@@ -23,14 +23,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("One clock handoff check", func() {
+var _ = DescribeTableSubtree("One clock handoff check", func(pointerLog bool) {
 	var (
 		db        *testDB
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"]())
+		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), pointerLog)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
@@ -95,6 +95,7 @@ var _ = Describe("One clock handoff check", func() {
 		"Should give the clock back from its last commit after a stream-only writer "+
 			"held it",
 		func(ctx SpecContext, giveBack func(*storageWriter) error) {
+			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			a := open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "a"},
 				Channels:       keys,
@@ -132,6 +133,7 @@ var _ = Describe("One clock handoff check", func() {
 
 	It("Should keep the clock with its holder when a writer that takes it fails to "+
 		"open", func(ctx SpecContext) {
+		skipOnPointerLog(pointerLog, errorTextOwner)
 		c := open(ctx, storageConfig{
 			Channels: keys,
 			Start:    30 * telem.SecondTS,
@@ -224,4 +226,4 @@ var _ = Describe("One clock handoff check", func() {
 		Expect(index).To(Equal(int64(5)))
 		Expect(values).To(Equal(int64(4)))
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))

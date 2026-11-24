@@ -24,10 +24,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Delete claim", func() {
+var _ = DescribeTableSubtree("Delete claim", func(pointerLog bool) {
 	It("Should refuse a delete of a virtual channel that a writer holds, and keep "+
 		"the writer's control", func(ctx SpecContext) {
-		db := mustOpenDBOnFS(ctx, fs.NewMem())
+		db := mustOpenDBOnFS(ctx, fs.NewMem(), pointerLog)
 		key := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, virtualChannel(key, "cmd"))).To(Succeed())
 		keys := channel.Keys{channel.Key(key)}
@@ -54,4 +54,4 @@ var _ = Describe("Delete claim", func() {
 		release := MustSucceed(db.svc.ClaimDelete(keys))
 		release()
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))

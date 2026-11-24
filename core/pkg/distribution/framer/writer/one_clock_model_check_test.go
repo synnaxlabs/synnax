@@ -40,14 +40,14 @@ func writerConfig(
 
 func frameOf(f cesium.Frame) frame.Frame { return frame.NewFromStorage(f) }
 
-var _ = Describe("One clock model check", func() {
+var _ = DescribeTableSubtree("One clock model check", func(pointerLog bool) {
 	var (
 		db             *testDB
 		i1, d1, i2, d2 cesium.ChannelKey
 		all            []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"]())
+		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), pointerLog)
 		i1, d1 = GenerateChannelKey(), GenerateChannelKey()
 		i2, d2 = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
@@ -177,6 +177,7 @@ var _ = Describe("One clock model check", func() {
 	)
 
 	It("Should end the session on the error of one clock", func(ctx SpecContext) {
+		skipOnPointerLog(pointerLog, errorTextOwner)
 		s := open(ctx, storageConfig{Channels: all, Start: 10 * telem.SecondTS})
 		Expect(s.Write(ctx, both(
 			[]int64{10, 11}, []int64{12, 11}, []int64{1, 2}, []int64{5, 6},
@@ -310,4 +311,4 @@ var _ = Describe("One clock model check", func() {
 			Expect(read(ctx, d2).Len()).To(Equal(int64(2)))
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

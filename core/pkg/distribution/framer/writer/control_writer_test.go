@@ -20,11 +20,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Writer control moved from Cesium", func() {
+var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog bool) {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var db *testDB
-			BeforeEach(func(ctx SpecContext) { db = mustOpenDBOnFS(ctx, openFS()) })
+			BeforeEach(func(ctx SpecContext) {
+				db = mustOpenDBOnFS(ctx, openFS(), pointerLog)
+			})
 
 			It(
 				"Should hand the uncommitted samples of a writer that loses its clock to "+
@@ -430,6 +432,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 				It(
 					"Should fail a writer that takes its clock over stored data",
 					func(ctx SpecContext) {
+						skipOnPointerLog(pointerLog, errorTextOwner)
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -896,4 +899,4 @@ var _ = Describe("Writer control moved from Cesium", func() {
 			})
 		})
 	}
-})
+}, Entry("old layout", false), Entry("pointer log", true))

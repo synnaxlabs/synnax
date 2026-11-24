@@ -25,14 +25,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("One clock check", func() {
+var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 	var (
 		db        *testDB
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"]())
+		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), pointerLog)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
@@ -124,6 +124,7 @@ var _ = Describe("One clock check", func() {
 		"Should report a stream-only end of domain over an index that another writer "+
 			"controls as not authorized",
 		func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "holder"},
 				Channels:       keys,
@@ -147,6 +148,7 @@ var _ = Describe("One clock check", func() {
 		"Should stream nothing of a group whose index a stream-only writer does not "+
 			"control",
 		func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "holder"},
 				Channels:       keys,
@@ -185,6 +187,7 @@ var _ = Describe("One clock check", func() {
 		Entry(
 			"wrong data type",
 			func() cesium.Frame {
+				skipOnPointerLog(pointerLog, errorTextOwner)
 				return telem.MultiFrame(keys, []telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11),
 					telem.NewSeriesV[float64](1, 2),
@@ -214,6 +217,7 @@ var _ = Describe("One clock check", func() {
 	It(
 		"Should refuse a stream-only writer whose start lies in stored data",
 		func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, unstoredClaimOwner)
 			p := open(ctx, storageConfig{Channels: keys, Start: 10 * telem.SecondTS})
 			MustSucceed(p.Write(ctx, fr(secs(10, 11, 12), 1, 2, 3)))
 			MustSucceed(p.Commit(ctx))
@@ -232,6 +236,7 @@ var _ = Describe("One clock check", func() {
 	It(
 		"Should hand off control on a set authority after a write error",
 		func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, errorTextOwner)
 			waiting := open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "waiting"},
 				Channels:       keys,
@@ -269,4 +274,4 @@ var _ = Describe("One clock check", func() {
 			Expect(written.Get(data).Len()).To(Equal(int64(2)))
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

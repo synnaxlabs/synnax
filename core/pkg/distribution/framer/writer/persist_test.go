@@ -26,7 +26,7 @@ import (
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
-var _ = Describe("Persist", func() {
+var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 	var (
 		fs    *xfs.MemFS
 		db    *cesium.DB
@@ -37,8 +37,9 @@ var _ = Describe("Persist", func() {
 		keys  = channel.Keys{idx, data}
 	)
 	BeforeEach(func(ctx SpecContext) {
+		skipOnPointerLog(pointerLog, recoveryOwner)
 		fs = xfs.NewMem()
-		db = MustOpen(cesium.Open(ctx, "db", cesium.WithFS(fs)))
+		db = MustOpen(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
 		StartRun(db.Run)
 		Expect(db.CreateChannel(
 			ctx,
@@ -93,7 +94,7 @@ var _ = Describe("Persist", func() {
 	// same files sees, as a restart after a crash would.
 	durable := func(ctx SpecContext) int64 {
 		GinkgoHelper()
-		probe := MustSucceed(cesium.Open(ctx, "db", cesium.WithFS(fs)))
+		probe := MustSucceed(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
 		defer func() { Expect(probe.Close()).To(Succeed()) }()
 		return MustSucceed(probe.Read(ctx, telem.TimeRangeMax, uint32(data))).
 			Get(uint32(data)).Len()
@@ -172,4 +173,4 @@ var _ = Describe("Persist", func() {
 			Expect(durable(ctx)).To(Equal(int64(2)))
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

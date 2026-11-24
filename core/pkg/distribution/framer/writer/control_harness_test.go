@@ -69,11 +69,14 @@ func GenerateChannelKey() cesium.ChannelKey {
 	return uint32(channel.NewKey(1, channel.LocalKey(60_000+testKeys.Add(1))))
 }
 
-// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it. The DB closes
+// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it, on the
+// pointer log when pointerLog is true and on the old layout otherwise. The DB closes
 // when the spec or container that opens it ends.
-func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
+func mustOpenDBOnFS(ctx context.Context, fsys fs.FS, pointerLog bool) *testDB {
 	GinkgoHelper()
-	db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))))
+	db := DeferClose(MustSucceed(
+		cesium.Open(ctx, "", layoutOptions(fsys, pointerLog)...),
+	))
 	StartRun(db.Run)
 	writes := confluence.NewStream[relay.Response](10_000)
 	svc := MustSucceed(writer.NewService(writer.ServiceConfig{
@@ -89,6 +92,16 @@ func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 	}
 	svc.SetChannelResolver(tdb)
 	return tdb
+}
+
+// layoutOptions returns the options that open a Cesium DB on fsys, on the pointer log
+// when pointerLog is true and on the old layout otherwise.
+func layoutOptions(fsys fs.FS, pointerLog bool) []cesium.Option {
+	opts := []cesium.Option{cesium.WithFS(fsys)}
+	if pointerLog {
+		opts = append(opts, cesium.WithPointerLog())
+	}
+	return opts
 }
 
 // CreateChannel creates the stored channels of chs in Cesium and keeps the records of

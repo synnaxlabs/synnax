@@ -22,10 +22,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Persist only delete hold", func() {
+var _ = DescribeTableSubtree("Persist only delete hold", func(pointerLog bool) {
 	It("Should release the delete hold of a persist only writer on a virtual channel",
 		func(ctx SpecContext) {
-			db := mustOpenDBOnFS(ctx, fs.NewMem())
+			db := mustOpenDBOnFS(ctx, fs.NewMem(), pointerLog)
 			key := GenerateChannelKey()
 			Expect(db.CreateChannel(ctx, virtualChannel(key, "cmd"))).To(Succeed())
 			keys := channel.Keys{channel.Key(key)}
@@ -41,4 +41,4 @@ var _ = Describe("Persist only delete hold", func() {
 			release()
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

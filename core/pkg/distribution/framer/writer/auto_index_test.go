@@ -25,9 +25,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Writer AutoIndex", func() {
+var _ = DescribeTableSubtree("Writer AutoIndex", func(pointerLog bool) {
 	var host testutil.Node
-	BeforeEach(func(ctx SpecContext) { host = testutil.NewNode(ctx) })
+	BeforeEach(func(ctx SpecContext) { host = newNode(ctx, pointerLog) })
 
 	createIndex := func(ctx SpecContext, name string) channel.Channel {
 		GinkgoHelper()
@@ -761,4 +761,4 @@ var _ = Describe("Writer AutoIndex", func() {
 			},
 		)
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))

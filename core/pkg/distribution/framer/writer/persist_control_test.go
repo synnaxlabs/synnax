@@ -27,7 +27,7 @@ import (
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
-var _ = Describe("Persist with partial control", func() {
+var _ = DescribeTableSubtree("Persist with partial control", func(pointerLog bool) {
 	var (
 		fs    *xfs.MemFS
 		db    *cesium.DB
@@ -38,8 +38,9 @@ var _ = Describe("Persist with partial control", func() {
 		dataB = channel.NewKey(1, 4)
 	)
 	BeforeEach(func(ctx SpecContext) {
+		skipOnPointerLog(pointerLog, recoveryOwner)
 		fs = xfs.NewMem()
-		db = MustOpen(cesium.Open(ctx, "db", cesium.WithFS(fs)))
+		db = MustOpen(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
 		StartRun(db.Run)
 		Expect(db.CreateChannel(
 			ctx,
@@ -76,7 +77,7 @@ var _ = Describe("Persist with partial control", func() {
 	})
 	durable := func(ctx SpecContext, key channel.Key) int64 {
 		GinkgoHelper()
-		probe := MustSucceed(cesium.Open(ctx, "db", cesium.WithFS(fs)))
+		probe := MustSucceed(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
 		defer func() { Expect(probe.Close()).To(Succeed()) }()
 		return MustSucceed(probe.Read(ctx, telem.TimeRangeMax, uint32(key))).
 			Get(uint32(key)).Len()
@@ -116,4 +117,4 @@ var _ = Describe("Persist with partial control", func() {
 			Expect(low.Close()).To(Succeed())
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))

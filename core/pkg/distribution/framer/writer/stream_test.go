@@ -26,9 +26,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Streamed series", func() {
+var _ = DescribeTableSubtree("Streamed series", func(pointerLog bool) {
 	var host testutil.Node
-	BeforeEach(func(ctx SpecContext) { host = testutil.NewNode(ctx) })
+	BeforeEach(func(ctx SpecContext) { host = newNode(ctx, pointerLog) })
 	// stream opens a streamer on keys and returns its outlet after the open ack.
 	stream := func(
 		ctx SpecContext,
@@ -85,6 +85,7 @@ var _ = Describe("Streamed series", func() {
 		"Should stream an index and its data with one alignment from a writer that "+
 			"takes the clock from a writer of the data channel",
 		func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, emptyHandoffOwner)
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{
 				{Name: "borges", IsIndex: true, DataType: telem.TimestampT},
 			}))[0]
@@ -245,4 +246,4 @@ var _ = Describe("Streamed series", func() {
 			Expect(w.Close()).To(Succeed())
 		},
 	)
-})
+}, Entry("old layout", false), Entry("pointer log", true))
