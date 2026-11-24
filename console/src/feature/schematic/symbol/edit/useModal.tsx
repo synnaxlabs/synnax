@@ -116,7 +116,7 @@ const Editor = ({
     const spec = form.get(path.data).value;
     const part: schematic.symbol.Part = {
       key: `reg-${id.create()}`,
-      name: `Region ${spec.parts.length + 1}`,
+      name: `Part ${spec.parts.length + 1}`,
       selectors: [],
     };
     const value = selectedValueRef.current;

@@ -128,7 +128,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Colors"));
-      expect(await screen.findByText("Region 1")).toBeDefined();
+      expect(await screen.findByText("Part 1")).toBeDefined();
       expect(screen.getByText("0 elements")).toBeDefined();
     });
 
@@ -137,7 +137,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { picker, handle } = await openCreateModal(createKey);
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Colors"));
-      await screen.findByText("Region 1");
+      await screen.findByText("Part 1");
       const item = handle.baseElement.querySelector<HTMLElement>(
         ".console-schematic-region-list-item",
       );
@@ -286,7 +286,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         timeout: 5000,
       });
       fireEvent.click(getEditSectionHeaderButton("Colors"));
-      await screen.findByText("Region 1");
+      await screen.findByText("Part 1");
       return { symbol, handle };
     };
 
@@ -302,7 +302,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
         expect(saved.data.states.map((s) => s.key)).toEqual(["active"]);
-        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        const part = saved.data.parts.find((p) => p.name === "Part 1");
         assertDefined(part);
         expect(saved.data.looks.find((l) => l.part === part.key)?.stroke).toEqual({
           type: "color",
@@ -326,7 +326,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
-        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        const part = saved.data.parts.find((p) => p.name === "Part 1");
         expect(part?.selectors).toEqual(['[data-region-id="region-2"]']);
         expect(saved.data.drawing.markup).toContain(
           '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
