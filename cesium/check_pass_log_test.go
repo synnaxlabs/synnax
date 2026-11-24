@@ -39,12 +39,14 @@ import (
 
 // flipFS changes the bytes that a read of an old file returns while it is armed: the
 // first read at each offset, or, when never is true, every read, each one in another
-// way, so that no two reads agree. The bytes on the disk do not change.
+// way, so that no two reads agree. With only set, it changes only the reads of that
+// file. The bytes on the disk do not change.
 type flipFS struct {
 	xfs.FS
 	mu    sync.Mutex
 	armed bool
 	never bool
+	only  string
 	reads map[string]int
 }
 
@@ -79,7 +81,7 @@ func (f *flipFS) disarm() {
 func (f *flipFS) flip(name string, off int64) byte {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if !f.armed {
+	if !f.armed || (f.only != "" && name != f.only) {
 		return 0
 	}
 	at := name + "@" + strconv.FormatInt(off, 10)
@@ -286,6 +288,31 @@ var _ = Describe("Check pass on the pointer log", func() {
 		Consistently(failed).Should(Equal(total))
 		Expect(checkFiles(disk, keys...)).To(Equal(none))
 		flip.disarm()
+		Expect(dataOf(ctx, db, keys)).To(Equal(old.bytes(nil)))
+		Expect(closeDB()).To(Succeed())
+	})
+
+	It("Should check a segment at the next open when a stray check file shares its "+
+		"directory", func(ctx SpecContext) {
+		flip := &flipFS{FS: disk, only: oldName(i32, oldPointers(disk, i32)[0])}
+		_, closeDB := startConverted(ctx, flip, ins, func() { flip.arm(true) })
+		failed := messages("segment failed its block reads and stays unchecked")
+		Eventually(failed).Should(Equal(1))
+		want := segmentsOf()
+		left := maps.Clone(want)
+		left[i32]--
+		Eventually(func() (map[cesium.ChannelKey]int, error) {
+			return checkFiles(disk, keys...)
+		}).Should(Equal(left))
+		Expect(closeDB()).To(Succeed())
+		// The stray file makes as many check files as old files in the directory.
+		stray := strconv.FormatUint(uint64(i32), 10) + "/00000000000000ff.chk"
+		Expect(xfs.WriteFile(disk, stray, make([]byte, 8))).To(Succeed())
+		db, closeDB := openConverted(ctx, disk, ins)
+		Eventually(func() (map[cesium.ChannelKey]int, error) {
+			return checkFiles(disk, keys...)
+		}).Should(Equal(want))
+		Expect(MustSucceed(disk.Exists(stray))).To(BeFalse())
 		Expect(dataOf(ctx, db, keys)).To(Equal(old.bytes(nil)))
 		Expect(closeDB()).To(Succeed())
 	})

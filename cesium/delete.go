@@ -35,8 +35,9 @@ type GCConfig struct {
 	// MaxGoroutine is the maximum number of Goroutines that can be launched for each
 	// try of garbage collection.
 	MaxGoroutine uint
-	// TryInterval is the interval of time between two tries of garbage collection are
-	// started.
+	// TryInterval is the time between two tries of garbage collection on the old
+	// layout. On the pointer log layout, it is the time from a round of the check pass
+	// that a claim or a change cut short to the next round.
 	TryInterval time.Duration
 	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
@@ -45,7 +46,8 @@ type GCConfig struct {
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
 	// Rate is the most bytes a second that the background reads of the pointer log
-	// layout take together, such as the rewrites of the segments that pass Threshold.
+	// layout take together: the rewrites of the segments that pass Threshold, and the
+	// check pass, which reads each block of a version 0 segment two or three times.
 	//
 	// [OPTIONAL] Default: 64 MiB
 	Rate telem.Size
