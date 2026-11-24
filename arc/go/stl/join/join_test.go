@@ -445,6 +445,25 @@ var _ = Describe("Join", func() {
 			Expect(got).To(Equal([]sample{{65.535, 0, []float64{1, 65535}}}))
 		})
 
+	DescribeTable(
+		"Should count an interval at a factor of 2 of the median as near it",
+		func(intervals ...float64) {
+			ss := []float64{0}
+			for _, iv := range intervals {
+				ss = append(ss, ss[len(ss)-1]+iv)
+			}
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(1, values(make([]float64, len(ss))...), stamps(0, ss...))).
+				To(Succeed())
+			Expect(j.Push(0, values(1), stamps(0, ss[len(ss)-1]+10))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			Expect(out.Dropped).To(Equal(1), "steady, so 10 s past the limit of 6 s")
+		},
+		Entry("twice the median", 2.0, 2.0, 2.0, 2.0, 2.0, 4.0, 4.0, 4.0),
+		Entry("half the median", 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0),
+	)
+
 	Describe("Live", func() {
 		// joinFrame pushes an input at 1 Hz from 0 s to 10 s, which holds for 3 s, and
 		// then one primary frame at seconds, and joins it.
