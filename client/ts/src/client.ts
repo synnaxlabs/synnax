@@ -88,10 +88,10 @@ export const synnaxParamsZ = z.object({
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
   /**
-   * The PEM text of a CA certificate that signs the Core's certificate, trusted along
-   * with the runtime's default certificates. Turns on secure unless secure is false,
-   * which is an error. Node.js and Bun only: in Deno, leave it out and start Deno with
-   * --cert.
+   * The PEM text of a CA certificate that signs the Core's certificate. In Node.js and
+   * Bun, the client trusts only this CA. Turns on secure unless secure is false, which
+   * is an error. Node.js and Bun only: in Deno, leave it out and start Deno with
+   * --cert, which adds the CA to Deno's default certificates.
    */
   caCert: z
     .string()
@@ -326,9 +326,9 @@ export default class Synnax extends framer.Client {
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
    * certificate. In Node and Bun, the client trusts only this CA. Turns on props.secure
-   * when it is not given. When props.secure and
-   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
-   * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
+   * when it is not given. When props.secure and props.caCert are both left out,
+   * defaults to the text of the file at SYNNAX_CA_CERT, except in Deno, where TLS
+   * trusts the store that --cert or DENO_CERT fills.
    * The key helper of Synnax Desktop runs before the first login. If it is gone or
    * fails, that login rejects with an APIKeyUnavailableError, and the connection status
    * gives the reason "auth".
