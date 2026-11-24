@@ -33,6 +33,8 @@ const nodeType = "join_spec"
 type joinSetup struct {
 	state *node.ProgramState
 	n     node.Node
+	// now is the arrival clock of the join.
+	now telem.TimeStamp
 	// self counts the calls to MarkSelfChanged.
 	self int
 }
@@ -99,14 +101,14 @@ func openJoin(ctx SpecContext, arrival bool) *joinSetup {
 	}
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, *sym))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-	s := node.New(analyzed)
-	h := join.NewHost(nodeType, telem.Now)
-	n := MustSucceed(h.Create(node.Config{
+	j := &joinSetup{state: node.New(analyzed)}
+	h := join.NewHost(nodeType, func() telem.TimeStamp { return j.now })
+	j.n = MustSucceed(h.Create(node.Config{
 		Node:    ir.Node{Key: "join", Type: nodeType, Inputs: inputs},
-		State:   s.Node("join"),
+		State:   j.state.Node("join"),
 		Program: program.Program{IR: analyzed},
 	}))
-	return &joinSetup{state: s, n: n}
+	return j
 }
 
 // push sets the output of source to values at stamps, in seconds, with alignment.
@@ -189,15 +191,22 @@ var _ = Describe("Node", func() {
 		Expect(second).To(MatchSeriesDataV[float64](5))
 		Expect(b).To(MatchSeriesDataV[float64](20))
 		Expect(second.Alignment).To(Equal(telem.Alignment(4)))
-		Expect(j.n.(*join.Node).Dropped()).To(Equal(2))
 	})
 
-	It("Should count the primary stamps that get no output", func(ctx SpecContext) {
+	It("Should count the primary stamps that get no output once the join settles", func(
+		ctx SpecContext,
+	) {
 		j := openJoin(ctx, false)
-		j.push("b", 0, []float64{10}, 5)
-		j.push("a", 0, []float64{1, 2}, 2, 3)
-		Expect(j.next(ctx)).To(BeEmpty())
-		Expect(j.n.(*join.Node).Dropped()).To(Equal(2))
+		j.push("b", 0, []float64{10}, 100)
+		// The join settles once 3 times the median frame gap passes from the primary's
+		// first frame to its last: on the fourth frame of frames 1 s apart.
+		for i := range 4 {
+			Expect(j.n.(*join.Node).Dropped()).To(BeZero())
+			j.now += telem.SecondTS
+			j.push("a", telem.Alignment(i), []float64{1}, telem.TimeStamp(i+1))
+			Expect(j.next(ctx)).To(BeEmpty())
+		}
+		Expect(j.n.(*join.Node).Dropped()).To(Equal(1))
 		Expect(j.n.(*join.Node).Dropped()).To(BeZero())
 	})
 

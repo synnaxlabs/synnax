@@ -108,7 +108,8 @@ type Node struct {
 
 var _ node.Node = (*Node)(nil)
 
-// Dropped returns the number of primary stamps that got no output since the last call.
+// Dropped returns the number of primary stamps that got no output since the last call,
+// counting from the step the join settled on.
 func (n *Node) Dropped() int {
 	dropped := n.dropped
 	n.dropped = 0
@@ -136,7 +137,9 @@ func (n *Node) Next(ctx node.Context) {
 	n.out.Reset()
 	n.next = 0
 	n.join.Next(telem.TimeStampMax, &n.out)
-	n.dropped += n.out.Dropped
+	if n.out.Settled {
+		n.dropped += n.out.Dropped
+	}
 	if len(n.out.Runs) > 0 {
 		n.emit(ctx)
 	}
