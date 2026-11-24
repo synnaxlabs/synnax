@@ -10,16 +10,18 @@
 import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { reduceAll } from "@/calculation/actions";
-import { create } from "@/calculation/actions.gen";
-import { calculationZ, resourceID } from "@/calculation/types.gen";
+import { calculation } from "@/calculation";
 
 const KEY = "0198b5a4-0000-7000-8000-000000000001";
 
 describe("calculation actions", () => {
   it("should drop the status that a create action carries", () => {
-    const held = calculationZ.parse({ key: KEY, output: 1, expression: "return 1" });
-    const created = calculationZ.parse({
+    const held = calculation.calculationZ.parse({
+      key: KEY,
+      output: 1,
+      expression: "return 1",
+    });
+    const created = calculation.calculationZ.parse({
       key: KEY,
       output: 1,
       expression: "return 2",
@@ -31,10 +33,12 @@ describe("calculation actions", () => {
         description: "",
         time: TimeStamp.now(),
         labels: [],
-        owner: resourceID(KEY),
+        owner: calculation.resourceID(KEY),
       },
     });
-    const { next } = reduceAll(held, [create({ calculation: created })]);
+    const { next } = calculation.reduceAll(held, [
+      calculation.create({ calculation: created }),
+    ]);
     expect(next.expression).toEqual("return 2");
     expect(next.status).toBeUndefined();
   });
