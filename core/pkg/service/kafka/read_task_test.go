@@ -1211,7 +1211,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record value: field vals/01: no value at " +
+					"Record value: field vals_01: no value at " +
 						"/vals/01: validation error (topic " + topic + ", partition 0, " +
 						"offset 0).",
 				))
@@ -1572,6 +1572,9 @@ var _ = Describe("Read task", func() {
 		Entry("a string",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
+		Entry("a number into a string channel as its JSON text",
+			telem.StringT, payload.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1}, telem.NewSeriesV("1")),
 		Entry("a UUID",
 			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
@@ -1654,9 +1657,9 @@ var _ = Describe("Read task", func() {
 		Entry("a null where a number is expected",
 			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
-		Entry("a number where a string is expected",
+		Entry("a null where a string is expected",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
+			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
 		Entry("a number where a UUID is expected",
 			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),

@@ -379,6 +379,7 @@ export const Connect = ({
                       label="Certificate"
                       role="client certificate"
                       padHelpText={false}
+                      privateKeyRequired
                     />
                   )}
                   <Flex.Box y gap={2}>

@@ -38,63 +38,63 @@ func apiKey(k apikey.APIKey) APIKey {
 	return APIKey{Key: k.Key, Subject: k.Subject, Name: k.Name, Created: k.Created}
 }
 
-// KeyCreateRequest creates an API key.
-type KeyCreateRequest struct {
+// APIKeyCreateRequest creates an API key.
+type APIKeyCreateRequest struct {
 	// Subject is the user or rack the key logs in as. Empty means the caller.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
 }
 
-// KeyCreateResponse is a new API key.
-type KeyCreateResponse struct {
+// APIKeyCreateResponse is a new API key.
+type APIKeyCreateResponse struct {
 	// Token is the API key to log in with. It is the only copy of its secret.
 	Token string `json:"token" msgpack:"token"`
 	// Key is the stored key.
 	Key APIKey `json:"key" msgpack:"key"`
 }
 
-// CreateKey creates an API key for the caller, or for another user or rack. It returns
-// a validation error when the API key method is off or the subject is not a user or
-// rack that exists.
-func (s *Service) CreateKey(
+// CreateAPIKey creates an API key for the caller, or for another user or rack. It
+// returns a validation error when the API key method is off or the subject is not a
+// user or rack that exists.
+func (s *Service) CreateAPIKey(
 	ctx context.Context,
 	tx gorp.Tx,
-	req KeyCreateRequest,
-) (KeyCreateResponse, error) {
+	req APIKeyCreateRequest,
+) (APIKeyCreateResponse, error) {
 	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
 	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
 	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name)
 	if err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
-	return KeyCreateResponse{Token: token, Key: apiKey(k)}, nil
+	return APIKeyCreateResponse{Token: token, Key: apiKey(k)}, nil
 }
 
-// KeyRetrieveRequest selects API keys to list.
-type KeyRetrieveRequest struct {
+// APIKeyRetrieveRequest selects API keys to list.
+type APIKeyRetrieveRequest struct {
 	// Subjects limits the result to these subjects' keys. Empty means the caller.
 	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 }
 
-// KeyRetrieveResponse lists API keys without their hashes.
-type KeyRetrieveResponse struct {
+// APIKeyRetrieveResponse lists API keys without their hashes.
+type APIKeyRetrieveResponse struct {
 	// Keys are the keys that matched.
 	Keys []APIKey `json:"keys" msgpack:"keys"`
 }
 
 // Holders implements bind.Held.
-func (r KeyRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+func (r APIKeyRetrieveRequest) Holders() []resource.ID { return r.Subjects }
 
-// RetrieveKeys lists the API keys of the given subjects in snap, or the caller's keys
-// when the request names no subject.
-func (s *Service) RetrieveKeys(
+// RetrieveAPIKeys lists the API keys of the given subjects in snap, or the caller's
+// keys when the request names no subject.
+func (s *Service) RetrieveAPIKeys(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	req KeyRetrieveRequest,
-) (KeyRetrieveResponse, error) {
+	req APIKeyRetrieveRequest,
+) (APIKeyRetrieveResponse, error) {
 	subjects := req.Subjects
 	if len(subjects) == 0 {
 		subjects = []resource.ID{GetSubject(ctx)}
@@ -104,25 +104,27 @@ func (s *Service) RetrieveKeys(
 		Where(apikey.MatchSubjects(subjects...)).
 		Entries(&keys).
 		Exec(ctx, snap); err != nil {
-		return KeyRetrieveResponse{}, err
+		return APIKeyRetrieveResponse{}, err
 	}
-	return KeyRetrieveResponse{Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
-		return apiKey(k)
-	})}, nil
+	return APIKeyRetrieveResponse{
+		Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
+			return apiKey(k)
+		}),
+	}, nil
 }
 
-// KeyDeleteRequest names API keys to delete.
-type KeyDeleteRequest struct {
+// APIKeyDeleteRequest names API keys to delete.
+type APIKeyDeleteRequest struct {
 	// Keys are the API keys to delete.
 	Keys []apikey.Key `json:"keys" msgpack:"keys"`
 }
 
-// DeleteKeys deletes the given API keys and ends the sessions they opened. Unknown keys
-// are ignored.
-func (s *Service) DeleteKeys(
+// DeleteAPIKeys deletes the given API keys and ends the sessions they opened. Unknown
+// keys are ignored.
+func (s *Service) DeleteAPIKeys(
 	ctx context.Context,
 	tx gorp.Tx,
-	req KeyDeleteRequest,
+	req APIKeyDeleteRequest,
 ) (struct{}, error) {
 	var keys []apikey.APIKey
 	if err := s.apiKey.NewRetrieve().
