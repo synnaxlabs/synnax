@@ -133,7 +133,7 @@ func Purge(
 		if err = ts.Intend(Keys(keys).Uint32()); err != nil {
 			return nil, err
 		}
-		if err = ts.Drop(Keys(keys).Uint32()); err != nil {
+		if err = ts.Drop(ctx, Keys(keys).Uint32()); err != nil {
 			return nil, err
 		}
 	}
