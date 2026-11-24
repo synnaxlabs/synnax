@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -515,10 +516,10 @@ var _ = Describe("Channel", func() {
 				Expect(outputChanged).To(BeTrue())
 				Expect(
 					*progState.Node("source").Output(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[float32](1.5, 2.5, 3.5)))
+				).To(MatchSeries(telem.NewSeriesV[float32](1.5, 2.5, 3.5)))
 				Expect(
 					*progState.Node("source").OutputTime(0),
-				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
+				).To(MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
 			})
 
 			It(
@@ -606,7 +607,7 @@ var _ = Describe("Channel", func() {
 						MarkChanged:   func(int) { outputCount++ },
 					})
 					Expect(outputCount).To(Equal(1))
-					Expect(*nodeState.Output(0)).To(telem.MatchSeries(d2))
+					Expect(*nodeState.Output(0)).To(MatchSeries(d2))
 				},
 			)
 
@@ -668,7 +669,7 @@ var _ = Describe("Channel", func() {
 				Expect(outputChanged).To(BeTrue())
 				Expect(
 					*progState.Node("source").Output(0),
-				).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
+				).To(MatchSeries(telem.NewSeriesV[int32](100, 200)))
 				Expect(
 					progState.Node("source").OutputTime(0).DataType,
 				).To(Equal(telem.TimestampT))
@@ -833,9 +834,9 @@ var _ = Describe("Channel", func() {
 				)
 				Expect(outputCount).To(Equal(1))
 				o := nodeState.Output(0)
-				Expect(*o).To(telem.MatchSeries(d1))
+				Expect(*o).To(MatchSeries(d1))
 				ot := nodeState.OutputTime(0)
-				Expect(*ot).To(telem.MatchSeries(t1))
+				Expect(*ot).To(MatchSeries(t1))
 
 				source.Next(
 					rnode.Context{
@@ -846,9 +847,9 @@ var _ = Describe("Channel", func() {
 				)
 				Expect(outputCount).To(Equal(2))
 				o = nodeState.Output(0)
-				Expect(*o).To(telem.MatchSeries(d2))
+				Expect(*o).To(MatchSeries(d2))
 				ot = nodeState.OutputTime(0)
-				Expect(*ot).To(telem.MatchSeries(t2))
+				Expect(*ot).To(MatchSeries(t2))
 			})
 		})
 
@@ -1665,7 +1666,7 @@ var _ = Describe("Channel", func() {
 					writeDataSeries(10, al(1), 42, 43)
 					Expect(firesOn(ctx, src)).To(BeTrue())
 					out := *progState.Node("s0").OutputTime(0)
-					Expect(out).To(telem.MatchSeriesDataV[telem.TimeStamp](200, 300))
+					Expect(out).To(MatchSeriesDataV[telem.TimeStamp](200, 300))
 					Expect(out.Alignment).To(Equal(al(1)))
 					Expect(emittedValue("s0")).To(Equal(float32(43)))
 				},
@@ -1678,7 +1679,7 @@ var _ = Describe("Channel", func() {
 					writeDataSeries(10, al(0), 42, 43)
 					Expect(firesOn(ctx, src)).To(BeTrue())
 					out := *progState.Node("s0").OutputTime(0)
-					Expect(out).To(telem.MatchSeriesDataV[telem.TimeStamp](100, 200))
+					Expect(out).To(MatchSeriesDataV[telem.TimeStamp](100, 200))
 					Expect(emittedTS("s0")).To(Equal(telem.TimeStamp(200)))
 				},
 			)
@@ -1862,11 +1863,11 @@ var _ = Describe("Channel", func() {
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(
 					fr.Get(100).Series[0],
-				).To(telem.MatchSeriesDataV[float32](7.7, 8.8))
+				).To(MatchSeriesDataV[float32](7.7, 8.8))
 				Expect(fr.Get(101).Series).To(HaveLen(1))
 				Expect(
 					fr.Get(101).Series[0],
-				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
+				).To(MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
 			It(
 				"Should not rewrite consumed data when the stage re-enters",
@@ -1900,11 +1901,11 @@ var _ = Describe("Channel", func() {
 					Expect(flushed).To(BeTrue())
 					Expect(
 						fr.Get(100).Series[0],
-					).To(telem.MatchSeriesDataV[float32](7.7, 8.8))
+					).To(MatchSeriesDataV[float32](7.7, 8.8))
 					Expect(fr.Get(100).Series).To(HaveLen(1))
 					Expect(
 						fr.Get(101).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
+					).To(MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 					Expect(fr.Get(101).Series).To(HaveLen(1))
 				},
 			)
@@ -2013,7 +2014,7 @@ var _ = Describe("Channel", func() {
 				Expect(changed).To(BeTrue())
 				Expect(
 					fr1.Get(100).Series[0],
-				).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
+				).To(MatchSeries(telem.NewSeriesV[float32](1.0)))
 				*upstream.Output(0) = telem.NewSeriesV[float32](2.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 				upstream.MarkFresh(0)
@@ -2029,7 +2030,7 @@ var _ = Describe("Channel", func() {
 				Expect(changed).To(BeTrue())
 				Expect(
 					fr2.Get(100).Series[0],
-				).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+				).To(MatchSeries(telem.NewSeriesV[float32](2.0)))
 			})
 		})
 	})
@@ -2131,10 +2132,10 @@ var _ = Describe("Channel", func() {
 				Expect(changed).To(BeTrue())
 				Expect(
 					outputFr.Get(3).Series[0],
-				).To(telem.MatchSeries(telem.NewSeriesV[int32](42, 99)))
+				).To(MatchSeries(telem.NewSeriesV[int32](42, 99)))
 				Expect(
 					outputFr.Get(4).Series[0],
-				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
+				).To(MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
 			})
 		})
 		Describe("Multiple Channels", func() {
@@ -2301,10 +2302,10 @@ var _ = Describe("Channel", func() {
 					Expect(changed).To(BeTrue())
 					Expect(
 						outputFr.Get(30).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesV[float32](1.1, 2.2)))
+					).To(MatchSeries(telem.NewSeriesV[float32](1.1, 2.2)))
 					Expect(
 						outputFr.Get(40).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesV(3.3, 4.4)))
+					).To(MatchSeries(telem.NewSeriesV(3.3, 4.4)))
 				},
 			)
 		})

@@ -34,7 +34,6 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
 import {
   bridgeVertices,
   buildDrawOperations,
@@ -43,7 +42,8 @@ import {
   finiteRuns,
 } from "@/vis/line/aether/draw";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, inView, Reducer, type View } from "@/vis/line/aether/reduce";
+import { pair } from "@/vis/line/aether/pair";
+import { reduce } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -356,7 +356,7 @@ interface InternalState {
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
-  reducer: Reducer;
+  reducer: reduce.Reducer;
   // zoom is the log2 span of the last bounds drawn, and settleTimer runs until that
   // zoom has held for ZOOM_SETTLE.
   zoom?: number;
@@ -400,7 +400,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
     i.background = theming.use(ctx).colors.gray.l0;
-    i.reducer ??= new Reducer();
+    i.reducer ??= new reduce.Reducer();
     i.drawn ??= [];
     i.xBounds ??= bounds.INVALID;
     i.groupSize ??= 1;
@@ -485,7 +485,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
     const x = xTelem.value(valueProps);
     return {
-      bounds: windowBounds(x.data[1], yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b),
+      bounds: pair.windowBounds(
+        x.data[1],
+        yData,
+        xWindow,
+        DEFAULT_OVERLAP_THRESHOLD,
+        b,
+      ),
       loading: isLoading(x) || isLoading(y),
     };
   }
@@ -537,7 +543,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [, yData] = yTelem.value(valueProps).data;
     const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     let ySeries: Series | undefined;
-    forEachPair(
+    pair.forEach(
       [xSeries],
       yData.series,
       DEFAULT_OVERLAP_THRESHOLD,
@@ -601,7 +607,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   // read returns the value props of the view. A zoom gives the sources points only once
   // its span holds, so a fast zoom does not read the spans it passes through. A pan
   // reads at once.
-  private read({ bounds: b, width }: View, span: bounds.Bounds): telem.ValueProps {
+  private read(
+    { bounds: b, width }: reduce.View,
+    span: bounds.Bounds,
+  ): telem.ValueProps {
     const { internal: i } = this;
     const zoom = Math.ceil(Math.log2(bounds.span(b)));
     if (zoom !== i.zoom) {
@@ -647,11 +656,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
+    const size = reduce.groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
     i.groupSize = size;
     const cut =
       x.sorted === true && bounds.isFinite(v.bounds)
-        ? inView(full, v.bounds, size)
+        ? reduce.inView(full, v.bounds, size)
         : full;
     const ops = reducer.reduce(cut, i.aggregation, size);
     i.drawn = ops;
@@ -722,7 +731,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 }
 
 // view returns the part of the x range that the region shows.
-const view = ({ region, dataToDecimalScale }: LineProps): View => {
+const view = ({ region, dataToDecimalScale }: LineProps): reduce.View => {
   const decimalToData = dataToDecimalScale.x.reverse();
   return {
     bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },

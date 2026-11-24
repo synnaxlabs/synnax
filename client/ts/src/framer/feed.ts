@@ -18,21 +18,12 @@ import {
 
 import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
-import { Joins } from "@/framer/cache/join";
-import { Joiner } from "@/framer/cache/joiner";
-import {
-  DEFAULT_BATCH_DEBOUNCE,
-  Reader,
-  type ReaderProps,
-} from "@/framer/cache/reader";
-import { Store, type StoreProps } from "@/framer/cache/store";
-import {
-  type Demand,
-  MultiplexedStreamer,
-  type MultiplexedStreamerProps,
-} from "@/framer/cache/streamer";
+import { join } from "@/framer/cache/join";
+import { reader } from "@/framer/cache/reader";
+import { store } from "@/framer/cache/store";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { Handle } from "@/framer/cache/subscription";
-import { TileReader } from "@/framer/cache/tile";
+import { tile } from "@/framer/cache/tile";
 import type { Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import type { StreamOpener } from "@/framer/streamer";
@@ -58,9 +49,12 @@ type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    Pick<StoreProps, "instrumentation">,
-    Omit<ReaderProps, "store">,
-    Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
+    Pick<store.Props, "instrumentation">,
+    Omit<reader.Props, "store">,
+    Omit<
+      cacheStreamer.MultiplexedProps,
+      "store" | "joins" | "onWait" | "openStreamer"
+    > {
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
   /** Reads the first stored sample of each channel. */
@@ -97,19 +91,19 @@ export class Feed {
     disposable.implementAsync(this);
   }
 
-  private readonly reader: Reader;
-  private readonly streamer: MultiplexedStreamer;
-  private readonly tiles: TileReader;
-  private readonly store: Store;
-  private readonly joins: Joins;
-  private readonly joiner: Joiner;
+  private readonly reader: reader.Reader;
+  private readonly streamer: cacheStreamer.Multiplexed;
+  private readonly tiles: tile.Reader;
+  private readonly store: store.Store;
+  private readonly joins: join.Joins;
+  private readonly joiner: join.Joiner;
   private readonly latest: scheduler.Batcher<LatestQuery, Frame>;
   private readonly props: FeedProps;
   private readonly handles = new Set<Handle>();
   // listening is true once a subscription asked for the history changes, and signals
   // carries them once their channel is found.
   private listening = false;
-  private signals: Demand | null = null;
+  private signals: cacheStreamer.Demand | null = null;
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -127,13 +121,13 @@ export class Feed {
       onRetry,
     } = props;
     this.props = props;
-    this.store = new Store({
+    this.store = new store.Store({
       budget,
       instrumentation: instrumentation?.child("store"),
       now,
     });
-    this.joins = new Joins(this.store);
-    this.reader = new Reader({
+    this.joins = new join.Joins(this.store);
+    this.reader = new reader.Reader({
       readRemote,
       retrieveChannels,
       store: this.store,
@@ -141,14 +135,14 @@ export class Feed {
       fetchTimeout,
       now,
     });
-    this.tiles = new TileReader({
+    this.tiles = new tile.Reader({
       readRemote,
       store: this.store,
       batchDebounce,
       fetchTimeout,
       now,
     });
-    this.streamer = new MultiplexedStreamer({
+    this.streamer = new cacheStreamer.Multiplexed({
       store: this.store,
       joins: this.joins,
       onWait: (indexes) => this.joiner.wake(indexes),
@@ -171,7 +165,7 @@ export class Feed {
       breaker,
       instrumentation: instrumentation?.child("streamer"),
     });
-    this.joiner = new Joiner({
+    this.joiner = new join.Joiner({
       joins: this.joins,
       reader: this.reader,
       streamer: this.streamer,
@@ -179,7 +173,7 @@ export class Feed {
       breaker,
     });
     this.latest = new scheduler.Batcher({
-      interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
+      interval: batchDebounce ?? reader.DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         // Requests of one count and range share one read.
         const groups = Map.groupBy(
