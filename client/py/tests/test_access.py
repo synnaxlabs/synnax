@@ -322,7 +322,7 @@ class TestRoleClient:
 
     def test_set_role_root(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should reject changing the role of the root user."""
-        [p] = client.auth.retrieve_passwords(usernames=["synnax"])
+        [p] = client.auth.passwords.retrieve(usernames=["synnax"])
         root = next(u for u in client.users.retrieve() if u.resource_id == p.subject)
         with pytest.raises(
             sy.ValidationError, match="cannot change the role of root user synnax"
@@ -385,6 +385,7 @@ class TestAccessAuthClient:
             port=port,
             username=username,
             password="pwd2",
+            secure=False,
         )
 
         with pytest.raises(sy.AccessDenied):
