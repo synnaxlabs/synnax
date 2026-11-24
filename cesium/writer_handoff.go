@@ -186,7 +186,8 @@ func (w *Writer) handoffConfig(cfg WriterConfig) (WriterConfig, error) {
 }
 
 // pend closes w, a writer of data alone, and returns its uncommitted samples as a
-// Pending, or nil when it has none or stores no samples. It refuses a non-nil adopt.
+// Pending, or nil when it has none or stores no samples. It refuses a non-nil adopt. On
+// the pointer log layout, the Pending claims its keys over the stamps of its samples.
 func (w *Writer) pend(adopt *Pending) (*Pending, error) {
 	if adopt != nil {
 		return nil, errors.Wrap(
@@ -198,7 +199,12 @@ func (w *Writer) pend(adopt *Pending) (*Pending, error) {
 		return nil, w.Close()
 	}
 	if w.log != nil {
+		runs := w.log.runs
 		if err := w.log.readStamps(); err != nil {
+			return nil, err
+		}
+		err := w.log.st.Bound(runs[0].first, runs[len(runs)-1].last)
+		if err != nil {
 			return nil, err
 		}
 		w.closed = true

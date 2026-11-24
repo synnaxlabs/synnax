@@ -429,6 +429,25 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 			Expect(stored(ctx, data)).To(Equal(int64(4)))
 		})
 
+		It("Should let a writer claim the key after the stamps of the pending samples",
+			func(ctx SpecContext) {
+				stamps(ctx)
+				first := alone(ctx, false)
+				mustWrite(ctx, first, values())
+				_, p := MustSucceed2(db.Handoff(
+					ctx,
+					first,
+					cesium.WriterConfig{Clock: clock},
+					nil,
+				))
+				after := config(data)
+				after.Start = 13*telem.SecondTS + 1
+				Expect(MustSucceed(db.OpenWriter(ctx, after)).Close()).To(Succeed())
+				_, held := MustSucceed2(p.Commit(ctx))
+				Expect(held).To(BeTrue())
+				Expect(stored(ctx, data)).To(Equal(int64(4)))
+			})
+
 		It("Should commit the pending samples through the writer that adopts them",
 			func(ctx SpecContext) {
 				stamps(ctx)
