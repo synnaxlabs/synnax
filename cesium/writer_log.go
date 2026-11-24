@@ -86,8 +86,16 @@ type logKey struct {
 }
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes its
-// clock and the channels that the clock times. The caller holds db.mu.
+// clock and the channels that the clock times. It returns ErrDBClosed when db is
+// closed.
 func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
+	// A state open adds a key that it does not hold, so a Drop must not run between
+	// the reads of the channels and the open.
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.closed.Load() {
+		return nil, ErrDBClosed
+	}
 	w := &logWriter{
 		e:        db.engine,
 		clock:    cfg.Clock,
