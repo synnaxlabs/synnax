@@ -265,7 +265,9 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 			continue
 		}
 		s := fr.RawSeriesAt(i)
-		if s.DataType != lk.ch.DataType {
+		// The clock takes int64 stamps too, as the index writer of the old layout does.
+		if s.DataType != lk.ch.DataType &&
+			(k != w.clock || s.DataType != telem.Int64T) {
 			return clock, 0, invalidDataTypeError(lk.ch, s.DataType)
 		}
 		if lk.frame == w.frames {

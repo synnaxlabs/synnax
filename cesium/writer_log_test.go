@@ -159,6 +159,22 @@ var _ = Describe("Writer on the pointer log", func() {
 				Expect(fr.Get(idx).Series).To(HaveLen(1))
 				Expect(fr.Get(data).Series).To(BeEmpty())
 			})
+		It("Should take int64 stamps for the index, as the old layout does", func(
+			ctx SpecContext,
+		) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			stamps := []int64{int64(10 * telem.SecondTS), int64(11 * telem.SecondTS)}
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries([]int64{1, 2}),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(read(ctx, idx).Series[0]).To(
+				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
+			)
+			Expect(read(ctx, data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		})
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
