@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -21,25 +22,18 @@ import {
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {
-    const client = createTestClient();
-    const realFetch = globalThis.fetch;
     let failures = 0;
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(async (input, init) => {
-        if (
-          failures === 0 &&
-          typeof input === "string" &&
-          input.includes("channel/retrieve")
-        ) {
-          failures++;
-          throw new TypeError("fetch failed", {
-            cause: { code: "UND_ERR_SOCKET" },
-          });
-        }
-        return await realFetch(input, init);
-      });
-    onTestFinished(() => fetchSpy.mockRestore());
+    const client = createTestClient({
+      middleware: [
+        async (ctx, next) => {
+          if (failures === 0 && ctx.target.endsWith("/channel/retrieve")) {
+            failures++;
+            throw new Unreachable();
+          }
+          return await next(ctx);
+        },
+      ],
+    });
     const warn = vi.spyOn(console, "warn");
     onTestFinished(() => warn.mockRestore());
     await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
@@ -67,16 +61,21 @@ describe("createTestClient lifetime", () => {
 
 describe("holdRequests", () => {
   it("should send a held request only once released", async () => {
-    const client = createTestClient();
+    const sent: string[] = [];
+    const client = createTestClient({
+      middleware: [
+        async (ctx, next) => {
+          sent.push(ctx.target);
+          return await next(ctx);
+        },
+      ],
+    });
     await client.connect();
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    onTestFinished(() => fetchSpy.mockRestore());
+    sent.length = 0;
     const { release } = holdRequests(client, "/channel/retrieve");
     const retrieving = client.channels.retrieve(["no-such-channel"]);
     const reachedCore = () =>
-      fetchSpy.mock.calls.some(
-        ([input]) => typeof input === "string" && input.includes("channel/retrieve"),
-      );
+      sent.some((target) => target.endsWith("/channel/retrieve"));
     await sleep.sleep(TimeSpan.milliseconds(50));
     expect(reachedCore()).toBe(false);
     release();

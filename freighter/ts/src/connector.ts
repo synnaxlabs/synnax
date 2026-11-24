@@ -97,30 +97,34 @@ const GLOBAL_CONNECTOR: Connector = {
 };
 
 // A CA list replaces the default list in Node and Bun, so it must hold the defaults.
-const defaultCAs = async (): Promise<string[]> => {
+// Returns undefined when the runtime's own defaults are the list to use.
+const trustedCAs = async (ca?: string): Promise<string[] | undefined> => {
   // webpack cannot build a node: import for a browser, but it skips getBuiltinModule.
   const { getCACertificates, rootCertificates } = process.getBuiltinModule("node:tls");
-  // Node 22.15 added getCACertificates. Before it, the defaults are the bundled roots
-  // and NODE_EXTRA_CA_CERTS, and Node cannot read the system certificates.
-  if (getCACertificates != null)
-    return [...getCACertificates("default"), ...getCACertificates("system")];
+  // Node 22.15 and 23.10 added getCACertificates. On Linux, the system certificates
+  // are the OpenSSL store.
+  if (getCACertificates != null) {
+    const cas = [...getCACertificates("default"), ...getCACertificates("system")];
+    return ca == null ? cas : [...cas, ca];
+  }
+  // An older Node cannot read the system store, and its defaults can be the OpenSSL
+  // store, which it cannot list.
+  if (ca == null) return undefined;
   const extra = process.env.NODE_EXTRA_CA_CERTS;
-  if (extra == null || extra === "") return [...rootCertificates];
+  if (extra == null || extra === "") return [...rootCertificates, ca];
   const { readFile } = process.getBuiltinModule("node:fs/promises");
   // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
   const extraCAs = await readFile(extra, "utf8").catch(() => null);
-  return extraCAs == null ? [...rootCertificates] : [...rootCertificates, extraCAs];
-};
-
-const withDefaultCAs = async (ca?: string): Promise<string[]> => {
-  const defaults = await defaultCAs();
-  return ca == null ? defaults : [...defaults, ca];
+  return extraCAs == null
+    ? [...rootCertificates, ca]
+    : [...rootCertificates, extraCAs, ca];
 };
 
 const loadUndici = async (ca?: string) => {
   const { EnvHttpProxyAgent, fetch, WebSocket } = await import("undici");
+  const cas = await trustedCAs(ca);
   // The agent uses connect for a direct connection and requestTls through a proxy.
-  const tls = { ca: await withDefaultCAs(ca) };
+  const tls = cas == null ? undefined : { ca: cas };
   const dispatcher = new EnvHttpProxyAgent({ connect: tls, requestTls: tls });
   return { fetch, WebSocket, dispatcher };
 };
@@ -178,8 +182,8 @@ const nodeConnector = (ca?: string): Connector => {
 };
 
 const bunConnector = (ca: string): Connector => {
-  let cas: Promise<string[]> | null = null;
-  const load = async () => ({ ca: await (cas ??= withDefaultCAs(ca)) });
+  let cas: Promise<string[] | undefined> | null = null;
+  const load = async () => ({ ca: await (cas ??= trustedCAs(ca)) });
   return {
     fetch: async (target, init) => {
       const req: RequestInit & { tls: object } = { ...init, tls: await load() };
