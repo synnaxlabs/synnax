@@ -173,14 +173,13 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 	c.checkTagOverlaps(pathOf(path, "fields"), p.Fields)
 }
 
-// checkTagOverlaps refuses a tag that the Driver cannot tell from the tag of another
-// field: an equal tag, or the other tag followed by text that can start a value. The
-// Driver gives each item to the longest tag that starts it, so a value after the
-// shorter tag reads as the longer one. A field gets at most one such problem.
+// checkTagOverlaps refuses a tag that equals the tag of another field, or that is the
+// other tag and then text that can start a value. The Driver gives such a value to the
+// longer tag. A field gets at most one such problem.
 func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
 	for j, f := range fields {
 		long, ok := f.Variant.(TaggedTextField)
-		if !ok || long.Tag == "" {
+		if !ok {
 			continue
 		}
 		for i, g := range fields {
@@ -212,9 +211,8 @@ func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
 	}
 }
 
-// startsValue reports whether rest, the text of a longer tag after a shorter tag, can
-// start a number that the Driver reads after the shorter tag. The Driver trims
-// textSpace before it reads the number.
+// startsValue reports whether rest, once the Driver trims textSpace from it, is the
+// start of some number. An empty rest starts every number.
 func startsValue(rest string) bool {
 	rest = strings.TrimLeft(rest, textSpace)
 	return rest == "" || strings.IndexByte("0123456789+-.", rest[0]) >= 0
