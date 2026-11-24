@@ -12,6 +12,9 @@ package cesium_test
 import (
 	"context"
 	"runtime"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1435,3 +1438,212 @@ var _ = Describe("Control", func() {
 		})
 	}
 })
+
+var _ = Describe("Control handoff", func() {
+	var (
+		db   *cesium.DB
+		hold *fileHold
+		keys []cesium.ChannelKey
+		high *cesium.Writer
+	)
+	BeforeEach(func(ctx SpecContext) {
+		keys = []cesium.ChannelKey{GenerateChannelKey(), GenerateChannelKey()}
+		hold = newFileHold(keys[0])
+		DeferCleanup(func() { hold.free() })
+		db = mustOpenDBOnFS(ctx, holdFS{FS: FileSystems["memFS"](), hold: hold})
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      keys[0],
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      keys[1],
+				Name:     "data",
+				Index:    keys[0],
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		high = nil
+	})
+	config := func(subject string, authority xcontrol.Authority) cesium.WriterConfig {
+		return cesium.WriterConfig{
+			ControlSubject:   xcontrol.Subject{Key: subject},
+			Channels:         keys,
+			Start:            10 * telem.SecondTS,
+			Authorities:      []xcontrol.Authority{authority},
+			EnableAutoCommit: new(false),
+			Sync:             new(true),
+		}
+	}
+	write := func(w *cesium.Writer, stamp telem.TimeStamp) (bool, error) {
+		return w.Write(telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesV(stamp),
+			telem.NewSeriesV(int64(stamp)),
+		}))
+	}
+	// handOff runs handoff while the hold stops the low writer, then frees the hold. A
+	// handoff that waits for the held operation gets one second before the hold frees.
+	handOff := func(handoff func() error) {
+		GinkgoHelper()
+		Eventually(hold.held).Should(BeClosed())
+		done := make(chan error, 1)
+		go func() { done <- handoff() }()
+		select {
+		case err := <-done:
+			hold.free()
+			Expect(err).ToNot(HaveOccurred())
+		case <-time.After(time.Second):
+			hold.free()
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(Succeed()))
+		}
+	}
+	// samples returns the stamps of the index and the values of the data channel. Each
+	// write sets its value to its stamp.
+	samples := func(ctx SpecContext) (stamps, values []int64) {
+		GinkgoHelper()
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys...))
+		for _, s := range fr.Get(keys[0]).Series {
+			for _, t := range s.Unmarshal[telem.TimeStamp]() {
+				stamps = append(stamps, int64(t))
+			}
+		}
+		for _, s := range fr.Get(keys[1]).Series {
+			values = append(values, s.Unmarshal[int64]()...)
+		}
+		return stamps, values
+	}
+	raise := func(ctx SpecContext) func() error {
+		high = MustSucceed(db.OpenWriter(ctx, config("high", 0)))
+		return func() error {
+			return high.SetAuthority(cesium.WriterConfig{
+				Authorities: []xcontrol.Authority{2},
+			})
+		}
+	}
+	openAbove := func(ctx SpecContext) func() error {
+		return func() (err error) {
+			high, err = db.OpenWriter(ctx, config("high", 2))
+			return err
+		}
+	}
+
+	DescribeTable(
+		"Should keep no index sample of a write whose data a handoff refuses",
+		func(ctx SpecContext, prepare func(SpecContext) func() error) {
+			low := MustSucceed(db.OpenWriter(ctx, config("low", 1)))
+			handoff := prepare(ctx)
+			Expect(MustSucceed(write(low, 10*telem.SecondTS))).To(BeTrue())
+			MustCommit(low)
+			hold.write.Store(true)
+			written := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				written <- MustSucceed(write(low, 11*telem.SecondTS))
+			}()
+			handOff(handoff)
+			Eventually(written).Should(Receive())
+			Expect(MustSucceed(write(high, 12*telem.SecondTS))).To(BeTrue())
+			MustCommit(high)
+			Expect(high.Close()).To(Succeed())
+			Expect(low.Close()).To(Succeed())
+			stamps, values := samples(ctx)
+			Expect(values).To(Equal(stamps))
+		},
+		Entry("when another writer raises its authority", raise),
+		Entry("when another writer opens with a higher authority", openAbove),
+	)
+
+	DescribeTable(
+		"Should commit the data with the index when a handoff interrupts a commit",
+		func(ctx SpecContext, prepare func(SpecContext) func() error) {
+			low := MustSucceed(db.OpenWriter(ctx, config("low", 1)))
+			handoff := prepare(ctx)
+			Expect(MustSucceed(write(low, 10*telem.SecondTS))).To(BeTrue())
+			MustCommit(low)
+			Expect(MustSucceed(write(low, 11*telem.SecondTS))).To(BeTrue())
+			hold.truncate.Store(true)
+			committed := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				_, authorized := MustSucceed2(low.Commit())
+				committed <- authorized
+			}()
+			handOff(handoff)
+			Eventually(committed).Should(Receive())
+			Expect(high.Close()).To(Succeed())
+			Expect(low.Close()).To(Succeed())
+			stamps, values := samples(ctx)
+			Expect(values).To(Equal(stamps))
+		},
+		Entry("when another writer raises its authority", raise),
+		Entry("when another writer opens with a higher authority", openAbove),
+	)
+})
+
+// fileHold stops the first armed file operation in the directory of one channel until
+// free runs.
+type fileHold struct {
+	dir             string
+	write, truncate atomic.Bool
+	held, freed     chan struct{}
+	free            func()
+}
+
+func newFileHold(key cesium.ChannelKey) *fileHold {
+	h := &fileHold{
+		dir:   strconv.FormatUint(uint64(key), 10),
+		held:  make(chan struct{}),
+		freed: make(chan struct{}),
+	}
+	h.free = sync.OnceFunc(func() { close(h.freed) })
+	return h
+}
+
+func (h *fileHold) wait(armed *atomic.Bool) {
+	if armed.CompareAndSwap(true, false) {
+		close(h.held)
+		<-h.freed
+	}
+}
+
+// holdFS gives the files in the directory of its hold to the hold: a write of samples
+// waits on write, and a persist of the domain index waits on truncate.
+type holdFS struct {
+	fs.FS
+	hold  *fileHold
+	inDir bool
+}
+
+func (f holdFS) Sub(name string) (fs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return holdFS{FS: sub, hold: f.hold, inDir: f.inDir || name == f.hold.dir}, nil
+}
+
+func (f holdFS) Open(name string, flag int) (fs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !f.inDir {
+		return file, err
+	}
+	return holdFile{File: file, hold: f.hold}, nil
+}
+
+type holdFile struct {
+	fs.File
+	hold *fileHold
+}
+
+func (f holdFile) Write(p []byte) (int, error) {
+	f.hold.wait(&f.hold.write)
+	return f.File.Write(p)
+}
+
+func (f holdFile) Truncate(size int64) error {
+	f.hold.wait(&f.hold.truncate)
+	return f.File.Truncate(size)
+}
