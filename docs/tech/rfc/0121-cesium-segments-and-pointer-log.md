@@ -133,11 +133,9 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    later kept key unseen.
 
 One rule serves `Drop` and `Sweep`: stamps stay while a kept segment of another key
-names their key as its clock, and the intent of such a key stays until they go. On the
-old layout, the restrict link from a data channel to its index
-(`core/pkg/service/channel/index.go`) refuses the delete of an index that a kept channel
-uses, so no intent names an index that an open needs. `DeleteTimeRange` refuses a clock
-key while a live pointer of another key names it, as today (`cesium/delete.go:265-279`).
+names their key as its clock, and the intent of such a key stays until they go.
+`DeleteTimeRange` refuses a clock key while a live pointer of another key names it, as
+today (`cesium/delete.go:265-279`).
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
@@ -181,7 +179,7 @@ The conversion carries the records of `delete-intents` into section 9 of the fir
 | Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadChecksDisabled` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 and returns the first fatal error                                                                                                                                                                                                                                                                   |
-| `DB.Identity`                                                         | NEW                           | Returns the database identity. After every open whose identity differs from the one the Core holds, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `DB.Identity`                                                         | NEW                           | Returns the database identity, and whether this open converted the old layout. After every open whose identity differs from the one the Core holds, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `DB.OpenWriter`                                                       | Changed                       | Takes the keys, the type of each, exactly one clock key, a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Refuses an overlap (§5.8)                                                                                                                                                                                                                                                             |
 | `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. `Close` does the same, or fails, and releases the claims only after its last entry is acked                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -300,10 +298,12 @@ the block, stored in the log with each commit. A writer continues from that valu
   `tail_crc`. On a mismatch the reader reads once more, then returns `ErrCorrupt` with
   key, segment, and offset, and no byte of the block, as for a missing file. For a
   variable type, a search of the trailers finds a sample's block.
-- **Handles**: One budget for the database, a fixed 1,024 handles, replaces the cap per
-  channel (`cesium/internal/domain/db.go:76`). A handle with unsynced bytes is synced
-  before the budget closes it, in the job that needs the slot. A sync that fails, from
-  any caller, marks the segment failed (§5.4).
+- **Handles**: The handle of a writer's open segment stays open while the writer holds
+  the segment, outside any limit, as each writer's open file does today. One budget of
+  1,024 handles bounds the others, of readers and background passes, and replaces the
+  cap per channel (`cesium/internal/domain/db.go:76`). A handle with unsynced bytes is
+  synced before the budget closes it, in the job that needs the slot. A sync that fails,
+  from any caller, marks the segment failed (§5.4).
 
 **Version 2, a sealed clock as progressions**: The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
@@ -372,11 +372,13 @@ allocate call, and a written file gives each log sync no size change. Commit rec
 stop 1 MiB before the end, so a delete can be logged on a full disk. The log owner takes
 its size as a `Config` field: 64 MiB in a database, and at least 4 MiB. `C` makes the
 file of the next log right after each switch, so a switch at three quarters finds it
-ready. A batch goes out as frames of at most 16 MiB, and a frame that would cross three
-quarters of the log goes to the next log once its file is ready. An entry larger than a
-frame is refused, so the compactor and progression encoding try no rewrite whose Replace
-would be larger than a frame. The file header is 64 bytes at offset 0, and again at
-4,096. Frames start at 8,192.
+ready. A batch goes out as frames of at most 16 MiB, and a frame never ends past the
+commit limit when it holds a Commit, or past the end of the file. A frame that would
+cross three quarters goes to the next log once its file is ready; until then frames stop
+at those limits, and an entry that does not fit before them is refused. An entry larger
+than a frame is refused, so the compactor and progression encoding try no rewrite whose
+Replace would be larger than a frame. The file header is 64 bytes at offset 0, and again
+at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                      |
 | ------ | ---- | -------- | ------------------------------------------------------------ |
@@ -1022,19 +1024,19 @@ never deletes that telemetry. A crash between the commit point and the identity 
 converts again with nothing lost, since the Core serves only after the write. Telemetry
 that the new binary wrote is lost, so the new binary's `synnax update undo` across the
 conversion warns and asks before it runs; `--yes` skips the question, and with no answer
-or no terminal the undo refuses. The old binary's undo cannot ask: the conversion writes
-a warning status at its start that names the cost of an undo, and the release notes say
-it too. An update that keeps the Cesium formats backs up and restores no Cesium file:
-from Phase 7, a restore accepts a backup with no Cesium files and runs no `RestoreMeta`
-for it, and it still runs `RestoreMeta` for a backup from a release older than the first
-that writes segments. Its undo leaves the live state, and `Sweep` handles the keys that
-the restored channel table does not hold. No background work rewrites or unlinks a
-version 0 file while a backup from a release older than the first that writes segments
-exists (§5.1), so an undo finds every old file that the user did not delete. A user
-delete may unlink one. The old binary then fails a read over that range, and the next
-conversion drops each pointer whose file is gone, with a warning that names it. Nothing
-removes `.undone` files: a person deletes them by hand once their telemetry is not
-needed.
+or no terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that
+it converted (`DB.Identity`), and once its status service opens the Core raises a
+warning status that names the cost of an undo. The release notes say it too. An update
+that keeps the Cesium formats backs up and restores no Cesium file: from Phase 7, a
+restore accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it
+still runs `RestoreMeta` for a backup from a release older than the first that writes
+segments. Its undo leaves the live state, and `Sweep` handles the keys that the restored
+channel table does not hold. No background work rewrites or unlinks a version 0 file
+while a backup from a release older than the first that writes segments exists (§5.1),
+so an undo finds every old file that the user did not delete. A user delete may unlink
+one. The old binary then fails a read over that range, and the next conversion drops
+each pointer whose file is gone, with a warning that names it. Nothing removes `.undone`
+files: a person deletes them by hand once their telemetry is not needed.
 
 ### 9.1 What is owed
 
@@ -1162,5 +1164,6 @@ lines.
 
 Each is a parameter with a default, checked against the measured floors: the width of
 the sync pool (32); the log file size and the switch trigger (64 MiB, three quarters);
-the part threshold (8 MiB) and the part cache budget (64 MiB); the Reserve blocks (16,
-then 1,024); the dead share that starts a compaction (20%, as today); the rate limits.
+the handle budget of readers and background passes (1,024); the part threshold (8 MiB)
+and the part cache budget (64 MiB); the Reserve blocks (16, then 1,024); the dead share
+that starts a compaction (20%, as today); the rate limits.
