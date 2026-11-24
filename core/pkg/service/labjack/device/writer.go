@@ -85,8 +85,9 @@ func validateDevice(d Device) error {
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d is invalid, its ports are for another model, it replaces a
-// device of another model, or its rack does not exist.
+// validation error when d is invalid, its ports are for another model, it maps a Mux80
+// port while no Mux80 is attached, it replaces a device of another model, or its rack
+// does not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err
