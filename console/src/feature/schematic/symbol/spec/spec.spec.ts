@@ -100,6 +100,28 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("own", () => {
+    it("should not count a look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      expect(
+        Spec.own({ looks: looks.slice(1) }, "body", "fill", at(0)),
+      ).toBeUndefined();
+    });
+
+    it("should return the look of the whole drawing for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, undefined, "fill", at(0))).toEqual(fixed(RED));
+      expect(Spec.own({ looks }, undefined, "fill", at(1))).toBeUndefined();
+    });
+  });
+
   describe("setOwn", () => {
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
@@ -720,6 +742,85 @@ describe("symbol editor spec", () => {
 
     it("should not return the part of a shape inside a group", () => {
       expect(Spec.owner({ ...spec, parts: [spec.parts[1]] }, "#g")).toBeUndefined();
+    });
+  });
+
+  describe("parentGroup", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg"><g id="o">' +
+          '<g id="g"><rect id="c"/><rect id="d"/></g><g id="h"><rect id="e"/></g>' +
+          '</g><rect id="f"/></svg>',
+      },
+    });
+
+    it.each([
+      { name: "the group around a shape", selectors: ["#c"], group: "g" },
+      { name: "the group around every shape", selectors: ["#c", "#d"], group: "g" },
+      {
+        name: "the nearest group around shapes at two depths",
+        selectors: ["#c", "#e"],
+        group: "o",
+      },
+      { name: "the group around a group", selectors: ["#g"], group: "o" },
+      { name: "no group for a shape in no group", selectors: ["#f"], group: undefined },
+      {
+        name: "no group for shapes that no group holds",
+        selectors: ["#c", "#f"],
+        group: undefined,
+      },
+      {
+        name: "no group for a selector of no shape",
+        selectors: ["#x"],
+        group: undefined,
+      },
+    ])("should return $name", ({ selectors, group }) => {
+      expect(Spec.parentGroup(spec, selectors)?.id).toBe(group);
+    });
+  });
+
+  describe("outermost", () => {
+    const markup =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<g id="o"><g id="g"><rect id="c"/></g></g><rect id="f"/></svg>';
+
+    it.each([
+      { name: "the shape itself", selectors: ["#c"], found: "#c" },
+      { name: "a group around the shape", selectors: ["#g", "#f"], found: "#g" },
+      { name: "the outermost of two groups", selectors: ["#g", "#o"], found: "#o" },
+      { name: "no selector away from the shape", selectors: ["#f"], found: undefined },
+    ])("should return $name", ({ selectors, found }) => {
+      const spec = createSpec({
+        drawing: { type: "svg", markup },
+        parts: [{ key: "body", name: "Body", selectors }],
+      });
+      expect(Spec.outermost(spec, "body", "#c")).toBe(found);
+    });
+  });
+
+  describe("groupOwner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "d", name: "D", selectors: ["#d"] },
+      ],
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.groupOwner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should not return the part that holds the shape itself", () => {
+      expect(Spec.groupOwner(spec, "#d")).toBeUndefined();
+      expect(Spec.groupOwner(spec, "#g")).toBeUndefined();
     });
   });
 

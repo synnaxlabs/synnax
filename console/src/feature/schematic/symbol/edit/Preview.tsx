@@ -12,7 +12,6 @@ import "@/feature/schematic/symbol/edit/Edit.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
@@ -22,7 +21,6 @@ import { bounds, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
-import { parentGroup } from "@/feature/schematic/symbol/edit/group";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import {
   FLATTENED_ZOOM_TRIGGERS,
@@ -60,32 +58,17 @@ const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
 const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
 
-// outermost returns the outermost of selectors whose shape is el or a group around it.
-const outermost = (
-  drawing: Element,
-  el: Element,
-  selectors: string[],
-): string | undefined => {
-  let found: string | undefined;
-  for (
-    let up: Element | null = el;
-    up != null && up !== drawing;
-    up = up.parentElement
-  ) {
-    const shape = up;
-    found = selectors.find((s) => shape.matches(s)) ?? found;
-  }
-  return found;
-};
-
 interface PreviewProps {
   /** selectedValue is the value of the state that the preview draws. */
   selectedValue: number;
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
-  /** count is the place of the click in a double click, as in MouseEvent.detail. */
-  onElementClick: (selector: string, count: number) => void;
+  /** onElementClick receives the markup with a name on the clicked shape. */
+  onElementClick: (
+    shape: Schematic.Node.Region.Named,
+    click: Pick<MouseEvent, "detail" | "altKey">,
+  ) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
@@ -187,7 +170,6 @@ export const Preview = ({
     },
   });
 
-  const selectedPartRef = useSyncedRef(selectedPart);
   const onMount = (drawing: SVGGElement) => {
     setDrawingEl(drawing);
     const addInteractivity = (el: Element) => {
@@ -212,35 +194,13 @@ export const Preview = ({
         }
       }
 
-      el.addEventListener("mouseenter", () =>
-        el.classList.add(CSS.BEM("schematic", "svg-region", "hover")),
-      );
-      el.addEventListener("mouseleave", () =>
-        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover")),
-      );
-
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
         e.stopPropagation();
         // Shift+drag pans the preview.
         if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
-        const shape = Schematic.Node.Region.name(markup, drawing, el);
-        let named: Schematic.Node.Region.Named | null = shape;
-        if (e.altKey) {
-          // Alt-click is the shortcut for Select parent group, so it climbs from the
-          // outermost shape of the selected part around the shape.
-          const part = form
-            .get(path.data.parts)
-            .value.find((p) => p.key === selectedPartRef.current);
-          const from = outermost(drawing, el, part?.selectors ?? []);
-          named =
-            parentGroup(shape.markup, [from ?? shape.selector]) ??
-            (from == null ? shape : null);
-        }
-        if (named == null) return;
-        if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
-        onElementClick(named.selector, e.detail);
+        onElementClick(Schematic.Node.Region.name(markup, drawing, el), e);
       });
 
       // The spans of a text are part of its shape, so their clicks reach the text.

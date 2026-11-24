@@ -25,7 +25,6 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { parentGroup } from "@/feature/schematic/symbol/edit/group";
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -89,12 +88,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
-    own: Spec.effective(
-      { looks: looks.filter((l) => l.part === part) },
-      part,
-      f,
-      shown,
-    ),
+    own: Spec.own({ looks }, part, f, shown),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -133,7 +127,7 @@ const Property = ({
   const [split, setSplit] = useState(() =>
     Spec.variesByValue({ looks }, part, field, state),
   );
-  const several = values.values.length > 1;
+  const several = values.list.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
   const varies =
@@ -146,7 +140,7 @@ const Property = ({
         part,
         field,
         state,
-        values.values.map((v) => v.value),
+        values.list.map((v) => v.value),
         next,
       ),
     );
@@ -170,6 +164,7 @@ const Property = ({
               size="small"
               value={varies}
               onChange={handleVariesChange}
+              aria-label={`${label} by state`}
               tooltip={
                 varies
                   ? `Use one ${name} in every state`
@@ -183,7 +178,7 @@ const Property = ({
       </Flex.Box>
       {wide && control}
       {varies &&
-        values.values.map((v) => (
+        values.list.map((v) => (
           <Flex.Box
             key={v.key}
             x
@@ -234,7 +229,7 @@ const VisibleControl = (): ReactElement => {
   const drawingHides =
     part != null &&
     (at == null
-      ? values.values.some(
+      ? values.list.some(
           (v) =>
             Spec.effective({ looks }, undefined, "hidden", {
               state: values.state,
@@ -302,6 +297,9 @@ const isLoop = (kind: schematic.symbol.MotionType): kind is Loop =>
 // replaces it in sight.
 const FOLLOWS = "Only a client can set a motion that follows a value.";
 
+// A part under a motion of the whole drawing takes no new motion of its own.
+const MOVES_WITH_DRAWING = "The whole drawing moves, and this part with it.";
+
 const MotionControl = (): ReactElement => {
   const { value, inherited, own, onChange, label } =
     useScope<"motion">("MotionControl");
@@ -329,9 +327,7 @@ const MotionControl = (): ReactElement => {
           itemKey="none"
           size="small"
           disabled={locked}
-          tooltip={
-            locked ? "The whole drawing moves, and this part with it." : undefined
-          }
+          tooltip={locked ? MOVES_WITH_DRAWING : undefined}
         >
           None
         </Select.Item>
@@ -349,8 +345,10 @@ const MotionControl = (): ReactElement => {
                   key={k.kind}
                   itemKey={k.kind}
                   size="small"
-                  disabled={!isLoop(k.kind)}
-                  tooltip={isLoop(k.kind) ? undefined : FOLLOWS}
+                  disabled={locked || !isLoop(k.kind)}
+                  tooltip={
+                    !isLoop(k.kind) ? FOLLOWS : locked ? MOVES_WITH_DRAWING : undefined
+                  }
                 >
                   {k.name}
                 </Select.Item>
@@ -407,16 +405,22 @@ interface SelectParentProps {
   part: schematic.symbol.Part;
 }
 
-const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
+const SelectParent = ({ part }: SelectParentProps): ReactElement => {
   const { get, set } = Form.useContext();
-  const markup = Form.useFieldValue(path.data.drawing.markup);
-  const group = parentGroup(markup, part.selectors);
-  if (group == null) return null;
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const group = Spec.parentGroup({ drawing }, part.selectors);
   const handleClick = () => {
-    if (group.markup !== markup) set(path.data.drawing.markup, group.markup);
+    if (group == null) return;
+    const { markup } = drawing;
+    const named = Schematic.Node.Region.name(
+      markup,
+      group.ownerDocument.documentElement,
+      group,
+    );
+    if (named.markup !== markup) set(path.data.drawing.markup, named.markup);
     set(
       path.data.parts,
-      Spec.toggleSelector(get(path.data).value, part.key, group.selector),
+      Spec.toggleSelector(get(path.data).value, part.key, named.selector),
     );
   };
   return (
@@ -424,6 +428,7 @@ const SelectParent = ({ part }: SelectParentProps): ReactElement | null => {
       size="small"
       variant="outlined"
       tooltip={SELECT_PARENT_TOOLTIP}
+      disabled={group == null}
       onClick={handleClick}
     >
       Select parent group

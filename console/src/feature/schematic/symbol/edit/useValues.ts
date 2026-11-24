@@ -22,8 +22,8 @@ export interface Values {
   state: string;
   /** states are the states whose values the editor can edit. */
   states: schematic.symbol.EnumerationState[];
-  /** values are the values of the state, named by its enumeration. */
-  values: Schematic.Node.Custom.Value[];
+  /** list holds the values of the state, named by its enumeration. */
+  list: Schematic.Node.Custom.Value[];
   /** entryState is the key of the state when it has an enumeration to color it. */
   entryState?: string;
   /**
@@ -71,14 +71,14 @@ export const useValues = (key?: string): Values => {
       .map((v) => ({ key: String(v), value: v, name: String(v) }));
     return [...listed, ...extra].sort((a, b) => a.value - b.value);
   };
-  const values =
+  const list =
     stateKey === Spec.STATE
       ? Schematic.Node.Custom.listValues({ variant }, entries)
       : listOther();
   return {
     state: stateKey,
     states,
-    values,
+    list,
     entryState: state?.enumeration == null ? undefined : stateKey,
     entryColor: (value) => {
       const entry =

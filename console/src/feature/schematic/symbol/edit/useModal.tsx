@@ -63,8 +63,8 @@ interface ValueBarProps {
 // ValueBar picks the state, and the value of it, that the canvas draws and the
 // inspector edits.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
-  const { state, states, values } = useValues(value.state);
-  if (values.length < 2 && states.length < 2) return null;
+  const { state, states, list } = useValues(value.state);
+  if (list.length < 2 && states.length < 2) return null;
   const handleStateChange = (key: string) =>
     onChange({ state: key, value: states.find((s) => s.key === key)?.default ?? 0 });
   return (
@@ -92,13 +92,32 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
         size="small"
         variant="outlined"
       >
-        {values.map((v) => (
+        {list.map((v) => (
           <Select.Item<number> key={v.value} itemKey={v.value} size="small">
             {v.name}
           </Select.Item>
         ))}
       </Select.Buttons>
     </Flex.Box>
+  );
+};
+
+// climb returns what an Alt-click on shape picks for part, as Select parent group does:
+// the group above the outermost shape of part there, or above the shape. With no group
+// above, it returns shape when part holds none of it.
+const climb = (
+  spec: schematic.symbol.Spec,
+  part: string | undefined,
+  shape: Schematic.Node.Region.Named,
+): Schematic.Node.Region.Named | null => {
+  const drawn = { ...spec, drawing: { ...spec.drawing, markup: shape.markup } };
+  const from = part == null ? undefined : Spec.outermost(drawn, part, shape.selector);
+  const group = Spec.parentGroup(drawn, [from ?? shape.selector]);
+  if (group == null) return from == null ? shape : null;
+  return Schematic.Node.Region.name(
+    shape.markup,
+    group.ownerDocument.documentElement,
+    group,
   );
 };
 
@@ -178,17 +197,27 @@ const Editor = ({
     }
   };
 
-  const lastClickWholeRef = useRef(false);
-  const handleElementClick = (selector: string, count: number) => {
+  const lastClickSelectsRef = useRef(false);
+  const handleElementClick = (
+    shape: Schematic.Node.Region.Named,
+    { detail, altKey }: Pick<MouseEvent, "detail" | "altKey">,
+  ) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (detail > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
-    // A click on the whole drawing selects or adds a part, so a later click of the same
-    // double click would undo it.
-    if (count > 1 && lastClickWholeRef.current) return;
-    lastClickWholeRef.current = part == null;
+    const named = altKey ? climb(form.get(path.data).value, part, shape) : shape;
+    if (named == null) return;
+    if (named.markup !== form.get(path.data.drawing.markup).value)
+      form.set(path.data.drawing.markup, named.markup);
+    const { selector } = named;
     const spec = form.get(path.data).value;
-    if (part != null)
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
-    const owner = Spec.owner(spec, selector);
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };

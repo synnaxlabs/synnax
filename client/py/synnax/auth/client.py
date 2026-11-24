@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import base64
+import threading
 from contextvars import ContextVar
 from uuid import UUID
 
@@ -160,6 +162,7 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
+        self._login_lock = threading.Lock()
         # Scoped to the caller's thread or task, so only the logout's own request
         # carries the ended token.
         self._logout_token: ContextVar[str | None] = ContextVar(
@@ -298,11 +301,18 @@ class Client:
 
     def _forget(self, token: str) -> None:
         # A failure on an older session must not erase one logged in since.
-        if self.token == token:
-            self.authenticated = False
+        with self._login_lock:
+            if self.token == token:
+                self.authenticated = False
+
+    def _login(self) -> None:
+        """Logs in unless a concurrent renewal already did."""
+        with self._login_lock:
+            if not self.authenticated:
+                self.authenticate()
 
     def _prepare(self, ctx: Context) -> bool:
-        """Attaches the token and reports whether a rejected token may log in again."""
+        """Attaches a logout's token. Reports whether the request needs a session."""
         target = ctx.target.rstrip("/")
         # The Core serves these without a token, so they must not trigger a login.
         if target.endswith((_METHODS_ENDPOINT, _SESSION_CREATE_ENDPOINT)):
@@ -313,14 +323,14 @@ class Client:
         if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
             ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + logout_token)
             return False
-        if not self.authenticated:
-            self.authenticate()
-        ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
         return True
 
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
             retry = self._prepare(ctx)
+            if retry:
+                self._login()
+                ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             sent = self.token
             try:
                 return _next(ctx)
@@ -335,13 +345,19 @@ class Client:
     def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext) -> Context:
             retry = self._prepare(ctx)
+            if retry:
+                # The login is a blocking request, so it runs off the event loop.
+                if not self.authenticated:
+                    await asyncio.to_thread(self._login)
+                ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             sent = self.token
             try:
                 return await _next(ctx)
             except _RETRY_ON_ERRORS:
                 if not retry:
                     raise
-                self._forget(sent)
+                # A login can hold the lock that _forget waits on.
+                await asyncio.to_thread(self._forget, sent)
                 return await mw(ctx, _next)
 
         return mw
