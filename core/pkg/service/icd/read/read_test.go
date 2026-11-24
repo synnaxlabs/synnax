@@ -522,7 +522,7 @@ var _ = Describe("Read", func() {
 				ctx SpecContext,
 			) {
 				rm := readOf(status, icd.ReadBinding{
-					Field: temp.Base().Key, DataType: telem.Float32T,
+					Field: temp.Base().Key, DataType: new(telem.Float32T),
 				})
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
@@ -556,7 +556,7 @@ var _ = Describe("Read", func() {
 				),
 				Entry("a data type that the field kind does not suit",
 					readOf(status, icd.ReadBinding{
-						Field: state.Base().Key, DataType: telem.Float64T,
+						Field: state.Base().Key, DataType: new(telem.Float64T),
 					}),
 					"reads.0.messages.0.bindings.0.data_type",
 					"field state of kind string cannot read into data type float64",

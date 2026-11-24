@@ -411,9 +411,21 @@ ICD struct extends v0.ICD {
     }
 }
 
-ReadBinding = v0.ReadBinding
+ReadBinding struct extends v0.ReadBinding {
+    data_type telem.DataType? {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Absent
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+    }
+}
 
-ReadMessage = v0.ReadMessage
+ReadMessage struct extends v0.ReadMessage {
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+}
 
 WriteValue union on type payload.Kind {
     float {

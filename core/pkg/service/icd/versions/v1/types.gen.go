@@ -2217,10 +2217,27 @@ func (ic ICD) Validate() error {
 }
 
 // ReadBinding writes the value of one message field to a channel.
-type ReadBinding = v0.ReadBinding
+type ReadBinding struct {
+	// Field is the key of the message field to read.
+	Field FieldKey `json:"field" msgpack:"field"`
+	// Channel is the channel the value of the field is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the channel that a client creates for the field.
+	// Absent takes the default of the field's kind. The Core ignores it once the
+	// channel exists.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+}
 
 // ReadMessage reads one message of an ICD.
-type ReadMessage = v0.ReadMessage
+type ReadMessage struct {
+	// Message is the key of the ICD message to read.
+	Message MessageKey `json:"message" msgpack:"message"`
+	// Index is the key of the field whose channel indexes the others. Absent when the
+	// task stamps samples on arrival, or with the timestamp of the Kafka record.
+	Index *FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Bindings are the fields the task reads. A field with no binding is not read.
+	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
+}
 
 // WriteValueVariant is implemented by every WriteValue variant.
 type WriteValueVariant interface {

@@ -390,9 +390,9 @@ struct ReadBinding {
     /// @brief channel is the channel the value of the field is written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief data_type is the data type of the channel that a client creates for the
-    /// field. Empty takes the default of the field's kind. The Core ignores it once the
-    /// channel exists.
-    ::x::telem::DataType data_type = ::x::telem::DataType("");
+    /// field. Absent takes the default of the field's kind. The Core ignores it once
+    /// the channel exists.
+    std::optional<::x::telem::DataType> data_type;
 
     static ReadBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

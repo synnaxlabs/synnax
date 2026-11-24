@@ -1801,7 +1801,7 @@ var _ = Describe("Read task", func() {
 					m := stampedMessage("Reading", nil)
 					rm := read(m, index, index)
 					rm.Bindings[1] = icd.ReadBinding{
-						Field: fieldKey(m, 1), DataType: telem.Float64T,
+						Field: fieldKey(m, 1), DataType: new(telem.Float64T),
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
 				}, "topics.0.records.0.messages.0.bindings.1.channel: field v has no "+

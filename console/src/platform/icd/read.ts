@@ -129,8 +129,9 @@ export const suit = (read: icd.ReadMessage, fields: Field[]): icd.ReadMessage =>
       (b.field === read.index && index == null)
     )
       return [];
-    if (b.dataType === "" || converts(field, b.dataType)) return [b];
-    return [{ ...b, dataType: "" }];
+    const { dataType, ...unTyped } = b;
+    if (dataType == null || converts(field, dataType)) return [b];
+    return [unTyped];
   });
   return { message: read.message, ...(index == null ? {} : { index }), bindings };
 };
@@ -148,6 +149,6 @@ export const reindex = (
     ({ field }) => field !== read.index && field !== next,
   );
   if (next == null) return { message: read.message, bindings };
-  const binding = { field: next, channel: indexChannel, dataType: "" };
+  const binding = { field: next, channel: indexChannel };
   return { message: read.message, index: next, bindings: [...bindings, binding] };
 };
