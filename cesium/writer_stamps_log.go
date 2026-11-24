@@ -153,12 +153,27 @@ func (p *placer) place(n uint32) ([]piece, error) {
 			continue
 		}
 		k := min(n, left)
-		p.pieces = append(p.pieces, piece{alignment: p.next, samples: k, stored: p.cur})
+		p.extend(k)
 		p.next = p.next.AddSamples(k)
 		p.placed += int64(k)
 		n -= k
 	}
 	return p.pieces, nil
+}
+
+// extend adds k samples from next to the last piece when they touch it, as after a
+// reload that finds the writer of the clock extended cur, and otherwise starts a piece.
+func (p *placer) extend(k uint32) {
+	if n := len(p.pieces); n > 0 {
+		last := &p.pieces[n-1]
+		if last.alignment.AddSamples(last.samples) == p.next {
+			last.samples += k
+			last.stored.first = min(last.stored.first, p.cur.first)
+			last.stored.last = max(last.stored.last, p.cur.last)
+			return
+		}
+	}
+	p.pieces = append(p.pieces, piece{alignment: p.next, samples: k, stored: p.cur})
 }
 
 // left returns the number of stamps of cur from next on.
