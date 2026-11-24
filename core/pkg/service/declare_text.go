@@ -22,6 +22,29 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 )
 
+// passDeclaredCalculations rewrites the expression of each calculation for each rename
+// that Declare stored, as passDeclaredRenames does, and keeps the renames stored for
+// it.
+// It runs before the calculation graph compiles, after a start that stopped before
+// passDeclaredRenames, and before the Arc table migrates, so it reads no Arc.
+func passDeclaredCalculations(
+	ctx context.Context,
+	db *gorp.DB,
+	channels *channel.Service,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		stored, err := channels.NewWriter(tx).TextRenames(ctx)
+		if err != nil || len(stored) == 0 {
+			return err
+		}
+		renames, err := declaredRenames(ctx, tx, channels, stored)
+		if err != nil {
+			return err
+		}
+		return renameCalculations(ctx, tx, renames, textConfig(channels))
+	})
+}
+
 // passDeclaredRenames runs the text pass of each rename that Declare stored
 // (channel.Writer.TakeTextRenames): each token in the text of a calculation or an Arc
 // that names the old path becomes a token of the channel's path now, whatever channel
@@ -38,35 +61,54 @@ func passDeclaredRenames(
 		if err != nil || len(stored) == 0 {
 			return err
 		}
-		keys := make([]channel.Key, len(stored))
-		for i, r := range stored {
-			keys[i] = r.Key
-		}
-		var renamed []channel.Channel
-		if err = channels.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&renamed).
-			Exec(ctx, tx); err != nil {
+		renames, err := declaredRenames(ctx, tx, channels, stored)
+		if err != nil {
 			return err
 		}
-		paths := make(map[channel.Key]string, len(renamed))
-		for _, ch := range renamed {
-			paths[ch.Key()] = ch.Name
-		}
-		// A deleted channel keeps the tokens of its old path.
-		var renames []declaredRename
-		for _, r := range stored {
-			if to, ok := paths[r.Key]; ok {
-				renames = append(renames, declaredRename{from: r.From, to: to})
-			}
-		}
-		cfg := parser.Config{AllowDashedNames: resolver.AllowDashedNames(channels)}
+		cfg := textConfig(channels)
 		if err = renameCalculations(ctx, tx, renames, cfg); err != nil {
 			return err
 		}
 		return renameArcs(ctx, tx, renames, cfg)
 	})
+}
+
+// declaredRenames returns the rename of each of stored to the path of its channel now.
+// A deleted channel keeps the tokens of its old path, so it has none.
+func declaredRenames(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels *channel.Service,
+	stored []channel.TextRename,
+) ([]declaredRename, error) {
+	keys := make([]channel.Key, len(stored))
+	for i, r := range stored {
+		keys[i] = r.Key
+	}
+	var renamed []channel.Channel
+	if err := channels.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		SkipMissingKeys().
+		Entries(&renamed).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	paths := make(map[channel.Key]string, len(renamed))
+	for _, ch := range renamed {
+		paths[ch.Key()] = ch.Name
+	}
+	var renames []declaredRename
+	for _, r := range stored {
+		if to, ok := paths[r.Key]; ok {
+			renames = append(renames, declaredRename{from: r.From, to: to})
+		}
+	}
+	return renames, nil
+}
+
+// textConfig returns the parser config that the text of channels parses with.
+func textConfig(channels *channel.Service) parser.Config {
+	return parser.Config{AllowDashedNames: resolver.AllowDashedNames(channels)}
 }
 
 // declaredRename is a rename that the pass applies: from the old path to the new one.

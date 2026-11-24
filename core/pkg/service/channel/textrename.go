@@ -49,32 +49,33 @@ func (w Writer) storeTextRename(ctx context.Context, k Key, from string) error {
 	return w.tx.Set(ctx, key, []byte(from))
 }
 
-// TakeTextRenames returns each rename whose text pass has not run, in key order, and
-// deletes them in the transaction of w.
-func (w Writer) TakeTextRenames(ctx context.Context) (renames []TextRename, err error) {
+// TextRenames returns each rename whose text pass has not run, in key order.
+func (w Writer) TextRenames(context.Context) (renames []TextRename, err error) {
 	iter, err := w.tx.OpenIterator(kv.IterPrefix([]byte(textRenamePrefix)))
 	if err != nil {
 		return nil, err
 	}
-	var keys [][]byte
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for iter.First(); iter.Valid(); iter.Next() {
 		raw := bytes.TrimPrefix(iter.Key(), []byte(textRenamePrefix))
 		k, err := strconv.ParseUint(string(raw), 10, 32)
 		if err != nil {
-			return nil, errors.Combine(errors.Wrapf(
-				err,
-				"text rename has no channel key: %q",
-				raw,
-			), iter.Close())
+			return nil, errors.Wrapf(err, "text rename has no channel key: %q", raw)
 		}
 		renames = append(renames, TextRename{Key: Key(k), From: string(iter.Value())})
-		keys = append(keys, bytes.Clone(iter.Key()))
 	}
-	if err = errors.Combine(iter.Error(), iter.Close()); err != nil {
+	return renames, iter.Error()
+}
+
+// TakeTextRenames returns each rename whose text pass has not run, in key order, and
+// deletes them in the transaction of w.
+func (w Writer) TakeTextRenames(ctx context.Context) ([]TextRename, error) {
+	renames, err := w.TextRenames(ctx)
+	if err != nil {
 		return nil, err
 	}
-	for _, key := range keys {
-		if err = w.tx.Delete(ctx, key); err != nil {
+	for _, r := range renames {
+		if err = w.tx.Delete(ctx, textRenameKey(r.Key)); err != nil {
 			return nil, err
 		}
 	}

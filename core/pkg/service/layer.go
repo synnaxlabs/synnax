@@ -509,8 +509,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	// A start that stopped before the pass left its renames stored, and the graph
-	// compiles as it opens.
-	if err = passDeclaredRenames(ctx, cfg.Distribution.DB, l.Channel); !ok(err, nil) {
+	// compiles as it opens. The Arcs wait for the pass after their migrations.
+	if err = passDeclaredCalculations(
+		ctx,
+		cfg.Distribution.DB,
+		l.Channel,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	// The graph holds the changes of this start's Declares until their text pass.
