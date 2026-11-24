@@ -143,6 +143,99 @@ func (f readsFile) ReadAt(p []byte, off int64) (int, error) {
 	return f.File.ReadAt(p, off)
 }
 
+// passFS holds the first call of op on a name with suffix, once armed, until release
+// closes. op is "open", "close" for the Close of an old file or a check file, or
+// "syncdir". It counts the opens of check files.
+type passFS struct {
+	xfs.FS
+	mu               sync.Mutex
+	op, suffix       string
+	waiting, release chan struct{}
+	checks           atomic.Int64
+}
+
+func (f *passFS) Sub(name string) (xfs.FS, error) {
+	if name != "" {
+		return f.FS.Sub(name)
+	}
+	return f, nil
+}
+
+func (f *passFS) arm(op, suffix string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.op, f.suffix = op, suffix
+	f.waiting, f.release = make(chan struct{}, 1), make(chan struct{})
+}
+
+func (f *passFS) hold(op, name string) {
+	f.mu.Lock()
+	held := f.op == op && strings.HasSuffix(name, f.suffix)
+	if held {
+		f.op = ""
+	}
+	waiting, release := f.waiting, f.release
+	f.mu.Unlock()
+	if held {
+		waiting <- struct{}{}
+		<-release
+	}
+}
+
+func (f *passFS) Open(name string, flag int) (xfs.File, error) {
+	checks := strings.HasSuffix(name, ".chk")
+	if checks {
+		f.checks.Add(1)
+	}
+	f.hold("open", name)
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !checks && !strings.HasSuffix(name, ".domain") {
+		return file, err
+	}
+	return passFile{File: file, fs: f, name: name}, nil
+}
+
+func (f *passFS) SyncDir(name string) error {
+	f.hold("syncdir", name)
+	return f.FS.SyncDir(name)
+}
+
+type passFile struct {
+	xfs.File
+	fs   *passFS
+	name string
+}
+
+func (f passFile) Close() error {
+	f.fs.hold("close", f.name)
+	return f.File.Close()
+}
+
+// writeStamps writes n rising stamps of an index key on the old layout to a new fault
+// FS, and returns it.
+func writeStamps(ctx context.Context, key cesium.ChannelKey, n int) *fault.FS {
+	GinkgoHelper()
+	disk := MustSucceed(fault.New(fault.Config{}))
+	db := openDBOnFS(ctx, disk)
+	Expect(db.CreateChannel(ctx, cesium.Channel{
+		Key:      key,
+		Name:     "time",
+		IsIndex:  true,
+		DataType: telem.TimestampT,
+	})).To(Succeed())
+	stamps := make([]telem.TimeStamp, n)
+	for i := range stamps {
+		stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+	}
+	Expect(db.Write(ctx, stamps[0], telem.MultiFrame(
+		[]cesium.ChannelKey{key},
+		[]telem.Series{telem.NewSeries(stamps)},
+	))).To(Succeed())
+	Expect(db.Close()).To(Succeed())
+	disk.Writeback()
+	return disk
+}
+
 // checkFiles returns the number of check files in the directory of each of keys on
 // fs. A missing directory holds none.
 func checkFiles(
@@ -633,24 +726,7 @@ var _ = Describe("Check pass on the pointer log", func() {
 	It("Should free the files of a key that a Drop takes during the read of its "+
 		"segment within one block", func(ctx SpecContext) {
 		const key cesium.ChannelKey = 21
-		big := MustSucceed(fault.New(fault.Config{}))
-		db := openDBOnFS(ctx, big)
-		Expect(db.CreateChannel(ctx, cesium.Channel{
-			Key:      key,
-			Name:     "time",
-			IsIndex:  true,
-			DataType: telem.TimestampT,
-		})).To(Succeed())
-		stamps := make([]telem.TimeStamp, 4*segment.BlockSize/8)
-		for i := range stamps {
-			stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
-		}
-		Expect(db.Write(ctx, stamps[0], telem.MultiFrame(
-			[]cesium.ChannelKey{key},
-			[]telem.Series{telem.NewSeries(stamps)},
-		))).To(Succeed())
-		Expect(db.Close()).To(Succeed())
-		big.Writeback()
+		big := writeStamps(ctx, key, 4*segment.BlockSize/8)
 		reads := &readsFS{FS: big}
 		gate := &gateFS{FS: reads}
 		db, closeDB := startConverted(ctx, gate, ins, func() { gate.arm(".domain") })
@@ -675,5 +751,96 @@ var _ = Describe("Check pass on the pointer log", func() {
 		Expect(reads.n.Load()).To(BeNumerically("<=", 3))
 		Expect(logs.FilterLevelExact(zapcore.ErrorLevel).Len()).To(BeZero())
 		Expect(closeDB()).To(Succeed())
+	})
+
+	Describe("Drop at the write of a check file", func() {
+		const key cesium.ChannelKey = 21
+		var (
+			small *fault.FS
+			hold  *passFS
+			dir   = strconv.FormatUint(uint64(key), 10)
+		)
+		BeforeEach(func(ctx SpecContext) {
+			small = writeStamps(ctx, key, 64)
+			hold = &passFS{FS: small}
+		})
+		// files returns the names in the directory of key, or nil when it is gone.
+		files := func() ([]string, error) {
+			infos, err := small.List(dir)
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, nil
+			}
+			var names []string
+			for _, info := range infos {
+				names = append(names, info.Name())
+			}
+			return names, err
+		}
+		// drop drops key in a goroutine, and returns the channel of its error.
+		drop := func(ctx context.Context, db *cesium.DB) <-chan error {
+			done := make(chan error, 1)
+			go func() { done <- db.Drop(ctx, []cesium.ChannelKey{key}) }()
+			return done
+		}
+		quiet := func() {
+			GinkgoHelper()
+			Eventually(
+				messages("dropped the check of a segment that changed during its pass"),
+			).Should(Equal(1))
+			Expect(logs.FilterLevelExact(zapcore.WarnLevel).Len()).To(BeZero())
+			Expect(logs.FilterLevelExact(zapcore.ErrorLevel).Len()).To(BeZero())
+		}
+
+		It("Should write no check file of a key that a Drop takes before the write",
+			func(ctx SpecContext) {
+				db, closeDB := startConverted(
+					ctx,
+					hold,
+					ins,
+					func() { hold.arm("close", ".domain") },
+				)
+				Eventually(hold.waiting).Should(Receive())
+				Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
+				hold.checks.Store(0)
+				close(hold.release)
+				quiet()
+				Expect(hold.checks.Load()).To(BeZero())
+				Eventually(files).Should(BeEmpty())
+				Expect(closeDB()).To(Succeed())
+			})
+
+		It("Should hold a Drop that meets the write of a check file until the file is "+
+			"closed, then remove the directory", func(ctx SpecContext) {
+			db, closeDB := startConverted(
+				ctx,
+				hold,
+				ins,
+				func() { hold.arm("open", ".chk") },
+			)
+			Eventually(hold.waiting).Should(Receive())
+			done := drop(ctx, db)
+			Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+			close(hold.release)
+			Eventually(done).Should(Receive(BeNil()))
+			Expect(files()).To(BeEmpty())
+			quiet()
+			Expect(closeDB()).To(Succeed())
+		})
+
+		It("Should remove the directory of a key that a Drop takes during the sync of "+
+			"its check file", func(ctx SpecContext) {
+			db, closeDB := startConverted(
+				ctx,
+				hold,
+				ins,
+				func() { hold.arm("syncdir", dir) },
+			)
+			Eventually(hold.waiting).Should(Receive())
+			Eventually(drop(ctx, db)).Should(Receive(BeNil()))
+			Expect(files()).To(BeEmpty())
+			close(hold.release)
+			quiet()
+			Expect(closeDB()).To(Succeed())
+		})
 	})
 })
