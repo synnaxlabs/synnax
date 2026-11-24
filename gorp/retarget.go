@@ -85,7 +85,7 @@ func (t *Table[K, E]) RetargetHolders(
 	ctx context.Context,
 	tx Tx,
 	to map[K]K,
-	holders []Dependent,
+	holders ...Dependent,
 ) error {
 	checkForNilTx("Table.RetargetHolders", tx)
 	if len(to) == 0 {
