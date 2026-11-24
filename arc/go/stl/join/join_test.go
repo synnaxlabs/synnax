@@ -401,6 +401,50 @@ var _ = Describe("Join", func() {
 		)
 	})
 
+	It("Should drop a live primary stamp before the samples that the cap passed",
+		func() {
+			j := MustSucceed(join.New(join.Config{
+				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+				Live:      true,
+			}))
+			n := 1<<16 + 10
+			vs, ss := make([]float64, n), make([]float64, n)
+			for i := range ss {
+				vs[i], ss[i] = float64(i), 1+float64(i)/1000
+			}
+			Expect(j.Push(1, values(vs...), stamps(0, ss...))).To(Succeed())
+			var out join.Output
+			j.Next(0, &out)
+			Expect(j.Push(0, values(1, 2), stamps(0, 1.001, 1.5))).To(Succeed())
+			j.Next(telem.TimeStampMax, &out)
+			got, _ := samples(out)
+			Expect(got).To(Equal([]sample{{1.5, 1, []float64{2, 500}}}))
+			Expect(out.Dropped).To(Equal(1))
+		})
+
+	It("Should refuse a history push past the cap, and keep the input as it was",
+		func() {
+			j := newJoin(2, 0, 0)
+			n := 1 << 16
+			vs, ss := make([]float64, n), make([]float64, n)
+			for i := range ss {
+				vs[i], ss[i] = float64(i), float64(i)/1000
+			}
+			Expect(j.Push(1, values(vs...), stamps(0, ss...))).To(Succeed())
+			Expect(j.Push(1, values(1), stamps(0, 66))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"input 1 would hold more than 65536 samples that the join has not "+
+						"passed",
+				)),
+			))
+			Expect(j.Push(0, values(1), stamps(0, 65.535))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			got, _ := samples(out)
+			Expect(got).To(Equal([]sample{{65.535, 0, []float64{1, 65535}}}))
+		})
+
 	Describe("Live", func() {
 		// joinFrame pushes an input at 1 Hz from 0 s to 10 s, which holds for 3 s, and
 		// then one primary frame at seconds, and joins it.
