@@ -41,12 +41,30 @@ func (db *DB) handoffLog(
 				"old layout",
 		)
 	}
+	if l.unstored {
+		if adopt != nil {
+			return nil, nil, errors.Wrap(
+				validate.ErrValidation,
+				"a writer that stores no samples adopts no pending samples",
+			)
+		}
+		// The commit of a writer that stores nothing only ends its runs.
+		if _, _, err = l.commit(ctx, nil); err != nil {
+			return nil, nil, err
+		}
+	}
 	if len(l.runs) == 0 && adopt == nil {
+		run := *l
 		if err = w.Close(); err != nil {
 			return nil, nil, err
 		}
 		next, err := db.OpenWriter(ctx, cfg)
-		return next, nil, err
+		if err != nil {
+			return nil, nil, err
+		}
+		next.log.number, next.log.next = run.number, run.next
+		next.log.last, next.log.lastCommit = run.last, run.lastCommit
+		return next, nil, nil
 	}
 	if adopt != nil {
 		for _, lk := range adopt.log.keys {
