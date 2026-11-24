@@ -59,6 +59,28 @@ func (b *bounds) DefaultGroups() {
 	}
 }
 
+// span holds only numbers and has no defaults of its own; ranged sets one on it whole.
+type span struct {
+	Lower float64
+	Upper float64
+}
+
+// corner holds strings, whose zero value is never a real member.
+type corner struct {
+	X string
+	Y string
+}
+
+type ranged struct {
+	Range  span
+	Corner corner
+}
+
+func (r *ranged) SetDefaults() {
+	r.Range = span{Upper: 1}
+	r.Corner = corner{X: "left", Y: "top"}
+}
+
 var _ = Describe("Fill", func() {
 	DescribeTable("Should fill a default group only when all of its members are zero",
 		func(in, expected bounds) {
@@ -111,6 +133,17 @@ var _ = Describe("Fill", func() {
 		Expect(defaults.Fill(outer{Inner: leaf{Label: "d"}})).
 			To(Equal(outer{Inner: leaf{Size: 36, Label: "d"}}))
 		Expect(defaults.Fill(outer{})).To(Equal(outer{Inner: leaf{Size: 36}}))
+	})
+
+	It("Should keep a non-zero struct of numbers whole over a parent default", func() {
+		got := defaults.Fill(ranged{Range: span{Lower: -10}})
+		Expect(got.Range).To(Equal(span{Lower: -10}))
+		Expect(defaults.Fill(ranged{}).Range).To(Equal(span{Upper: 1}))
+	})
+
+	It("Should fill the zero members of a struct that is not all numbers", func() {
+		got := defaults.Fill(ranged{Corner: corner{X: "right"}})
+		Expect(got.Corner).To(Equal(corner{X: "right", Y: "top"}))
 	})
 
 	It("Should keep a value whose type has unexported fields", func() {
