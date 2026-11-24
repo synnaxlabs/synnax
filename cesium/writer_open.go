@@ -96,18 +96,6 @@ func (c WriterConfig) unaryConfig() unary.WriterConfig {
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.newWriter(ctx, cfgs...)
-}
-
-func (db *DB) newWriter(
-	ctx context.Context,
-	cfgs ...WriterConfig,
-) (w *Writer, err error) {
 	cfg, err := config.New(WriterConfig{Mode: WriterModePersistStream}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -119,6 +107,15 @@ func (db *DB) newWriter(
 		}
 		return &Writer{WriterConfig: cfg, log: lw}, nil
 	}
+	if db.closed.Load() {
+		return nil, ErrDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	return db.newWriter(ctx, cfg)
+}
+
+func (db *DB) newWriter(ctx context.Context, cfg WriterConfig) (w *Writer, err error) {
 	var (
 		domainWriters = make(map[ChannelKey]*idxWriter)
 		keyToIdx      = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
