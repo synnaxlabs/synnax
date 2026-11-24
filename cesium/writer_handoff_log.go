@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"slices"
 
@@ -264,7 +265,7 @@ func (db *DB) addKeys(ctx context.Context, l *logWriter, keys []ChannelKey) erro
 	}
 	slices.SortFunc(
 		wks,
-		func(a, b state.WriterKey) int { return int(a.Key) - int(b.Key) },
+		func(a, b state.WriterKey) int { return cmp.Compare(a.Key, b.Key) },
 	)
 	keyed := make([]ChannelKey, len(wks))
 	for i, k := range wks {
