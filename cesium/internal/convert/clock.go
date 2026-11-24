@@ -84,7 +84,7 @@ func (r *reader) indexes() error {
 }
 
 // bounds reads the first and last stamp of each pointer of c, in file-offset order
-// within each old file, then checks them.
+// within each old file, then checks them. A mark takes the bounds of its time range.
 func (h *handle) bounds(c *clock) error {
 	order := make([]int, len(c.ptrs))
 	for k := range order {
@@ -98,6 +98,10 @@ func (h *handle) bounds(c *clock) error {
 	})
 	var err error
 	for _, k := range order {
+		if c.count(k) == 0 {
+			c.first[k], c.last[k] = c.ptrs[k].start, c.ptrs[k].end-1
+			continue
+		}
 		if c.first[k], err = h.stamp(c, k, 0); err != nil {
 			return err
 		}
