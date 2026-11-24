@@ -309,4 +309,24 @@ TEST(StateTest, DataDirOfANonRootDriver) {
     );
     EXPECT_EQ(state::data_dir(state::machine_dir()), state::machine_dir() / DATA_DIR);
 }
+
+/// @brief it should keep the files of root in their own data directory at the state
+/// directory of the computer when the service user exists, and in the data directory
+/// anywhere else.
+TEST(StateTest, DataDirOfARootDriver) {
+#ifndef __linux__
+    GTEST_SKIP() << "only Linux keeps the files of root apart";
+#else
+    if (geteuid() != 0 || getpwnam("synnax") == nullptr)
+        GTEST_SKIP() << "requires root and the synnax user";
+    EXPECT_EQ(
+        state::data_dir(state::machine_dir()),
+        state::machine_dir() / ROOT_DATA_DIR
+    );
+    EXPECT_EQ(
+        state::data_dir("/tmp/state"),
+        std::filesystem::path("/tmp/state") / DATA_DIR
+    );
+#endif
+}
 }
