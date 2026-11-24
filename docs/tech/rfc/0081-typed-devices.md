@@ -373,7 +373,8 @@ the typed resource, and each observer subscribes before its first read.
 Each integration's Console code consumes its generated types and resource client, and
 registers its own tree items, context menu, link handler, and palette commands, as task
 layouts do. Modules are named for the resource: `server` for OPC UA, Modbus, and HTTP,
-`master` and `slave` for EtherCAT, `chassis` and `device` for NI.
+`master` and `slave` for EtherCAT, `chassis` and `device` for NI, and `broker`,
+`cluster`, and `environment` for MQTT, Kafka, and Sift.
 `console/src/feature/device/make.tsx` loses one entry per integration moved and is
 deleted with the last one. The unconfigured-device toast moves into the three discovered
 makes, each on its own `sy_<type>_set`. `platform/device` keeps `Configure`,
@@ -416,15 +417,16 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
 They are ordered by version, so a 0.59 Core runs all of them on its first start.
 
-Step 2 fixes MQTT, Kafka, and Sift rows:
+Step 2 moves every plaintext password, token, or key of any make into a stored secret.
+It fixes MQTT, Kafka, and Sift rows:
 
 - **MQTT**: `location` is `host`; `secure` gives the transport; `verification_skipped`
   gives `certificate_validation_disabled`; `ca_file` becomes a `file` certificate;
   `cert_file` and `key_file` become a stored certificate with a secret key, and an
   unreadable file quarantines the row.
 - **MQTT fields**: an empty `client_id` stores the ID derived from the legacy key; a
-  password becomes a secret, or `none` with a warning when there is no user name;
-  `keep_alive` seconds become a span, absent 30 s; an empty `host_id` is `passive`.
+  password with no user name gives `none` and a warning; `keep_alive` seconds become a
+  span, absent 30 s; an empty `host_id` is `passive`.
 - **MQTT keys**: a `spBv1.0/` key takes four levels and the rest as the tag, unless a
   plain task subscribes to that topic; other keys split at the last `#`. A bare
   `<topic>` loses to `<topic>#<message>`, else takes the message that binds its
@@ -438,7 +440,7 @@ Step 2 fixes MQTT, Kafka, and Sift rows:
 
 Between the typed services landing and this migration landing, a development Core with
 0.59 rows shows them only through the legacy path. Writes through that path in the
-candidate era are not carried forward; the migration targets the 0.59 shape.
+candidate era are not carried forward; the migration reads the latest stable shape.
 
 ### 4.9 Access control
 
@@ -451,9 +453,10 @@ policy object `{type: "device"}` into the eleven typed objects and maps a per-ke
 ### 4.10 Testing
 
 Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
-including one that quarantines. Driver specs build devices from generated structs.
-Console specs for each make's forms and tree items run against the typed client.
+refused delete, and cascade. The migration suite seeds 0.59- to 0.62-shaped rows for
+every make, including one that quarantines. Driver specs build devices from generated
+structs. Console specs for each make's forms and tree items run against the typed
+client.
 
 ## 5 Prior art
 
@@ -487,7 +490,7 @@ green at every step. The migration brings 0.59 data forward near the end.
   client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
   scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
 - **Phases 14a to 14c: Core scanners and factories.** MQTT, Kafka, and Sift tasks on the
-  typed resource (§4.6).
+  typed resource (§4.6). Phase 14a makes `driver.ScanTask` generic over the resource.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
