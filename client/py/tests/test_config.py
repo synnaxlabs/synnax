@@ -26,6 +26,7 @@ from synnax.config import (
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_CREDENTIALS_MSG,
+    NO_HOME_MSG,
     NO_KEY_HELPER_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
@@ -99,6 +100,20 @@ def desktop_file(tmp_path: Path) -> Path:
 
 
 class TestFile:
+    def test_missing_file(self, tmp_path: Path) -> None:
+        """Should load an empty config, and write nothing, when no file exists."""
+        assert File(config_dir=tmp_path / ".synnax").config == {}
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unreadable_file(self, tmp_path: Path) -> None:
+        """Should name the file and the reason when the file cannot be read."""
+        # A directory at the path cannot be read as a file, on any platform or user.
+        (tmp_path / "config.json").mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
+
     @pytest.mark.parametrize("content", [b"{", b"\xff"])
     def test_corrupt_file(self, content: bytes, tmp_path: Path) -> None:
         """Should name the file when it is not valid JSON."""
@@ -722,6 +737,51 @@ class TestLoadOptions:
             "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or "
             "log in with `sy login`."
         )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX home directories")
+class TestHome:
+    def test_read_only_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for a host, and write nothing, when the home is read-only."""
+        if os.geteuid() == 0:
+            pytest.skip("root writes to a read-only directory")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        tmp_path.chmod(0o500)
+        try:
+            with pytest.raises(ValidationError, match="SYNNAX_HOST"):
+                load_options()
+            assert list(tmp_path.iterdir()) == []
+        finally:
+            tmp_path.chmod(0o700)
+
+    def test_unknown_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for SYNNAX_HOST, and write nothing, when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(ConfigurationError) as e:
+            load_options()
+        assert str(e.value) == NO_HOME_MSG
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unknown_home_with_a_host(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should connect to a given host when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        opts, embedded = load_options(host="core.lab", api_key="syk_k")
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_k")
+        assert not embedded
+
+
+def _no_passwd_entry(uid: int) -> None:
+    raise KeyError(uid)
 
 
 class TestDesktopConnection:

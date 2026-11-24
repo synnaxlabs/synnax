@@ -66,8 +66,6 @@ describe("Panel Client", () => {
     const createOwner = async (): Promise<user.Key> => {
       const role = await createEmptyRole(client);
       const u = await client.users.create({
-        username: id.create(),
-        password: "test",
         name: "owner",
         role: role.key,
       });
