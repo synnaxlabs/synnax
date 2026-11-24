@@ -422,19 +422,19 @@ func (p *deletePlan) cascade(t, cause Target) bool {
 // the caller's behalf, so a chain of cascades carries the mark at each step.
 func (p *deletePlan) markOnBehalf(tx Tx) {
 	state := tx.txIdentity()
-	if state == nil || len(state.changes.onBehalf) == 0 {
+	if state == nil || !state.changes.anyOnBehalf() {
 		return
 	}
 	changes := &state.changes
 	for _, op := range p.cascaded {
 		if changes.isOnBehalf(op.cause) {
-			changes.markOnBehalf(op.entry)
+			changes.markOneOnBehalf(op.entry)
 		}
 	}
 	for dep, ops := range p.detaches {
 		for _, op := range ops {
 			if changes.isOnBehalf(op.target) {
-				changes.markOnBehalf(dep)
+				changes.markOneOnBehalf(dep)
 				break
 			}
 		}
