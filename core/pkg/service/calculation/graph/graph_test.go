@@ -1548,6 +1548,54 @@ var _ = Describe("Graph", func() {
 		)
 
 		It(
+			"Should write a success over a stale warning and not over another warning",
+			func(ctx SpecContext) {
+				createDep(ctx, "rt_stale_dep")
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name: "rt_stale", DataType: telem.Int64T,
+					Expression: "return rt_stale_dep + 1",
+				}))
+				g := openGraph(ctx)
+				report := func(st calculation.Status, at telem.TimeStamp) {
+					GinkgoHelper()
+					st.Time = at
+					Expect(g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						expressionOf(ctx, calc.Key()),
+						&st,
+					)).To(Succeed())
+				}
+				success := calculation.Status{
+					Name:    "rt_stale",
+					Variant: status.VariantSuccess,
+					Message: "Calculation running",
+				}
+
+				By("Holding a stale warning as a failure")
+				report(calculation.StaleStatus("rt_stale"), 1)
+				Expect(g.Failed(ctx, calc.Key())).To(BeTrue())
+
+				By("Writing a success over it")
+				report(success, 2)
+				stored, _ := fetchStatus(ctx, calc.Key())
+				Expect(stored.Variant).To(Equal(status.VariantSuccess))
+				Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+
+				By("Keeping another warning")
+				report(calculation.Status{
+					Name:    "rt_stale",
+					Variant: status.VariantWarning,
+					Message: "Dropped operations with no type",
+				}, 3)
+				Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+				report(success, 4)
+				stored, _ = fetchStatus(ctx, calc.Key())
+				Expect(stored.Message).To(Equal("Dropped operations with no type"))
+			},
+		)
+
+		It(
 			"Should not wait for the write lock on a report that changes nothing",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)

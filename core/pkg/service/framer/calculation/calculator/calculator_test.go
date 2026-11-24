@@ -1324,6 +1324,107 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 		})
 
+		Describe("Stale inputs", func() {
+			It(
+				"Should warn once when the join drops stamps, then report a success",
+				func(
+					ctx SpecContext,
+				) {
+					indexes := []channel.Channel{
+						{
+							Name:     UniqueChannelName(),
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						{
+							Name:     UniqueChannelName(),
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+					}
+					bases := []channel.Channel{
+						{Name: UniqueChannelName(), DataType: telem.Float64T},
+						{Name: UniqueChannelName(), DataType: telem.Float64T},
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := channelSvc.NewWriter(tx)
+						if err := w.CreateMany(ctx, &indexes); err != nil {
+							return err
+						}
+						for i := range bases {
+							bases[i].LocalIndex = indexes[i].LocalKey
+						}
+						return w.CreateMany(ctx, &bases)
+					})).To(Succeed())
+					out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+						Name:     UniqueChannelName(),
+						DataType: telem.Float64T,
+						Expression: fmt.Sprintf(
+							"return %s + %s",
+							bases[0].Name,
+							bases[1].Name,
+						),
+					}))
+					c := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+					Expect(c.Primary).To(HaveValue(Equal(bases[0].Key())))
+					mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+						ChannelService: channelSvc,
+						Channel:        out,
+						Calculation:    c,
+						Live:           true,
+					}))
+					Expect(mod.Joined).To(BeTrue())
+					var now telem.TimeStamp
+					calc := MustOpen(calculator.Open(ctx, calculator.Config{
+						Module: mod,
+						Now:    func() telem.TimeStamp { return now },
+					}))
+					g := calculator.Group{calc}
+					// step writes input i at stamp, in seconds, with alignment, after a
+					// second
+					// passes on the clock.
+					step := func(i int, stamp telem.TimeStamp, a uint32) []calculator.Status {
+						GinkgoHelper()
+						now += telem.SecondTS
+						idx := telem.NewSeriesSecondsTSV(stamp)
+						data := telem.NewSeriesV[float64](1)
+						idx.Alignment = telem.NewAlignment(0, a)
+						data.Alignment = idx.Alignment
+						var reported []calculator.Status
+						g.Next(ctx, frame.NewMulti(
+							[]channel.Key{indexes[i].Key(), bases[i].Key()},
+							[]telem.Series{idx, data},
+						), func(
+							_ context.Context,
+							_ channel.Key,
+							_ string,
+							st calculator.Status,
+						) bool {
+							reported = append(reported, st)
+							return true
+						})
+						return reported
+					}
+					// The join settles on the fourth frame of the primary, 1 s apart.
+					for i := range 3 {
+						Expect(step(0, telem.TimeStamp(i+1), uint32(i))).To(BeEmpty())
+					}
+					Expect(
+						step(0, 4, 3),
+					).To(ConsistOf(calculation.StaleStatus(out.Name)))
+					Expect(step(0, 5, 4)).To(BeEmpty())
+					Expect(step(1, 5, 0)).To(BeEmpty())
+					Expect(step(0, 6, 5)).To(ConsistOf(calculator.Status{
+						Name:    out.Name,
+						Variant: status.VariantSuccess,
+						Message: "Calculation running",
+					}))
+					Expect(step(0, 7, 6)).To(BeEmpty())
+					Expect(calc.Close()).To(Succeed())
+				},
+			)
+		})
+
 		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{
 				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
