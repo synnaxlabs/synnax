@@ -571,6 +571,59 @@ var _ = Describe("Check: repair of log damage", func() {
 		Expect(rep.Removed).To(Equal([]cesium.Segment{{Key: idx, Segment: old}}))
 	})
 
+	It("Should leave unplaced a rebuilt range whose commit overlaps the stored data "+
+		"of another writer", func(ctx SpecContext) {
+		r := newRepairRoot(ctx)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		r.create(ctx, idx, data)
+		open := func(p int) *cesium.Writer {
+			GinkgoHelper()
+			return MustSucceed(r.db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    repairStamp(p),
+				Mode:     cesium.WriterModePersistOnly,
+			}))
+		}
+		// The two commits of a share the bad frame, and the commit of b between them
+		// in time is durable before it. A rebuilt range of a runs over the data of b.
+		a := open(0)
+		put(ctx, a, keys, 0, commits, nil)
+		MustSucceed2(a.Commit(ctx, nil))
+		b := open(commits)
+		put(ctx, b, keys, commits, commits, nil)
+		r.synced(ctx, b, commits)
+		Expect(b.Close()).To(Succeed())
+		put(ctx, a, keys, 2*commits, commits, nil)
+		bad := r.synced(ctx, a, 0)
+		Expect(commitAt(r.fs, r.db.Identity(), repairStamp(2*commits))).To(Equal(bad))
+		put(ctx, a, keys, 3*commits, commits, nil)
+		r.synced(ctx, a, 3*commits)
+		Expect(a.Close()).To(Succeed())
+		id := r.spoil(bad)
+		rep := repairOf(ctx, r.fs, id)
+		Expect(rep.Rebuilt).To(BeEmpty())
+		reason := fmt.Sprintf(
+			"commit of key %d from %d to %d overlaps its pointer from %d to %d: "+
+				"refused by the state",
+			idx,
+			repairStamp(0),
+			repairStamp(3*commits-1),
+			repairStamp(commits),
+			repairStamp(2*commits-1),
+		)
+		unplaced := func(key cesium.ChannelKey) cesium.Range {
+			return cesium.Range{
+				Key:     key,
+				Segment: segmentsOf(r.fs, key)[0],
+				Bytes:   8 * 2 * commits,
+				Samples: 2 * commits,
+				Reason:  reason,
+			}
+		}
+		Expect(rep.Unplaced).To(ConsistOf(unplaced(idx), unplaced(data)))
+	})
+
 	It("Should time the first segment of a key that the second bad frame made by the "+
 		"stamps of that frame", func(ctx SpecContext) {
 		r := newRepairRoot(ctx)
