@@ -1334,8 +1334,8 @@ jobs:
   tls:
     needs: changes
     if:
-      inputs.full || needs.changes.outputs.tls == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'tls')
+      inputs.full || needs.changes.outputs.tls == 'true' || needs.changes.outputs.core
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'tls')
     uses: ./.github/workflows/test.tls.yaml
     secrets:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

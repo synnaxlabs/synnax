@@ -85,12 +85,31 @@ jobs:
 
       # The Core makes a throwaway CA and signs its certificate for localhost with it.
       - name: Start Core
-        timeout-minutes: 5
+        if: runner.os != 'Windows'
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: |
           nohup "$CORE" start --mem --no-driver --auto-cert --certs-dir "$CERTS" \
             --listen localhost:9090 > "$RUNNER_TEMP/core.log" 2>&1 &
+
+      # A process that Git Bash starts can end with its step on Windows.
+      - name: Start Core on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: |
+          $core = $env:CORE -replace '/', '\'
+          $certs = $env:CERTS -replace '/', '\'
+          $log = "$env:RUNNER_TEMP\core.log"
+          $start = "`"$core`" start --mem --no-driver --auto-cert " +
+            "--certs-dir `"$certs`" --listen localhost:9090"
+          Start-Process -FilePath cmd.exe -WindowStyle Hidden `
+            -ArgumentList "/c `"$start > `"$log`" 2>&1`""
+
+      - name: Wait for Core
+        timeout-minutes: 5
+        run: |
           # The clients check the certificate. Windows curl cannot check the
           # revocation of a CA with no revocation list, so the probe skips the check.
           check=(curl --fail --insecure --request POST --data '{}'
