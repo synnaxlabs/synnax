@@ -81,7 +81,7 @@ describe("oidc", () => {
   });
 
   describe("loginDesktop", () => {
-    const core = { key: "alpha", host: "localhost", port: 9090, secure: false };
+    const core = { key: "alpha", host: "localhost", port: 9090, insecure: true };
     afterEach(() => {
       tauri.query = undefined;
     });

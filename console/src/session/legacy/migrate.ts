@@ -75,7 +75,7 @@ const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined =
     if (core == null) return;
     // The slice schema is what the store parses on every read, so a record it
     // rejects must drop here rather than poison the whole registry later.
-    const mapped = parseBranch({ ...core, key }, Core.coreZ, `Core ${key}`);
+    const mapped = parseBranch({ ...core, key }, Core.storedCoreZ, `Core ${key}`);
     if (mapped == null) return;
     records[key] = mapped;
   });

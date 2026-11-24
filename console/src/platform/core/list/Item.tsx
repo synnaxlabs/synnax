@@ -72,7 +72,7 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
   const status = Synnax.useCheckConnection({
     host: item.host,
     port: item.port,
-    secure: item.secure,
+    insecure: item.insecure,
   });
   let statusVariant = status?.variant ?? "disabled";
   let statusMessage =

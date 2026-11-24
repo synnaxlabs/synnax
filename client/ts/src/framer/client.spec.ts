@@ -23,7 +23,7 @@ describe("Client", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
       const transport = new Transport({
         url: new url.URL(testCoreAddress()),
-        secure: false,
+        insecure: true,
       });
       const retries: Error[] = [];
       const unreachable = new framer.Client({

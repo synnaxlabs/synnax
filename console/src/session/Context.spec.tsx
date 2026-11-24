@@ -56,7 +56,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     },
   },
   order: [CORE_KEY],

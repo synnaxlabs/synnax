@@ -24,21 +24,21 @@ interface StoredToken {
 /** What a client connects to and logs in as. A change to it needs a new client. */
 type Identity = Pick<
   Session.Core.Core,
-  "key" | "host" | "port" | "secure" | "oidc" | "lastLogin"
+  "key" | "host" | "port" | "insecure" | "oidc" | "lastLogin"
 >;
 
 const identityOf = ({
   key,
   host,
   port,
-  secure,
+  insecure,
   oidc,
   lastLogin,
 }: Session.Core.Core): Identity => ({
   key,
   host,
   port,
-  secure,
+  insecure,
   oidc,
   lastLogin,
 });
@@ -52,14 +52,14 @@ interface Held {
  * Reports whether the Core serves the page itself. Only then does the browser send the
  * session cookie back, so only then may the session live in one.
  */
-const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
+const servesPage = ({ host, port, insecure }: Session.Core.Core): boolean => {
   const origin = new URL(window.location.origin);
   const originPort =
     origin.port !== "" ? Number(origin.port) : origin.protocol === "https:" ? 443 : 80;
   return (
     host === origin.hostname &&
     port === originPort &&
-    secure === (origin.protocol === "https:")
+    insecure === (origin.protocol !== "https:")
   );
 };
 
@@ -67,17 +67,17 @@ const paramsOf = (
   core: Session.Core.Core,
   stored: StoredToken | undefined,
 ): SynnaxParams | undefined => {
-  const { host, port, secure, username, password, oidc } = core;
+  const { host, port, insecure, username, password, oidc } = core;
   const params: SynnaxParams =
     oidc == null
       ? {
           host,
           port,
-          secure,
+          insecure,
           username: username === "" ? undefined : username,
           password: password === "" ? undefined : password,
         }
-      : { host, port, secure, oidc };
+      : { host, port, insecure, oidc };
   if (Session.Runtime.ENGINE !== "tauri") {
     const cookie = servesPage(core);
     return { ...params, sessionCookie: cookie, sessionPersistent: cookie };

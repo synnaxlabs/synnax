@@ -64,7 +64,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     const status = await connection.check({
       host: core.host,
       port: core.port,
-      secure: core.secure,
+      insecure: core.insecure,
       name: core.name,
     });
     setTesting(null);

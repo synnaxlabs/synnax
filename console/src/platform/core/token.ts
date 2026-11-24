@@ -11,14 +11,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { Session } from "@/session";
 
-type Address = Pick<Session.Core.Core, "host" | "port" | "secure" | "username">;
+type Address = Pick<Session.Core.Core, "host" | "port" | "insecure" | "username">;
 
 type Target = Address & Pick<Session.Core.Core, "key">;
 
 // The scheme is part of the address, so a token saved for TLS never goes out in plain
 // text.
-const addressOf = ({ host, port, secure, username }: Address): string =>
-  `${secure ? "https" : "http"}://${encodeURIComponent(username)}@${host}:${port}`;
+const addressOf = ({ host, port, insecure, username }: Address): string =>
+  `${insecure ? "http" : "https"}://${encodeURIComponent(username)}@${host}:${port}`;
 
 /**
  * The keychain account a saved Core's session token is stored under. It holds the key

@@ -93,7 +93,7 @@ const NODE_CODE: Code.Lines = [
 const browserCode = (
   host: string,
   port: number,
-  secure: boolean,
+  insecure: boolean,
   apiKey: string,
 ): Code.Lines => [
   TYPESCRIPT_IMPORT,
@@ -108,7 +108,7 @@ const browserCode = (
   ],
   ["  host: ", Code.quoted(host), ","],
   [`  port: ${port},`],
-  [`  secure: ${secure},`],
+  [`  insecure: ${insecure},`],
   ["  apiKey: ", Code.quoted(apiKey), ","],
   ["});"],
 ];
@@ -145,7 +145,7 @@ const PythonTab = ({ release }: TabProps): ReactElement => (
 interface TypeScriptTabProps extends TabProps {
   host: string;
   port: number;
-  secure: boolean;
+  insecure: boolean;
   apiKey: string;
 }
 
@@ -155,7 +155,7 @@ const TypeScriptTab = ({
   release,
   host,
   port,
-  secure,
+  insecure,
   apiKey,
 }: TypeScriptTabProps): ReactElement => {
   const [runtime, setRuntime] = useState<Runtime>("node");
@@ -184,8 +184,8 @@ const TypeScriptTab = ({
           <>
             <Code.Snippet
               label="TypeScript browser code"
-              code={browserCode(host, port, secure, `${apiKey.slice(0, 4)}${MASK}`)}
-              copy={browserCode(host, port, secure, apiKey)}
+              code={browserCode(host, port, insecure, `${apiKey.slice(0, 4)}${MASK}`)}
+              copy={browserCode(host, port, insecure, apiKey)}
             />
             <Text.Text level="small" color={9}>
               The code holds the API key, so keep it private.
@@ -287,7 +287,7 @@ const ConnectModal = (): ReactElement => {
             release={release}
             host={host}
             port={port}
-            secure={client.params.secure}
+            insecure={client.params.insecure}
             apiKey={apiKey}
           />
         </Tabs.Content>

@@ -17,7 +17,7 @@ const BASE: Omit<Core.Core, "key"> = {
   port: 9090,
   username: "",
   password: "",
-  secure: false,
+  insecure: true,
 };
 
 const ALPHA: Core.Core = { ...BASE, key: "alpha", name: "Alpha" };
@@ -93,7 +93,7 @@ describe("set", () => {
   it.each([
     ["host", { host: "elsewhere.com" }],
     ["port", { port: 9099 }],
-    ["scheme", { secure: true }],
+    ["scheme", { insecure: false }],
   ])("should keep the cached cluster when the %s changes", (_, change) => {
     const state = reduce(
       withCores({ ...ALPHA, clusterKey: "cluster-1" }),
@@ -178,7 +178,7 @@ describe("sliceStateZ", () => {
     key: "DEMO",
     name: "Demo",
     host: "demo.synnaxlabs.com",
-    secure: true,
+    insecure: false,
   };
 
   it("should drop the retired demo Core from saved state", () => {
@@ -313,21 +313,28 @@ describe("coreZ", () => {
       port: "9090",
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     });
     expect(parsed.port).toBe(9090);
   });
 
-  it("should read a stored record with no secure as insecure", () => {
-    const parsed = Core.coreZ.parse({
+  it.each<[string, object, boolean]>([
+    ["no TLS field", {}, true],
+    ["secure false", { secure: false }, true],
+    ["secure true", { secure: true }, false],
+    ["insecure over secure", { insecure: false, secure: false }, false],
+  ])("should read a stored record with %s", (_, tls, insecure) => {
+    const parsed = Core.storedCoreZ.parse({
       key: "k",
       name: "Alpha",
       host: "localhost",
       port: 9090,
       username: "synnax",
       password: "seldon",
+      ...tls,
     });
-    expect(parsed.secure).toBe(false);
+    expect(parsed.insecure).toBe(insecure);
+    expect(parsed).not.toHaveProperty("secure");
   });
 
   // The client's params carry behavioral fields; only the address may reach the disk.
@@ -335,13 +342,13 @@ describe("coreZ", () => {
     expect(Object.keys(Core.coreZ.shape).sort()).toEqual([
       "clusterKey",
       "host",
+      "insecure",
       "key",
       "lastLogin",
       "name",
       "oidc",
       "password",
       "port",
-      "secure",
       "user",
       "username",
     ]);

@@ -18,7 +18,7 @@ import { Synnax } from "@/synnax";
 const LIVE_PARAMS: connection.CheckParams = {
   host: testClientParams().host,
   port: testClientParams().port,
-  secure: false,
+  insecure: true,
 };
 
 describe("useCheckConnection", () => {
@@ -38,7 +38,7 @@ describe("useCheckConnection", () => {
       Synnax.useCheckConnection({
         host: testClientParams().host,
         port: 9999,
-        secure: false,
+        insecure: true,
       }),
     );
     await waitFor(() => expect(result.current?.variant).toEqual("error"));

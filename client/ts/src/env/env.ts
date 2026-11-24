@@ -26,6 +26,8 @@ export interface Given {
   password?: string;
   token?: string;
   oidc?: object;
+  insecure?: boolean;
+  /** The inverse of insecure. Deprecated, and removed in 0.64. */
   secure?: boolean;
   caCert?: string;
 }
@@ -69,14 +71,14 @@ interface Resolved {
   apiKey?: string;
   /** Loads the API key from Synnax Desktop, when no other source gives one. */
   loadAPIKey?: (signal?: AbortSignal) => Promise<string>;
-  secure: boolean;
+  insecure: boolean;
   caCert?: string;
 }
 
 interface Desktop {
   host: string;
   port: number;
-  secure: boolean;
+  insecure: boolean;
   loadAPIKey: (signal?: AbortSignal) => Promise<string>;
 }
 
@@ -91,16 +93,20 @@ const OLD_DESKTOP_MSG =
 const NOT_RUNNING_MSG =
   "Synnax Desktop is not running. Open it and try again. To connect to another Core, " +
   "give a host and a port.";
-const CA_NEEDS_SECURE_MSG =
-  "SYNNAX_CA_CERT requires SYNNAX_SECURE; leave SYNNAX_SECURE out or set it to true";
+const CA_NEEDS_TLS_MSG =
+  "SYNNAX_CA_CERT requires TLS; leave SYNNAX_INSECURE out or set it to false";
 const HELPER_TIMEOUT = TimeSpan.seconds(30);
 
-const desktopFileZ = z.object({
-  host: z.string(),
-  port: z.number(),
-  secure: z.boolean(),
-  api_key_helper: z.string(),
-});
+// Releases of Synnax Desktop before 0.63 write secure in place of insecure.
+const desktopFileZ = z
+  .object({
+    host: z.string(),
+    port: z.number(),
+    insecure: z.boolean().optional(),
+    secure: z.boolean().optional(),
+    api_key_helper: z.string(),
+  })
+  .refine((f) => f.insecure != null || f.secure != null);
 
 const isNotFound = (e: Error | undefined): boolean =>
   e != null && "code" in e && e.code === "ENOENT";
@@ -131,13 +137,54 @@ const readPort = (env: Env): number | undefined => {
   return port;
 };
 
-const readSecure = (env: Env): boolean | undefined => {
-  const raw = read(env, "SYNNAX_SECURE");
+const readBoolean = (env: Env, name: string): boolean | undefined => {
+  const raw = read(env, name);
   if (raw === "") return undefined;
   const value = raw.toLowerCase();
   if (TRUE.includes(value)) return true;
   if (FALSE.includes(value)) return false;
-  throw new ValidationError(`SYNNAX_SECURE must be true or false, not "${raw}"`);
+  throw new ValidationError(`${name} must be true or false, not "${raw}"`);
+};
+
+/** The deprecated secure option and its replacement, insecure. */
+export interface InsecureParams {
+  insecure?: boolean;
+  /** The inverse of insecure. Deprecated, and removed in 0.64. */
+  secure?: boolean;
+}
+
+/**
+ * @returns insecure, or the opposite of the deprecated secure, which logs a warning.
+ * Undefined when neither is given.
+ * @throws {ValidationError} if both are given.
+ */
+export const resolveInsecure = ({
+  insecure,
+  secure,
+}: InsecureParams): boolean | undefined => {
+  if (secure == null) return insecure;
+  if (insecure != null)
+    throw new ValidationError("Give insecure or secure, not both. Use insecure.");
+  console.warn(
+    "secure is deprecated and goes in 0.64. Use insecure: true in place of " +
+      "secure: false.",
+  );
+  return !secure;
+};
+
+const readInsecure = (env: Env): boolean | undefined => {
+  const insecure = readBoolean(env, "SYNNAX_INSECURE");
+  const secure = readBoolean(env, "SYNNAX_SECURE");
+  if (secure == null) return insecure;
+  if (insecure != null)
+    throw new ValidationError(
+      "Set SYNNAX_INSECURE or SYNNAX_SECURE, not both. Use SYNNAX_INSECURE.",
+    );
+  console.warn(
+    "SYNNAX_SECURE is deprecated and goes in 0.64. Use SYNNAX_INSECURE=true in place " +
+      "of SYNNAX_SECURE=false.",
+  );
+  return !secure;
 };
 
 const isAbsolute = (path: string, platform: string): boolean =>
@@ -221,15 +268,16 @@ const resolveTLS = (
   env: Env,
   system: System | undefined,
   desktop: Desktop | undefined,
-): Pick<Resolved, "secure" | "caCert"> => {
-  if (params.secure != null || params.caCert != null)
-    return { secure: params.secure ?? true, caCert: params.caCert };
-  const secure = readSecure(env);
+): Pick<Resolved, "insecure" | "caCert"> => {
+  const insecure = resolveInsecure(params);
+  if (insecure != null || params.caCert != null)
+    return { insecure: insecure ?? false, caCert: params.caCert };
+  const envInsecure = readInsecure(env);
   const path = read(env, "SYNNAX_CA_CERT");
-  if (path === "") return { secure: secure ?? desktop?.secure ?? true };
-  if (secure === false) throw new ValidationError(CA_NEEDS_SECURE_MSG);
-  if (system?.caCertUnsupported === true) return { secure: true };
-  return { secure: true, caCert: readCA(system, path) };
+  if (path === "") return { insecure: envInsecure ?? desktop?.insecure ?? false };
+  if (envInsecure === true) throw new ValidationError(CA_NEEDS_TLS_MSG);
+  if (system?.caCertUnsupported === true) return { insecure: false };
+  return { insecure: false, caCert: readCA(system, path) };
 };
 
 const runHelper = async (
@@ -277,9 +325,11 @@ const loadDesktop = (system: System | undefined, env: Env): Desktop => {
     throw new ValidationError(OLD_DESKTOP_MSG);
   const parsed = desktopFileZ.safeParse(raw);
   if (!parsed.success) throw new ValidationError(unreadable, { cause: parsed.error });
-  const { api_key_helper: helper, ...file } = parsed.data;
+  const { host, port, insecure, secure, api_key_helper: helper } = parsed.data;
   return {
-    ...file,
+    host,
+    port,
+    insecure: insecure ?? secure === false,
     loadAPIKey: async (signal) => await readKey(system, helper, signal),
   };
 };
@@ -358,23 +408,24 @@ export const nodeSystem = (
 
 /**
  * Fills each connection parameter from the params, then its environment variable, then
- * Synnax Desktop when neither gives a host, then its default (port 9090, secure true).
- * The API key comes from SYNNAX_API_KEY or Synnax Desktop only when the params give no
- * credentials, token, or OpenID Connect code. The key of Synnax Desktop comes as
- * loadAPIKey, which runs its key helper and rejects with a ValidationError if the
- * helper is gone, fails, or does not finish in time. Secure and the CA certificate come
- * as a pair from the first source that sets either one: the params (secure, caCert),
- * then the variables (SYNNAX_SECURE, and SYNNAX_CA_CERT as the path of a PEM file),
- * then Synnax Desktop. A CA certificate with no secure turns secure on. When
- * system.caCertUnsupported is true, SYNNAX_CA_CERT turns secure on but its file is not
- * read. Reads only the variables of missing fields. Variable values are trimmed, and an
- * empty value is unset. In Deno, a variable the script has no permission to read is
- * unset.
+ * Synnax Desktop when neither gives a host, then its default (port 9090, insecure
+ * false). The API key comes from SYNNAX_API_KEY or Synnax Desktop only when the params
+ * give no credentials, token, or OpenID Connect code. The key of Synnax Desktop comes
+ * as loadAPIKey, which runs its key helper and rejects with a ValidationError if the
+ * helper is gone, fails, or does not finish in time. Insecure and the CA certificate
+ * come as a pair from the first source that sets either one: the params (insecure,
+ * caCert), then the variables (SYNNAX_INSECURE, and SYNNAX_CA_CERT as the path of a PEM
+ * file), then Synnax Desktop. The deprecated secure and SYNNAX_SECURE give the opposite
+ * of insecure and log a warning. When system.caCertUnsupported is true, SYNNAX_CA_CERT
+ * turns TLS on but its file is not read. Reads only the variables of missing fields.
+ * Variable values are trimmed, and an empty value is unset. In Deno, a variable the
+ * script has no permission to read is unset.
  * @param system - Finds Synnax Desktop and reads the SYNNAX_CA_CERT file. Undefined in
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
- * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
- * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
+ * SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not valid, if insecure and secure,
+ * or SYNNAX_INSECURE and SYNNAX_SECURE, are both set, if SYNNAX_CA_CERT is set with
+ * SYNNAX_INSECURE true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
  * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
  * Desktop is too old. Reads the desktop.json of the config directory of the OS or of
  * ~/.synnax that was modified last. In Deno, a missing permission to read the file is
@@ -384,7 +435,7 @@ export const resolveParams = <P extends Given>(
   params: P,
   env: Env = {},
   system?: System,
-): Omit<P, keyof Resolved> & Resolved => {
+): Omit<Omit<P, "secure">, keyof Resolved> & Resolved => {
   const given =
     params.host != null && params.host !== "" ? params.host : read(env, "SYNNAX_HOST");
   const desktop = given === "" ? loadDesktop(system, env) : undefined;
@@ -397,8 +448,9 @@ export const resolveParams = <P extends Given>(
     if (envKey !== "") key = envKey;
     else loadAPIKey = desktop?.loadAPIKey;
   }
+  const { secure: _, ...rest } = params;
   return {
-    ...params,
+    ...rest,
     host: desktop?.host ?? given,
     port: params.port ?? readPort(env) ?? desktop?.port ?? DEFAULT_PORT,
     apiKey: key,

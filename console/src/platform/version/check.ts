@@ -58,11 +58,11 @@ export const useTarget = (): Target | null => {
   const { nodeVersion } = Synnax.useConnectionStatus().details;
   const latestGranted = Access.useUpdateGranted(RESOURCE_ID);
   if (core == null || nodeVersion == null) return null;
-  const scheme = core.secure ? "https" : "http";
+  const scheme = core.insecure ? "http" : "https";
   return {
     endpoint: `${scheme}://${core.host}:${core.port}${MANIFEST_PATH}`,
     version: nodeVersion,
-    secure: core.secure,
+    secure: !core.insecure,
     latestGranted,
   };
 };

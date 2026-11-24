@@ -17,7 +17,7 @@ const client = new Synnax({
   port: Number(env.SYNNAX_TEST_PORT ?? 9090),
   username: "synnax",
   password: "seldon",
-  secure: env.SYNNAX_TEST_SECURE === "true",
+  insecure: env.SYNNAX_TEST_SECURE !== "true",
   caCert: env.SYNNAX_TEST_CA_CERT,
 });
 const channels = await client.channels.retrieve({ limit: 3 });

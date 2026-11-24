@@ -24,7 +24,7 @@ const PARAMS = {
   username: "synnax",
   password: "launch-secret",
   name: "Synnax",
-  secure: false,
+  insecure: true,
 };
 
 describe("Embedded.useConnParams", () => {

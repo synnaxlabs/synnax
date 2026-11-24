@@ -37,7 +37,7 @@ describe("Connection", () => {
       client: null,
       connParams: CONNECTION_PARAMS,
     });
-    render(<Shell.Connection core={{ ...CORE, secure: true }} />, { wrapper });
+    render(<Shell.Connection core={{ ...CORE, insecure: false }} />, { wrapper });
     expect(await screen.findByText("Unreachable")).toBeTruthy();
   });
 

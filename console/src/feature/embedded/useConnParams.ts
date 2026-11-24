@@ -29,5 +29,5 @@ export const useConnParams = (): SynnaxParams | undefined => {
   // child sees a stale connection. An effect would commit one render late.
   if (status.state === "running" && !deep.equal(connection, status.connection))
     setConnection(status.connection);
-  return connection == null ? undefined : { ...connection, name: NAME, secure: false };
+  return connection == null ? undefined : { ...connection, name: NAME, insecure: true };
 };

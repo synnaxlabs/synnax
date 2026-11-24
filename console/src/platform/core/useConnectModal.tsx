@@ -15,7 +15,7 @@ import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { deep } from "@synnaxlabs/x";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -29,12 +29,10 @@ export interface ConnectModalParams {
   coreKey?: string;
 }
 
-const FORM_SCHEMA = Session.Core.coreZ.pick({
-  name: true,
-  host: true,
-  port: true,
-  secure: true,
-});
+// The form asks whether the Core uses TLS, the opposite of the stored insecure.
+const FORM_SCHEMA = Session.Core.coreZ
+  .pick({ name: true, host: true, port: true })
+  .extend({ secure: z.boolean() });
 
 const ZERO_VALUES: z.infer<typeof FORM_SCHEMA> = {
   name: "",
@@ -59,7 +57,7 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
             name: existing.name,
             host: existing.host,
             port: existing.port,
-            secure: existing.secure,
+            secure: !existing.insecure,
           }
         : { ...ZERO_VALUES },
   });
@@ -68,7 +66,8 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
   // save must not wait on (or be gated by) a live connectivity check.
   const handleSubmit = (): void => {
     if (!methods.validate()) return;
-    const data = methods.value();
+    const { secure, ...address } = methods.value();
+    const data = { ...address, insecure: !secure };
     if (isEdit && existing != null)
       dispatch(
         Session.Core.set({

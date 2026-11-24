@@ -22,7 +22,7 @@ const Main = (): ReactElement => (
     connParams={{
       host: "localhost",
       port: CORE_PORT,
-      secure: false,
+      insecure: true,
       username: "synnax",
       password: "seldon",
     }}

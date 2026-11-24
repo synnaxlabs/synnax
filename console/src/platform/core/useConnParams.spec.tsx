@@ -75,7 +75,7 @@ describe("Core.useConnParams", () => {
 
   it("should ask for a cookie from a secure Core on the page's default port", async () => {
     pinLocationOrigin("https://example.com");
-    const { result } = await renderParams({ ...CORE, port: 443, secure: true });
+    const { result } = await renderParams({ ...CORE, port: 443, insecure: false });
     expect(result.current?.sessionCookie).toBe(true);
   });
 
@@ -163,13 +163,13 @@ describe("Core.useConnParams", () => {
       return reads === 1 ? "sys_saved" : null;
     });
     onTestFinished(clearMocks);
-    const secure = { ...CORE, secure: true };
-    const { result, store } = await renderParams(secure);
+    const tls = { ...CORE, insecure: false };
+    const { result, store } = await renderParams(tls);
     await waitFor(() => expect(result.current?.token).toBe("sys_saved"));
     act(() => {
-      store.dispatch(Session.Core.set({ ...secure, secure: false }));
+      store.dispatch(Session.Core.set({ ...tls, insecure: true }));
     });
-    await waitFor(() => expect(result.current?.secure).toBe(false));
+    await waitFor(() => expect(result.current?.insecure).toBe(true));
     expect(result.current?.token).toBeUndefined();
   });
 

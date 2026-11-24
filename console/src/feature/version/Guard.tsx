@@ -50,7 +50,7 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
   const url =
     target == null
       ? undefined
-      : `${target.secure ? "https" : "http"}://${target.host}:${target.port}`;
+      : `${target.insecure ? "http" : "https"}://${target.host}:${target.port}`;
   return (
     <Shell.Frame className={CSS.B("version-mismatch")} connection={target}>
       <Flex.Box

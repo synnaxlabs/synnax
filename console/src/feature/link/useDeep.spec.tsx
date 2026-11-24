@@ -119,7 +119,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     },
     [OTHER_CORE_KEY]: {
       key: OTHER_CORE_KEY,
@@ -127,7 +127,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     },
     [THIRD_CORE_KEY]: {
       key: THIRD_CORE_KEY,
@@ -135,7 +135,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     },
   },
   order: [CORE_KEY, OTHER_CORE_KEY, THIRD_CORE_KEY],

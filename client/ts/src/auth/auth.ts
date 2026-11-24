@@ -26,6 +26,7 @@ import {
   type SessionKey,
   sessionZ,
 } from "@/auth/types.gen";
+import { env } from "@/env";
 import {
   APIKeyUnavailableError,
   AuthError,
@@ -101,21 +102,22 @@ const methodsResZ = z.object({
 export interface TokenlessParams {
   host: string;
   port: number | string;
+  /** Whether to connect without TLS, to a Core that runs with --insecure. */
+  insecure?: boolean;
+  /** @deprecated Use insecure. Removed in 0.64. */
   secure?: boolean;
 }
 
 /**
  * Creates a client for the routes a Core serves without a session. Create one per Core
  * address and reuse it across requests.
+ * @throws {ValidationError} if insecure and the deprecated secure are both given.
  */
-export const createTokenlessClient = ({
-  host,
-  port,
-  secure = true,
-}: TokenlessParams): UnaryClient => {
+export const createTokenlessClient = (params: TokenlessParams): UnaryClient => {
+  const { host, port } = params;
   const transport = new Transport({
     url: new url.URL({ host, port: Number(port) }),
-    secure,
+    insecure: env.resolveInsecure(params) ?? false,
   });
   transport.use(errorsMiddleware);
   return transport.unaryNoRetry;

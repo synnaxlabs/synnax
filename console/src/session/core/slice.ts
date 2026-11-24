@@ -15,8 +15,7 @@ import { z } from "zod";
 // Picked rather than omitted: the client's params carry behavioral fields a session
 // has no business storing, and a new one must not reach the disk by default.
 export const coreZ = synnaxParamsZ.pick({ host: true }).extend({
-  // Not picked: a stored record must not change when the client default does.
-  secure: z.boolean().default(false),
+  insecure: z.boolean(),
   // A record holds no credentials until its first login, so the stored shape
   // accepts them empty where the login form does not.
   username: z.string(),
@@ -49,6 +48,16 @@ export const coreZ = synnaxParamsZ.pick({ host: true }).extend({
 });
 export interface Core extends z.infer<typeof coreZ> {}
 
+// Records saved before 0.63 hold secure, and a record with neither never used TLS.
+const fillInsecure = (raw: unknown): unknown => {
+  if (typeof raw !== "object" || raw === null || "insecure" in raw) return raw;
+  const secure = "secure" in raw && raw.secure === true;
+  return { ...raw, insecure: !secure };
+};
+
+/** A {@link Core} as the store holds it, which may come from an older release. */
+export const storedCoreZ = z.preprocess(fillInsecure, coreZ);
+
 /** The local Core a desktop session starts with. */
 const LOCAL_KEY = "LOCAL";
 
@@ -71,7 +80,7 @@ const LOCAL: Core = {
   port: 9090,
   username: "synnax",
   password: "seldon",
-  secure: false,
+  insecure: true,
 };
 
 // Releases through 0.61 shipped a default Core for a public demo deployment that no
@@ -83,7 +92,7 @@ export const sliceStateZ = z
   .object({
     version: z.literal(0).default(0),
     selected: z.string().optional(),
-    cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL }),
+    cores: z.record(z.string(), storedCoreZ).default({ [LOCAL_KEY]: LOCAL }),
     /** The key of every Core in the order the list shows them. */
     order: z.string().array().default([]),
   })
