@@ -62,7 +62,7 @@ type Returns interface {
 // (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
 // mirrors fails. Policies are read from committed state, so a policy or role that apply
 // stages grants nothing. A denial wraps access.ErrDenied and names the record, except
-// as HideDerived sets.
+// as HideDerived and HideDenied set.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
@@ -104,6 +104,9 @@ type writeConfig struct {
 	// operation names what derives changes in a write, or is empty when a denial of
 	// one names its record.
 	operation string
+	// directHidden is true when a denial of a record that apply changed itself, or of a
+	// link target, counts the record as a derived one does.
+	directHidden bool
 }
 
 // HideDerived makes a denial of a record that Gorp changed in turn name the record only
@@ -111,6 +114,16 @@ type writeConfig struct {
 // that the operation, such as "heal", changes.
 func HideDerived(operation string) WriteOption {
 	return func(c *writeConfig) { c.operation = operation }
+}
+
+// HideDenied makes every denial of the write name its record only when the subject can
+// retrieve it, as HideDerived does for derived records: the records that apply changes
+// itself and the targets of their links count too.
+func HideDenied(operation string) WriteOption {
+	return func(c *writeConfig) {
+		c.operation = operation
+		c.directHidden = true
+	}
 }
 
 // WritePrepared returns a handler that runs prepare outside any transaction, then runs
@@ -197,12 +210,14 @@ func (s *Service) check(
 			continue
 		}
 		checked = true
-		recordTo := needs
-		if c.Derived && cfg.operation != "" {
+		recordTo, linkTo := needs, needs
+		if cfg.directHidden {
+			recordTo, linkTo = derived, derived
+		} else if c.Derived && cfg.operation != "" {
 			recordTo = derived
 		}
 		if err := s.changeNeeds(
-			ctx, tx, subject, c, createdOrDeleted, needs, recordTo,
+			ctx, tx, subject, c, createdOrDeleted, linkTo, recordTo,
 		); err != nil {
 			return err
 		}
