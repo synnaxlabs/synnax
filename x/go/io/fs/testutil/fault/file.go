@@ -191,10 +191,10 @@ func (d *disk) write(n *node, p []byte, off int64, path string) (int, error) {
 // fit returns size, or the longest length under size that the disk has space to give
 // the file n.
 func (d *disk) fit(n *node, size int64) int64 {
-	if d.cfg.Capacity == 0 || size <= int64(len(n.data)) {
+	if !d.capped || size <= int64(len(n.data)) {
 		return size
 	}
-	return min(size, int64(len(n.data))+max(d.cfg.Capacity-d.used(), 0))
+	return min(size, int64(len(n.data))+max(d.capacity-d.used(), 0))
 }
 
 // used returns the bytes that the disk holds: each file under the root, and each

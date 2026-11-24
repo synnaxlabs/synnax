@@ -69,6 +69,16 @@ var _ = Describe("Fill", func() {
 		Expect(n).To(Equal(3))
 		Expect(f.Close()).To(Succeed())
 	})
+
+	It("Should cap a disk that holds no bytes at a room of zero", func() {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		f := MustSucceed(disk.Open("a", os.O_CREATE|os.O_RDWR))
+		disk.Fill(0)
+		n, err := f.Write([]byte("a"))
+		Expect(err).To(MatchError(syscall.ENOSPC))
+		Expect(n).To(BeZero())
+		Expect(f.Close()).To(Succeed())
+	})
 })
 
 var _ = Describe("Unsynced", func() {
@@ -85,6 +95,28 @@ var _ = Describe("Unsynced", func() {
 		Expect(f.Sync()).To(Succeed())
 		Expect(disk.Unsynced()).To(BeFalse())
 		Expect(f.Close()).To(Succeed())
+	})
+
+	It("Should report no change under a directory whose removal is durable", func() {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		MustSucceed(disk.Sub("tmp"))
+		f := MustSucceed(disk.Open("tmp/f", os.O_CREATE|os.O_RDWR))
+		Expect(f.Close()).To(Succeed())
+		Expect(disk.Remove("tmp")).To(Succeed())
+		Expect(disk.SyncDir("")).To(Succeed())
+		Expect(disk.Unsynced()).To(BeFalse())
+	})
+
+	It("Should keep the changes under a directory that a durable rename moved", func() {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		MustSucceed(disk.Sub("tmp"))
+		f := MustSucceed(disk.Open("tmp/f", os.O_CREATE|os.O_RDWR))
+		Expect(f.Close()).To(Succeed())
+		Expect(disk.Rename("tmp", "kept")).To(Succeed())
+		Expect(disk.SyncDir("")).To(Succeed())
+		Expect(disk.Unsynced()).To(BeTrue())
+		Expect(disk.SyncDir("kept")).To(Succeed())
+		Expect(disk.Unsynced()).To(BeFalse())
 	})
 })
 
