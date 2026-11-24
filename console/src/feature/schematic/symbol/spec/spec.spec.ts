@@ -768,6 +768,41 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("clicks", () => {
+    const send = (key: string, value: number): schematic.symbol.Command => ({
+      key,
+      name: key,
+      value: { type: "fixed", value },
+    });
+
+    it("should list the whole drawing, then each part with no click", () => {
+      const spec = createSpec({
+        interactions: [{ type: "fire", key: "c", part: "body", command: "a" }],
+      });
+      expect(Spec.freeTargets(spec)).toEqual([undefined, "seat"]);
+    });
+
+    it("should add a click on the first free target with the first command", () => {
+      const spec = createSpec({
+        commands: [send("a", 1)],
+        interactions: [{ type: "fire", key: "c", command: "a" }],
+      });
+      const [next, key] = Spec.addInteraction(spec);
+      expect(next.interactions[1]).toEqual({
+        type: "fire",
+        key,
+        part: "body",
+        command: "a",
+      });
+    });
+
+    it("should throw on an add with no command", () => {
+      expect(() => Spec.addInteraction(createSpec())).toThrow(
+        "a symbol with no free target or no command takes no click",
+      );
+    });
+  });
+
   describe("removeState", () => {
     const onEntry: schematic.symbol.Paint = { type: "entry", state: FAULT.key };
 

@@ -26,6 +26,10 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
+import {
+  ClickInspector,
+  targetName,
+} from "@/feature/schematic/symbol/edit/ClickInspector";
 import { CommandInspector } from "@/feature/schematic/symbol/edit/CommandInspector";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -64,6 +68,12 @@ const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
 
 const describeCommand = ({ value }: schematic.symbol.Command): string =>
   value.type === "fixed" ? `Sends ${value.value}` : "Asks for a value";
+
+// Item is a command or a click that the inspector edits.
+interface Item {
+  type: "command" | "click";
+  key: string;
+}
 
 interface ValueBarProps {
   value: Spec.At;
@@ -165,14 +175,14 @@ const Editor = ({
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
-  const [selectedCommand, setSelectedCommand] = useState<string | undefined>(undefined);
-  // A part and a command share the inspector, so picking one drops the other.
+  const [selectedItem, setSelectedItem] = useState<Item | undefined>(undefined);
+  // A part and an item share the inspector, so picking one drops the other.
   const selectPart = (key: Spec.Target) => {
     setSelectedPart(key);
-    setSelectedCommand(undefined);
+    setSelectedItem(undefined);
   };
-  const selectCommand = (key: string | undefined) => {
-    setSelectedCommand(key);
+  const selectItem = (type: Item["type"]) => (key: string | undefined) => {
+    setSelectedItem(key == null ? undefined : { type, key });
     setSelectedPart(undefined);
   };
 
@@ -243,9 +253,27 @@ const Editor = ({
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
-  const shownCommand = commands.some((c) => c.key === selectedCommand)
-    ? selectedCommand
-    : undefined;
+  const interactions = Form.useFieldValue(path.data.interactions, { ctx: form });
+  const parts = Form.useFieldValue(path.data.parts, { ctx: form });
+  const shown =
+    selectedItem != null &&
+    (selectedItem.type === "command" ? commands : interactions).some(
+      (i) => i.key === selectedItem.key,
+    )
+      ? selectedItem
+      : undefined;
+  const describeClick = (click: schematic.symbol.Interaction): string => {
+    const name = (key: string) => commands.find((c) => c.key === key)?.name ?? key;
+    return click.type === "fire"
+      ? `Sends ${name(click.command)}`
+      : `Toggles ${click.commands.map(name).join(" and ")}`;
+  };
+  const clickDisabled =
+    commands.length === 0
+      ? "Add a command first"
+      : Spec.freeTargets({ parts, interactions }).length === 0
+        ? "Every part and the whole drawing have a click"
+        : undefined;
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -302,6 +330,7 @@ const Editor = ({
                       title="States"
                       noun="state"
                       items={states}
+                      label={(s) => s.name}
                       name={(key) => path.data.states[key].name}
                       detail={(s) => STATE_TYPES[s.type]}
                       add={Spec.addState}
@@ -337,12 +366,26 @@ const Editor = ({
                       title="Commands"
                       noun="command"
                       items={commands}
+                      label={(c) => c.name}
                       name={(key) => path.data.commands[key].name}
                       detail={describeCommand}
                       add={Spec.addCommand}
                       remove={Spec.removeCommand}
-                      value={selectedCommand}
-                      onChange={selectCommand}
+                      value={shown?.type === "command" ? shown.key : undefined}
+                      onChange={selectItem("command")}
+                    />
+                    <Divider.Divider x />
+                    <ItemList
+                      title="Clicks"
+                      noun="click"
+                      items={interactions}
+                      label={(i) => targetName(parts, i.part)}
+                      detail={describeClick}
+                      add={Spec.addInteraction}
+                      addDisabled={clickDisabled}
+                      remove={Spec.removeInteraction}
+                      value={shown?.type === "click" ? shown.key : undefined}
+                      onChange={selectItem("click")}
                     />
                   </>
                 ) : (
@@ -363,7 +406,7 @@ const Editor = ({
                 )}
                 <Divider.Divider x />
                 <PartList
-                  value={shownCommand == null ? selectedPart : null}
+                  value={shown == null ? selectedPart : null}
                   onChange={(value) => {
                     selectPart(value);
                     setSelectedHandle(undefined);
@@ -436,14 +479,16 @@ const Editor = ({
                 bordered
                 borderColor={6}
               >
-                {shownCommand == null ? (
+                {shown?.type === "command" ? (
+                  <CommandInspector key={shown.key} command={shown.key} />
+                ) : shown?.type === "click" ? (
+                  <ClickInspector key={shown.key} click={shown.key} />
+                ) : (
                   <Inspector
                     key={`${selectedPart ?? ""}/${preview.state}`}
                     part={selectedPart}
                     preview={preview}
                   />
-                ) : (
-                  <CommandInspector key={shownCommand} command={shownCommand} />
                 )}
               </Flex.Box>
             )}
