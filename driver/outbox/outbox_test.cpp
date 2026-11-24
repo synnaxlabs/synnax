@@ -787,16 +787,20 @@ TEST_F(OutboxTest, CompactsToNewestSets) {
 /// @brief it should send no set twice when a crash leaves the old segments next to the
 /// compacted one.
 TEST_F(OutboxTest, SkipsOldSegmentsAfterCrashInCompaction) {
-    const auto aside = this->dir.string() + "_aside";
+    const auto aside = std::filesystem::path(this->dir.string() + "_aside");
     {
         const auto outbox = this->open_unreachable(4096);
         for (int i = 0; i < 300; i++) {
-            if (i == 20)
-                std::filesystem::copy(
-                    this->dir,
-                    aside,
-                    std::filesystem::copy_options::recursive
-                );
+            if (i == 20) {
+                std::filesystem::create_directories(aside);
+                // The sync thread can remove a temp file during the copy.
+                for (const auto &entry: std::filesystem::directory_iterator(this->dir))
+                    if (entry.path().extension() == ".calls")
+                        std::filesystem::copy_file(
+                            entry.path(),
+                            aside / entry.path().filename()
+                        );
+            }
             ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
                 outbox->set_status(set_of(std::to_string(i), "a"), nullptr),
                 std::chrono::seconds(30),
@@ -868,7 +872,7 @@ TEST_F(OutboxTest, CompactsWithoutRefusingNewerSets) {
     const auto outbox = this->open_unreachable(max_bytes);
     const auto message = std::string(1000, 'm');
     const auto call_bytes = journal::RECORD_PREFIX_SIZE + 1020;
-    const auto unique = 6700 * 1000 / call_bytes;
+    const auto unique = std::uint64_t{6700} * 1000 / call_bytes;
     for (std::size_t i = 0; i < unique; i++)
         ASSERT_NIL(
             outbox->set_status(set_of(message, "u" + std::to_string(i)), nullptr)

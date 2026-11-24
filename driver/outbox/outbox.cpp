@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <ranges>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -110,7 +111,7 @@ Outbox::open_writer(const std::uint64_t key, const std::uint16_t flags) const {
 }
 
 std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
-    if (!(cfg.compact_share > 0 && cfg.compact_share <= 1))
+    if (cfg.compact_share <= 0 || cfg.compact_share > 1)
         return {
             nullptr,
             x::errors::Error(BASE_ERROR, "compact_share is not in (0, 1]")
@@ -125,8 +126,8 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     if (ec) return {nullptr, fs_error("failed to stat outbox directory", ec)};
     std::filesystem::create_directories(cfg.dir, ec);
     if (ec) return {nullptr, fs_error("failed to create outbox directory", ec)};
-    for (auto d = new_dirs.rbegin(); d != new_dirs.rend(); ++d)
-        if (const auto err = cfg.on_create(*d)) return {nullptr, err};
+    for (const auto &d: std::views::reverse(new_dirs))
+        if (const auto err = cfg.on_create(d)) return {nullptr, err};
     auto [dir_lock, lock_err] = journal::Lock::open(cfg.dir, cfg.on_create);
     if (lock_err) return {nullptr, lock_err};
     auto outbox = std::unique_ptr<Outbox>(new Outbox(std::move(cfg)));
