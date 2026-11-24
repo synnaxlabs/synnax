@@ -339,6 +339,56 @@ func (r *snapshotRequest) run(s *State) {
 	r.done <- nil
 }
 
+// waited is a request that its caller waits for with a context. Once the caller gives
+// up before the owner takes it, the owner neither runs nor fails it, so it leaves no
+// claim with no owner and sends no error that a later call would receive.
+type waited struct {
+	request
+	// taken is waiting while the request waits, then taken once the owner takes it,
+	// or abandoned once its caller gives up.
+	taken atomic.Int32
+}
+
+const (
+	waiting int32 = iota
+	taken
+	abandoned
+)
+
+func (r *waited) run(s *State) {
+	if r.taken.CompareAndSwap(waiting, taken) {
+		r.request.run(s)
+	}
+}
+
+func (r *waited) fail(err error) {
+	if r.taken.CompareAndSwap(waiting, taken) {
+		r.request.fail(err)
+	}
+}
+
+// waitFor queues r for the owner and returns the error that done receives. When ctx
+// ends
+// before the owner takes r, it returns the error of ctx. Once the owner takes r, it
+// waits for r to end.
+func waitFor(ctx context.Context, s *State, r request, done chan error) error {
+	w := &waited{request: r}
+	if err := s.enqueue(w); err != nil {
+		return err
+	}
+	select {
+	case err := <-done:
+		return err
+	case <-s.exit:
+		return wait(s, done)
+	case <-ctx.Done():
+		if w.taken.CompareAndSwap(waiting, abandoned) {
+			return ctx.Err()
+		}
+		return wait(s, done)
+	}
+}
+
 // wait returns the error that done receives, or errClosed when the owner stops first.
 func wait(s *State, done chan error) error {
 	select {
