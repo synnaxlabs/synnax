@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, map, primitive, unique } from "@synnaxlabs/x";
+import { DataType, deep, map, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -944,14 +944,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   );
   return (
     <>
-      {unique.unique(plain.map((e) => e.icd)).reduceRight(
-        (child, key) => (
-          <ICD.WithFormat key={key} icdKey={key}>
-            {child}
-          </ICD.WithFormat>
-        ),
-        body,
-      )}
+      <ICD.WithFormats icdKeys={plain.map((e) => e.icd)}>{body}</ICD.WithFormats>
       <Task.BindChannels path={root.config.entries} resolve={resolve} />
     </>
   );

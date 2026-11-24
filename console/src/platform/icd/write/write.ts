@@ -21,6 +21,18 @@ const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
   channel: 0,
 });
 
+/** Tells the user what to do when the ICD no longer has the message of a write. */
+export const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Pick another message format.";
+
+/** @returns message with no command channels, so deploying creates new ones. */
+export const unbind = (message: icd.WriteMessage): icd.WriteMessage => ({
+  ...message,
+  bindings: message.bindings.map((b) =>
+    b.type === "channel" ? { ...b, channel: 0 } : b,
+  ),
+});
+
 /**
  * @returns bindings, changed to suit fields: no binding of a field that is gone, no
  * fixed value of another kind, and no data type that its field does not take. Each

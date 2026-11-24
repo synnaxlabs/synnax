@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive, uuid } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -1124,13 +1124,8 @@ const ICDContent = ({ device }: { device: Device.Device }) => {
       )}
     </MessagePlans>
   );
-  return unique.unique(reading.map((ep) => ep.icd)).reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    body,
+  return (
+    <ICD.WithFormats icdKeys={reading.map((ep) => ep.icd)}>{body}</ICD.WithFormats>
   );
 };
 

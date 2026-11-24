@@ -20,12 +20,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, id, primitive, unique } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useRef, useState } from "react";
+import { deep, id, primitive } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useState } from "react";
 
 import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
@@ -159,9 +160,6 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
   );
 };
 
-const MISSING_DESCRIPTION =
-  "The ICD no longer has this message. Pick another message format.";
-
 const PlainTargetPane = ({
   path,
   deviceName,
@@ -214,7 +212,10 @@ const PlainTargetPane = ({
           preview={isPreview}
         />
       </PForm.Section>
-      <ICD.MessageStatus message={message} missingDescription={MISSING_DESCRIPTION} />
+      <ICD.MessageStatus
+        message={message}
+        missingDescription={ICD.Write.MISSING_DESCRIPTION}
+      />
       <ICD.Write.Bindings
         path={path.message.bindings}
         icdKey={target.icd}
@@ -309,9 +310,6 @@ const heldEntry = (target: WriteTarget): HeldEntry =>
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
-  binding.type === "channel" ? { ...binding, channel: 0 } : binding;
-
 const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
   targets
     .filter(({ key }) => keys.includes(key))
@@ -321,10 +319,7 @@ const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[]
         : {
             ...target,
             key: id.create(),
-            message: {
-              ...target.message,
-              bindings: target.message.bindings.map(unbind),
-            },
+            message: ICD.Write.unbind(target.message),
           },
     );
 
@@ -346,8 +341,6 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
   );
   const discover = useDiscoverModal();
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const additions = await discover({
@@ -375,18 +368,9 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
     targets.push(added);
     onSelect([added[0].key]);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add targets");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
   const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
     target.type === "sparkplug"
@@ -447,18 +431,13 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
-  const icds = unique.unique(
-    PForm.useFieldValue(root.config.targets).flatMap((t) =>
-      t.type === "plain" ? [t.icd] : [],
-    ),
+  const icds = PForm.useFieldValue(root.config.targets).flatMap((t) =>
+    t.type === "plain" ? [t.icd] : [],
   );
-  return icds.reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    <Targets device={device} selected={selected} onSelect={setSelected} />,
+  return (
+    <ICD.WithFormats icdKeys={icds}>
+      <Targets device={device} selected={selected} onSelect={setSelected} />
+    </ICD.WithFormats>
   );
 };
 

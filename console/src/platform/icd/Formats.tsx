@@ -10,10 +10,12 @@
 import { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Access, ICD as PICD } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
@@ -104,3 +106,22 @@ export const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement 
   const formats = new Map(useContext(Context)).set(icdKey, form);
   return <Context value={formats}>{children}</Context>;
 };
+
+export interface WithFormatsProps extends PropsWithChildren {
+  /** The ICDs to open. A key may repeat. */
+  icdKeys: icd.Key[];
+}
+
+/** Opens the form of each ICD in icdKeys, as WithFormat does for one. */
+export const WithFormats = ({ icdKeys, children }: WithFormatsProps): ReactElement => (
+  <>
+    {unique.unique(icdKeys).reduceRight<ReactNode>(
+      (child, key) => (
+        <WithFormat key={key} icdKey={key}>
+          {child}
+        </WithFormat>
+      ),
+      children,
+    )}
+  </>
+);
