@@ -459,6 +459,30 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 			Expect(stored(ctx, data)).To(BeZero())
 		})
 
+		It("Should refuse pending samples to adopt", func(ctx SpecContext) {
+			other := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      other,
+				Name:     "other",
+				Index:    clock,
+				DataType: telem.Int64T,
+			})).To(Succeed())
+			w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
+			alone := MustSucceed(db.OpenWriter(ctx, config(other)))
+			Expect(db.Handoff(
+				ctx,
+				alone,
+				cesium.WriterConfig{Clock: clock},
+				p,
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("adopts no pending samples")),
+			))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(stored(ctx, data)).To(BeZero(), "the refusal drops the pending")
+		})
+
 		It("Should refuse no channels for a writer of the clock", func(
 			ctx SpecContext,
 		) {

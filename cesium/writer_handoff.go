@@ -64,6 +64,20 @@ func (p *Pending) commitData(ctx context.Context) (telem.TimeStamp, bool, error)
 	return end, true, p.Close()
 }
 
+// commitAlone commits the samples of p, which a writer of data alone left, and refuses
+// them while clock holds no stamps for them.
+func (p *Pending) commitAlone(ctx context.Context, clock ChannelKey) error {
+	_, held, err := p.Commit(ctx)
+	if err != nil || held {
+		return err
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"clock %d holds no stamps for the pending samples",
+		clock,
+	)
+}
+
 // Close releases the channels of p and drops its uncommitted samples.
 func (p *Pending) Close() error {
 	if p.log != nil {
@@ -83,9 +97,9 @@ func (p *Pending) Close() error {
 // On the pointer log layout, the new writer is the writer of w with the keys of cfg. On
 // the old layout, Handoff refuses a start of cfg before the end of the last commit of
 // w, and a handoff that adopts a Pending when w holds no uncommitted sample starts a
-// new run. When w does not write its clock and cfg holds no channel, Handoff closes w
-// and opens no writer. It returns the uncommitted samples of w as a Pending, or nil
-// when w has none or stores no samples.
+// new run. When w does not write its clock and cfg holds no channel, Handoff closes w,
+// opens no writer, and refuses a non-nil adopt. It returns the uncommitted samples of w
+// as a Pending, or nil when w has none or stores no samples.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
@@ -117,25 +131,11 @@ func (db *DB) Handoff(
 	}
 	if len(cfg.Channels) == 0 && !slices.Contains(w.Channels, w.Clock) {
 		var pending *Pending
-		pending, err = w.pend()
+		pending, err = w.pend(adopt)
 		return nil, pending, err
 	}
-	if cfg, err = config.New(WriterConfig{}, cfg); err != nil {
+	if cfg, err = w.handoffConfig(cfg); err != nil {
 		return nil, nil, err
-	}
-	if cfg.Clock != w.Clock || !slices.Contains(cfg.Channels, cfg.Clock) {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"a handoff of the writer of clock %d writes that clock",
-			w.Clock,
-		)
-	}
-	if cfg.Unstored != w.Unstored {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"a handoff of the writer of clock %d keeps whether it stores samples",
-			w.Clock,
-		)
 	}
 	if w.log != nil {
 		return db.handoffLog(ctx, w, cfg, adopt)
@@ -143,16 +143,8 @@ func (db *DB) Handoff(
 	if adopt != nil && adopt.idx.hasUncommittedData {
 		// The old layout matches data to its index by position, so the samples of a
 		// writer of data alone commit on their own.
-		var held bool
-		if _, held, err = adopt.Commit(ctx); err != nil {
+		if err = adopt.commitAlone(ctx, w.Clock); err != nil {
 			return nil, nil, err
-		}
-		if !held {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"clock %d holds no stamps for the pending samples",
-				w.Clock,
-			)
 		}
 		adopt = nil
 	}
@@ -169,9 +161,39 @@ func (db *DB) Handoff(
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
 }
 
+// handoffConfig returns cfg with its defaults. It refuses a cfg that does not write the
+// clock of w, or that changes whether the writer stores samples.
+func (w *Writer) handoffConfig(cfg WriterConfig) (WriterConfig, error) {
+	cfg, err := config.New(WriterConfig{}, cfg)
+	if err != nil {
+		return cfg, err
+	}
+	if cfg.Clock != w.Clock || !slices.Contains(cfg.Channels, cfg.Clock) {
+		return cfg, errors.Wrapf(
+			validate.ErrValidation,
+			"a handoff of the writer of clock %d writes that clock",
+			w.Clock,
+		)
+	}
+	if cfg.Unstored != w.Unstored {
+		return cfg, errors.Wrapf(
+			validate.ErrValidation,
+			"a handoff of the writer of clock %d keeps whether it stores samples",
+			w.Clock,
+		)
+	}
+	return cfg, nil
+}
+
 // pend closes w, a writer of data alone, and returns its uncommitted samples as a
-// Pending, or nil when it has none or stores no samples.
-func (w *Writer) pend() (*Pending, error) {
+// Pending, or nil when it has none or stores no samples. It refuses a non-nil adopt.
+func (w *Writer) pend(adopt *Pending) (*Pending, error) {
+	if adopt != nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a handoff with no channels adopts no pending samples",
+		)
+	}
 	if _, uncommitted := w.uncommitted(); !uncommitted || w.Unstored {
 		return nil, w.Close()
 	}
