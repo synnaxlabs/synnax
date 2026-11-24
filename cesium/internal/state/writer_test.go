@@ -464,11 +464,36 @@ var _ = Describe("Writer", func() {
 				int64(100), int64(130)),
 			Entry("at a first stamp that is not the clock's", uint32(1), uint32(0),
 				uint32(0), int64(105), int64(105)),
+			Entry("at a first stamp that is not the clock's, and a last stamp that is",
+				uint32(2), uint32(0), uint32(0), int64(105), int64(110)),
 			Entry("at a last stamp that is not the clock's", uint32(3), uint32(0),
 				uint32(0), int64(100), int64(125)),
 			Entry("at an inner stamp outside the pointer of the clock", uint32(1),
 				uint32(0), uint32(1), int64(130), int64(130)),
 		)
+
+		It("Should refuse a commit across a hole in a stretch of the clock", func() {
+			c := open(clockWriter(200, false, 7))
+			first := MustSucceed(c.NewSegment(7))
+			m := MustSucceed(c.NewAlignment())
+			Expect(c.Commit(commit(2, m, 0, 200, 210, slot(first, 16)))).To(Succeed())
+			MustSucceed(c.Seal(7))
+			second := MustSucceed(c.NewSegment(7))
+			Expect(c.Commit(commit(2, m, 3, 230, 240, slot(second, 16)))).To(Succeed())
+			d := open(state.WriterConfig{
+				Keys:  []state.WriterKey{{Key: 8, DataType: 4}},
+				Clock: 7,
+				Start: 200,
+			})
+			dataID := MustSucceed(d.NewSegment(8))
+			Expect(
+				d.Commit(commit(5, m, 0, 200, 240, slot(dataID, 40))),
+			).Error().
+				To(SatisfyAll(
+					conflict(),
+					MatchError(ContainSubstring("finds no stored stamps of clock 7")),
+				))
+		})
 
 		It("Should commit across two segments of the clock in one stretch", func() {
 			c := open(clockWriter(200, false, 7))

@@ -103,12 +103,12 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 	It("Should log one Commit for each run of stamps that a write reaches", func(
 		ctx SpecContext,
 	) {
-		writeClock(ctx, 10, 11)
+		writeClock(ctx, 10)
 		writeClock(ctx, 20, 21)
 		runs := read(ctx, idx)
 		Expect(runs).To(HaveLen(2))
 		w := openData(ctx, 10*telem.SecondTS)
-		written, _ := MustSucceed2(w.Write(ctx, values(1, 2, 3, 4), nil))
+		written, _ := MustSucceed2(w.Write(ctx, values(1, 2, 3), nil))
 		streamed := written.Get(data).Series
 		Expect(streamed).To(HaveLen(2))
 		Expect(streamed[0].Alignment).To(Equal(runs[0].Alignment))
@@ -117,8 +117,8 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(2))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
-		Expect(stored[1]).To(telem.MatchSeriesDataV[int64](3, 4))
+		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1))
+		Expect(stored[1]).To(telem.MatchSeriesDataV[int64](2, 3))
 		Expect(stored[0].Alignment).To(Equal(runs[0].Alignment))
 		Expect(stored[1].Alignment).To(Equal(runs[1].Alignment))
 	})
@@ -163,6 +163,9 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		unstored := written.Get(data).Series[0].Alignment
 		Expect(unstored.DomainIndex()).To(BeNumerically(">=", telem.LeadingDomain))
 		Expect(unstored.SampleIndex()).To(BeZero())
+		written, _ = MustSucceed2(w.Write(ctx, values(2, 3), nil))
+		Expect(written.Get(data).Series[0].Alignment).To(Equal(unstored.AddSamples(1)),
+			"one writer streams its samples with no stamp in one unstored number")
 		missing := SatisfyAll(
 			MatchError(index.ErrDiscontinuous),
 			MatchError(ContainSubstring("does not exist in the index")),
