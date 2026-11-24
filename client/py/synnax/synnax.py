@@ -195,10 +195,10 @@ class Synnax(framer.Client):
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core. None means True
-            with a ca_cert, else the choice of the next source. The client verifies the
-            Core's certificate against only ca_cert, or against the operating system
-            certificate store when ca_cert is None.
+        :param secure: Whether to use TLS when connecting to the Core. None means the
+            choice of the next source, and TLS when no source sets it. The client
+            verifies the Core's certificate against only ca_cert, or against the
+            operating system certificate store when ca_cert is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.

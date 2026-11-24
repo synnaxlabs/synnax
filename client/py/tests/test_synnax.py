@@ -12,7 +12,6 @@ import subprocess
 import sys
 import threading
 from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
@@ -82,27 +81,22 @@ class TestSubClients:
 
 
 class TestTLS:
-    def test_core_without_tls(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Should name the fix when the Core answers a TLS handshake in plain
-        HTTP.
-        """
+    def test_insecure_core(
+        self, login_info: tuple[str, int, str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should name the fix when TLS is on and the Core runs with --insecure."""
         for name in [n for n in os.environ if n.startswith("SYNNAX_")]:
             monkeypatch.delenv(name)
-        server = HTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            with pytest.raises(Unreachable) as e:
-                sy.Synnax(
-                    host="127.0.0.1",
-                    port=server.server_port,
-                    api_key="syk_k",
-                    max_retries=0,
-                )
-        finally:
-            server.shutdown()
-            server.server_close()
+        host, port, username, password = login_info
+        with pytest.raises(Unreachable) as e:
+            sy.Synnax(
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+                max_retries=0,
+            )
         assert str(e.value) == (
-            f"The Core at 127.0.0.1:{server.server_port} does not use TLS. If it "
-            "runs with --insecure, set secure=False or SYNNAX_SECURE=false."
+            f"The Core at {host}:{port} does not use TLS. If it runs with "
+            "--insecure, set secure=False or SYNNAX_SECURE=false."
         )
