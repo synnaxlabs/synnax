@@ -210,6 +210,20 @@ func (w *Writer) EndStretch(ctx context.Context) error {
 type unaryWriterState struct {
 	unary.Writer
 	lastWriteCall int
+	// uncommitted is true when the channel wrote samples since its last commit.
+	uncommitted bool
+}
+
+// writeAt writes series at alignment unless skip holds the channel, and marks the
+// channel uncommitted when it writes.
+func (u *unaryWriterState) writeAt(
+	series telem.Series,
+	alignment telem.Alignment,
+	skip func(ChannelKey) bool,
+) (bool, error) {
+	_, skipped, err := u.WriteAtUnless(series, alignment, skip)
+	u.uncommitted = u.uncommitted || (err == nil && !skipped)
+	return skipped, err
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -335,7 +349,7 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		_, keySkipped, wErr := uWriter.WriteAtUnless(series, alignment, skip)
+		keySkipped, wErr := uWriter.writeAt(series, alignment, skip)
 		if wErr != nil {
 			return fr, wErr
 		}
@@ -497,6 +511,7 @@ func (w *idxWriter) Commit(
 	skipped := false
 	commit := func(chW *unaryWriterState) bool {
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
+		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
@@ -554,6 +569,7 @@ func (w *idxWriter) commitPendingData(
 			continue
 		}
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end, &w.group, skip)
+		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
