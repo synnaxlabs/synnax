@@ -471,9 +471,10 @@ func (w *Writer) commitWithEnd(
 	g *domain.Group,
 ) (telem.TimeStamp, error) {
 	err := w.control.Authorize(func(dw *controlledWriter) error {
-		if end.IsZero() && w.Channel.IsIndex {
+		switch {
+		case end.IsZero() && w.Channel.IsIndex:
 			end = dw.highWaterMark + 1
-		} else if end.IsZero() {
+		case end.IsZero():
 			// Subtract 1 because we want the timestamp of the last written sample.
 			// Anchor on the session start with the cumulative session sample count,
 			// since after a rollover the per-domain start is "previous commit end +
@@ -492,7 +493,7 @@ func (w *Writer) commitWithEnd(
 			}
 			// Add 1 to the end timestamp because the end timestamp is exclusive.
 			end = approx.Lower + 1
-		} else if dw.Covers(end) {
+		case dw.Covers(end):
 			// Another writer of the channel committed past end, which holds every
 			// sample of this commit.
 			return nil
