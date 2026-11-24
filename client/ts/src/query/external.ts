@@ -17,6 +17,7 @@ export { Deleted } from "@/query/deleted";
 export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
 export { list } from "@/query/list";
+export { isOffline } from "@/query/offline";
 export {
   type Cached,
   type ChangeHandler,
