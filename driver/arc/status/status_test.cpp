@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -29,6 +30,8 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/testutil/testutil.h"
 #include "driver/arc/status/status.h"
+#include "driver/journal/journal.h"
+#include "driver/outbox/pb/call.pb.h"
 
 namespace driver::arc::status {
 namespace {
@@ -174,13 +177,13 @@ protected:
 
     [[nodiscard]] std::shared_ptr<::driver::outbox::Outbox> open_outbox(
         const std::shared_ptr<synnax::Synnax> &c,
-        const std::size_t cap = ::driver::outbox::DEFAULT_CAP,
+        const std::uint64_t max_bytes = ::driver::outbox::Config{}.max_bytes,
         const x::telem::TimeSpan retry = x::telem::SECOND
     ) const {
         ::driver::outbox::Config cfg{
             .dir = this->dir,
             .statuses = c->statuses,
-            .cap = cap,
+            .max_bytes = max_bytes,
         };
         cfg.retry.base_interval = retry;
         cfg.retry.max_interval = retry;
@@ -467,6 +470,7 @@ TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
         1,
         x::telem::MILLISECOND
     );
+    // The outbox has room for no set, so it refuses the first.
     const auto reports = std::make_shared<Reports>();
     const auto caller = std::this_thread::get_id();
     std::atomic<bool> on_caller = false;
@@ -483,7 +487,6 @@ TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     EXPECT_EQ(this->outbox->refused(), 1);
     ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
@@ -508,7 +511,7 @@ TEST_F(StatusTest, SendsSetsQueuedDuringAnOutageAfterARestart) {
     cfg.port = 1;
     this->outbox = this->open_outbox(
         std::make_shared<synnax::Synnax>(cfg),
-        ::driver::outbox::DEFAULT_CAP,
+        ::driver::outbox::Config{}.max_bytes,
         x::telem::HOUR
     );
     {
@@ -533,14 +536,23 @@ TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
     this->outbox.reset();
     auto cfg = test_client_config();
     cfg.port = 1;
+    const auto name = unique_name("set_wait_");
+    ::driver::outbox::pb::Call call;
+    auto *set = call.mutable_set_status();
+    set->set_key_or_name(name);
+    set->set_message("msg");
+    set->set_variant("info");
+    set->set_time(x::telem::TimeStamp::now().nanoseconds());
+    const auto call_bytes = ::driver::journal::RECORD_PREFIX_SIZE + call.ByteSizeLong();
+    // Room for one set, with or without the header of a new segment.
     this->outbox = this->open_outbox(
         std::make_shared<synnax::Synnax>(cfg),
-        1,
+        2 * ::driver::journal::HEADER_SIZE + call_bytes + call_bytes / 2,
         x::telem::HOUR
     );
     const auto reports = std::make_shared<Reports>();
     Module module(this->outbox, this->keys, recordingReporter(reports));
-    const auto f = set_spec().config({unique_name("set_wait_"), "msg", "info"});
+    const auto f = set_spec().config({name, "msg", "info"});
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
@@ -585,7 +597,7 @@ TEST(SetsTest, ReportsAKeyItFailedToSave) {
 TEST(SetsTest, ReportsTheErrorOfAFailedWrite) {
     const auto reports = std::make_shared<Reports>();
     Sets sets(nullptr, recordingReporter(reports));
-    sets.refuse(x::errors::Error(::driver::outbox::ERROR, "disk failed"));
+    sets.refuse(x::errors::Error(::driver::outbox::BASE_ERROR, "disk failed"));
     sets.report_refused();
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
