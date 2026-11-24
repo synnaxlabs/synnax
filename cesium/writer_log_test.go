@@ -143,6 +143,22 @@ var _ = Describe("Writer on the pointer log", func() {
 			)
 			Expect(w.Close()).To(Succeed())
 		})
+		It("Should read an index with samples together with a data key that holds none",
+			func(ctx SpecContext) {
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{idx},
+					Start:    10 * telem.SecondTS,
+				}))
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(
+					[]cesium.ChannelKey{idx},
+					[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+				), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx, data))
+				Expect(fr.Get(idx).Series).To(HaveLen(1))
+				Expect(fr.Get(data).Series).To(BeEmpty())
+			})
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
