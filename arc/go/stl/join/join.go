@@ -31,7 +31,10 @@ type Config struct {
 	// Live makes the join judge an input that is late by arrival, as a live read cannot
 	// wait for it. Each Next joins one frame of primary stamps. An input whose newest
 	// stamp lies before the frame's first stamp holds its value for the whole frame
-	// when that gap is within its hold limit.
+	// when that gap is within its hold limit. A live join drops the oldest samples of
+	// an
+	// input past most, so a primary that stays silent leaves memory bounded. A history
+	// join never drops a sample, and Push refuses one past most.
 	Live bool
 }
 
@@ -134,7 +137,9 @@ func New(cfg Config) (*Join, error) {
 
 // Push adds the samples of input i, with their stamps in t. The stamps must rise
 // strictly from the last stamp pushed to the input. The samples take the alignment of
-// t, and Push ignores the alignment of data.
+// t, and Push ignores the alignment of data. In history, Push refuses samples that
+// would leave more than most samples of the input that Next has not passed, since a
+// history read paces its inputs.
 func (j *Join) Push(i int, data, t telem.Series) error {
 	if i < 0 || i >= len(j.inputs) {
 		return errors.Wrapf(validate.ErrValidation, "input %d does not exist", i)
@@ -163,6 +168,13 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 			i,
 			data.Len(),
 			t.Len(),
+		)
+	case !j.live && len(in.stamps)-in.first+int(t.Len()) > most:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"input %d would hold more than %d samples that the join has not passed",
+			i,
+			most,
 		)
 	case i == j.primary && t.Multiple() != 1:
 		return errors.Wrapf(
@@ -223,7 +235,7 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		j.emit(p.first, out)
 	}
 	for i, in := range j.inputs {
-		if i != j.primary {
+		if j.live && i != j.primary {
 			in.bound()
 		}
 		in.compact()
@@ -255,13 +267,11 @@ func (in *input) step() {
 	in.first++
 }
 
-// most is the number of samples past the held one that an input other than the
-// primary keeps.
+// most is the number of samples past the held one that an input keeps.
 const most = 1 << 16
 
-// bound steps in past all but its last most samples, so a primary that stays silent
-// leaves memory bounded. A later primary stamp before the held sample gets no output,
-// as past the limit.
+// bound steps in past all but its last most samples. A later primary stamp before the
+// held sample gets no output, as past the limit.
 func (in *input) bound() {
 	for len(in.stamps)-in.first > most {
 		in.step()
