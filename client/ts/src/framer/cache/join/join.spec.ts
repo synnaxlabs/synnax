@@ -324,7 +324,7 @@ describe("Joins", () => {
     };
 
     // Records the names of DATA and INDEX in the store.
-    const name = (store: Store): void => {
+    const name = (store: cacheStore.Store): void => {
       store.setChannel(
         new channel.Channel({
           key: INDEX,

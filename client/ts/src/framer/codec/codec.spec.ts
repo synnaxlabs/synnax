@@ -599,7 +599,7 @@ describe("encoder", () => {
     // The vectors are shared with the Go, Python, and C++ codecs, so that all four
     // encode and decode each frame byte for byte.
     const VECTORS_URL = new URL(
-      "../../../../x/testdata/framecodec/vectors.json",
+      "../../../../../x/testdata/framecodec/vectors.json",
       import.meta.url,
     );
     interface VectorSeries {

@@ -207,8 +207,8 @@ describe("Multiplexed", () => {
     });
 
     it("should fail the status of a channel streamed on another clock", async () => {
-      const store = new Store();
-      const joins = new Joins(store);
+      const store = new cacheStore.Store();
+      const joins = new join.Joins(store);
       joins.join(2, 1);
       const frame = new framer.Frame(
         [1, 2],
@@ -221,7 +221,7 @@ describe("Multiplexed", () => {
           new Series({ data: new Float32Array([1]), clock: 9 }),
         ],
       );
-      const streamer = new MultiplexedStreamer({
+      const streamer = new cacheStreamer.Multiplexed({
         store,
         joins,
         onWait: () => {},
