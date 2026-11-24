@@ -82,8 +82,12 @@ func (c *claim) owner() string {
 }
 
 // refusal returns the refusal of the stamps from first to last of key, which reach c,
-// as an open when open is true or else as a commit.
+// as an open when open is true or else as a commit. The claim of a delete refuses as a
+// write conflict.
 func (c *claim) refusal(key uint32, first, last telem.TimeStamp, open bool) error {
+	if c.w == nil {
+		return errConflict
+	}
 	end := min(last, c.end)
 	if end < telem.TimeStampMax {
 		end++
