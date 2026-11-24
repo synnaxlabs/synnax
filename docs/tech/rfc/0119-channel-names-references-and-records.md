@@ -656,19 +656,21 @@ a second channel with a taken name anywhere in the Core, with or without the fla
   refuses other callers of those writes outside migrations. Today's create, rename,
   delete, and folder routes call apply with no picks. That runs the action with the
   defaults and returns no entries; a plan is made only when picks come. Core services
-  that make channels, such as tasks at save, signals, and metrics, call apply too, from
-  Phase 30, which adds creates and moves to the CI check. From Phase 18 the channel
-  writer already heals at every create (§4.12). `Declare` runs before the text holders
-  open, so it reports the channels that it creates and renames; before the API serves,
-  `impact` applies their heals and text passes with the defaults. A migration that moves
-  a channel onto a tombstone's path runs the same heal, so a live channel and a
-  tombstone never share a path. `Declare` renames a user channel and creates the
-  built-in as two actions, the rename first, so text that names the user channel follows
-  it. Before any compile and before the API serves, the rename's text pass runs from the
-  stored old path, with `update_text` for each of its tokens whatever holds the path by
-  then, and deletes the stored path. A crash before the pass runs it at the next start.
-  Every first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced
-  channel) skips tombstone paths.
+  that make channels after the impact service opens, such as tasks at save, call apply
+  too, from Phase 30, which adds creates and moves to the CI check. A built-in that a
+  service creates at open, such as the task command channel or a signals channel, goes
+  through `Declare`, which runs before `impact` exists, and the CI check names `Declare`
+  as an allowed caller. From Phase 18 the channel writer already heals at every create
+  (§4.12). `Declare` runs before the text holders open, so it reports the channels that
+  it creates and renames; before the API serves, `impact` applies their heals and text
+  passes with the defaults. A migration that moves a channel onto a tombstone's path
+  runs the same heal, so a live channel and a tombstone never share a path. `Declare`
+  renames a user channel and creates the built-in as two actions, the rename first, so
+  text that names the user channel follows it. Before any compile and before the API
+  serves, the rename's text pass runs from the stored old path, with `update_text` for
+  each of its tokens whatever holds the path by then, and deletes the stored path. A
+  crash before the pass runs it at the next start. Every first free suffix in this RFC
+  (`Declare`, the Phase 7 migration, a displaced channel) skips tombstone paths.
 - **Access**: An entry for a record that the caller cannot retrieve is a count for its
   effect, with no name or text. A tombstone entry shows its path only when the caller
   can retrieve each folder on it and the dead channel's ID. Applying an entry needs
@@ -865,7 +867,7 @@ and Phase 39 is documentation.
 | 27    | Show the used-by-nothing filter in the explorer          | `console/src/feature/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 20, 21, 26     |
 | 28    | Name channels by path in exported files                  | `oracle/plugin/go`, `core/pkg/service/imex`, `core/pkg/service/imex/session`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 16, 25         |
 | 29    | Edit Arc and calculation text in rename plans            | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/impact`, `core/pkg/api/calculation`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `schemas/synnax/calculation.oracle`, `pluto/src/calculation`, `console/src/platform/channel`                                                                                                                                                                                                                                                                                   | 18, 26         |
-| 30    | Route channel creates, renames, and moves through impact | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/impact`, `scripts`, `core/pkg/service/task`, `core/pkg/service/signals`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                                                                                                                           | 29             |
+| 30    | Route channel creates, renames, and moves through impact | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/impact`, `scripts`, `core/pkg/service/task`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 29             |
 | 31    | Make channel names unique only within their folder       | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 9, 21, 23, 30  |
 | 32    | Add naming rules to folders                              | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`                                                                                                                                                                                                                                                                                                                                                                                 | 21, 31         |
 | 33    | Keep dead channel keys in line plots and logs            | `core/pkg/service/lineplot`, `core/pkg/service/log`, `schemas/synnax/log.oracle`, `pluto/src/lineplot`, `pluto/src/log`                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 1, 18          |
