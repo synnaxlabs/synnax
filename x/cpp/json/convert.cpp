@@ -20,6 +20,7 @@
 #include "x/cpp/date/date.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
@@ -543,15 +544,6 @@ bool matches(const telem::SampleValue &entry, const telem::SampleValue &sample) 
         sample
     );
 }
-
-/// @brief returns the text of a float: NaN, Infinity, or -Infinity when it is not
-/// finite.
-template<typename T>
-std::string float_text(const T v) {
-    if (std::isnan(v)) return "NaN";
-    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
-    return std::format("{}", v);
-}
 }
 
 std::pair<nlohmann::json, errors::Error> from_sample_value(
@@ -575,7 +567,10 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
                     if (auto err = check_float(v, target))
                         return {nlohmann::json(), err};
                     if (target == Type::String)
-                        return {nlohmann::json(float_text(v)), errors::NIL};
+                        return {
+                            nlohmann::json(x::strings::format_float(v)),
+                            errors::NIL
+                        };
                 }
                 switch (target) {
                     case Type::Number:

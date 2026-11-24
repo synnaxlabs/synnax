@@ -11,18 +11,18 @@ import { schematic } from "@synnaxlabs/client";
 import { scheduler, type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import {
-  type Node,
+  type Node as RFNode,
   ReactFlowProvider,
   type ReactFlowStoreApi,
   useReactFlowStoreApi,
 } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Symbol } from "@/schematic/node/general/line/Symbol";
-import type { NodeProps } from "@/schematic/node/spec";
+import type { Node } from "@/schematic/node";
+import { Line } from "@/schematic/node/general/line";
 
 const POSITION = { x: 100, y: 100 };
-const NODES: Node[] = [{ id: "l1", position: POSITION, data: {} }];
+const NODES: RFNode[] = [{ id: "l1", position: POSITION, data: {} }];
 
 const StoreProbe = ({ onStore }: { onStore: (s: ReactFlowStoreApi) => void }): null => {
   onStore(useReactFlowStoreApi());
@@ -30,13 +30,15 @@ const StoreProbe = ({ onStore }: { onStore: (s: ReactFlowStoreApi) => void }): n
 };
 
 // A horizontal line from (100, 100) to (200, 100) in flow coordinates.
-const renderSymbol = (props: Partial<NodeProps<schematic.LineNodeConfig>> = {}) => {
+const renderSymbol = (
+  props: Partial<Node.NodeProps<schematic.LineNodeConfig>> = {},
+) => {
   const onConfigChange = vi.fn();
   let store!: ReactFlowStoreApi;
   const { container } = render(
     <ReactFlowProvider defaultNodes={NODES}>
       <StoreProbe onStore={(s) => (store = s)} />
-      <Symbol
+      <Line.spec.Node
         nodeKey="l1"
         selected
         onConfigChange={onConfigChange}
@@ -65,7 +67,7 @@ const drag = async (el: HTMLElement, by: xy.XY, shiftKey = false): Promise<void>
   fireEvent.pointerUp(window, { ...POINTER, clientX: by.x, clientY: by.y });
 };
 
-describe("Line.Symbol", () => {
+describe("Line.spec.Node", () => {
   describe("handles", () => {
     it("should place a handle on each endpoint when selected", () => {
       const { handles } = renderSymbol();

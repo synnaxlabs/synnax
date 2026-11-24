@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -92,8 +93,8 @@ var _ = Describe("OP", func() {
 				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
 			)
 			Expect(changed.Contains(0)).To(BeTrue())
-			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
-			Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+			Expect(*s.Node("op").Output(0)).To(MatchSeries(output))
+			Expect(*s.Node("op").OutputTime(0)).To(MatchSeries(outputTime))
 		},
 		Entry(
 			"Broadcasts the rhs and takes its time when the rhs is longer",
@@ -514,8 +515,8 @@ var _ = Describe("OP", func() {
 				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
 			)
 			Expect(changed.Contains(0)).To(BeTrue())
-			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
-			Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+			Expect(*s.Node("op").Output(0)).To(MatchSeries(output))
+			Expect(*s.Node("op").OutputTime(0)).To(MatchSeries(outputTime))
 		},
 		Entry(
 			"Bool NOT - all false",
@@ -845,7 +846,7 @@ var _ = Describe("OP", func() {
 			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(
 				*s.Node("op").Output(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[bool](true)))
+			).To(MatchSeries(telem.NewSeriesV[bool](true)))
 		})
 
 		It("Should handle logical AND with single values", func(ctx SpecContext) {
@@ -907,7 +908,7 @@ var _ = Describe("OP", func() {
 			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(
 				*s.Node("op").Output(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[bool](true)))
+			).To(MatchSeries(telem.NewSeriesV[bool](true)))
 		})
 	})
 })
@@ -952,7 +953,7 @@ var _ = Describe("Literal inputs", func() {
 				MarkChanged: func(int) {},
 			})
 			Expect(*s.Node("op").OutputTime(0)).
-				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(777)))
+				To(MatchSeries(telem.NewSeriesSecondsTSV(777)))
 		},
 	)
 
@@ -977,7 +978,7 @@ var _ = Describe("Literal inputs", func() {
 			MarkChanged: func(int) {},
 		})
 		Expect(*s.Node("op").OutputTime(0)).
-			To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+			To(MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 	})
 
 	It("Should stamp the cycle when a unary input is a literal", func(ctx SpecContext) {
@@ -1000,7 +1001,7 @@ var _ = Describe("Literal inputs", func() {
 			MarkChanged: func(int) {},
 		})
 		Expect(*s.Node("op").OutputTime(0)).
-			To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+			To(MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 	})
 })
 

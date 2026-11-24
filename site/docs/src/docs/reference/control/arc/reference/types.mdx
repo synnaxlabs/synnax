@@ -73,13 +73,16 @@ to compile. See [`math`](/reference/control/arc/standard-library/math#float-cons
 
 Write the type name and the value in parentheses: `f64(x)`.
 
-| From    | To      | Result                                                              |
-| ------- | ------- | ------------------------------------------------------------------- |
-| Integer | Float   | The same number                                                     |
-| Float   | Integer | Truncated toward zero. Out of range or NaN fails at runtime.        |
-| `bool`  | `u8`    | `1` or `0`                                                          |
-| Number  | `str`   | Shortest form: `str(1.0)` is `"1"`, and `"NaN"`, `"+Inf"`, `"-Inf"` |
-| `bool`  | `str`   | `"true"` or `"false"`                                               |
+| From    | To      | Result                                                                       |
+| ------- | ------- | ---------------------------------------------------------------------------- |
+| Integer | Float   | The same number                                                              |
+| Float   | Integer | Truncated toward zero. Out of range or NaN fails at runtime.                 |
+| `bool`  | `u8`    | `1` or `0`                                                                   |
+| Number  | `str`   | Shortest form: `str(1.0)` is `"1"`, and `"NaN"`, `"Infinity"`, `"-Infinity"` |
+| `bool`  | `str`   | `"true"` or `"false"`                                                        |
+
+A nonzero float whose magnitude is below `1e-6` or at least `1e21` uses exponent
+notation, such as `"1.5e-7"` and `"1e+21"`.
 
 ```arc channels="tank_pt, tank_high" bodies="high"
 func high() {p f64} u8 {
@@ -215,7 +218,7 @@ written to. With `x := 400.0`, `x > 300psi` compares `400.0` with `300.0`.
 | Dimension   | Units                                                                          |
 | ----------- | ------------------------------------------------------------------------------ |
 | Time        | `ns` `us` `ms` `s` `min` `h` `d`                                               |
-| Frequency   | `Hz` `hz` `kHz` `khz` `MHz` `mhz` `GHz`                                        |
+| Frequency   | `Hz` `hz` `kHz` `khz` `MHz` `mhz` `GHz` `ghz`                                  |
 | Length      | `fm` `pm` `nm` `um` `mm` `cm` `dm` `m` `meter` `km` `in` `ft` `yd` `mi` `nmi`  |
 | Mass        | `fg` `pg` `ng` `ug` `mg` `g` `kg` `lb` `oz` `ton`                              |
 | Pressure    | `pPa` `nPa` `uPa` `mPa` `Pa` `kPa` `MPa` `GPa` `bar` `mbar` `psi` `atm` `torr` |
@@ -268,3 +271,12 @@ the smaller unit. A variable, an input, and a function result use their own unit
 | `q i64 Pa := 5psi`     | `q` is `34473`, with a warning that the integer truncates                    |
 | `[1s, 500ms]`          | `[1000, 500]`, in `ms`                                                       |
 | `ys = xs`              | Error, `type mismatch: 'ys' is a series in ms and cannot take a series in s` |
+
+A rate converts to a time span as its period, and an integer rounds. As an argument,
+only `period` of `time.interval` takes a rate. A time span does not convert to a rate.
+
+| Code                  | Result             |
+| --------------------- | ------------------ |
+| `d i64 ns := 10hz`    | `d` is `100000000` |
+| `d i64 ms := 60hz`    | `d` is `17`        |
+| `time.interval(10hz)` | Fires each 100 ms  |
