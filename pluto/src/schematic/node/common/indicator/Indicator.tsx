@@ -38,7 +38,7 @@ export interface BadgesProps {
   unknown: boolean;
 }
 
-/** Badges shows the indicators of a symbol in a row, or nothing. */
+/** Badges shows the indicators of a symbol side by side, or nothing. */
 export const Badges = ({ stale, unknown }: BadgesProps): ReactElement | null => {
   if (!stale && !unknown) return null;
   return (
