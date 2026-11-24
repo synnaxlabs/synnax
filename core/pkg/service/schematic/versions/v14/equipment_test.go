@@ -177,6 +177,7 @@ var _ = Describe("SymbolNode", func() {
 			_, ok := MustSucceed2(v14.SymbolNode(v13.NodeConfig{Variant: v}))
 			Expect(ok).To(BeFalse())
 		},
+		Entry("a light with an on color", v13.LightNodeConfig{OnColor: shade(1)}),
 		Entry(
 			"a custom actuator with overrides",
 			v13.CustomActuatorNodeConfig{StateOverrides: []symbolv4.State{{Key: "on"}}},
