@@ -28,7 +28,7 @@ var _ = Describe("Delete intents check, read faults", func() {
 			Expect(db.Intend([]cesium.ChannelKey{GenerateChannelKey()})).To(Succeed())
 			stop()
 			Expect(db.Close()).To(Succeed())
-			db = openDBOnFS(ctx, disk)
+			db = openDBOnFS(ctx, disk, cesium.WithIdentity(db.Identity()))
 			StartRun(db.Run)()
 			Expect(db.Close()).To(Succeed())
 			Expect(MustSucceed(disk.Stat("delete-intents")).Size()).To(Equal(int64(16)))

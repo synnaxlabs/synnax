@@ -118,6 +118,7 @@ var _ = Describe("Crash adapter, purge", func() {
 				disk := MustSucceed(fault.New(fault.Config{}))
 				ts := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
 				stop := StartRun(ts.Run)
+				id := cesium.WithIdentity(ts.Identity())
 				Expect(ts.CreateChannel(ctx, cesium.Channel{
 					Key: key, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 				})).To(Succeed())
@@ -148,7 +149,7 @@ var _ = Describe("Crash adapter, purge", func() {
 							)
 						}
 					},
-				})))
+				}), id))
 				stop = StartRun(ts.Run)
 				whole, _ := MustSucceed2(ts.Sweep(ctx, nil))
 				Expect(whole).To(HaveLen(1))
@@ -160,7 +161,7 @@ var _ = Describe("Crash adapter, purge", func() {
 				Expect(ts.Close()).To(Succeed())
 				Expect(images).ToNot(BeEmpty())
 				for i, image := range images {
-					re, err := cesium.Open(ctx, "", cesium.WithFS(image))
+					re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
 					if err != nil {
 						failures = append(failures, fmt.Sprintf(
 							"run key %d, image %d: %v", runKey, i, err,

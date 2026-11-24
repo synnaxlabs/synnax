@@ -122,9 +122,14 @@ func syncAll(f *fault.FS, dir string) {
 
 // openRun opens a database on fs and runs it, since a write and a Sweep of the pointer
 // log wait for Run. closeRun stops the run, then closes the database.
-func openRun(ctx context.Context, fs xfs.FS) (db *cesium.DB, closeRun func()) {
+func openRun(
+	ctx context.Context,
+	fs xfs.FS,
+	opts ...cesium.Option,
+) (db *cesium.DB, closeRun func()) {
 	GinkgoHelper()
-	db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs)))
+	db = MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{cesium.WithFS(fs)},
+		opts...)...))
 	return db, running(db)
 }
 
@@ -147,6 +152,7 @@ var _ = Describe("Sweep crash check", func() {
 		for runKey := range uint64(48) {
 			disk := MustSucceed(fault.New(fault.Config{}))
 			db, closeDB := openRun(ctx, disk)
+			id := cesium.WithIdentity(db.Identity())
 			idx, empty := cesium.ChannelKey(1), cesium.ChannelKey(2)
 			Expect(db.CreateChannel(
 				ctx,
@@ -182,14 +188,14 @@ var _ = Describe("Sweep crash check", func() {
 					DataSurvivalRate:  0.5,
 				})))
 			}}
-			db, closeDB = openRun(ctx, wrapped)
+			db, closeDB = openRun(ctx, wrapped, id)
 			armed = true
 			Expect(keptOf(db.Sweep(ctx, []cesium.ChannelKey{idx}))).To(BeEmpty())
 			armed = false
 			closeDB()
 			Expect(images).ToNot(BeEmpty())
 			for i, image := range images {
-				re, err := cesium.Open(ctx, "", cesium.WithFS(image))
+				re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
 				if err != nil {
 					var names []string
 					for _, d := range MustSucceed(image.List("")) {
@@ -233,6 +239,7 @@ var _ = Describe("Sweep crash check", func() {
 				})))
 			}}
 			db, closeDB := openRun(ctx, wrapped)
+			id := cesium.WithIdentity(db.Identity())
 			first := make([]cesium.ChannelKey, 340)
 			for i := range first {
 				first[i] = cesium.ChannelKey(1000 + i)
@@ -244,7 +251,7 @@ var _ = Describe("Sweep crash check", func() {
 			armed = false
 			closeDB()
 			for _, image := range images {
-				re, closeRe := openRun(ctx, image)
+				re, closeRe := openRun(ctx, image, id)
 				if re.CorruptIntents() != 0 {
 					failures = append(failures, runKey)
 				}
@@ -264,6 +271,7 @@ var _ = Describe("Sweep crash check", func() {
 		for runKey := range uint64(48) {
 			disk := MustSucceed(fault.New(fault.Config{}))
 			db, closeDB := openRun(ctx, disk)
+			id := cesium.WithIdentity(db.Identity())
 			idx, kept, dropped := cesium.ChannelKey(1), cesium.ChannelKey(2),
 				cesium.ChannelKey(3)
 			Expect(db.CreateChannel(
@@ -305,7 +313,7 @@ var _ = Describe("Sweep crash check", func() {
 				})))
 			}}
 			records := []cesium.ChannelKey{idx, kept}
-			db, closeDB = openRun(ctx, wrapped)
+			db, closeDB = openRun(ctx, wrapped, id)
 			armed = true
 			Expect(keptOf(db.Sweep(ctx, records))).To(BeEmpty())
 			armed = false
@@ -314,7 +322,7 @@ var _ = Describe("Sweep crash check", func() {
 				if MustSucceed(image.Stat("delete-intents")).Size() == 0 {
 					emptied++
 				}
-				re, err := cesium.Open(ctx, "", cesium.WithFS(image))
+				re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
 				var closeRe func()
 				if err == nil {
 					closeRe = running(re)
