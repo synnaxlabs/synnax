@@ -291,9 +291,16 @@ func (s *session) maybeSync(ctx context.Context) error {
 		}
 		s.lastSync = now
 	}
-	for _, w := range s.ws {
-		if err := w.Sync(ctx); err != nil {
-			return err
+	// The Sync of a writer of data against stored stamps waits for its clock's stamps,
+	// so the writers of their clocks sync first.
+	for _, clocks := range []bool{true, false} {
+		for _, w := range s.ws {
+			if w.writesClock() != clocks {
+				continue
+			}
+			if err := w.Sync(ctx); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -327,6 +327,9 @@ func (c *clockWriter) commitParked(
 	return end, false, nil
 }
 
+// writesClock reports whether the session writes the clock of c.
+func (c *clockWriter) writesClock() bool { return slices.Contains(c.member.keys, c.clock) }
+
 // Sync syncs the writer of the clock when the session holds it.
 func (c *clockWriter) Sync(ctx context.Context) error {
 	c.lock()
