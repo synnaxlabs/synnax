@@ -18,6 +18,7 @@ import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { page } from "vitest/browser";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -846,6 +847,82 @@ describe("MQTT Write form", () => {
         );
       const openGroup = await fieldGroup(open.name);
       expect(openGroup.getByText("Sends its default, False.")).toBeTruthy();
+    });
+
+    const retrieveFields = async (ic: icd.ICD, message: icd.Message) => {
+      const [retrieved] = await client.icds.retrieve([ic.key]);
+      return ICD.jsonFields(retrieved.messages.find(({ key }) => key === message.key));
+    };
+
+    it("should add a field to the message in its ICD, with its editor open, then put it on a channel", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target, ic, message } = await createFormatTarget([setpoint]);
+      const { draft } = await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      const group = await fieldGroup("Field 2");
+      group.getByDisplayValue("Field 2");
+      group.getByDisplayValue("/field_2");
+      fireEvent.change(group.getByPlaceholderText("/temperature"), {
+        target: { value: "/limit" },
+      });
+      let added: icd.JSONField | undefined;
+      await waitFor(async () => {
+        added = (await retrieveFields(ic, message)).find((f) => f.pointer === "/limit");
+        expect(added).toBeDefined();
+      });
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: setpoint.key },
+              { type: "channel", field: added?.key, channel: 0 },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should scroll a field that Add field adds below the fold into view", async () => {
+      const fields = Array.from({ length: 8 }, (_, i) =>
+        createField(`value${i}`, "float"),
+      );
+      const { target } = await createFormatTarget(fields);
+      await renderWrite([target]);
+      await fieldGroup(fields[0].name);
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      await fieldGroup("Field 9");
+      await expect
+        .element(page.getByRole("group", { name: "Field 9" }).getByText("Field 9"))
+        .toBeInViewport();
+    });
+
+    it("should add a first field to a message with no fields", async () => {
+      const { target } = await createFormatTarget([]);
+      await renderWrite([target]);
+      await screen.findByText("Message has no fields");
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      await fieldGroup("Field 1");
+      await waitFor(() =>
+        expect(screen.queryByText("Message has no fields")).toBeNull(),
+      );
+    });
+
+    it("should rename a field in its ICD from the editor of its binding", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target, ic, message } = await createFormatTarget([setpoint]);
+      await renderWrite([target]);
+      const group = await fieldGroup(setpoint.name);
+      expect(group.queryByDisplayValue(setpoint.name)).toBeNull();
+      fireEvent.click(group.getByRole("button", { name: /Edit field/ }));
+      fireEvent.change(group.getByDisplayValue(setpoint.name), {
+        target: { value: "target" },
+      });
+      await waitFor(async () =>
+        expect((await retrieveFields(ic, message)).map(({ name }) => name)).toEqual([
+          "target",
+        ]),
+      );
     });
 
     it("should open the editor at the message of the target", async () => {
