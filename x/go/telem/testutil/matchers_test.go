@@ -202,13 +202,6 @@ TimeRange:
 			Expect(s2).NotTo(MatchWrittenSeries(s1))
 			Expect(s3).NotTo(MatchWrittenSeries(s1))
 		})
-		It("Should respect additional options", func() {
-			s1 := telem.NewSeriesV[int64](1, 2, 3)
-			s2 := telem.NewSeriesV[uint64](1, 2, 3)
-			// Also exclude DataType from comparison
-			Expect(s2).
-				To(MatchWrittenSeries(s1, ExcludeSeriesFields("DataType")))
-		})
 	})
 	Describe("MatchSeriesDataV", func() {
 		It("Should create matcher from sample values", func() {

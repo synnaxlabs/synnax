@@ -21,17 +21,8 @@ import (
 	xtypes "github.com/synnaxlabs/x/types"
 )
 
-// SeriesMatcherOption configures the behavior of the series matcher.
-type SeriesMatcherOption func(*seriesMatcher)
-
-// ExcludeSeriesFields returns an option that configures the series matcher to exclude
-// specific fields from comparison. Valid fields are "DataType", "TimeRange",
-// "Alignment", and "Data".
-func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
-	return func(m *seriesMatcher) {
-		m.excludedFields = set.New(fields...)
-	}
-}
+// writtenExcluded holds the fields that storage can change in a written series.
+var writtenExcluded = []string{"TimeRange", "Alignment"}
 
 type seriesMatcher struct {
 	excludedFields set.Set[string]
@@ -40,53 +31,32 @@ type seriesMatcher struct {
 
 // MatchSeries returns a Gomega matcher that compares two Series for equality.
 // Two series are considered equal if they have the same:
-// - DataType (unless excluded)
-// - TimeRange (unless excluded)
-// - Data contents (unless excluded)
-// - Alignment and AlignmentMultiple (unless excluded).
-func MatchSeries(
-	expected telem.Series,
-	opts ...SeriesMatcherOption,
-) types.GomegaMatcher {
-	return newSeriesMatcher(expected, opts...)
+// - DataType
+// - TimeRange
+// - Data contents
+// - Alignment and AlignmentMultiple.
+func MatchSeries(expected telem.Series) types.GomegaMatcher {
+	return newSeriesMatcher(expected)
 }
 
-func newSeriesMatcher(
-	expected telem.Series,
-	opts ...SeriesMatcherOption,
-) *seriesMatcher {
-	m := &seriesMatcher{
-		expected:       expected,
-		excludedFields: make(set.Set[string]),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
+// newSeriesMatcher returns a matcher that skips the excluded fields: "DataType",
+// "TimeRange", "Alignment", or "Data".
+func newSeriesMatcher(expected telem.Series, excluded ...string) *seriesMatcher {
+	return &seriesMatcher{expected: expected, excludedFields: set.New(excluded...)}
 }
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
-// but excludes TimeRange and Alignment fields by default. This is useful when comparing
+// but excludes TimeRange and Alignment. This is useful when comparing
 // Series that have been written to and read from storage, where these fields might
 // differ but the actual data remains the same.
-func MatchWrittenSeries(
-	expected telem.Series,
-	opts ...SeriesMatcherOption,
-) types.GomegaMatcher {
-	m := &seriesMatcher{
-		expected:       expected,
-		excludedFields: set.New("TimeRange", "Alignment"),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
+func MatchWrittenSeries(expected telem.Series) types.GomegaMatcher {
+	return newSeriesMatcher(expected, writtenExcluded...)
 }
 
 // MatchSeriesData returns a matcher that only compares the data contents of two Series,
 // ignoring DataType, TimeRange, and Alignment.
 func MatchSeriesData(expected telem.Series) types.GomegaMatcher {
-	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
+	return newSeriesMatcher(expected, writtenExcluded...)
 }
 
 // MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from
@@ -194,31 +164,22 @@ func formatDifferences(differences []string) string {
 }
 
 type frameMatcher[K xtypes.SizedNumeric] struct {
-	matchSeriesOpts []SeriesMatcherOption
-	expected        telem.Frame[K]
+	expected telem.Frame[K]
+	excluded []string
 }
 
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
 // The matcher verifies that both frames have the same number of series and that each
 // series matches its corresponding one in the expected frame. K must be a numeric type.
-func MatchFrame[K xtypes.SizedNumeric](
-	expected telem.Frame[K],
-	matchSeriesOpts ...SeriesMatcherOption,
-) types.GomegaMatcher {
-	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
+func MatchFrame[K xtypes.SizedNumeric](expected telem.Frame[K]) types.GomegaMatcher {
+	return &frameMatcher[K]{expected: expected}
 }
 
+// MatchWrittenFrame is MatchFrame with each series compared as MatchWrittenSeries does.
 func MatchWrittenFrame[K xtypes.SizedNumeric](
 	expected telem.Frame[K],
-	opts ...SeriesMatcherOption,
 ) types.GomegaMatcher {
-	return &frameMatcher[K]{
-		expected: expected,
-		matchSeriesOpts: append(
-			[]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")},
-			opts...,
-		),
-	}
+	return &frameMatcher[K]{expected: expected, excluded: writtenExcluded}
 }
 
 func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
@@ -239,7 +200,7 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 			return false, nil
 		}
 		for i, s := range decodedSeries.Series {
-			if !newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...).
+			if !newSeriesMatcher(originalSeries.Series[i], m.excluded...).
 				matches(s) {
 				return false, nil
 			}
@@ -261,7 +222,7 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			sm := newSeriesMatcher(originalSeries.Series[i], m.excluded...)
 			if !sm.matches(s) {
 				return sm.FailureMessage(s)
 			}
@@ -286,7 +247,7 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			sm := newSeriesMatcher(originalSeries.Series[i], m.excluded...)
 			if sm.matches(s) {
 				return fmt.Sprintf("Frames match for key %v", k)
 			}
