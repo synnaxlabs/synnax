@@ -15,7 +15,6 @@ import os
 import threading
 import weakref
 from collections.abc import Callable
-from importlib.metadata import version as _version
 from typing import Self, overload
 
 from urllib3.exceptions import MaxRetryError
@@ -62,6 +61,7 @@ from synnax.exceptions import ValidationError
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
+from synnax.version import VERSION
 from x.exceptions import Registry
 from x.params import deprecate_positional
 
@@ -242,7 +242,7 @@ class Synnax(framer.Client):
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
-            client_version=_version("synnax"),
+            client_version=VERSION,
             clock_skew_threshold=clock_skew_threshold,
             embedded=embedded,
         )

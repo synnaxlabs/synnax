@@ -14,19 +14,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { FC, ReactElement } from "react";
 
-import { converts } from "@/platform/icd/dataType";
+import { converts, unbind } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import {
-  isReadable,
-  jsonFields,
-  type ReadSource,
-  suit,
-  type TreeField,
-} from "@/platform/icd/read";
-import { Unbind } from "@/platform/icd/Unbind";
+import { isReadable, type ReadSource, suit, type TreeField } from "@/platform/icd/read";
+import { useSuit } from "@/platform/icd/useSuit";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -99,40 +93,27 @@ export interface SuitReadProps {
 }
 
 /**
- * Keeps the read of a message suited to its format, whose edits can leave a read that
- * the Core refuses to save. Unbinds each channel that its field can no longer convert
- * to.
+ * Keeps the read of a message suited to its format, and unbinds each channel that its
+ * field can no longer convert to.
  */
 export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const { get, set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const icdKey = PForm.useFieldValue(path.icd);
   const readPath = path.messages[read];
-  const readMessage = PForm.useFieldValue(readPath);
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
+  const key = PForm.useFieldValue(readPath.message);
+  const message = PForm.useFieldValue(PICD.formPath.messages[key], {
     optional: true,
     ctx: formats.get(icdKey),
   });
-  const fields = jsonFields(message);
-  useEffect(() => {
-    if (isPreview || message?.payload.format !== "json") return;
-    // An Unbind effect runs first and can change the read after this render.
-    const current = get(readPath).value;
-    const suited = suit(current, fields);
-    if (!deep.equal(suited, current)) set(readPath, suited);
-  }, [isPreview, readMessage, message]);
-  if (isPreview) return null;
-  return readMessage.bindings.map((b, i) => {
-    const field = fields.find(({ key }) => key === b.field);
-    if (field == null || b.channel === 0) return null;
-    return (
-      <Unbind
-        key={b.field}
-        path={readPath.bindings[i].channel}
-        channel={b.channel}
-        takes={(dataType) => converts(field, dataType)}
-      />
-    );
+  useSuit({
+    path: readPath,
+    message,
+    suit,
+    bound: ({ bindings }) => bindings.map((b) => b.channel),
+    unbind: (readMessage, fields, channels) => ({
+      ...readMessage,
+      bindings: unbind(readMessage.bindings, fields, channels, converts),
+    }),
   });
+  return null;
 };

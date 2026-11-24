@@ -59,6 +59,8 @@ export interface Kind<E> {
   tagNoun?: string;
   /** Each pick is a whole topic, and a topic that the task holds takes none. */
   whole?: boolean;
+  /** A pick of a topic that the task does not read takes its index too. */
+  indexed?: boolean;
   /**
    * Each entry from a topic sends one message, which a field under the topics picks. An
    * add that holds a topic before the pick shows the error at that field.
@@ -131,6 +133,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             device={device}
             entries={entries}
             whole={kind.whole}
+            indexed={kind.indexed}
             value={topicPicks}
             onChange={setTopicPicks}
             onAddByName={(topic) => add(() => [createTopic(topic, picks)], 1)}

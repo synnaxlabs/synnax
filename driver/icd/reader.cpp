@@ -366,6 +366,9 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         this->decoder
     );
     if (err || !i.has_value()) return {std::nullopt, err};
+    if (const auto *json = std::get_if<codec::JSON>(&this->decoder);
+        json != nullptr && !json->failures(*i).empty())
+        return {std::nullopt, json->failures(*i).front().error};
     const auto msg = *i;
     const auto &m = this->messages[msg];
     const auto &samples = std::visit(
