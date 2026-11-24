@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -195,7 +196,7 @@ var _ = Describe("Breaker calculation bounds", Ordered, ContinueOnFailure, func(
 		), frame.Frame{}))
 		Expect(changed).To(BeTrue())
 		od := of.Get(calc.Key()).Series[0]
-		Expect(od).To(telem.MatchSeriesDataV[int64](29, 38))
+		Expect(od).To(MatchSeriesDataV[int64](29, 38))
 	})
 
 	DescribeTable("epoch windows of a calculation", func(
@@ -239,15 +240,15 @@ var _ = Describe("Breaker calculation bounds", Ordered, ContinueOnFailure, func(
 			return out
 		}
 		of := send(telem.NewAlignment(2, 0), s(3, 4, 5, 6, 7, 11), 10, 20, 100, 5, 7, 1)
-		Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(first...))
-		Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+		Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV(first...))
+		Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 			4*telem.SecondTS, 7*telem.SecondTS, 11*telem.SecondTS,
 		))
 		Expect(
 			of.Get(calc.Key()).Series[0].Alignment,
 		).To(Equal(telem.NewAlignment(2, 0)))
 		of = send(telem.NewAlignment(2, 6), s(12, 16), 3, 2)
-		Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(second...))
+		Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV(second...))
 		Expect(
 			of.Get(calc.Key()).Series[0].Alignment,
 		).To(Equal(telem.NewAlignment(2, 6)))

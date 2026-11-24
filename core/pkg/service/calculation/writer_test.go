@@ -811,6 +811,51 @@ var _ = Describe("Writer", func() {
 			Expect(c.Primary).To(HaveValue(Equal(first.Key())))
 		})
 
+		It("Should pick the first stored read when no read is timed", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "v")
+			untimed := stored(ctx, "untimed")
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return v + untimed",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(untimed.Key())))
+		})
+
+		It("Should move a virtual primary to a stored read the expression gains", func(
+			ctx SpecContext,
+		) {
+			v := createVirtual(ctx, "v")
+			s := stored(ctx, "s", every(telem.SecondTS, telem.Second, 3))
+			c := createCalc(ctx, calculation.Calculation{Expression: "return v * 2"})
+			Expect(c.Primary).To(HaveValue(Equal(v.Key())))
+			next, computed := apply(ctx, c, "return v * s")
+			Expect(next.Primary).To(HaveValue(Equal(s.Key())))
+			Expect(computed).To(ContainElement(calculation.NewSetAction(
+				calculation.SetPayload{Path: []string{"primary"}, Value: s.Key()},
+			)))
+		})
+
+		It("Should fail on a virtual primary beside a stored read", func(
+			ctx SpecContext,
+		) {
+			v := createVirtual(ctx, "v")
+			stored(ctx, "s")
+			c := calculation.Calculation{
+				Output:     createVirtual(ctx, "out").Key(),
+				Expression: "return v + s",
+				Primary:    new(v.Key()),
+			}
+			Expect(create(ctx, &c)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"channel %s is virtual, so it cannot be the primary of an "+
+						"expression that reads a stored channel",
+					v.Key(),
+				))),
+			))
+		})
+
 		It("Should pick no primary for an expression that reads no channel", func(
 			ctx SpecContext,
 		) {

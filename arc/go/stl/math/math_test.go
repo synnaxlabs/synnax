@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -495,14 +496,14 @@ var _ = Describe("Avg", func() {
 		s.inputNode.MarkFresh(0)
 		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
 		Expect(*s.state.Node("math").Output(0)).To(
-			telem.MatchSeries(telem.NewSeriesV(base + 5)),
+			MatchSeries(telem.NewSeriesV(base + 5)),
 		)
 		*s.inputNode.Output(0) = telem.NewSeriesV(base+12, base+14, base+16)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
 		s.inputNode.MarkFresh(0)
 		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
 		Expect(*s.state.Node("math").Output(0)).To(
-			telem.MatchSeries(telem.NewSeriesV(base + 8)),
+			MatchSeries(telem.NewSeriesV(base + 8)),
 		)
 	})
 
@@ -787,7 +788,7 @@ var _ = Describe("Min", func() {
 		s.inputNode.MarkFresh(0)
 		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
 		Expect(*s.state.Node("math").Output(0)).To(
-			telem.MatchSeries(telem.NewSeriesSecondsTSV(10)),
+			MatchSeries(telem.NewSeriesSecondsTSV(10)),
 		)
 	})
 
@@ -903,7 +904,7 @@ var _ = Describe("Max", func() {
 		s.inputNode.MarkFresh(0)
 		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
 		Expect(*s.state.Node("math").Output(0)).To(
-			telem.MatchSeries(telem.NewSeriesSecondsTSV(70)),
+			MatchSeries(telem.NewSeriesSecondsTSV(70)),
 		)
 	})
 
@@ -1315,7 +1316,7 @@ var _ = Describe("Literal inputs", func() {
 				MarkChanged: func(int) {},
 			})
 			Expect(*s.Node("n").OutputTime(0)).
-				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+				To(MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 		},
 		Entry("avg", "avg"),
 		Entry("min", "min"),

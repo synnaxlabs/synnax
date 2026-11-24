@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -143,7 +144,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
+			Expect(res.Frame.Frame).To(MatchWrittenFrame(writtenFr.Frame))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
@@ -266,7 +267,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(BeClosed())
 			Expect(
 				res.Frame.Get(calculation.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
+			).To(MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
 		It(
@@ -313,7 +314,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(BeClosed())
 				Expect(
 					res.Frame.Get(calculation.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
+				).To(MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 			},
 		)
 
@@ -401,7 +402,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Get(calculation.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[float32](11, 22, 33),
+					MatchSeriesDataV[float32](11, 22, 33),
 				)
 
 				inlet.Close()
@@ -441,7 +442,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(
 				res.Frame.Get(ch.Key()).Series[0],
-			).To(telem.MatchSeriesData(writtenFr.Get(ch.Key()).Series[0].Downsample(2)))
+			).To(MatchSeriesData(writtenFr.Get(ch.Key()).Series[0].Downsample(2)))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
@@ -481,11 +482,11 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(ch.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](1))
+				).To(MatchSeriesDataV[float32](1))
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(ch.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](3))
+				).To(MatchSeriesDataV[float32](3))
 				inlet.Close()
 				Eventually(outlet.Outlet()).Should(BeClosed())
 			},
@@ -565,7 +566,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				expectedValues := []float32{2, 6, 10, 14}
 				Expect(
 					res.Frame.Get(calculation.Key()).Series[0],
-				).To(telem.MatchSeriesDataV(expectedValues...))
+				).To(MatchSeriesDataV(expectedValues...))
 
 				inlet.Close()
 				Eventually(outlet.Outlet()).Should(BeClosed())
@@ -659,11 +660,11 @@ var _ = Describe("Streamer", Ordered, func() {
 			writeAt(st, telem.SecondTS, 1, 2, 3)
 			Eventually(st.outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Get(st.total).Series[0]).
-				To(telem.MatchSeriesDataV[float32](1, 3, 6))
+				To(MatchSeriesDataV[float32](1, 3, 6))
 			writeAt(st, 4*telem.SecondTS, 4, 5)
 			Eventually(st.outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Get(st.total).Series[0]).
-				To(telem.MatchSeriesDataV[float32](10, 15))
+				To(MatchSeriesDataV[float32](10, 15))
 			Expect(st.writer.Close()).To(Succeed())
 			st.inlet.Close()
 			Eventually(st.outlet.Outlet()).Should(BeClosed())
@@ -677,7 +678,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
 			// a strided input would instead give 1, 4, 9, 16.
 			Expect(res.Frame.Get(st.total).Series[0]).
-				To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+				To(MatchSeriesDataV[float32](1, 6, 15, 28))
 			Expect(st.writer.Close()).To(Succeed())
 			st.inlet.Close()
 			Eventually(st.outlet.Outlet()).Should(BeClosed())
@@ -831,7 +832,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
+			Expect(res.Frame.Frame).To(MatchWrittenFrame(writtenFr.Frame))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
@@ -955,7 +956,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
+			Expect(res.Frame.Frame).To(MatchWrittenFrame(writtenFr.Frame))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())

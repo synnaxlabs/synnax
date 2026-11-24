@@ -13,7 +13,7 @@ import { table } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
+import { type border, box, color } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -111,7 +111,7 @@ export const Value = ({
   selected,
   box: b,
   onSelect,
-  stalenessTimeout = 5,
+  stalenessTimeout,
   stalenessColor,
 }: CellProps<ValueConfig>) => {
   const resolve = Color.useResolve();
@@ -125,7 +125,7 @@ export const Value = ({
     telem: t,
     level,
     color: resolve(textColor),
-    stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
+    stalenessTimeout,
     stalenessColor: staleColor,
     backgroundTelem,
     location: { x: "center", y: "center" },

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -126,6 +127,6 @@ var _ = Describe("Calculator check", Ordered, func() {
 		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 		Expect(changed).To(BeTrue())
 		Expect(o.Get(out.Index()).Series[0]).
-			To(telem.MatchSeriesData(telem.NewSeries(stamps[lo])))
+			To(MatchSeriesData(telem.NewSeries(stamps[lo])))
 	})
 })

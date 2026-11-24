@@ -34,17 +34,31 @@ func StatusFromError(key Key, name string, err error) *Status {
 // no longer reads, to the one named to. It has no owner, so the calculation's own
 // status stays.
 func PrimaryChangedStatus(key Key, name, from, to string) *Status {
+	return primaryStatus(key, name, fmt.Sprintf(
+		"The expression no longer reads %s, so the outputs now use the timestamps of %s.",
+		from,
+		to,
+	))
+}
+
+// PrimaryStoredStatus builds the status that the primary of the calculation with key,
+// whose output is named name, moved from the virtual channel named from to the stored
+// channel named to. It has no owner, so the calculation's own status stays.
+func PrimaryStoredStatus(key Key, name, from, to string) *Status {
+	return primaryStatus(key, name, fmt.Sprintf(
+		"%s is virtual, so the outputs now use the timestamps of %s.",
+		from,
+		to,
+	))
+}
+
+func primaryStatus(key Key, name, description string) *Status {
 	return &Status{
-		Key:     PrimaryStatusKey(key),
-		Name:    name,
-		Variant: status.VariantInfo,
-		Message: "Changed the primary input",
-		Description: fmt.Sprintf(
-			"The expression no longer reads %s, so the outputs now use the timestamps "+
-				"of %s.",
-			from,
-			to,
-		),
-		Time: telem.Now(),
+		Key:         PrimaryStatusKey(key),
+		Name:        name,
+		Variant:     status.VariantInfo,
+		Message:     "Changed the primary input",
+		Description: description,
+		Time:        telem.Now(),
 	}
 }

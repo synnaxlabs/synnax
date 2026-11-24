@@ -110,6 +110,37 @@ var _ = Describe("Join", func() {
 				DataTypes: []telem.DataType{telem.Float64T, telem.StringT},
 			})).Error().To(MatchError(ContainSubstring("input 1 has data type string")))
 		})
+		DescribeTable(
+			"Should refuse arrival inputs that the join cannot take",
+			func(arrival []bool, live bool, message string) {
+				Expect(join.New(join.Config{
+					DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+					Live:      live,
+					Arrival:   arrival,
+				})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry(
+				"a mark for each input",
+				[]bool{true},
+				true,
+				"arrival marks 1 inputs of 2",
+			),
+			Entry(
+				"an arrival primary",
+				[]bool{true, false},
+				true,
+				"primary input 0 cannot pair by arrival",
+			),
+			Entry(
+				"a history join",
+				[]bool{false, true},
+				false,
+				"only a live join pairs by arrival",
+			),
+		)
 	})
 
 	Describe("Push", func() {
@@ -464,50 +495,257 @@ var _ = Describe("Join", func() {
 		Entry("half the median", 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0),
 	)
 
+	It("Should settle a history join at once", func() {
+		j := newJoin(2, 0, 0)
+		Expect(j.Push(0, values(1), stamps(0, 1))).To(Succeed())
+		var out join.Output
+		j.Next(telem.TimeStamp(telem.Second), &out)
+		Expect(out.Dropped).To(Equal(1))
+		Expect(out.Settled).To(BeTrue())
+	})
+
 	Describe("Live", func() {
-		// joinFrame pushes an input at 1 Hz from 0 s to 10 s, which holds for 3 s, and
-		// then one primary frame at seconds, and joins it.
-		joinFrame := func(live bool, seconds ...float64) join.Output {
-			GinkgoHelper()
-			j := MustSucceed(join.New(join.Config{
+		var now telem.TimeStamp
+		BeforeEach(func() { now = 0 })
+		newLive := func(from telem.TimeStamp) *join.Join {
+			return MustSucceed(join.New(join.Config{
 				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-				Live:      live,
+				From:      from,
+				Live:      true,
+				Now:       func() telem.TimeStamp { return now },
 			}))
-			back := make([]float64, 11)
-			for i := range back {
-				back[i] = float64(i)
-			}
-			Expect(j.Push(1, values(back...), stamps(0, back...))).To(Succeed())
-			Expect(j.Push(0, values(seconds...), stamps(0, seconds...))).To(Succeed())
+		}
+		seconds := func(s float64) telem.TimeStamp {
+			return telem.TimeStamp(s * float64(telem.Second))
+		}
+		// frames pushes n frames of 40 ms: a primary frame of 40 samples at 1 kHz from
+		// 10 s, joined at once, and then, for the first stop frames, an input frame of
+		// 20 samples at 500 Hz whose stamps lag the primary's by lag seconds. Each
+		// frame arrives at its end. It returns the drops of each frame.
+		frames := func(n, stop int, lag float64) []int {
+			GinkgoHelper()
+			j := newLive(0)
+			drops := make([]int, n)
 			var out join.Output
-			j.Next(telem.TimeStampMax, &out)
-			return out
+			for f := range n {
+				now = seconds(0.04 * float64(f+1))
+				primary, input := make([]float64, 40), make([]float64, 20)
+				for k := range primary {
+					primary[k] = 10 + 0.001*float64(40*f+k)
+				}
+				for k := range input {
+					input[k] = 10 - lag + 0.002*float64(20*f+k)
+				}
+				Expect(j.Push(
+					0,
+					values(primary...),
+					stamps(telem.Alignment(40*f), primary...),
+				)).To(Succeed())
+				before := out.Dropped
+				j.Next(seconds(primary[39]), &out)
+				drops[f] = out.Dropped - before
+				if f < stop {
+					Expect(j.Push(1, values(input...), stamps(0, input...))).
+						To(Succeed())
+				}
+			}
+			return drops
 		}
 
-		It("Should hold a late input for a whole frame that starts within its hold "+
-			"limit after the input's newest stamp", func() {
-			out := joinFrame(true, 11, 12, 13, 14, 15)
-			got, _ := samples(out)
-			Expect(got).To(HaveLen(5))
-			Expect(got[4]).To(Equal(sample{15, 4, []float64{15, 10}}))
-			Expect(out.Dropped).To(BeZero())
-			Expect(joinFrame(false, 11, 12, 13, 14, 15).Dropped).
-				To(Equal(2), "history judges each stamp")
+		// Frame 0 has no input. At frame 1 the input has no frame gap yet, so it takes
+		// the primary's.
+		DescribeTable(
+			"Should hold an input whose stamps lag the primary's while its frames arrive",
+			func(lag float64) {
+				Expect(frames(10, 10, lag)).
+					To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
+			},
+			Entry("200 ms of latency", 0.2),
+			Entry("a clock 1 s behind", 1.0),
+		)
+
+		It(
+			"Should drop each primary frame that arrives past 3 times the input's frame "+
+				"gap after its last frame",
+			func() {
+				Expect(
+					frames(10, 5, 0),
+				).To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 40, 40}))
+			},
+		)
+
+		It("Should count no seed before From as a frame", func() {
+			// A seed at 1 Hz up to 16 s, then frames that arrive at 100 s and 101 s:
+			// the frame gap is 1 s, so a primary frame that arrives 9 s later drops.
+			j := newLive(seconds(100))
+			seed := make([]float64, 17)
+			for i := range seed {
+				seed[i] = float64(i)
+			}
+			Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+			now = seconds(100)
+			Expect(j.Push(1, values(100), stamps(0, 100))).To(Succeed())
+			now = seconds(101)
+			Expect(j.Push(1, values(101), stamps(0, 101))).To(Succeed())
+			now = seconds(110)
+			Expect(j.Push(0, values(1), stamps(0, 110))).To(Succeed())
+			var out join.Output
+			j.Next(seconds(110), &out)
+			Expect(out.Dropped).To(Equal(1))
 		})
 
-		It("Should drop a frame that starts past the hold limit of a late input",
+		DescribeTable(
+			"Should hold a seed only within its hold limit of a primary frame's first "+
+				"stamp",
+			func(from float64, dropped int) {
+				// A seed at 1 Hz up to 16 s holds for 3 s.
+				j := newLive(seconds(from))
+				seed := make([]float64, 17)
+				for i := range seed {
+					seed[i] = float64(i)
+				}
+				Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+				Expect(j.Push(0, values(1), stamps(0, from))).To(Succeed())
+				var out join.Output
+				j.Next(seconds(from), &out)
+				Expect(out.Dropped).To(Equal(dropped))
+			},
+			Entry("1 s after the seed", 17.0, 0),
+			Entry("4 s after the seed", 20.0, 1),
+		)
+
+		// primaryAt pushes a primary frame of one sample at stamp seconds that arrives
+		// at stamp, joins it, and returns its drops.
+		primaryAt := func(j *join.Join, stamp float64, out *join.Output) int {
+			GinkgoHelper()
+			now = seconds(stamp)
+			Expect(j.Push(0, values(stamp), stamps(telem.Alignment(stamp), stamp))).
+				To(Succeed())
+			before := out.Dropped
+			j.Next(seconds(stamp), out)
+			return out.Dropped - before
+		}
+
+		It(
+			"Should judge a framed input with no hold limit by the "+
+				"primary's frame gaps",
 			func() {
-				out := joinFrame(true, 14, 15)
-				Expect(out.Runs).To(BeEmpty())
-				Expect(out.Dropped).To(Equal(2))
+				// One sample gives the input no interval, so no hold limit. The
+				// primary's frame gaps of 1 s give a window of 3 s, and the input's
+				// frame came 5 s before the primary's last.
+				j := newLive(0)
+				now = seconds(1)
+				Expect(j.Push(1, values(7), stamps(0, 0.5))).To(Succeed())
+				var out join.Output
+				drops := make([]int, 0, 4)
+				for _, stamp := range []float64{1, 2, 3, 6} {
+					drops = append(drops, primaryAt(j, stamp, &out))
+				}
+				Expect(drops).To(Equal([]int{0, 0, 0, 1}))
+			},
+		)
+
+		It("Should settle one window after the primary's first frame", func() {
+			// An input that never pushes drops every stamp. The primary's gaps of 1 s
+			// give a window of 3 s, which passes at its frame at 4 s.
+			j := newLive(0)
+			var out join.Output
+			settled := make([]bool, 0, 4)
+			for _, stamp := range []float64{1, 2, 3, 4} {
+				Expect(primaryAt(j, stamp, &out)).To(Equal(1))
+				settled = append(settled, out.Settled)
+			}
+			Expect(settled).To(Equal([]bool{false, false, false, true}))
+			out.Reset()
+			Expect(out.Settled).To(BeFalse())
+		})
+
+		Describe("Arrival", func() {
+			newArrival := func() *join.Join {
+				return MustSucceed(join.New(join.Config{
+					DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+					Live:      true,
+					Arrival:   []bool{false, true},
+					Now:       func() telem.TimeStamp { return now },
+				}))
+			}
+
+			It(
+				"Should pair each primary stamp with the newest pushed sample, "+
+					"whatever its stamps",
+				func() {
+					j := newArrival()
+					Expect(j.Push(1, values(5, 6), stamps(0, 100, 101))).To(Succeed())
+					Expect(j.Push(0, values(1, 2), stamps(0, 10, 11))).To(Succeed())
+					var out join.Output
+					j.Next(seconds(11), &out)
+					Expect(j.Push(1, values(7), telem.Series{})).To(Succeed())
+					Expect(j.Push(0, values(3), stamps(2, 12))).To(Succeed())
+					j.Next(seconds(12), &out)
+					all, _ := samples(out)
+					Expect(all).To(Equal([]sample{
+						{seconds: 10, alignment: 0, values: []float64{1, 6}},
+						{seconds: 11, alignment: 1, values: []float64{2, 6}},
+						{seconds: 12, alignment: 2, values: []float64{3, 7}},
+					}))
+					Expect(out.Dropped).To(BeZero())
+				},
+			)
+
+			It("Should give no output before an arrival input has a sample", func() {
+				var out join.Output
+				Expect(primaryAt(newArrival(), 1, &out)).To(Equal(1))
 			})
 
-		It("Should judge by stamps an input whose newest stamp lies in the frame",
-			func() {
-				out := joinFrame(true, 9.5, 10.5, 14)
-				got, _ := samples(out)
-				Expect(got).To(HaveLen(2))
-				Expect(out.Dropped).To(Equal(1))
+			It(
+				"Should drop primary stamps once its pushes stop past 3 times "+
+					"their gap",
+				func() {
+					j := newArrival()
+					for _, at := range []float64{1, 2} {
+						now = seconds(at)
+						Expect(j.Push(1, values(at), telem.Series{})).To(Succeed())
+					}
+					var out join.Output
+					drops := make([]int, 0, 3)
+					for _, stamp := range []float64{3, 5, 6} {
+						drops = append(drops, primaryAt(j, stamp, &out))
+					}
+					Expect(drops).To(Equal([]int{0, 0, 1}))
+				},
+			)
+
+			It("Should compute the window again at each primary frame", func() {
+				// The primary's gap of 20 s holds the input at 40 s. Its later gaps of
+				// 1 s shrink the window below the 41 s since the input's push.
+				j := newArrival()
+				now = 0
+				Expect(j.Push(1, values(9), telem.Series{})).To(Succeed())
+				var out join.Output
+				drops := make([]int, 0, 6)
+				for _, stamp := range []float64{20, 40, 41, 42, 43, 44} {
+					drops = append(drops, primaryAt(j, stamp, &out))
+				}
+				Expect(drops).To(Equal([]int{0, 0, 1, 1, 1, 1}))
 			})
+
+			It(
+				"Should take the primary's frame gaps until its pushes have a gap",
+				func() {
+					// With no gap on either side, the input holds at 1 s. Then the
+					// primary's gaps of 1 s give a window of 3 s, and its frame at 6 s
+					// comes 6 s after the input's push.
+					j := newArrival()
+					now = 0
+					Expect(j.Push(1, values(9), telem.Series{})).To(Succeed())
+					var out join.Output
+					drops := make([]int, 0, 4)
+					for _, stamp := range []float64{1, 2, 3, 6} {
+						drops = append(drops, primaryAt(j, stamp, &out))
+					}
+					Expect(drops).To(Equal([]int{0, 0, 0, 1}))
+				},
+			)
+		})
 	})
 })

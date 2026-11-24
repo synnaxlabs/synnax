@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -157,7 +158,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](1001))
+			Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](1001))
 		})
 	})
 
@@ -179,7 +180,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
-			Expect(od).To(telem.MatchSeriesDataV[int64](20, 40, 60))
+			Expect(od).To(MatchSeriesDataV[int64](20, 40, 60))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(100, 50)))
 		})
 
@@ -212,7 +213,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
-			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
+			Expect(od).To(MatchSeriesDataV[int64](4, 6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(30, 8)))
 		})
 
@@ -233,7 +234,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
-			Expect(od).To(telem.MatchSeriesDataV[int64](6))
+			Expect(od).To(MatchSeriesDataV[int64](6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 2)))
 			d2 := telem.NewSeriesV[int64](2)
 			d2.Alignment = telem.NewAlignment(25, 7)
@@ -241,7 +242,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od = of.Get(calc.Key()).Series[0]
-			Expect(od).To(telem.MatchSeriesDataV[int64](7))
+			Expect(od).To(MatchSeriesDataV[int64](7))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(25, 7)))
 		})
 
@@ -285,7 +286,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
-			Expect(od).To(telem.MatchSeriesDataV[int64](6))
+			Expect(od).To(MatchSeriesDataV[int64](6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 4)))
 		})
 	})
@@ -320,7 +321,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[float32](10.0, 19.0, 28.0))
+			).To(MatchSeriesDataV[float32](10.0, 19.0, 28.0))
 		})
 
 		Specify("Three virtual channels", func(ctx SpecContext) {
@@ -363,7 +364,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int32](9, 17))
+			).To(MatchSeriesDataV[int32](9, 17))
 		})
 
 		Specify("Single persisted channel", func(ctx SpecContext) {
@@ -393,8 +394,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV(50.0, 100.0, 150.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			).To(MatchSeriesDataV(50.0, 100.0, 150.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(
@@ -486,8 +487,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](20, 35, 50))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			).To(MatchSeriesDataV[int64](20, 35, 50))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
 			))
 			// Alignment is summed: (5,2) + (5,2) = (10,4)
@@ -530,8 +531,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				[]telem.Series{idxData, aData},
 			), frame.Frame{}))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](60))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](60))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				40 * telem.SecondTS,
 			))
 		})
@@ -605,9 +606,9 @@ var _ = Describe("Calculator", Ordered, func() {
 				))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(calc.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[int64](values[0] + 5),
+					MatchSeriesDataV[int64](values[0] + 5),
 				)
-				Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+				Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 					stamp * telem.SecondTS,
 				))
 			}
@@ -665,7 +666,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
+			).To(MatchSeriesDataV[float32](6.0, 20.0))
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
 			).To(Equal(telem.NewAlignment(10, 4)))
@@ -707,7 +708,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](70, 150))
+			).To(MatchSeriesDataV[int64](70, 150))
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
 			).To(Equal(telem.NewAlignment(20, 6)))
@@ -744,7 +745,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[float32](5.0, 5.0, 6.0))
+			).To(MatchSeriesDataV[float32](5.0, 5.0, 6.0))
 		})
 	})
 
@@ -776,8 +777,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](30, 60, 90))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			).To(MatchSeriesDataV[int64](30, 60, 90))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(
@@ -812,8 +813,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](30, 50, 70))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			).To(MatchSeriesDataV[int64](30, 50, 70))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(
@@ -861,8 +862,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+			).To(MatchSeriesDataV(11.0, 22.0, 33.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			// Alignment is summed: (5,1) + (5,1) = (10,2)
@@ -925,7 +926,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(
 				of.Get(calc.Key()).Series[0],
-			).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
+			).To(MatchSeriesDataV(11.0, 22.0, 33.0))
 		})
 	})
 
@@ -962,8 +963,8 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Len()).To(BeEquivalentTo(1))
 		Expect(
 			o.Get(calc.Index()).Series[0],
-		).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(3)))
-		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+		).To(MatchSeriesData(telem.NewSeriesSecondsTSV(3)))
+		Expect(o.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](20))
 
 		d = telem.NewSeriesV[int64](40, 50, 60)
 		i = telem.NewSeriesSecondsTSV(4, 5, 6)
@@ -980,8 +981,8 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Len()).To(BeEquivalentTo(2))
 		Expect(
 			o.Get(calc.Index()).Series[0],
-		).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(5, 6)))
-		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60))
+		).To(MatchSeriesData(telem.NewSeriesSecondsTSV(5, 6)))
+		Expect(o.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](30, 60))
 	})
 
 	Describe("Reset channel", func() {
@@ -1196,10 +1197,10 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(output.Get(c2.Key()).Series).ToNot(BeEmpty())
 				Expect(
 					output.Get(c1.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](11, 21))
+				).To(MatchSeriesDataV[int64](11, 21))
 				Expect(
 					output.Get(c2.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](10, 20))
+				).To(MatchSeriesDataV[int64](10, 20))
 			},
 		)
 
@@ -1318,7 +1319,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					Expect(changed).To(BeTrue())
 					Expect(output.Get(base[0].Key()).Series).To(HaveLen(1))
 					Expect(output.Get(doubled.Key()).Series[0]).
-						To(telem.MatchSeriesDataV[int64](0))
+						To(MatchSeriesDataV[int64](0))
 				},
 			)
 		})
@@ -1373,10 +1374,10 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(output.Get(c2.Key()).Series).ToNot(BeEmpty())
 				Expect(
 					output.Get(c1.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](11, 21))
+				).To(MatchSeriesDataV[int64](11, 21))
 				Expect(
 					output.Get(c2.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](22, 42))
+				).To(MatchSeriesDataV[int64](22, 42))
 			}
 		})
 	})
@@ -1409,7 +1410,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+			Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](20))
 		})
 	})
 
@@ -1462,7 +1463,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(calc.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
+					MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 				)
 			},
 		)
@@ -1487,7 +1488,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(calc.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[float32](990.0, 980.0),
+					MatchSeriesDataV[float32](990.0, 980.0),
 				)
 			},
 		)
@@ -1512,7 +1513,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(calc.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[float32](100.0, 50.0),
+					MatchSeriesDataV[float32](100.0, 50.0),
 				)
 			},
 		)
@@ -1546,7 +1547,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(calc.Key()).Series[0]).To(
-					telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
+					MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 				)
 			},
 		)
