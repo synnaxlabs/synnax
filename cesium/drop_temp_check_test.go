@@ -41,21 +41,23 @@ var _ = Describe("Check: a Drop of a key whose old file has a compaction file", 
 			_, closeDB := openConverted(ctx, disk, ins)
 			Expect(closeDB()).To(Succeed())
 			db, closeDB := openConverted(ctx, disk, ins)
-			var iter *cesium.Iterator
+			// finish reads to the end of the reader that pins the old file, if any.
+			finish := func() {}
 			if pinned {
-				iter = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 					Bounds:   telem.TimeRangeMax,
 					Channels: []cesium.ChannelKey{oldI32},
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
-			}
-			Expect(db.Drop([]cesium.ChannelKey{oldI32})).To(Succeed())
-			if pinned {
-				for iter.Next(cesium.AutoSpan) {
+				finish = func() {
+					for iter.Next(cesium.AutoSpan) {
+					}
+					Expect(iter.Error()).ToNot(HaveOccurred())
+					Expect(iter.Close()).To(Succeed())
 				}
-				Expect(iter.Error()).ToNot(HaveOccurred())
-				Expect(iter.Close()).To(Succeed())
 			}
+			Expect(db.Drop(ctx, []cesium.ChannelKey{oldI32})).To(Succeed())
+			finish()
 			Expect(closeDB()).To(Succeed())
 			db, closeDB = openConverted(ctx, disk, ins)
 			MustSucceed2(db.Sweep(ctx, []cesium.ChannelKey{oldIdx, oldStr}))
