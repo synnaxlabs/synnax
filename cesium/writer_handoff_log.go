@@ -23,11 +23,11 @@ import (
 
 // handoffLog moves the writer of w on the pointer log layout to the keys of cfg. The
 // writer keeps its uncommitted runs, so the next commit of the new writer commits them,
-// and its stretch goes on after their last stamp in SameRun, or starts again at the
-// next write in NewRun. The keys of w that cfg lacks leave in a Pending, the keys of
-// adopt join with their samples, and the other keys of cfg open from the start of the
-// first run. With no run and no adopt, it closes w and opens a writer of cfg in run. A
-// writer that stores no samples commits its runs first, and adopts no Pending.
+// and its stretch goes on after their last stamp in either run, as the clock run of the
+// old layout moves with the clock. The keys of w that cfg lacks leave in a Pending, the
+// keys of adopt join with their samples, and the other keys of cfg open from the start
+// of the first run. With no run and no adopt, it closes w and opens a writer of cfg in
+// run. A writer that stores no samples commits its runs first, and adopts no Pending.
 func (db *DB) handoffLog(
 	ctx context.Context,
 	w *Writer,
@@ -70,9 +70,6 @@ func (db *DB) handoffLog(
 	}
 	// The samples of a key that joined w start after its runs.
 	l.closeRun()
-	if run == NewRun {
-		l.number = 0
-	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
 }
