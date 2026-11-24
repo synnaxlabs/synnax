@@ -27,6 +27,7 @@ import { node } from "@/node";
  * that only the Core can check.
  */
 export interface Lines {
+  key: ((record: Payload, value: NonNullable<Where["key"]>) => boolean) | null;
   internal:
     ((record: Payload, value: NonNullable<Where["internal"]>) => boolean) | null;
   virtual: ((record: Payload, value: NonNullable<Where["virtual"]>) => boolean) | null;
@@ -46,7 +47,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
   if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
     return false;
   if (where.not != null && matches(lines, record, where.not)) return false;
-  if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
+  if (where.key != null) {
+    if (lines.key == null) throw new Error("only the Core can check key");
+    if (!lines.key(record, where.key)) return false;
+  }
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
   if (
@@ -90,6 +94,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
   (where.and?.some((w) => serverComputed(lines, w)) === true ||
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
+    (where.key != null && lines.key == null) ||
     where.name?.regex != null ||
     (where.internal != null && lines.internal == null) ||
     (where.virtual != null && lines.virtual == null) ||

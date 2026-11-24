@@ -27,6 +27,7 @@ export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
     return (ch: Payload, value: filter.Bool) =>
       filter.matchesSet(value, keys.has(ch.key));
   },
+  key: (ch, value) => filter.matchesSet(value, ch.key),
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
   path: null,
 });

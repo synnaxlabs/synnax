@@ -31,3 +31,7 @@ type Name = v2.Name
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = v2.Channel
+
+// Where is a filter that selects channels. A saved channel view stores it. The
+// migration that ends index channels drops is_index from each stored filter.
+type Where = v2.Where

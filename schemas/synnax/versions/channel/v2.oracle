@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/node/v0"
 import "schemas/x/versions/control/v0"
+import "schemas/x/versions/filter/v0"
 import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
@@ -25,4 +26,41 @@ Channel struct extends v1.Channel {
     description string = "" {
         @doc value "is free text that says what the channel holds."
     }
+}
+
+Where filter Channel {
+    key         filter.Set<Key> {
+        @doc value "selects by key."
+    }
+    name
+    leaseholder
+    data_type
+    is_index
+    internal    filter.Bool        {
+        @doc value "matches the built-in channels, or every other channel when false."
+    }
+    virtual     bool               {
+        @doc value """
+            matches virtual channels, or every other channel when false. The channel API
+            counts the output of a calculation as not virtual.
+        """
+    }
+    path        filter.Set<string> {
+        @doc value """
+            matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
+        """
+    }
+    groups      group.Key[]        {
+        @doc value "matches the channels in any of the given groups."
+    }
+    grouped     bool               {
+        @doc value "matches the channels in a group, or in no group when false."
+    }
+
+    @doc value  """
+        is a filter that selects channels. A saved channel view stores it. The migration
+        that ends index channels drops is_index from each stored filter.
+    """
+    @go marshal
 }

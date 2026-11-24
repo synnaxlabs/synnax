@@ -16,7 +16,9 @@ import (
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
 	control "github.com/synnaxlabs/x/control/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -101,6 +103,311 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	}
 	if c.Description, err = r.String(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Where) EncodeOrc(w *orc.Writer) error {
+	if wv.And != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.And)))
+		for j := range wv.And {
+			if err := wv.And[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Or != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Or)))
+		for j := range wv.Or {
+			if err := wv.Or[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Not != nil {
+		w.Bool(true)
+		if err := wv.Not.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Key != nil {
+		w.Bool(true)
+		if err := wv.Key.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Name != nil {
+		w.Bool(true)
+		if err := wv.Name.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Leaseholder != nil {
+		w.Bool(true)
+		if err := wv.Leaseholder.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.DataType != nil {
+		w.Bool(true)
+		if err := wv.DataType.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.IsIndex != nil {
+		w.Bool(true)
+		if err := wv.IsIndex.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Internal != nil {
+		w.Bool(true)
+		if err := wv.Internal.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Virtual != nil {
+		w.Bool(true)
+		w.Bool(*wv.Virtual)
+	} else {
+		w.Bool(false)
+	}
+	if wv.Path != nil {
+		w.Bool(true)
+		if err := wv.Path.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Groups != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Groups)))
+		for j := range wv.Groups {
+			w.Write(wv.Groups[j][:])
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Grouped != nil {
+		w.Bool(true)
+		w.Bool(*wv.Grouped)
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Where) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.And = make([]Where, n)
+			for j := range wv.And {
+				if err = wv.And[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Or = make([]Where, n)
+			for j := range wv.Or {
+				if err = wv.Or[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Where
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Not = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[Key]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Key = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.String
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Name = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[node.Key]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Leaseholder = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[telem.DataType]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.DataType = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Bool
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.IsIndex = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Bool
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Internal = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			wv.Virtual = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[string]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Path = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Groups = make([]uuid.UUID, n)
+			for j := range wv.Groups {
+				if _, err := r.Read(wv.Groups[j][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			wv.Grouped = &hv
+		}
 	}
 	return nil
 }

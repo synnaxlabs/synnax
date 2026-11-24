@@ -23,8 +23,9 @@ type Key = versions.Key
 type Type = versions.Type
 
 const (
-	TypeRange  Type = versions.TypeRange
-	TypeStatus Type = versions.TypeStatus
+	TypeRange   Type = versions.TypeRange
+	TypeStatus  Type = versions.TypeStatus
+	TypeChannel Type = versions.TypeChannel
 )
 
 // RangeSort is the order of the ranges in a range view.
@@ -64,8 +65,21 @@ type RangeView = versions.RangeView
 // StatusView is a saved view of statuses.
 type StatusView = versions.StatusView
 
+// ChannelView is a saved view of channels.
+type ChannelView = versions.ChannelView
+
 // Base carries the fields shared by every view variant.
 type Base = versions.Base
+
+// ChannelLayout is how a channel view shows its channels.
+type ChannelLayout = versions.ChannelLayout
+
+const (
+	// ChannelLayoutFolders shows each channel under the folders that hold it.
+	ChannelLayoutFolders ChannelLayout = versions.ChannelLayoutFolders
+	// ChannelLayoutList shows the channels in one flat list, each with its folder.
+	ChannelLayoutList ChannelLayout = versions.ChannelLayoutList
+)
 
 // Where is a filter that selects views.
 type Where struct {

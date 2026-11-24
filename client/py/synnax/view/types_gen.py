@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ranger, status
+from synnax import channel, ranger, status
 from synnax.resource import ID
 from x import color as color_, filter
 
@@ -24,8 +24,10 @@ TYPE_RANGE: Literal["range"] = "range"
 
 TYPE_STATUS: Literal["status"] = "status"
 
+TYPE_CHANNEL: Literal["channel"] = "channel"
 
-Type = Literal["range", "status"]
+
+Type = Literal["range", "status", "channel"]
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -49,6 +51,13 @@ RANGE_LAYOUT_TIMELINE: Literal["timeline"] = "timeline"
 
 
 RangeLayout = Literal["tree", "list", "timeline"]
+
+CHANNEL_LAYOUT_FOLDERS: Literal["folders"] = "folders"
+
+CHANNEL_LAYOUT_LIST: Literal["list"] = "list"
+
+
+ChannelLayout = Literal["folders", "list"]
 
 Key: TypeAlias = UUID
 
@@ -152,10 +161,18 @@ class StatusView(Base):
     where: status.Where | None = None
 
 
+class ChannelView(Base):
+    """Is a saved view of channels."""
+
+    type: Literal["channel"] = "channel"
+    where: channel.Where | None = None
+    layout: ChannelLayout = "folders"
+
+
 # Is a saved, named filter over a list of resources. The type selects the resource
 # the view lists and the shape of its where.
 View = Annotated[
-    RangeView | StatusView,
+    RangeView | StatusView | ChannelView,
     Field(discriminator="type"),
 ]
 

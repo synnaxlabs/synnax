@@ -92,7 +92,10 @@ export const countLimitedResponseZ = z.object({
 });
 export interface CountLimitedResponse extends z.infer<typeof countLimitedResponseZ> {}
 
-/** Where is a filter that selects channels. */
+/**
+ * Where is a filter that selects channels. A saved channel view stores it. The
+ * migration that ends index channels drops is_index from each stored filter.
+ */
 export type Where = {
   and?: Where[];
   or?: Where[];

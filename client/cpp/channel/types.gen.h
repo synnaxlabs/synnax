@@ -59,7 +59,8 @@ using Name = std::string;
 
 using Status = ::synnax::status::Status<std::monostate>;
 
-/// @brief Where is a filter that selects channels.
+/// @brief Where is a filter that selects channels. A saved channel view stores it. The
+/// migration that ends index channels drops is_index from each stored filter.
 struct Where {
     /// @brief and_ matches when every child matches.
     std::optional<std::vector<Where>> and_;

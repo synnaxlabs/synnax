@@ -401,7 +401,10 @@ CountLimitedResponse struct {
 }
 
 Where filter Channel {
-    key
+    key         filter.Set<Key>    {
+        @doc value "selects by key."
+        @go match  "MatchKeys"
+    }
     name
     leaseholder
     data_type
@@ -431,7 +434,11 @@ Where filter Channel {
         @doc value "matches the channels in a group, or in no group when false."
     }
 
-    @doc value         "is a filter that selects channels."
+    @doc value         """
+        is a filter that selects channels. A saved channel view stores it. The migration
+        that ends index channels drops is_index from each stored filter.
+    """
+    @go marshal
     @go output         "core/pkg/service/channel"
     @go request_output "core/pkg/api/channel"
     @request strict    """

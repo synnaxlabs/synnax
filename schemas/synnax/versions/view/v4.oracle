@@ -1,0 +1,52 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v2"
+import "schemas/synnax/versions/ranger/v3"
+import "schemas/synnax/versions/status/v2"
+
+Key = v0.Key
+
+Base = v3.Base
+
+Type enum {
+    range   = "range"
+    status  = "status"
+    channel = "channel"
+
+    @doc value "names the resource that a view lists."
+}
+
+RangeSort = v3.RangeSort
+
+RangeLayout = v3.RangeLayout
+
+ChannelLayout enum {
+    folders = "folders" {
+        @doc value "shows each channel under the folders that hold it."
+    }
+    list    = "list" {
+        @doc value "shows the channels in one flat list, each with its folder."
+    }
+
+    @doc value "is how a channel view shows its channels."
+}
+
+View union on type Type extends v3.View {
+    channel {
+        where  channel.Where? {
+            @doc value "selects the channels the view shows. An absent where shows all."
+        }
+        layout ChannelLayout = folders {
+            @doc value "is how the view lays out the channels."
+        }
+
+        @doc value "is a saved view of channels."
+    }
+}

@@ -13,9 +13,6 @@ package channel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -39,6 +36,10 @@ type Name = versions.Name
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = versions.Channel
+
+// Where is a filter that selects channels. A saved channel view stores it. The
+// migration that ends index channels drops is_index from each stored filter.
+type Where = versions.Where
 
 // OperationType is the type of aggregation operation to apply to channel data over
 // time.
@@ -131,36 +132,4 @@ func (d Direction) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// Where is a filter that selects channels.
-type Where struct {
-	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
-	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
-	// Not matches when the child does not match.
-	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
-	// Key selects by key.
-	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-	// Name selects by name.
-	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
-	// Leaseholder selects by leaseholder.
-	Leaseholder *filter.Set[node.Key] `json:"leaseholder,omitzero" msgpack:"leaseholder,omitempty"`
-	// DataType selects by data_type.
-	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
-	// IsIndex selects by is_index.
-	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
-	// Internal matches the built-in channels, or every other channel when false.
-	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
-	// Virtual matches virtual channels, or every other channel when false. The channel
-	// API counts the output of a calculation as not virtual.
-	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
-	// Path matches the channels at full paths: the names of the folders from the top,
-	// then the channel's name, joined by '.'.
-	Path *filter.Set[string] `json:"path,omitzero" msgpack:"path,omitempty"`
-	// Groups matches the channels in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
-	// Grouped matches the channels in a group, or in no group when false.
-	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }
