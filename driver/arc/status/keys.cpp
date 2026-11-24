@@ -53,8 +53,8 @@ x::errors::Error fs_error(const std::string &action, const std::error_code &ec) 
 }
 }
 
-Keys::Keys(std::filesystem::path path, const std::size_t max):
-    path(std::move(path)), max(max) {}
+Keys::Keys(std::filesystem::path path, std::string cluster, const std::size_t max):
+    path(std::move(path)), cluster(std::move(cluster)), max(max) {}
 
 void Keys::put(const std::string &name, const std::string &key) {
     if (const auto it = this->index.find(name); it != this->index.end())
@@ -66,9 +66,12 @@ void Keys::put(const std::string &name, const std::string &key) {
     this->entries.pop_back();
 }
 
-std::pair<std::shared_ptr<Keys>, x::errors::Error>
-Keys::open(const std::filesystem::path &path, const std::size_t max) {
-    auto keys = std::shared_ptr<Keys>(new Keys(path, max));
+std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
+    const std::filesystem::path &path,
+    const std::string &cluster,
+    const std::size_t max
+) {
+    auto keys = std::shared_ptr<Keys>(new Keys(path, cluster, max));
     std::error_code ec;
     std::filesystem::remove(temp_path(path), ec);
     if (ec)
@@ -82,14 +85,19 @@ Keys::open(const std::filesystem::path &path, const std::size_t max) {
     auto [reader, err] = journal::Reader::open({
         .path = path,
         .magic = KEYS_MAGIC,
-        .types = {KEY_TYPE},
+        .types = {KEY_TYPE, CLUSTER_TYPE},
         .sync_bytes = 0,
     });
     if (err) return {nullptr, err};
+    bool same_cluster = false;
     while (true) {
         auto [record, next_err] = reader->next();
         if (next_err) return {nullptr, next_err};
         if (!record) break;
+        if (record->type == CLUSTER_TYPE) {
+            same_cluster = record->payload == cluster;
+            continue;
+        }
         auto [entry, decode_err] = decode(record->payload);
         if (decode_err) return {nullptr, decode_err};
         keys->put(entry.first, entry.second);
@@ -103,6 +111,11 @@ Keys::open(const std::filesystem::path &path, const std::size_t max) {
                     std::to_string(reader->pos())
             )
         };
+    // Another cluster gave the keys, so its keys name no status of this one.
+    if (!same_cluster) {
+        keys->entries.clear();
+        keys->index.clear();
+    }
     return {keys, x::errors::NIL};
 }
 
@@ -119,6 +132,8 @@ Keys::save(const std::vector<std::pair<std::string, std::string>> &entries) cons
         .sync_bytes = std::numeric_limits<std::uint64_t>::max(),
     });
     if (err) return err;
+    if (err = writer->write({.type = CLUSTER_TYPE, .payload = this->cluster}); err)
+        return err;
     for (const auto &[name, key]: entries)
         if (err = writer->write({.type = KEY_TYPE, .payload = encode(name, key)}); err)
             return err;

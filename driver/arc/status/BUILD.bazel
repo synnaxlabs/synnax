@@ -19,8 +19,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/cpp/runtime/node",
         "//arc/cpp/program",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
         "//client/cpp/status",
         "//driver/arc:reporter",
