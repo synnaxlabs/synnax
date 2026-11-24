@@ -59,6 +59,11 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
         thread.join()
 
 
+# A server on localhost listens on a port per address family, so a client can reach
+# another server on the same port number.
+_HOST = "127.0.0.1"
+
+
 class _EchoHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         body = self.rfile.read(int(self.headers["Content-Length"]))
@@ -89,7 +94,7 @@ def ca_cert(tmp_path: Path, ca: trustme.CA) -> str:
 @pytest.fixture
 def server_ctx(ca: trustme.CA) -> ssl.SSLContext:
     ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ca.issue_cert("localhost").configure_cert(ctx)
+    ca.issue_cert(_HOST).configure_cert(ctx)
     return ctx
 
 
@@ -97,7 +102,7 @@ def server_ctx(ca: trustme.CA) -> ssl.SSLContext:
 def tls_endpoints(server_ctx: ssl.SSLContext) -> Iterator[tuple[URL, URL]]:
     """Serves HTTP and WebSocket endpoints with a certificate that the ca fixture
     signs. Yields the HTTP URL, then the WebSocket URL."""
-    http = HTTPServer(("localhost", 0), _EchoHandler)
+    http = HTTPServer((_HOST, 0), _EchoHandler)
     http.socket = server_ctx.wrap_socket(http.socket, server_side=True)
     threading.Thread(target=http.serve_forever, args=(0.01,), daemon=True).start()
     # The sync websockets server drops some TLS 1.3 handshakes.
@@ -105,12 +110,12 @@ def tls_endpoints(server_ctx: ssl.SSLContext) -> Iterator[tuple[URL, URL]]:
     threading.Thread(target=loop.run_forever, daemon=True).start()
 
     async def start() -> async_server.Server:
-        return await async_server.serve(_open_ack, "localhost", 0, ssl=server_ctx)
+        return await async_server.serve(_open_ack, _HOST, 0, ssl=server_ctx)
 
     ws = asyncio.run_coroutine_threadsafe(start(), loop).result()
     yield (
-        URL(host="localhost", port=http.server_address[1]),
-        URL(host="localhost", port=next(iter(ws.sockets)).getsockname()[1]),
+        URL(host=_HOST, port=http.server_address[1]),
+        URL(host=_HOST, port=next(iter(ws.sockets)).getsockname()[1]),
     )
 
     async def stop() -> None:
