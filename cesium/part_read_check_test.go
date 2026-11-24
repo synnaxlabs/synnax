@@ -87,6 +87,7 @@ func partedRoot(
 		}
 		wr := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    (w + 1) * telem.SecondTS,
 		}))
 		MustSucceed2(wr.Write(ctx, telem.MultiFrame(keys, series), nil))
