@@ -389,7 +389,24 @@ jobs:
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
+        # A page crash leaves no memory data in the log, so a loop samples it.
         run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            log="$RUNNER_TEMP/diagnostics/webkit-memory.log"
+            mkdir -p "$RUNNER_TEMP/diagnostics"
+            (
+              set +e
+              while :; do
+                date -u +%FT%TZ
+                free -m
+                pids=$(pgrep -d, -f 'WebKit|WPE') \
+                  && ps -o rss=,args= --sort=-rss -p "$pids" | head -5 | cut -c1-160
+                sleep 5
+              done
+            ) &> "$log" < /dev/null &
+            monitor=$!
+            trap 'kill "$monitor"; echo "Memory samples: $(grep -c Mem: "$log")"' EXIT
+          fi
           read -ra specs <<< "$SPECS"
           status=0
           total=$((SHARDS * RUNS))
@@ -462,6 +479,14 @@ jobs:
           ATTACHMENTS: ${{ inputs.directory }}/.vitest/attachments
         run: |
           mkdir -p "$RUNNER_TEMP/diagnostics"
+          if [ "$RUNNER_OS" = Linux ]; then
+            echo "Kernel OOM, kill, and segfault lines:"
+            { sudo dmesg 2> /dev/null || sudo journalctl -k --no-pager; } \
+              | grep -iE 'oom|killed process|segfault' | tail -50 || true
+          fi
+          if [ -f "$RUNNER_TEMP/diagnostics/webkit-memory.log" ]; then
+            tail -n 40 "$RUNNER_TEMP/diagnostics/webkit-memory.log"
+          fi
           if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
             docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
             # The tail in the job output shows the Core side of a failure without the
