@@ -44,7 +44,11 @@ import {
   openDelete,
   waitForDelete,
 } from "@/feature/channel/testutil";
-import { findLastButton, findSurface } from "@/platform/modals/testutil";
+import {
+  clickLastButton,
+  findLastButton,
+  findSurface,
+} from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createHostItems,
@@ -70,14 +74,6 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     isIndex: true,
     ...overrides,
   });
-
-/** Waits for the dialog's Delete button to finish planning, then clicks it. */
-const clickDelete = async () => {
-  await waitFor(() =>
-    expect(findLastButton("Delete").getAttribute("aria-disabled")).toBeNull(),
-  );
-  fireEvent.click(findLastButton("Delete"));
-};
 
 const expectGone = async (retrieve: () => Promise<unknown>) =>
   await waitFor(async () => {
@@ -306,7 +302,7 @@ describe("channel/tree", () => {
         "Deletes the channel and its data. Nothing else uses it. " +
           "This action cannot be undone.",
       );
-      await clickDelete();
+      await clickLastButton("Delete");
       await expectGone(async () => await client.channels.retrieve(ch.key));
     });
 
@@ -318,7 +314,7 @@ describe("channel/tree", () => {
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText("Blocks the delete");
       await screen.findByText(task.name);
-      await clickDelete();
+      await clickLastButton("Delete");
       await screen.findByText("Uses the channel");
       await screen.findByText("1 record blocks the delete");
       screen.getByText('Check "Delete too", or cancel.');
@@ -327,7 +323,7 @@ describe("channel/tree", () => {
         screen.getByRole("checkbox", { name: `${task.name} Delete too` }),
       );
       await waitFor(() => expect(screen.queryByText("Uses the channel")).toBeNull());
-      await clickDelete();
+      await clickLastButton("Delete");
       await expectGone(async () => await client.channels.retrieve(ch.key));
       await expectGone(async () => await client.tasks.retrieve({ key: task.key }));
     });
@@ -393,7 +389,7 @@ describe("channel/tree", () => {
       expect(
         screen.getByRole("checkbox", { name: `${first.name} Delete too` }),
       ).toBeChecked();
-      await clickDelete();
+      await clickLastButton("Delete");
       await expectGone(async () => await client.channels.retrieve(ch.key));
       await expectGone(async () => await client.tasks.retrieve({ key: first.key }));
       await expectGone(async () => await client.tasks.retrieve({ key: second.key }));
@@ -418,7 +414,7 @@ describe("channel/tree", () => {
         name: uniqueName("plot"),
         channels: { y1: [ch.key] },
       });
-      await clickDelete();
+      await clickLastButton("Delete");
       await screen.findByText("These records changed. Check them again.");
       await screen.findByText("Loses the channel");
       await screen.findByText(plot.name);
@@ -443,7 +439,7 @@ describe("channel/tree", () => {
       const hidden = within(blocks).getByRole("checkbox", {
         name: "1 record you cannot see Delete too",
       });
-      await clickDelete();
+      await clickLastButton("Delete");
       const blocked = "1 record blocks the delete";
       await screen.findByText(blocked);
       screen.getByText('Check "Delete too", or cancel.');
@@ -524,7 +520,7 @@ describe("channel/tree", () => {
           "This action cannot be undone.",
       );
       expect(screen.queryByText(failed)).toBeNull();
-      await clickDelete();
+      await clickLastButton("Delete");
       await expectGone(async () => await client.channels.retrieve(ch.key));
     });
 

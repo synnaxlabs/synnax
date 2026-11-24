@@ -20,6 +20,7 @@ import {
   type RenderOptions,
   type RenderResult,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 import { Provider } from "react-redux";
@@ -269,6 +270,18 @@ export const findLastButton = (text: string): HTMLButtonElement => {
   const btn = buttons.at(-1);
   if (btn == null) throw new Error(`button with text ${text} not found`);
   return btn;
+};
+
+/**
+ * Waits until the last button with text is enabled, as {@link findLastButton} finds it,
+ * then clicks it.
+ */
+export const clickLastButton = async (text: string): Promise<void> => {
+  await waitFor(() => {
+    if (findLastButton(text).getAttribute("aria-disabled") != null)
+      throw new Error(`button with text ${text} is disabled`);
+  });
+  fireEvent.click(findLastButton(text));
 };
 
 /**

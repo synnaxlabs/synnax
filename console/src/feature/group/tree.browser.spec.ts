@@ -21,6 +21,7 @@ import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
 import { Rack } from "@/feature/rack";
 import { Group as PlatformGroup } from "@/platform/group";
+import { clickLastButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createResource,
@@ -360,6 +361,117 @@ describe("a group and its child selected in flat search results", () => {
     await waitFor(async () =>
       expect(await childKeysOf(root.key)).toEqual([sibling.key]),
     );
+  });
+});
+
+describe("the impact of a group change", () => {
+  /** Deletes a channel in g that a schematic shows, so its name stays in g. */
+  const createDeletedChannel = async (g: group.Key, name = uniqueName("ch")) => {
+    const ch = await client.channels.create({
+      name,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      group: g,
+    });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
+    await client.schematics.create({
+      project: proj.key,
+      name: uniqueName("schematic"),
+      nodes: [
+        {
+          key: "value",
+          position: { x: 0, y: 0 },
+          config: { variant: "value", channel: ch.key },
+        },
+      ],
+    });
+    await client.channels.delete(ch.key);
+    return ch;
+  };
+
+  /** Opens the menu of child, which sits in parent, open or closed. */
+  const openMenu = async (parent: group.Group, child: group.Group, open: boolean) => {
+    const childNode: PTree.Node<string> = open
+      ? { key: nodeKey(child), children: [] }
+      : { key: nodeKey(child) };
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(parent), groupResource(child)],
+      selected: [group.resourceID(child.key)],
+      parentID: group.resourceID(parent.key),
+      stateOverrides: {
+        nodes: [{ key: nodeKey(parent), children: [childNode] }],
+        expanded: open ? [nodeKey(parent), nodeKey(child)] : [nodeKey(parent)],
+      },
+    });
+  };
+
+  const expectNoChildGroups = async (parent: group.Group) =>
+    await waitFor(async () =>
+      expect(
+        await retrieveChildGroupKeys(client, group.resourceID(parent.key)),
+      ).toEqual([]),
+    );
+
+  it("should list the deleted channels of an open group before deleting it", async () => {
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    const dead = await createDeletedChannel(child.key);
+    await openMenu(parent, child, true);
+    fireEvent.click(await screen.findByText("Delete"));
+    await screen.findByText(`Delete group ${child.name}`);
+    screen.getByText(
+      "Deletes the group. Views that show the deleted channels below cannot " +
+        "reconnect to a new channel with the same name. This action cannot be undone.",
+    );
+    await screen.findByText("Cannot reconnect");
+    screen.getByText(dead.name);
+    expect(await retrieveChildGroupKeys(client, group.resourceID(parent.key))).toEqual([
+      child.key,
+    ]);
+    await clickLastButton("Delete");
+    await expectNoChildGroups(parent);
+  });
+
+  it("should delete an open group that touches nothing with no dialog", async () => {
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    await openMenu(parent, child, true);
+    fireEvent.click(await screen.findByText("Delete"));
+    await expectNoChildGroups(parent);
+    expect(screen.queryByText(`Delete group ${child.name}`)).toBeNull();
+  });
+
+  it("should list a deleted channel whose name the parent holds before ungrouping", async () => {
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    const live = await createChannel(child.key);
+    const name = uniqueName("ch");
+    await createDeletedChannel(child.key, name);
+    await client.channels.create({
+      name,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      group: parent.key,
+    });
+    await openMenu(parent, child, false);
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await screen.findByText(`Ungroup ${child.name}`);
+    screen.getByText(
+      "Moves what the group holds to its parent, then deletes the group. The " +
+        "parent already has a channel with each name below. Views that show the " +
+        "deleted channels below cannot reconnect to a new channel with the same " +
+        "name. This action cannot be undone.",
+    );
+    await screen.findByText("Cannot reconnect");
+    screen.getByText(name);
+    expect((await client.channels.retrieve(live.key)).group).toBe(child.key);
+    await clickLastButton("Ungroup");
+    await waitFor(async () =>
+      expect((await client.channels.retrieve(live.key)).group).toBe(parent.key),
+    );
+    await expectNoChildGroups(parent);
   });
 });
 
