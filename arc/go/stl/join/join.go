@@ -32,9 +32,8 @@ type Config struct {
 	// wait for it. Each Next joins one frame of primary stamps. An input whose newest
 	// stamp lies before the frame's first stamp holds its value for the whole frame
 	// when that gap is within its hold limit. A live join drops the oldest samples of
-	// an
-	// input past most, so a primary that stays silent leaves memory bounded. A history
-	// join never drops a sample, and Push refuses one past most.
+	// an input past 65,536, so a primary that stays silent leaves memory bounded. A
+	// history join never drops a sample, and Push refuses one past 65,536.
 	Live bool
 }
 

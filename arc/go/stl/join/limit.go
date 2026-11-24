@@ -40,8 +40,8 @@ func (iv *intervals) limit() telem.TimeSpan {
 }
 
 // holdLimit returns 3 times the median of spans, or 0 for no limit: when spans is
-// empty, or when the input has no steady rate, as its largest span is over 2 times the
-// median.
+// empty, or when the input has no steady rate, as fewer than 3 in 4 of spans lie within
+// a factor of 2 of their median.
 func holdLimit(spans []telem.TimeSpan) telem.TimeSpan {
 	n := len(spans)
 	if n == 0 {
@@ -58,7 +58,13 @@ func holdLimit(spans []telem.TimeSpan) telem.TimeSpan {
 	if n%2 == 0 {
 		median = sorted[n/2-1] + (median-sorted[n/2-1])/2
 	}
-	if sorted[n-1]-median > median {
+	steady := 0
+	for _, span := range sorted[:n] {
+		if span-median <= median && median-span <= span {
+			steady++
+		}
+	}
+	if 4*steady < 3*n {
 		return 0
 	}
 	if median > telem.TimeSpanMax/3 {
