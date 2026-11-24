@@ -209,19 +209,19 @@
         position: relative;
     }
 
-    .console-schematic-region-list-item {
+    .console-schematic-part-list-item {
         padding-right: 0.5rem;
     }
 
-    .console-schematic-region-name {
-        min-width: 80px;
-    }
-
-    .console-schematic-region-list {
-        max-height: 200px;
+    .console-schematic-part-list {
+        max-height: 300px;
     }
 
     .console-schematic-state-list-item {
         min-width: 80px;
     }
+}
+
+.console-schematic-paint-dialog {
+    padding: 1rem;
 }

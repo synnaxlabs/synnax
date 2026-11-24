@@ -140,13 +140,13 @@ describe("User.KeySettings", () => {
     expect(copy.textContent?.trim()).toBe("Copy");
     fireEvent.click(findButton("Done"));
     await screen.findByText(name);
-    const keys = await client.auth.retrieveKeys([user.resourceID(u.key)]);
+    const keys = await client.auth.retrieveAPIKeys([user.resourceID(u.key)]);
     expect(keys.map((k) => k.name)).toEqual([name]);
   });
 
   it("should delete an API key from its menu after confirming", async () => {
     const { u, as } = await loginAs("Engineer");
-    const { key } = await as.auth.createKey({ name: uniqueName("key") });
+    const { key } = await as.auth.createAPIKey({ name: uniqueName("key") });
     await renderAs(
       as,
       <>
@@ -161,6 +161,6 @@ describe("User.KeySettings", () => {
       fireEvent.click(confirm);
     });
     await waitFor(() => expect(screen.queryByText(key.name)).toBeNull());
-    expect(await client.auth.retrieveKeys([user.resourceID(u.key)])).toEqual([]);
+    expect(await client.auth.retrieveAPIKeys([user.resourceID(u.key)])).toEqual([]);
   });
 });

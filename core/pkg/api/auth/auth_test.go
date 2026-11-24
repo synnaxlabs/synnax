@@ -274,10 +274,10 @@ var _ = Describe("Disabled methods", func() {
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a new API key", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
+		Expect(disabled(ctx, auth.MethodAPIKey).CreateAPIKey(
 			requestCtx(ctx),
 			nil,
-			apiauth.KeyCreateRequest{Name: "ci"},
+			apiauth.APIKeyCreateRequest{Name: "ci"},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 })
@@ -407,7 +407,7 @@ var _ = Describe("SetPassword", func() {
 	) {
 		key := MustSucceed(createKey(
 			authed(ctx, bobToken),
-			apiauth.KeyCreateRequest{Name: "spec"},
+			apiauth.APIKeyCreateRequest{Name: "spec"},
 		))
 		keyToken := MustSucceed(apiSvc.CreateSession(
 			requestCtx(ctx),
@@ -552,7 +552,7 @@ var _ = Describe("CreatePassword", func() {
 	It("Should let a user give itself its first password", func(ctx SpecContext) {
 		key := MustSucceed(createKey(
 			authed(ctx, rootToken),
-			apiauth.KeyCreateRequest{Subject: nopass.ResourceID(), Name: "nopass"},
+			apiauth.APIKeyCreateRequest{Subject: nopass.ResourceID(), Name: "nopass"},
 		))
 		token := MustSucceed(apiSvc.CreateSession(
 			requestCtx(ctx),
