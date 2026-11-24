@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -42,4 +43,48 @@ func (l *limiter) reserve(n int64) time.Time {
 	}
 	l.next = l.next.Add(time.Duration(float64(n) / l.rate * float64(time.Second)))
 	return l.next
+}
+
+// pacer waits on a clock for one owner of background reads: for the limiter after each
+// job, or until a set time. It stops waiting once stop closes.
+type pacer struct {
+	clock xtime.Clock
+	limit *limiter
+	stop  <-chan struct{}
+	fire  func()
+	fired chan struct{}
+}
+
+func newPacer(clock xtime.Clock, limit *limiter, stop <-chan struct{}) *pacer {
+	p := &pacer{clock: clock, limit: limit, stop: stop, fired: make(chan struct{}, 1)}
+	p.fire = func() { p.fired <- struct{}{} }
+	return p
+}
+
+// pace counts n bytes that a job read in the limiter, and waits until the reads fit its
+// rate. It returns the error of ctx, or errStopped once stop closes.
+func (p *pacer) pace(ctx context.Context, n int64) error {
+	return p.wait(ctx, p.limit.reserve(n))
+}
+
+// wait waits until at on the clock. It returns the error of ctx, or errStopped once
+// stop closes.
+func (p *pacer) wait(ctx context.Context, at time.Time) error {
+	if !at.After(p.clock.Now()) {
+		return nil
+	}
+	t := p.clock.RunAt(at, p.fire)
+	var err error
+	select {
+	case <-p.fired:
+		return nil
+	case <-ctx.Done():
+		err = ctx.Err()
+	case <-p.stop:
+		err = errStopped
+	}
+	if !t.Stop() {
+		<-p.fired
+	}
+	return err
 }

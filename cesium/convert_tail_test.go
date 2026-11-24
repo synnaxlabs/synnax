@@ -176,10 +176,19 @@ type oldSamples struct {
 	strs   []string
 }
 
-// writeOld writes oldN samples of an index, an int32 key, and a string key timed by it
-// to fs on the old layout, in small files so that each key rolls over at its own
-// commits, and makes them durable.
+// writeOld writes oldN samples as writeOldLost does, and makes them durable.
 func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
+	GinkgoHelper()
+	o := writeOldLost(ctx, disk)
+	disk.Writeback()
+	return o
+}
+
+// writeOldLost writes oldN samples of an index, an int32 key, and a string key timed by
+// it to fs on the old layout, in small files so that each key rolls over at its own
+// commits. The channels are durable, but the old layout never syncs its data, so a
+// crash can lose any sample.
+func writeOldLost(ctx context.Context, disk *fault.FS) oldSamples {
 	GinkgoHelper()
 	db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
 	Expect(db.CreateChannel(
@@ -198,6 +207,7 @@ func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
 			DataType: telem.StringT,
 		},
 	)).To(Succeed())
+	disk.Writeback()
 	o := oldSamples{
 		stamps: make([]telem.TimeStamp, oldN),
 		ints:   make([]int32, oldN),
@@ -223,7 +233,6 @@ func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
 	}
 	Expect(w.Close()).To(Succeed())
 	Expect(db.Close()).To(Succeed())
-	disk.Writeback()
 	return o
 }
 

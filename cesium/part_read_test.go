@@ -75,12 +75,13 @@ func waitHead(fs xfs.FS, generation uint64) {
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 
-// gateFS makes the first open of a part file after arm wait until the spec closes
-// release.
+// gateFS makes the first open of a file with the suffix of arm, after arm, wait until
+// the spec closes release.
 type gateFS struct {
 	xfs.FS
 	mu               sync.Mutex
 	armed            bool
+	suffix           string
 	waiting, release chan struct{}
 }
 
@@ -93,7 +94,7 @@ func (f *gateFS) Sub(name string) (xfs.FS, error) {
 
 func (f *gateFS) Open(name string, flag int) (xfs.File, error) {
 	f.mu.Lock()
-	held := f.armed && strings.HasSuffix(name, ".part")
+	held := f.armed && strings.HasSuffix(name, f.suffix)
 	waiting, release := f.waiting, f.release
 	f.armed = f.armed && !held
 	f.mu.Unlock()
@@ -104,10 +105,11 @@ func (f *gateFS) Open(name string, flag int) (xfs.File, error) {
 	return f.FS.Open(name, flag)
 }
 
-func (f *gateFS) arm() {
+func (f *gateFS) arm(suffix string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.armed, f.waiting, f.release = true, make(chan struct{}, 1), make(chan struct{})
+	f.armed, f.suffix = true, suffix
+	f.waiting, f.release = make(chan struct{}, 1), make(chan struct{})
 }
 
 // partedDB opens a database of the pointer log layout on fs whose switch writes every
@@ -305,7 +307,7 @@ var _ = Describe("Reads through parts", func() {
 			Bounds:   telem.TimeRangeMax,
 			Channels: []cesium.ChannelKey{idx},
 		}))
-		gate.arm()
+		gate.arm(".part")
 		sought := make(chan bool, 1)
 		go func() { sought <- iter.SeekFirst() }()
 		Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())
@@ -433,7 +435,7 @@ var _ = Describe("Drop of parted records", func() {
 				Bounds:   telem.TimeRangeMax,
 				Channels: []cesium.ChannelKey{data},
 			}))
-			gate.arm()
+			gate.arm(".part")
 			sought := make(chan bool, 1)
 			go func() { sought <- iter.SeekFirst() }()
 			Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())

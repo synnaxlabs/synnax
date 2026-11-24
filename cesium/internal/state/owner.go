@@ -100,8 +100,8 @@ type State struct {
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
-	// rep is the Replace in flight, or nil.
-	rep *replacing
+	// flight is the Replace or the Check in flight, or nil.
+	flight *flight
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
@@ -294,6 +294,16 @@ func (s *State) Channel(key uint32) *Channel {
 	return ch.pub.Load()
 }
 
+// Keys returns the keys that the state holds segments of, in rising order. It takes no
+// lock.
+func (s *State) Keys() []uint32 {
+	m := s.keys.Load()
+	if m == nil {
+		return nil
+	}
+	return slices.Sorted(maps.Keys(*m))
+}
+
 // Pair returns the visible state of key and of clock from one step of the owner, or nil
 // for a key that the state holds no segment of. It loads both again while the owner
 // publishes between its loads. It also returns the publish count of the loads, which
@@ -334,8 +344,8 @@ func (r *durableRequest) run(s *State) {
 	if invariants.Enabled {
 		s.checkCommits(r.records)
 	}
-	if s.rep != nil {
-		s.replaced(r.records)
+	if s.flight != nil {
+		s.landed(r.records)
 	}
 	if len(s.parked) > 0 {
 		s.unpark()

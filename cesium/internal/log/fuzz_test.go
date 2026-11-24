@@ -115,7 +115,7 @@ func FuzzDecodeEntry(f *testing.F) {
 		&replace,
 		&log.Drop{Key: 8},
 		&log.Restart{},
-		&log.Check{Segment: 3},
+		&log.Check{Segment: 3, Key: 4},
 		&log.Intent{Key: 8, Cleared: true},
 	))
 	f.Add(rawEntry(raw{1<<15 | 40, []byte{1, 2, 3, 4, 5, 6, 7, 8}}))

@@ -363,7 +363,7 @@ var _ = Describe("Replay", func() {
 		),
 		Entry("a replace by a segment with data", &log.Replace{Old: 2, New: 4},
 			state.ErrRefused, "replace of segment 2 by 4, which is not a new segment"),
-		Entry("a check of a version 1 segment", &log.Check{Segment: 2},
+		Entry("a check of a version 1 segment", &log.Check{Segment: 2, Key: 5},
 			state.ErrRefused, "check of segment 2, which is not a sealed version 0 "+
 				"segment"),
 	)

@@ -35,6 +35,8 @@ type core struct {
 	threshold float32
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
+	// checking is the segment of the Check in flight, which a switch keeps, or 0.
+	checking uint64
 	// count counts the publishes of the owner for readers of more than one Channel.
 	count    *pubCount
 	channels map[uint32]*chanState
@@ -140,20 +142,29 @@ func (c *core) record(r log.Record, pre []Preload) error {
 	case *log.Replace:
 		return c.replace(r)
 	case *log.Check:
-		return c.check(r)
+		return c.check(r, pre)
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}
 }
 
 // check turns on the checks of a sealed version 0 segment that now has its check file.
-// A part may hold its record from before, so the record goes back to the head, with a
-// kill of the copy that a part holds.
-func (c *core) check(r *log.Check) error {
+// A part may hold its record from before, so the record goes back to the head from
+// pre, the preload of its key in replay, with a kill of the copy that a part holds.
+func (c *core) check(r *log.Check, pre []Preload) error {
+	records := recordsOf(pre, r.Key)
+	if i := slices.IndexFunc(records, func(s Segment) bool {
+		return s.ID == r.Segment
+	}); i >= 0 && c.channels[r.Key] != nil {
+		c.putBack(r.Key, records[i:i+1])
+	}
 	s := c.segments[r.Segment]
 	switch {
 	case s == nil || !s.dur.created:
 		return refuse("check of segment %d, which no create made", r.Segment)
+	case s.key != r.Key:
+		return refuse("check of segment %d of key %d, which key %d holds", r.Segment,
+			r.Key, s.key)
 	case s.vis.Version != 0 || !s.dur.sealed:
 		return refuse("check of segment %d, which is not a sealed version 0 segment",
 			r.Segment)

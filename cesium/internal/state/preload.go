@@ -122,7 +122,7 @@ func (r *beginDropRequest) run(s *State) {
 // BeginDrop holds the part records of key and the part records that name key as their
 // clock, from the preload of key in pre, for the durable apply of the Drop of key that
 // the caller logs next. It returns ErrStale when the preload is stale. It waits for a
-// Replace in flight of a segment of key or one that key times.
+// Replace or a Check in flight of a segment of key or one that key times.
 func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 	r := &beginDropRequest{key: key, pre: pre, done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {
@@ -264,8 +264,9 @@ func (c *core) forget(changed set.Set[uint32], tagged int) {
 
 // forgetTagged takes each tagged segment of ch out of the state, with no file to
 // unlink, and reports whether any was. It keeps a tagged segment that a delete claim
-// reaches, for the cut of its Tombstone, and reports whether it kept one. unmap also
-// takes each segment it forgets out of the segment map.
+// reaches, for the cut of its Tombstone, or that the Check in flight turns on, and
+// reports whether it kept one. unmap also takes each segment it forgets out of the
+// segment map.
 func (c *core) forgetTagged(ch *chanState, unmap bool) (forgot, cutting bool) {
 	cuts := func(s *segState) bool {
 		return slices.ContainsFunc(ch.claims, func(cl *claim) bool {
@@ -275,7 +276,7 @@ func (c *core) forgetTagged(ch *chanState, unmap bool) (forgot, cutting bool) {
 	kept := ch.segs[:0]
 	for _, s := range ch.segs {
 		if s.vis.Part != 0 {
-			if !cuts(s) {
+			if !cuts(s) && s.vis.ID != c.checking {
 				if unmap {
 					delete(c.segments, s.vis.ID)
 				}

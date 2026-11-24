@@ -89,13 +89,17 @@ func (s *State) NewID() (uint64, error) {
 	return r.id, nil
 }
 
-// replacing is the Replace that the owner appended and has yet to apply or see refused.
-type replacing struct {
-	old        uint64
+// flight is the Replace or the Check that the owner appended and has yet to apply or
+// see refused. The compactor and the check pass each run one at a time.
+type flight struct {
+	// seg is the old segment of a Replace, or the segment of a Check.
+	seg        uint64
+	check      bool
 	key, clock uint32
 	done       chan error
-	// deferred holds the requests whose check reads the old segment, which run again
-	// once the Replace applies or fails.
+	// deferred holds the requests that wait for the entry: a Replace or a Check, and
+	// each request whose check reads seg. They run again once the entry applies or
+	// fails.
 	deferred []request
 }
 
@@ -107,12 +111,16 @@ type replaceRequest struct {
 func (r *replaceRequest) fail(err error) { r.done <- err }
 
 func (r *replaceRequest) run(s *State) {
+	if s.flight != nil && s.flight.check {
+		s.flight.deferred = append(s.flight.deferred, r)
+		return
+	}
 	old := s.core.segments[r.r.Old]
 	if err := s.checkReplace(old, r.r); err != nil {
 		r.done <- err
 		return
 	}
-	s.rep = &replacing{old: r.r.Old, key: old.key, clock: old.vis.Clock, done: r.done}
+	s.flight = &flight{seg: r.r.Old, key: old.key, clock: old.vis.Clock, done: r.done}
 	var e log.Entry
 	e.Add(&log.Create{
 		Segment:  r.r.New,
@@ -130,27 +138,33 @@ func (r *replaceRequest) run(s *State) {
 // old.
 func (s *State) checkReplace(old *segState, r *log.Replace) error {
 	switch {
-	case s.rep != nil:
+	case s.flight != nil:
 		return errors.Newf("replace of segment %d while the replace of segment %d is "+
-			"in flight", r.Old, s.rep.old)
+			"in flight", r.Old, s.flight.seg)
 	case old == nil || !copied(old.dur.pointers, r.Pointers):
 		return errors.Wrapf(ErrStale, "segment %d changed after its copy", r.Old)
 	case !s.core.candidates.Contains(r.Old):
 		return errors.Newf("replace of segment %d, which is no candidate of a rewrite",
 			r.Old)
 	}
-	for _, key := range [2]uint32{old.key, old.vis.Clock} {
-		if _, ok := s.core.dropUsers[key]; ok {
-			return errors.Wrapf(ErrStale, "drop of key %d reads segment %d", key, r.Old)
+	return s.core.readers(r.Old, old.key, old.vis.Clock, old.dur.pointers)
+}
+
+// readers returns an error that wraps ErrStale when a Drop or a delete claim of key or
+// clock may read segment id, whose durable pointers are ptrs.
+func (c *core) readers(id uint64, key, clock uint32, ptrs []Pointer) error {
+	for _, k := range [2]uint32{key, clock} {
+		if _, ok := c.dropUsers[k]; ok {
+			return errors.Wrapf(ErrStale, "drop of key %d reads segment %d", k, id)
 		}
-		ch := s.core.channels[key]
+		ch := c.channels[k]
 		if ch == nil {
 			continue
 		}
 		for _, cl := range ch.claims {
-			if cl.w == nil && overlaps(old.dur.pointers, cl.start, cl.end) {
+			if cl.w == nil && overlaps(ptrs, cl.start, cl.end) {
 				return errors.Wrapf(ErrStale, "delete of key %d from %d reads segment "+
-					"%d", key, cl.start, r.Old)
+					"%d", k, cl.start, id)
 			}
 		}
 	}
@@ -163,7 +177,8 @@ func (s *State) checkReplace(old *segState, r *log.Replace) error {
 // refused it. It returns an error that wraps ErrStale when the durable pointers of the
 // old segment differ from those of r, or a Drop or a delete of its key or its clock is
 // in progress. Until the entry applies or fails, the owner defers each delete and Drop
-// whose check reads the old segment. The caller runs one Replace at a time.
+// whose check reads the old segment, and each Check. It waits for a Check in flight.
+// The caller runs one Replace at a time.
 func (s *State) Replace(r *log.Replace) error {
 	req := &replaceRequest{r: r, done: make(chan error, 1)}
 	if err := s.enqueue(req); err != nil {
@@ -172,49 +187,58 @@ func (s *State) Replace(r *log.Replace) error {
 	return wait(s, req.done)
 }
 
-// deferred holds r until the Replace in flight applies or fails, when the check of r
-// reads the old segment: a segment of key, or one that key times. It reports whether it
-// held r.
+// deferred holds r until the Replace or the Check in flight applies or fails, when the
+// check of r reads its segment: a segment of key, or one that key times. It reports
+// whether it held r.
 func (s *State) deferred(r request, key uint32) bool {
-	if s.rep == nil || (s.rep.key != key && s.rep.clock != key) {
+	if s.flight == nil || (s.flight.key != key && s.flight.clock != key) {
 		return false
 	}
-	s.rep.deferred = append(s.rep.deferred, r)
+	s.flight.deferred = append(s.flight.deferred, r)
 	return true
 }
 
-// endReplace ends the Replace in flight with err, and runs the requests that it
-// deferred.
-func (s *State) endReplace(err error) {
-	rep := s.rep
-	s.rep = nil
-	rep.done <- err
-	for _, r := range rep.deferred {
+// endFlight ends the Replace or the Check in flight with err, and runs the requests
+// that it deferred.
+func (s *State) endFlight(err error) {
+	f := s.flight
+	s.flight, s.core.checking = nil, 0
+	f.done <- err
+	for _, r := range f.deferred {
 		r.run(s)
 	}
 }
 
-// replaced ends the Replace in flight once records, a durable entry, hold it.
-func (s *State) replaced(records []log.Record) {
+// landed ends the Replace or the Check in flight once records, a durable entry, hold
+// it.
+func (s *State) landed(records []log.Record) {
 	for _, rec := range records {
-		if r, ok := rec.(*log.Replace); ok && r.Old == s.rep.old {
-			s.endReplace(nil)
-			return
+		switch r := rec.(type) {
+		case *log.Replace:
+			if !s.flight.check && r.Old == s.flight.seg {
+				s.endFlight(nil)
+				return
+			}
+		case *log.Check:
+			if s.flight.check && r.Segment == s.flight.seg {
+				s.endFlight(nil)
+				return
+			}
 		}
 	}
 }
 
-// failWaiting fails with err the parked requests, the Replace in flight, and the
-// requests that the Replace deferred.
+// failWaiting fails with err the parked requests, the Replace or the Check in flight,
+// and the requests that it deferred.
 func (s *State) failWaiting(err error) {
 	s.failParked(err)
-	if s.rep == nil {
+	if s.flight == nil {
 		return
 	}
-	rep := s.rep
-	s.rep = nil
-	rep.done <- err
-	for _, r := range rep.deferred {
+	f := s.flight
+	s.flight, s.core.checking = nil, 0
+	f.done <- err
+	for _, r := range f.deferred {
 		r.fail(err)
 	}
 }

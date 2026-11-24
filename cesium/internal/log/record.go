@@ -184,6 +184,8 @@ type Restart struct{}
 type Check struct {
 	// Segment is the identity of the segment.
 	Segment uint64
+	// Key is the key whose samples the segment holds.
+	Key uint32
 }
 
 // Intent sets or clears the delete intent of a key.
@@ -426,15 +428,16 @@ func (*Restart) decode(b []byte) error {
 }
 
 func (r *Check) append(dst []byte) []byte {
-	return le64(appendHeader(dst, typeCheck, 8), r.Segment)
+	return le32(le64(appendHeader(dst, typeCheck, 16), r.Segment), r.Key, 0)
 }
 
 func (r *Check) decode(b []byte) error {
-	if len(b) != 8 {
-		return sizeError("check", len(b), 8)
+	if len(b) != 16 {
+		return sizeError("check", len(b), 16)
 	}
 	r.Segment = binary.LittleEndian.Uint64(b)
-	return nil
+	r.Key = binary.LittleEndian.Uint32(b[8:])
+	return zeros("check", b[12:])
 }
 
 func (r *Intent) append(dst []byte) []byte {

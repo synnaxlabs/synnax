@@ -179,8 +179,13 @@ var entryRefusals = []refusal{
 	},
 	{
 		"a long check",
-		rawEntry(raw{9, le64(1, 2)}),
-		"check record has 16 bytes, not 8",
+		rawEntry(raw{9, le64(1, 2, 3)}),
+		"check record has 24 bytes, not 16",
+	},
+	{
+		"a set reserved field in a check",
+		rawEntry(raw{9, concat(le64(1), le32(4, 1))}),
+		"check record has a set reserved byte",
 	},
 	{
 		"a short reserve",

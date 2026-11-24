@@ -34,8 +34,7 @@ var errStopped = errors.New("compactor stopped")
 // bytes. The jobs count their reads in limit, the budget of the background reads.
 type compactor struct {
 	e     *engine
-	clock xtime.Clock
-	limit *limiter
+	pacer *pacer
 	wake  chan struct{}
 	// started is closed once the orphan pass is done, which would remove the file of a
 	// rewrite in progress.
@@ -51,8 +50,6 @@ type compactor struct {
 	buf     []byte
 	step    func()
 	stepped chan error
-	fire    func()
-	fired   chan struct{}
 }
 
 // rewrite is the copy of an old segment into a new one.
@@ -73,8 +70,6 @@ type rewrite struct {
 func newCompactor(e *engine, clock xtime.Clock, limit *limiter) *compactor {
 	c := &compactor{
 		e:       e,
-		clock:   clock,
-		limit:   limit,
 		wake:    make(chan struct{}, 1),
 		started: make(chan struct{}),
 		stop:    make(chan struct{}),
@@ -82,10 +77,9 @@ func newCompactor(e *engine, clock xtime.Clock, limit *limiter) *compactor {
 		failed:  set.New[uint64](),
 		buf:     make([]byte, jobBlocks*(segment.BlockSize+segment.VariableTrailer)),
 		stepped: make(chan error, 1),
-		fired:   make(chan struct{}, 1),
 	}
+	c.pacer = newPacer(clock, limit, c.stop)
 	c.step = func() { c.stepped <- c.copyBlocks() }
-	c.fire = func() { c.fired <- struct{}{} }
 	return c
 }
 
@@ -242,7 +236,7 @@ func (c *compactor) copyLive(
 		read := c.rw.read
 		c.e.exec(c.step)
 		if err = <-c.stepped; err == nil {
-			err = c.pace(ctx, c.rw.read-read)
+			err = c.pacer.pace(ctx, c.rw.read-read)
 		}
 	}
 	if err == nil {
@@ -300,27 +294,4 @@ func (c *compactor) copyBlocks() error {
 		}
 	}
 	return nil
-}
-
-// pace counts n bytes that a job read in the limiter, and waits until the reads fit its
-// rate. It returns the error of ctx, or errStopped once close runs.
-func (c *compactor) pace(ctx context.Context, n int64) error {
-	at := c.limit.reserve(n)
-	if !at.After(c.clock.Now()) {
-		return nil
-	}
-	t := c.clock.RunAt(at, c.fire)
-	var err error
-	select {
-	case <-c.fired:
-		return nil
-	case <-ctx.Done():
-		err = ctx.Err()
-	case <-c.stop:
-		err = errStopped
-	}
-	if !t.Stop() {
-		<-c.fired
-	}
-	return err
 }

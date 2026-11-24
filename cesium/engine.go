@@ -58,6 +58,10 @@ type engine struct {
 	compact *compactor
 	// limit is the budget of the background reads, which each owner of them shares.
 	limit *limiter
+	// check gives the version 0 segments their check files, and toCheck holds the keys
+	// that the orphan pass hands it.
+	check   *checker
+	toCheck set.Set[ChannelKey]
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -169,6 +173,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	e.limit = newLimiter(o.clock, o.gcCfg.Rate)
 	e.compact = newCompactor(e, o.clock, e.limit)
+	e.check = newChecker(e, o.clock, e.limit, o.gcCfg.TryInterval)
 	return e, nil
 }
 
@@ -418,9 +423,9 @@ func (e *engine) reap() error {
 	return e.release(dead)
 }
 
-// run runs the owners until ctx is done, then closes them in order: the compactor, the
-// log, so that its queued entries and a clean mark reach the file, then the
-// checkpointer, then the state. It runs the orphan pass first.
+// run runs the owners until ctx is done, then closes them in order: the check pass, the
+// compactor, the log, so that its queued entries and a clean mark reach the file, then
+// the checkpointer, then the state. It runs the orphan pass first.
 func (e *engine) run(ctx context.Context) error {
 	owners, cancel := signal.Isolated()
 	defer cancel()
@@ -428,6 +433,7 @@ func (e *engine) run(ctx context.Context) error {
 	owners.Go(e.log.Run, signal.CancelOnFail())
 	owners.Go(e.ckpt.Run, signal.CancelOnFail())
 	owners.Go(e.compact.run, signal.CancelOnFail())
+	owners.Go(e.check.run, signal.CancelOnFail())
 	if e.switched != 0 {
 		e.switchedTo(e.switched)
 	}
@@ -441,6 +447,7 @@ func (e *engine) run(ctx context.Context) error {
 	close(e.ready)
 	if err == nil {
 		e.compact.start()
+		e.check.start(e.toCheck)
 	}
 	if err == nil {
 		select {
@@ -478,29 +485,10 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 			}
 			created[r.Segment] = r.Key
 		case *log.Commit:
-			first, last := telem.TimeStamp(r.First), telem.TimeStamp(r.Last)
-			for _, slot := range r.Slots {
-				key, ok := e.state.KeyOf(slot.Segment)
-				if !ok {
-					key, ok = created[slot.Segment]
-				}
-				if ok {
-					if pre, err = e.addPreload(
-						pre,
-						key,
-						first,
-						last,
-						false,
-					); err != nil {
-						return err
-					}
-				}
-			}
+			pre, err = e.commitPreloads(pre, r, created)
 		case *log.Tombstone:
 			start, end := telem.TimeStamp(r.Start), telem.TimeStamp(r.End)
-			if pre, err = e.addPreload(pre, r.Key, start, end-1, true); err != nil {
-				return err
-			}
+			pre, err = e.addPreload(pre, r.Key, start, end-1, true)
 		case *log.Drop:
 			e.stored.Remove(r.Key)
 			pre, err = e.addPreload(
@@ -510,9 +498,19 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 				telem.TimeStampMax,
 				true,
 			)
-			if err != nil {
-				return err
-			}
+		case *log.Check:
+			// The record names no time range, so the preload holds every part record
+			// of the key.
+			pre, err = e.addPreload(
+				pre,
+				r.Key,
+				telem.TimeStampMin,
+				telem.TimeStampMax,
+				false,
+			)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	slices.SortFunc(
@@ -522,9 +520,34 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 	return e.state.Replay(sequence, records, pre...)
 }
 
+// commitPreloads adds to pre the preload of the key of each slot of c over the range of
+// c. created maps the segments that the entry of c creates to their keys.
+func (e *engine) commitPreloads(
+	pre []state.Preload,
+	c *log.Commit,
+	created map[uint64]ChannelKey,
+) ([]state.Preload, error) {
+	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
+	for _, slot := range c.Slots {
+		key, ok := e.state.KeyOf(slot.Segment)
+		if !ok {
+			key, ok = created[slot.Segment]
+		}
+		if !ok {
+			continue
+		}
+		var err error
+		if pre, err = e.addPreload(pre, key, first, last, false); err != nil {
+			return nil, err
+		}
+	}
+	return pre, nil
+}
+
 // close closes the owners once.
 func (e *engine) close() error {
 	e.shutdown.Do(func() {
+		e.check.close()
 		e.compact.close()
 		e.closeErr = errors.Join(e.log.Close(), e.ckpt.Close(), e.state.Close())
 	})
@@ -622,7 +645,8 @@ const (
 // opened head names stays, unless snapshot lacks its key, which a Drop then took. On an
 // open that loaded a head, it also removes the leftovers of the old layout that hold no
 // data, and moves each old file that the conversion read from its compaction file into
-// place. The checkpointer cleans the root.
+// place. It sets toCheck to the stored keys that hold more old files with bytes than
+// check files, which the check pass reads. The checkpointer cleans the root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
@@ -638,6 +662,7 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 		return err
 	}
 	removed := false
+	e.toCheck = set.New[ChannelKey]()
 	for _, info := range infos {
 		if e.loaded && info.IsDir() && strings.Contains(info.Name(), deletedDirSuffix) {
 			if err = e.fs.Remove(info.Name()); err != nil {
@@ -677,6 +702,7 @@ func (e *engine) orphansOf(
 	}
 	d := &orphanDir{e: e, key: key, named: named, stored: stored}
 	changed := false
+	checks := 0
 	for _, info := range infos {
 		name := dir + "/" + info.Name()
 		left, moved, err := e.leftover(d, name, infos)
@@ -685,12 +711,12 @@ func (e *engine) orphansOf(
 		}
 		changed = changed || moved
 		if strings.HasSuffix(name, ".chk") {
-			if !d.checked(name, info) {
-				if err = e.fs.Remove(name); err != nil {
-					return err
-				}
-				changed = true
+			kept, err := e.orphanCheck(d, name, info)
+			if err != nil {
+				return err
 			}
+			checks += kept
+			changed = changed || kept == 0
 			continue
 		}
 		if left || !strings.HasSuffix(name, ".seg") {
@@ -711,10 +737,48 @@ func (e *engine) orphansOf(
 			}
 		}
 	}
+	// Each version 0 segment holds one old file, and each checked one a check file.
+	if stored && oldFiles(infos) > checks {
+		e.toCheck.Add(key)
+	}
 	if changed {
 		return e.fs.SyncDir(dir)
 	}
 	return nil
+}
+
+// orphanCheck removes name, a check file of d with info, unless it belongs to a version
+// 0 segment that the head names with its checks on. It returns 1 when it kept the file,
+// and 0 when it removed it.
+func (e *engine) orphanCheck(
+	d *orphanDir,
+	name string,
+	info xfs.FileInfo,
+) (int, error) {
+	if d.checked(name, info) {
+		return 1, nil
+	}
+	return 0, e.fs.Remove(name)
+}
+
+// oldFiles returns the number of old data files with bytes among infos, the files of a
+// channel directory: each N.domain, and each N.domain_temp when N.domain is missing.
+func oldFiles(infos []xfs.FileInfo) int {
+	n := 0
+	for _, info := range infos {
+		base, temp := strings.CutSuffix(info.Name(), tempSuffix)
+		num, ok := strings.CutSuffix(base, ".domain")
+		if _, err := strconv.ParseUint(num, 10, 16); !ok || err != nil ||
+			info.Size() == 0 {
+			continue
+		}
+		if !temp || !slices.ContainsFunc(infos, func(other xfs.FileInfo) bool {
+			return other.Name() == base
+		}) {
+			n++
+		}
+	}
+	return n
 }
 
 // orphanDir is the channel directory of key in the orphan pass, with the segments of

@@ -80,6 +80,31 @@ func (e *engine) deleteRange(
 	if tr.Start == tr.End {
 		return false, nil
 	}
+	return e.logTombstone(
+		key,
+		clock,
+		tr,
+		func(d *state.Delete) (l, r *log.Cut, err error) {
+			if d.Left != nil {
+				l, err = e.cutAt(key, dt, clock, d.Left, tr.Start, true)
+			}
+			if err == nil && d.Right != nil {
+				r, err = e.cutAt(key, dt, clock, d.Right, tr.End, false)
+			}
+			return l, r, err
+		},
+	)
+}
+
+// logTombstone claims tr of key, a key that clock times or clock itself, and logs a
+// durable Tombstone of tr with the cuts that cuts returns for the edges of the claim.
+// It
+// returns false when key holds no data in tr.
+func (e *engine) logTombstone(
+	key, clock ChannelKey,
+	tr telem.TimeRange,
+	cuts func(d *state.Delete) (left, right *log.Cut, err error),
+) (bool, error) {
 	// A delete of a clock checks the records of the keys that it times.
 	timed := key == clock
 	var (
@@ -103,12 +128,7 @@ func (e *engine) deleteRange(
 		return false, d.Release()
 	}
 	t := &log.Tombstone{Key: key, Start: int64(tr.Start), End: int64(tr.End)}
-	if d.Left != nil {
-		t.Left, err = e.cutAt(key, dt, clock, d.Left, tr.Start, true)
-	}
-	if err == nil && d.Right != nil {
-		t.Right, err = e.cutAt(key, dt, clock, d.Right, tr.End, false)
-	}
+	t.Left, t.Right, err = cuts(d)
 	if err == nil {
 		err = d.Check(t)
 	}
@@ -145,13 +165,9 @@ func (e *engine) cutAt(
 			at,
 		)
 	}
-	var offset uint32
-	if dt.IsVariable() {
-		if offset, err = e.variableOffset(key, edge, k); err != nil {
-			return nil, err
-		}
-	} else {
-		offset = p.Offset + uint32(dt.Density().Size(int64(k)))
+	offset, err := e.sampleOffset(key, dt, edge, k)
+	if err != nil {
+		return nil, err
 	}
 	stamp := stamps[k]
 	if left {
@@ -163,6 +179,20 @@ func (e *engine) cutAt(
 		Alignment: uint64(p.Alignment.AddSamples(uint32(k))),
 		Stamp:     int64(stamp),
 	}, nil
+}
+
+// sampleOffset returns the stream offset of sample k of the pointer of edge, a pointer
+// of key whose samples are of type dt.
+func (e *engine) sampleOffset(
+	key ChannelKey,
+	dt telem.DataType,
+	edge *state.Edge,
+	k int,
+) (uint32, error) {
+	if dt.IsVariable() {
+		return e.variableOffset(key, edge, k)
+	}
+	return edge.Pointer.Offset + uint32(dt.Density().Size(int64(k))), nil
 }
 
 // stamps returns the stamps that clock holds for the samples of pointer p of a key it

@@ -174,7 +174,7 @@ var _ = Describe("Record", func() {
 			&replace,
 			&log.Drop{Key: 8},
 			&log.Restart{},
-			&log.Check{Segment: 12},
+			&log.Check{Segment: 12, Key: 4},
 			&log.Intent{Key: 8},
 			&log.Intent{Key: 8, Cleared: true},
 		}
@@ -188,7 +188,7 @@ var _ = Describe("Record", func() {
 			replace,
 			log.Drop{Key: 8},
 			log.Restart{},
-			log.Check{Segment: 12},
+			log.Check{Segment: 12, Key: 4},
 			log.Intent{Key: 8},
 			log.Intent{Key: 8, Cleared: true},
 		}))
@@ -292,8 +292,8 @@ var _ = Describe("Record", func() {
 		),
 		Entry(
 			"check",
-			&log.Check{Segment: 12},
-			concat([]byte{9, 0, 0, 0}, le32(8), le64(12)),
+			&log.Check{Segment: 12, Key: 4},
+			concat([]byte{9, 0, 0, 0}, le32(16), le64(12), le32(4, 0)),
 		),
 	)
 
