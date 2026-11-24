@@ -308,6 +308,26 @@ describe("connection", () => {
       const status = await connection.check({ host, port });
       expect(status.variant).toEqual("error");
     });
+
+    it.each([
+      ["alone", { secure: false }],
+      ["next to an agreeing insecure", { insecure: true, secure: false }],
+    ])("should read the deprecated secure %s as its inverse", async (_, tls) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { host, port } = testClientParams();
+      const status = await connection.check({ host, port, ...tls });
+      expect(status.variant).toEqual("success");
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+
+    it("should reject insecure and the deprecated secure that disagree", async () => {
+      const { host, port } = testClientParams();
+      const tls = { insecure: true, secure: true };
+      await expect(connection.check({ host, port, ...tls })).rejects.toThrow(
+        "insecure and secure disagree",
+      );
+    });
   });
 
   describe("clock skew", () => {

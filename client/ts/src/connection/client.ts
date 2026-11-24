@@ -90,7 +90,7 @@ export interface CheckParams {
 /**
  * Runs a one-shot connectivity check against the given cluster address and folds the
  * result into a status. Failures of the check land in the returned status.
- * @throws {ValidationError} if insecure and the deprecated secure are both given.
+ * @throws {ValidationError} if insecure and the deprecated secure disagree.
  */
 export const check = async (params: CheckParams): Promise<Status> => {
   const { host, port, name } = params;

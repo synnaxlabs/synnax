@@ -255,11 +255,25 @@ const purgeSecrets = <S extends StoreState>(state: S): S => ({
   },
 });
 
+// A 0.62 Console reads secure, so it keeps TLS after a downgrade. Drop with 0.62.
+const writeSecure = <S extends StoreState>(state: S): S => ({
+  ...state,
+  [SLICE_NAME]: {
+    ...state[SLICE_NAME],
+    cores: Object.fromEntries(
+      Object.entries(state[SLICE_NAME].cores).map(([key, core]) => [
+        key,
+        { ...core, secure: !core.insecure },
+      ]),
+    ),
+  },
+});
+
 /**
  * Keeps every password and OpenID Connect code out of the stored state; a session
- * resumes from its token.
+ * resumes from its token. Writes secure next to insecure for older releases.
  */
-export const PERSIST_EXCLUDE = [purgeSecrets];
+export const PERSIST_EXCLUDE = [purgeSecrets, writeSecure];
 
 export { reducer };
 

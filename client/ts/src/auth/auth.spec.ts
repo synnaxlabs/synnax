@@ -179,6 +179,29 @@ describe("auth", () => {
       const tls = auth.createTokenlessClient({ host, port });
       await expect(auth.retrieveMethods(tls)).rejects.toThrow();
     });
+
+    it.each([
+      ["alone", { secure: false }],
+      ["next to an agreeing insecure", { insecure: true, secure: false }],
+    ])("should read the deprecated secure %s as its inverse", async (_, tls) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { host, port } = testClientParams();
+      const cleartext = auth.createTokenlessClient({ host, port, ...tls });
+      expect((await auth.retrieveMethods(cleartext)).toSorted()).toEqual([
+        "api_key",
+        "password",
+      ]);
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+
+    it("should reject insecure and the deprecated secure that disagree", () => {
+      const { host, port } = testClientParams();
+      const tls = { insecure: true, secure: true };
+      expect(() => auth.createTokenlessClient({ host, port, ...tls })).toThrow(
+        "insecure and secure disagree",
+      );
+    });
   });
 
   describe("createSession", () => {

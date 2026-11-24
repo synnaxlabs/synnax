@@ -111,7 +111,7 @@ export interface TokenlessParams {
 /**
  * Creates a client for the routes a Core serves without a session. Create one per Core
  * address and reuse it across requests.
- * @throws {ValidationError} if insecure and the deprecated secure are both given.
+ * @throws {ValidationError} if insecure and the deprecated secure disagree.
  */
 export const createTokenlessClient = (params: TokenlessParams): UnaryClient => {
   const { host, port } = params;

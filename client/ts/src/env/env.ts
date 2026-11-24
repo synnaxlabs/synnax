@@ -97,7 +97,7 @@ const CA_NEEDS_TLS_MSG =
   "SYNNAX_CA_CERT requires TLS; leave SYNNAX_INSECURE out or set it to false";
 const HELPER_TIMEOUT = TimeSpan.seconds(30);
 
-// Releases of Synnax Desktop before 0.63 write secure in place of insecure.
+// Synnax Desktop writes secure, the inverse of insecure.
 const desktopFileZ = z
   .object({
     host: z.string(),
@@ -153,39 +153,57 @@ export interface InsecureParams {
   secure?: boolean;
 }
 
-/**
- * @returns insecure, or the opposite of the deprecated secure, which logs a warning.
- * Undefined when neither is given.
- * @throws {ValidationError} if both are given.
- */
-export const resolveInsecure = ({
-  insecure,
-  secure,
-}: InsecureParams): boolean | undefined => {
+interface InsecureNames {
+  insecure: string;
+  secure: string;
+  replacement: string;
+}
+
+const PARAM_NAMES: InsecureNames = {
+  insecure: "insecure",
+  secure: "secure",
+  replacement: "insecure: true in place of secure: false",
+};
+
+const VARIABLE_NAMES: InsecureNames = {
+  insecure: "SYNNAX_INSECURE",
+  secure: "SYNNAX_SECURE",
+  replacement: "SYNNAX_INSECURE=true in place of SYNNAX_SECURE=false",
+};
+
+const combineInsecure = (
+  insecure: boolean | undefined,
+  secure: boolean | undefined,
+  names: InsecureNames,
+): boolean | undefined => {
   if (secure == null) return insecure;
-  if (insecure != null)
-    throw new ValidationError("Give insecure or secure, not both. Use insecure.");
+  if (insecure === secure)
+    throw new ValidationError(
+      `${names.insecure} and ${names.secure} disagree. Give ${names.insecure} only.`,
+    );
   console.warn(
-    "secure is deprecated and goes in 0.64. Use insecure: true in place of " +
-      "secure: false.",
+    `${names.secure} is deprecated and goes in 0.64. Use ${names.replacement}.`,
   );
   return !secure;
 };
 
-const readInsecure = (env: Env): boolean | undefined => {
-  const insecure = readBoolean(env, "SYNNAX_INSECURE");
-  const secure = readBoolean(env, "SYNNAX_SECURE");
-  if (secure == null) return insecure;
-  if (insecure != null)
-    throw new ValidationError(
-      "Set SYNNAX_INSECURE or SYNNAX_SECURE, not both. Use SYNNAX_INSECURE.",
-    );
-  console.warn(
-    "SYNNAX_SECURE is deprecated and goes in 0.64. Use SYNNAX_INSECURE=true in place " +
-      "of SYNNAX_SECURE=false.",
+/**
+ * @returns insecure, or the inverse of the deprecated secure, which logs a warning.
+ * Undefined when neither is given.
+ * @throws {ValidationError} if insecure and secure are both given and disagree.
+ */
+export const resolveInsecure = ({
+  insecure,
+  secure,
+}: InsecureParams): boolean | undefined =>
+  combineInsecure(insecure, secure, PARAM_NAMES);
+
+const readInsecure = (env: Env): boolean | undefined =>
+  combineInsecure(
+    readBoolean(env, "SYNNAX_INSECURE"),
+    readBoolean(env, "SYNNAX_SECURE"),
+    VARIABLE_NAMES,
   );
-  return !secure;
-};
 
 const isAbsolute = (path: string, platform: string): boolean =>
   platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
@@ -424,7 +442,7 @@ export const nodeSystem = (
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
  * SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not valid, if insecure and secure,
- * or SYNNAX_INSECURE and SYNNAX_SECURE, are both set, if SYNNAX_CA_CERT is set with
+ * or SYNNAX_INSECURE and SYNNAX_SECURE, disagree, if SYNNAX_CA_CERT is set with
  * SYNNAX_INSECURE true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
  * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
  * Desktop is too old. Reads the desktop.json of the config directory of the OS or of

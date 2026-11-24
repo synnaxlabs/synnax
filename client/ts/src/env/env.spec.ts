@@ -154,6 +154,18 @@ describe("resolveParams", () => {
     ["secure true", { secure: true }, {}, false],
     ["SYNNAX_SECURE false", {}, { SYNNAX_SECURE: "false" }, true],
     ["SYNNAX_SECURE true", {}, { SYNNAX_SECURE: "true" }, false],
+    [
+      "secure next to an agreeing insecure",
+      { insecure: true, secure: false },
+      {},
+      true,
+    ],
+    [
+      "SYNNAX_SECURE next to an agreeing SYNNAX_INSECURE",
+      {},
+      { SYNNAX_INSECURE: "false", SYNNAX_SECURE: "true" },
+      false,
+    ],
   ])("should read the deprecated %s with a warning", (_, params, vars, insecure) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const resolved = env.resolveParams({ host: "rig", ...params }, vars);
@@ -165,13 +177,13 @@ describe("resolveParams", () => {
   });
 
   it.each<[env.Given, env.Env, string]>([
-    [{ insecure: true, secure: true }, {}, "Give insecure or secure, not both"],
+    [{ insecure: true, secure: true }, {}, "insecure and secure disagree"],
     [
       {},
       { SYNNAX_INSECURE: "true", SYNNAX_SECURE: "true" },
-      "Set SYNNAX_INSECURE or SYNNAX_SECURE, not both",
+      "SYNNAX_INSECURE and SYNNAX_SECURE disagree",
     ],
-  ])("should reject %j and %j together", (params, vars, message) => {
+  ])("should reject %j and %j that disagree", (params, vars, message) => {
     expect(() => env.resolveParams({ host: "rig", ...params }, vars)).toThrow(
       ValidationError,
     );

@@ -356,6 +356,24 @@ describe("coreZ", () => {
 });
 
 describe("PERSIST_EXCLUDE", () => {
+  it("should write secure as the inverse of insecure in each stored Core", () => {
+    const state = {
+      [Core.SLICE_NAME]: withCores(
+        { ...ALPHA, insecure: true },
+        { ...BRAVO, insecure: false },
+      ),
+    };
+    const stored = Core.PERSIST_EXCLUDE.reduce((s, exclude) => exclude(s), state);
+    const cores = Object.values(stored[Core.SLICE_NAME].cores);
+    expect(cores.map((c) => [c.insecure, "secure" in c && c.secure])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+    const read = Core.sliceStateZ.parse(stored[Core.SLICE_NAME]);
+    expect(read.cores.alpha.insecure).toBe(true);
+    expect(read.cores.bravo.insecure).toBe(false);
+  });
+
   it("should keep every password out of the stored state", () => {
     const state = {
       [Core.SLICE_NAME]: withCores(

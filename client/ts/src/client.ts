@@ -157,9 +157,9 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
- * fields left out.
- * With no host from either, Synnax Desktop on this computer fills them.
+ * SYNNAX_API_KEY, SYNNAX_INSECURE, and SYNNAX_CA_CERT environment variables fill the
+ * fields left out, and so does the deprecated SYNNAX_SECURE. With no host from either,
+ * Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
   host?: string;
@@ -337,7 +337,7 @@ export default class Synnax extends framer.Client {
    * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not valid, if insecure and
-   * secure, or SYNNAX_INSECURE and SYNNAX_SECURE, are both set, if SYNNAX_CA_CERT is
+   * secure, or SYNNAX_INSECURE and SYNNAX_SECURE, disagree, if SYNNAX_CA_CERT is
    * set with SYNNAX_INSECURE true, if the SYNNAX_CA_CERT file is missing, empty, not
    * PEM text, or cannot be read, if the desktop.json of Synnax Desktop cannot be read,
    * or if Synnax Desktop is too old.

@@ -39,6 +39,10 @@ const nameInput = (): HTMLInputElement =>
 const portInput = (): HTMLInputElement =>
   getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
 
+// The form asks whether the Core uses TLS, so the box is checked for insecure false.
+const secureBox = (): HTMLInputElement =>
+  getBySelector<HTMLInputElement>(document.body, ".lyra-field__secure input");
+
 const fillForm = (name: string, host: string, port: string): void => {
   fireEvent.change(nameInput(), { target: { value: name } });
   fireEvent.change(screen.getByPlaceholderText("localhost"), {
@@ -59,6 +63,15 @@ describe("useConnectModal", () => {
         "alpha.host",
       );
       expect(findButton("Save")).toBeTruthy();
+    });
+
+    it.each([
+      [false, true],
+      [true, false],
+    ])("should check Secure for insecure %s: %s", async (insecure, checked) => {
+      const alpha = createCore("Alpha", { insecure });
+      await openConnect([{ coreKey: alpha.key }], createCoreState([alpha]));
+      expect(secureBox().checked).toBe(checked);
     });
   });
 
@@ -106,6 +119,22 @@ describe("useConnectModal", () => {
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),
       );
+    });
+
+    it.each([
+      [true, false],
+      [false, true],
+    ])("should save Secure %s as insecure %s", async (secure, insecure) => {
+      const { store } = await openConnect([]);
+      fillForm("TLSTest", "localhost", "9092");
+      if (secureBox().checked !== secure) fireEvent.click(secureBox());
+      fireEvent.click(findButton("Connect"));
+      await waitFor(() => {
+        const created = Object.values(
+          store.getState()[Session.Core.SLICE_NAME].cores,
+        ).find((c) => c.name === "TLSTest");
+        expect(created?.insecure).toBe(insecure);
+      });
     });
 
     it("should rename the edited Core in place and preserve its login", async () => {
