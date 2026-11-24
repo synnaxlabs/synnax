@@ -30,7 +30,7 @@ type Reader struct {
 
 // newReader opens a reader on ptr, which the index held when the GC rewrite count of
 // its file was rewrites. It follows ptr to its new offset if GC moved it, and returns
-// ErrChanged if a delete also changed it. With no rewrite, the bytes of ptr are in
+// errChanged if a delete also changed it. With no rewrite, the bytes of ptr are in
 // place even if a delete removed them.
 func (db *DB) newReader(
 	ctx context.Context,
@@ -44,7 +44,7 @@ func (db *DB) newReader(
 	// The handle keeps GC off the file from here on.
 	if current, count, found := db.idx.locate(ptr); count != rewrites {
 		if !found {
-			return nil, errors.Combine(ErrChanged, internal.Close())
+			return nil, errors.Combine(errChanged, internal.Close())
 		}
 		ptr.offset = current.offset
 	}

@@ -100,7 +100,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						fixedOffset(6),
 					)).To(Succeed())
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(i.OpenReader(ctx)).Error().To(MatchError(domain.ErrChanged))
+					Expect(i.OpenReader(ctx)).Error().To(
+						MatchError(ContainSubstring("domain changed")),
+					)
 					Expect(i.SeekGE(ctx, second.Start)).To(BeTrue())
 					expectRead(ctx, data[:3])
 				})
