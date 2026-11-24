@@ -200,6 +200,62 @@ var _ = Describe("Writer on the pointer log", func() {
 				cesium.HistoryChange{Key: data, TimeRange: tr},
 			))
 		})
+		It("Should report each later commit of a stretch from the end of the commit "+
+			"before it", func(ctx SpecContext) {
+			w := openWriter(ctx, 20*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			var changes []cesium.HistoryChange
+			disconnect := db.OnHistoryChange(
+				func(_ context.Context, c cesium.HistoryChange) {
+					changes = append(changes, c)
+				},
+			)
+			DeferCleanup(disconnect)
+			w = openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			MustSucceed2(w.Write(ctx, frame(12, 13), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			first := (10 * telem.SecondTS).Range(11*telem.SecondTS + 1)
+			second := (11*telem.SecondTS + 1).Range(13*telem.SecondTS + 1)
+			Expect(changes).To(ConsistOf(
+				cesium.HistoryChange{Key: idx, TimeRange: first},
+				cesium.HistoryChange{Key: data, TimeRange: first},
+				cesium.HistoryChange{Key: idx, TimeRange: second},
+				cesium.HistoryChange{Key: data, TimeRange: second},
+			))
+		})
+
+		It("Should report the first commit of a new stretch from its first stamp",
+			func(ctx SpecContext) {
+				w := openWriter(ctx, 20*telem.SecondTS)
+				MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				var changes []cesium.HistoryChange
+				DeferCleanup(db.OnHistoryChange(
+					func(_ context.Context, c cesium.HistoryChange) {
+						changes = append(changes, c)
+					},
+				))
+				w = openWriter(ctx, 10*telem.SecondTS)
+				MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.EndDomain(ctx, idx)).To(Succeed())
+				changes = nil
+				MustSucceed2(w.Write(ctx, frame(12, 13), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				tr := (12 * telem.SecondTS).Range(13*telem.SecondTS + 1)
+				Expect(changes).To(ConsistOf(
+					cesium.HistoryChange{Key: idx, TimeRange: tr},
+					cesium.HistoryChange{Key: data, TimeRange: tr},
+				))
+			})
+
 		It("Should not read samples that are not committed", func(ctx SpecContext) {
 			w := openWriter(ctx, 10*telem.SecondTS)
 			MustSucceed2(w.Write(ctx, frame(10, 11), nil))

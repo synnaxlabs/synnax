@@ -52,10 +52,12 @@ type logWriter struct {
 	last telem.TimeStamp
 	// The uncommitted run: the index of its first sample, its first and last stamps,
 	// and its sample count.
-	from        uint32
-	first, end  telem.TimeStamp
-	samples     uint32
-	lastCommit  telem.TimeStamp
+	from       uint32
+	first, end telem.TimeStamp
+	samples    uint32
+	lastCommit telem.TimeStamp
+	// since is the end of the last commit of the stretch, or zero before its first.
+	since       telem.TimeStamp
 	frames      int
 	entry       log.Entry
 	excluded    []ChannelKey
@@ -253,7 +255,7 @@ func (w *logWriter) stretch(
 	if w.number != 0 {
 		return false, nil
 	}
-	w.next = 0
+	w.next, w.since = 0, 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()
 		w.number = a.DomainIndex()
@@ -466,12 +468,18 @@ func (w *logWriter) commit(
 				lk.committed = int64(length)
 			}
 		}
+		// A commit that goes on in a stretch changes the time from the end of the
+		// commit before it, as the domain of the old layout does.
+		start := w.first
+		if w.since != 0 {
+			start = w.since
+		}
 		for _, key := range w.backfilled {
-			w.history(ctx, HistoryChange{Key: key, TimeRange: w.first.Range(end)})
+			w.history(ctx, HistoryChange{Key: key, TimeRange: start.Range(end)})
 		}
 		w.entry.Add(c)
 	}
-	w.samples, w.lastCommit = 0, end
+	w.samples, w.lastCommit, w.since = 0, end, end
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
