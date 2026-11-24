@@ -34,6 +34,7 @@ import {
   retrieveResponseZ,
   type Symbol,
   symbolZ,
+  TYPE_RESOURCE_ID,
 } from "@/schematic/symbol/types.gen";
 import {
   compareCursors,
@@ -88,11 +89,6 @@ export interface ClientConfig {
   file: FileTransport;
   cache: query.Cache;
   groupStore: query.Table<group.Key, group.Group>;
-  /**
-   * The channels that announce changes to schematics, which can use a symbol. A change
-   * on one refetches the uses that a maintained query watches.
-   */
-  usesChannels: string[];
 }
 
 export class Client extends query.Retriever<
@@ -123,7 +119,7 @@ export class Client extends query.Retriever<
       key: keyZ,
       retrieve: async (req) => await this.execRetrieve(req),
       request: (key) => ({ where: { key }, includeUses: true }),
-      channels: cfg.usesChannels,
+      type: TYPE_RESOURCE_ID.type,
     });
     // Every write to a symbol reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Symbol, Action>({
