@@ -51,6 +51,16 @@ Content.match = (status) => status.key === "special";
 
 describe("Notifications", () => {
   installPortalRoot();
+  // The feed polls its clock each second, and real hovers update the feed and its
+  // tooltips. Both run on the browser's schedule, which no act can wrap.
+  let actEnvironment: boolean | undefined;
+  beforeAll(() => {
+    actEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  });
+  afterAll(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+  });
 
   it("renders the default notification for an unmatched status", async () => {
     await addStatus({ key: "n1", variant: "info", message: "Hello there" });
@@ -272,17 +282,6 @@ describe("Notifications", () => {
   });
 
   describe("a card tooltip", () => {
-    // These specs hover for real, and the feed and the tooltip then update on the
-    // browser's schedule, which no act can wrap.
-    let actEnvironment: boolean | undefined;
-    beforeAll(() => {
-      actEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
-      globalThis.IS_REACT_ACT_ENVIRONMENT = false;
-    });
-    afterAll(() => {
-      globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
-    });
-
     const TooltipHarness = (): ReactElement => {
       const add = Status.useAdder();
       return (
