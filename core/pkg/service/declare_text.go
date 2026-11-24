@@ -26,20 +26,20 @@ import (
 // (channel.Writer.TakeTextRenames): each token in the text of a calculation or an Arc
 // that names the old path becomes a token of the channel's path now, whatever channel
 // holds the old path by then. It deletes the renames in the same transaction, so a
-// start that stops first runs the pass again. It must run after every Declare of the
-// start and before anything compiles that text again.
+// start that stops first runs the pass again. Nothing may compile that text between a
+// Declare and the pass.
 func passDeclaredRenames(
 	ctx context.Context,
 	db *gorp.DB,
 	channels *channel.Service,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		renames, err := channels.NewWriter(tx).TakeTextRenames(ctx)
-		if err != nil || len(renames) == 0 {
+		stored, err := channels.NewWriter(tx).TakeTextRenames(ctx)
+		if err != nil || len(stored) == 0 {
 			return err
 		}
-		keys := make([]channel.Key, len(renames))
-		for i, r := range renames {
+		keys := make([]channel.Key, len(stored))
+		for i, r := range stored {
 			keys[i] = r.Key
 		}
 		var renamed []channel.Channel
@@ -54,33 +54,46 @@ func passDeclaredRenames(
 		for _, ch := range renamed {
 			paths[ch.Key()] = ch.Name
 		}
-		cfg := parser.Config{AllowDashedNames: resolver.AllowDashedNames(channels)}
-		// rename returns source with each rename's tokens rewritten. A deleted channel
-		// keeps the tokens of its old path.
-		rename := func(source string, block bool) string {
-			for _, r := range renames {
-				to, ok := paths[r.Key]
-				if !ok {
-					continue
-				}
-				if next, ok := text.RenameChannel(source, block, r.From, to, cfg); ok {
-					source = next
-				}
+		// A deleted channel keeps the tokens of its old path.
+		var renames []declaredRename
+		for _, r := range stored {
+			if to, ok := paths[r.Key]; ok {
+				renames = append(renames, declaredRename{from: r.From, to: to})
 			}
-			return source
 		}
-		if err = renameCalculations(ctx, tx, rename); err != nil {
+		cfg := parser.Config{AllowDashedNames: resolver.AllowDashedNames(channels)}
+		if err = renameCalculations(ctx, tx, renames, cfg); err != nil {
 			return err
 		}
-		return renameArcs(ctx, tx, rename)
+		return renameArcs(ctx, tx, renames, cfg)
 	})
 }
 
-// renameCalculations writes the expression of each calculation through rename.
+// declaredRename is a rename that the pass applies: from the old path to the new one.
+type declaredRename struct{ from, to string }
+
+// rewriteSource returns source with the tokens of each rename rewritten. block reads
+// source as the body of a function.
+func rewriteSource(
+	source string,
+	block bool,
+	renames []declaredRename,
+	cfg parser.Config,
+) string {
+	for _, r := range renames {
+		if next, ok := text.RenameChannel(source, block, r.from, r.to, cfg); ok {
+			source = next
+		}
+	}
+	return source
+}
+
+// renameCalculations rewrites the expression of each calculation.
 func renameCalculations(
 	ctx context.Context,
 	tx gorp.Tx,
-	rename func(source string, block bool) string,
+	renames []declaredRename,
+	cfg parser.Config,
 ) error {
 	var calcs []calculation.Calculation
 	if err := gorp.NewRetrieve[calculation.Key, calculation.Calculation]().
@@ -90,7 +103,7 @@ func renameCalculations(
 	}
 	var changed []calculation.Calculation
 	for _, c := range calcs {
-		if e := rename(c.Expression, true); e != c.Expression {
+		if e := rewriteSource(c.Expression, true, renames, cfg); e != c.Expression {
 			c.Expression = e
 			changed = append(changed, c)
 		}
@@ -99,12 +112,13 @@ func renameCalculations(
 		Set(ctx, changed...)
 }
 
-// renameArcs writes the text of each Arc, and the body of each function of each Arc
-// graph, through rename.
+// renameArcs rewrites the text of each Arc through its op-log, and the body of each
+// function of each Arc graph.
 func renameArcs(
 	ctx context.Context,
 	tx gorp.Tx,
-	rename func(source string, block bool) string,
+	renames []declaredRename,
+	cfg parser.Config,
 ) error {
 	var arcs []arc.Arc
 	if err := gorp.NewRetrieve[arc.Key, arc.Arc]().
@@ -115,7 +129,7 @@ func renameArcs(
 	var changed []arc.Arc
 	for _, a := range arcs {
 		b := a.Base()
-		if renameArcSource(&b.Source, rename) {
+		if rewriteArcSource(&b.Source, renames, cfg) {
 			a.SetBase(b)
 			changed = append(changed, a)
 		}
@@ -123,19 +137,23 @@ func renameArcs(
 	return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, changed...)
 }
 
-// renameArcSource writes src through rename, and reports whether it changed. A
-// function body keeps its braces.
-func renameArcSource(
+// rewriteArcSource rewrites src, and reports whether it changed. A function body keeps
+// its braces.
+func rewriteArcSource(
 	src *arc.Source,
-	rename func(source string, block bool) string,
+	renames []declaredRename,
+	cfg parser.Config,
 ) bool {
 	changed := false
 	switch v := src.Variant.(type) {
 	case arc.TextSource:
-		raw := v.Text.Materialize().Raw
-		if renamed := rename(raw, false); renamed != raw {
-			v.Text = text.Text{Doc: text.Create(renamed)}
-			src.Variant, changed = v, true
+		for _, r := range renames {
+			doc, ok := text.RenameChannelInDocument(v.Text.Doc, r.from, r.to, cfg)
+			// A rename inserts the characters of each new token.
+			if ok && len(doc.Inserts) != len(v.Text.Doc.Inserts) {
+				v.Text.Doc = doc
+				src.Variant, changed = v, true
+			}
 		}
 	case arc.GraphSource:
 		for i, f := range v.Graph.Functions {
@@ -144,7 +162,7 @@ func renameArcSource(
 				continue
 			}
 			inner := body[1 : len(body)-1]
-			if renamed := rename(inner, true); renamed != inner {
+			if renamed := rewriteSource(inner, true, renames, cfg); renamed != inner {
 				v.Graph.Functions[i].Body.Raw = "{" + renamed + "}"
 				src.Variant, changed = v, true
 			}
