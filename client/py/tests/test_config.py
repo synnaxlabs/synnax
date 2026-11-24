@@ -193,6 +193,34 @@ class TestFile:
         assert str(current / "config.json") in str(e.value)
         assert str(legacy / "config.json") in str(e.value)
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_failed_legacy_write_changes_nothing(self, tmp_path: Path) -> None:
+        """Should leave both files and the keyring as they were when the legacy file
+        cannot be written.
+        """
+        if os.geteuid() == 0:
+            pytest.skip("root writes to a read-only directory")
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        clusters = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        clusters.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        before = {p: p.read_bytes() for p in (current, legacy) for p in p.iterdir()}
+        legacy.chmod(0o500)
+        try:
+            with pytest.raises(PermissionError):
+                clusters.set(
+                    Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b"))
+                )
+        finally:
+            legacy.chmod(0o700)
+        after = {p: p.read_bytes() for p in (current, legacy) for p in p.iterdir()}
+        assert after == before
+        for d in (current, legacy):
+            cluster = Clusters(File(config_dir=d), keyring).get()
+            assert cluster is not None
+            assert cluster.options.host == "a.lab"
+            assert cluster.options.api_key == "syk_a"
+
     def test_legacy_reader_sees_a_new_login(self, tmp_path: Path) -> None:
         """Should keep the legacy file current, so an older client reads the Core of
         the last login.

@@ -93,9 +93,17 @@ class File:
 
     def _write(self, config: dict[str, Any]) -> None:
         # Clients of Synnax 0.62 read only the legacy file. Drop it when 0.62 support
-        # ends.
-        for path in self._paths:
-            _write_file(path, config)
+        # ends. Staging every file before replacing any makes a failed write change
+        # none.
+        staged: list[tuple[str, pathlib.Path]] = []
+        try:
+            staged.extend(_stage(path, config) for path in self._paths)
+        except BaseException:
+            for temp, _ in staged:
+                os.unlink(temp)
+            raise
+        for temp, path in staged:
+            _replace(temp, path)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -116,25 +124,32 @@ class File:
         self.save()
 
 
-def _write_file(file: pathlib.Path, config: dict[str, Any]) -> None:
+def _stage(file: pathlib.Path, config: dict[str, Any]) -> tuple[str, pathlib.Path]:
+    """Writes config to a temporary file beside file, and returns the temporary file
+    and the path it replaces. Removes the temporary file if the write fails.
+    """
     # Resolving first writes through a symlink instead of replacing it.
     path = file.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Replacing the file whole keeps a failed write from leaving a partial file.
     with tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
         dir=path.parent,
         prefix=f".{path.name}.",
-        delete_on_close=False,
+        delete=False,
     ) as f:
-        json.dump(config, f)
-        f.flush()
-        os.fsync(f.fileno())
-        f.close()
-        if path.exists():
-            shutil.copymode(path, f.name)
-        _replace(f.name, path)
+        try:
+            json.dump(config, f)
+            f.flush()
+            os.fsync(f.fileno())
+            f.close()
+            if path.exists():
+                shutil.copymode(path, f.name)
+        except BaseException:
+            f.close()
+            os.unlink(f.name)
+            raise
+    return f.name, path
 
 
 # Windows refuses to replace a file that another process, such as a virus scanner,
