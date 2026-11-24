@@ -191,6 +191,8 @@ var _ = Describe("A store from core/v0.62.0", func() {
 			To(Equal(symbol.CustomRef{Key: vent.Key}))
 		Expect(nodes["custom_static"].Spec.Variant).
 			To(Equal(symbol.CustomRef{Key: tank.Key}))
+		Expect(nodes["Missing static"].Spec.Variant).
+			To(Equal(symbol.MissingRef{Key: "e040ea6d-24f5-4e8d-ba3a-fc1143909e72"}))
 		Expect(nodes["Normally open"].Spec.Variant).
 			To(Equal(symbol.BuiltinRef{Name: "normally_open_solenoid_valve"}))
 		Expect(nodes["Red filter"].Scale).To(Equal(1.5))
