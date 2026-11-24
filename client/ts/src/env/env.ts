@@ -181,6 +181,8 @@ const combineInsecure = (
     throw new ValidationError(
       `${names.insecure} and ${names.secure} disagree. Give ${names.insecure} only.`,
     );
+  // Both names that agree serve clients older and newer than 0.63 at once.
+  if (insecure != null) return insecure;
   console.warn(
     `${names.secure} is deprecated and goes in 0.64. Use ${names.replacement}.`,
   );
@@ -188,8 +190,8 @@ const combineInsecure = (
 };
 
 /**
- * @returns insecure, or the inverse of the deprecated secure, which logs a warning.
- * Undefined when neither is given.
+ * @returns insecure, or the inverse of the deprecated secure. The deprecated secure
+ * alone logs a warning. Undefined when neither is given.
  * @throws {ValidationError} if insecure and secure are both given and disagree.
  */
 export const resolveInsecure = ({

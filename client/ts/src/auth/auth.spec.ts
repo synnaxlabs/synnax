@@ -181,19 +181,22 @@ describe("auth", () => {
     });
 
     it.each([
-      ["alone", { secure: false }],
-      ["next to an agreeing insecure", { insecure: true, secure: false }],
-    ])("should read the deprecated secure %s as its inverse", async (_, tls) => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const { host, port } = testClientParams();
-      const cleartext = auth.createTokenlessClient({ host, port, ...tls });
-      expect((await auth.retrieveMethods(cleartext)).toSorted()).toEqual([
-        "api_key",
-        "password",
-      ]);
-      expect(warn).toHaveBeenCalledOnce();
-      warn.mockRestore();
-    });
+      ["alone", { secure: false }, 1],
+      ["next to an agreeing insecure", { insecure: true, secure: false }, 0],
+    ])(
+      "should read the deprecated secure %s as its inverse",
+      async (_, tls, warnings) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const { host, port } = testClientParams();
+        const cleartext = auth.createTokenlessClient({ host, port, ...tls });
+        expect((await auth.retrieveMethods(cleartext)).toSorted()).toEqual([
+          "api_key",
+          "password",
+        ]);
+        expect(warn).toHaveBeenCalledTimes(warnings);
+        warn.mockRestore();
+      },
+    );
 
     it("should reject insecure and the deprecated secure that disagree", () => {
       const { host, port } = testClientParams();

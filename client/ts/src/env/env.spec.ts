@@ -154,6 +154,17 @@ describe("resolveParams", () => {
     ["secure true", { secure: true }, {}, false],
     ["SYNNAX_SECURE false", {}, { SYNNAX_SECURE: "false" }, true],
     ["SYNNAX_SECURE true", {}, { SYNNAX_SECURE: "true" }, false],
+  ])("should read the deprecated %s with a warning", (_, params, vars, insecure) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const resolved = env.resolveParams({ host: "rig", ...params }, vars);
+    expect(resolved.insecure).toBe(insecure);
+    expect(resolved).not.toHaveProperty("secure");
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain("deprecated and goes in 0.64");
+    warn.mockRestore();
+  });
+
+  it.each<[string, env.Given, env.Env, boolean]>([
     [
       "secure next to an agreeing insecure",
       { insecure: true, secure: false },
@@ -166,13 +177,11 @@ describe("resolveParams", () => {
       { SYNNAX_INSECURE: "false", SYNNAX_SECURE: "true" },
       false,
     ],
-  ])("should read the deprecated %s with a warning", (_, params, vars, insecure) => {
+  ])("should read %s with no warning", (_, params, vars, insecure) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const resolved = env.resolveParams({ host: "rig", ...params }, vars);
     expect(resolved.insecure).toBe(insecure);
-    expect(resolved).not.toHaveProperty("secure");
-    expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0][0]).toContain("deprecated and goes in 0.64");
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 
