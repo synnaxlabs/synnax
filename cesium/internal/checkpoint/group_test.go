@@ -119,7 +119,7 @@ var _ = Describe("Group commit", func() {
 								{Segment: id, Length: length, TailCRC: tail},
 							},
 						}
-						Expect(w.Commit(c)).To(Succeed())
+						Expect(w.Commit([]*log.Commit{c})).To(Succeed())
 						var e log.Entry
 						if i == 0 {
 							e.Add(&log.Create{

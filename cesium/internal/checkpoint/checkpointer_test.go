@@ -269,7 +269,7 @@ var _ = Describe("Checkpointer", func() {
 					Samples: 2, Alignment: uint64(n) << 32, First: 10, Last: 20,
 					Slots: []log.Slot{{Segment: id, Length: 16, TailCRC: 7}},
 				}
-				Expect(w.Commit(c)).To(Succeed())
+				Expect(w.Commit([]*log.Commit{c})).To(Succeed())
 				var e log.Entry
 				e.Add(
 					&log.Create{Segment: id, Key: 5, Clock: 5, Version: 1, DataType: 4},
