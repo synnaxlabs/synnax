@@ -107,6 +107,10 @@ func (r *joinRequest) run(s *State) {
 				w.cfg.Clock, key)
 			return
 		}
+		if err := s.checkClaims(w, d, key, d.claims[key].start); err != nil {
+			w.done <- err
+			return
+		}
 	}
 	clock := w.claims[w.cfg.Clock]
 	for key, t := range d.types {
@@ -129,7 +133,8 @@ func (r *joinRequest) run(s *State) {
 
 // Join moves every key of d, a writer of data against the stamps of the clock of w,
 // with its claims and open segments, into w, and drops the pin of d on the clock. Each
-// claim ends where the claim of w on the clock ends. d takes no later call.
+// claim ends where the claim of w on the clock ends, and Join refuses a claim that then
+// reaches the claim of another writer, as OpenWriter does. d takes no later call.
 func (w *Writer) Join(d *Writer) error { return w.call(&joinRequest{w: w, d: d}) }
 
 type boundRequest struct {

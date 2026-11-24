@@ -87,6 +87,8 @@ func (db *DB) handoffLog(
 	if err = db.addKeys(l, cfg.Channels); err != nil {
 		return nil, nil, err
 	}
+	// The samples of a key that joined w start after its runs.
+	l.closeRun()
 	w.closed = true
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
 }
@@ -174,10 +176,17 @@ func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 	if err = st.Bound(p.runs[0].first, last.last); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
-	p.stamps = &placer{
+	p.stamps = p.placed()
+	return &Pending{log: p}, nil
+}
+
+// placed returns a placer that has placed the samples of the runs of w.
+func (w *logWriter) placed() *placer {
+	last := w.runs[len(w.runs)-1]
+	return &placer{
 		e:       w.e,
 		clock:   w.clock,
-		start:   p.runs[0].first,
+		start:   w.runs[0].first,
 		started: true,
 		cur: state.Pointer{
 			First:     last.first,
@@ -187,7 +196,6 @@ func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 		},
 		next: last.alignment.AddSamples(last.samples),
 	}
-	return &Pending{log: p}, nil
 }
 
 // dropEmptyRuns drops the runs in which no key of w has bytes.
@@ -259,7 +267,7 @@ func (w *logWriter) join(a *logWriter) error {
 	}
 	for _, lk := range a.keys {
 		// No write of w has frame zero.
-		lk.frame = 0
+		lk.frame, lk.skipped = 0, false
 		w.keys = append(w.keys, lk)
 		w.byKey[lk.ch.Key] = lk
 	}

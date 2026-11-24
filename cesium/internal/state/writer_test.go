@@ -704,6 +704,23 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should refuse to join a key that another writer claims after the bound of "+
+			"the split", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			Expect(d.Bound(100, 110)).To(Succeed())
+			o := open(state.WriterConfig{
+				Clock: 5,
+				Start: 111,
+				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+			})
+			Expect(w.Join(d)).To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("reaches the claim of")),
+			))
+			Expect(o.Close()).To(Succeed())
+			Expect(w.Join(d)).To(Succeed())
+		})
+
 		It("Should join the keys of a split back, with their segments", func() {
 			d := MustSucceed(w.Split([]uint32{6}))
 			Expect(w.Join(d)).To(Succeed())
