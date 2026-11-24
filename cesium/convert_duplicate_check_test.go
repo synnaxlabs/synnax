@@ -64,7 +64,7 @@ func sharedStampRoot(ctx context.Context) xfs.FS {
 	)).To(Succeed())
 	w := MustSucceed(db.OpenWriter(
 		ctx,
-		cesium.WriterConfig{Channels: keys, Start: telem.SecondTS},
+		cesium.WriterConfig{Channels: keys, Clock: idx, Start: telem.SecondTS},
 	))
 	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 		telem.NewSeriesSecondsTSV(1, 2, 3),
