@@ -24,7 +24,7 @@ from synnax.config.clusters import (
     Clusters,
     Keyring,
 )
-from synnax.config.file import File, read_first
+from synnax.config.file import File, read_latest
 from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 
@@ -62,7 +62,7 @@ def config_dirs(
     local: bool = False,
 ) -> tuple[Path, Path]:
     """Returns the directory where Synnax keeps its config files on this operating
-    system, then ~/.synnax, where older versions kept them. Readers try both in order.
+    system, then ~/.synnax, where older versions kept them. Readers read the newer copy.
 
     :param home: The home directory. Defaults to the one of the current user.
     :param env: The environment variables. Defaults to os.environ.
@@ -138,7 +138,7 @@ def _read_desktop_file(path: Path | None) -> dict[str, Any] | None:
         if path is not None
         else [d / "desktop.json" for d in config_dirs(local=True)]
     )
-    read = read_first(paths)
+    read = read_latest(paths)
     if read is None:
         return None
     p, data = read
@@ -178,8 +178,8 @@ def load_desktop_options(
     """Loads the options that Synnax Desktop saved for scripts on this computer: the
     address in a file, and the API key that the key helper named in the file prints.
 
-    :param path: The file Synnax Desktop writes. Defaults to desktop.json in the first
-        of config_dirs(local=True) that holds one.
+    :param path: The file Synnax Desktop writes. Defaults to the newer desktop.json in
+        config_dirs(local=True).
     :param run: Runs the key helper.
     :returns: The options, or None if Synnax Desktop has saved none.
     :raises ConfigurationError: If the home directory is unknown, if the file exists
@@ -311,7 +311,7 @@ def load_options(
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options. Defaults to
-        desktop.json in the first of config_dirs(local=True) that holds one.
+        the newer desktop.json in config_dirs(local=True).
     :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
     :raises ValidationError: If the environment variables are not valid, or if no source

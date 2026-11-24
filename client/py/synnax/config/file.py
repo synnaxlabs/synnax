@@ -22,21 +22,28 @@ from typing import Any
 from synnax.exceptions import ConfigurationError
 
 
-def read_first(paths: Sequence[pathlib.Path]) -> tuple[pathlib.Path, bytes] | None:
-    """Reads the first of paths that can be read.
+def read_latest(paths: Sequence[pathlib.Path]) -> tuple[pathlib.Path, bytes] | None:
+    """Reads the file that was modified last of the paths that can be read. On a tie,
+    the earlier path wins.
 
     :returns: The path and its bytes, or None when no file exists.
     :raises ConfigurationError: If a file exists but none can be read. The message
         names each path that failed and why.
     """
+    # Synnax 0.62 writes only the legacy file, so the newer copy is the current one.
+    # Read only the first path when 0.62 support ends.
+    read: list[tuple[int, pathlib.Path, bytes]] = []
     failed: list[tuple[pathlib.Path, OSError]] = []
     for path in paths:
         try:
-            return path, path.read_bytes()
+            read.append((path.stat().st_mtime_ns, path, path.read_bytes()))
         except FileNotFoundError:
             continue
         except OSError as e:
             failed.append((path, e))
+    if read:
+        _, path, data = max(read, key=lambda r: r[0])
+        return path, data
     if not failed:
         return None
     raise ConfigurationError(
@@ -45,8 +52,8 @@ def read_first(paths: Sequence[pathlib.Path]) -> tuple[pathlib.Path, bytes] | No
 
 
 class File:
-    """The global synnax py configuration file. Loads from config_dir, or from
-    legacy_dir when config_dir holds no readable file. Writes to both.
+    """The global synnax py configuration file. Loads the newer readable file of
+    config_dir and legacy_dir. Writes to both.
     """
 
     config_file: pathlib.Path
@@ -75,7 +82,7 @@ class File:
         :raises ConfigurationError: If no file can be read, or if the file read is not
             valid JSON.
         """
-        read = read_first(self._paths)
+        read = read_latest(self._paths)
         if read is None:
             self.config = {}
             return

@@ -328,6 +328,34 @@ class TestFile:
         for d in (current, legacy):
             assert [p.name for p in d.iterdir()] == ["config.json"]
 
+    def test_reads_a_newer_legacy_login(self, tmp_path: Path) -> None:
+        """Should read the legacy file when a 0.62 client saved a login to another Core
+        there after a new login.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        new = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        new.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        old = Clusters(File(config_dir=legacy), keyring)
+        old.set(Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b")))
+        stamp = (current / "config.json").stat().st_mtime_ns
+        os.utime(legacy / "config.json", ns=(stamp + 10**9, stamp + 10**9))
+        cluster = Clusters(File(config_dir=current, legacy_dir=legacy), keyring).get()
+        assert cluster is not None
+        assert cluster.options.host == "b.lab"
+        assert cluster.options.api_key == "syk_b"
+
+    def test_reads_the_config_dir_on_a_tie(self, tmp_path: Path) -> None:
+        """Should read the file in the config directory when both files have the same
+        modified time.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        File(config_dir=legacy).set("a", 1)
+        File(config_dir=current).set("a", 2)
+        stamp = (current / "config.json").stat().st_mtime_ns
+        os.utime(legacy / "config.json", ns=(stamp, stamp))
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 2}
+
     def test_legacy_reader_sees_a_new_login(self, tmp_path: Path) -> None:
         """Should keep the legacy file current, so an older client reads the Core of
         the last login.
@@ -422,6 +450,24 @@ class TestLoadDesktopOptions:
         opts = load_desktop_options(run=FakeHelper())
         assert opts is not None
         assert opts.port == (2 if current else 1)
+
+    def test_reads_a_newer_desktop_file_in_the_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read ~/.synnax/desktop.json when Synnax Desktop 1.1 wrote it after
+        the file in the config directory.
+        """
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        current = config_dirs(local=True)[0] / "desktop.json"
+        legacy = tmp_path / ".synnax" / "desktop.json"
+        write_desktop_file(current, port=2)
+        write_desktop_file(legacy, port=1)
+        stamp = current.stat().st_mtime_ns
+        os.utime(legacy, ns=(stamp + 10**9, stamp + 10**9))
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == 1
 
     def test_reads_the_home_when_the_config_dir_fails(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
