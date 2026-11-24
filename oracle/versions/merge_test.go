@@ -312,6 +312,28 @@ Channel struct {
 		Expect(merged).ToNot(ContainSubstring("extra"))
 	})
 
+	It("Should project the resource type from the chain", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+
+    @go marshal
+    @resource type "channel"
+}
+`)
+		liveSource := `Channel struct {
+    name string
+
+    @go marshal
+    @resource type "hand_edited"
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring(`@resource type "channel"`))
+		Expect(merged).ToNot(ContainSubstring("hand_edited"))
+	})
+
 	Describe("Erased docs", func() {
 		const version = `
 Mode enum {
