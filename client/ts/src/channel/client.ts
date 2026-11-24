@@ -77,6 +77,10 @@ export const SET_CHANNEL_NAME = "sy_channel_set";
 export const ACTION_CHANNEL_NAME = "sy_channel_action_set";
 export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
+// A compiled Zod schema generates code on its first parse, so the constructor shares
+// one schema instead of building one for each channel.
+const operationsZ = operationZ.array();
+
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
 }
@@ -158,7 +162,7 @@ export class Channel {
     this.internal = internal;
     this.virtual = virtual;
     this.expression = expression;
-    this.operations = zod.parse(operationZ.array(), operations, {
+    this.operations = zod.parse(operationsZ, operations, {
       label: "channel operations",
     });
     this.concurrency = concurrency;

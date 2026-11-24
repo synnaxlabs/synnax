@@ -28,7 +28,10 @@ const { initialize, registerLinkOpener } = vi.hoisted(() => ({
 
 // The real runtime does not load in jsdom, so each module the bootstrap imports is a
 // stub, and initialize records the start.
-vi.mock("@codingame/monaco-vscode-api", () => ({ initialize }));
+vi.mock("@codingame/monaco-vscode-api", () => ({
+  initialize,
+  LogLevel: { Warning: 4 },
+}));
 vi.mock("@codingame/monaco-vscode-api/extensions", () => ({
   ExtensionHostKind: { LocalProcess: 1 },
   registerExtension: () => ({ registerFileUrl: () => {} }),
