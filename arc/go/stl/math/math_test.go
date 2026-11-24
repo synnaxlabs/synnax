@@ -559,7 +559,7 @@ var _ = Describe("Avg", func() {
 		expectOutput(s.state, 20.0)
 	})
 
-	It("Should start a calculation's window at a multiple of its duration", func(
+	It("Should start an epoch window at a multiple of its duration", func(
 		ctx SpecContext,
 	) {
 		s := openMathWindowing(
@@ -584,7 +584,7 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
-	It("Should split a calculation's frame at each window boundary", func(
+	It("Should split a frame at each epoch window boundary", func(
 		ctx SpecContext,
 	) {
 		s := openMathWindowing(
@@ -602,6 +602,30 @@ var _ = Describe("Avg", func() {
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 15.0, 150.0, 7.0)
 		expectOutputTime(s.state, 4*telem.SecondTS, 7*telem.SecondTS, 11*telem.SecondTS)
+	})
+
+	It("Should split a frame at the epoch for stamps before it", func(
+		ctx SpecContext,
+	) {
+		s := openMathWindowing(
+			ctx,
+			stlmath.WindowFromEpoch,
+			"avg",
+			types.F64(),
+			types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
+			},
+		)
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 100.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesV(
+			-2*telem.SecondTS,
+			-1*telem.SecondTS,
+			1*telem.SecondTS,
+		)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 15.0, 100.0)
+		expectOutputTime(s.state, -1*telem.SecondTS, 1*telem.SecondTS)
 	})
 
 	It("Should read a variable-bound count on each batch", func(ctx SpecContext) {
@@ -1082,7 +1106,7 @@ var _ = Describe("Alignment", func() {
 		Expect(resultTime.Alignment).To(Equal(telem.Alignment(175)))
 	})
 
-	It("Should give a calculation's output the bounds of its input alone", func(
+	It("Should widen an epoch window's output bounds to cover the reset input", func(
 		ctx SpecContext,
 	) {
 		s := openMathWithResetWindowing(
@@ -1115,8 +1139,11 @@ var _ = Describe("Alignment", func() {
 			*s.state.Node("math").Output(0),
 			*s.state.Node("math").OutputTime(0),
 		} {
-			Expect(out.Alignment).To(Equal(telem.Alignment(100)))
-			Expect(out.TimeRange).To(Equal(inputSeries.TimeRange))
+			Expect(out.Alignment).To(Equal(telem.Alignment(175)))
+			Expect(out.TimeRange).To(Equal(telem.TimeRange{
+				Start: 25 * telem.SecondTS,
+				End:   175 * telem.SecondTS,
+			}))
 		}
 	})
 })
