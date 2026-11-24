@@ -198,10 +198,11 @@ var _ = Describe("Check in flight", func() {
 	DescribeTable("Should refuse a Check as stale when its segment may change",
 		func(change func(), pre []state.Preload, message string) {
 			change()
-			Expect(s.Check(check, pre...)).To(SatisfyAll(
+			checked := later(func() error { return s.Check(check, pre...) })
+			Eventually(checked).Should(Receive(SatisfyAll(
 				MatchError(state.ErrStale),
 				MatchError(ContainSubstring(message)),
-			))
+			)))
 		},
 		Entry("by leaving the state", func() {
 			Expect(a.durable([]log.Record{&log.Tombstone{Key: 6, End: 100}})).
