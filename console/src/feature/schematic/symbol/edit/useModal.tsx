@@ -29,6 +29,7 @@ import { type ReactElement, type ReactNode, useRef, useState } from "react";
 import {
   ClickInspector,
   targetName,
+  targetPhrase,
 } from "@/feature/schematic/symbol/edit/ClickInspector";
 import { CommandInspector } from "@/feature/schematic/symbol/edit/CommandInspector";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
@@ -397,6 +398,9 @@ const Editor = ({
                       noun="click"
                       items={interactions}
                       label={(i) => targetName(parts, i.part)}
+                      removeLabel={(i) =>
+                        `Remove the click on ${targetPhrase(parts, i.part)}`
+                      }
                       detail={describeClick}
                       add={Spec.addInteraction}
                       addDisabled={clickDisabled}

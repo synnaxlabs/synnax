@@ -39,6 +39,10 @@ export const targetName = (parts: schematic.symbol.Part[], part?: string): strin
     ? "Whole drawing"
     : (parts.find((p) => p.key === part)?.name ?? "Missing part");
 
+/** @returns the target of a click in a sentence: a part, or "the whole drawing". */
+export const targetPhrase = (parts: schematic.symbol.Part[], part?: string): string =>
+  part == null ? "the whole drawing" : targetName(parts, part);
+
 interface CommandSelectProps {
   label: string;
   value: string;
@@ -100,8 +104,9 @@ export const ClickInspector = ({
   const update = (next: Interaction) => set(path.data.interactions[key], next);
   const first = click.type === "fire" ? click.command : click.commands[0];
   const partners = Spec.nextPartners({ states, commands }, first);
-  const toggle = (command: string): Interaction => {
-    const [partner] = Spec.nextPartners({ states, commands }, command);
+  const toggle = (command: string, second?: string): Interaction => {
+    const pairs = Spec.nextPartners({ states, commands }, command);
+    const partner = pairs.find((p) => p.key === second) ?? pairs.at(0);
     if (partner == null) throw new Error(`command ${command} has no toggle partner`);
     return { type: "next", key, part: click.part, commands: [command, partner.key] };
   };
@@ -114,7 +119,7 @@ export const ClickInspector = ({
   const taken = (t: Spec.Target) => t !== click.part && !free.includes(t);
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
-      <Text.Text level="h5">{targetName(parts, click.part)}</Text.Text>
+      <Text.Text level="h5">Click on {targetPhrase(parts, click.part)}</Text.Text>
       <Divider.Divider x />
       <Input.Item label="Target">
         <Select.Simple<string>
@@ -173,7 +178,7 @@ export const ClickInspector = ({
             <CommandSelect
               label="First command"
               value={first}
-              onChange={(command) => update(toggle(command))}
+              onChange={(command) => update(toggle(command, click.commands[1]))}
               commands={commands}
               reason={(c) =>
                 Spec.nextPartners({ states, commands }, c.key).length > 0
