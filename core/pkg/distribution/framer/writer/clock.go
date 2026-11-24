@@ -480,7 +480,11 @@ func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error 
 		return err
 	}
 	// A writer of data against stored stamps keeps its start, since its samples go on
-	// the stored stamps from there.
+	// the stored stamps from there. The stamps that the clock's holder has written must
+	// be stored before that writer writes on them.
+	if err := e.commitStamps(ctx); err != nil {
+		return err
+	}
 	next := append(slices.Clone(c.claimed), keys...)
 	cfg := cesium.WriterConfig{Channels: next, Clock: c.clock, Start: c.member.start}
 	opened := c.own == nil
@@ -512,6 +516,21 @@ func (c *clockWriter) claim(keys, next []cesium.ChannelKey) {
 	for _, k := range keys {
 		c.entry.owns[k] = c
 	}
+}
+
+// commitStamps commits the uncommitted stamps of the clock's writer when it holds no
+// uncommitted data, and commits nothing when it does. The caller holds e.mu to write.
+func (e *clockEntry) commitStamps(ctx context.Context) error {
+	if e.w == nil || e.owner == nil {
+		return nil
+	}
+	end, skipped, err := e.w.Commit(ctx, func(k cesium.ChannelKey) bool {
+		return k != e.clock
+	})
+	if err == nil && !skipped {
+		e.owner.end, e.owner.last = end, end
+	}
+	return err
 }
 
 // release takes the live claim of k out of the writer that holds it, and parks the
