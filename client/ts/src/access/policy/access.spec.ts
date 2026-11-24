@@ -40,8 +40,7 @@ describe("policy", () => {
         { role: owner.key, name: "other", objects: [], actions: ["retrieve"] },
       ]);
       const u = await client.users.create({
-        username: id.create(),
-        password: "test",
+        name: "test",
         role: r.key,
       });
       const subjects = [user.resourceID(u.key)];
@@ -309,8 +308,7 @@ describe("cached reads", () => {
       const p = await createPolicy();
       const empty = await createEmptyRole(client);
       const u = await client.users.create({
-        username: id.create(),
-        password: "test",
+        name: "test",
         role: empty.key,
       });
       const subject = user.resourceID(u.key);

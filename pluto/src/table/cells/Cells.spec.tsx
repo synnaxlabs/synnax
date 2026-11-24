@@ -136,7 +136,7 @@ describe("Cells.Value deleted channel", () => {
     const { findByText } = await renderLiveValue(
       ch.key,
       {
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
         stalenessColor: { type: "fixed", value: [255, 0, 0, 255] },
       },
       [samples],
@@ -178,7 +178,7 @@ describe("Cells.Value deleted channel", () => {
 
 describe("Cells.Value", () => {
   it("should send its staleness timeout to the worker in nanoseconds", async () => {
-    renderValue({ stalenessTimeout: 2 });
+    renderValue({ stalenessTimeout: TimeSpan.seconds(2).nanoseconds });
     await waitFor(() =>
       expect(CapturingValue.states.at(-1)?.stalenessTimeout).toBe(
         Number(TimeSpan.seconds(2).valueOf()),

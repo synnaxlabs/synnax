@@ -9,14 +9,14 @@
 
 import { filter } from "@synnaxlabs/x";
 
+import { isCalculated } from "@/channel/payload";
 import type { Key, Payload } from "@/channel/types.gen";
 import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
 /**
  * @returns the typed lines of a channel Where. The internal line checks the keys that
- * builtIns returns, and only the Core checks it while builtIns returns null. Only the
- * Core checks the virtual line.
+ * builtIns returns, and only the Core checks it while builtIns returns null.
  */
 export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
   ...group.MEMBER_LINES,
@@ -26,5 +26,5 @@ export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
     return (ch: Payload, value: filter.Bool) =>
       filter.matchesSet(value, keys.has(ch.key));
   },
-  virtual: null,
+  virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
 });
