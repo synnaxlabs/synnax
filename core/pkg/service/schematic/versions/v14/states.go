@@ -57,7 +57,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
-					if err = InternLights(ctx, &s, old, intern); err != nil {
+					if err = internLights(ctx, &s, old, intern); err != nil {
 						return Schematic{}, err
 					}
 					if err = o.apply(ctx, &s, old); err != nil {

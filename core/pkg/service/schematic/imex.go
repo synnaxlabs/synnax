@@ -91,8 +91,8 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 }
 
 // importOld gives sch, lifted from the old schematic old, the enumerations and symbol
-// copies that its selects, state indicators, lights, and custom nodes need. Each import
-// makes its own records.
+// copies that its selects, state indicators, and custom nodes need. Each import makes
+// its own records.
 func (s *Service) importOld(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -107,9 +107,6 @@ func (s *Service) importOld(
 		intern,
 		s.cfg.Instrumentation,
 	); err != nil {
-		return err
-	}
-	if err := v14.InternLights(ctx, sch, old, intern); err != nil {
 		return err
 	}
 	return v14.ImportOverrides(
