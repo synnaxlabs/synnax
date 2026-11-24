@@ -39,6 +39,8 @@ type core struct {
 	// them, at the start of dead.
 	repairing bool
 	buried    int
+	// gone holds the segments whose files a repair found gone.
+	gone set.Set[uint64]
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
 	// checking is the segment of the Check in flight, which a switch keeps, or 0.
@@ -91,6 +93,7 @@ func newCore(cfg Config) *core {
 		rewritable0: cfg.Version0Rewritable,
 		repairing:   cfg.Repairing,
 		candidates:  set.Set[uint64]{},
+		gone:        set.Set[uint64]{},
 		count:       &pubCount{},
 		channels:    map[uint32]*chanState{},
 		segments:    map[uint64]*segState{},
@@ -148,7 +151,7 @@ func (c *core) record(r log.Record, pre []Preload) error {
 	case *log.Tombstone:
 		return c.tombstone(r, pre)
 	case *log.Replace:
-		return c.replace(r)
+		return c.replace(r, pre)
 	case *log.Check:
 		return c.check(r, pre)
 	default:
@@ -393,7 +396,10 @@ func (c *core) test(s *segState) {
 // replace takes the old segment of r out of the state, and seals in its place the new
 // segment that the entry of r created, with the pointers of r. The copy keeps the time
 // range, the alignment, the samples, and the length of each pointer.
-func (c *core) replace(r *log.Replace) error {
+func (c *core) replace(r *log.Replace, pre []Preload) error {
+	if c.gone.Contains(r.Old) {
+		return c.replaceGone(r, pre)
+	}
 	old, s := c.segments[r.Old], c.segments[r.New]
 	switch {
 	case old == nil || !old.dur.sealed:

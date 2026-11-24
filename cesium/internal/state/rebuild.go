@@ -178,3 +178,96 @@ func (c *core) remove(key uint32, id uint64, parted bool) error {
 	ch.publish()
 	return nil
 }
+
+// Gone marks the file of segment gone, in repair mode, before Run. A later Replace of
+// segment then takes it out of the state, and gives the copy the pointers that the
+// Replace names by the pointer rules of a Commit alone.
+func (s *State) Gone(segment uint64) { s.core.gone.Add(segment) }
+
+// replaceGone applies r, whose old segment has no file: the copy takes the pointers of
+// r when they rise inside its length and no other pointer of the key shares a stamp
+// with them, and the old segment leaves the state.
+func (c *core) replaceGone(r *log.Replace, pre []Preload) error {
+	old, s := c.segments[r.Old], c.segments[r.New]
+	switch {
+	case old == nil:
+		return refuse("replace of segment %d, which the state does not hold", r.Old)
+	case s == nil || !s.dur.created || s.dur.length != 0 || s.holder != nil:
+		return refuse("replace of segment %d by %d, which is not a new segment",
+			r.Old, r.New)
+	case s.key != old.key || s.vis.Clock != old.vis.Clock ||
+		s.vis.DataType != old.vis.DataType:
+		return refuse("replace of segment %d by %d, which differs in key, clock, or "+
+			"type", r.Old, r.New)
+	case len(r.Pointers) == 0 || !rising(r.Pointers):
+		return refuse("replace of segment %d by %d, whose pointers are none, overlap, "+
+			"or fall out of stream order", r.Old, r.New)
+	case end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
+		return refuse("replace of segment %d by %d, whose pointers end past its "+
+			"length %d", r.Old, r.New, r.Length)
+	}
+	ch := c.channels[s.key]
+	ptrs := make([]Pointer, len(r.Pointers))
+	for i, p := range r.Pointers {
+		ptrs[i] = Pointer{
+			First:     telem.TimeStamp(p.First),
+			Last:      telem.TimeStamp(p.Last),
+			Alignment: telem.Alignment(p.Alignment),
+			Offset:    p.Offset,
+			Length:    p.Length,
+			Samples:   p.Samples,
+		}
+		if err := checkShape(r.New, s.key, ptrs[i]); err != nil {
+			return err
+		}
+		if q, ok := ch.overlapsOther(ptrs[i], recordsOf(pre, s.key), r.Old, r.New); ok {
+			return refuse("replace of segment %d by %d, whose pointer from %d to %d "+
+				"overlaps a pointer of key %d from %d to %d", r.Old, r.New,
+				ptrs[i].First, ptrs[i].Last, s.key, q.First, q.Last)
+		}
+	}
+	parted := old.vis.Part != 0
+	ch.remove(r.Old)
+	delete(c.segments, r.Old)
+	c.candidates.Remove(r.Old)
+	if parted {
+		ch.kills = append(
+			ch.kills,
+			Kill{Key: s.key, Segment: r.Old, Generation: c.generation},
+		)
+		ch.repart()
+	}
+	s.dur.sealed, s.dur.length, s.dur.tailCRC, s.dur.pointers = true, r.Length,
+		r.TailCRC, ptrs
+	s.vis.Sealed, s.vis.Length, s.vis.TailCRC, s.vis.Pointers = true, r.Length,
+		r.TailCRC, ptrs
+	c.test(s)
+	ch.publish()
+	return nil
+}
+
+// overlapsOther returns the first durable pointer of c, or of records, that shares a
+// stamp with p, of a segment other than those of skip.
+func (c *chanState) overlapsOther(
+	p Pointer,
+	records []Segment,
+	skip ...uint64,
+) (Pointer, bool) {
+	for _, s := range c.segs {
+		if s.vis.Part != 0 || slices.Contains(skip, s.vis.ID) {
+			continue
+		}
+		if q, ok := overlap(s.dur.pointers, p.First, p.Last); ok {
+			return q, true
+		}
+	}
+	for _, s := range records {
+		if slices.Contains(skip, s.ID) {
+			continue
+		}
+		if q, ok := overlap(s.Pointers, p.First, p.Last); ok {
+			return q, true
+		}
+	}
+	return Pointer{}, false
+}

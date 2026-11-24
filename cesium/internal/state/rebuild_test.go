@@ -250,3 +250,67 @@ var _ = Describe("Remove", func() {
 		Entry("of no segment", uint32(5), uint64(30)),
 	)
 })
+
+var _ = Describe("Gone", func() {
+	var s *state.State
+	BeforeEach(func() {
+		cfg := config(&appended{})
+		cfg.Repairing = true
+		s = MustSucceed(state.Open(cfg, sample()))
+	})
+	create := &log.Create{Segment: 19, Key: 5, Clock: 5, Version: 1, DataType: 7}
+	// replace returns a Replace of segment 4 by 19 with one pointer from first to last.
+	replace := func(first, last int64) *log.Replace {
+		return &log.Replace{
+			Old:     4,
+			New:     19,
+			Length:  16,
+			TailCRC: 7,
+			Pointers: []log.Pointer{{
+				Offset:    0,
+				Length:    16,
+				Samples:   2,
+				Alignment: uint64(telem.NewAlignment(2, 0)),
+				First:     first,
+				Last:      last,
+			}},
+		}
+	}
+
+	It("Should take an open old segment whose file is gone out of the state, and give "+
+		"the copy the pointers of the Replace", func() {
+		s.Gone(4)
+		Expect(s.Replay(10, []log.Record{create, replace(40, 50)})).To(Succeed())
+		segs := s.ReplaySegments(5)
+		Expect(segs).To(HaveLen(2))
+		Expect(segs[0]).To(Equal(sample().Channels[0].Segments[0]))
+		Expect(segs[1]).To(Equal(state.Segment{
+			ID:       19,
+			Clock:    5,
+			Version:  1,
+			DataType: 7,
+			Sealed:   true,
+			Length:   16,
+			TailCRC:  7,
+			Pointers: []state.Pointer{pointer(2, 0, 40, 50, 0, 16, 2)},
+		}))
+	})
+
+	It("Should refuse the Replace of an open segment whose file is not gone", func() {
+		Expect(s.Replay(10, []log.Record{create, replace(40, 50)})).
+			To(MatchError(ContainSubstring("replace of segment 4, which is not sealed")))
+	})
+
+	It("Should skip a Replace whose pointers overlap another pointer of the key, and "+
+		"change nothing", func() {
+		s.Gone(4)
+		skipped := MustSucceed(s.ReplayEach(10, []log.Record{create, replace(20, 25)}))
+		Expect(skipped).To(HaveLen(1))
+		Expect(skipped[0].Err).To(MatchError(ContainSubstring(
+			"overlaps a pointer of key 5 from 10 to 30",
+		)))
+		segs := s.ReplaySegments(5)
+		Expect(segs[:2]).To(Equal(sample().Channels[0].Segments))
+		Expect(segs[2].Sealed).To(BeFalse())
+	})
+})
