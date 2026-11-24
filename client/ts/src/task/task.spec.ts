@@ -1235,21 +1235,28 @@ describe("Task", async () => {
 
   // A task's creation placeholder echoes back over the status stream at its own pace.
   // Statuses stream in write order, so once a later write by another client lands here,
-  // the echo cannot overwrite a status the spec sets after this returns.
+  // the echo cannot overwrite a status the spec sets after this returns. A heartbeat
+  // can replace the write in the cache before a read, so this waits for its set.
   const setRackAliveAfterEcho = async (key: rack.Key) => {
     await waitForStreamLive(client.connection);
     const message = `alive-${id.create()}`;
-    await writer.statuses.set({
-      owner: rack.resourceID(key),
-      name: "Rack Status",
-      variant: "success",
-      message,
-      time: TimeStamp.now(),
-      details: { running: true },
+    const { promise: landed, resolve: land } = Promise.withResolvers<void>();
+    const off = client.statuses.onSet((s) => {
+      if (s.message === message) land();
     });
-    await expect
-      .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
-      .toBe(message);
+    try {
+      await writer.statuses.set({
+        owner: rack.resourceID(key),
+        name: "Rack Status",
+        variant: "success",
+        message,
+        time: TimeStamp.now(),
+        details: { running: true },
+      });
+      await landed;
+    } finally {
+      off();
+    }
   };
 
   // A Driver writes its statuses to the Core. A status set only in the local store
