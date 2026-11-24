@@ -76,6 +76,75 @@ var _ = Describe("Handoff", func() {
 		GinkgoHelper()
 		return MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key).Len()
 	}
+	// run expects the stored samples of key to hold n samples in one run, and returns
+	// the alignment of its first sample.
+	run := func(ctx SpecContext, key cesium.ChannelKey, n int64) telem.Alignment {
+		GinkgoHelper()
+		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key).Series
+		Expect(series).ToNot(BeEmpty())
+		bounds := series[0].AlignmentBounds()
+		for _, s := range series[1:] {
+			Expect(s.AlignmentBounds().Lower).To(Equal(bounds.Upper))
+			bounds.Upper = s.AlignmentBounds().Upper
+		}
+		Expect(bounds.Lower.AddSamples(uint32(n))).To(Equal(bounds.Upper))
+		return bounds.Lower
+	}
+	// committedFirst opens a writer of keys, which holds the clock, and commits the
+	// samples of openFirst for them.
+	committedFirst := func(ctx SpecContext, keys ...cesium.ChannelKey) *cesium.Writer {
+		GinkgoHelper()
+		w := MustSucceed(db.OpenWriter(ctx, config(keys...)))
+		series := []telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12, 13)}
+		if len(keys) > 1 {
+			series = append(series, telem.NewSeriesV[int64](1, 2, 3, 4))
+		}
+		mustWrite(ctx, w, telem.MultiFrame(keys, series))
+		MustSucceed2(w.Commit(ctx, nil))
+		return w
+	}
+	// next is the config of keys that starts after the samples of committedFirst.
+	next := func(keys ...cesium.ChannelKey) cesium.WriterConfig {
+		cfg := config(keys...)
+		cfg.Start = 13*telem.SecondTS + 1
+		return cfg
+	}
+	// carry holds the specs of a handoff that goes on in the run of the clock, which
+	// both layouts run.
+	carry := func() {
+		It("Should go on in the run of the clock after a handoff that drops a key",
+			func(ctx SpecContext) {
+				first := committedFirst(ctx, clock, data)
+				w, p := MustSucceed2(db.Handoff(ctx, first, next(clock), nil))
+				Expect(p).To(BeNil())
+				end, _ := MustSucceed2(w.Commit(ctx, nil))
+				Expect(end).To(Equal(13*telem.SecondTS + 1))
+				mustWrite(ctx, w, telem.UnaryFrame(
+					clock,
+					telem.NewSeriesSecondsTSV(14, 15),
+				))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				run(ctx, clock, 6)
+			})
+
+		It("Should go on in the run of the clock after a handoff that adds a key, "+
+			"with the alignments of the clock", func(ctx SpecContext) {
+			first := committedFirst(ctx, clock)
+			w, _ := MustSucceed2(db.Handoff(ctx, first, next(clock, data), nil))
+			mustWrite(ctx, w, telem.MultiFrame(
+				[]cesium.ChannelKey{clock, data},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(14, 15),
+					telem.NewSeriesV[int64](5, 6),
+				},
+			))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(run(ctx, data, 2)).To(Equal(run(ctx, clock, 6).AddSamples(4)))
+		})
+	}
+	carry()
 
 	It("Should move the uncommitted clock samples into the new writer", func(
 		ctx SpecContext,
@@ -128,6 +197,28 @@ var _ = Describe("Handoff", func() {
 		Expect(stored(ctx, clock)).To(Equal(int64(5)))
 		Expect(stored(ctx, data)).To(Equal(int64(4)))
 		Expect(back.Close()).To(Succeed())
+	})
+
+	It("Should start a new run when a handoff adopts samples on stamps that the "+
+		"clock committed", func(ctx SpecContext) {
+		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
+		MustSucceed2(w.Commit(ctx, nil))
+		cfg := config(clock, data)
+		cfg.Start = 14*telem.SecondTS + 1
+		back, _ := MustSucceed2(db.Handoff(ctx, w, cfg, p))
+		MustSucceed2(back.Commit(ctx, nil))
+		mustWrite(ctx, back, telem.MultiFrame(
+			[]cesium.ChannelKey{clock, data},
+			[]telem.Series{telem.NewSeriesSecondsTSV(15), telem.NewSeriesV[int64](5)},
+		))
+		MustSucceed2(back.Commit(ctx, nil))
+		Expect(back.Close()).To(Succeed())
+		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock)).Get(clock).Series
+		Expect(series).To(HaveLen(2))
+		Expect(series[0].Alignment.DomainIndex()).
+			ToNot(Equal(series[1].Alignment.DomainIndex()))
+		Expect(series[0].Len() + series[1].Len()).To(Equal(int64(6)))
 	})
 
 	It("Should commit the clock samples that a writer handed back with no commit",
@@ -215,6 +306,20 @@ var _ = Describe("Handoff", func() {
 			)
 			create(ctx)
 		})
+		carry()
+
+		It("Should refuse a write at the last stamp of the run after a handoff",
+			func(ctx SpecContext) {
+				first := committedFirst(ctx, clock)
+				w, _ := MustSucceed2(db.Handoff(ctx, first, next(clock), nil))
+				Expect(w.Write(
+					ctx,
+					telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(13)),
+					nil,
+				)).Error().To(MatchError(ContainSubstring("must be after")))
+				Expect(w.Close()).To(MatchError(ContainSubstring("must be after")))
+				Expect(stored(ctx, clock)).To(Equal(int64(4)))
+			})
 
 		It("Should refuse to move uncommitted samples, and drop them", func(
 			ctx SpecContext,
