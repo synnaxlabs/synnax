@@ -60,6 +60,15 @@ class TestCommand:
         assert "Traceback" not in result.stderr
         assert result.stderr.strip().splitlines()[-1] == "No input. Cancelled."
 
+    def test_login_fails_on_an_unreadable_config(self, tmp_path: Path) -> None:
+        """Should exit with 1 and one line when the config file cannot be read."""
+        config = tmp_path / ".synnax" / "config.json"
+        config.mkdir(parents=True)
+        result = run_sy("login", home=tmp_path)
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        assert str(config) in result.stderr.strip().splitlines()[-1]
+
     def test_login_fails_when_core_is_unreachable(self, tmp_path: Path) -> None:
         """Should exit with 1 and one line when no Core listens at the address."""
         with socket.socket() as s:

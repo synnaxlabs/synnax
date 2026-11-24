@@ -18,9 +18,10 @@ on:
   # and the last attempt leaves four hours. An attempt does nothing once a run on main
   # passed its tests that day.
   schedule:
-    - cron: "0 6 * * *" # after the nightly build frees the bots
-    - cron: "0 8 * * *"
-    - cron: "0 10 * * *" # the last attempt; the notify job names it
+    # Off the hour, when GitHub drops the most scheduled runs.
+    - cron: "7 6 * * *" # after the nightly build frees the bots
+    - cron: "7 8 * * *"
+    - cron: "7 10 * * *" # the last attempt; the notify job names it
   workflow_dispatch:
 
 permissions:
@@ -246,18 +247,39 @@ jobs:
           RUNNING: ${{ steps.services.outputs.running }}
         run: Start-Service -Name ($env:RUNNING -split ',')
 
+  # A failed day posts once: the first failed attempt posts, and later ones stay quiet.
   # A run that finds the hardware in use posts only on the last attempt of the day.
   notify:
     name: Notify Slack
     needs: [gate, build, test]
     if: >-
       failure() && github.event_name == 'schedule' && (needs.test.outputs.holders == ''
-      || github.event.schedule == '0 10 * * *')
+      || github.event.schedule == '7 10 * * *')
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      actions: read
     timeout-minutes: 10
     steps:
+      - name: Check for a post earlier today
+        id: posted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          posted=false
+          ids=$(gh run list --workflow test.hitl.yaml --branch main --event schedule \
+            --created ">=$(date -u +%F)" --json databaseId --jq '.[].databaseId')
+          for id in $ids; do
+            if [ "$id" = "$GITHUB_RUN_ID" ]; then continue; fi
+            step=$(gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs" \
+              --jq '.jobs[] | select(.name == "Notify Slack") | .steps[] |
+                select(.name == "Post the failure to Slack" and
+                .conclusion == "success")')
+            if [ -n "$step" ]; then posted=true; fi
+          done
+          echo "posted=$posted" >> "$GITHUB_OUTPUT"
       - name: Post the failure to Slack
+        if: steps.posted.outputs.posted != 'true'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
           HOLDERS: ${{ needs.test.outputs.holders }}
