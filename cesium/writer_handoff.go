@@ -65,10 +65,14 @@ func (db *DB) Handoff(
 	run HandoffRun,
 ) (_ *Writer, _ *Pending, err error) {
 	if w.log == nil {
-		return nil, nil, errors.Join(
+		err = errors.Join(
 			errors.Wrap(errors.ErrUnsupported, "the old layout hands off no writer"),
 			w.Close(),
 		)
+		if adopt != nil {
+			err = errors.Join(err, adopt.Close())
+		}
+		return nil, nil, err
 	}
 	dropped, uncommitted := w.uncommitted()
 	defer func() {
