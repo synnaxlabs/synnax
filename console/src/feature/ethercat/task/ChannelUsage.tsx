@@ -114,19 +114,22 @@ export interface ChannelUsageProps {
   path: deep.Target<TaskChannel[]>;
   /** The slaves that the channels use, or undefined while they load. */
   slaves: Device.SlaveDevice[] | undefined;
+  /** Whether the query for the slaves failed. */
+  slavesFailed: boolean;
 }
 
 /**
  * Says how many channels a Start creates and how many of the channels that the license
  * allows are in use. Holds an empty line while the counts load, so the form above it
  * keeps its size when they arrive. Renders nothing for a task whose channels use no
- * slave, or when a channel query fails.
+ * slave, or when a query fails.
  */
 export const ChannelUsage = ({
   indexOptions,
   pdoType,
   path,
   slaves,
+  slavesFailed,
 }: ChannelUsageProps): ReactElement | null => {
   const channels = Form.useFieldValue(path);
   const keys = mappedKeys(slaves ?? []);
@@ -149,7 +152,8 @@ export const ChannelUsage = ({
   const license = License.useResult({});
   // Without a slave to read, or after a failed query, no counts arrive.
   const noSlaves = channels.every((ch) => primitive.isZero(ch.device));
-  if (noSlaves || mappedVariant === "error" || namedVariant === "error") return null;
+  const failed = slavesFailed || mappedVariant === "error" || namedVariant === "error";
+  if (noSlaves || failed) return null;
   const className = CSS.BE("ethercat-channel-usage", "text");
   const empty = <Text.Text level="small" className={className} />;
   if (creations == null || (names.length > 0 && named == null)) return empty;

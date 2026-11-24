@@ -23,7 +23,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -2889,6 +2889,38 @@ describe("Read channel usage", () => {
   it("should show no usage line for a task with no channels", async () => {
     const { container } = await renderRead(EtherCAT.Task.READ_SCHEMAS.config.parse({}));
     expect(container.querySelector(".console-ethercat-channel-usage__text")).toBeNull();
+  });
+
+  it("should show no usage line when the slaves fail to load", async () => {
+    const slave = await createTwoEntrySlave();
+    const draft = await createDraft(client, createConfig(slave));
+    const as = await createTestClientWithGrants(client, {
+      retrieve: [
+        task.TYPE_RESOURCE_ID,
+        channel.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+      ],
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = await renderTaskFormTab(
+      EtherCAT.Task.FORMS[EtherCAT.Task.READ_TYPE],
+      { client, as, taskKey: draft.key },
+    );
+    await waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/cannot retrieve device/),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        container.querySelector(".console-ethercat-channel-usage__text"),
+      ).toBeNull(),
+    );
   });
 
   it("should leave a disabled channel out of the count", async () => {
