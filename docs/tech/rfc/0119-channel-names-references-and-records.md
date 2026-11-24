@@ -28,7 +28,7 @@ delete.
 ## 1 Motivation
 
 - **Names**: A name must be an identifier and unique across the Core
-  (`core/pkg/service/channel/writer.go:870-942`). An instrumentation engineer cannot
+  (`core/pkg/service/channel/writer.go:898-973`). An instrumentation engineer cannot
   name a channel `PT-FU-01`, and two stands cannot both hold `pt_01`. A start flag turns
   both checks off, and a single read of a duplicate name keeps one match with no error
   (`gorp/entries.go:47-65`).
@@ -169,8 +169,8 @@ Rewire struct {
 - **Built-in channels**: A built-in channel is one that a Core service makes for its own
   work. The stored `internal` flag goes. NEW `Writer.Declare` finds each such channel by
   name at the root, or creates it, and adds the key to a set on the channel service
-  (precedent: `core/pkg/service/task/service.go:248-265`). The delete and rename guards
-  (`writer.go:948`, `:996`), a new guard that refuses a move of a built-in, Arc
+  (precedent: `core/pkg/service/task/service.go:231-250`). The delete and rename guards
+  (`writer.go:979`, `:1027`), a new guard that refuses a move of a built-in, Arc
   (`resolver.go:44`, `:82`), the `Hidden` hook (`resource.go:26`), and the `internal`
   filter line read the set. No route serves it: the filter line is the one way to ask.
   The line becomes a typed line of an operator type, `internal filter.Bool`, which
@@ -181,10 +181,11 @@ Rewire struct {
 - **Name clash with a built-in**: `Declare` adopts a channel at the root with the same
   name, `data_type`, and `virtual`, unless a calculation computes it. Any other holder
   of the name is a user channel: `Declare` renames it with the first free suffix and
-  writes a warning status. The rename stores the old path in its transaction, and the
-  built-in is created only after the rename's text pass has run (§4.11). Until Phase 31
-  it looks in every folder. A release that changes the shape of a built-in ships a
-  migration that edits the record in place.
+  writes a warning status. The rename stores the old path in its transaction, and
+  `Declare` creates the built-in at once, since its callers take the key at open
+  (`core/pkg/service/task/service.go:231-250`). The rename's text pass runs later from
+  the stored path (§4.11). Until Phase 31 it looks in every folder. A release that
+  changes the shape of a built-in ships a migration that edits the record in place.
 
 ### 4.1 Names and folders
 
@@ -291,10 +292,11 @@ Rewire struct {
 - **Retarget**: Oracle generates `Retarget func(e *E, to map[T]T)` for every key
   reference. The retargets of one action apply as one map, so a swap swaps the lines of
   a plot and keeps their styles. `Table.Retarget(from, to)` of `main`
-  (`gorp/reference.go:245-247`) is a call with one pair over every holder, and
-  `Table.RetargetHolders` retargets only the holders that a plan picks. The Tag stays
-  the direction alone; the wiring site gives the impact service the list of holders that
-  `keep` instead (§4.11).
+  (`gorp/retarget.go:33`) needs both entries to exist and moves every holder, so a plan
+  calls NEW `Table.RetargetHolders(to, holders...)`, which takes a dead key and moves
+  only the holders that the plan picks: never a `rewires` link or a holder that keeps.
+  The Tag stays the direction alone; the wiring site gives the impact service the list
+  of holders that `keep` instead (§4.11).
 
 | Holder                       | Field                                                           | Kind              | On delete                                                | Direction       | On heal or rewire                                                                                                           |
 | ---------------------------- | --------------------------------------------------------------- | ----------------- | -------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -418,14 +420,14 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   member and a channel path fails compile and names both. The fixes: an `as` alias, a
   rename, or the quoted form.
 - **Keys**: The symbol resolver gains a lookup by key (NEW) for graph mode, and
-  `Resolve` stops reading digits as a key (`arc/go/symbol/symbol.go:737-739`).
+  `Resolve` stops reading digits as a key (`arc/go/symbol/symbol.go:745`).
 - **Key lists**: A calculation stores `reads`, and an Arc stores `reads` and `writes`,
   as `channel.Key[]`: the keys of the paths in its text, the function bodies of a graph
-  included (`arc/go/graph/analyze.go:103-124`). The lists mint Arc v5; each adds 1 byte,
-  or 5 bytes and 4 per key. Graph nodes hold keys and get no entries: the targets of the
-  two references are the entry keys plus the keys from a walk of the node configs, which
-  reads the param types of `graph.functions` too (precedent:
-  `core/pkg/service/lineplot/reference.go:26-57`).
+  included (`arc/go/graph/analyze.go:103-124`). The lists join Arc v5, or v6 when a
+  stable release holds v5 (§4.9); each adds 1 byte, or 5 bytes and 4 per key. Graph
+  nodes hold keys and get no entries: the targets of the two references are the entry
+  keys plus the keys from a walk of the node configs, which reads the param types of
+  `graph.functions` too (precedent: `core/pkg/service/lineplot/reference.go:26-57`).
 - **Lookup**: Each compile, at a save, a deploy, an import, or a Core start, looks each
   path up in the channel table at that moment, through
   `core/pkg/service/channel/resolver` (NEW). A path that matches nothing fails compile
@@ -440,9 +442,13 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   announces a list with a computed `Set`, as for `data_type` (`writer.go:172-175`).
 - **Saves**: A calculation save whose compile fails, fails, as today
   (`core/pkg/service/channel/calculation_analyzer.go:137-141`). An Arc saves on each
-  keystroke and never fails; its lists wait for the next compile that succeeds.
-- **Start order**: Migrations, the renames of `Declare`, their text passes, the creates
-  of `Declare`, the heals of what `Declare` changed, then the API.
+  keystroke and never fails on its compile; its lists wait for the next compile that
+  succeeds. A save of calculation or Arc text carries the hash of the stored text that
+  it edits, and the Core refuses a save on a stale hash, so a save from an editor opened
+  before a rename never writes the old path back. The Console merges the stored text
+  into the open editor and saves again.
+- **Start order**: Migrations, `Declare`, the text passes of its renames from their
+  stored paths, the heals of what `Declare` changed, the first compiles, then the API.
 - **The flip**: Phase 31 ships one migration step with a durable done marker. Before the
   Core-wide index goes, it rewrites bare names to paths by the Core-wide rule, and sets
   the marker after the last record. A bare name that matches channels in several folders
@@ -517,7 +523,7 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 
 | Path                             | Target                                                                                                                                                                | Sketch                                                                                                                                                                    |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Retrieve by key; by name         | Within 5% of base's time on the same API benchmark, no more allocations. On the bench host: a page of 100 at most 1.34 x F_keys(100), one key at most 6.0 x F_keys(1) | Same paths; the v3 value is 17 B smaller. Base: a page is 1.27 x F_keys(100) and one key 5.7 x F_keys(1), since the API call adds access and translation to the Gorp read |
+| Retrieve by key; by name         | Within 5% of base's time on the same API benchmark, no more allocations. On the bench host: a page of 100 at most 1.34 x F_keys(100), one key at most 6.0 x F_keys(1) | Same paths; the v3 value is 16 B smaller. Base: a page is 1.27 x F_keys(100) and one key 5.7 x F_keys(1), since the API call adds access and translation to the Gorp read |
 | Retrieve by path, depth d        | <= (d + 1) x F_name, no scan                                                                                                                                          | d + 1 probes, 1 read: 1.5 µs at depth 3                                                                                                                                   |
 | Path fill, page of 100           | <= 1.5 x the page; 0 when not asked                                                                                                                                   | 10 folders per level: 30 reads against 100                                                                                                                                |
 | Create, rename, move             | <= 1.10 x F_create per entry that adds no link                                                                                                                        | 3 probes with the tombstone index, 1 staged entry: 0.5 µs; the name query per batch goes                                                                                  |
@@ -558,17 +564,17 @@ change:
   issued, as `core/v0.62.0` import kept raw keys and those fields had no reference.
 - **Phase 7: Names.** The pass rewrites a name only when it breaks the rule, which
   includes a name not in NFC. Each `.` becomes `_`, refused characters go, invalid bytes
-  become U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name that is
-  taken gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means anywhere
-  in the Core. A name that needs no rewrite never moves, even when another channel holds
-  it after NFC, and a built-in is never renamed. Among legal holders of one name in one
-  folder, which the old flag allowed, the lower key keeps it and each other takes the
-  first free suffix. The same pass runs on folders in the group chain, in key order;
-  after both tables open, in a clash of a folder and a sibling channel, the name that a
-  pass rewrote takes a suffix, and the folder does when both or neither were rewritten.
-  A folder that the Core makes by name (`Metrics`) never takes the suffix; the clashing
-  item does. Duplicates in different folders stay. Each rename writes a warning status
-  (`core/pkg/service/migrate.go:62`).
+  become U+FFFD, and a result that is empty after trimming becomes `channel_<key>`. A
+  rewritten name that is taken gets the first free suffix (`_2`, `_3`); until Phase 31,
+  "taken" means anywhere in the Core. A name that needs no rewrite never moves, even
+  when another channel holds it after NFC, and a built-in is never renamed. Among legal
+  holders of one name in one folder, which the old flag allowed, the lower key keeps it
+  and each other takes the first free suffix. The same pass runs on folders in the group
+  chain, in key order; after both tables open, in a clash of a folder and a sibling
+  channel, the name that a pass rewrote takes a suffix, and the folder does when both or
+  neither were rewritten. A folder that the Core makes by name (`Metrics`) never takes
+  the suffix; the clashing item does. Duplicates in different folders stay. Each rename
+  writes a warning status (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
   transaction. One pass over Arc text and one over calculation expressions write each
   changed name in its new form, and quote a dashed token only when a channel holds that
@@ -605,7 +611,8 @@ it picked one. On a Core that ran with the old flag, an Arc program or calculati
 gives a dashed name to a variable, function, parameter, or stage fails its compile, and
 the error names the place: the one exception to the rule that stored data migrates
 (founder, 2026-11-22). The release notes also say that every client and Driver upgrades
-with the Core.
+with the Core. A release that holds Phase 4 and not Phase 31 also notes that it refuses
+a second channel with a taken name anywhere in the Core, with or without the flag.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -651,9 +658,10 @@ with the Core.
   migration that moves a channel onto a tombstone's path runs the same heal, so a live
   channel and a tombstone never share a path. `Declare` renames a user channel and
   creates the built-in as two actions, the rename first, so text that names the user
-  channel follows it. The create waits until that text pass has run, with `update_text`
-  for each token of the old path, so a crash between the two runs the pass again from
-  the stored old path. Every first free suffix in this RFC (`Declare`, the Phase 7
+  channel follows it. Before any compile and before the API serves, the rename's text
+  pass runs from the stored old path, with `update_text` for each of its tokens whatever
+  holds the path by then, and deletes the stored path. A crash before the pass runs it
+  at the next start. Every first free suffix in this RFC (`Declare`, the Phase 7
   migration, a displaced channel) skips tombstone paths.
 - **Access**: An entry for a record that the caller cannot retrieve is a count for its
   effect, with no name or text. A tombstone entry shows its path only when the caller
@@ -717,14 +725,16 @@ Tombstone struct {
 - **Heal**: A create, rename, or move that gives a channel a tombstone's path plans a
   heal. Each link that holds the dead key gets `retarget` (default) or `keep`; the list
   moves to the new channel. The tombstone then goes, whatever the picks, so a path holds
-  at most one. A `rewires` link is never a heal target. Text holders need no entry: the
-  path binds at the next compile. A graph-mode Arc that holds the dead key in a node
-  config is a key holder and gets an entry. The arriving channel's own list, if it holds
-  one, gets an entry: `drop` (default; that history of the path it leaves goes, and the
-  past holders keep their data) or `cancel`, so the result writes one list. `uses`
-  leaves out tombstone holders, which have no resource type. A script that makes
-  channels again on each run heals every display on each run, and a remake for another
-  purpose heals by default too; only the dialog shows it.
+  at most one. A `rewires` link is never a heal target. From Phase 18 every channel
+  create heals a tombstone at its path with the defaults, whatever its caller, such as a
+  task save or `Declare`, so a live channel and a tombstone never share a path. Text
+  holders need no entry: the path binds at the next compile. A graph-mode Arc that holds
+  the dead key in a node config is a key holder and gets an entry. The arriving
+  channel's own list, if it holds one, gets an entry: `drop` (default; that history of
+  the path it leaves goes, and the past holders keep their data) or `cancel`, so the
+  result writes one list. `uses` leaves out tombstone holders, which have no resource
+  type. A script that makes channels again on each run heals every display on each run,
+  and a remake for another purpose heals by default too; only the dialog shows it.
 
 ### 4.13 Rewires and measured reads
 
@@ -789,8 +799,9 @@ Tombstone struct {
 ## 5 Implementation phases
 
 Each phase is a piece with its own issue. PRs group the pieces along the plan's PR
-lines, about 2,000 hand-written lines each. Phase 31 is a small switch, and Phase 39 is
-documentation.
+lines, about 2,000 hand-written lines each. Phase 13 landed on `main` in #6416
+(SY-5020); its row keeps the numbers that other RFCs cite. Phase 31 is a small switch,
+and Phase 39 is documentation.
 
 - **Names**: Phase 5 gives Arc the quoted token, and Phase 10 the path filter. Phases 25
   to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
@@ -819,7 +830,7 @@ documentation.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Depends on     |
 | ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1     | Track what uses each channel and what blocks its delete  | `gorp`, `oracle/plugin/go/query`, `oracle/domain`, `schemas/synnax`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/service/signals`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `pluto/src/schematic`, `pluto/src/table`, `pluto/src/channel`, `console/src/feature/channel`                                                                                                                                                                                                                                           | -              |
+| 1     | Track what uses each channel and what blocks its delete  | `gorp`, `oracle/plugin/go/query`, `oracle/domain`, `schemas/synnax`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/service/signals`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `pluto/src/schematic`, `pluto/src/table`, `pluto/src/channel`, `console/src/feature/channel`, `core/pkg/service/resource`, `core/pkg/service/group`, `core/pkg/service/arc/directory`, `core/pkg/api/secret`                                                                                                                           | -              |
 | 2     | Signal every reference change on one channel             | `core/pkg/service/signals`, `client/ts/src/query`, `client/ts/src/channel`, `client/ts/src/secret`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 1              |
 | 3     | Give calculations their own record                       | `schemas/synnax/channel.oracle`, `schemas/synnax/status.oracle`, `core/pkg/service/calculation`, `core/pkg/service/channel`, `core/pkg/service/channel/resolver`, `core/pkg/service/framer`, `core/pkg/service/arc`, `core/pkg/api/calculation`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `client/cpp/channel`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `pluto/src/calculation`, `console/src/platform/channel`, `client/ts/src/framer/cache`, `schemas/synnax/arc.oracle`, `core/pkg/api/arc`, `client/cpp/arc` | 1              |
 | 4     | Add unique indexes and spaces to Gorp                    | `gorp`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 1              |
