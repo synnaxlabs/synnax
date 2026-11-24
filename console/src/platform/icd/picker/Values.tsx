@@ -45,6 +45,10 @@ export interface Value {
 
 export interface ValueGroup {
   title?: string;
+  /** Shows at the end of the title, such as what a pick uses the group for. */
+  note?: string;
+  /** Fades the values, such as ones that a pick does not use. */
+  dimmed?: boolean;
   values: Value[];
 }
 
@@ -118,6 +122,20 @@ const Head = ({ noun }: HeadProps) => (
   </div>
 );
 
+const Cells = ({ value: { name, sample, dataType, lock } }: { value: Value }) => (
+  <>
+    <Text.Text level="small" weight={500} color={lock != null ? 9 : 10} overflow="fade">
+      {name}
+    </Text.Text>
+    <Text.Text level="small" color={9} overflow="fade" variant="code">
+      {sample ?? "–"}
+    </Text.Text>
+    <Text.Text level="small" color={9} overflow="fade">
+      {lock?.label ?? dataType}
+    </Text.Text>
+  </>
+);
+
 const Item = (props: List.ItemRenderProps<string>) => {
   const value = List.useItem<string, Value>(props.itemKey);
   const { selected, onSelect } = Select.useItemState(props.itemKey);
@@ -137,27 +155,50 @@ const Item = (props: List.ItemRenderProps<string>) => {
         size="small"
         aria-label={`Record ${value.name}`}
       />
-      <Text.Text level="small" weight={500} color={locked ? 9 : 10} overflow="fade">
-        {value.name}
-      </Text.Text>
-      <Text.Text level="small" color={9} overflow="fade" variant="code">
-        {value.sample ?? "–"}
-      </Text.Text>
-      <Text.Text level="small" color={9} overflow="fade">
-        {lock?.label ?? value.dataType}
-      </Text.Text>
+      <Cells value={value} />
     </Select.Item>
   );
 };
 
+const PreviewItem = (props: List.ItemRenderProps<string>) => {
+  const value = List.useItem<string, Value>(props.itemKey);
+  if (value == null) return null;
+  return (
+    <List.Item<string> {...props} className={CSS.BE("icd-picker", "value")}>
+      <span />
+      <Cells value={value} />
+    </List.Item>
+  );
+};
+
 const item = Component.renderProp(Item);
+const previewItem = Component.renderProp(PreviewItem);
 
-interface GroupListProps extends Pick<ValuesProps, "value" | "onChange"> {
-  values: Value[];
-}
+interface GroupListProps
+  extends
+    Pick<ValuesProps, "value" | "onChange">,
+    Pick<ValueGroup, "dimmed" | "values"> {}
 
-const GroupList = ({ values, value, onChange }: GroupListProps) => {
+const GroupList = ({
+  values,
+  dimmed = false,
+  value = [],
+  onChange,
+}: GroupListProps) => {
   const { data, getItem } = List.useStaticData<string, Value>({ data: values });
+  const list = (
+    <List.Scroll
+      className={CSS.cls(CSS.BE("icd-picker", "value-list"), dimmed && CSS.M("dimmed"))}
+    >
+      <List.Items<string, Value>>{onChange == null ? previewItem : item}</List.Items>
+    </List.Scroll>
+  );
+  if (onChange == null)
+    return (
+      <List.Frame<string, Value> data={data} getItem={getItem}>
+        {list}
+      </List.Frame>
+    );
   return (
     <Select.Frame<string, Value>
       multiple
@@ -166,9 +207,7 @@ const GroupList = ({ values, value, onChange }: GroupListProps) => {
       value={value}
       onChange={onChange}
     >
-      <List.Scroll className={CSS.BE("icd-picker", "value-list")}>
-        <List.Items<string, Value>>{item}</List.Items>
-      </List.Scroll>
+      {list}
     </Select.Frame>
   );
 };
@@ -176,14 +215,16 @@ const GroupList = ({ values, value, onChange }: GroupListProps) => {
 export interface ValuesProps {
   noun: string;
   groups: ValueGroup[];
-  value: string[];
-  onChange: (value: string[]) => void;
+  /** The keys of the picked values. */
+  value?: string[];
+  /** Omitted, the values are a preview with no checkboxes. */
+  onChange?: (value: string[]) => void;
 }
 
 export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
   <div className={CSS.BE("icd-picker", "values")}>
     <Head noun={noun} />
-    {groups.map(({ title, values }) => (
+    {groups.map(({ title, note, dimmed, values }) => (
       <Fragment key={title ?? ""}>
         {title != null && (
           <Text.Text
@@ -193,9 +234,18 @@ export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
             className={CSS.BE("icd-picker", "section")}
           >
             {title}
+            {note != null && (
+              <Text.Text
+                el="span"
+                level="small"
+                className={CSS.BE("icd-picker", "section-note")}
+              >
+                {note}
+              </Text.Text>
+            )}
           </Text.Text>
         )}
-        <GroupList values={values} value={value} onChange={onChange} />
+        <GroupList values={values} dimmed={dimmed} value={value} onChange={onChange} />
       </Fragment>
     ))}
   </div>

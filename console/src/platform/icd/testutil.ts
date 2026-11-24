@@ -108,3 +108,11 @@ export const selectedIn = (
   key: icd.Key,
 ): icd.MessageKey[] | undefined =>
   documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
+
+/** @returns the title of the group of the field picker that note marks. */
+export const titleOf = (note: HTMLElement): string =>
+  note.parentElement?.firstChild?.textContent ?? "";
+
+/** @returns whether the field picker shows the value whose name is value faded. */
+export const isDimmed = (value: HTMLElement): boolean =>
+  value.closest(".console--dimmed") != null;

@@ -24,11 +24,13 @@ import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
 import {
+  isDimmed,
   pickMessageFormat,
   removeField,
   retype,
   selectedIn,
   setField,
+  titleOf,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
@@ -898,7 +900,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
       scanner.close();
-      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
       return { dialog, draft };
     };
 
@@ -917,10 +919,6 @@ describe("MQTT Write form", () => {
 
     it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
       const { dialog, draft } = await openOnPickedTopic();
-      const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
-        name: "Record mode",
-      });
-      expect(mode.checked).toBe(true);
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
@@ -950,7 +948,7 @@ describe("MQTT Write form", () => {
       );
     });
 
-    it("should infer the format of a topic from the shape that the most messages had", async () => {
+    it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
       const topic = {
         topic: "plant/pump/set",
         payload: '{"rpm": 5, "mode": "auto"}',
@@ -978,7 +976,12 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       scanner.close();
-      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      const note = await dialog.findByText("Used for the format");
+      expect(titleOf(note)).toBe("3 messages with /rpm");
+      expect(
+        ["setpoint", "rpm", "mode"].map((n) => isDimmed(dialog.getByText(n))),
+      ).toEqual([true, false, false]);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick set" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, topic.topic);
       const [ic] = await client.icds.retrieve([target.icd]);
@@ -1039,13 +1042,12 @@ describe("MQTT Write form", () => {
       });
     });
 
-    it("should drop a whole picked topic when any of its fields is unticked", async () => {
+    it("should show the fields of a topic with no boxes, and drop it through its own box", async () => {
       const { dialog } = await openOnPickedTopic();
-      const box = (name: string) =>
-        dialog.getByRole<HTMLInputElement>("checkbox", { name: `Record ${name}` });
+      dialog.getByText("mode");
+      expect(dialog.queryByRole("checkbox", { name: "Record mode" })).toBeNull();
       dialog.getByText("1 topic selected");
-      fireEvent.click(box("mode"));
-      expect([box("setpoint").checked, box("mode").checked]).toEqual([false, false]);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick set" }));
       expect(dialog.queryByText("1 topic selected")).toBeNull();
     });
 

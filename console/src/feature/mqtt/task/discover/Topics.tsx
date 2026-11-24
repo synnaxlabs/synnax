@@ -131,6 +131,10 @@ export type TopicPick = Map<string, ShapePick>;
 
 export type TopicPicks = Map<string, TopicPick>;
 
+/** @returns the pick of the shape that the most messages had, which sets a format. */
+export const formatOf = (pick: TopicPick): ShapePick | null =>
+  ICD.Write.mostCommon([...pick.values()], ({ shape }) => shape.count ?? 0);
+
 /** @returns the number of values picked from a topic. */
 export const countOf = (pick: TopicPick): number =>
   math.sum([...pick.values()].map(({ pointers }) => pointers.size));
@@ -283,11 +287,16 @@ const TopicValues = ({
   const { shapes } = topic;
   // Shapes can share a pointer, so the key of a value holds the position of its shape.
   const keyOf = (shape: number, pointer: string) => `${shape}${pointer}`;
+  const free = defaultPick(topic, taken, indexed);
+  // A whole pick writes the fields of one shape alone.
+  const format = whole && shapes.length > 1 ? formatOf(free)?.shape : undefined;
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const own = taken?.get(shape.key);
     const locked = lockedIndex(shape.leaves, indexOf(shape, own, indexed));
     return {
       title: shapes.length > 1 ? titleOf(shape) : undefined,
+      note: shape === format ? "Used for the format" : undefined,
+      dimmed: format != null && shape !== format,
       values: shape.leaves.map((l): ICD.Picker.Value => {
         let lock: ICD.Picker.Lock | undefined;
         if (l.pointer === locked) lock = ICD.Picker.INDEX;
@@ -302,13 +311,10 @@ const TopicValues = ({
       }),
     };
   });
-  const free = defaultPick(topic, taken, indexed);
   const picked = shapes.flatMap((shape, i) =>
     [...(value.get(shape.key)?.pointers ?? [])].map((p) => keyOf(i, p)),
   );
   const handleChange = (keys: string[]) => {
-    // A whole pick holds every free field, so one tick or untick moves them all.
-    if (whole) return onChange(keys.length > picked.length ? free : new Map());
     const keyed = new Set(keys);
     const next: TopicPick = new Map();
     shapes.forEach((shape, i) => {
@@ -334,7 +340,8 @@ const TopicValues = ({
         noun="Field"
         groups={groups}
         value={picked}
-        onChange={handleChange}
+        // The tree picks a whole topic, so its fields are a preview.
+        onChange={whole ? undefined : handleChange}
       />
       <Flex.Box y align="start" className={CSS.BE("mqtt-discover", "raw")}>
         <Button.Button variant="text" size="small" onClick={() => setRaw((r) => !r)}>

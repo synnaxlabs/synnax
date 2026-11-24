@@ -31,7 +31,7 @@ import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
 import type { Format, Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
-import type { TopicPick } from "@/feature/mqtt/task/discover/Topics";
+import { formatOf, type TopicPick } from "@/feature/mqtt/task/discover/Topics";
 import { namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -263,14 +263,11 @@ const createDraft = (topic: string, leaves: Leaf[], format: Format | null): Draf
   format,
 });
 
-/** @returns the picked leaves of the shape that the most messages of a topic had. */
+/** @returns the picked leaves of the shape that sets the format of a topic. */
 const formatLeaves = (pick: TopicPick): Leaf[] => {
-  const most = ICD.Write.mostCommon(
-    [...pick.values()],
-    ({ shape }) => shape.count ?? 0,
-  );
-  if (most == null) return [];
-  return most.shape.leaves.filter(({ pointer }) => most.pointers.has(pointer));
+  const format = formatOf(pick);
+  if (format == null) return [];
+  return format.shape.leaves.filter(({ pointer }) => format.pointers.has(pointer));
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
