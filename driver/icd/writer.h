@@ -15,7 +15,6 @@
 #include <map>
 #include <optional>
 #include <span>
-#include <string>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -37,7 +36,6 @@ namespace driver::icd {
 /// command. A command that its field refuses is dropped, and the field keeps its last
 /// good command. It is not safe for concurrent use.
 class Writer {
-    std::string name;
     std::variant<codec::TextEncoder, codec::JSONEncoder> encoder;
     /// @brief channels holds the command channel of each binding.
     std::vector<synnax::channel::Key> channels;

@@ -154,7 +154,6 @@ std::pair<Writer, x::errors::Error> Writer::create(
         }))
         return refuse("binds no channels");
     Writer w;
-    w.name = msg->name;
     std::vector<codec::Binding> bindings;
     for (const auto &b: wm.bindings) {
         const auto *cb = std::get_if<icd::ChannelWriteBinding>(&b);
