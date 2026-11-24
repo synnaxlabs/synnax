@@ -30,7 +30,7 @@ var _ = DescribeTableSubtree("One clock handoff check", func(pointerLog bool) {
 		keys      []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), layout(pointerLog)...)
+		db = openTestDB(ctx, FileSystems["memFS"](), pointerLog)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
@@ -131,39 +131,42 @@ var _ = DescribeTableSubtree("One clock handoff check", func(pointerLog bool) {
 		}),
 	)
 
-	It("Should keep the clock with its holder when a writer that takes it fails to "+
-		"open", func(ctx SpecContext) {
-		skipOnPointerLog(pointerLog, errorTextOwner)
-		c := open(ctx, storageConfig{
-			Channels: keys,
-			Start:    30 * telem.SecondTS,
-			Mode:     writer.ModePersistOnly,
+	// On the old layout each session opens its own writer, so no take runs there.
+	if pointerLog {
+		It("Should keep the clock with its holder when a writer that takes it fails "+
+			"to open", func(ctx SpecContext) {
+			skipOnPointerLog(pointerLog, errorTextOwner)
+			c := open(ctx, storageConfig{
+				Channels: keys,
+				Start:    30 * telem.SecondTS,
+				Mode:     writer.ModePersistOnly,
+			})
+			MustSucceed(c.Write(ctx, fr(30, 31)))
+			MustSucceed(c.Commit(ctx))
+			Expect(c.Close()).To(Succeed())
+			a := open(ctx, storageConfig{
+				ControlSubject: control.Subject{Key: "a"},
+				Channels:       keys,
+				Start:          10 * telem.SecondTS,
+				Authorities:    []control.Authority{100},
+			})
+			MustSucceed(a.Write(ctx, fr(10, 11, 12)))
+			MustSucceed(a.Commit(ctx))
+			Expect(db.OpenWriter(ctx, storageConfig{
+				ControlSubject: control.Subject{Key: "b"},
+				Channels:       keys,
+				Start:          30 * telem.SecondTS,
+				Authorities:    []control.Authority{200},
+			})).Error().To(MatchError(ContainSubstring(
+				"cannot open writer because there is already data in the writer's " +
+					"time range",
+			)))
+			MustSucceed(a.Write(ctx, fr(13, 14)))
+			MustSucceed(a.Commit(ctx))
+			Expect(stored(ctx, telem.TimeRangeMax)).
+				To(Equal([]int64{10, 11, 12, 13, 14, 30, 31}))
 		})
-		MustSucceed(c.Write(ctx, fr(30, 31)))
-		MustSucceed(c.Commit(ctx))
-		Expect(c.Close()).To(Succeed())
-		a := open(ctx, storageConfig{
-			ControlSubject: control.Subject{Key: "a"},
-			Channels:       keys,
-			Start:          10 * telem.SecondTS,
-			Authorities:    []control.Authority{100},
-		})
-		MustSucceed(a.Write(ctx, fr(10, 11, 12)))
-		MustSucceed(a.Commit(ctx))
-		Expect(db.OpenWriter(ctx, storageConfig{
-			ControlSubject: control.Subject{Key: "b"},
-			Channels:       keys,
-			Start:          30 * telem.SecondTS,
-			Authorities:    []control.Authority{200},
-		})).Error().To(MatchError(ContainSubstring(
-			"cannot open writer because there is already data in the writer's " +
-				"time range",
-		)))
-		MustSucceed(a.Write(ctx, fr(13, 14)))
-		MustSucceed(a.Commit(ctx))
-		Expect(stored(ctx, telem.TimeRangeMax)).
-			To(Equal([]int64{10, 11, 12, 13, 14, 30, 31}))
-	})
+	}
 
 	DescribeTable(
 		"Should commit the samples of the holder that a handoff took the clock from, "+

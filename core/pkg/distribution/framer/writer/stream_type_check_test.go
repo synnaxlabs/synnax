@@ -28,7 +28,7 @@ import (
 var _ = DescribeTableSubtree("Stream only type check", func(pointerLog bool) {
 	It("Should refuse a stream only series of a stored index of the wrong data type",
 		func(ctx SpecContext) {
-			db := mustOpenDBOnFS(ctx, fs.NewMem(), layout(pointerLog)...)
+			db := openTestDB(ctx, fs.NewMem(), pointerLog)
 			idx, data := GenerateChannelKey(), GenerateChannelKey()
 			Expect(db.CreateChannel(
 				ctx,

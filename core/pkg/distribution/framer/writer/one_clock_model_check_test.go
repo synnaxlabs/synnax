@@ -47,7 +47,7 @@ var _ = DescribeTableSubtree("One clock model check", func(pointerLog bool) {
 		all            []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), layout(pointerLog)...)
+		db = openTestDB(ctx, FileSystems["memFS"](), pointerLog)
 		i1, d1 = GenerateChannelKey(), GenerateChannelKey()
 		i2, d2 = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
