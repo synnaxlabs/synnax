@@ -507,6 +507,14 @@ func (s *State) ConsumeInput(i int) (telem.Series, bool) {
 	return src.data, true
 }
 
+// ConsumeTimed is ConsumeInput that also returns the stamps of the samples.
+func (s *State) ConsumeTimed(i int) (data, time telem.Series, ok bool) {
+	if data, ok = s.ConsumeInput(i); !ok {
+		return telem.Series{}, telem.Series{}, false
+	}
+	return data, s.accumulated[i].time, true
+}
+
 // InputFresh reports whether input i has unconsumed data, without consuming it.
 func (s *State) InputFresh(i int) bool {
 	if i < 0 || i >= len(s.ir.inputs) || s.isReference[i] {

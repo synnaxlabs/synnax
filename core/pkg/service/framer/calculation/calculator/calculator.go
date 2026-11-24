@@ -18,6 +18,7 @@ import (
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	"github.com/synnaxlabs/arc/stl/join"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
@@ -114,7 +115,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	cs.channel = stlchannels.NewProgramState(cfg.Module.Dependencies.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
-	f, err := newHostFactory(ctx, cs)
+	f, err := newHostFactory(ctx, cs, cfg.Now)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +185,12 @@ func newCalculator(
 }
 
 // newHostFactory returns a factory of the nodes that the host modules of the calculator
-// provide.
-func newHostFactory(ctx context.Context, cs calcState) (node.CompoundFactory, error) {
+// provide. The join judges the arrival of its inputs by now.
+func newHostFactory(
+	ctx context.Context,
+	cs calcState,
+	now func() telem.TimeStamp,
+) (node.CompoundFactory, error) {
 	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
 	if err != nil {
 		return nil, err
@@ -202,6 +207,7 @@ func newHostFactory(ctx context.Context, cs calcState) (node.CompoundFactory, er
 		stlop.NewHost(),
 		stable.NewHost(),
 		mathMod,
+		join.NewHost(compiler.JoinType, now),
 	}, nil
 }
 

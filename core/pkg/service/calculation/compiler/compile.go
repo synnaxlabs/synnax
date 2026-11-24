@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl/join"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -72,7 +74,13 @@ func (c Config) Validate() error {
 const (
 	calculationKey = "calculation"
 	writeKey       = "write"
+	joinKey        = "join"
 )
+
+// JoinType is the node type of the join that pairs the reads of a calculation by
+// sample time. It holds U+0000, which the channel name rule refuses, so no channel or
+// Arc text can name it or be shadowed by it.
+const JoinType = "\x00join"
 
 // PreProcess compiles the channel's expression to discover channel references and infer
 // output types without building the full execution graph. It looks up channels in snap.
@@ -265,33 +273,65 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 }
 
 // addReads adds an input to the calculation function of g for each channel in reads,
-// fed by a node that reads the channel.
+// fed through one join by a node that reads the channel. The join pairs the reads by
+// sample time on the stamps of primary. It returns the symbol of the join, or nil when
+// reads is empty.
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
-) error {
+	primary *channel.Key,
+) (*symbol.Symbol, error) {
+	if len(reads) == 0 {
+		return nil, nil
+	}
+	var (
+		props      types.FunctionProperties
+		primaryIdx int
+	)
 	// The inputs take the order of their keys, so a tie between inputs breaks the same
 	// way on every compile.
-	for _, k := range slices.Sorted(maps.Keys(reads)) {
-		v := reads[k]
-		sym, err := symbols.Resolve(ctx, v)
+	for i, k := range slices.Sorted(maps.Keys(reads)) {
+		sym, err := symbols.Resolve(ctx, reads[k])
 		if err != nil {
-			return err
+			return nil, err
 		}
+		elem := *sym.Type.Elem
 		g.Functions[0].Inputs = append(
 			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
+			types.Param{Name: sym.Name, Type: elem},
 		)
 		addNode(g, sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
+		in, out := join.InputParam(i), join.OutputParam(i)
+		props.Inputs = append(props.Inputs, types.Param{Name: in, Type: elem})
+		props.Outputs = append(props.Outputs, types.Param{Name: out, Type: elem})
 		addEdge(
 			g,
 			ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: joinKey, Param: in},
+		)
+		addEdge(
+			g,
+			ir.Handle{Node: joinKey, Param: out},
 			ir.Handle{Node: calculationKey, Param: sym.Name},
 		)
+		if primary != nil && channel.Key(k) == *primary {
+			primaryIdx = i
+		}
 	}
-	return nil
+	props.Inputs = append(props.Inputs, types.Param{
+		Name:  join.PrimaryParam,
+		Type:  types.I64(),
+		Value: int64(primaryIdx),
+	})
+	addNode(g, joinKey, JoinType, nil)
+	return &symbol.Symbol{
+		Name: JoinType,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(props),
+	}, nil
 }
 
 func compile(
@@ -337,10 +377,15 @@ func compileAnalyzed(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	if err := addReads(ctx, &g, symbols, result.Reads); err != nil {
+	joinSym, err := addReads(ctx, &g, symbols, result.Reads, cfg.Calculation.Primary)
+	if err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+	var extras []*symbol.Symbol
+	if joinSym != nil {
+		extras = append(extras, joinSym)
+	}
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols, extras...),
 		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 	if err != nil {
 		return Module{}, err
