@@ -10,8 +10,11 @@
 package gorp_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -277,6 +280,43 @@ var _ = Describe("Changes", func() {
 				)))
 			},
 		)
+
+		It("Should record the links of an update that holds many targets", func(
+			ctx SpecContext,
+		) {
+			names := func(from, to int) []string {
+				out := make([]string, 0, to-from)
+				for i := from; i < to; i++ {
+					out = append(out, fmt.Sprintf("l%d", i))
+				}
+				return out
+			}
+			links := func(from, to int) []gorp.Link {
+				return lo.Map(names(from, to), func(l string, _ int) gorp.Link {
+					return labelLink(l)
+				})
+			}
+			all := lo.Map(names(0, 50), func(k string, _ int) refLabel {
+				return refLabel{Key: k}
+			})
+			Expect(labels.NewCreate().Entries(&all).Exec(ctx, db)).To(Succeed())
+			// Enough links that the change list compares them through a set.
+			many := refDevice{Key: "d", Rack: 1, Labels: names(0, 40)}
+			Expect(devices.NewCreate().Entry(&many).Exec(ctx, db)).To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewUpdate().
+				Where(gorp.MatchKeys[string, refDevice]("d")).
+				Change(func(_ gorp.Context, d refDevice) refDevice {
+					d.Labels = append(names(10, 50), "l45")
+					return d
+				}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+				HaveField("Added", links(40, 50)),
+				HaveField("Removed", links(0, 10)),
+				HaveField("Links", append([]gorp.Link{rackLink(1)}, links(10, 50)...)),
+			)))
+		})
 
 		DescribeTable(
 			"Should record the links that an update adds, removes, and keeps",

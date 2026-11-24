@@ -10,10 +10,13 @@
 package index_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Multi", func() {
@@ -85,6 +88,50 @@ var _ = Describe("Multi", func() {
 		Expect(m.Get(txn, "a")).To(ConsistOf(1))
 	})
 
+	Describe("GetEach", func() {
+		It("Should return the keys that hold each value at its position", func() {
+			Expect(m.GetEach(nil, []string{"a", "b", "z"})).To(Equal([][]int{
+				{1},
+				{1, 2},
+				nil,
+			}))
+		})
+
+		It("Should return nil when no key holds any value", func() {
+			Expect(m.GetEach(nil, []string{"y", "z"})).To(BeNil())
+		})
+
+		It("Should show staged changes only to their scope", func() {
+			m.Stage(txn, 3, []string{"a"})
+			m.StageDelete(txn, 1)
+			each := MustSucceed(m.GetEach(txn, []string{"a", "b"}))
+			Expect(each[0]).To(ConsistOf(3))
+			Expect(each[1]).To(ConsistOf(2))
+			Expect(m.GetEach(nil, []string{"a"})).To(Equal([][]int{{1}}))
+		})
+
+		It("Should return the load error", func() {
+			failed := index.NewMulti[*scope, int, string]()
+			_, finish := failed.Populate()
+			finish(errLoad)
+			Expect(failed.GetEach(nil, []string{"a"})).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("CommittingEach", func() {
+		It(
+			"Should return the keys that a scope in its commit maps to each value",
+			func() {
+				m.Stage(txn, 3, []string{"a"})
+				Expect(m.CommittingEach([]string{"a", "b"})).To(BeNil())
+				txn.committing = true
+				Expect(
+					m.CommittingEach([]string{"a", "b"}),
+				).To(Equal([][]int{{3}, nil}))
+			},
+		)
+	})
+
 	Describe("Holding", func() {
 		BeforeEach(func() { m.Set(3, nil) })
 
@@ -130,6 +177,76 @@ var _ = Describe("Multi", func() {
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(failed.Holding(nil, false)).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("A key that a scope stages with no value and that held nothing", func() {
+		It("Should hold none only in its scope until the scope commits", func() {
+			m.Stage(txn, 5, nil)
+			Expect(m.Holding(txn, false)).To(ConsistOf(5))
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Current(txn, 5, nil)).To(BeTrue())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(5))
+		})
+
+		It("Should be dropped when the scope does not commit", func() {
+			m.Stage(txn, 5, nil)
+			txn.end(false)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
+		})
+
+		It("Should hold the values that the scope stages for it later", func() {
+			m.Stage(txn, 5, nil)
+			m.Stage(txn, 5, []string{"e"})
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Get(nil, "e")).To(ConsistOf(5))
+		})
+
+		It("Should be gone when the scope deletes it later", func() {
+			m.Stage(txn, 5, nil)
+			m.StageDelete(txn, 5)
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
+		})
+
+		It("Should hold none when the scope staged values for it first", func() {
+			m.Stage(txn, 5, []string{"e"})
+			m.Stage(txn, 5, nil)
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(5))
+			Expect(m.Get(nil, "e")).To(BeEmpty())
+		})
+
+		It("Should be among the keys of a scope in its commit", func() {
+			m.Stage(txn, 5, nil)
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(ConsistOf(5))
+		})
+
+		It("Should be staged with no allocation", func() {
+			txn.cleanups = make([]func(bool), 0, 1)
+			key := 100
+			stage := func() {
+				key++
+				m.Stage(txn, key, nil)
+				for _, fn := range txn.cleanups {
+					fn(false)
+				}
+				txn.cleanups = txn.cleanups[:0]
+			}
+			stage()
+			Expect(testing.AllocsPerRun(100, stage)).To(BeZero())
 		})
 	})
 

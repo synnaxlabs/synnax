@@ -129,11 +129,11 @@ var _ = Describe("JSON", func() {
 			confluence.Drain(responses)
 		})
 		It(
-			"Should create the set channel as a free, internal, virtual JSON channel",
+			"Should create the set channel as a free, built-in, virtual JSON channel",
 			func() {
 				Expect(ch.Virtual).To(BeTrue())
 				Expect(ch.Free()).To(BeTrue())
-				Expect(ch.Internal).To(BeTrue())
+				Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
 				Expect(ch.DataType).To(Equal(telem.JSONT))
 			},
 		)

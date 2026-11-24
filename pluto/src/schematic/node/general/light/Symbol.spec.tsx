@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { DataType, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import { Light } from "@/schematic/node/general/light";
-import { createSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { light } from "@/vis/light/aether";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 
@@ -66,5 +68,42 @@ describe("Light.Symbol staleness", () => {
     );
     expect(strokeColor()).toBe(STROKE);
     expect(lampColor()).toBe(ON);
+  });
+});
+
+describe("Light.Symbol deleted channel", () => {
+  const client = createTestClient();
+
+  it("should show Deleted channel below a light whose channel was deleted", async () => {
+    const ch = await client.channels.create({
+      name: `light_${id.create()}`,
+      dataType: DataType.UINT8,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const Providers = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: light.REGISTRY,
+      telemFactories: [],
+    });
+    const { findByText } = render(
+      <Providers>
+        <ReactFlowProvider>
+          <Light.spec.Node
+            nodeKey={id.create()}
+            selected={false}
+            onConfigChange={() => {}}
+            config={schematic.lightNodeConfigZ.parse({
+              variant: "light",
+              channel: ch.key,
+            })}
+          />
+        </ReactFlowProvider>
+      </Providers>,
+    );
+    const badge = await findByText("Deleted channel");
+    expect(badge.closest(".pluto-grid__item")?.classList).toContain(
+      "lyra--location-bottom",
+    );
   });
 });

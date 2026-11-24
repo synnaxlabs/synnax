@@ -909,8 +909,16 @@ var _ = Describe("Reference", func() {
 					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
 					Exec(ctx, db)).To(Succeed())
 				Expect(racks.Dependents(ctx, db, 1)).To(ConsistOf(
-					gorp.Target{Table: "device", Key: "a"},
-					gorp.Target{Table: "status", Key: "s"},
+					gorp.Dependent{
+						Holder:    gorp.Target{Table: "device", Key: "a"},
+						Reference: "rack",
+						Kind:      gorp.Place,
+					},
+					gorp.Dependent{
+						Holder:    gorp.Target{Table: "status", Key: "s"},
+						Reference: "owner",
+						Kind:      gorp.Place,
+					},
 				))
 			},
 		)
@@ -925,12 +933,16 @@ var _ = Describe("Reference", func() {
 		) {
 			createRack(ctx, 1)
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
-			var deps []gorp.Target
+			var deps []gorp.Dependent
 			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 				deps, err = racks.Dependents(ctx, snap, 1)
 				return err
 			})).To(Succeed())
-			Expect(deps).To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+			Expect(deps).To(Equal([]gorp.Dependent{{
+				Holder:    gorp.Target{Table: "device", Key: "a"},
+				Reference: "rack",
+				Kind:      gorp.Place,
+			}}))
 		})
 
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
@@ -942,6 +954,54 @@ var _ = Describe("Reference", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(racks.Dependents(ctx, tx, 1)).To(BeEmpty())
 			Expect(racks.Dependents(ctx, db, 1)).To(HaveLen(1))
+		})
+
+		It("Should list the dependents of each key at its position", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createRack(ctx, 2)
+			createRack(ctx, 3)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 2})).To(Succeed())
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "2"}}).
+				Exec(ctx, db)).To(Succeed())
+			deps := MustSucceed(racks.DependentsEach(ctx, db, []uint32{1, 2, 3}))
+			Expect(deps).To(HaveLen(3))
+			Expect(deps[0]).To(Equal([]gorp.Dependent{{
+				Holder:    gorp.Target{Table: "device", Key: "a"},
+				Reference: "rack",
+				Kind:      gorp.Place,
+			}}))
+			Expect(deps[1]).To(ConsistOf(
+				gorp.Dependent{
+					Holder:    gorp.Target{Table: "device", Key: "b"},
+					Reference: "rack",
+					Kind:      gorp.Place,
+				},
+				gorp.Dependent{
+					Holder:    gorp.Target{Table: "status", Key: "s"},
+					Reference: "owner",
+					Kind:      gorp.Place,
+				},
+			))
+			Expect(deps[2]).To(BeEmpty())
+		})
+
+		It("Should see writes staged in the same transaction for each key", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createRack(ctx, 2)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 2}).
+				Exec(ctx, tx)).To(Succeed())
+			deps := MustSucceed(racks.DependentsEach(ctx, tx, []uint32{1, 2}))
+			Expect(deps[0]).To(BeEmpty())
+			Expect(deps[1]).To(HaveLen(1))
 		})
 	})
 
@@ -1928,7 +1988,8 @@ var _ = Describe("Reference", func() {
 				Table:   "label",
 				Kind:    gorp.Use,
 				Targets: func(*refProject) []string { return nil },
-			}, "project.references.1.on_delete: must be Restrict, Cascade, Detach, or Inline"),
+			}, "project.references.1.on_delete: "+
+				"must be Restrict, Cascade, Detach, Inline, or Weak"),
 			Entry("with no kind", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:     "label",
 				Table:    "label",

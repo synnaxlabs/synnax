@@ -114,8 +114,9 @@ var _ = Describe("C++ Types Plugin", func() {
 				Where filter Thing {
 					key
 					name
-					tags   string[]
-					active bool
+					tags     string[]
+					active   bool
+					built_in filter.Bool
 				}
 			`
 			resp := MustGenerate(source, "thing", loader, cppPlugin)
@@ -125,6 +126,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				"::x::filter::Field<::x::filter::String> name;",
 				"::x::filter::List<std::string> tags;",
 				"std::optional<bool> active;",
+				"::x::filter::Field<::x::filter::Bool> built_in;",
 			)
 		})
 

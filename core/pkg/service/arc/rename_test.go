@@ -105,15 +105,14 @@ var _ = Describe("LSP Rename", func() {
 		Expect(rename(ctx, server, docURI)).Error().To(MatchError("rename failed"))
 	})
 
-	It("Should reject rename on internal channels", func(ctx SpecContext) {
+	It("Should reject rename on built-in channels", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "lsp_rename_internal",
 			Virtual:  true,
-			Internal: true,
 			DataType: telem.Float32T,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, ch)
+			return channelSvc.NewWriter(tx).Declare(ctx, ch)
 		})).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP(lspConfig))

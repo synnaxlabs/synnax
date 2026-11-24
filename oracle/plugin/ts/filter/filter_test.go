@@ -273,6 +273,34 @@ var _ = Describe("TS Filter Plugin", func() {
 			},
 		)
 
+		It(
+			"Should list a reference but not a field whose @ref sets only a direction",
+			func() {
+				resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					key     uuid   { @key }
+					name    string { @index sorted }
+					owner   uuid?  { @ref on_delete cascade }
+					sources uuid[] { @ref direction read }
+
+					action Touch {
+						at int64
+					}
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "where.gen.ts").ToContain(
+					`export const LIST_FIELDS: readonly string[] = ["key", "name", "owner"];`,
+				)
+			},
+		)
+
 		It("Should order number keys by value", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
@@ -365,6 +393,21 @@ var _ = Describe("TS Filter Plugin", func() {
 				"overlaps: spanZ.exactOptional(),",
 				"spans: filter.listInputZ(spanZ).exactOptional(),",
 				`import { Cursor, Payload, Where, spanZ } from "@/thing/types.gen";`,
+			)
+		})
+
+		It("Should check a typed line of an operator in the Lines table", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
+					builtIn filter.Bool
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				`builtIn: ((record: Payload, value: NonNullable<Where["builtIn"]>) => `+
+					`boolean) | null;`,
+				"if (!lines.builtIn(record, where.builtIn)) return false;",
+				"builtIn: filter.boolInputZ.exactOptional(),",
 			)
 		})
 
