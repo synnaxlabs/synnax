@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
@@ -85,8 +87,6 @@ func convertFixture(b *testing.B, keys, files int) xfs.FS {
 	const (
 		group   = 10
 		samples = 128
-		// fileCap rolls a key over to a new old file every 8 commits.
-		fileCap = 8 * samples * 8 * telem.Byte
 	)
 	dir := filepath.Join(
 		benchDir(b),
@@ -100,88 +100,67 @@ func convertFixture(b *testing.B, keys, files int) xfs.FS {
 		b.Fatal(err)
 	}
 	root := mustSub(b, dir)
-	db, err := cesium.Open(b.Context(), "", cesium.WithFS(root), cesium.WithFileSizeCap(
-		fileCap,
-	))
-	if err != nil {
-		b.Fatal(err)
-	}
 	for g := range keys / group {
-		chans := make([]cesium.Channel, group)
-		chKeys := make([]cesium.ChannelKey, group)
-		for i := range chans {
-			chKeys[i] = cesium.ChannelKey(g*group + i + 1)
-			chans[i] = cesium.Channel{
-				Key:      chKeys[i],
-				Name:     strconv.FormatUint(uint64(chKeys[i]), 10),
-				DataType: telem.Float64T,
-				Index:    chKeys[0],
-			}
-		}
-		chans[0] = cesium.Channel{
-			Key:      chKeys[0],
-			Name:     strconv.FormatUint(uint64(chKeys[0]), 10),
-			DataType: telem.TimestampT,
-			IsIndex:  true,
-		}
-		if err = db.CreateChannel(b.Context(), chans...); err != nil {
+		group := fixtureGroup(g*group+1, group, files, samples)
+		if err := oldlayout.Write(root, group...); err != nil {
 			b.Fatal(err)
 		}
-		writeFixtureGroup(b, db, chKeys, files*8, samples)
-	}
-	if err = db.Close(); err != nil {
-		b.Fatal(err)
 	}
 	syncTree(b, root)
-	if err = os.WriteFile(done, nil, 0o644); err != nil {
+	if err := os.WriteFile(done, nil, 0o644); err != nil {
 		b.Fatal(err)
 	}
 	return root
 }
 
-// writeFixtureGroup writes commits commits of samples samples to keys, whose first key
-// is the index of the others.
-func writeFixtureGroup(
-	b *testing.B,
-	db *cesium.DB,
-	keys []cesium.ChannelKey,
-	commits, samples int,
-) {
-	b.Helper()
-	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-		Channels: keys,
-		Start:    telem.SecondTS,
-	})
-	if err != nil {
-		b.Fatal(err)
+// fixtureGroup returns the old layout of an index at key first and the group-1 float64
+// keys after it that it times: files old files of each key, each with one pointer of 8
+// commits of samples samples. Sample n has the stamp 1 s + n ms and the value n.
+func fixtureGroup(first, group, files, samples int) []oldlayout.Key {
+	perFile := 8 * samples
+	out := make([]oldlayout.Key, group)
+	for i := range out {
+		key := cesium.ChannelKey(first + i)
+		ch := cesium.Channel{
+			Key:      key,
+			Name:     strconv.FormatUint(uint64(key), 10),
+			DataType: telem.Float64T,
+			Index:    cesium.ChannelKey(first),
+		}
+		if i == 0 {
+			ch.DataType, ch.Index, ch.IsIndex = telem.TimestampT, 0, true
+		}
+		ch.Version = channel.VersionCurrent
+		k := oldlayout.Key{
+			Channel: ch,
+			Counter: uint32(files),
+			Files:   make(map[uint16][]byte, files),
+		}
+		for f := range files {
+			stamps := make([]telem.TimeStamp, perFile)
+			values := make([]float64, perFile)
+			for j := range perFile {
+				n := f*perFile + j
+				stamps[j] = telem.SecondTS + telem.TimeStamp(n)*telem.MillisecondTS
+				values[j] = float64(n)
+			}
+			data := telem.NewSeries(values).Data
+			if i == 0 {
+				data = telem.NewSeries(stamps).Data
+			}
+			k.Files[uint16(f+1)] = data
+			k.Pointers = append(k.Pointers, oldlayout.Pointer{
+				TimeRange: telem.TimeRange{
+					Start: stamps[0],
+					End:   stamps[perFile-1] + 1,
+				},
+				File: uint16(f + 1),
+				Size: uint32(len(data)),
+			})
+		}
+		out[i] = k
 	}
-	stamps, values := make([]telem.TimeStamp, samples), make([]float64, samples)
-	for c := range commits {
-		for i := range samples {
-			stamps[i] = telem.SecondTS + telem.TimeStamp(
-				c*samples+i,
-			)*telem.MillisecondTS
-			values[i] = float64(c*samples + i)
-		}
-		series := make([]telem.Series, len(keys))
-		series[0] = telem.NewSeries(stamps)
-		for i := 1; i < len(keys); i++ {
-			series[i] = telem.NewSeries(values)
-		}
-		if _, _, err = w.Write(
-			b.Context(),
-			telem.MultiFrame(keys, series),
-			nil,
-		); err != nil {
-			b.Fatal(err)
-		}
-		if _, _, err = w.Commit(b.Context(), nil); err != nil {
-			b.Fatal(err)
-		}
-	}
-	if err = w.Close(); err != nil {
-		b.Fatal(err)
-	}
+	return out
 }
 
 func fileSize(b *testing.B, fs xfs.FS, name string) int64 {
