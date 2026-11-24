@@ -203,6 +203,7 @@ describe("OPCUA.Device.useConnectModal", () => {
           clientTimeoutMs: 2000,
           secureChannelLifetimeMs: 60_000,
           sessionTimeoutMs: 120_000,
+          readNodeTimeout: 45_000_000_000,
         },
       },
     });
@@ -211,6 +212,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("2s")).toBeTruthy();
+    expect(screen.getByDisplayValue("45s")).toBeTruthy();
     expect(screen.getByDisplayValue("1min")).toBeTruthy();
     expect(screen.getByDisplayValue("2min")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();

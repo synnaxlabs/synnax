@@ -13,13 +13,17 @@ import { describe, expect, it } from "vitest";
 import { readNodeTimeout } from "@/feature/opcua/device/commandTimeout";
 import { type ConnectionConfig, ZERO_PROPERTIES } from "@/feature/opcua/device/types";
 
-const config = (clientTimeoutMs: number): ConnectionConfig => ({
+const config = (
+  clientTimeoutMs: number,
+  timeout = ZERO_PROPERTIES.connection.readNodeTimeout,
+): ConnectionConfig => ({
   ...ZERO_PROPERTIES.connection,
   clientTimeoutMs,
+  readNodeTimeout: timeout,
 });
 
 describe("readNodeTimeout", () => {
-  it("should outlast the Driver deadline and two client timeouts", () => {
+  it("should outlast the default node read timeout and two client timeouts", () => {
     expect(readNodeTimeout(config(5000)).valueOf()).toEqual(
       TimeSpan.seconds(32).valueOf(),
     );
@@ -28,6 +32,13 @@ describe("readNodeTimeout", () => {
   it("should grow with the client timeout", () => {
     expect(readNodeTimeout(config(10_000)).valueOf()).toEqual(
       TimeSpan.seconds(42).valueOf(),
+    );
+  });
+
+  it("should grow with the node read timeout of the connection", () => {
+    const timeout = Number(TimeSpan.seconds(60).valueOf());
+    expect(readNodeTimeout(config(5000, timeout)).valueOf()).toEqual(
+      TimeSpan.seconds(72).valueOf(),
     );
   });
 });

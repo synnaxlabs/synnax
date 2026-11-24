@@ -423,6 +423,13 @@ export const Connect = ({
                   padHelpText={false}
                 />
               </Flex.Box>
+              <Form.TimeSpanField
+                path={path.properties.connection.readNodeTimeout}
+                label="Node read timeout"
+                unit={TimeSpan.NANOSECOND}
+                bounds={READ_NODE_BOUNDS}
+                helpText="The longest time to read the details of one node."
+              />
             </Form.Section>
           </Form.Sections>
         </Form.Form>
@@ -528,3 +535,4 @@ const ENDPOINT_INPUT_PROPS = {
 } as const;
 
 const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };
+const READ_NODE_BOUNDS = { lower: TimeSpan.SECOND };
