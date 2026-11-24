@@ -208,7 +208,9 @@ func (r *recovery) readInto(
 	if err != nil {
 		return nil, false, err
 	}
-	*buf = slices.Grow((*buf)[:0], int(info.Size()))[:info.Size()]
+	// A file that a live writer grows may give a new size at each call.
+	size := int(info.Size())
+	*buf = slices.Grow((*buf)[:0], size)[:size]
 	if _, err = f.ReadAt(*buf, 0); err != nil && !errors.Is(err, io.EOF) {
 		return nil, false, err
 	}

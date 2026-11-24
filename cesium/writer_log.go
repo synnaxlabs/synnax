@@ -302,9 +302,8 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 		}
 		s := fr.RawSeriesAt(i)
 		// The clock takes int64 stamps too, as the index writer of the old layout does.
-		if s.DataType != lk.ch.DataType &&
-			(k != w.clock || s.DataType != telem.Int64T) {
-			return clock, 0, invalidDataTypeError(lk.ch, s.DataType)
+		if err := lk.ch.ValidateSeries(s); err != nil {
+			return clock, 0, channel.Wrap(k, err)
 		}
 		if lk.frame == w.frames {
 			return clock, 0, oneSeriesPerChannelError(lk.ch)
@@ -355,8 +354,9 @@ func (w *logWriter) checkOrder(
 		if (i > 0 || w.number != 0) && stamp <= prev {
 			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
 				validate.ErrValidation,
-				"stamp %v must be after %v",
+				"index out of order: timestamp %v at sample %d must be after %v",
 				stamp,
+				i,
 				prev,
 			))
 		}
