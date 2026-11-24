@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
+	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -67,7 +68,8 @@ func (*Plugin) Name() string       { return "go/entry" }
 func (*Plugin) Domains() []string  { return []string{"go"} }
 func (*Plugin) Requires() []string { return []string{"go/types"} }
 
-const uuidImportPath = "github.com/google/uuid"
+// uuidImportPath is the package of the Go type a uuid key maps to.
+var uuidImportPath = goprimitives.Mapper().Map("uuid").Imports[0].Path
 
 // primitiveKeys are the primitives a key may resolve to.
 var primitiveKeys = set.New(

@@ -208,7 +208,7 @@ Device struct {
 		}))
 		Expect(fileAt(resp, "core/pkg/service/ni/device/versions/v0/entry.gen.go")).
 			To(And(
-				ContainSubstring(`"github.com/google/uuid"`),
+				ContainSubstring(`"uuid"`),
 				ContainSubstring(
 					`func (Device) CustomTypeName() string { return "ni_device" }`,
 				),
