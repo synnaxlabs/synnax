@@ -915,7 +915,7 @@ describe("MQTT Write form", () => {
       return found;
     };
 
-    it("should add a whole picked topic with a format from its last message, in an ICD named after the task", async () => {
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
       const { dialog, draft } = await openOnPickedTopic();
       const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
         name: "Record mode",

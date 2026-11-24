@@ -33,7 +33,8 @@ import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
 
-const FORMAT_HELP = "Optional. A topic with no format gets one from its last message.";
+const FORMAT_HELP =
+  "Optional. A topic with no format gets one from the kind of message it sends most.";
 
 /** A message of an ICD. */
 export interface Format {
