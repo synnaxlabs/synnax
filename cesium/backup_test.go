@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -110,11 +111,31 @@ var _ = Describe("Meta backup", func() {
 		It(
 			"Should report a database on the pointer log, which has no metadata backup",
 			func(ctx SpecContext) {
-				db := openDBOnFS(ctx, fs)
-				Expect(db.CreateChannel(ctx, metaIndexCh, metaDataCh)).To(Succeed())
-				writeSamples(ctx, db, 1, metaIndexCh.Key, metaDataCh.Key)
-				Expect(db.Close()).To(Succeed())
-				db = openDBOnFS(
+				// The old layout of one write of three samples from 1 second.
+				written := telem.TimeRange{
+					Start: telem.SecondTS,
+					End:   3*telem.SecondTS + 1,
+				}
+				Expect(oldlayout.Write(fs, oldlayout.Key{
+					Channel: metaIndexCh,
+					Counter: 1,
+					Pointers: []oldlayout.Pointer{
+						{TimeRange: written, File: 1, Size: 24},
+					},
+					Files: map[uint16][]byte{
+						1: telem.NewSeriesSecondsTSV(1, 2, 3).Data,
+					},
+				}, oldlayout.Key{
+					Channel: metaDataCh,
+					Counter: 1,
+					Pointers: []oldlayout.Pointer{
+						{TimeRange: written, File: 1, Size: 24},
+					},
+					Files: map[uint16][]byte{
+						1: telem.NewSeriesV(1.0, 2.0, 3.0).Data,
+					},
+				})).To(Succeed())
+				db := openDBOnFS(
 					ctx,
 					fs,
 					cesium.WithPointerLog(),
