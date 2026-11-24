@@ -285,41 +285,66 @@ describe("Certificate", () => {
     it("should retrieve the certificates with or without a private key", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Keyed" });
-      const [keyed, bare] = await client.certificates.set([
+      const created = await client.certificates.set([
+        { name: "Keyed", source: "stored", pem: PEM, privateKeyPem: PRIVATE_KEY },
+        { name: "Bare", source: "stored", pem: PEM },
         {
-          name: "Keyed",
+          name: "Keyed file",
           source: "file",
           certificatePath: "/a.crt",
           privateKeyFile: "client.pem",
           rack: r.key,
         },
-        { name: "Bare", source: "file", certificatePath: "/b.crt", rack: r.key },
+        { name: "Bare file", source: "file", certificatePath: "/b.crt", rack: r.key },
       ]);
-      const retrieve = async (k: boolean) =>
-        await createTestClient().certificates.retrieve({ racks: [r.key], keyed: k });
-      expect(await retrieve(true)).toEqual([keyed]);
-      expect(await retrieve(false)).toEqual([bare]);
+      const key = created.map((c) => c.key);
+      const retrieve = async (keyed: boolean) =>
+        new Set(
+          (await createTestClient().certificates.retrieve({ key, keyed })).map(
+            (c) => c.key,
+          ),
+        );
+      expect(await retrieve(true)).toEqual(new Set([key[0], key[2]]));
+      expect(await retrieve(false)).toEqual(new Set([key[1], key[3]]));
     });
 
     it("should add a certificate with a private key to a watch of keyed ones", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Watched keyed" });
-      const list = client.certificates.watch({ racks: [r.key], keyed: true });
+      const key = [uuid.create(), uuid.create(), uuid.create(), uuid.create()];
+      const list = client.certificates.watch({ key, keyed: true });
       const off = list.onChange(() => {});
       try {
         expect((await list.retrieve()).records).toEqual([]);
-        const [added] = await client.certificates.set([
+        await client.certificates.set([
           {
+            key: key[0],
             name: "Keyed",
+            source: "stored",
+            pem: PEM,
+            privateKeyPem: PRIVATE_KEY,
+          },
+          { key: key[1], name: "Bare", source: "stored", pem: PEM },
+          {
+            key: key[2],
+            name: "Keyed file",
             source: "file",
             certificatePath: "/a.crt",
             privateKeyFile: "client.pem",
             rack: r.key,
           },
-          { name: "Bare", source: "file", certificatePath: "/b.crt", rack: r.key },
+          {
+            key: key[3],
+            name: "Bare file",
+            source: "file",
+            certificatePath: "/b.crt",
+            rack: r.key,
+          },
         ]);
         await vi.waitFor(() =>
-          expect(expectLive(list.getCached()).records).toEqual([added]),
+          expect(
+            new Set(expectLive(list.getCached()).records.map((c) => c.key)),
+          ).toEqual(new Set([key[0], key[2]])),
         );
       } finally {
         off();
