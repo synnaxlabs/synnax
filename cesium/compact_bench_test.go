@@ -142,11 +142,19 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 	b.Helper()
 	dir := b.TempDir()
 	db := runCompactDB(b, dir)
-	keys := createIndexedChannels(b, db, 1, 32)
 	running := func() bool { return true }
 	if rewrite {
 		running = startRewrite(b, db, dir, 7)
 	}
+	benchmarkCommits(b, db, running, "the rewrites ended before the commits")
+}
+
+// benchmarkCommits writes one frame of float32 samples to 32 new channels of db, then
+// commits and syncs it, 20,000 times per iteration, and reports the 99th percentile of
+// the time of a commit. It fails with ended when running reports false at the end.
+func benchmarkCommits(b *testing.B, db *cesium.DB, running func() bool, ended string) {
+	b.Helper()
+	keys := createIndexedChannels(b, db, 1, 32)
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
 		Start:    telem.SecondTS,
@@ -190,7 +198,7 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 	}
 	b.StopTimer()
 	if !running() {
-		b.Fatal("the rewrites ended before the commits")
+		b.Fatal(ended)
 	}
 	reportP99(b, took)
 	if err := w.Close(); err != nil {
@@ -213,9 +221,24 @@ func BenchmarkCompactRead(b *testing.B) {
 
 func benchmarkCompactRead(b *testing.B, rewrite bool) {
 	b.Helper()
-	const stretches, samples = 100, 100
 	dir := b.TempDir()
 	db := runCompactDB(b, dir)
+	keys := writeReadStretches(b, db)
+	running := func() bool { return true }
+	if rewrite {
+		running = startRewrite(b, db, dir, 1)
+	}
+	benchmarkReads(b, db, keys, running, "the rewrite ended before the reads")
+}
+
+// readStretches and readSamples are the stretches that writeReadStretches writes, and
+// the samples of each.
+const readStretches, readSamples = 100, 100
+
+// writeReadStretches writes readStretches stretches of readSamples samples to a new
+// index and data channel of db, keys 1 and 2, and returns their keys.
+func writeReadStretches(b *testing.B, db *cesium.DB) []cesium.ChannelKey {
+	b.Helper()
 	keys := []cesium.ChannelKey{1, 2}
 	if err := db.CreateChannel(
 		b.Context(),
@@ -224,13 +247,24 @@ func benchmarkCompactRead(b *testing.B, rewrite bool) {
 	); err != nil {
 		b.Fatal(err)
 	}
-	for s := range stretches {
-		writePartsStretch(b, b.Context(), db, keys, s*samples, samples)
+	for s := range readStretches {
+		writePartsStretch(b, b.Context(), db, keys, s*readSamples, readSamples)
 	}
-	running := func() bool { return true }
-	if rewrite {
-		running = startRewrite(b, db, dir, 1)
-	}
+	return keys
+}
+
+// benchmarkReads reads keys of db, from writeReadStretches, per iteration, and reports
+// the 99th percentile of the time of an iteration. It fails with ended when running
+// reports false at the end.
+func benchmarkReads(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	running func() bool,
+	ended string,
+) {
+	b.Helper()
+	const stretches, samples = readStretches, readSamples
 	took := make([]time.Duration, 0, 1<<20)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -244,7 +278,7 @@ func benchmarkCompactRead(b *testing.B, rewrite bool) {
 	}
 	b.StopTimer()
 	if !running() {
-		b.Fatal("the rewrite ended before the reads")
+		b.Fatal(ended)
 	}
 	reportP99(b, took)
 }
