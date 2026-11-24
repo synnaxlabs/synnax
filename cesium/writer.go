@@ -511,7 +511,7 @@ func (w *idxWriter) Commit(
 	skipped := false
 	commit := func(chW *unaryWriterState) bool {
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
-		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
+		chW.uncommitted = chW.uncommitted && cErr != nil
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
@@ -569,7 +569,7 @@ func (w *idxWriter) commitPendingData(
 			continue
 		}
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end, &w.group, skip)
-		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
+		chW.uncommitted = chW.uncommitted && cErr != nil
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
