@@ -377,11 +377,39 @@ func (c *clockWriter) write(
 	if w == nil {
 		return refuse(fr, c.member.keys)
 	}
+	lost := c.lost(fr, skip)
+	if len(lost) > 0 {
+		fr = fr.ExcludeKeys(lost)
+	}
 	written, skipped, err := w.Write(ctx, fr, skip)
 	if err == nil && c.own == nil && holds(written, c.member.keys) {
 		c.member.pending = true
 	}
-	return written, skipped, err
+	return written, skipped || len(lost) > 0, err
+}
+
+// lost returns the keys of the session in fr that skip refuses and that the writer it
+// uses lacks, since that writer does not refuse them. The caller holds the entry's
+// lock.
+func (c *clockWriter) lost(
+	fr cesium.Frame,
+	skip func(cesium.ChannelKey) bool,
+) []cesium.ChannelKey {
+	if skip == nil || (!c.shares && !c.claims) {
+		return nil
+	}
+	held := c.claimed
+	if c.shares {
+		held = c.entry.keys
+	}
+	var lost []cesium.ChannelKey
+	for i, k := range fr.RawKeys() {
+		if !fr.ShouldExcludeRaw(i) && skip(k) && slices.Contains(c.member.keys, k) &&
+			!slices.Contains(held, k) && !slices.Contains(lost, k) {
+			lost = append(lost, k)
+		}
+	}
+	return lost
 }
 
 // unclaimed returns the keys of the session in fr that it controls and whose live claim
