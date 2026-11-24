@@ -283,6 +283,59 @@ var _ = Describe("Infer", func() {
 		},
 	)
 
+	DescribeTable(
+		"Should not mark a shape by a field that nests with a field of another",
+		func(kinds, present []string) {
+			shapes := xjson.Infer(documents("pump", len(kinds), func(i int) string {
+				return kinds[i]
+			}))
+			pointers := make([]string, len(shapes))
+			for i, s := range shapes {
+				pointers[i] = presentPointer(s)
+			}
+			Expect(pointers).To(Equal(present))
+		},
+		Entry("an object and a string at one pointer",
+			[]string{`{"status":{"code":1}}`, `{"status":"ok"}`},
+			[]string{"none"},
+		),
+		Entry("a string and an object at one pointer, with a shared field",
+			[]string{`{"t":1,"status":"ok"}`, `{"t":1,"status":{"code":3}}`},
+			[]string{"none"},
+		),
+		Entry("an object and a string at one pointer, with fields that differ",
+			[]string{`{"status":{"code":1},"fault":2}`, `{"status":"ok","rpm":3}`},
+			[]string{"/fault", "/rpm"},
+		),
+	)
+
+	It("Should mark a shape by a value field before its timestamp", func() {
+		shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+			if i%2 == 0 {
+				return fmt.Sprintf(`{"ts":%d,"rpm":%d}`, t0Seconds+int64(i), i)
+			}
+			return fmt.Sprintf(`{"time":%d,"code":%d}`, t0Seconds+int64(i), i)
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(presentPointer(shapes[0])).To(Equal("/rpm"))
+		Expect(presentPointer(shapes[1])).To(Equal("/code"))
+	})
+
+	It(
+		"Should mark a shape by its timestamp when no value field sets it apart",
+		func() {
+			shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+				if i%2 == 0 {
+					return fmt.Sprintf(`{"ts":%d,"v":%d}`, t0Seconds+int64(i), i)
+				}
+				return fmt.Sprintf(`{"time":%d,"v":%d}`, t0Seconds+int64(i), i)
+			}))
+			Expect(shapes).To(HaveLen(2))
+			Expect(presentPointer(shapes[0])).To(Equal("/ts"))
+			Expect(presentPointer(shapes[1])).To(Equal("/time"))
+		},
+	)
+
 	It("Should not mark a shape by the whole document", func() {
 		shapes := xjson.Infer(documents("pump", 2, func(i int) string {
 			return [...]string{`1.5`, `{"rpm":1}`}[i]

@@ -173,8 +173,35 @@ func group(sources []*inferSource, clusters [][]cluster) ([]*inferGroup, [][]int
 	return groups, of
 }
 
-// presentFields returns the position of the present field of each group, or -1.
+// presentFields returns the position of the present field of each group, or -1. A
+// present field is not at, above, or inside a field of another group of its sources, so
+// the present rules of a source never nest.
 func presentFields(groups []*inferGroup, of [][]int) []int {
+	others := sharers(groups, of)
+	above := make([]set.Set[string], len(groups))
+	for i, g := range groups {
+		above[i] = g.above()
+	}
+	present := make([]int, len(groups))
+	for i, g := range groups {
+		present[i] = -1
+		if len(others[i]) == 0 {
+			continue
+		}
+		present[i] = g.presentField(func(p Pointer) bool {
+			for o := range others[i] {
+				if groups[o].nests(p, above[o]) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+	return present
+}
+
+// sharers returns, for each group, the other groups that share a source with it.
+func sharers(groups []*inferGroup, of [][]int) []set.Set[int] {
 	others := make([]set.Set[int], len(groups))
 	for i := range others {
 		others[i] = make(set.Set[int])
@@ -188,30 +215,7 @@ func presentFields(groups []*inferGroup, of [][]int) []int {
 			}
 		}
 	}
-	present := make([]int, len(groups))
-	for i, g := range groups {
-		present[i] = -1
-		if len(others[i]) == 0 {
-			continue
-		}
-		for k, s := range g.order {
-			// A present rule at the root meets every document.
-			if s.count < g.count || len(s.pointer) == 0 {
-				continue
-			}
-			key, held := s.pointer.String(), false
-			for o := range others[i] {
-				if _, held = groups[o].fields[key]; held {
-					break
-				}
-			}
-			if !held {
-				present[i] = k
-				break
-			}
-		}
-	}
-	return present
+	return others
 }
 
 // mergeUnmarked merges the clusters of each source that has more than one cluster in a
@@ -479,6 +483,46 @@ type inferGroup struct {
 	fields  map[string]*fieldStats
 	order   []*fieldStats
 	count   int
+}
+
+// above returns the pointer of each field of g and of each value above it.
+func (g *inferGroup) above() set.Set[string] {
+	above := make(set.Set[string])
+	for _, s := range g.order {
+		for k := 1; k <= len(s.pointer); k++ {
+			above.Add(s.pointer[:k].String())
+		}
+	}
+	return above
+}
+
+// nests reports whether p is at, above, or inside a field of g. above is g.above().
+func (g *inferGroup) nests(p Pointer, above set.Set[string]) bool {
+	if above.Contains(p.String()) {
+		return true
+	}
+	for k := 1; k < len(p); k++ {
+		if _, ok := g.fields[p[:k].String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// presentField returns the position of the first field that every document of g holds
+// and that apart accepts, or -1. It is a timestamp only when no value field can be.
+func (g *inferGroup) presentField(apart func(Pointer) bool) int {
+	// A value field names the kind of its documents, and a timestamp does not.
+	for _, timestamp := range []bool{false, true} {
+		if k := slices.IndexFunc(g.order, func(s *fieldStats) bool {
+			// A present rule at the root meets every document.
+			return s.timestamp() == timestamp && s.count == g.count &&
+				len(s.pointer) > 0 && apart(s.pointer)
+		}); k >= 0 {
+			return k
+		}
+	}
+	return -1
 }
 
 func newInferGroup() *inferGroup {

@@ -134,6 +134,34 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
 const freeKeys = (shape: json.Shape, { pointers }: Reads): string[] =>
   shape.sources.filter((key) => !pointers.has(key));
 
+/** @returns the field that tells the documents of shape apart from other kinds. */
+const presentOf = (shape: json.Shape): json.InferredField | undefined =>
+  shape.present == null ? undefined : shape.fields[shape.present];
+
+/** @returns the name of a message for shape, from the key named label. */
+const kindName = (label: string, shape: json.Shape): string => {
+  const present = presentOf(shape);
+  return present == null ? label : `${label} ${ICD.fieldNames([present.pointer])[0]}`;
+};
+
+/** @returns a match for the documents of shape, or nothing when it is the only kind. */
+const matchOf = (shape: json.Shape): Pick<icd.JSONPayload, "match"> => {
+  const present = presentOf(shape);
+  return present == null
+    ? {}
+    : { match: { type: "present", pointer: present.pointer } };
+};
+
+/** @returns a read of message with all of its fields. */
+const readOf = (message: icd.Message, index?: icd.FieldKey): icd.ReadMessage => {
+  const fields = message.payload.format === "json" ? message.payload.fields : [];
+  return icd.readMessageZ.parse({
+    message: message.key,
+    index,
+    bindings: fields.map(({ key }) => ({ field: key })),
+  });
+};
+
 /** @returns base, numbered from 2 until no message has the name. */
 export const uniqueName = (base: string, taken: icd.Message[]): string => {
   const names = new Set(taken.map(({ name }) => name));
@@ -147,8 +175,8 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
  * @returns a message for each shape with picks, holding the picked fields, the fields
  * that its keys carry, and the shape's timestamp. Its records read the keys of the
  * shape with no record of their own. A message takes the name of its first key, or
- * label for the empty key, and matches the documents that hold the shape's present
- * field.
+ * label for the empty key. A shape that is one of several kinds adds the name of its
+ * present field, and its message matches the documents that hold that field.
  */
 export const createAdditions = (
   shapes: json.Shape[],
@@ -182,17 +210,10 @@ export const createAdditions = (
       indexField == null
         ? undefined
         : fields.find(({ pointer }) => pointer === indexField.pointer)?.key;
-    const present = shape.present == null ? undefined : shape.fields[shape.present];
     const message: icd.Message = {
       key: uuid.create(),
-      name: uniqueName(label(recordKeys[0]), taken),
-      payload: {
-        format: "json",
-        fields,
-        ...(present == null
-          ? {}
-          : { match: { type: "present", pointer: present.pointer } }),
-      },
+      name: uniqueName(kindName(label(recordKeys[0]), shape), taken),
+      payload: { format: "json", fields, ...matchOf(shape) },
     };
     taken.push(message);
     return [{ message, recordKeys, ...(index == null ? {} : { index }) }];
@@ -206,12 +227,7 @@ export const createAdditions = (
 export const createRecords = (icdKey: icd.Key, additions: Addition[]): ReadRecord[] => {
   const reads = new Map<string, icd.ReadMessage[]>();
   for (const { message, recordKeys, index } of additions) {
-    const fields = message.payload.format === "json" ? message.payload.fields : [];
-    const read = icd.readMessageZ.parse({
-      message: message.key,
-      index,
-      bindings: fields.map(({ key }) => ({ field: key })),
-    });
+    const read = readOf(message, index);
     for (const recordKey of recordKeys)
       map.getOrInsert(reads, recordKey, () => []).push(read);
   }
@@ -230,10 +246,43 @@ export interface Extension {
   bindings: { record: string; read: number; fields: icd.FieldKey[] }[];
 }
 
+/** A message for a kind of document that records of the task read no message of. */
+export interface KindMessage {
+  icd: icd.Key;
+  message: icd.Message;
+  /** The read of the message that each record adds. */
+  read: icd.ReadMessage;
+  /** The keys of the records that start to read the message. */
+  records: string[];
+}
+
 /**
- * @returns the picks that the records of the task gain, in the first JSON message that
- * each record reads. A message gains each picked field that it does not hold, once for
- * all of its records. A record starts to read each picked field that it does not.
+ * @returns the position of the read of record whose message the Core gives the
+ * documents of shape, or -1 for none. That is the message with a present rule at a
+ * field of the shape, else the message with no rule.
+ */
+const routedRead = (shape: json.Shape, record: ReadRecord, held: icd.Message[]) => {
+  const payloads = record.messages.map(
+    ({ message }) => held.find(({ key }) => key === message)?.payload,
+  );
+  const holds = (pointer: string): boolean =>
+    shape.fields.some(
+      (f) => f.pointer === pointer || f.pointer.startsWith(`${pointer}/`),
+    );
+  const ruled = payloads.findIndex(
+    (p) =>
+      p?.format === "json" && p.match?.type === "present" && holds(p.match.pointer),
+  );
+  if (ruled >= 0) return ruled;
+  return payloads.findIndex((p) => p?.format === "json" && p.match == null);
+};
+
+/**
+ * @returns the picks that the records of the task gain, in the message that the Core
+ * gives the documents of each picked shape. A message gains each picked field that it
+ * does not hold, once for all of its records. A record starts to read each picked
+ * field that it does not. When no message of a record takes a shape, the records of
+ * its ICD start to read a new message for the kind.
  * @throws if a picked shape is not extendable.
  */
 export const createExtensions = (
@@ -241,17 +290,18 @@ export const createExtensions = (
   picks: Picks,
   records: ReadRecord[],
   messagesOf: MessagesOf,
-): Extension[] => {
+  label: (recordKey: string) => string,
+): { extensions: Extension[]; kinds: KindMessage[] } => {
   const extensions = new Map<icd.MessageKey, Extension>();
+  const kinds = new Map<string, KindMessage>();
   for (const shape of shapes) {
     const pointers = picks.get(shapeKey(shape));
     if (pointers == null) continue;
     for (const record of records) {
       if (!shape.sources.includes(record.recordKey)) continue;
       const held = messagesOf(record.icd);
-      const read = jsonRead(record, held);
-      if (read < 0) throw new Error(`Record ${record.key} reads no JSON message`);
-      const { message } = record.messages[read];
+      if (jsonRead(record, held) < 0)
+        throw new Error(`Record ${record.key} reads no JSON message`);
       const bound = new Set(
         boundFields(record, messagesOf).map(({ pointer }) => pointer),
       );
@@ -259,12 +309,23 @@ export const createExtensions = (
         (f) => pointers.has(f.pointer) && !bound.has(f.pointer),
       );
       if (picked.length === 0) continue;
-      const extension = extensions.get(message) ?? {
+      const read = routedRead(shape, record, held);
+      if (read < 0) {
+        const kind = map.getOrInsert(kinds, `${record.icd}\n${shapeKey(shape)}`, () => {
+          const made = [...kinds.values()].filter(({ icd }) => icd === record.icd);
+          const taken = [...held, ...made.map(({ message }) => message)];
+          return createKindMessage(shape, picked, record, taken, label);
+        });
+        kind.records.push(record.key);
+        continue;
+      }
+      const { message } = record.messages[read];
+      const extension = map.getOrInsert(extensions, message, () => ({
         icd: record.icd,
         message,
         fields: [],
         bindings: [],
-      };
+      }));
       const holds = [
         ...ICD.jsonFields(held.find(({ key }) => key === message)),
         ...extension.fields,
@@ -282,8 +343,28 @@ export const createExtensions = (
         read,
         fields: [...existing, ...added].map(({ key }) => key),
       });
-      extensions.set(message, extension);
     }
   }
-  return [...extensions.values()];
+  return { extensions: [...extensions.values()], kinds: [...kinds.values()] };
+};
+
+/** @returns a message of the picked fields of shape and its timestamp, unread. */
+const createKindMessage = (
+  shape: json.Shape,
+  picked: json.InferredField[],
+  record: ReadRecord,
+  taken: icd.Message[],
+  label: (recordKey: string) => string,
+): KindMessage => {
+  const indexField = shape.index == null ? undefined : shape.fields[shape.index];
+  const kept = shape.fields.filter((f) => f === indexField || picked.includes(f));
+  const names = ICD.fieldNames(kept.map(({ pointer }) => pointer));
+  const fields = kept.map((f, i) => ICD.createField(f, names[i]));
+  const message: icd.Message = {
+    key: uuid.create(),
+    name: uniqueName(kindName(label(record.recordKey), shape), taken),
+    payload: { format: "json", fields, ...matchOf(shape) },
+  };
+  const index = indexField == null ? undefined : fields[kept.indexOf(indexField)].key;
+  return { icd: record.icd, message, read: readOf(message, index), records: [] };
 };
