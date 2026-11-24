@@ -25,8 +25,8 @@ import (
 
 const benchWindow = 32
 
-// openFreeStreamer runs a relay and returns its write inlet and the outlet of a streamer
-// on one free channel, past its open ack.
+// openFreeStreamer runs a relay and returns its write inlet and the outlet of a
+// streamer on one free channel, past its open ack.
 func openFreeStreamer(
 	b *testing.B,
 ) (confluence.Inlet[relay.Response], confluence.Outlet[relay.Response]) {

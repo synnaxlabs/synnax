@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"os"
 	"path"
 	"slices"
@@ -37,10 +38,10 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 }
 
 // dropLog drops keys on the pointer log layout, as Drop does: one durable Drop record
-// per key, then the removal of its files and its metadata. It keeps a clock that a key
-// outside keys uses, and logs the Drop of each clock after the Drops of the keys it
-// times. The caller holds db.mu.
-func (db *DB) dropLog(keys []ChannelKey) error {
+// per key, then, once the log covers it, the removal of its files and its metadata. It
+// keeps a clock that a key outside keys uses, and logs the Drop of each clock after the
+// Drops of the keys it times. The caller holds db.mu.
+func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
 	dropping := set.New(keys...)
 	snapshot, err := db.engine.state.Snapshot()
@@ -74,13 +75,19 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	for _, k := range dropped {
 		entry.Add(&log.Drop{Key: k})
 	}
-	if _, err = db.engine.log.Append(&entry).Wait(); err != nil {
+	sequence, err := db.engine.log.Append(&entry).Wait()
+	if err != nil {
 		return err
 	}
 	err = db.engine.reap()
 	for _, k := range dropped {
 		delete(db.mu.channels, k)
 		delete(db.mu.hiddenChannels, k)
+	}
+	if waitErr := db.engine.waitCovered(ctx, sequence); waitErr != nil {
+		return errors.Join(err, waitErr)
+	}
+	for _, k := range dropped {
 		err = errors.Join(err, db.removeLogDir(k))
 	}
 	return err
@@ -167,7 +174,10 @@ func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) b
 // decideLog decides the fate of each key of the pointer log layout against records, as
 // decide does on the old layout, and returns the keys it keeps. It removes the
 // directory of each torn key outside records. The caller holds db.mu.
-func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error) {
+func (db *DB) decideLog(
+	ctx context.Context,
+	records set.Set[ChannelKey],
+) (set.Set[ChannelKey], error) {
 	if err := db.removeTorn(records); err != nil {
 		return nil, err
 	}
@@ -218,7 +228,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	if err = db.engine.intend(drop, false); err != nil {
 		return nil, err
 	}
-	return kept, db.dropLog(drop)
+	return kept, db.dropLog(ctx, drop)
 }
 
 // removeTorn removes the directory of each torn key outside records. The caller holds

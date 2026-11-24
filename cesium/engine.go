@@ -66,7 +66,17 @@ type engine struct {
 	failure error
 	failing sync.Once
 	// stored holds the keys that held a segment when recovery ended.
-	stored   set.Set[ChannelKey]
+	stored set.Set[ChannelKey]
+	// cover holds the dead segments whose files wait until the log covers the record
+	// that took them out of the state, so no crash cuts that record while the file is
+	// gone. Every entry below covered is covered.
+	cover struct {
+		sync.Mutex
+		covered uint64
+		dead    []state.Dead
+		// advanced is closed and replaced each time covered rises.
+		advanced chan struct{}
+	}
 	shutdown sync.Once
 	closeErr error
 	pins     pins
@@ -105,6 +115,7 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
+	e.cover.advanced = make(chan struct{})
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -198,6 +209,7 @@ func (e *engine) recover(r *recovery) (err error) {
 		Executor:   e.exec,
 		OnDurable:  e.durable,
 		OnRefused:  e.refused,
+		OnCovered:  e.covered,
 		Prepare:    e.prepare,
 		Switched:   e.switchedTo,
 		DB:         r.db,
@@ -267,13 +279,78 @@ func (e *engine) onHead(
 	e.ckpt.Head(generation, s)
 }
 
-// reap unlinks the file of each segment that left the state, once no reader pins it.
+// reap unlinks the file of each segment that left the state, once the log covers the
+// record that took it out and no reader pins it.
 func (e *engine) reap() error {
 	dead, err := e.state.TakeDead()
 	if err != nil {
 		return err
 	}
-	return e.release(dead)
+	return e.release(e.uncover(0, dead))
+}
+
+// covered unlinks, off the step of the log, the file of each dead segment whose record
+// the log now covers, and takes the segments that left the state since the last reap.
+func (e *engine) covered(sequence uint64) {
+	free := e.uncover(sequence, nil)
+	taking := e.state.HasDead()
+	if len(free) == 0 && !taking {
+		return
+	}
+	e.exec(func() {
+		err := e.release(free)
+		if taking {
+			err = errors.Join(err, e.reap())
+		}
+		if err != nil {
+			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
+		}
+	})
+}
+
+// uncover raises the covered sequence to covered, adds dead to the segments that wait,
+// and returns those whose record the log covers.
+func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
+	e.cover.Lock()
+	defer e.cover.Unlock()
+	if covered > e.cover.covered {
+		e.cover.covered = covered
+		close(e.cover.advanced)
+		e.cover.advanced = make(chan struct{})
+	}
+	e.cover.dead = append(e.cover.dead, dead...)
+	var free []state.Dead
+	waiting := e.cover.dead[:0]
+	for _, d := range e.cover.dead {
+		if d.Sequence < e.cover.covered {
+			free = append(free, d)
+		} else {
+			waiting = append(waiting, d)
+		}
+	}
+	e.cover.dead = waiting
+	return free
+}
+
+// waitCovered returns once the log covers the entry of sequence, or with the error that
+// failed the engine, or with the error of ctx.
+func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
+	for {
+		e.cover.Lock()
+		covered, advanced := e.cover.covered, e.cover.advanced
+		e.cover.Unlock()
+		if sequence < covered {
+			return nil
+		}
+		select {
+		case <-advanced:
+		case <-e.failed:
+			return e.failure
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
 }
 
 // run runs the owners until ctx is done, then closes them in order: the log, so that
