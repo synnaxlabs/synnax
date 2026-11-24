@@ -239,7 +239,9 @@ var _ = Describe(
 				// reached counts what the workload reached over every run key, so the
 				// check
 				// fails when it stops reaching the window it exists for.
-				var reached struct{ tagged, inWindow, replaces, drops, loaded int }
+				var reached struct {
+					tagged, inWindow, replaces, drops, loaded, keeps int
+				}
 				for runKey := range uint64(64) {
 					rnd := rand.New(rand.NewPCG(runKey, 11))
 					logDisk := MustSucceed(fault.New(fault.Config{}))
@@ -581,6 +583,32 @@ var _ = Describe(
 						reached.replaces++
 						point("a Replace")
 					}
+					// keep marks a candidate of encoding of clock 5 Kept, as a try of
+					// the compactor that fails the half rule does. A candidate that is
+					// no candidate of encoding is stale, and is skipped.
+					keep := func() {
+						GinkgoHelper()
+						snap := MustSucceed(st.Snapshot())
+						for _, ch := range snap.Channels {
+							if ch.Key != 5 {
+								continue
+							}
+							for _, seg := range ch.Segments {
+								if seg.Kept ||
+									!slices.Contains(snap.Candidates, seg.ID) {
+									continue
+								}
+								err := st.Keep(seg.ID)
+								if errors.Is(err, state.ErrStale) {
+									continue
+								}
+								Expect(err).ToNot(HaveOccurred())
+								reached.keeps++
+								point("a Kept")
+								return
+							}
+						}
+					}
 					// part runs the held step of the checkpointer, which writes the
 					// head and
 					// its parts, then hands the Parted to the state.
@@ -602,7 +630,9 @@ var _ = Describe(
 						if parting {
 							reached.inWindow++
 						}
-						switch k := rnd.IntN(16); {
+						switch k := rnd.IntN(18); {
+						case k >= 16:
+							keep()
 						case k < 3 && !parting:
 							generation++
 							Expect(st.Switch(generation)).To(Succeed())
@@ -708,6 +738,7 @@ var _ = Describe(
 				Expect(reached.replaces).To(BeNumerically(">", 0))
 				Expect(reached.drops).To(BeNumerically(">", 0))
 				Expect(reached.loaded).To(BeNumerically(">", 0))
+				Expect(reached.keeps).To(BeNumerically(">", 0))
 			},
 		)
 	},
