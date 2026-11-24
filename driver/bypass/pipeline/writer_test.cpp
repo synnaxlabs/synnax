@@ -93,6 +93,25 @@ TEST(WriterTest, PublishesToBusAndForwardsToCore) {
     ASSERT_EQ(received.size(), 1);
 }
 
+/// @brief it should publish a frame that it moves into the queue for the Core, and
+/// leave the frame empty.
+TEST(WriterTest, WriteAndClearMovesTheFrameToTheCore) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    x::telem::Frame frame(1, x::telem::Series(static_cast<float>(42.0)));
+    ASSERT_NIL(writer->write_and_clear(frame));
+    ASSERT_TRUE(frame.empty());
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 1);
+    ASSERT_EQ(mock_factory->writes->at(0).at<float>(1, 0), 42.0f);
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_EQ(received.at<float>(1, 0), 42.0f);
+}
+
 /// @brief it should send writes to the Core but not the bus while the control state
 /// is held, then deliver the held frames of a writer with authority in order.
 TEST(WriterTest, HoldDelaysBusUntilControlIsRead) {
@@ -193,7 +212,8 @@ TEST(WriterTest, OpensWhileTheCoreIsUnreachable) {
         bus,
         states,
         0,
-        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = 10 * x::telem::MILLISECOND,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_NIL(writer->close());
@@ -668,6 +688,7 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
             0,
             ForwarderConfig{
                 .budget = std::make_shared<Budget>(2 * frame_size),
+                .drain_timeout = 10 * x::telem::MILLISECOND,
                 .warn = [warnings](
                             const std::string &message,
                             const std::string &description

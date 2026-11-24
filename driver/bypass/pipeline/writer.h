@@ -51,16 +51,27 @@ public:
         publish([bus = this->bus](const x::telem::Frame &f) { bus->publish(f); }),
         carried_drops(std::move(carried_drops)) {}
 
-    /// @brief publishes fr to the bus and queues it for the Core.
+    /// @brief publishes fr to the bus and queues a copy of it for the Core.
     /// @returns the Core error that stopped delivery, if any.
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
         this->states->route(fr, this->cfg.subject, this->publish);
-        return this->forwarder->write(fr);
+        auto copy = fr.shallow_copy();
+        return this->forwarder->write(copy);
+    }
+
+    /// @brief publishes fr to the bus and moves it into the queue for the Core.
+    /// @returns the Core error that stopped delivery, if any.
+    [[nodiscard]] x::errors::Error write_and_clear(x::telem::Frame &fr) override {
+        this->states->route(fr, this->cfg.subject, this->publish);
+        if (auto err = this->forwarder->write(fr)) return err;
+        fr.clear();
+        return x::errors::NIL;
     }
 
     /// @brief the bus already has the frame, so it goes to the Core only.
     [[nodiscard]] x::errors::Error rewrite(const x::telem::Frame &fr) override {
-        return this->forwarder->write(fr);
+        auto copy = fr.shallow_copy();
+        return this->forwarder->write(copy);
     }
 
     [[nodiscard]] x::errors::Error

@@ -35,16 +35,26 @@ struct OutageConfig {
     x::telem::TimeSpan reopen_interval = x::telem::SECOND;
     /// @brief the longest wait between two tries to reach an unreachable Core.
     x::telem::TimeSpan max_reopen_interval = x::telem::MINUTE;
+    /// @brief the longest time that a frame waits for others to go to the Core with it.
+    x::telem::TimeSpan forward_interval = 2 * x::telem::MILLISECOND;
+    /// @brief the bytes of waiting frames that go to the Core before forward_interval
+    /// passes.
+    size_t forward_size = size_t{256} * 1024;
 
     /// @brief reads the fields that p sets. Binds a field error to a size or interval
     /// of 0 or less, and to a negative drain timeout, and keeps the value before it.
     template<typename Parser>
     void override(Parser &p) {
-        const auto size = p.field("queue_size", this->queue_size);
-        if (size == 0)
-            p.field_err("queue_size", "must be greater than 0");
-        else
-            this->queue_size = size;
+        const auto bytes = [&p](const std::string &name, size_t &value) {
+            const auto v = p.field(name, value);
+            if (v == 0) {
+                p.field_err(name, "must be greater than 0");
+                return;
+            }
+            value = v;
+        };
+        bytes("queue_size", this->queue_size);
+        bytes("forward_size", this->forward_size);
         const auto span = [&p](
                               const std::string &name,
                               x::telem::TimeSpan &value,
@@ -64,6 +74,7 @@ struct OutageConfig {
         span("drop_report_interval", this->drop_report_interval, false);
         span("reopen_interval", this->reopen_interval, false);
         span("max_reopen_interval", this->max_reopen_interval, false);
+        span("forward_interval", this->forward_interval, false);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const OutageConfig &cfg) {
@@ -74,7 +85,9 @@ struct OutageConfig {
         field("drain timeout") << cfg.drain_timeout.seconds() << "s\n";
         field("drop report interval") << cfg.drop_report_interval.seconds() << "s\n";
         field("reopen interval") << cfg.reopen_interval.seconds() << "s\n";
-        field("max reopen interval") << cfg.max_reopen_interval.seconds() << "s";
+        field("max reopen interval") << cfg.max_reopen_interval.seconds() << "s\n";
+        field("forward interval") << cfg.forward_interval.milliseconds() << "ms\n";
+        field("forward size") << cfg.forward_size / 1024 << " KB";
         return os;
     }
 };

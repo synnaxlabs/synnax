@@ -85,6 +85,10 @@ Warn record(const std::shared_ptr<Warnings> &warnings) {
 
 constexpr size_t FRAME_SIZE = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(float);
 
+/// @brief a drain timeout short enough that a stop against an unreachable Core ends
+/// soon, since the forwarder tries the Core until the timeout passes.
+const x::telem::TimeSpan SHORT_DRAIN = 10 * x::telem::MILLISECOND;
+
 std::shared_ptr<::driver::pipeline::testutil::WriterFactory>
 factory(std::vector<x::errors::Error> open_errors = {}) {
     return std::make_shared<::driver::pipeline::testutil::WriterFactory>(
@@ -106,6 +110,7 @@ TEST(ForwarderTest, DropsFramesPastTheQueueCap) {
         server,
         {.channels = {1}},
         {.budget = std::make_shared<Budget>(10 * frame_size),
+         .drain_timeout = SHORT_DRAIN,
          .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 15; i++)
@@ -134,16 +139,17 @@ TEST(ForwarderTest, AcceptsALargeFrameIntoAnEmptyQueue) {
 /// @brief it should drop the frames of one forwarder once another fills the budget
 /// that they share.
 TEST(ForwarderTest, SharesItsBudgetWithOtherForwarders) {
-    const auto server = factory(
-        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
-    );
+    const auto unreachable = [] {
+        return factory(std::vector<x::errors::Error>(1000, freighter::UNREACHABLE));
+    };
     const auto budget = std::make_shared<Budget>(4 * FRAME_SIZE);
     const ForwarderConfig cfg{
         .budget = budget,
+        .drain_timeout = SHORT_DRAIN,
         .breaker = {.base_interval = x::telem::MILLISECOND},
     };
-    Forwarder first(server, {.channels = {1}}, cfg);
-    Forwarder second(server, {.channels = {1}}, cfg);
+    Forwarder first(unreachable(), {.channels = {1}}, cfg);
+    Forwarder second(unreachable(), {.channels = {1}}, cfg);
     for (int i = 0; i < 4; i++)
         ASSERT_NIL(first.write(frame(static_cast<float>(i))));
     ASSERT_EQ(budget->used(), 4 * FRAME_SIZE);
@@ -165,7 +171,9 @@ TEST(ForwarderTest, ClearsItsLagWarningOnceItsQueueEmpties) {
     Forwarder other(
         factory(std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)),
         {.channels = {1}},
-        {.budget = budget, .breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.budget = budget,
+         .drain_timeout = SHORT_DRAIN,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 5; i++)
         ASSERT_NIL(other.write(frame(static_cast<float>(i))));
@@ -208,7 +216,9 @@ TEST(ForwarderTest, ReportsDropsWhileIdle) {
     Forwarder other(
         factory(std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)),
         {.channels = {1}},
-        {.budget = budget, .breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.budget = budget,
+         .drain_timeout = SHORT_DRAIN,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 4; i++)
         ASSERT_NIL(other.write(frame(static_cast<float>(i))));
@@ -259,7 +269,9 @@ TEST(ForwarderTest, ReleasesItsBudgetOnDrop) {
     Forwarder stopped(
         unreachable,
         {.channels = {1}},
-        {.budget = budget, .breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.budget = budget,
+         .drain_timeout = SHORT_DRAIN,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 3; i++)
         ASSERT_NIL(stopped.write(frame(static_cast<float>(i))));
@@ -460,7 +472,9 @@ TEST(ForwarderTest, ReportsFramesDroppedOnClose) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.warn = record(warnings), .breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = SHORT_DRAIN,
+         .warn = record(warnings),
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     for (int i = 0; i < 3; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
@@ -559,6 +573,7 @@ TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
         {.channels = {1}},
         {.budget = std::make_shared<Budget>(2 * FRAME_SIZE),
          .drop_report_interval = 10 * x::telem::MILLISECOND,
+         .drain_timeout = SHORT_DRAIN,
          .warn = record(warnings),
          .breaker = {.base_interval = x::telem::HOUR}}
     );
@@ -580,5 +595,138 @@ TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
         "Dropped 3 frames because the Driver's queue for the Core was full. Dropped 2 frames "
         "because the task stopped before delivery to the Core."
     );
+}
+
+/// @brief it should hold frames for up to its forward interval, and send them at once
+/// when an authority change comes.
+TEST(ForwarderTest, HoldsFramesForTheForwardInterval) {
+    const auto server = factory();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.forward_interval = x::telem::HOUR}
+    );
+    ASSERT_NIL(forwarder.opened());
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(server->writes->size(), 0);
+    ASSERT_NIL(forwarder.set_authority({.keys = {1}, .authorities = {200}}));
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 2);
+    ASSERT_EQ(server->authority_changes->size(), 1);
+    ASSERT_NIL(forwarder.close());
+}
+
+/// @brief it should send its queue before the forward interval passes once the queue
+/// holds forward_size bytes.
+TEST(ForwarderTest, SendsAtTheForwardSize) {
+    const auto server = factory();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.forward_interval = x::telem::HOUR, .forward_size = 3 * FRAME_SIZE}
+    );
+    ASSERT_NIL(forwarder.opened());
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(server->writes->size(), 0);
+    ASSERT_NIL(forwarder.write(frame(2)));
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 3);
+    ASSERT_NIL(forwarder.close());
+}
+
+/// @brief it should send the frames it holds for the forward interval when it closes.
+TEST(ForwarderTest, SendsHeldFramesOnClose) {
+    const auto server = factory();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.forward_interval = x::telem::HOUR}
+    );
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(server->writes->size(), 1);
+    ASSERT_EQ(forwarder.dropped().total(), 0);
+}
+
+/// @brief it should try the Core again at once when it closes during a long backoff,
+/// and send its queue to a Core that is back.
+TEST(ForwarderTest, SendsItsQueueWhenTheCoreReturnsDuringAStop) {
+    const auto server = factory({freighter::UNREACHABLE});
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.breaker = {.base_interval = x::telem::HOUR}}
+    );
+    ASSERT_NIL(forwarder.opened());
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(server->writer_opens.load(), 2);
+    ASSERT_EQ(server->writes->size(), 3);
+    ASSERT_EQ(forwarder.dropped().total(), 0);
+}
+
+/// @brief opens Core writers whose writes block until the writer is cancelled.
+class StuckFactory final : public ::driver::pipeline::WriterFactory {
+    class Writer final : public ::driver::pipeline::Writer {
+        StuckFactory &factory;
+
+    public:
+        explicit Writer(StuckFactory &factory): factory(factory) {}
+
+        x::errors::Error write(const x::telem::Frame &) override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.cv.wait(lock, [this] { return this->factory.cancelled; });
+            return freighter::STREAM_CLOSED;
+        }
+
+        x::errors::Error close() override { return x::errors::NIL; }
+
+        void cancel() override {
+            {
+                std::lock_guard lock(this->factory.mu);
+                this->factory.cancelled = true;
+            }
+            this->factory.cv.notify_all();
+        }
+    };
+
+public:
+    std::mutex mu;
+    std::condition_variable cv;
+    bool cancelled = false;
+
+    std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        return {std::make_unique<Writer>(*this), x::errors::NIL};
+    }
+};
+
+/// @brief it should cancel a Core write that blocks past the drain timeout, and count
+/// what is left as dropped by the stop.
+TEST(ForwarderTest, CancelsABlockedWriteAtTheDrainTimeout) {
+    const auto server = std::make_shared<StuckFactory>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.drain_timeout = 100 * x::telem::MILLISECOND}
+    );
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(forwarder.close());
+    ASSERT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(2));
+    ASSERT_TRUE(server->cancelled);
+    ASSERT_EQ(forwarder.dropped().stopped, 2);
+}
+
+/// @brief it should name the budget in the unit that fits it.
+TEST(ForwarderTest, FormatsSizes) {
+    EXPECT_EQ(format_size(512), "512 B");
+    EXPECT_EQ(format_size(2048), "2 KB");
+    EXPECT_EQ(format_size(size_t{256} * 1024 * 1024), "256 MB");
+    EXPECT_EQ(format_size(size_t{3} * 1024 * 1024 * 1024), "3 GB");
 }
 }

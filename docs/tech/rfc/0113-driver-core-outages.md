@@ -57,8 +57,10 @@ the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which open
 writes, and reopens the task's Core writer on its own thread. `open_writer` waits for
 the first open, and returns once it succeeds, fails for good, or finds the Core
 unreachable. All forwarders share one queue budget, the Driver setting
-`outage.queue_size`, 256 MB by default. A stop sends what the queue holds for at most
-`outage.drain_timeout`, 5 s by default, then drops and counts the rest.
+`outage.queue_size`, 256 MB by default. The forwarder wakes once per
+`outage.forward_interval` (2 ms) or `outage.forward_size` (256 KB) of frames, not for
+each frame. A stop sends what the queue holds for at most `outage.drain_timeout`, 5 s
+by default, then cancels the Core stream, and drops and counts the rest.
 
 When the Core is unreachable, the forwarder closes the live writer, spools the queued
 frames in order, and reopens the live writer only after the queue is empty. Every

@@ -90,6 +90,14 @@ public:
     /// close the writer and conditionally trigger a retry (see the close method).
     [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
 
+    /// @brief writes fr and leaves it empty, so a writer that keeps the frame can take
+    /// its series instead of copying them. Leaves fr unchanged on error.
+    [[nodiscard]] virtual x::errors::Error write_and_clear(x::telem::Frame &fr) {
+        if (auto err = this->write(fr)) return err;
+        fr.clear();
+        return x::errors::NIL;
+    }
+
     /// @brief writes a frame whose write failed on an earlier writer of the same
     /// pipeline. A writer that delivers frames somewhere besides the Core already
     /// delivered this one there, so it sends it to the Core only.
@@ -110,6 +118,11 @@ public:
     /// the breaker limit. Any other error will be considered permanent and the pipeline
     /// will exit.
     [[nodiscard]] virtual x::errors::Error close() = 0;
+
+    /// @brief ends a write or close that blocks on the Core, so it returns an error.
+    /// Safe to call from any thread, concurrently with any other call. A writer that
+    /// never blocks has nothing to end.
+    virtual void cancel() {}
 
     virtual ~Writer() = default;
 };
@@ -151,6 +164,9 @@ public:
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] x::errors::Error close() override;
+
+    /// @brief implements pipeline::Writer to end the writer's stream.
+    void cancel() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is

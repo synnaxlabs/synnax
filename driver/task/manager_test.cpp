@@ -4543,6 +4543,8 @@ public:
         this->cv.notify_all();
     }
 
+    void cancel() override { this->close_send(); }
+
     /// @returns true once the stream was closed.
     bool is_closed() {
         std::lock_guard lock(this->mu);
@@ -4581,6 +4583,7 @@ public:
                 return this->s->send(req);
             }
             void close_send() override { this->s->close_send(); }
+            void cancel() override { this->s->cancel(); }
         };
         return {std::make_unique<Handle>(this->scripted), x::errors::NIL};
     }

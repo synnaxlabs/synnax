@@ -629,6 +629,8 @@ TEST_F(RackConfigTest, OutageConfigDefaults) {
     ASSERT_EQ(cfg.outage.drop_report_interval, 5 * x::telem::SECOND);
     ASSERT_EQ(cfg.outage.reopen_interval, x::telem::SECOND);
     ASSERT_EQ(cfg.outage.max_reopen_interval, x::telem::MINUTE);
+    ASSERT_EQ(cfg.outage.forward_interval, 2 * x::telem::MILLISECOND);
+    ASSERT_EQ(cfg.outage.forward_size, size_t{256} * 1024);
 }
 
 /// @brief it should load the outage config from the config file.
@@ -640,7 +642,9 @@ TEST_F(RackConfigTest, LoadOutageConfigFromFile) {
         "drain_timeout": 2.5,
         "drop_report_interval": 3,
         "reopen_interval": 0.5,
-        "max_reopen_interval": 30
+        "max_reopen_interval": 30,
+        "forward_interval": 0.005,
+        "forward_size": 65536
     }})";
     config_file.close();
     x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
@@ -654,6 +658,8 @@ TEST_F(RackConfigTest, LoadOutageConfigFromFile) {
     ASSERT_EQ(cfg.outage.drop_report_interval, 3 * x::telem::SECOND);
     ASSERT_EQ(cfg.outage.reopen_interval, 500 * x::telem::MILLISECOND);
     ASSERT_EQ(cfg.outage.max_reopen_interval, 30 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outage.forward_interval, 5 * x::telem::MILLISECOND);
+    ASSERT_EQ(cfg.outage.forward_size, 65536);
 }
 
 /// @brief it should reject an outage interval of 0, which would spin the forwarders.
@@ -680,12 +686,16 @@ TEST_F(RackConfigTest, LoadOutageConfigFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_DROP_REPORT_INTERVAL", "2");
     x::env::set("SYNNAX_DRIVER_REOPEN_INTERVAL", "4");
     x::env::set("SYNNAX_DRIVER_MAX_REOPEN_INTERVAL", "120");
+    x::env::set("SYNNAX_DRIVER_FORWARD_INTERVAL", "0.01");
+    x::env::set("SYNNAX_DRIVER_FORWARD_SIZE", "4096");
     x::defer::defer unset_env([] {
         x::env::unset("SYNNAX_DRIVER_QUEUE_SIZE");
         x::env::unset("SYNNAX_DRIVER_DRAIN_TIMEOUT");
         x::env::unset("SYNNAX_DRIVER_DROP_REPORT_INTERVAL");
         x::env::unset("SYNNAX_DRIVER_REOPEN_INTERVAL");
         x::env::unset("SYNNAX_DRIVER_MAX_REOPEN_INTERVAL");
+        x::env::unset("SYNNAX_DRIVER_FORWARD_INTERVAL");
+        x::env::unset("SYNNAX_DRIVER_FORWARD_SIZE");
     });
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_EQ(cfg.outage.queue_size, 2097152);
@@ -693,6 +703,8 @@ TEST_F(RackConfigTest, LoadOutageConfigFromEnvironmentVariables) {
     ASSERT_EQ(cfg.outage.drop_report_interval, 2 * x::telem::SECOND);
     ASSERT_EQ(cfg.outage.reopen_interval, 4 * x::telem::SECOND);
     ASSERT_EQ(cfg.outage.max_reopen_interval, 2 * x::telem::MINUTE);
+    ASSERT_EQ(cfg.outage.forward_interval, 10 * x::telem::MILLISECOND);
+    ASSERT_EQ(cfg.outage.forward_size, 4096);
 }
 
 /// @brief it should load the secrets folder from the config file as an absolute path.

@@ -42,6 +42,8 @@ public:
     }
 
     void close_send() override {}
+
+    void cancel() override {}
 };
 
 /// @brief a writer transport that opens streams that end with the given status.

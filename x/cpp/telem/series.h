@@ -542,8 +542,8 @@ public:
 
     /// @brief returns the size of the series in bytes.
     [[nodiscard]] size_t byte_size() const {
-        if (this->data_type().is_variable()) return this->cached_byte_size;
-        return this->size() * this->data_type().density();
+        if (this->type.is_variable()) return this->cached_byte_size;
+        return this->size() * this->type.density();
     }
 
     /// @brief returns true if the series is empty.

@@ -291,6 +291,10 @@ public:
     /// the receiving end of the stream.
     virtual void close_send() = 0;
 
+    /// @brief ends the stream at once, so a blocked send, receive, or close returns an
+    /// error. Safe to call from any thread, concurrently with any other call.
+    virtual void cancel() = 0;
+
     virtual ~Stream() = default;
 };
 

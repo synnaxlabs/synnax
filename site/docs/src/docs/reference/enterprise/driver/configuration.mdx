@@ -121,6 +121,8 @@ SYNNAX_DRIVER_DRAIN_TIMEOUT=5
 SYNNAX_DRIVER_DROP_REPORT_INTERVAL=5
 SYNNAX_DRIVER_REOPEN_INTERVAL=1
 SYNNAX_DRIVER_MAX_REOPEN_INTERVAL=60
+SYNNAX_DRIVER_FORWARD_INTERVAL=0.002
+SYNNAX_DRIVER_FORWARD_SIZE=262144
 ```
 
 To learn what each parameter does, see [Parameters](#parameters).
@@ -174,7 +176,9 @@ The file cannot hold comments.
     "drain_timeout": 5,
     "drop_report_interval": 5,
     "reopen_interval": 1,
-    "max_reopen_interval": 60
+    "max_reopen_interval": 60,
+    "forward_interval": 0.002,
+    "forward_size": 262144
   },
   "integrations": ["arc", "ethercat", "file", "http", "labjack", "modbus", "ni", "opc"],
   "secrets_dir": "/etc/synnax/secrets"
@@ -288,6 +292,16 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 <Field.Item name="max_reopen_interval" default="60">
   The largest number of seconds that a task waits between two tries to reach an
   unreachable Core. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="forward_interval" default="0.002">
+  The largest number of seconds that a frame waits for other frames of its task, so
+  that they go to the Core together. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="forward_size" default="262144">
+  The number of bytes of waiting frames of a task that go to the Core before
+  `forward_interval` passes. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="integrations" default="all">

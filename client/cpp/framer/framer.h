@@ -453,6 +453,11 @@ public:
     /// Calling any method on a closed writer will throw a runtime_error.
     [[nodiscard]] x::errors::Error close();
 
+    /// @brief ends the writer's stream at once, so a write or close that blocks on the
+    /// Core returns an error. Safe to call from any thread, concurrently with any other
+    /// call. Call close() after it.
+    void cancel() const;
+
 private:
     [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
 

@@ -108,6 +108,10 @@ x::errors::Error Writer::close() {
     return this->close(x::errors::NIL);
 }
 
+void Writer::cancel() const {
+    this->stream->cancel();
+}
+
 x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
     if (this->cached_write_req == nullptr)
         this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
