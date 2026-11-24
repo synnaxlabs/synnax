@@ -69,55 +69,116 @@ interface GroupSpec {
   title: string;
 }
 
-const groupsOf = (plural: boolean): GroupSpec[] => [
-  { effect: "restrict", title: "Blocks the delete" },
-  { effect: "cascade", title: plural ? "Deleted with them" : "Deleted with it" },
-  { effect: "detach", title: plural ? "Loses a channel" : "Loses the channel" },
-];
-
 type Picks = Record<string, impact.Choice>;
 
 const recordKey = (e: impact.Entry): string => resource.idToString(e.record);
 
-const messageOf = (names: string[]): string =>
-  names.length === 1 ? `Delete channel ${names[0]}` : `Delete ${names.length} channels`;
+const PERMANENT = "This action cannot be undone.";
 
-const descriptionOf = (names: string[], empty: boolean): string => {
-  const one = names.length === 1;
-  const text = one
-    ? "Deletes the channel and its data."
-    : "Deletes the channels and their data.";
-  const permanence = "This action cannot be undone.";
-  if (!empty) return `${text} ${permanence}`;
-  return `${text} Nothing else uses ${one ? "it" : "them"}. ${permanence}`;
+/** The text of the dialog that depends on the kind of change. */
+interface ChangeText {
+  icon: Icon.ReactElement;
+  breadcrumb: string;
+  /** noun names the change in a sentence: "the delete". */
+  noun: string;
+  verb: string;
+  message: (names: string[]) => string;
+  description: (names: string[], empty: boolean) => string;
+  failure: (names: string[]) => string;
+  groups: (plural: boolean) => GroupSpec[];
+  /** outcome says where the user sees what an unanswered apply did. */
+  outcome: string;
+}
+
+const CHANNEL_ICON = <Icon.Channel />;
+const GROUP_ICON = <Icon.Group />;
+
+const TEXTS: Record<impact.ChangeType, ChangeText> = {
+  delete_channels: {
+    icon: CHANNEL_ICON,
+    breadcrumb: "Channel.Delete",
+    noun: "delete",
+    verb: "Delete",
+    message: (names) =>
+      names.length === 1
+        ? `Delete channel ${names[0]}`
+        : `Delete ${names.length} channels`,
+    description: (names, empty) => {
+      const one = names.length === 1;
+      const text = one
+        ? "Deletes the channel and its data."
+        : "Deletes the channels and their data.";
+      if (!empty) return `${text} ${PERMANENT}`;
+      return `${text} Nothing else uses ${one ? "it" : "them"}. ${PERMANENT}`;
+    },
+    failure: (names) =>
+      names.length === 1 ? "Failed to delete channel" : "Failed to delete channels",
+    groups: (plural) => [
+      { effect: "restrict", title: "Blocks the delete" },
+      { effect: "cascade", title: plural ? "Deleted with them" : "Deleted with it" },
+      { effect: "detach", title: plural ? "Loses a channel" : "Loses the channel" },
+    ],
+    outcome: "The Channels list shows the outcome.",
+  },
+  delete_groups: {
+    icon: GROUP_ICON,
+    breadcrumb: "Group.Delete",
+    noun: "delete",
+    verb: "Delete",
+    message: (names) =>
+      names.length === 1 ? `Delete group ${names[0]}` : `Delete ${names.length} groups`,
+    description: (names, empty) => {
+      const one = names.length === 1;
+      if (empty)
+        return `${one ? "Deletes the group." : "Deletes the groups."} ${PERMANENT}`;
+      return one
+        ? `Deletes the group, with the paths of deleted channels in it. ${PERMANENT}`
+        : `Deletes the groups, with the paths of deleted channels in them. ${PERMANENT}`;
+    },
+    failure: (names) =>
+      names.length === 1 ? "Failed to delete group" : "Failed to delete groups",
+    groups: () => [{ effect: "cascade", title: "Paths of deleted channels" }],
+    outcome: "The tree shows the outcome.",
+  },
+  ungroup_groups: {
+    icon: GROUP_ICON,
+    breadcrumb: "Group.Ungroup",
+    noun: "ungroup",
+    verb: "Ungroup",
+    message: (names) =>
+      names.length === 1 ? `Ungroup ${names[0]}` : `Ungroup ${names.length} groups`,
+    description: (names) =>
+      names.length === 1
+        ? "Moves what the group holds to its parent, then deletes the group."
+        : "Moves what the groups hold to their parent, then deletes the groups.",
+    failure: (names) =>
+      names.length === 1 ? "Failed to ungroup group" : "Failed to ungroup groups",
+    groups: () => [{ effect: "cascade", title: "Paths that drop" }],
+    outcome: "The tree shows the outcome.",
+  },
 };
 
-const failureOf = (names: string[]): string =>
-  names.length === 1 ? "Failed to delete channel" : "Failed to delete channels";
+const blockedOf = (count: number, { noun }: ChangeText): string =>
+  count === 1 ? `1 record blocks the ${noun}` : `${count} records block the ${noun}`;
 
-const blockedOf = (count: number): string =>
-  count === 1 ? "1 record blocks the delete" : `${count} records block the delete`;
-
-/** What failed: listing the records, or the delete itself. */
+/** What failed: listing the records, or the change itself. */
 type Step = "plan" | "apply";
 
-const DENIED: Record<Step, string> = {
-  plan:
-    "Your role cannot see a record that this delete names. Ask an admin for access, " +
-    "then try again.",
-  apply:
-    "Your role cannot change a record that this delete changes. Ask an admin for " +
-    "access, or cancel.",
-};
+const deniedOf = (step: Step, { noun }: ChangeText): string =>
+  step === "plan"
+    ? `Your role cannot see a record that this ${noun} names. Ask an admin for ` +
+      "access, then try again."
+    : `Your role cannot change a record that this ${noun} changes. Ask an admin for ` +
+      "access, or cancel.";
 
-const UNREACHABLE: Record<Step, string> = {
-  plan: "Check the connection to the Core, then try again.",
-  apply: "Check the connection to the Core, then press Delete again.",
-};
+const unreachableOf = (step: Step, { verb }: ChangeText): string =>
+  step === "plan"
+    ? "Check the connection to the Core, then try again."
+    : `Check the connection to the Core, then press ${verb} again.`;
 
-/** The next step when the Core may have the delete but no answer came back. */
-const UNANSWERED =
-  "The Core can still apply the delete. The Channels list shows the outcome.";
+/** The next step when the Core may have the change but no answer came back. */
+const unansweredOf = ({ noun, outcome }: ChangeText): string =>
+  `The Core can still apply the ${noun}. ${outcome}`;
 
 /** Reports whether err leaves the Core holding a request that it can still apply. */
 const unanswered = (err: unknown): boolean =>
@@ -127,12 +188,13 @@ const unanswered = (err: unknown): boolean =>
  * Returns why err failed step: our sentence with the next step when one helps, then the
  * error's own text and cause chain, as Status.fromException gives them.
  */
-const reasonOf = (err: unknown, step: Step): string => {
+const reasonOf = (err: unknown, step: Step, text: ChangeText): string => {
   const { description } = Status.fromException(err, "");
-  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${description}`;
+  if (AccessDeniedError.matches(err)) return `${deniedOf(step, text)} ${description}`;
   if (!isConnectionError(err)) return description;
-  if (step === "apply" && unanswered(err)) return `${UNANSWERED} ${description}`;
-  return `${UNREACHABLE[step]} ${description}`;
+  if (step === "apply" && unanswered(err))
+    return `${unansweredOf(text)} ${description}`;
+  return `${unreachableOf(step, text)} ${description}`;
 };
 
 /** A plan with the records it names, as the dialog shows it. */
@@ -154,7 +216,8 @@ const createView = async (
   plan: impact.Plan,
   previous: impact.Plan | null,
 ): Promise<View> => {
-  const ids = plan.entries.map((e) => e.record);
+  // A tombstone entry holds a dead key that no record has, so its path names it.
+  const ids = plan.entries.filter((e) => e.path == null).map((e) => e.record);
   const found = ids.length === 0 ? [] : await client.resources.retrieve(ids);
   const fresh = new Set<string>();
   const freshHidden = new Set<impact.Effect>();
@@ -185,7 +248,7 @@ const TYPE_ICONS: Partial<Record<resource.Type, Icon.FC>> = { status: Icon.Statu
 
 /** Orders rows by name, then by record, so equal names keep one order. */
 const ROW_ORDER = compare.chain<Row>(
-  compare.by((r) => r.resource?.name ?? r.entry.record.key),
+  compare.by((r) => r.entry.path ?? r.resource?.name ?? r.entry.record.key),
   compare.by((r) => r.key),
 );
 
@@ -303,9 +366,13 @@ const Entry = ({
   const id = useId();
   const Item = Tree.useItems()[entry.record.type] ?? Tree.DefaultItem;
   const TypeIcon = TYPE_ICONS[entry.record.type];
-  const name = res?.name ?? entry.record.key;
+  const { path } = entry;
+  const name = path ?? res?.name ?? entry.record.key;
   const treeIcon = res == null ? undefined : Item.icon(res);
-  const icon = treeIcon ?? (TypeIcon == null ? null : <TypeIcon />);
+  const icon =
+    path != null
+      ? CHANNEL_ICON
+      : (treeIcon ?? (TypeIcon == null ? null : <TypeIcon />));
   return (
     <List.Item<string>
       itemKey={key}
@@ -316,7 +383,12 @@ const Entry = ({
       gap="medium"
     >
       <span className={CSS.BE("impact", "icon")}>{icon}</span>
-      <Text.Text id={`${id}-name`} overflow="fade" grow>
+      <Text.Text
+        id={`${id}-name`}
+        overflow="fade"
+        grow
+        color={path == null ? undefined : 9}
+      >
         {name}
       </Text.Text>
       {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
@@ -529,12 +601,11 @@ interface EntriesProps extends Pick<
   "picks" | "unpicked" | "onPick" | "hiddenCheck" | "disabled"
 > {
   view: View;
-  plural: boolean;
+  groups: GroupSpec[];
 }
 
-const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
+const Entries = ({ view, groups, ...rest }: EntriesProps): ReactElement => {
   const many = view.plan.entries.length > MANY_ENTRIES;
-  const groups = groupsOf(plural);
   const first = groups.find(
     ({ effect }) =>
       view.plan.hidden[effect] > 0 ||
@@ -693,6 +764,7 @@ const Dialog = ({
   }, [ready, painted]);
   const updating = useSpinner(planning && view != null);
   const plural = names.length > 1;
+  const text = TEXTS[change.type];
 
   useAsyncEffect(
     async (signal) => {
@@ -713,7 +785,7 @@ const Dialog = ({
       if (signal.aborted) return;
       setPlanning(false);
       if (next == null) {
-        setPlanError(reasonOf(failure, "plan"));
+        setPlanError(reasonOf(failure, "plan", text));
         return;
       }
       shownPlan.current = null;
@@ -737,7 +809,7 @@ const Dialog = ({
     dispatch({ type: "request" });
   };
 
-  // A pick plans again, so Delete waits for that plan.
+  // A pick plans again, so the apply waits for that plan.
   const handlePick = (keys: string[], picked: boolean) => {
     setPlanning(true);
     setUnpicked((prev) => {
@@ -756,7 +828,7 @@ const Dialog = ({
     dispatch({ type: "pickHidden", picked });
   };
 
-  const handleDelete = async () => {
+  const handleApply = async () => {
     if (client == null || view == null) return;
     const blockers = view.plan.entries
       .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
@@ -768,7 +840,7 @@ const Dialog = ({
       setHiddenUnpicked(hiddenBlockers > 0);
       setFooter({
         variant: "error",
-        message: blockedOf(blocking),
+        message: blockedOf(blocking, text),
         description:
           blocking === 1
             ? `Check "${PICK_LABEL}", or cancel.`
@@ -799,8 +871,8 @@ const Dialog = ({
     if (!(failure instanceof PlanChangedError)) {
       setFooter({
         variant: "error",
-        message: unanswered(failure) ? "No answer from the Core" : failureOf(names),
-        description: reasonOf(failure, "apply"),
+        message: unanswered(failure) ? "No answer from the Core" : text.failure(names),
+        description: reasonOf(failure, "apply", text),
       });
       return;
     }
@@ -832,8 +904,8 @@ const Dialog = ({
       ref={frameRef}
       className={CSS.cls(CSS.B("impact"), !painted && CSS.BM("impact", "unpainted"))}
     >
-      <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
-        Channel.Delete
+      <Modal.Header icon={text.icon} closeDisabled={applying}>
+        {text.breadcrumb}
       </Modal.Header>
       <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
         {changed && (
@@ -844,13 +916,13 @@ const Dialog = ({
           </Note.Note>
         )}
         <Text.Text level="h3" weight={450}>
-          {messageOf(names)}
+          {text.message(names)}
         </Text.Text>
-        <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
+        <Text.Text weight={450}>{text.description(names, empty)}</Text.Text>
         {listing && (
           <Status.Summary
             variant="loading"
-            message="Listing the records that this delete touches"
+            message={`Listing the records that this ${text.noun} touches`}
           />
         )}
         {listFailed && (
@@ -863,7 +935,7 @@ const Dialog = ({
           >
             <Status.Summary
               variant="error"
-              message="Failed to list the records that this delete touches"
+              message={`Failed to list the records that this ${text.noun} touches`}
               description={failure}
               center={false}
             />
@@ -876,7 +948,7 @@ const Dialog = ({
         {shown != null && !empty && (
           <Entries
             view={shown}
-            plural={plural}
+            groups={text.groups(plural)}
             picks={picks}
             unpicked={unpicked}
             onPick={handlePick}
@@ -937,9 +1009,9 @@ const Dialog = ({
             disabled={shown == null || failure != null || planning || updating}
             trigger={Triggers.SAVE}
             triggerIndicator
-            onClick={() => void handleDelete()}
+            onClick={() => void handleApply()}
           >
-            Delete
+            {text.verb}
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
