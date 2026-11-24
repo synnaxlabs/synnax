@@ -14,12 +14,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive, unique } from "@synnaxlabs/x";
-import { type FC, useRef, useState } from "react";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { type FC, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
@@ -355,9 +356,6 @@ const targetItem = Component.renderProp(TargetItem);
 
 const EMPTY_TARGETS = <Empty.Action message="No targets" />;
 
-const MISSING_DESCRIPTION =
-  "The ICD no longer has this message. Pick another message format.";
-
 interface TargetPaneProps {
   path: deep.Path<WriteTarget>;
   deviceName: string;
@@ -396,10 +394,14 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
             preview={isPreview}
           />
         </PForm.Section>
-        <ICD.MessageStatus message={message} missingDescription={MISSING_DESCRIPTION} />
+        <ICD.MessageStatus
+          message={message}
+          missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        />
         <ICD.Write.Bindings
           path={path.message.bindings}
-          fields={ICD.jsonFields(message)}
+          icdKey={target.icd}
+          message={target.message.message}
           channelName={(field) => commandName(prefix, field)}
           skipped={target.disabled}
         />
@@ -412,16 +414,13 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
-const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
-  binding.type === "channel" ? { ...binding, channel: 0 } : binding;
-
 const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
   targets
     .filter(({ key }) => keys.includes(key))
     .map((target) => ({
       ...target,
       key: id.create(),
-      message: { ...target.message, bindings: target.message.bindings.map(unbind) },
+      message: ICD.Write.unbind(target.message),
     }));
 
 interface TargetsProps {
@@ -439,8 +438,6 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const {
@@ -460,18 +457,9 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
     targets.push([target]);
     onSelect([target.key]);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add a target");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add a target");
 
   const current = selected.at(0);
   const currentPath = current == null ? null : root.config.targets[current];
@@ -526,16 +514,11 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
 
 const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
-  const icds = unique.unique(
-    PForm.useFieldValue(root.config.targets).map(({ icd }) => icd),
-  );
-  return icds.reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    <Targets device={device} selected={selected} onSelect={setSelected} />,
+  const icds = PForm.useFieldValue(root.config.targets).map(({ icd }) => icd);
+  return (
+    <ICD.WithFormats icdKeys={icds}>
+      <Targets device={device} selected={selected} onSelect={setSelected} />
+    </ICD.WithFormats>
   );
 };
 
