@@ -43,10 +43,12 @@ class Factory final : public task::Factory {
     );
 
 public:
-    /// @brief loads the status keys at keys_path, which hold at most max_keys names.
+    /// @brief loads the status keys at keys_path that the Core cluster with the key
+    /// cluster gave, which hold at most max_keys names.
     Factory(
         std::shared_ptr<x::thread::rt::Manager> rt_manager,
         const std::filesystem::path &keys_path,
+        const std::string &cluster,
         std::size_t max_keys
     );
 

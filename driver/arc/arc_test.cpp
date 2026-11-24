@@ -49,7 +49,7 @@ namespace driver::arc {
 std::pair<std::shared_ptr<status::Keys>, x::errors::Error> test_keys() {
     const auto path = std::filesystem::temp_directory_path() /
                       ("status_keys_" + x::uuid::create().to_string());
-    auto [keys, err] = status::Keys::open(path);
+    auto [keys, err] = status::Keys::open(path, "cluster");
     if (err) throw std::runtime_error(err.message());
     return {
         std::shared_ptr<status::Keys>(
@@ -2184,7 +2184,7 @@ TEST(ArcNoOutbox, FactoryReportsDamagedKeys) {
                            ("status_keys_" + x::uuid::create().to_string());
     x::defer::defer remove([&] { std::filesystem::remove(keys_path); });
     {
-        const auto keys = ASSERT_NIL_P(status::Keys::open(keys_path));
+        const auto keys = ASSERT_NIL_P(status::Keys::open(keys_path, "cluster"));
         ASSERT_NIL(keys->set("a", "key_a"));
     }
     std::filesystem::resize_file(keys_path, std::filesystem::file_size(keys_path) - 1);
@@ -2204,7 +2204,7 @@ TEST(ArcNoOutbox, FactoryReportsDamagedKeys) {
         client,
         outbox::testutil::open(client->statuses)
     );
-    Factory factory(nullptr, keys_path, status::DEFAULT_MAX_KEYS);
+    Factory factory(nullptr, keys_path, "cluster", status::DEFAULT_MAX_KEYS);
     x::breaker::Breaker cancel;
     const auto [tsk, handled] = factory.configure_task(
         ctx,
@@ -4434,7 +4434,7 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
     const auto keys_path = std::filesystem::temp_directory_path() /
                            ("status_keys_" + x::uuid::create().to_string());
-    Factory factory(nullptr, keys_path, status::DEFAULT_MAX_KEYS);
+    Factory factory(nullptr, keys_path, "cluster", status::DEFAULT_MAX_KEYS);
     x::breaker::Breaker cancel;
     auto [tsk, handled] = factory.configure_task(ctx, task, task::NO_COMMAND, cancel);
     EXPECT_TRUE(handled);

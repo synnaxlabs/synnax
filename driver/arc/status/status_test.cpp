@@ -166,7 +166,7 @@ protected:
         this->outbox = this->open_outbox(this->client);
         this->keys_path = std::filesystem::temp_directory_path() /
                           ("status_keys_" + x::uuid::create().to_string());
-        this->keys = ASSERT_NIL_P(Keys::open(this->keys_path));
+        this->keys = ASSERT_NIL_P(Keys::open(this->keys_path, "cluster"));
     }
 
     void TearDown() override {
@@ -325,7 +325,7 @@ TEST_F(StatusTest, OutputsKnownKeyAfterRestart) {
         key = this->keys->get(name);
         ASSERT_FALSE(key.empty());
     }
-    this->keys = ASSERT_NIL_P(Keys::open(this->keys_path));
+    this->keys = ASSERT_NIL_P(Keys::open(this->keys_path, "cluster"));
     Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
     const auto node = f.make_node();
@@ -586,7 +586,7 @@ TEST(SetsTest, ReportsAKeyItFailedToSave) {
     const auto path = std::filesystem::temp_directory_path() /
                       ("missing_" + x::uuid::create().to_string()) / KEYS_FILE;
     const auto reports = std::make_shared<Reports>();
-    Sets sets(ASSERT_NIL_P(Keys::open(path)), recordingReporter(reports));
+    Sets sets(ASSERT_NIL_P(Keys::open(path, "cluster")), recordingReporter(reports));
     sets.resolve("name", "key");
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
