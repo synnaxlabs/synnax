@@ -32,7 +32,9 @@ import (
 
 var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
 
-var validatePattern1 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+var validatePattern1 = regexp.MustCompile("^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$")
+
+var validatePattern2 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
 // Key uniquely identifies a Kafka cluster.
 type Key = uuid.UUID
@@ -421,8 +423,9 @@ type Read struct {
 func (r Read) Validate() error {
 	v := validate.New("Read")
 	v.NotEmptyString("topic", r.Topic)
+	v.Ternary("topic", !validatePattern1.MatchString(string(r.Topic)), "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'")
 	v.NonZero("message", r.Message)
-	v.Ternary("pointer", !validatePattern1.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.Ternary("pointer", !validatePattern2.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	v.NonZero("index", r.Index)
 	v.NonZero("channel", r.Channel)
 	return v.Error()

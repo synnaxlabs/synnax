@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"encoding/json/v2"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -133,6 +134,26 @@ var _ = Describe("Cluster", func() {
 			r.Topic = ""
 			c.Reads = []v0.Read{r}
 		}, "topic"),
+		Entry("a read topic with a slash", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = "plant/temp"
+			c.Reads = []v0.Read{r}
+		}, "topic"),
+		Entry("a read topic of one dot", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = "."
+			c.Reads = []v0.Read{r}
+		}, "topic"),
+		Entry("a read topic of two dots", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = ".."
+			c.Reads = []v0.Read{r}
+		}, "topic"),
+		Entry("a read topic over 249 characters", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = strings.Repeat("a", 250)
+			c.Reads = []v0.Read{r}
+		}, "topic"),
 		Entry("a read with no message", func(c *v0.Cluster) {
 			r := read()
 			r.Message = uuid.Nil()
@@ -172,6 +193,21 @@ var _ = Describe("Cluster", func() {
 		}),
 		Entry("a PLAIN auth", func(c *v0.Cluster) {
 			c.Auth = v0.Auth{Variant: v0.PlainAuth{Credentials: credentials()}}
+		}),
+		Entry("a read topic of 249 characters", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = strings.Repeat("a", 249)
+			c.Reads = []v0.Read{r}
+		}),
+		Entry("a read topic of three dots", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = "..."
+			c.Reads = []v0.Read{r}
+		}),
+		Entry("a read topic that starts with a dot", func(c *v0.Cluster) {
+			r := read()
+			r.Topic = ".plant_temp-1"
+			c.Reads = []v0.Read{r}
 		}),
 		Entry("a read of every unclaimed record", func(c *v0.Cluster) {
 			c.Reads = []v0.Read{read()}

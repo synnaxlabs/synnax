@@ -93,6 +93,7 @@ Auth union on mechanism {
 Read struct {
     topic      string         {
         @doc value         "is the topic to consume."
+        @go validate       pattern "^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$" "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'"
         @validate required
     }
     record_key string = "" {
