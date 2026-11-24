@@ -196,7 +196,7 @@ describe("User.Members", () => {
   it("should open the sign-in of another user", async () => {
     const u = await createUser("Operator");
     const name = uniqueName("key");
-    await client.auth.createKey({ subject: user.resourceID(u.key), name });
+    await client.auth.createAPIKey({ subject: user.resourceID(u.key), name });
     await renderMembers();
     await search(u.name);
     await openContextMenu(u.name);

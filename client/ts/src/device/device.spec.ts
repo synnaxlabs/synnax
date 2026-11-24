@@ -754,7 +754,12 @@ describe("Device", async () => {
         });
 
         it("should keep the answer of a fetch that found no status", async () => {
-          const d = await client.devices.create(createNew("no-status-row"));
+          // A rack of its own, as the outage of the shared rack writes the status back.
+          const { key: rack } = await client.racks.create({ name: "no-status-row" });
+          const d = await client.devices.create({
+            ...createNew("no-status-row"),
+            rack,
+          });
           const [st] = await client.statuses.retrieve({
             owners: [device.resourceID(d.key)],
           });

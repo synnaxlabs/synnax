@@ -36,10 +36,11 @@ export class Breaker {
   /**
    * Sleeps the current retry interval, then scales it for the next call.
    * Returns false without sleeping once `maxRetries` is exhausted.
+   * @param exempt - backs off without using or checking the `maxRetries` budget.
    */
-  async wait(): Promise<boolean> {
+  async wait({ exempt = false }: { exempt?: boolean } = {}): Promise<boolean> {
     const { maxRetries, maxInterval, scale, jitter, sleepFn } = this.config;
-    if (this.retries >= maxRetries) return false;
+    if (!exempt && this.retries >= maxRetries) return false;
     let interval = this.interval;
     if (jitter > 0)
       interval = TimeSpan.milliseconds(
@@ -48,7 +49,7 @@ export class Breaker {
     await sleepFn(interval);
     this.interval = this.interval.mult(scale);
     if (this.interval.greaterThan(maxInterval)) this.interval = maxInterval;
-    this.retries++;
+    if (!exempt) this.retries++;
     return true;
   }
 

@@ -79,7 +79,7 @@ def unary_client(endpoint: URL) -> HTTPClient:
 
 
 @pytest.fixture
-def errorless_close_endpoint() -> Iterator[URL]:
+def errorless_close_endpoint(host: str) -> Iterator[URL]:
     """Serves a stream that acks the open, then closes without an error."""
     codec = JSONCodec()
 
@@ -89,10 +89,10 @@ def errorless_close_endpoint() -> Iterator[URL]:
         for _ in ws:
             pass
 
-    with serve(handler, "localhost", 0) as server:
+    with serve(handler, host, 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL(host="localhost", port=server.socket.getsockname()[1])
+        yield URL(host=host, port=server.socket.getsockname()[1])
         server.shutdown()
         thread.join()
 
@@ -127,7 +127,7 @@ class TestServerCloseWithoutError:
 
 
 @pytest.fixture
-def server_close_endpoint() -> Iterator[tuple[URL, threading.Event]]:
+def server_close_endpoint(host: str) -> Iterator[tuple[URL, threading.Event]]:
     """Serves a stream that acks the open, then closes the connection. Sets the event
     once the close handshake completes."""
     codec = JSONCodec()
@@ -138,10 +138,10 @@ def server_close_endpoint() -> Iterator[tuple[URL, threading.Event]]:
         ws.close()
         closed.set()
 
-    with serve(handler, "localhost", 0) as server:
+    with serve(handler, host, 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL(host="localhost", port=server.socket.getsockname()[1]), closed
+        yield URL(host=host, port=server.socket.getsockname()[1]), closed
         server.shutdown()
         thread.join()
 
@@ -176,7 +176,7 @@ class TestAsyncServerCloseConnection:
 
 
 @pytest.fixture
-def failed_open_endpoint() -> Iterator[tuple[URL, threading.Event]]:
+def failed_open_endpoint(host: str) -> Iterator[tuple[URL, threading.Event]]:
     """Serves a stream that answers the open with a data message instead of an ack.
     Sets the event once the client closes the connection."""
     codec = JSONCodec()
@@ -188,10 +188,10 @@ def failed_open_endpoint() -> Iterator[tuple[URL, threading.Event]]:
             pass
         closed.set()
 
-    with serve(handler, "localhost", 0) as server:
+    with serve(handler, host, 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL(host="localhost", port=server.socket.getsockname()[1]), closed
+        yield URL(host=host, port=server.socket.getsockname()[1]), closed
         server.shutdown()
         thread.join()
 
