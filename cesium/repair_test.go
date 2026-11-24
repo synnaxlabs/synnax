@@ -545,6 +545,88 @@ var _ = Describe("Repair", func() {
 				Expect(rep.Tails).To(BeEmpty())
 			})
 
+		It("Should start a rebuilt range at the committed length, so a delete of the "+
+			"tail of its last pointer stays cut", func(ctx SpecContext) {
+			db := MustSucceed(open(ctx))
+			stop := GoRun(ctx, db.Run)
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      newIdx,
+					Name:     "new_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      newData,
+					Name:     "new_data",
+					Index:    newIdx,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			keys := []cesium.ChannelKey{newIdx, newData}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    telem.SecondTS,
+			}))
+			// put writes n samples from stamp from seconds, and commits them when
+			// committed is true.
+			put := func(from, n int, committed bool) {
+				stamps := make([]telem.TimeStamp, n)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(from+i) * telem.SecondTS
+				}
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeries(make([]int64, n)),
+				}), nil))
+				if committed {
+					MustSucceed2(w.Commit(ctx, nil))
+					Expect(w.Sync()).To(Succeed())
+				}
+			}
+			put(1, 5, true)
+			put(6, 5, true)
+			// Its full first block reaches the files, and no record names it.
+			put(11, 10_000, false)
+			Expect(w.Close()).To(Succeed())
+			Expect(
+				db.DeleteTimeRange(ctx, []cesium.ChannelKey{newData}, telem.TimeRange{
+					Start: 9 * telem.SecondTS,
+					End:   11 * telem.SecondTS,
+				}),
+			).To(Succeed())
+			write(ctx, db, 100*telem.SecondTS)
+			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			spoil(commitFrame(106*telem.SecondTS), 4)
+			rep := MustSucceed(repair(ctx, new(int)))
+			ofNew := func(ranges []cesium.Range) []cesium.Range {
+				return slices.DeleteFunc(ranges, func(r cesium.Range) bool {
+					return r.Key != newIdx && r.Key != newData
+				})
+			}
+			segs := [2]uint64{segmentIDs(fs, newIdx)[0], segmentIDs(fs, newData)[0]}
+			Expect(ofNew(rep.Rebuilt)).To(Equal([]cesium.Range{{
+				Key:     newIdx,
+				Segment: segs[0],
+				Bytes:   65_456,
+				Samples: 8_182,
+				TimeRange: telem.TimeRange{
+					Start: 11 * telem.SecondTS,
+					End:   8_192*telem.SecondTS + 1,
+				},
+				Open: true,
+			}}))
+			Expect(ofNew(rep.Unplaced)).To(Equal([]cesium.Range{{
+				Key:     newData,
+				Segment: segs[1],
+				Bytes:   65_456,
+				Samples: 8_182,
+				Open:    true,
+				Reason:  "no later record ends it, so its count is not known",
+			}}))
+		})
+
 		It(
 			"Should end a lost commit at the length of a later Seal",
 			func(ctx SpecContext) {
