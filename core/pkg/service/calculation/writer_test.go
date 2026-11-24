@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -79,7 +78,6 @@ var _ = Describe("Writer", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
-			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})
@@ -889,16 +887,6 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		// moves returns the statuses that say a primary moved.
-		moves := func(ctx SpecContext) []calculation.Status {
-			GinkgoHelper()
-			var all []calculation.Status
-			Expect(statuses.NewRetrieve[struct{}]().Entries(&all).Exec(ctx, node.DB)).
-				To(Succeed())
-			return lo.Filter(all, func(st calculation.Status, _ int) bool {
-				return st.Message == "Changed the primary input"
-			})
-		}
 		applyActs := func(
 			ctx SpecContext,
 			c calculation.Calculation,
@@ -923,59 +911,6 @@ var _ = Describe("Writer", func() {
 				Value: primary,
 			})
 		}
-
-		It("Should post one status for each move of a calculation's primary", func(
-			ctx SpecContext,
-		) {
-			stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
-			stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
-			mid := stored(ctx, "mid", every(telem.SecondTS, 10*telem.Millisecond, 17))
-			c := createCalc(ctx, calculation.Calculation{
-				Expression: "return fast + slow",
-			})
-			var out channel.Channel
-			Expect(channels.NewRetrieve().
-				Where(channel.MatchKeys(c.Output)).
-				Entry(&out).
-				Exec(ctx, node.DB)).To(Succeed())
-			c, _ = apply(ctx, c, "return slow + mid")
-			Expect(moves(ctx)).To(ConsistOf(And(
-				HaveField("Name", out.Name),
-				HaveField("Owner", BeNil()),
-				HaveField("Description", "The expression no longer reads fast, so the "+
-					"outputs now use the timestamps of mid."),
-			)))
-			Expect(c.Primary).To(HaveValue(Equal(mid.Key())))
-			apply(ctx, c, "return slow")
-			Expect(moves(ctx)).To(ConsistOf(HaveField(
-				"Description",
-				"The expression no longer reads mid, so the outputs now use the "+
-					"timestamps of slow.",
-			)))
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, c.Key)
-			})).To(Succeed())
-			Expect(moves(ctx)).To(BeEmpty())
-		})
-
-		It("Should post no status when the save sets the primary itself", func(
-			ctx SpecContext,
-		) {
-			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
-			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
-			c := createCalc(ctx, calculation.Calculation{
-				Expression: "return fast + slow",
-			})
-			Expect(c.Primary).To(HaveValue(Equal(fast.Key())))
-			Expect(applyActs(
-				ctx,
-				c,
-				setExpression("return slow"),
-				setPrimary(slow.Key()),
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieve(ctx, c.Output)[0].Primary).To(HaveValue(Equal(slow.Key())))
-			Expect(moves(ctx)).To(BeEmpty())
-		})
 
 		It("Should fail a save that sets a primary its new text drops", func(
 			ctx SpecContext,
@@ -1041,8 +976,9 @@ var _ = Describe("Writer", func() {
 			Expect(c.Primary).To(HaveValue(Equal(slow.Key())))
 		})
 
-		It("Should pick again in SetReads when the reads no longer hold the primary, "+
-			"and say so", func(ctx SpecContext) {
+		It("Should pick again in SetReads when the new reads drop the primary", func(
+			ctx SpecContext,
+		) {
 			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
 			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
 			c := createCalc(ctx, calculation.Calculation{
@@ -1053,7 +989,6 @@ var _ = Describe("Writer", func() {
 				return svc.NewWriter(tx).SetReads(ctx, c, []channel.Key{slow.Key()})
 			})).To(Succeed())
 			Expect(retrieve(ctx, c.Output)[0].Primary).To(HaveValue(Equal(slow.Key())))
-			Expect(moves(ctx)).To(HaveLen(1))
 		})
 	})
 })

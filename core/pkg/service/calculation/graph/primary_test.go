@@ -77,4 +77,56 @@ var _ = Describe("Primary", func() {
 		openGraph(ctx)
 		Expect(primaryOf(ctx, out.Key())).To(HaveValue(Equal(second.Key())))
 	})
+
+	It("Should post one status for the last move of a calculation's primary", func(
+		ctx SpecContext,
+	) {
+		virtual(ctx, "pr_move_a")
+		virtual(ctx, "pr_move_b")
+		virtual(ctx, "pr_move_c")
+		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:       "pr_move_out",
+			Expression: "return pr_move_a + pr_move_b",
+		}))
+		openGraph(ctx)
+		edit := func(expression string) {
+			GinkgoHelper()
+			Expect(creator.Apply(
+				ctx,
+				out.Key(),
+				calculation.NewSetAction(calculation.SetPayload{
+					Path:  []string{"expression"},
+					Value: expression,
+				}),
+			)).To(Succeed())
+		}
+		moves := func(g Gomega) []calculation.Status {
+			var all []calculation.Status
+			g.Expect(statusSvc.NewRetrieve[struct{}]().Entries(&all).Exec(ctx, db)).
+				To(Succeed())
+			var named []calculation.Status
+			for _, st := range all {
+				if st.Name == out.Name && st.Message == "Changed the primary input" {
+					named = append(named, st)
+				}
+			}
+			return named
+		}
+		edit("return pr_move_b + pr_move_c")
+		Eventually(func(g Gomega) {
+			g.Expect(moves(g)).To(ConsistOf(And(
+				HaveField("Owner", BeNil()),
+				HaveField("Description", "The expression no longer reads pr_move_a, "+
+					"so the outputs now use the timestamps of pr_move_b."),
+			)))
+		}).Should(Succeed())
+		edit("return pr_move_c")
+		Eventually(func(g Gomega) {
+			g.Expect(moves(g)).To(ConsistOf(HaveField(
+				"Description",
+				"The expression no longer reads pr_move_b, so the outputs now use the "+
+					"timestamps of pr_move_c.",
+			)))
+		}).Should(Succeed())
+	})
 })
