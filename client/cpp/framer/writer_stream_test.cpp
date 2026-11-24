@@ -127,6 +127,8 @@ public:
     }
 
     void close_send() override {}
+
+    void cancel() override { this->end(freighter::STREAM_CLOSED); }
 };
 
 /// @brief a writer transport that opens one WatchedStream.

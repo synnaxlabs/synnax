@@ -515,7 +515,8 @@ TEST(ForwarderTest, ClosesAfterAWriteInProgressWhenTheStreamEnds) {
     Forwarder forwarder(
         server,
         {.channels = {1}},
-        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = SHORT_DRAIN,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     ASSERT_NIL(forwarder.write(frame(1)));
     ASSERT_EVENTUALLY_TRUE(server->writing.load());

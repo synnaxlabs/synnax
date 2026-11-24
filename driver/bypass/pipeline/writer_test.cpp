@@ -311,7 +311,8 @@ TEST(WriterTest, CloseHandsOffLocallyWhileTheCoreIsUnreachable) {
         bus,
         states,
         0,
-        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = 10 * x::telem::MILLISECOND,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     auto op_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -355,7 +356,8 @@ TEST(WriterTest, DestroyHandsOffLocallyWhileTheCoreIsUnreachable) {
         bus,
         states,
         0,
-        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = 10 * x::telem::MILLISECOND,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     auto op_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -946,7 +948,8 @@ TEST(WriterTest, HandsOffLocallyForAWriterTheCoreForgot) {
         bus,
         states,
         0,
-        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+        {.drain_timeout = 10 * x::telem::MILLISECOND,
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
     );
     WriterFactory op_factory(op_core, bus, states, 0);
     states->set({held(remote, 200)});
