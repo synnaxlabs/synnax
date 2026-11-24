@@ -19,6 +19,7 @@ import {
   createTestClient,
   createTestClientAs,
   createTestClientWithPolicy,
+  createTestUser,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
@@ -106,15 +107,9 @@ const createChannelUser = async (ch: channelClient.Channel) => {
     });
   await grant("delete");
   const retrieve = await grant("retrieve");
-  const username = uniqueName("user");
-  await client.users.create({
-    username,
-    password: "test",
-    name: "test",
-    role: role.key,
-  });
+  const { username, password } = await createTestUser(client, { role: role.key });
   return {
-    userClient: createTestClientAs(username, "test"),
+    userClient: createTestClientAs(username, password),
     retrieve,
     grantRetrieve: async () => await grant("retrieve"),
   };
