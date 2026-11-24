@@ -334,6 +334,32 @@ Channel struct {
 		Expect(merged).ToNot(ContainSubstring("hand_edited"))
 	})
 
+	It("Should reject a live resource type the chain does not have", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+
+    @go marshal
+}
+`)
+		liveSource := `Channel struct {
+    name string
+
+    @go marshal
+    @resource type "channel"
+}
+`
+		r, chain := resolver()
+		Expect(versions.MergeLive(ctx, r, chain, liveSource)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"move @resource of Channel to schemas/synnax/versions/channel/v0.oracle",
+			)),
+		))
+	})
+
 	Describe("Erased docs", func() {
 		const version = `
 Mode enum {
@@ -389,7 +415,7 @@ Where filter Channel {
 				Expect(versions.MergeLive(ctx, r, chain, live)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("schemas/synnax/channel.oracle")),
-					MatchError(ContainSubstring("move "+path+" to "+file)),
+					MatchError(ContainSubstring("move @doc of "+path+" to "+file)),
 				))
 			},
 			Entry("on a struct", `Channel struct {
@@ -477,7 +503,9 @@ Where filter Channel {
 
     @go marshal
 }
-`)).Error().To(MatchError(ContainSubstring("Channel.name, Channel.uses")))
+`)).Error().To(MatchError(ContainSubstring(
+				"@doc of Channel.name, @doc of Channel.uses",
+			)))
 		})
 
 		It("Should drop a removed declaration and its doc without an error", func(
