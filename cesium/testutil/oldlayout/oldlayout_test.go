@@ -43,13 +43,16 @@ func files(fs xfs.FS) map[string][]byte {
 	return out
 }
 
-// fixture is the root that Cesium at core/v0.62.0 wrote with a file size cap of 48
-// bytes: an index (1), an int32 key (2), and a string key (3) timed by it, 40 samples
-// in commits of 5. Sample i has the stamp i + 1 seconds, the int32 i + 1, and a string
-// of i % 7 + 1 bytes of x.
-func fixture() xfs.FS {
+// fixture returns a root that Cesium at core/v0.62.0 wrote with a file size cap of 48
+// bytes, an index (1), an int32 key (2), and a string key (3) timed by it. one-run
+// holds
+// 40 samples of one writer in commits of 5: sample i has the stamp i + 1 seconds, the
+// int32 i + 1, and a string of i % 7 + 1 bytes of x. two-runs holds the samples of two
+// writers, from 1 and 1000 seconds, each 4 commits of 5: sample n of a writer from s
+// has the stamp s + n seconds, the int32 s + n, and a string of n % 7 bytes of x.
+func fixture(name string) xfs.FS {
 	GinkgoHelper()
-	return MustSucceed(xfs.Default.Sub("testdata/v0.62.0"))
+	return MustSucceed(xfs.Default.Sub(path.Join("testdata/v0.62.0", name)))
 }
 
 // writeOld writes the samples of the fixture through the old open path of Cesium to
@@ -104,7 +107,7 @@ func writeOld(ctx context.Context, fs xfs.FS) {
 var _ = Describe("Old layout", func() {
 	It("Should read the channels, counters, pointers, and files of the fixture",
 		func(ctx SpecContext) {
-			keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+			keys := MustSucceed(oldlayout.Read(ctx, fixture("one-run")))
 			Expect(keys).To(HaveLen(3))
 			idx, i32 := keys[0], keys[1]
 			Expect(idx.Channel.Name).To(Equal("time"))
@@ -124,12 +127,18 @@ var _ = Describe("Old layout", func() {
 			Expect(i32.Pointers[2].Size).To(Equal(uint32(40)))
 		})
 
-	It("Should write the fixture again byte for byte", func(ctx SpecContext) {
+	DescribeTable("Should write each fixture again byte for byte", func(
+		ctx SpecContext,
+		name string,
+	) {
 		mem := xfs.NewMem()
-		keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+		keys := MustSucceed(oldlayout.Read(ctx, fixture(name)))
 		Expect(oldlayout.Write(mem, keys...)).To(Succeed())
-		Expect(files(mem)).To(Equal(files(fixture())))
-	})
+		Expect(files(mem)).To(Equal(files(fixture(name))))
+	},
+		Entry("one writer", "one-run"),
+		Entry("two writers", "two-runs"),
+	)
 
 	It("Should write a root of the old open path again byte for byte",
 		func(ctx SpecContext) {
@@ -142,13 +151,13 @@ var _ = Describe("Old layout", func() {
 			Expect(want).To(HaveKey("delete-intents"))
 			delete(want, "delete-intents")
 			Expect(files(mem)).To(Equal(want))
-			Expect(files(mem)).To(Equal(files(fixture())))
+			Expect(files(mem)).To(Equal(files(fixture("one-run"))))
 		})
 
 	It("Should write the leftovers of an old compaction again byte for byte",
 		func(ctx SpecContext) {
 			old, mem := xfs.NewMem(), xfs.NewMem()
-			keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+			keys := MustSucceed(oldlayout.Read(ctx, fixture("one-run")))
 			keys[1].Leftovers["2.domain_temp"] = keys[1].Files[2]
 			keys[1].Leftovers["2.domain_gc"] = []byte{1, 2, 3}
 			delete(keys[1].Files, 2)
@@ -163,22 +172,22 @@ var _ = Describe("Old layout", func() {
 	It("Should keep the meta.json that a directory holds, as the old layout writes it "+
 		"once", func(ctx SpecContext) {
 		mem := xfs.NewMem()
-		keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+		keys := MustSucceed(oldlayout.Read(ctx, fixture("one-run")))
 		Expect(oldlayout.Write(mem, keys...)).To(Succeed())
 		renamed := keys[0]
 		renamed.Channel.Name = "other"
 		Expect(oldlayout.Write(mem, renamed)).To(Succeed())
-		Expect(files(mem)).To(Equal(files(fixture())))
+		Expect(files(mem)).To(Equal(files(fixture("one-run"))))
 	})
 
 	It("Should sync nothing, so a crash can lose every write", func(ctx SpecContext) {
 		disk := MustSucceed(fault.New(fault.Config{}))
-		keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+		keys := MustSucceed(oldlayout.Read(ctx, fixture("one-run")))
 		Expect(oldlayout.Write(disk, keys...)).To(Succeed())
 		image := MustSucceed(disk.Crash(fault.CrashConfig{RunKey: 1}))
 		Expect(files(image)).To(BeEmpty())
 		disk.Writeback()
 		Expect(files(MustSucceed(disk.Crash(fault.CrashConfig{RunKey: 1})))).
-			To(Equal(files(fixture())))
+			To(Equal(files(fixture("one-run"))))
 	})
 })

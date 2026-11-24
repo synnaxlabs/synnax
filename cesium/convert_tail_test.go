@@ -187,7 +187,7 @@ func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
 
 // oldRoot is the root that Cesium at core/v0.62.0 wrote with the samples of
 // writeOldLost, in small files so that each key rolls over at its own commits.
-const oldRoot = "testutil/oldlayout/testdata/v0.62.0"
+const oldRoot = "testutil/oldlayout/testdata/v0.62.0/one-run"
 
 // writeOldLost writes oldN samples of an index, an int32 key, and a string key timed by
 // it to fs on the old layout, as oldRoot holds them. The channels are durable, but the

@@ -18,6 +18,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -111,6 +113,16 @@ func dataOf(
 	return data, nil
 }
 
+// sameOld reports whether a and b hold the same old files: the counter, the pointers,
+// and the bytes of each data file.
+func sameOld(a, b oldlayout.Key) bool {
+	return a.Channel.Key == b.Channel.Key && a.Counter == b.Counter &&
+		slices.Equal(
+			a.Pointers,
+			b.Pointers,
+		) && maps.EqualFunc(a.Files, b.Files, bytes.Equal)
+}
+
 var _ = Describe("Conversion on the pointer log", func() {
 	const (
 		idx cesium.ChannelKey = 1
@@ -182,23 +194,29 @@ var _ = Describe("Conversion on the pointer log", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		disk = MustSucceed(fault.New(fault.Config{}))
-		// Small files roll each key over at its own commits.
-		db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
-		Expect(db.CreateChannel(
-			ctx,
-			cesium.Channel{
-				Key:      idx,
-				Name:     "time",
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			},
-			cesium.Channel{Key: i32, Name: "i32", Index: idx, DataType: telem.Int32T},
-			cesium.Channel{Key: str, Name: "str", Index: idx, DataType: telem.StringT},
-		)).To(Succeed())
-		write(ctx, db, 1)
-		write(ctx, db, 1000)
-		held = read(ctx, db)
-		Expect(db.Close()).To(Succeed())
+		// Cesium at core/v0.62.0 wrote the root with the samples of write from 1 and
+		// from 1000, in small files that roll each key over at its own commits.
+		root := MustSucceed(
+			xfs.Default.Sub("testutil/oldlayout/testdata/v0.62.0/two-runs"),
+		)
+		Expect(oldlayout.Write(disk, MustSucceed(oldlayout.Read(ctx, root))...)).
+			To(Succeed())
+		held = samples{data: make(map[cesium.ChannelKey][]byte)}
+		var (
+			stamps []telem.TimeStamp
+			ints   []int32
+			strs   []string
+		)
+		for _, start := range []telem.TimeStamp{1, 1000} {
+			for n := range telem.TimeStamp(20) {
+				stamps = append(stamps, (start+n)*telem.SecondTS)
+				ints = append(ints, int32(start+n))
+				strs = append(strs, strings.Repeat("x", int(n%7)))
+			}
+		}
+		held.data[idx] = telem.NewSeries(stamps).Data
+		held.data[i32] = telem.NewSeries(ints).Data
+		held.data[str] = telem.NewSeries(strs).Data
 		// The old layout never syncs. Writeback makes its files durable, as time does.
 		disk.Writeback()
 	})
@@ -339,8 +357,9 @@ var _ = Describe("Conversion on the pointer log", func() {
 		Expect(fs.Exists(checkpoint.Name(1))).To(BeFalse())
 	})
 
-	It("Should leave a root that both binaries open with every sample after a crash "+
-		"at each step", func(ctx SpecContext) {
+	It("Should leave the old files whole, and a root that opens with every sample, "+
+		"after a crash at each step", func(ctx SpecContext) {
+		before := MustSucceed(oldlayout.Read(ctx, disk))
 		// same reads keys from db and compares their bytes with held.
 		same := func(db *cesium.DB, closeDB func() error) error {
 			data, err := dataOf(ctx, db, keys)
@@ -353,19 +372,14 @@ var _ = Describe("Conversion on the pointer log", func() {
 			return nil
 		}
 		c := &crashes{disk: disk, taking: true, check: func(image *fault.FS) error {
-			fork, err := image.Crash(fault.CrashConfig{
-				DataSurvivalRate:  1,
-				EntrySurvivalRate: 1,
-			})
+			// The old binary reads the old files that an undo leaves, so the
+			// conversion changes none of them.
+			after, err := oldlayout.Read(ctx, image)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "old layout")
 			}
-			old, err := cesium.Open(ctx, "", cesium.WithFS(fork))
-			if err != nil {
-				return errors.Wrap(err, "old binary")
-			}
-			if err = same(old, old.Close); err != nil {
-				return errors.Wrap(err, "old binary")
+			if !slices.EqualFunc(before, after, sameOld) {
+				return errors.New("the conversion changed an old file")
 			}
 			db, closeDB, err := openSeeded(ctx, image)
 			if err != nil {
