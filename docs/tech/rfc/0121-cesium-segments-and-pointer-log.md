@@ -108,7 +108,8 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    `txState.OnCleanup` (`gorp/gorp.go:347`), which runs when the writes become visible,
    before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
    removes the segments of the key when reader pins drop. An error of `Drop` raises a
-   status.
+   status. A removal that fails after `Drop` returns goes to the injected error handler
+   (§7): the Core raises the same status, and the next open removes the files.
 5. At start, before a writer opens, the Core calls `DB.Sweep` with each key of the
    table. Only the first call in one open decides: a later call drops nothing and
    returns the kept keys that remain. For a key with an intent and a record, the commit
@@ -138,7 +139,7 @@ old layout, the restrict link from a data channel to its index
 uses, so no intent names an index that an open needs. `DeleteTimeRange` refuses a clock
 key while a live pointer of another key names it, as today (`cesium/delete.go:265-279`).
 
-**The intent on the old layout (Phase 5).** The root holds one append-only file,
+**The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
 where `SyncDir` does nothing (§13 item 4). Each append is one batch: an 8-byte header
 (record count, then a CRC32C of the batch's file offset and every record of it), then
@@ -153,11 +154,12 @@ a channel directory whose key has an intent, so a directory that a removal cut s
 never stops an open. It still loads such a directory when a kept directory's `meta.json`
 names it as its index, and `Sweep` drops it after the last such channel goes. `Sweep`
 appends a clear record for each intent that it clears; a failed sync there fails the
-start. Only the last batch can tear, so a bad batch before a valid one raises a status.
-When `Sweep` leaves no live intent, it truncates the file to 0 and syncs it, which needs
-no rename; a crash leaves the old length or 0, and both hold no live intent. A delete
-costs at most 32 bytes of file between two truncations. The old binary warns about the
-unknown root file and ignores it (`cesium/open.go:59-63`).
+start. Only the last batch can tear: an open cuts a torn last batch, and a bad batch
+before a valid one raises a status. When `Sweep` leaves no live intent, it truncates the
+file to 0 and syncs it, which needs no rename; a crash leaves the old length or 0, and
+both hold no live intent. A delete costs at most 32 bytes of file between two
+truncations. The old binary warns about the unknown root file and ignores it
+(`cesium/open.go:59-63`).
 
 | Crash after                                     | State at the next start       | `Sweep`                                                             |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
@@ -167,7 +169,7 @@ unknown root file and ignores it (`cesium/open.go:59-63`).
 | Part of `Drop`'s removal                        | Intent, no record, some files | The open skips the directory; `Sweep` drops the rest                |
 | A clear record, torn                            | The intent stays              | Drops the key again, which finds nothing to remove                  |
 
-**The intent on the new layout (Phase 6 on).** An Intent record (type 10) in the pointer
+**The intent on the new layout** (Phase 6 on): An Intent record (type 10) in the pointer
 log; `Intend` returns at its log sync. Its body is the key, then flags: bit 0 clears the
 intent, which `Sweep` logs for a key with a record. The Drop record clears the intent of
 its key. A head holds every live intent in section 9, so an intent outlives a switch.
@@ -175,45 +177,49 @@ The conversion carries the records of `delete-intents` into section 9 of the fir
 
 ### 4.2 The Cesium API
 
-| Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                      |
-| --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, and the executor of owner steps and syncs, and set `WithReadChecksDisabled` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 and returns the first fatal error |
-| `DB.OpenWriter`                                                       | Changed                       | Takes the keys, the type of each, exactly one clock key, a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW: it checks, claims, stamps, and commits as any writer and writes no bytes, for a stream-only write of a stored channel). Refuses an overlap (§5.8)                           |
-| `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp                                                                                                                                                                                                                  |
-| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. `Close` does the same, or fails, and releases the claims only after its last entry is acked                                                                                                                                                            |
-| `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of the writer's clock and channels (RFC 0095 §4.2)                                                                                                                                                                                                                                                              |
-| `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment                                                                                                                                                                                                                                                                         |
-| `DB.DeleteTimeRange`                                                  | Kept                          | §5.6                                                                                                                                                                                                                                                                                                                                                          |
-| `DB.Intend`, `DB.Drop`, `DB.Sweep`                                    | NEW                           | §4.1                                                                                                                                                                                                                                                                                                                                                          |
-| `cesium.Repair`                                                       | NEW                           | `Repair(ctx, dir, confirm, opts...)` runs §6.1 on a closed database: it builds the report of step 4, calls `confirm` with it, and writes only when `confirm` returns true                                                                                                                                                                                     |
-| `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and progression encoding change no sample and report nothing                                                                                                                        |
-| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:80`, `:107`. No Core code calls them                                                                                                                                                                                                                                                                                                            |
-| Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                                                                                                                                        |
+| Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadChecksDisabled` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 and returns the first fatal error                                                                                                                                                                                                                                                                   |
+| `DB.Identity`                                                         | NEW                           | Returns the database identity. After every open whose identity differs from the one the Core holds, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `DB.OpenWriter`                                                       | Changed                       | Takes the keys, the type of each, exactly one clock key, a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Refuses an overlap (§5.8)                                                                                                                                                                                                                                                             |
+| `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. `Close` does the same, or fails, and releases the claims only after its last entry is acked                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of the writer's clock and channels (RFC 0095 §4.2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `DB.Handoff`                                                          | NEW                           | Pointer log only; on the old layout it fails. Closes a writer and opens one on its clock in its place, for a new key set, as one event. A key that stays keeps its uncommitted samples for the next commit. The keys that the new set lacks return theirs as a `Pending`, which commits once the clock holds their stamps, as data against stored stamps, or drops at its `Close`. `adopt` hands a `Pending` of an earlier handoff to the new writer. The run carry, for a session that keeps the clock, continues the old writer's stretch. A start in stored data is refused, as at an open. An error drops the uncommitted samples and names the clock and their time range |
+| `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `DB.DeleteTimeRange`                                                  | Kept                          | §5.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `DB.Intend`, `DB.Drop`, `DB.Sweep`                                    | NEW                           | §4.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `cesium.Repair`                                                       | NEW                           | `Repair(ctx, dir, confirm, opts...)` runs §6.0 on a closed database: it builds the report of step 4, calls `confirm` with it, and writes only when `confirm` returns true                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and progression encoding change no sample and report nothing                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:80`, `:107`. No Core code calls them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 The errors `ErrCorrupt`, `ErrDiskFull`, and `ErrFatal` are NEW. The framer calls `Sync`
 on the interval of auto commit, and its `EndDomain` command keeps its name. The framer
 opens one Cesium writer per clock of a session. On a control handoff, its region owner
 closes the writer of the old session's clock and opens one on the new session's clock,
-as one event (RFC 0120 §4.8), at the cost of one sealed segment and one new stretch.
+as one event (RFC 0120 §4.8), at the cost of one new stretch. When a key moves between
+writers of a session that keeps the clock (§5.8), `DB.Handoff` carries the run, and the
+stretch goes on.
 
 ### 4.3 Package boundaries
 
-| Package                                   | Owns                                                                                             | May import                                  | Must not import                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
-| `x/go/io/fs`                              | `FS`, `File`, `SyncDir`, the memory file system                                                  | The standard library, `x/go`                | `cesium`, `core`                                 |
-| `x/go/io/fs/testutil/fault` (NEW)         | The fault file system                                                                            | `x/go/io/fs`                                | No production package imports it                 |
-| `x/go/control` (from RFC 0120 Phase 2)    | The controller, with the key as a type parameter                                                 | `x/go`                                      | `cesium`, `core`                                 |
-| `x/go/telem`                              | `Alignment`, and the constant that splits its numbers at 2^31 (moves from Cesium)                | The standard library                        | `cesium`, `core`                                 |
-| `cesium`                                  | The API of §4.2, open and recovery order, the four owners of §7, the background passes, `Repair` | `cesium/internal`, `x/go`                   | `core`, `gorp`, `x/go/control`, OS-specific code |
-| `cesium/internal/place` (NEW)             | The place, the CRC rule of §5.0, and `ErrCorrupt`                                                | The standard library                        | Every other `cesium` package                     |
-| `cesium/internal/segment` (NEW)           | Segment files, checked reads, the progression codec, the handle budget, the sync pool            | `place`, `x/go/io/fs`, `x/go/telem`         | `log`, `state`, `checkpoint`                     |
-| `cesium/internal/log` (NEW)               | The log file, frames, the record codec                                                           | `place`, `x/go/io/fs`                       | `segment`, `state`, `checkpoint`                 |
-| `cesium/internal/state` (NEW)             | Pointer sets, claims, the counters, and the rules that apply or refuse a record                  | `log`, `x/go/telem`                         | `segment`, `checkpoint`                          |
-| `core/cmd/purge`, `core/cmd/repair` (NEW) | The offline commands, the directory lock, the prompt                                             | `core/pkg/storage`, `cesium`                | `cesium/internal`                                |
-| `cesium/internal/checkpoint` (NEW)        | Heads, parts, the part cache, the files of logs                                                  | `place`, `state`, `log`, `x/go/io/fs`       | `segment`                                        |
-| `cesium/internal/convert` (NEW)           | The old-layout reader and the first head and log                                                 | `state`, `checkpoint`, `log`, `x/go/io/fs`  | `segment`                                        |
-| `core/pkg/distribution/framer`            | Sessions, relay, virtual channels, control, the delete claim, alignment numbers of unstored data | `cesium`, `x/go/control`, channel key types | `cesium/internal`, the service layer             |
-| `core/pkg/service/channel`                | Channel records, delete order, the `Sweep` call, the lookup it gives the framer                  | `gorp`, `cesium`, the framer                | `cesium/internal`                                |
+| Package                                   | Owns                                                                                                                                                   | May import                                  | Must not import                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
+| `x/go/io/fs`                              | `FS`, `File`, `SyncDir`, the memory file system                                                                                                        | The standard library, `x/go`                | `cesium`, `core`                                 |
+| `x/go/io/fs/testutil/fault` (NEW)         | The fault file system                                                                                                                                  | `x/go/io/fs`                                | No production package imports it                 |
+| `x/go/control` (from RFC 0120 Phase 2)    | The controller, with the key as a type parameter                                                                                                       | `x/go`                                      | `cesium`, `core`                                 |
+| `x/go/telem`                              | `Alignment`, and the constant that splits its numbers at 2^31 (moves from Cesium)                                                                      | The standard library                        | `cesium`, `core`                                 |
+| `cesium`                                  | The API of §4.2, open and recovery order, the four owners of §7, the background passes, `Repair`, alignment numbers of unstored samples of stored keys | `cesium/internal`, `x/go`                   | `core`, `gorp`, `x/go/control`, OS-specific code |
+| `cesium/internal/place` (NEW)             | The place, the CRC rule of §5.0, and `ErrCorrupt`                                                                                                      | The standard library                        | Every other `cesium` package                     |
+| `cesium/internal/segment` (NEW)           | Segment files, checked reads, the progression codec, the handle budget, the sync pool                                                                  | `place`, `x/go/io/fs`, `x/go/telem`         | `log`, `state`, `checkpoint`                     |
+| `cesium/internal/log` (NEW)               | The log file, frames, the record codec                                                                                                                 | `place`, `x/go/io/fs`                       | `segment`, `state`, `checkpoint`                 |
+| `cesium/internal/state` (NEW)             | Pointer sets, claims, the counters, and the rules that apply or refuse a record                                                                        | `log`, `x/go/telem`                         | `segment`, `checkpoint`                          |
+| `core/cmd/purge`, `core/cmd/repair` (NEW) | The offline commands, the directory lock, the prompt                                                                                                   | `core/pkg/storage`, `cesium`                | `cesium/internal`                                |
+| `cesium/internal/checkpoint` (NEW)        | Heads, parts, the part cache, the files of logs                                                                                                        | `place`, `state`, `log`, `x/go/io/fs`       | `segment`                                        |
+| `cesium/internal/convert` (NEW)           | The old-layout reader and the first head and log                                                                                                       | `state`, `checkpoint`, `log`, `x/go/io/fs`  | `segment`                                        |
+| `core/pkg/distribution/framer`            | Sessions, relay, virtual channels, control, the delete claim, alignment numbers of virtual keys                                                        | `cesium`, `x/go/control`, channel key types | `cesium/internal`, the service layer             |
+| `core/pkg/service/channel`                | Channel records, delete order, the `Sweep` call, the lookup it gives the framer                                                                        | `gorp`, `cesium`, the framer                | `cesium/internal`                                |
 
 `log` decodes structure only: lengths, counts bounded by lengths, zero fields, and
 record types. `state` applies the value rules of §5.2, with the segment format versions
@@ -226,30 +232,34 @@ that `cesium` gives it, since it may not import `segment`.
 The root holds `<g>.log` (the pointer log of generation `g`, 64 MiB), `<g>.head`, and
 `<p>.part` (a part, with its own identity `p`). A channel directory holds
 `<key>/<S>.seg` (segment `S`), `<key>/<N>.domain` (an old data file, used in place as a
-version 0 segment), and `<key>/<S>.chk` (its check file). `<g>`, `<p>`, and `<S>` are 16
-lowercase hex digits, and `<key>` is decimal (`cesium/delete.go:66`). All integers are
-little-endian. Cesium renames no file while it runs, so no rename crosses two
-directories. `SyncDir` of the directory follows each create and each remove that a later
-step depends on. A file is unlinked only after the record that makes it dead is durable
-and no reader pins it.
+version 0 segment), `<key>/<S>.chk` (its check file), and `<key>/channel`. The channel
+file replaces `meta.json` on the new layout until Phase 7 removes the channel list
+(§4.0): an 8-byte header (the body length, then a CRC32C of the length and the body over
+a place of kind 6) and the encoded channel. `<g>`, `<p>`, and `<S>` are 16 lowercase hex
+digits, and `<key>` is decimal (`cesium/delete.go:66`). All integers are little-endian.
+Cesium renames no file while it runs, so no rename crosses two directories. `SyncDir` of
+the directory follows each create and each remove that a later step depends on. A file
+is unlinked only after a durable head or a durable later frame covers the record that
+makes it dead, and no reader pins it, so the cut of an acked frame (§6, fault 5d) never
+leaves a live segment with no file.
 
 Every checksum is CRC32C (Castagnoli, initial value and final XOR `0xFFFFFFFF`) over a
 32-byte place and then the covered bytes. The place is never stored.
 
-| Offset | Size | Type     | Meaning                                                             |
-| ------ | ---- | -------- | ------------------------------------------------------------------- |
-| 0      | 8    | `uint64` | Database identity, drawn once from the injected random source       |
-| 8      | 8    | `uint64` | File identity: a segment identity, a generation, or a part identity |
-| 16     | 8    | `uint64` | File offset of the first covered byte                               |
-| 24     | 1    | `uint8`  | Kind: 1 segment, 2 check file, 3 log, 4 head, 5 part                |
-| 25     | 1    | `uint8`  | Segment kind: its data type code (RFC 0120). Other kinds: zero      |
-| 26     | 2    | `uint16` | Format version of the file                                          |
-| 28     | 4    | `uint32` | Segment kind: its clock key. Other kinds: zero                      |
+| Offset | Size | Type     | Meaning                                                                    |
+| ------ | ---- | -------- | -------------------------------------------------------------------------- |
+| 0      | 8    | `uint64` | Database identity, drawn once from the injected random source              |
+| 8      | 8    | `uint64` | File identity: a segment identity, a generation, a part identity, or a key |
+| 16     | 8    | `uint64` | File offset of the first covered byte                                      |
+| 24     | 1    | `uint8`  | Kind: 1 segment, 2 check file, 3 log, 4 head, 5 part, 6 channel file       |
+| 25     | 1    | `uint8`  | Segment kind: its data type code (RFC 0120). Other kinds: zero             |
+| 26     | 2    | `uint16` | Format version of the file                                                 |
+| 28     | 4    | `uint32` | Segment kind: its clock key. Other kinds: zero                             |
 
 A block of another database, file, offset, kind, version, type, or clock fails its
 check. The type code and the clock key of a segment are stored only in the Create record
 and the checkpoint; the place makes every checked block prove them with no second copy,
-and lets repair find them (§6.1). The log reserves segment identities (`uint64`, from 1)
+and lets repair find them (§6.0). The log reserves segment identities (`uint64`, from 1)
 and alignment numbers (§5.7) before use, and a head records the limit of part
 identities, so a crash never gives a value out twice. A generation rises by one per
 switch.
@@ -261,7 +271,7 @@ log, and the segment record of the checkpoint, are the one home of the data type
 key, and format version. Every length and offset in a record or a pointer counts stream
 bytes: sample bytes with no trailers.
 
-**Version 1, raw samples.** The sample stream is cut into blocks of `B` = 65,536 bytes.
+**Version 1, raw samples**: The sample stream is cut into blocks of `B` = 65,536 bytes.
 A trailer of `T` bytes follows each full block: 4 for a fixed-density type, 16 for a
 variable type. Stream offset `x` is at file offset `x + T * floor(x / B)`.
 
@@ -294,7 +304,7 @@ the block, stored in the log with each commit. A writer continues from that valu
   unsynced bytes is synced before the budget closes it, in the job that needs the slot.
   A sync that fails, from any caller, marks the segment failed (§5.4).
 
-**Version 2, a sealed clock as progressions.** The compactor rewrites a sealed version 1
+**Version 2, a sealed clock as progressions**: The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
 stream that holds a raw area, an entry table, fences, and a footer, in that order. Every
 rewrite, of version 1 or 2, pads its output with zeros to a whole number of blocks, so
@@ -320,15 +330,18 @@ table, and still returns full `int64` stamps. The Driver uses one whole-nanoseco
 inside a write (`x/cpp/telem/series.h:1257-1263`), so the worst case is one progression
 per write: 16 bytes for 125 stamps on a 25 kHz clock.
 
-**Version 0, an old file in place.** `<key>/<N>.domain` is a sealed segment with a new
+**Version 0, an old file in place**: `<key>/<N>.domain` is a sealed segment with a new
 identity, no blocks, and a stream offset equal to its file offset. Its reads are
 unchecked until the check pass reaches it. The pass runs in the background, newest files
 first, under a rate limit, and ends after about 2 × old bytes / rate. It reads each
 block twice, takes a CRC only from two reads that agree, writes `<S>.chk`, syncs it and
 its directory, and logs a Check record, which turns the checks on. In a clock file it
-also checks that the stamps of each pointer rise inside its time range, and logs a
-Tombstone from the first stamp that does not, for the clock and for each key that it
-times.
+also checks that the stamps of each pointer rise inside its time range. A run of stamps
+that do not rise through the end of the file is a crash tail: the pass logs a Tombstone
+from its first stamp, for the clock and for each key that it times. Any other sample
+whose stamp is not above the last kept stamp is cut alone, for the clock and for each
+key that it times at that position, by a split of the pointer around it. A warning lists
+each cut.
 
 | Offset | Size | Type     | Check file of a version 0 segment of length `len`, with `n = ceil(len / 65,536)`                                     |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -344,11 +357,12 @@ its backups and passes `WithVersion0Rewritable` (NEW, false by default) to `Open
 none of them is that old. A backup whose name holds no version (`before-0.61.0`,
 `core/pkg/storage/version.go:33`) counts as that old. Nothing stores it: the backup list
 is the fact. From then, compaction and progression encoding treat a version 0 segment
-that has its check file as a sealed version 1 segment: they copy its live ranges,
-checked, to a new segment, and the old file and its check file go when their pins drop.
-A site that runs with `--no-update-backup` has no such backup and restores its own
-snapshot of the whole data directory, so its files are rewritable from the first start.
-A binary refuses to open on a format version it does not know.
+that has its check file as a sealed version 1 segment, and the compactor takes each one
+as a candidate once: they copy its live ranges, checked, to a new segment, and the old
+file and its check file go when their pins drop. A site that runs with
+`--no-update-backup` has no such backup and restores its own snapshot of the whole data
+directory, so its files are rewritable from the first start. A binary refuses to open on
+a format version it does not know.
 
 ### 5.2 Pointer log
 
@@ -502,7 +516,7 @@ file depend on the state alone. A count is the index of the next record minus it
   claim check of a writer on old time, deletes, and compaction load part chunks through
   a cache.
 
-**The switch.** `L` is the log owner and `C` the checkpointer. The root holds the live
+**The switch**: `L` is the log owner and `C` the checkpointer. The root holds the live
 log `g`, its head, and the newest older head that exists with every log from its
 generation on. A switch starts when log `g` is three quarters full. No owner step waits
 for another owner's step (§7): each request names the queue that its reply goes to.
@@ -529,10 +543,11 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    head names. A cached handle closes first, and a failed remove is tried again at the
    next switch. `SyncDir` the root. `L` then drops the segments of step 3.
 
-An error in steps 3 to 5 removes the head of the attempt, syncs the root, and only then
-removes its parts. `C` never syncs a file again after a sync error. Generation `g + 1`
-then has no head, the older head and its logs stay, and the next switch writes head
-`g + 2`. Past 16 logs: `ErrDiskFull`.
+An error of a head or part file in steps 3 to 5, a sync error included, removes the head
+of the attempt, syncs the root, and only then removes its parts. A `SyncDir` error of
+the root in any step is fatal (§6 fault 7). `C` never syncs a file again after a sync
+error. Generation `g + 1` then has no head, the older head and its logs stay, and the
+next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
 
 ### 5.4 Commit and group commit
 
@@ -591,10 +606,10 @@ then has no head, the older head and its logs stay, and the next switch writes h
    bytes are equal, so a torn write of them changes nothing (principle 3).
 9. Unless the last valid frame is a clean mark, write one frame with a Restart at the
    next 4 KiB boundary and sync. When the log is past three quarters and the file of the
-   next log exists, write its header first and put the Restart there; when it is
-   missing, the Restart goes in the live log. No Reserve is written at open: the log
-   reserves a block when a writer first needs a value, 16 values at first and 1,024
-   after that.
+   next log exists at its full size, write its header first and put the Restart there;
+   when it is missing, the Restart goes in the live log. No Reserve is written at open:
+   the log reserves a block when a writer first needs a value, 16 values at first and
+   1,024 after that.
 10. Open. The orphan pass runs once, on the listing taken at open. It removes every
     `.seg` and `.chk` file in that listing that the state does not name, at any
     identity, and a writer that would create a name from the listing waits for the pass.
@@ -631,8 +646,11 @@ An alignment is a `uint64`: a number in the high 32 bits and a sample index in t
 that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, `:33`).
 
 - **One counter**: Numbers come from one counter for the database, reserved through the
-  log, in [1, 2^31). Numbers from 2^31 up are for data that is not stored: the constant
-  moves to `x/go/telem`, and that counter into the framer (`writer/free.go:53` today).
+  log, in [1, 2^31). Numbers from 2^31 up are for data that is not stored, and the
+  constant moves to `x/go/telem`. Cesium numbers the unstored samples of a stored key:
+  those of an `Unstored` writer, and a sample with no stored stamp. The framer numbers a
+  session of virtual keys only (`writer/free.go:53` today). So each key takes its
+  numbers from one owner.
 - **One step per stretch**: The counter steps at the first sample of a writer session,
   after `EndStretch`, after a put-back or a failed sync (§5.4), and when a stretch
   reaches 2^32 - 1 samples. The first sample of a stretch has index 0. A new segment
@@ -668,7 +686,10 @@ A writer holds one claim per key it writes, its clock key included: the time ran
 may write. A live claim runs from its start to the end of time. A claim with `Bounded`
 covers one nanosecond at its start and grows to the end of each commit. Authority,
 transfers, and control state belong to the framer: it keeps one Cesium writer per live
-control region and gates its own writers on it (`x/go/control`).
+control region and gates its own writers on it (`x/go/control`). A key holds at most one
+live claim. A session that writes a key that another session's writer holds gets no
+claim on it at open. At its first write of the key, the key moves into that session's
+writer through `DB.Handoff` (§4.2), the one path that moves a key.
 
 - **Segments**: An open segment belongs to one writer. A later session with the same
   key, type, and clock key takes it over only after the commits of the earlier writer
@@ -678,10 +699,10 @@ control region and gates its own writers on it (`x/go/control`).
 - **At commit**: Cesium refuses a commit whose time range overlaps any stored pointer or
   reaches another claim. The commits of one writer only touch. Stamps strictly increase
   within a stretch, so out-of-order writes stay refused.
-- **Data against stored stamps**: Such a writer also holds a claim on the clock over its
-  range, so no delete takes the stamps. Its commit checks one stored stamp per sample
-  and ends where the stretch of its first stamp ends, so the writer sends one Commit per
-  stretch. Its `Sync` waits for those stamps (§5.4).
+- **Data against stored stamps**: Such a writer also pins the clock over its range. The
+  pin keeps the stamps from a delete, and the overlap rules skip it. Its commit checks
+  one stored stamp per sample and ends where the stretch of its first stamp ends, so the
+  writer sends one Commit per stretch. Its `Sync` waits for those stamps (§5.4).
 
 | Case of RFC 0095 §4.0                                    | Decided by | How                                                                                                                                                |
 | -------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -724,7 +745,7 @@ Cesium does not panic.
 | 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                            |
 | 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back      | The orphan pass removes it. A log or part that a head names and that is missing refuses the open. A missing segment fails its reads with `ErrCorrupt`                                             |
 | 5a One-time read fault                                                                        | The second read passes                                                                           | No loss and no refusal                                                                                                                                                                            |
-| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head             | Log: refuses to open with `ErrCorrupt` and drops nothing. Newest head: opens from the head before it and replays its logs. Both heads: refuses to open. `synnax repair` (§6.1) is the way forward |
+| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head             | Log: refuses to open with `ErrCorrupt` and drops nothing. Newest head: opens from the head before it and replays its logs. Both heads: refuses to open. `synnax repair` (§6.0) is the way forward |
 | 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                  | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                    |
 | 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                  | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                       |
 | 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be              | As 5b, 5c, or 5d, by position                                                                                                                                                                     |
@@ -742,7 +763,7 @@ manifest marker can leave a store that does not open; ext4, XFS, APFS, and NTFS 
 that order. Pebble reads MANIFEST and OPTIONS once, so a one-time read fault there fails
 one start, and the next start opens.
 
-### 6.1 Repair
+### 6.0 Repair
 
 `synnax repair` (NEW) gives a refused open (fault 5b) a way forward. It runs with the
 Core stopped, under the directory lock, as `synnax purge` does (§4.1). As `pg_resetwal`
@@ -750,13 +771,13 @@ does, it gets past the damage; as RocksDB `RepairDB` does, it rebuilds what the 
 allow; as SQLite `.recover` does, it lists what it cannot save. Fault 5b means that
 valid frames follow the bad one, so repair loses only the records of the bad frame.
 
-| A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the one type code and clock key under which its full blocks pass, tried over every type code and over the clock keys of the key's own segments and of the clock segments that no record names. A 32-bit check passes a wrong guess with chance 2^-32, and because CRC32C is linear each other type code has exactly one clock key that passes every block, so the narrow list keeps such keys out, and two passing candidates place nothing |
-| Segment, version | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Committed length | The Commit record. A rebuilt range ends at the last full block that passes its check in the clock segment and in every data segment of the clock write                                                                                                                                                                                                                                                                                                                                                                                                    |
+| A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the one type code and clock key under which its full blocks pass, tried over every type code and over the candidate clocks: those of the key's own segments, the key of each orphan, and the clock of the first valid Commit after the damage that names the segment. For a data Commit against stored stamps, that is the clock whose pointers hold its alignment. A data segment also tries the index in its key's channel file, until Phase 7 removes that file. A 32-bit check passes a wrong guess with chance 2^-32, and because CRC32C is linear each other type code has exactly one clock key that passes every block, so the narrow list keeps such keys out, and two passing candidates place nothing |
+| Segment, version | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Committed length | The Commit record. A rebuilt range ends at the last full block that passes its check in the clock segment and in every data segment of the clock write                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 1. Find the damage as recovery does (§5.5 steps 1 to 7). When an open would pass, say so
    and stop.
@@ -768,14 +789,29 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
    segment identities and alignment numbers above every value that those frames and the
    files use, since a Reserve of the bad frame is gone, and a fresh number comes from
    above them. A record that names a segment that the state does not hold takes the
-   segment from its place check (the table above). A Tombstone or a data Commit against
-   stored stamps that names a rebuilt range takes its cuts or its alignment again from
-   its time range or its first stamp. A record that still breaks a rule of §5.2 only
-   because a record of the bad frame is gone is skipped and listed. With both heads bad,
-   the records of a log older than a part's switch are skipped for that part's segments,
-   which already hold them. An orphan segment whose samples a live segment of its key
-   already holds (equal bytes in version 1, equal stamps in version 2) is the output of
-   a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
+   segment from its place check (the table above). Repair places only such a named
+   orphan (a segment file that the state does not hold) and the copy of a lost rewrite
+   (below). Every other orphan is renamed unrecovered (step 4), unless a record that the
+   replay applied deletes its segment or key: the next open removes that file. A
+   Tombstone or a data Commit against stored stamps that names a rebuilt range takes its
+   cuts or its alignment again from its time range or its first stamp. A record that
+   still breaks a rule of §5.2 only because a record of the bad frame is gone is skipped
+   and listed. A valid Replace whose old segment has no file takes that segment out of
+   the state. Its copy takes the pointers that the Replace states when they pass the
+   checks of a Commit's pointers: the blocks pass, the pointers rise inside the copy's
+   length, and none overlaps a live pointer of the key. If not, the copy's bytes are
+   listed unplaced. Any other segment whose file is gone leaves the state, and is
+   listed, when a lost record can explain it: a sealed segment (a lost Replace, delete,
+   or Drop), or any segment of a key whose directory is gone (a lost Drop). When the
+   file of an open segment is gone while its key's directory remains, no lost record
+   explains it, and repair fails with an error that names the segment. With both heads
+   bad, the records of a log older than a part's switch are skipped for that part's
+   segments, which already hold them. An orphan segment whose samples a live segment of
+   its key already holds (equal bytes in version 1, equal stamps in version 2) is the
+   output of a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
+   When the state holds the old segment of a lost rewrite but its file is gone, the
+   orphan takes the old segment's pointers, with their alignments and time ranges, on an
+   exact fit only. When two orphans fit one segment, neither takes it.
 3. Rebuild the commits of the bad frame. For each segment, the samples between its
    committed length before the bad frame and the start of its first pointer after it are
    one range, from the full blocks that pass their check in the clock segment and in
@@ -792,23 +828,26 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
      that were written and never committed, and each data range there, not placed;
    - the tail block of a segment whose last commit was in the bad frame, at most 64 KiB,
      since its `tail_crc` was only in that frame;
-   - a segment that no record names and whose full blocks pass for no candidate type and
-     clock, or for more than one, or that has no full block yet (under 64 KiB of
-     samples): renamed `<S>.seg.unrecovered` after the commit point, never removed;
-   - each segment whose file a compaction or a drop removed, which leaves the state;
+   - each orphan that repair neither places nor leaves to the orphan pass (step 2), as
+     when no valid record after the damage names it, or its full blocks pass for no
+     candidate type and clock, or for more than one, or it has no full block yet (under
+     64 KiB of samples): renamed `<S>.seg.unrecovered` before the commit point, never
+     removed;
+   - each segment whose file is gone and that leaves the state (step 2);
    - the records of the bad frame that touch no sample: a lost Tombstone brings deleted
      data back, a lost Replace keeps the old segment, a lost Drop or Intent leaves the
      key to `Sweep`, and a lost Check makes the check pass run again. Both heads bad:
      the dead marks, kills, and cut segments of the lost heads.
 5. Ask, through the `confirm` call of `cesium.Repair`; nothing is written before it. On
-   yes, write a head and a log of the generation one above the newest head or log
+   yes, rename each orphan of step 4 with `.unrecovered` and sync each key directory.
+   Then write a head and a log of the generation one above the newest head or log
    without a suffix, the log starting with a Restart, and sync each file and the root.
    The header sector of the new head is the commit point. Only after it, rename the
-   damaged log or heads with the suffix `.damaged`, and each orphan of step 4 with
-   `.unrecovered`, and sync the root. A rename never replaces a file: when the name is
-   in use, as after an undo that started the generations again, it adds the next free
-   `.<k>`. A crash before the commit point leaves the old files, and repair runs again;
-   the orphan pass keeps `.damaged` and `.undone` files.
+   damaged log or heads with the suffix `.damaged`, and sync the root. A rename never
+   replaces a file: when the name is in use, as after an undo that started the
+   generations again, it adds the next free `.<k>`. A crash before the commit point
+   leaves the old files, and repair runs again; the orphan pass keeps `.damaged`,
+   `.undone`, and `.unrecovered` files.
 
 So repair loses the commit boundaries and the alignments of one frame, the unchecked
 tail block of a segment whose last commit was in it, and the deletes and compactions in
@@ -819,10 +858,11 @@ it. It keeps every sample that a checked block holds.
 - **Injected inputs**: The file system (`WithFS`, `cesium/options.go:92`) and the clock
   (`WithClock`, `:141`) are injected today. The random source and one executor, which
   runs every owner step and every sync of the pool, are NEW options (today
-  `cesium/delete.go:190` calls `rand.Int`). A job of the executor never waits for
-  another job of it: work that a job needs, such as the sync of an evicted handle, runs
-  inside that job. Every sync is `File.Sync` (`x/go/io/fs/fs.go:39`): Cesium holds no
-  OS-specific code and no timer.
+  `cesium/delete.go:190` calls `rand.Int`). So is one handler of errors that no call
+  returns, such as a failed late removal (§4.1); with none set, Cesium logs them. A job
+  of the executor never waits for another job of it: work that a job needs, such as the
+  sync of an evicted handle, runs inside that job. Every sync is `File.Sync`
+  (`x/go/io/fs/fs.go:39`): Cesium holds no OS-specific code and no timer.
 - **Four owners**: The state owner holds the claims, the pointer sets of every channel,
   and the counters. It never does I/O. The log owner holds the log file. The
   checkpointer holds heads, parts, and log files. The compactor holds rewrites, the
@@ -890,9 +930,10 @@ The conversion runs at the first open by the new binary, with the Core down, aft
 update backup of RFC 0102.
 
 1. Detect: a `<key>/meta.json` exists, and the root holds no head name or an undone
-   layout (§9.0). Remove the root files that an earlier attempt left. Read only numbered
-   `<N>.domain` files and the metadata files. Skip a directory whose name is not a key,
-   and a `<key>-DELETE-<n>` directory that an old delete left.
+   layout (§9.0). Remove the root files that an earlier attempt left, and draw the
+   database identity. Read only numbered `<N>.domain` files and the metadata files. Skip
+   a directory whose name is not a key, and a `<key>-DELETE-<n>` directory that an old
+   delete left.
 2. Read the `meta.json` and `index.domain` of each key, and `Stat` each data file. Skip
    a virtual channel. The old files hold no checksum, so each is read twice and used
    only when the reads agree; with no two agreeing reads in three, the conversion stops
@@ -906,23 +947,36 @@ update backup of RFC 0102.
    with no stamps. Bytes inside a file can still read as zeros after a crash on some
    file systems: each bound stamp that the conversion reads (the first and last stamp of
    each index pointer and of each data piece) is compared with its index pointer's time
-   range, and a stamp that does not fit cuts that pointer back, by a binary search, to
-   the last stamp that rises. The check pass (§5.1) finds zeros inside a pointer.
+   range. A last stamp that does not fit cuts that pointer back, by a binary search, to
+   the last stamp that rises. The check pass (§5.1) finds stamps that do not rise inside
+   a pointer later, and lists each cut. An index pointer whose first stamp does not fit
+   has one of three outcomes, by where that stamp lies, and none drops samples with no
+   warning:
+   - In the range of the pointer before it, as when a write after a roll repeats the
+     last committed stamp: the conversion cuts exactly the repeated samples, of the
+     clock and of each key that it times, and keeps the earlier ones. A warning names
+     the clock, the keys, the file, and the samples cut.
+   - Below that range, a torn area that reads as zeros: the pointer becomes empty, and a
+     warning names the file. Those samples were never durable.
+   - At or past the end of its own range: the open refuses and names the file. So does a
+     pointer whose own range starts at or below the stamps before it.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
    takes one alignment number, in key order and then in time order. An old data pointer
    is split at the start of each index pointer it crosses, and each piece takes the
    alignment of its index pointer with no read. A piece that starts inside an index
    pointer costs at most 27 reads of 8 bytes of stamps.
-5. Sync every old data file and channel directory that the state names, through the sync
-   pool. The old layout never synced them, and version 0 reads are not yet checked.
-6. Draw the database identity. Write the parts, the body of head 1, log 1, and the file
-   of log 2. Sync each. `SyncDir` the root.
+5. Write the channel file of each key (§5.0). Sync it, every old data file, and each
+   channel directory that the state names, through the sync pool. The old layout never
+   synced them, and version 0 reads are not yet checked.
+6. Write the parts, the body of head 1, log 1, and the file of log 2. Sync each.
+   `SyncDir` the root.
 7. Write the header sector of head 1 and sync. That sync is the commit point.
-8. The Core writes the database identity of head 1 to the metadata store before it
-   serves (§9.0). The first open after that removes the `-DELETE-<n>` directories and
-   each `<start>-<end>.truncated.tmp` of an old truncate, whose bytes the data file
-   still holds (`cesium/internal/unary/truncate.go:162`). It keeps `<N>.domain_temp` and
+8. The Core writes the database identity to the metadata store before it serves, as
+   after every open whose identity differs from the one it holds (§9.0). The first open
+   after that removes the `-DELETE-<n>` directories and each
+   `<start>-<end>.truncated.tmp` of an old truncate, whose bytes the data file still
+   holds (`cesium/internal/unary/truncate.go:162`). It keeps `<N>.domain_temp` and
    `<N>.domain_gc` and logs each: the old compaction renames with no sync
    (`cesium/internal/domain/delete.go:336-500`), so after a power loss either can hold
    the only copy of file N. Where `N.domain` is missing, the conversion reads
@@ -941,28 +995,30 @@ writes again. Until step 7 is durable, the old binary opens the old layout
 RFC 0102 §3.1 says that telemetry written to known channels after the backup stays.
 After this conversion it does not. Either binary can run the undo: the new Core when the
 update fails at start (`core/pkg/storage/update.go:49`), or `synnax update undo` of the
-old binary, which restores the metadata store and each `meta.json` and touches no other
-file (`cesium/backup.go:47-79`, `core/pkg/storage/restore.go:200-221`). So the new
+old binary. The undo restores the metadata store and each `meta.json`, and moves each
+channel directory that the backup does not hold to `backups/orphaned-<t>`
+(`cesium/backup.go:47-77`, `core/pkg/storage/restore.go:200-221`), so a channel made
+after the conversion leaves with its segments. It touches no other file. So the new
 layout is tied to a mark that every undo rolls back: the Core keeps the database
-identity of head 1 in the metadata store (step 8 of §9) and passes it to `Open`, which
-refuses a root that holds a head when the caller states no identity. A newest head whose
-identity differs from the one stated, or heads when the caller holds none
-(`WithIdentity(0)`), mark an undone conversion. Cesium then renames every `.seg`,
-`.chk`, and `<key>/channel` file, then the root logs and parts, then the heads, to
-`<name>.<identity>.undone` inside its directory, with the identity of the undone
-database, so a second undo keeps the files of the first and a crash in the middle undoes
-again. It syncs each directory and converts again from the old files as they are now. A
-Drop removes every file of its key's directory but the `.undone` files, so a channel
-that reuses an undone channel's key never deletes that telemetry. A crash between the
-commit point and the identity write converts again with nothing lost, since the Core
-serves only after the write. Telemetry that the new binary wrote is lost, so
-`synnax update undo` across the conversion warns and asks before it runs; `--yes` skips
-the question, and with no answer or no terminal the undo refuses. An update that keeps
-the Cesium formats backs up and restores no Cesium file: its undo leaves the live state,
-and `Sweep` handles the keys that the restored channel table does not hold. No
-background work rewrites a version 0 file while a backup from a release older than the
-first that writes segments exists (§5.1), so every undo finds the old files that it
-needs.
+identity in the metadata store, writes it after every open whose identity differs from
+the one it holds (step 8 of §9), and passes it to `Open`, which refuses a root that
+holds a head when the caller states no identity. A newest head whose identity differs
+from the one stated, or heads when the caller holds none (`WithIdentity(0)`), mark an
+undone conversion. Cesium then renames every `.seg`, `.chk`, and `<key>/channel` file,
+then the root logs and parts, then the heads, to `<name>.<identity>.undone` inside its
+directory, with the identity of the undone database, so a second undo keeps the files of
+the first and a crash in the middle undoes again. It syncs each directory and converts
+again from the old files as they are now. A Drop removes every file of its key's
+directory but the `.undone` files, so a channel that reuses an undone channel's key
+never deletes that telemetry. A crash between the commit point and the identity write
+converts again with nothing lost, since the Core serves only after the write. Telemetry
+that the new binary wrote is lost, so `synnax update undo` across the conversion warns
+and asks before it runs; `--yes` skips the question, and with no answer or no terminal
+the undo refuses. An update that keeps the Cesium formats backs up and restores no
+Cesium file: its undo leaves the live state, and `Sweep` handles the keys that the
+restored channel table does not hold. No background work rewrites a version 0 file while
+a backup from a release older than the first that writes segments exists (§5.1), so
+every undo finds the old files that it needs.
 
 ### 9.1 What is owed
 
@@ -1008,24 +1064,30 @@ the session lacks is skipped whole, as today (`cesium/writer_stream.go:687-693`)
 write lands at another session's stamps, and a narrowed `EndDomain` still reports that
 the session is not authorized. Data that the session wrote before it lost the index
 stays pending, as on `main` since #5906: it commits alone once another holder's commit
-covers its last stamp, as a write against stored stamps (§5.7) with that path's checks,
+covers its last stamp, as a write against stored stamps (§5.8) with that path's checks,
 or with the index once the session holds the index again, and it drops at `Close`
 otherwise; and the framer names to `EndDomain` only the indexes whose groups it fully
 controls, so a write or a commit never reaches a channel that another session controls.
-From Phase 6 the framer opens one Cesium writer per live clock, for the session that
-holds the clock, over that session's keys on it. A handoff of the clock closes that
-writer (a `Sync`, then a Seal) and opens one for the new holder, as one event, at one
-sealed segment and one new stretch. The predicate stays for data channels that the
-holder lacks, until RFC 0120 Phase 6 gives each control writer its own clock. One clock
-per writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6
-builds the log, heads, `Sync` and the framer's call to it, recovery, the state owner,
-the handle budget, version 1 segments, and replay from a run key, behind a Cesium open
-option that keeps the old layout the default. Phase 7 builds parts, versions 0 and 2,
-tombstones, compaction, the conversion with a crash test at each of its steps, the
-backup change, and `synnax repair` (§6.1), and makes the new layout the only one that
-opens. RFC 0120 Phase 8 deletes the old code, except the old-layout reader of the
-conversion. Phase 5 comes after RFC 0120 Phases 1 and 2, and RFC 0120 Phases 6 to 8 come
-after Phase 7.
+From Phase 6, on the pointer log only, the framer opens one Cesium writer per live
+clock, for the session that holds the clock, over that session's keys on it. A handoff
+of the clock closes that writer and opens one for the new holder through `DB.Handoff`
+(§4.2), as one event, with one new stretch. A key move inside a session that keeps the
+clock keeps the stretch. The old layout keeps each session's own Cesium writer and old
+Cesium's claim join until Phase 7. The framer reads the layout from one storage config
+field, which goes when Phase 7 makes the new layout the only one. The predicate stays
+for data channels that the holder lacks, until RFC 0120 Phase 6 gives each control
+writer its own clock. One clock per writer and the refusal of an overlapping writer
+(§5.8) arrive with Phase 6, on the pointer log. Phase 6 builds the log, heads, `Sync`
+and the framer's call to it, recovery, the state owner, the handle budget, version 1
+segments, and replay from a run key, behind a Cesium open option that keeps the old
+layout the default. Phase 7 builds parts, versions 0 and 2, tombstones, compaction, the
+conversion with a crash test at each of its steps, the backup change, and
+`synnax repair` (§6.0), and makes the new layout the only one that opens. It then
+removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
+Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase 5
+comes after RFC 0120 Phases 1 and 2, and RFC 0120 Phases 6 to 8 come after Phase 7. Each
+phase lands as several pieces, grouped into pull requests of about 2,000 hand-written
+lines.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -1035,7 +1097,7 @@ after Phase 7.
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                     | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge` | -          |
 | 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                                               | 3, 4, 5    |
-| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`                                              | 6          |
+| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`              | 6          |
 
 ## 13 Resolved decisions
 
