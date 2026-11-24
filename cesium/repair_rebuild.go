@@ -87,16 +87,23 @@ type group struct {
 	timeRange telem.TimeRange
 }
 
-// rebuild returns the clock writes that the bytes of the gap hold, and lists the ranges
+// plan is what a repair rebuilds of the gap: the span of each segment with bytes in it,
+// the clock writes of the spans, and the ranges that the report lists.
+type plan struct {
+	spans                    []span
+	groups                   []group
+	rebuilt, unplaced, tails []Range
+}
+
+// rebuild returns the plan of the gap: the clock writes that its bytes hold, the ranges
 // that it places, those that it does not, and the tails that nothing checks.
-func (e *engine) rebuild(
-	l *later,
-	placed []placement,
-) (groups []group, rebuilt, unplaced, tails []Range, err error) {
+func (e *engine) rebuild(l *later, placed []placement) (plan, error) {
 	spans, err := e.spans(l, placed)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return plan{}, err
 	}
+	var groups []group
+	var rebuilt []Range
 	clocks, unplaced, tails := listSpans(spans)
 	members, more := pairData(spans, clocks)
 	unplaced = append(unplaced, more...)
@@ -112,7 +119,7 @@ func (e *engine) rebuild(
 		}
 		g, err := e.groupOf(cs[0], members[cs[0].cfg.ID])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return plan{}, err
 		}
 		r, u := g.ranges()
 		if g.reason != "" {
@@ -130,7 +137,13 @@ func (e *engine) rebuild(
 	slices.SortFunc(groups, func(a, b group) int {
 		return cmp.Compare(a.clock.cfg.ID, b.clock.cfg.ID)
 	})
-	return groups, rebuilt, unplaced, tails, nil
+	return plan{
+		spans:    spans,
+		groups:   groups,
+		rebuilt:  rebuilt,
+		unplaced: unplaced,
+		tails:    tails,
+	}, nil
 }
 
 // listSpans returns the spans of clocks of spans that hold samples by key, and lists

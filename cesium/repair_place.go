@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -38,6 +39,8 @@ type later struct {
 	sealed map[uint64]*log.Seal
 	// dropped holds the keys that a Drop drops.
 	dropped set.Set[ChannelKey]
+	// limits are above every segment identity and alignment number that a record names.
+	limits state.Limits
 }
 
 func newLater() *later {
@@ -52,6 +55,7 @@ func newLater() *later {
 // add reads the records of an entry after the damage.
 func (l *later) add(_ uint64, records []log.Record) error {
 	for _, rec := range records {
+		l.raise(rec)
 		switch rec := rec.(type) {
 		case *log.Create:
 			l.created[rec.Segment] = rec.Clock
@@ -82,6 +86,43 @@ func (l *later) add(_ uint64, records []log.Record) error {
 		}
 	}
 	return nil
+}
+
+// raise raises the limits of l above the values that rec names.
+func (l *later) raise(rec log.Record) {
+	segment := func(id uint64) { l.limits.Segments = max(l.limits.Segments, id+1) }
+	alignment := func(a uint64) {
+		n := uint64(telem.Alignment(a).DomainIndex()) + 1
+		l.limits.Alignments = max(l.limits.Alignments, n)
+	}
+	switch rec := rec.(type) {
+	case *log.Reserve:
+		l.limits.Segments = max(l.limits.Segments, rec.Segments)
+		l.limits.Alignments = max(l.limits.Alignments, rec.Alignments)
+	case *log.Create:
+		segment(rec.Segment)
+	case *log.Commit:
+		alignment(rec.Alignment)
+		for _, s := range rec.Slots {
+			segment(s.Segment)
+		}
+	case *log.Seal:
+		segment(rec.Segment)
+	case *log.Tombstone:
+		for _, c := range []*log.Cut{rec.Left, rec.Right} {
+			if c != nil {
+				segment(c.Segment)
+				alignment(c.Alignment)
+			}
+		}
+	case *log.Replace:
+		segment(max(rec.Old, rec.New))
+		for _, p := range rec.Pointers {
+			alignment(p.Alignment)
+		}
+	case *log.Check:
+		segment(rec.Segment)
+	}
 }
 
 func (l *later) name(segment uint64) {

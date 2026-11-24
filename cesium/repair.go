@@ -172,9 +172,11 @@ func Repair(
 		return Report{}, err
 	}
 	rep.Unrecovered = unrecovered
-	if _, rep.Rebuilt, rep.Unplaced, rep.Tails, err = e.rebuild(l, placed); err != nil {
+	p, err := e.rebuild(l, placed)
+	if err != nil {
 		return Report{}, err
 	}
+	rep.Rebuilt, rep.Unplaced, rep.Tails = p.rebuilt, p.unplaced, p.tails
 	return rep, nil
 }
 

@@ -486,6 +486,16 @@ func (e *engine) fail(err error) {
 // replay applies the records of one recovered entry to the state, and keeps stored
 // current.
 func (e *engine) replay(sequence uint64, records []log.Record) error {
+	pre, err := e.preloads(records)
+	if err != nil {
+		return err
+	}
+	return e.state.Replay(sequence, records, pre...)
+}
+
+// preloads returns, in rising order of key, the part records that records reach, and
+// keeps stored current.
+func (e *engine) preloads(records []log.Record) ([]state.Preload, error) {
 	var (
 		pre     []state.Preload
 		err     error
@@ -525,14 +535,14 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 			)
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	slices.SortFunc(
 		pre,
 		func(a, b state.Preload) int { return cmp.Compare(a.Key, b.Key) },
 	)
-	return e.state.Replay(sequence, records, pre...)
+	return pre, nil
 }
 
 // commitPreloads adds to pre the preload of the key of each slot of c over the range of
