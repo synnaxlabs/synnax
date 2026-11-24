@@ -238,3 +238,51 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 		Expect(stored(ctx, data)).To(Equal(int64(4)))
 	})
 }, Entry("old layout", false), Entry("pointer log", true))
+
+var _ = Describe("Handoff on the pointer log", func() {
+	It("Should go on with the stretch of the clock across a handoff", func(
+		ctx SpecContext,
+	) {
+		db := mustOpenDBOnFS(ctx, fs.NewMem(), cesium.WithPointerLog())
+		clock, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      data,
+				Name:     "data",
+				Index:    clock,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock, data},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		before := mustWrite(ctx, w, telem.MultiFrame(
+			[]cesium.ChannelKey{clock, data},
+			[]telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11),
+				telem.NewSeriesV[int64](1, 2),
+			},
+		)).Get(clock).Series[0].Alignment
+		next, p := MustSucceed2(db.Handoff(ctx, w, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}, nil))
+		after := mustWrite(ctx, next, telem.UnaryFrame(
+			clock,
+			telem.NewSeriesSecondsTSV(12),
+		)).Get(clock).Series[0].Alignment
+		Expect(after).To(Equal(before.AddSamples(2)), "the clock's stretch goes on")
+		Expect(MustSucceed2(next.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
+		stamps := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock)).Get(clock).Series
+		Expect(stamps).To(HaveLen(1))
+		Expect(next.Close()).To(Succeed())
+		Expect(p.Close()).To(Succeed())
+	})
+})
