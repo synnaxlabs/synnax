@@ -65,6 +65,8 @@ type DB struct {
 	run lifetime.Guard
 	mu  struct {
 		dbs channelDBs
+		// indexDeletes holds a record for each DeleteTimeRange running on an index.
+		indexDeletes []*indexDelete
 		sync.RWMutex
 	}
 }

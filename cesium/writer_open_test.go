@@ -37,6 +37,7 @@ var domainDataFile = regexp.MustCompile(`^\d+\.domain$`)
 // fileGate holds opens of domain data files while it is armed.
 type fileGate struct {
 	armed   atomic.Bool
+	failed  atomic.Bool
 	entered chan struct{}
 	release chan struct{}
 	open    func()
@@ -47,6 +48,14 @@ func newFileGate() *fileGate {
 	g.open = sync.OnceFunc(func() { close(g.release) })
 	return g
 }
+
+// fail releases the held opens with an error.
+func (g *fileGate) fail() {
+	g.failed.Store(true)
+	g.open()
+}
+
+var errGateFailed = errors.New("file gate failed the open")
 
 // gates holds a fileGate for each channel directory.
 type gates struct {
@@ -98,6 +107,9 @@ func (g *gatedFS) park(name string) error {
 	}
 	select {
 	case <-g.gate.release:
+		if g.gate.failed.Load() {
+			return errGateFailed
+		}
 		return nil
 	case <-time.After(gateTimeout):
 		return errors.New("file gate was not released")
@@ -187,6 +199,30 @@ var _ = Describe("Writer open", func() {
 				Receive(MatchError(resource.ErrOpen)),
 			)
 		})
+
+		It("Should not stall the DB behind a time range delete", func(ctx SpecContext) {
+			deleted := make(chan error, 1)
+			go func() {
+				deleted <- db.DeleteTimeRange(
+					context.Background(),
+					[]cesium.ChannelKey{idxKey},
+					(30 * telem.SecondTS).Range(40*telem.SecondTS),
+				)
+			}()
+			Consistently(deleted, 200*time.Millisecond).ShouldNot(Receive())
+			created := make(chan error, 1)
+			go func() {
+				created <- db.CreateChannel(ctx, cesium.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "created",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				})
+			}()
+			Eventually(created, stallTimeout).Should(Receive(Succeed()))
+			gate.open()
+			Eventually(deleted).Should(Receive())
+		})
 	})
 
 	Describe("A dependent writer blocked in the file system", func() {
@@ -246,6 +282,143 @@ var _ = Describe("Writer open", func() {
 			Eventually(deleted).Should(Receive(MatchError(
 				ContainSubstring("depending on it"),
 			)))
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("A time range delete on an index", func() {
+		var (
+			db                       *cesium.DB
+			idxKey, dataKey, heldKey cesium.ChannelKey
+			deleted                  chan error
+			deleteDone               atomic.Bool
+			gate                     *fileGate
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			gfs := newGatedFS(FileSystems["memFS"]())
+			db = mustOpenDBOnFS(ctx, gfs)
+			idxKey = GenerateChannelKey()
+			dataKey = GenerateChannelKey()
+			heldKey = GenerateChannelKey()
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      idxKey,
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      dataKey,
+					Name:     "data",
+					Index:    idxKey,
+					DataType: telem.Int64T,
+				},
+				cesium.Channel{
+					Key:      heldKey,
+					Name:     "held",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+			)).To(Succeed())
+			Expect(db.WriteSeries(
+				ctx,
+				idxKey,
+				10*telem.SecondTS,
+				telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+			)).To(Succeed())
+			// The delete takes its channels in key order, so it holds idxKey and
+			// dataKey while it waits for the writer that opens on heldKey.
+			gate = gfs.gateFor(heldKey)
+			gate.armed.Store(true)
+			DeferCleanup(gate.fail)
+			opened := make(chan error, 1)
+			go func() {
+				_, err := db.OpenWriter(context.Background(), cesium.WriterConfig{
+					Channels:       []cesium.ChannelKey{heldKey},
+					Start:          10 * telem.SecondTS,
+					Mode:           cesium.WriterModePersistOnly,
+					ControlSubject: control.Subject{Key: "blocked"},
+				})
+				opened <- err
+			}()
+			Eventually(gate.entered).Should(Receive())
+			deleteDone.Store(false)
+			deleted = make(chan error, 1)
+			go func() {
+				err := db.DeleteTimeRange(
+					context.Background(),
+					[]cesium.ChannelKey{idxKey, heldKey},
+					(10 * telem.SecondTS).Range(12*telem.SecondTS),
+				)
+				deleteDone.Store(true)
+				deleted <- err
+			}()
+			Consistently(deleted, 200*time.Millisecond).ShouldNot(Receive())
+			DeferCleanup(func() {
+				gate.fail()
+				Eventually(opened).Should(Receive(HaveOccurred()))
+			})
+		})
+
+		finishDelete := func() {
+			GinkgoHelper()
+			gate.fail()
+			Eventually(deleted).Should(Receive(Succeed()))
+		}
+
+		It("Should make a new dependent wait for it", func(ctx SpecContext) {
+			created := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				Expect(db.CreateChannel(ctx, cesium.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "dependent",
+					Index:    idxKey,
+					DataType: telem.Int64T,
+				})).To(Succeed())
+				created <- deleteDone.Load()
+			}()
+			Consistently(created, 200*time.Millisecond).ShouldNot(Receive())
+			finishDelete()
+			Eventually(created).Should(Receive(BeTrue()))
+		})
+
+		It("Should make a dependent writer wait for it", func(ctx SpecContext) {
+			opened := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{dataKey},
+					Start:    10 * telem.SecondTS,
+				}))
+				opened <- deleteDone.Load()
+				Expect(w.Close()).To(Succeed())
+			}()
+			Consistently(opened, 200*time.Millisecond).ShouldNot(Receive())
+			finishDelete()
+			Eventually(opened).Should(Receive(BeTrue()))
+		})
+
+		It("Should let an index writer write after it", func(ctx SpecContext) {
+			opened := make(chan *cesium.Writer, 1)
+			go func() {
+				defer GinkgoRecover()
+				opened <- MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{idxKey},
+					Start:    10 * telem.SecondTS,
+				}))
+			}()
+			Consistently(opened, 200*time.Millisecond).ShouldNot(Receive())
+			finishDelete()
+			var w *cesium.Writer
+			Eventually(opened).Should(Receive(&w))
+			Expect(MustSucceed(w.Write(telem.UnaryFrame(
+				idxKey,
+				telem.NewSeriesSecondsTSV(10, 11),
+			)))).To(BeTrue())
+			MustSucceed2(w.Commit())
 			Expect(w.Close()).To(Succeed())
 		})
 	})
