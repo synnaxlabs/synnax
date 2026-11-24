@@ -32,7 +32,9 @@ describe("input symbol", () => {
 
     it("should send nothing from a disabled input", () => {
       const onSend = vi.fn();
-      const { getByText } = render(<Input value="hi" onSend={onSend} disabled />);
+      const { getByText } = render(
+        <Primitive.Input value="hi" onSend={onSend} disabled />,
+      );
       fireEvent.click(getByText("Set"));
       expect(onSend).not.toHaveBeenCalled();
     });

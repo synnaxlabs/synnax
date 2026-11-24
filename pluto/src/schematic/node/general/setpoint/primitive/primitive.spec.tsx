@@ -32,7 +32,9 @@ describe("setpoint symbol", () => {
 
     it("should send nothing from a disabled setpoint", () => {
       const onSend = vi.fn();
-      const { getByText } = render(<Setpoint onSend={onSend} value={3} disabled />);
+      const { getByText } = render(
+        <Primitive.Setpoint onSend={onSend} value={3} disabled />,
+      );
       fireEvent.click(getByText("Set"));
       expect(onSend).not.toHaveBeenCalled();
     });

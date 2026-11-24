@@ -304,12 +304,18 @@ var _ = Describe("Symbol nodes", func() {
 })
 
 var _ = Describe("Symbol node channel bindings", func() {
-	bound := func(state, command, written channel.Key) schematic.Schematic {
+	// bound draws a heater, which commands reset with no state, from the channels.
+	bound := func(
+		ctx SpecContext,
+		state, command, written channel.Key,
+	) schematic.Schematic {
+		sym := heater()
+		createSymbol(ctx, &sym)
 		return schematic.Schematic{
 			Project: &proj.Key,
 			Name:    "bound",
 			Nodes: []schematic.Node{symbolNode("n", schematic.SymbolNodeConfig{
-				Spec: builtinRef("valve"),
+				Spec: customRef(sym),
 				States: []schematic.StateBinding{{
 					Key: "active",
 					Source: &schematic.Source{Variant: schematic.ChannelSource{
@@ -324,7 +330,7 @@ var _ = Describe("Symbol node channel bindings", func() {
 
 	It("Should list a node as a reader of its state's channel and a writer of its "+
 		"command channels", func(ctx SpecContext) {
-		s := bound(ch1, ch2, ch3)
+		s := bound(ctx, ch1, ch2, ch3)
 		createSchematic(ctx, &s)
 		holder := gorp.NewTarget("schematic", s.Key)
 		Expect(channelSvc.Uses(ctx, db, []channel.Key{ch1, ch2, ch3})).To(Equal(
@@ -340,7 +346,7 @@ var _ = Describe("Symbol node channel bindings", func() {
 		ctx SpecContext,
 	) {
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
-		s := bound(keys[0], keys[1], keys[2])
+		s := bound(ctx, keys[0], keys[1], keys[2])
 		createSchematic(ctx, &s)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)

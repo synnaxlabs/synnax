@@ -151,7 +151,7 @@ describe("button symbol", () => {
         const onMouseDown = vi.fn();
         const onMouseUp = vi.fn();
         const { container, unmount } = render(
-          <Button
+          <Primitive.Button
             mode={mode}
             disabled
             onClick={onClick}

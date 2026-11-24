@@ -136,7 +136,7 @@ describe("Cells.Value deleted channel", () => {
     const { findByText } = await renderLiveValue(
       ch.key,
       {
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
         stalenessColor: { type: "fixed", value: [255, 0, 0, 255] },
       },
       [samples],
