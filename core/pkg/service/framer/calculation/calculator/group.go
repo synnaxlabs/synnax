@@ -52,8 +52,9 @@ func (g Group) WriteTo() channel.Keys {
 }
 
 // Next runs every calculator in the group on input. It reports an error status for each
-// calculator whose step fails. After a failed step, it reports a success status on each
-// clean step with output until report saves the success.
+// calculator whose step fails, and a stale warning for each calculator whose join drops
+// stamps while no stale warning is saved. After a failed or stale step, it reports a
+// success status on each clean step with output until report saves the success.
 func (g Group) Next(
 	ctx context.Context,
 	input framer.Frame,
@@ -73,17 +74,28 @@ func (g Group) Next(
 			continue
 		}
 		output = next
-		if !changedLocal {
+		changed = changed || changedLocal
+		if c.Dropped() > 0 {
+			c.failed = true
+			if !c.stale {
+				c.stale = report(
+					ctx,
+					c.Channel().Key(),
+					c.expression(),
+					calculation.StaleStatus(c.Channel().Name),
+				)
+			}
 			continue
 		}
-		changed = true
-		if c.failed {
-			c.failed = !report(ctx, c.Channel().Key(), c.expression(), Status{
-				Name:    c.Channel().Name,
-				Variant: status.VariantSuccess,
-				Message: "Calculation running",
-			})
+		if !changedLocal || !c.failed {
+			continue
 		}
+		c.failed = !report(ctx, c.Channel().Key(), c.expression(), Status{
+			Name:    c.Channel().Name,
+			Variant: status.VariantSuccess,
+			Message: "Calculation running",
+		})
+		c.stale = c.stale && c.failed
 	}
 	return output, changed
 }

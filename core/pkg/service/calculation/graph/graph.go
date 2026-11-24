@@ -208,13 +208,13 @@ func (g *Graph) RejectDefinition(
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
 // channel with the given key when the report changes the stored status. expression is
 // the expression that the runtime ran, and the Graph clears the status once the
-// calculation holds another. A success changes only a stored error. Any other report
-// changes a stored status with a different variant, message, or description. Routing
-// runtime reports through the Graph keeps a single writer on the status record, so a
-// report and a validity clear apply in submission order. The Graph drops a report for a
-// deleted channel, and a report for a channel it holds as invalid or rejected: that
-// record describes the channel definition. A report that changes nothing takes only the
-// read lock of the DB.
+// calculation holds another. A success changes only a stored error or stale warning.
+// Any other report changes a stored status with a different variant, message, or
+// description. Routing runtime reports through the Graph keeps a single writer on the
+// status record, so a report and a validity clear apply in submission order. The Graph
+// drops a report for a deleted channel, and a report for a channel it holds as invalid
+// or rejected: that record describes the channel definition. A report that changes
+// nothing takes only the read lock of the DB.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
@@ -245,23 +245,28 @@ func (g *Graph) SetRuntimeStatus(
 	})
 }
 
+// failure reports whether st is an error or a stale warning, which a success replaces.
+func failure(st calculation.Status) bool {
+	return st.Variant == status.VariantError || st.Message == calculation.StaleMessage
+}
+
 func changes(stored calculation.Status, found bool, next *calculation.Status) bool {
 	if next.Variant == status.VariantSuccess {
-		return found && stored.Variant == status.VariantError
+		return found && failure(stored)
 	}
 	return !found || stored.Variant != next.Variant ||
 		stored.Message != next.Message || stored.Description != next.Description
 }
 
 // Failed returns true when the stored status of the channel with the given key is an
-// error.
+// error or a stale warning.
 func (g *Graph) Failed(ctx context.Context, key channel.Key) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	var failed bool
 	err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		stored, found, err := g.retrieveStatus(ctx, snap, key)
-		failed = found && stored.Variant == status.VariantError
+		failed = found && failure(stored)
 		return err
 	})
 	return failed, err

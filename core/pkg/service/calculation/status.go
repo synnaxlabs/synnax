@@ -29,6 +29,23 @@ func StatusFromError(key Key, name string, err error) *Status {
 	}
 }
 
+// StaleMessage is the message of the warning that the join of a calculation gave no
+// output for some samples of its primary input. A success replaces it.
+const StaleMessage = "Inputs went stale"
+
+// StaleStatus builds the warning that the join of the calculation whose output is named
+// name gave no output for some samples of its primary input.
+func StaleStatus(name string) Status {
+	return Status{
+		Name:    name,
+		Variant: status.VariantWarning,
+		Message: StaleMessage,
+		Description: "Some samples of the primary input got no output, because another " +
+			"input had no sample within its hold limit. Check that each input is still " +
+			"written.",
+	}
+}
+
 // PrimaryChangedStatus builds the status that the primary of the calculation with key,
 // whose output is named name, moved from the channel named from, which its expression
 // no longer reads, to the one named to. It has no owner, so the calculation's own

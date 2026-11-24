@@ -64,8 +64,12 @@ type Calculator struct {
 	closer io.MultiCloser
 	// err is the first node error of the running Next call.
 	err error
-	// failed is true from a failed step until the next clean step with output.
+	// failed is true from a failed or stale step until the next clean step with output.
 	failed bool
+	// stale is true from a saved stale warning until a saved success.
+	stale bool
+	// join pairs the reads by sample time, and is nil when the program has no join.
+	join *join.Node
 	// budget limits the loop iterations and function calls of each step.
 	budget runtime.Budget
 }
@@ -152,8 +156,22 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		return nil, err
 	}
 	c := newCalculator(cfg, sched, cs, closers, budget)
+	for _, n := range nodes {
+		if j, ok := n.(*join.Node); ok {
+			c.join = j
+		}
+	}
 	closers = nil
 	return c, nil
+}
+
+// Dropped returns the number of primary stamps that the join gave no output since the
+// last call.
+func (c *Calculator) Dropped() int {
+	if c.join == nil {
+		return 0
+	}
+	return c.join.Dropped()
 }
 
 // newCalculator returns a calculator that runs sched and keeps the first error of a
