@@ -215,26 +215,12 @@ func (p *Plugin) newEntry(
 	switch form := t.Form.(type) {
 	case resolution.StructForm:
 		field, found = keyField(t, table)
-		params := resolution.NonDefaultedTypeParams(form.TypeParams)
-		if len(params) > 0 {
-			names := make([]string, len(params))
-			for i, tp := range params {
-				names[i] = tp.Name
-			}
-			e.Params = "[" + strings.Join(names, ", ") + "]"
-		}
+		e.Params = typeParams(form)
 	case resolution.UnionForm:
-		ref, ok := resolver.SharedBase(form, "go", table)
-		if !ok {
-			return entryData{}, errors.New(
-				"@go entry on a union needs one base that every variant inherits",
-			)
+		var err error
+		if field, found, err = unionKey(form, table); err != nil {
+			return entryData{}, err
 		}
-		base, _, ok := resolution.Dealias(ref, table)
-		if !ok {
-			return entryData{}, errors.Newf("unresolved union base %s", ref.Name)
-		}
-		field, found = keyField(base, table)
 		access += ".Base()"
 	default:
 		return entryData{}, errors.New("@go entry applies only to a struct or union")
@@ -268,6 +254,41 @@ func (p *Plugin) newEntry(
 	e.ResourceType = constant
 	e.ResourceKey = k.toString(e.Key, data)
 	return e, nil
+}
+
+// typeParams returns the receiver type parameter list of a generic struct, such as
+// "[Details]", or "" for a struct that is not generic.
+func typeParams(form resolution.StructForm) string {
+	params := resolution.NonDefaultedTypeParams(form.TypeParams)
+	if len(params) == 0 {
+		return ""
+	}
+	names := make([]string, len(params))
+	for i, tp := range params {
+		names[i] = tp.Name
+	}
+	return "[" + strings.Join(names, ", ") + "]"
+}
+
+// unionKey returns the @key field of the base every variant of a union inherits.
+func unionKey(
+	form resolution.UnionForm,
+	table *resolution.Table,
+) (resolution.Field, bool, error) {
+	ref, ok := resolver.SharedBase(form, "go", table)
+	if !ok {
+		return resolution.Field{}, false, errors.New(
+			"@go entry on a union needs one base that every variant inherits",
+		)
+	}
+	base, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return resolution.Field{}, false, errors.Newf(
+			"unresolved union base %s", ref.Name,
+		)
+	}
+	field, found := keyField(base, table)
+	return field, found, nil
 }
 
 // keyField returns the @key field of a struct, its own or inherited through extends.
