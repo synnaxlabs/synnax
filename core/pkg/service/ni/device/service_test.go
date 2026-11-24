@@ -721,10 +721,12 @@ var _ = Describe("Service", func() {
 				return mChannel.NewWriter(tx).Delete(ctx, deleted, false)
 			})).To(Succeed())
 			old := v0.Device{
-				Key:   uuid.New(),
-				Rack:  mRack.EmbeddedKey,
-				Name:  "PXI-6255",
-				Model: "PXI-6255",
+				Key:       uuid.New(),
+				Rack:      mRack.EmbeddedKey,
+				Name:      "PXI-6255",
+				Serial:    "Mod1",
+				Model:     "PXI-6255",
+				Simulated: true,
 				AnalogInput: v0.InputPorts{
 					Index:    deleted,
 					Channels: map[string]channel.Key{"0": kept, "1": deleted},
@@ -745,6 +747,7 @@ var _ = Describe("Service", func() {
 			Expect(got.AnalogInput.Index).To(BeZero())
 			Expect(got.AnalogInput.Channels).
 				To(Equal(map[uint16]channel.Key{0: kept}))
+			Expect(got.Validate()).To(Succeed())
 		})
 	})
 
