@@ -198,6 +198,7 @@ public:
 
     void stopped_with_err(const x::errors::Error &err) override;
 
+protected:
     void
     waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
 };

@@ -192,9 +192,6 @@ class Acquisition final : public Base {
 
     void stopped_with_err(const x::errors::Error &err) override;
 
-    void
-    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
-
     void interrupt() override { this->source->interrupt(); }
 
     /// @brief the state one run of the pipeline hands to the next when the Core was
@@ -215,6 +212,10 @@ class Acquisition final : public Base {
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
     bool run_once(Run &run);
+
+protected:
+    void
+    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax
