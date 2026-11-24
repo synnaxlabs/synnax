@@ -35,7 +35,8 @@ const failureOf = (error: unknown): status.Status => {
 interface Lookups {
   /**
    * Looks up each of keys that no lookup in flight holds, and that no lookup failed for
-   * since the picker last opened or a lookup last answered.
+   * since the picker last opened. keys are the channels without an answer, and a
+   * failure ends once an answer for its channel reaches outputs.
    */
   run: (outputs: Outputs, keys: channel.Key[]) => void;
   /**
@@ -44,56 +45,60 @@ interface Lookups {
    */
   setOpen: (open: boolean, report?: Report) => void;
   subscribe: (onChange: () => void) => destructor.Destructor;
-  /** Loading while a lookup runs, else the failure of the last one, if it failed. */
-  status: () => status.Status | undefined;
+  /** Changes each time a lookup starts or ends. */
+  version: () => number;
+  /**
+   * Loading while a lookup of one of keys runs, else the failure of a lookup that
+   * failed for one of keys, if one did. version is the version the read sees.
+   */
+  status: (keys: channel.Key[], version: number) => status.Status | undefined;
 }
 
 type Report = (failure: status.Status) => void;
 
-// A failure episode, which a lookup that answers ends, is reported once.
+// A failure episode is reported once. It ends when a lookup answers, or once no channel
+// is still failed.
 const createLookups = (): Lookups => {
   const looking = new Set<channel.Key>();
-  const failed = new Set<channel.Key>();
+  const failures = new Map<channel.Key, status.Status>();
   const listeners = new Set<() => void>();
-  let running = 0;
-  let failure: status.Status | undefined;
+  let version = 0;
   let reported = false;
   let open = false;
   let report: Report | undefined;
-  const notify = () => listeners.forEach((onChange) => onChange());
+  const notify = () => {
+    version++;
+    listeners.forEach((onChange) => onChange());
+  };
   const run = async (outputs: Outputs, keys: channel.Key[]): Promise<void> => {
     keys.forEach((key) => looking.add(key));
-    running++;
     notify();
-    let retry: channel.Key[] = [];
     try {
       await outputs.retrieve(keys);
-      // The Core answers again, so the channels that failed are looked up again.
-      retry = [...failed].filter((key) => !looking.has(key));
-      failed.clear();
-      failure = undefined;
       reported = false;
     } catch (e) {
-      keys.forEach((key) => failed.add(key));
-      failure = failureOf(e);
+      const failure = failureOf(e);
+      keys.forEach((key) => failures.set(key, failure));
       if (!reported && open && report != null) {
         report(failure);
         reported = true;
       }
     }
     keys.forEach((key) => looking.delete(key));
-    running--;
     notify();
-    if (retry.length > 0) await run(outputs, retry);
   };
   return {
     run: (outputs, keys) => {
-      const fresh = keys.filter((key) => !looking.has(key) && !failed.has(key));
+      failures.forEach((_, key) => {
+        if (outputs.get(key) != null) failures.delete(key);
+      });
+      if (failures.size === 0) reported = false;
+      const fresh = keys.filter((key) => !looking.has(key) && !failures.has(key));
       if (fresh.length > 0) void run(outputs, fresh);
     },
     setOpen: (next, nextReport) => {
       // Each open looks the failed channels up again.
-      if (next && !open) failed.clear();
+      if (next && !open) failures.clear();
       open = next;
       report = nextReport;
     },
@@ -101,7 +106,11 @@ const createLookups = (): Lookups => {
       listeners.add(onChange);
       return () => listeners.delete(onChange);
     },
-    status: () => (running > 0 ? LOOKING_UP : failure),
+    version: () => version,
+    status: (keys) => {
+      if (keys.some((key) => looking.has(key))) return LOOKING_UP;
+      return keys.map((key) => failures.get(key)).find((f) => f != null);
+    },
   };
 };
 
@@ -119,8 +128,8 @@ export interface CalculatedHidden {
   /** The keys that no calculation writes, once each has an answer. */
   data: channel.Key[];
   /**
-   * Loading while a lookup runs, and the failure of the last lookup if it failed, while
-   * a key has no answer. Undefined once every key has one.
+   * Loading while a lookup runs, and the failure of a lookup that failed, while a key
+   * has no answer. Undefined once every key has one.
    */
   status?: status.Status;
 }
@@ -129,7 +138,8 @@ export interface CalculatedHidden {
  * Leaves out of keys each channel that a calculation writes, and each channel whose
  * answer has not loaded. It looks up the channels without an answer, and again each
  * time the picker opens. A failed lookup is reported once while the picker is open,
- * until a lookup answers. With hidden false, it keeps every key.
+ * until a lookup answers. The outputs table looks a failed channel up again, so a
+ * failure ends once its answer lands there. With hidden false, it keeps every key.
  */
 export const useCalculatedHidden = (
   keys: channel.Key[],
@@ -144,7 +154,7 @@ export const useCalculatedHidden = (
     (onChange) => outputs?.subscribe(() => onChange()) ?? (() => {}),
     () => outputs?.version() ?? 0,
   );
-  const lookupStatus = useSyncExternalStore(lookups.subscribe, lookups.status);
+  const lookupVersion = useSyncExternalStore(lookups.subscribe, lookups.version);
   // A lookup can fail after the picker closes or unmounts, so it reads whether the
   // picker is open then.
   useEffect(() => {
@@ -156,12 +166,13 @@ export const useCalculatedHidden = (
   // lookup.
   const pending = answers?.unanswered.join(",") ?? "";
   useEffect(() => {
-    if (outputs != null && answers != null && answers.unanswered.length > 0)
-      lookups.run(outputs, answers.unanswered);
+    if (outputs != null && answers != null) lookups.run(outputs, answers.unanswered);
   }, [lookups, outputs, pending, open]);
   if (answers == null) return { data: keys };
+  const { unanswered } = answers;
+  if (unanswered.length === 0) return { data: answers.kept };
   return {
     data: answers.kept,
-    status: answers.unanswered.length === 0 ? undefined : (lookupStatus ?? LOOKING_UP),
+    status: lookups.status(unanswered, lookupVersion) ?? LOOKING_UP,
   };
 };
