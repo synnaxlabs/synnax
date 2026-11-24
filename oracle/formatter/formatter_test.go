@@ -257,9 +257,11 @@ var _ = Describe("Format", func() {
 
 		It("should format an enum that narrows another", func() {
 			Expect(format(
-				"DataType enum of telem.DataType {\n  int16\n  float64 { @doc value \"is a float.\" }\n}\n",
+				"DataType enum of telem.DataType {\n  int16\n" +
+					"  float64 { @doc value \"is a float.\" }\n}\n",
 			)).To(Equal(
-				"DataType enum of telem.DataType {\n    int16\n    float64 {\n        @doc value \"is a float.\"\n    }\n}\n",
+				"DataType enum of telem.DataType {\n    int16\n    float64 {\n" +
+					"        @doc value \"is a float.\"\n    }\n}\n",
 			))
 		})
 

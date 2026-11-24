@@ -746,7 +746,9 @@ var _ = Describe("Parser", func() {
 					pending =
 				}
 			`)
-			Expect(diag).To(MatchError(ContainSubstring("pending")))
+			Expect(
+				diag,
+			).To(MatchError(ContainSubstring("missing {STRING_LIT, INT_LIT}")))
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
