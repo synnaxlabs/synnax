@@ -393,7 +393,7 @@ var _ = Describe("Claims over parts", func() {
 		// Seconds 10 and 11 end and start two parted segments, so the commit reaches
 		// the bounds of their part and its check preloads their records.
 		gap := []telem.TimeStamp{10*telem.SecondTS + 250, 10*telem.SecondTS + 500}
-		Expect(db.Write(ctx, gap[0], telem.MultiFrame(
+		Expect(write(ctx, db, gap[0], telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{telem.NewSeries(gap), telem.NewSeries([]int64{-1, -2})},
 		))).To(Succeed())
