@@ -811,6 +811,11 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 				walkRef(fd.Type)
 			}
 			walkRef(form.Extends...)
+		case resolution.EnumForm:
+			walkRef(form.Extends...)
+			if form.Narrows() {
+				walkRef(form.Superset)
+			}
 		case resolution.UnionForm:
 			for _, v := range form.Variants {
 				walkRef(v.Type)
