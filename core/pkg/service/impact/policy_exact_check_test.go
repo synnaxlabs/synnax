@@ -50,7 +50,8 @@ var _ = Describe("Policies exact check", func() {
 			Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 				return nil
 			},
-			DB: db,
+			Moves: noMoves(),
+			DB:    db,
 			Policies: impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
 				{Table: "display", Name: "channel"}: impact.PolicyRetarget,
 				{Table: "display", Name: "gone"}:    impact.PolicyRetarget,
