@@ -1676,6 +1676,14 @@ TEST(FromSampleValue, Float64WithLongDecimalToString) {
     ASSERT_EQ(result, json("1.2345689012"));
 }
 
+/// @brief it should write a small float in exponent notation.
+TEST(FromSampleValue, Float64ExponentToString) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(x::telem::SampleValue(1.5e-7), x::json::Type::String)
+    );
+    ASSERT_EQ(result, json("1.5e-7"));
+}
+
 TEST(FromSampleValue, Float64WithoutDecimalToString) {
     const auto result = ASSERT_NIL_P(
         x::json::from_sample_value(x::telem::SampleValue(42.0), x::json::Type::String)

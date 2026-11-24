@@ -533,9 +533,9 @@ each sample needs the time from its own payload.
 <Problem.Fix>
 
 Set `index` to a timestamp field with no default, and bind it to the index channel. Bind
-each other field to a data channel. To read a second time into its own index channel,
-move its field into its own message and make it the index there. To remove a default in
-the Console, open the field's **Options** in the ICD editor and turn off **Optional**.
+each other field to a data channel. To keep a second timestamp, bind its field to a data
+channel of the `timestamp` data type. To remove a default in the Console, open the
+field's **Options** in the ICD editor and turn off **Optional**.
 
 </Problem.Fix>
 </Problem.Item>

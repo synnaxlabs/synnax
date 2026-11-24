@@ -150,14 +150,15 @@ Paint union on type {
     node {}
     color { value color.Ref }
 }
-// rate: cycles per second, times the fraction of its bounds that `state` reads
+// rate: cycles per second, times the fraction of its bounds that `state` reads. A
+// negative rate runs the other way.
 Motion union on type {
     spin {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     flow {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     level {
@@ -209,9 +210,9 @@ NodeConfig union on variant {
     }
 }
 FormatConfig struct {
-    units     string = ""
+    units     string?
     precision uint8?
-    notation  notation.Notation = "standard"
+    notation  notation.Notation?
 }
 StateBinding struct extends FormatConfig {
     key         string
@@ -257,21 +258,38 @@ fraction 0 for a number state, with no indicator. The binding holds the number f
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
-Looks apply in order, and a later look wins on each field it sets. Look fields are
-optional, so an absent field, such as `hidden`, means that the look does not set it, as
-`switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last state's
-looks and adds the stale indicator. Pluto then draws pending, hover, pressed, and the
-hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and other
-indicators on top of the looks. Only a number state drives motion, and the Core refuses
-a motion whose `state` names an enumeration state. A number state drives motion as a
-fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data and
-NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while a
-state that their look reads, in `when` or `state`, is stale or unknown, under the
-operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
-these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
-transition. While its state is stale, it keeps its last fraction. While it is unknown,
-it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
-blink stays under three flashes per second.
+Looks apply in order, and a later look wins on each field it sets. On `motion`, a later
+look wins on each motion kind, so motions of different kinds on one part all apply, such
+as a `move` and a `spin`, or a `level` and a `flow`. Pluto moves an element by its
+`move`, then turns it by its `rotate` and its `spin`, each about the pivot of its part.
+When parts select one element, a later look wins on each motion kind of the element, as
+it does on paint. Look fields are optional, so an absent field, such as `hidden`, means
+that the look does not set it, as `switched bool?` does in `schemas/x/color.oracle`.
+Stale data keeps the last state's looks and adds the stale indicator. Pluto then draws
+pending, hover, pressed, and the hold fill. A symbol stores no indicators: Pluto draws
+the stale, unknown, and other indicators on top of the looks. Only a number state drives
+motion, and the Core refuses a motion whose `state` names an enumeration state. A number
+state drives motion as a fraction of its bounds, clamped to 0 to 1. A number state is
+unknown for no data and NaN, but not for a value outside its bounds. `spin`, `flow`, and
+`blink` stop while a state that their look reads, in `when` or `state`, is stale or
+unknown, under the operating system's Reduce motion setting, and on a node with
+`motion_disabled`. Under these two settings, a `level`, `rotate`, or `move` jumps to
+each new fraction with no transition. While its state is stale, it keeps its last
+fraction. While it is unknown, it draws fraction 0, which is `from` or an empty `level`,
+with the unknown indicator. A blink stays under three flashes per second.
+
+A part with no `pivot` turns as one, about the center of the box around all its shapes
+at rest. A `level` fills each element of a part by the element's own box. A part can
+select a group, such as a `<g>` by `#id`. Motion on a group composes with motion on the
+parts in it, because SVG composes the transforms, opacity, and clips of nested elements.
+`flow` does not compose: an element's own dash offset replaces the one that it gets from
+its group. A part that selects a group and an element in it moves the element once, with
+the group, but a `flow` moves each element that it selects. A `level`, `rotate`, or
+`move` slides to each new fraction in 0.15 s, on the ease-in-out curve of Pluto's modal
+animation. A value that arrives during a slide does not start a new slide. The slide
+keeps its clock and continues from the drawn fraction to the new one, so the part gets
+to each value within 0.15 s of its arrival. A change of fill or stroke draws at once,
+with no fade.
 
 ### 4.3 Clicks and writes
 
@@ -321,7 +339,8 @@ import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` or `contrast` paint or `equals`
-condition on a number state, or an `ask` command with no state. It refuses a node whose
+condition on a number state, or an `ask` command with no state. It refuses a second
+interaction on one part, or a second on the whole drawing. It refuses a node whose
 binding keys repeat or name no state or command of its symbol, whose overrides do not
 fit the type of their state, or whose `CommandBinding` names a command that has a state.
 The Core list of built-ins lets it check built-in nodes the same way. A `missing` node

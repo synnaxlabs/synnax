@@ -90,6 +90,21 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).To(ContainSubstring(".max(99.500000)"))
 	})
 
+	It("Should keep precision of small float bounds", func() {
+		source := `
+			@ts output "out"
+
+			Range struct {
+				low  float64 @validate { min 0.0000001 }
+				high float64 @validate { max 0.0000001 }
+			}
+		`
+		resp := MustGenerate(source, "range", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(".min(1e-07)"))
+		Expect(content).To(ContainSubstring(".max(1e-07)"))
+	})
+
 	It("Should emit gt for number fields", func() {
 		source := `
 			@ts output "out"
@@ -160,6 +175,18 @@ var _ = Describe("Validation Rules", func() {
 		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(1.500000)`)
+	})
+
+	It("Should emit a small float default without truncating it", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				tolerance float64 = 0.0000001
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(`.default(1e-07)`)
 	})
 
 	It("Should emit bool default", func() {

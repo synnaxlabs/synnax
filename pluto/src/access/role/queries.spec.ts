@@ -125,17 +125,12 @@ describe("queries", () => {
   });
 
   describe("useResultForUser", () => {
-    const createUser = async (prefix: string, role: access.role.Key) =>
-      await client.users.create({
-        username: `${prefix}-${id.create()}`,
-        name: "Test User",
-        password: "password123",
-        role,
-      });
+    const createUser = async (role: access.role.Key) =>
+      await client.users.create({ name: "Test User", role });
 
     it("should return the role the user holds", async () => {
       const role = await createEmptyRole(client);
-      const u = await createUser("for-user", role.key);
+      const u = await createUser(role.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -150,7 +145,7 @@ describe("queries", () => {
         createEmptyRole(client),
         createEmptyRole(client),
       ]);
-      const u = await createUser("late-assign", from.key);
+      const u = await createUser(from.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -166,7 +161,7 @@ describe("queries", () => {
         name: `edited-${id.create()}`,
         description: "Before",
       });
-      const u = await createUser("role-edit", role.key);
+      const u = await createUser(role.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -265,8 +260,7 @@ describe("queries", () => {
     it("should report an error when a user holds the role", async () => {
       const role = await createEmptyRole(client);
       const u = await client.users.create({
-        username: `holder-${id.create()}`,
-        password: "password123",
+        name: "test",
         role: role.key,
       });
 

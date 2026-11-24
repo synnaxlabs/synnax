@@ -47,8 +47,7 @@ const TelemForm = (): ReactElement => {
             allowNone
             value={value.channel}
             onChange={handleSourceChange}
-            // Only variable density channels (STRING, JSON, UUID) read as text.
-            filter={(ch) => ch.dataType.isVariable}
+            query={Form.VARIABLE_CHANNELS}
           />
         </Input.Item>
       </Base.Section>

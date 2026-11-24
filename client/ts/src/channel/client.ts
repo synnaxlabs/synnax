@@ -71,7 +71,7 @@ import { group } from "@/group";
 import { query } from "@/query";
 import type { resource } from "@/resource";
 import type { status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
 export const ACTION_CHANNEL_NAME = "sy_channel_action_set";
@@ -518,7 +518,7 @@ export class Client extends query.Retriever<
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
       if (isSingle)
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           "channel",
           { where: singleWhere(rawNormalized[0]) },
           [],
@@ -532,7 +532,7 @@ export class Client extends query.Retriever<
       ? singleWhere(normalized[0])
       : shortcutZ.parse(normalized).where;
     const res = await super.retrieve({ where });
-    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
+    util.checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -666,7 +666,7 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults(
+      util.checkForMultipleOrNoResults(
         "channel",
         { where: { key: { eq: key } } },
         fetched,

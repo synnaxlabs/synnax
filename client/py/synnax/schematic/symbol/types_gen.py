@@ -16,7 +16,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import color as color_, enumeration as enumeration_, group as group_
+from synnax import (
+    color as color_,
+    enumeration as enumeration_,
+    group as group_,
+    resource,
+)
 from synnax.resource import ID
 from x import color, filter, spatial, telem
 from x.filter import shorthand
@@ -237,7 +242,7 @@ class SpinMotion(BaseModel):
     """Turns a part around its pivot."""
 
     type: Literal["spin"] = "spin"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
@@ -245,7 +250,7 @@ class FlowMotion(BaseModel):
     """Moves the dashes of a stroke along it."""
 
     type: Literal["flow"] = "flow"
-    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    rate: float = Field(default=0.500000, allow_inf_nan=False)
     state: str | None = None
 
 
@@ -337,6 +342,34 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class BuiltinRef(BaseModel):
+    """Is a symbol that the Core ships."""
+
+    type: Literal["builtin"] = "builtin"
+    name: str
+
+
+class CustomRef(BaseModel):
+    """Is a symbol that a user made."""
+
+    type: Literal["custom"] = "custom"
+    key: Key
+
+
+class MissingRef(BaseModel):
+    """Is a custom symbol that the Core does not have."""
+
+    type: Literal["missing"] = "missing"
+    key: str
+
+
+# Is the symbol that a node draws.
+Ref = Annotated[
+    BuiltinRef | CustomRef | MissingRef,
+    Field(discriminator="type"),
+]
+
+
 class StateOverride(BaseModel):
     """Is a node's replacement for the region colors of one value that it draws.
 
@@ -417,7 +450,7 @@ class Command(BaseModel):
 
 class Look(BaseModel):
     """Is paint, visibility, or motion on a part. A later look wins on each field that
-    it sets.
+    it sets. On motion, it replaces only an earlier motion of the same kind.
 
     Attributes:
         key: Is the look identifier.
@@ -449,6 +482,7 @@ class RetrieveRequest(BaseModel):
         order: Sorts the symbols. An absent order sorts them by key.
         after: Starts the symbols strictly past this position in their order.
         limit: Is the most symbols to return.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -458,6 +492,7 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_uses: bool = False
 
 
 class Spec(BaseModel):
@@ -500,12 +535,15 @@ class Symbol(BaseModel):
         name: Is a human-readable name for the symbol.
         data: Is the complete symbol specification.
         group: Is the group the symbol sits in, if any.
+        uses: Are the schematics that use the symbol and that the caller can read,
+            filled only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     data: Spec
     group: group_.Key | None = None
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
