@@ -521,8 +521,8 @@ describe("ICD editor", () => {
   it("should add a JSON field at a numbered pointer that no field reads", async () => {
     const ic = await createICD([
       createJSONMessage([
-        createJSONField("Temp", "/field_2"),
-        createJSONField("Raw", "/field_3/raw"),
+        createJSONField("Temp", "/field_3"),
+        createJSONField("Raw", "/field_4/raw"),
       ]),
     ]);
     await renderEditor(ic);
@@ -531,7 +531,7 @@ describe("ICD editor", () => {
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
         { name: "Temp" },
         { name: "Raw" },
-        { name: "Field 4", pointer: "/field_4" },
+        { name: "Field 5", pointer: "/field_5" },
       ]),
     );
   });
