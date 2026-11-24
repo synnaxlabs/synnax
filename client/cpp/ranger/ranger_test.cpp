@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
@@ -16,6 +18,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -555,5 +558,85 @@ TEST(RangerTests, testRangeResourceID) {
     const auto id = resource_id(key);
     ASSERT_EQ(id.type, "range");
     ASSERT_EQ(id.key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+}
+
+namespace {
+using Creates = freighter::testutil::
+    UnaryClient<::grpc::ranger::CreateRequest, ::grpc::ranger::CreateResponse>;
+using Retrieves = freighter::testutil::
+    UnaryClient<::grpc::ranger::RetrieveRequest, ::api::ranger::pb::RetrieveResponse>;
+using Dispatches = freighter::testutil::
+    UnaryClient<::grpc::ranger::DispatchRequest, google::protobuf::Empty>;
+
+/// @brief the fakes of a client whose calls each succeed once with range.
+struct Fakes {
+    std::shared_ptr<Creates> creates;
+    std::shared_ptr<Retrieves> retrieves;
+    std::shared_ptr<Dispatches> dispatches;
+
+    explicit Fakes(const Range &range) {
+        ::grpc::ranger::CreateResponse created;
+        *created.add_ranges() = ASSERT_NIL_P(range.to_proto());
+        ::api::ranger::pb::RetrieveResponse found;
+        *found.add_ranges() = ASSERT_NIL_P(range.to_proto());
+        this->creates = std::make_shared<Creates>(created, x::errors::NIL);
+        this->retrieves = std::make_shared<Retrieves>(found, x::errors::NIL);
+        this->dispatches = std::make_shared<Dispatches>(
+            google::protobuf::Empty(),
+            x::errors::NIL
+        );
+    }
+
+    [[nodiscard]] Client client() const {
+        return {this->retrieves, this->creates, this->dispatches, {}};
+    }
+};
+
+Range timeout_range() {
+    Range range;
+    range.key = x::uuid::create();
+    range.name = "timeout";
+    return range;
+}
+}
+
+/// @brief it should send a create, a retrieve, and a set of the end with the deadline
+/// of their timeout.
+TEST(RangerTimeoutTests, SendsWithDeadline) {
+    auto range = timeout_range();
+    const Fakes fakes(range);
+    const auto client = fakes.client();
+    const auto timeout = 5 * x::telem::SECOND;
+    const auto start = std::chrono::system_clock::now();
+    ASSERT_NIL(client.create(range, timeout));
+    ASSERT_NIL_P(client.retrieve(range.key, {}, timeout));
+    ASSERT_NIL(client.set_end(range.key, x::telem::TimeStamp(1), timeout));
+    const auto end = std::chrono::system_clock::now();
+    for (const auto &deadlines:
+         {fakes.creates->deadlines,
+          fakes.retrieves->deadlines,
+          fakes.dispatches->deadlines}) {
+        ASSERT_EQ(deadlines.size(), 1);
+        ASSERT_TRUE(deadlines[0].has_value());
+        EXPECT_GE(deadlines[0].value(), start + timeout.chrono());
+        EXPECT_LE(deadlines[0].value(), end + timeout.chrono());
+    }
+}
+
+/// @brief it should send calls with no deadline when they have no timeout.
+TEST(RangerTimeoutTests, SendsWithoutDeadline) {
+    auto range = timeout_range();
+    const Fakes fakes(range);
+    const auto client = fakes.client();
+    ASSERT_NIL(client.create(range));
+    ASSERT_NIL_P(client.retrieve(range.key));
+    ASSERT_NIL(client.set_end(range.key, x::telem::TimeStamp(1)));
+    for (const auto &deadlines:
+         {fakes.creates->deadlines,
+          fakes.retrieves->deadlines,
+          fakes.dispatches->deadlines}) {
+        ASSERT_EQ(deadlines.size(), 1);
+        EXPECT_FALSE(deadlines[0].has_value());
+    }
 }
 }
