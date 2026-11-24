@@ -37,6 +37,10 @@ export interface PaintProps {
   drawingColor?: color.Crude;
   /** entryColor is the color of the entry that the editor shows. */
   entryColor?: color.Crude;
+  /** inherited is the paint that a look of the whole drawing gives a part. */
+  inherited?: Value;
+  /** own is the paint of the part itself, which Drawing clears. */
+  own?: Value;
   "aria-label": string;
 }
 
@@ -77,6 +81,8 @@ export const Paint = ({
   entryState,
   drawingColor,
   entryColor,
+  inherited,
+  own,
   "aria-label": ariaLabel,
 }: PaintProps): ReactElement => {
   const { gray } = Theming.use().colors;
@@ -84,6 +90,10 @@ export const Paint = ({
   const variant = Form.useFieldValue(Schematic.Symbol.formPath.data.variant);
   // Until symbol nodes ship, only an actuator node gives a node color.
   const nodes = FLAGS.symbolNodes || variant === "actuator";
+  // Drawing clears the paint of the part, which then takes the paint of the whole
+  // drawing when there is one.
+  const locked = inherited != null && own == null;
+  const whole = inherited != null && own != null;
   const binding = Color.useBinding(
     value?.type === "color" ? value.value : undefined,
     (ref) => onChange(ref == null ? undefined : { type: "color", value: ref }),
@@ -138,9 +148,17 @@ export const Paint = ({
                 key={k}
                 itemKey={k}
                 size="small"
-                disabled={(k === "entry" || k === "contrast") && entryState == null}
+                disabled={
+                  (k === "drawing" && locked) ||
+                  ((k === "entry" || k === "contrast") && entryState == null)
+                }
+                tooltip={
+                  k === "drawing" && locked
+                    ? "The whole drawing gives this paint. Change it there."
+                    : undefined
+                }
               >
-                {NAMES[k]}
+                {k === "drawing" && whole ? "Whole drawing" : NAMES[k]}
               </Select.Item>
             ))}
           </Select.Buttons>

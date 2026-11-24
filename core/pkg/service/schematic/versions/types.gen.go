@@ -43,28 +43,41 @@ type EdgeConfigVariant = v14.EdgeConfigVariant
 type EdgeConfigType = v14.EdgeConfigType
 
 const (
-	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	// PipeEdgeConfigType is the configuration for pipe edges.
 	PipeEdgeConfigType EdgeConfigType = v14.PipeEdgeConfigType
-	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	// ElectricEdgeConfigType is the configuration for electrical edges.
 	ElectricEdgeConfigType EdgeConfigType = v14.ElectricEdgeConfigType
-	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
+	// SecondaryEdgeConfigType is the configuration for secondary edges.
 	SecondaryEdgeConfigType EdgeConfigType = v14.SecondaryEdgeConfigType
-	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	// JacketedEdgeConfigType is the configuration for jacketed edges.
 	JacketedEdgeConfigType EdgeConfigType = v14.JacketedEdgeConfigType
-	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
+	// HydraulicEdgeConfigType is the configuration for hydraulic edges.
 	HydraulicEdgeConfigType EdgeConfigType = v14.HydraulicEdgeConfigType
-	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
+	// PneumaticEdgeConfigType is the configuration for pneumatic edges.
 	PneumaticEdgeConfigType EdgeConfigType = v14.PneumaticEdgeConfigType
-	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	// DataEdgeConfigType is the configuration for data edges.
 	DataEdgeConfigType EdgeConfigType = v14.DataEdgeConfigType
 )
 
+// PipeEdgeConfig is the configuration for pipe edges.
 type PipeEdgeConfig = v14.PipeEdgeConfig
+
+// ElectricEdgeConfig is the configuration for electrical edges.
 type ElectricEdgeConfig = v14.ElectricEdgeConfig
+
+// SecondaryEdgeConfig is the configuration for secondary edges.
 type SecondaryEdgeConfig = v14.SecondaryEdgeConfig
+
+// JacketedEdgeConfig is the configuration for jacketed edges.
 type JacketedEdgeConfig = v14.JacketedEdgeConfig
+
+// HydraulicEdgeConfig is the configuration for hydraulic edges.
 type HydraulicEdgeConfig = v14.HydraulicEdgeConfig
+
+// PneumaticEdgeConfig is the configuration for pneumatic edges.
 type PneumaticEdgeConfig = v14.PneumaticEdgeConfig
+
+// DataEdgeConfig is the configuration for data edges.
 type DataEdgeConfig = v14.DataEdgeConfig
 
 // FlexAlignment is a flex alignment for laid-out content.
@@ -148,60 +161,66 @@ type NodeConfigVariant = v14.NodeConfigVariant
 type NodeConfigType = v14.NodeConfigType
 
 const (
-	// CapNodeConfigType selects the CapNodeConfig variant.
+	// CapNodeConfigType is the configuration for cap symbols.
 	CapNodeConfigType NodeConfigType = v14.CapNodeConfigType
-	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	// FilterNodeConfigType is the configuration for filter symbols.
 	FilterNodeConfigType NodeConfigType = v14.FilterNodeConfigType
-	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	// FlowStraightenerNodeConfigType is the configuration for flow straightener
+	// symbols.
 	FlowStraightenerNodeConfigType NodeConfigType = v14.FlowStraightenerNodeConfigType
-	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = v14.HeaterElementNodeConfigType
-	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
 	IsoCapNodeConfigType NodeConfigType = v14.IsoCapNodeConfigType
-	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
 	IsoFilterNodeConfigType NodeConfigType = v14.IsoFilterNodeConfigType
-	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = v14.NozzleNodeConfigType
-	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	// OrificeNodeConfigType is the configuration for orifice symbols.
 	OrificeNodeConfigType NodeConfigType = v14.OrificeNodeConfigType
-	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	// OrificePlateNodeConfigType is the configuration for orifice plate symbols.
 	OrificePlateNodeConfigType NodeConfigType = v14.OrificePlateNodeConfigType
-	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	// StrainerNodeConfigType is the configuration for strainer symbols.
 	StrainerNodeConfigType NodeConfigType = v14.StrainerNodeConfigType
-	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	// StrainerConeNodeConfigType is the configuration for strainer cone symbols.
 	StrainerConeNodeConfigType NodeConfigType = v14.StrainerConeNodeConfigType
-	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	// ThrusterNodeConfigType is the configuration for thruster symbols.
 	ThrusterNodeConfigType NodeConfigType = v14.ThrusterNodeConfigType
-	// VentNodeConfigType selects the VentNodeConfig variant.
+	// VentNodeConfigType is the configuration for vent symbols.
 	VentNodeConfigType NodeConfigType = v14.VentNodeConfigType
-	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	// FlowmeterGeneralNodeConfigType is the configuration for general flowmeter
+	// symbols.
 	FlowmeterGeneralNodeConfigType NodeConfigType = v14.FlowmeterGeneralNodeConfigType
-	// FlowmeterElectromagneticNodeConfigType selects the
-	// FlowmeterElectromagneticNodeConfig variant.
+	// FlowmeterElectromagneticNodeConfigType is the configuration for electromagnetic
+	// flowmeter symbols.
 	FlowmeterElectromagneticNodeConfigType NodeConfigType = v14.FlowmeterElectromagneticNodeConfigType
-	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
-	// variant.
+	// FlowmeterVariableAreaNodeConfigType is the configuration for variable area
+	// flowmeter symbols.
 	FlowmeterVariableAreaNodeConfigType NodeConfigType = v14.FlowmeterVariableAreaNodeConfigType
-	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	// FlowmeterCoriolisNodeConfigType is the configuration for Coriolis flowmeter
+	// symbols.
 	FlowmeterCoriolisNodeConfigType NodeConfigType = v14.FlowmeterCoriolisNodeConfigType
-	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	// FlowmeterNozzleNodeConfigType is the configuration for nozzle flowmeter symbols.
 	FlowmeterNozzleNodeConfigType NodeConfigType = v14.FlowmeterNozzleNodeConfigType
-	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	// FlowmeterVenturiNodeConfigType is the configuration for venturi flowmeter
+	// symbols.
 	FlowmeterVenturiNodeConfigType NodeConfigType = v14.FlowmeterVenturiNodeConfigType
-	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
-	// variant.
+	// FlowmeterRingPistonNodeConfigType is the configuration for ring piston flowmeter
+	// symbols.
 	FlowmeterRingPistonNodeConfigType NodeConfigType = v14.FlowmeterRingPistonNodeConfigType
-	// FlowmeterPositiveDisplacementNodeConfigType selects the
-	// FlowmeterPositiveDisplacementNodeConfig variant.
+	// FlowmeterPositiveDisplacementNodeConfigType is the configuration for positive
+	// displacement flowmeter symbols.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v14.FlowmeterPositiveDisplacementNodeConfigType
-	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	// FlowmeterTurbineNodeConfigType is the configuration for turbine flowmeter
+	// symbols.
 	FlowmeterTurbineNodeConfigType NodeConfigType = v14.FlowmeterTurbineNodeConfigType
-	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	// FlowmeterPulseNodeConfigType is the configuration for pulse flowmeter symbols.
 	FlowmeterPulseNodeConfigType NodeConfigType = v14.FlowmeterPulseNodeConfigType
-	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
-	// variant.
+	// FlowmeterFloatSensorNodeConfigType is the configuration for float sensor
+	// flowmeter symbols.
 	FlowmeterFloatSensorNodeConfigType NodeConfigType = v14.FlowmeterFloatSensorNodeConfigType
-	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	// FlowmeterOrificeNodeConfigType is the configuration for orifice flowmeter
+	// symbols.
 	FlowmeterOrificeNodeConfigType NodeConfigType = v14.FlowmeterOrificeNodeConfigType
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = v14.BoxNodeConfigType
@@ -233,64 +252,69 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = v14.StateIndicatorNodeConfigType
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = v14.StringDisplayNodeConfigType
-	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	// SwitchNodeConfigType is the configuration for switch symbols.
 	SwitchNodeConfigType NodeConfigType = v14.SwitchNodeConfigType
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = v14.TextBoxNodeConfigType
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
 	ValueNodeConfigType NodeConfigType = v14.ValueNodeConfigType
-	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	// AgitatorNodeConfigType is the configuration for agitator symbols.
 	AgitatorNodeConfigType NodeConfigType = v14.AgitatorNodeConfigType
-	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	// CrossBeamAgitatorNodeConfigType is the configuration for cross beam agitator
+	// symbols.
 	CrossBeamAgitatorNodeConfigType NodeConfigType = v14.CrossBeamAgitatorNodeConfigType
-	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	// FlatBladeAgitatorNodeConfigType is the configuration for flat blade agitator
+	// symbols.
 	FlatBladeAgitatorNodeConfigType NodeConfigType = v14.FlatBladeAgitatorNodeConfigType
-	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
-	// variant.
+	// HeatExchangerGeneralNodeConfigType is the configuration for general heat
+	// exchanger symbols.
 	HeatExchangerGeneralNodeConfigType NodeConfigType = v14.HeatExchangerGeneralNodeConfigType
-	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	// HeatExchangerMNodeConfigType is the configuration for M-type heat exchanger
+	// symbols.
 	HeatExchangerMNodeConfigType NodeConfigType = v14.HeatExchangerMNodeConfigType
-	// HeatExchangerStraightTubeNodeConfigType selects the
-	// HeatExchangerStraightTubeNodeConfig variant.
+	// HeatExchangerStraightTubeNodeConfigType is the configuration for straight tube
+	// heat exchanger symbols.
 	HeatExchangerStraightTubeNodeConfigType NodeConfigType = v14.HeatExchangerStraightTubeNodeConfigType
-	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	// HelicalAgitatorNodeConfigType is the configuration for helical agitator symbols.
 	HelicalAgitatorNodeConfigType NodeConfigType = v14.HelicalAgitatorNodeConfigType
-	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	// PaddleAgitatorNodeConfigType is the configuration for paddle agitator symbols.
 	PaddleAgitatorNodeConfigType NodeConfigType = v14.PaddleAgitatorNodeConfigType
-	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	// PropellerAgitatorNodeConfigType is the configuration for propeller agitator
+	// symbols.
 	PropellerAgitatorNodeConfigType NodeConfigType = v14.PropellerAgitatorNodeConfigType
-	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	// RotaryMixerNodeConfigType is the configuration for rotary mixer symbols.
 	RotaryMixerNodeConfigType NodeConfigType = v14.RotaryMixerNodeConfigType
-	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	// StaticMixerNodeConfigType is the configuration for static mixer symbols.
 	StaticMixerNodeConfigType NodeConfigType = v14.StaticMixerNodeConfigType
-	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	// CavityPumpNodeConfigType is the configuration for cavity pump symbols.
 	CavityPumpNodeConfigType NodeConfigType = v14.CavityPumpNodeConfigType
-	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
-	// variant.
+	// CentrifugalCompressorNodeConfigType is the configuration for centrifugal
+	// compressor symbols.
 	CentrifugalCompressorNodeConfigType NodeConfigType = v14.CentrifugalCompressorNodeConfigType
-	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	// CompressorNodeConfigType is the configuration for compressor symbols.
 	CompressorNodeConfigType NodeConfigType = v14.CompressorNodeConfigType
-	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	// DiaphragmPumpNodeConfigType is the configuration for diaphragm pump symbols.
 	DiaphragmPumpNodeConfigType NodeConfigType = v14.DiaphragmPumpNodeConfigType
-	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	// EjectionPumpNodeConfigType is the configuration for ejection pump symbols.
 	EjectionPumpNodeConfigType NodeConfigType = v14.EjectionPumpNodeConfigType
-	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	// EjectorCompressorNodeConfigType is the configuration for ejector compressor
+	// symbols.
 	EjectorCompressorNodeConfigType NodeConfigType = v14.EjectorCompressorNodeConfigType
-	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
-	// variant.
+	// LiquidRingCompressorNodeConfigType is the configuration for liquid ring
+	// compressor symbols.
 	LiquidRingCompressorNodeConfigType NodeConfigType = v14.LiquidRingCompressorNodeConfigType
-	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	// PistonPumpNodeConfigType is the configuration for piston pump symbols.
 	PistonPumpNodeConfigType NodeConfigType = v14.PistonPumpNodeConfigType
-	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	// PumpNodeConfigType is the configuration for pump symbols.
 	PumpNodeConfigType NodeConfigType = v14.PumpNodeConfigType
-	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
-	// variant.
+	// RollerVaneCompressorNodeConfigType is the configuration for roller vane
+	// compressor symbols.
 	RollerVaneCompressorNodeConfigType NodeConfigType = v14.RollerVaneCompressorNodeConfigType
-	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	// ScrewPumpNodeConfigType is the configuration for screw pump symbols.
 	ScrewPumpNodeConfigType NodeConfigType = v14.ScrewPumpNodeConfigType
-	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
 	TurboCompressorNodeConfigType NodeConfigType = v14.TurboCompressorNodeConfigType
-	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType NodeConfigType = v14.VacuumPumpNodeConfigType
 	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
 	BurstDiscNodeConfigType NodeConfigType = v14.BurstDiscNodeConfigType
@@ -382,30 +406,83 @@ const (
 	SymbolNodeConfigType NodeConfigType = v14.SymbolNodeConfigType
 )
 
+// CapNodeConfig is the configuration for cap symbols.
 type CapNodeConfig = v14.CapNodeConfig
+
+// FilterNodeConfig is the configuration for filter symbols.
 type FilterNodeConfig = v14.FilterNodeConfig
+
+// FlowStraightenerNodeConfig is the configuration for flow straightener symbols.
 type FlowStraightenerNodeConfig = v14.FlowStraightenerNodeConfig
+
+// HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig = v14.HeaterElementNodeConfig
+
+// IsoCapNodeConfig is the configuration for ISO cap symbols.
 type IsoCapNodeConfig = v14.IsoCapNodeConfig
+
+// IsoFilterNodeConfig is the configuration for ISO filter symbols.
 type IsoFilterNodeConfig = v14.IsoFilterNodeConfig
+
+// NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig = v14.NozzleNodeConfig
+
+// OrificeNodeConfig is the configuration for orifice symbols.
 type OrificeNodeConfig = v14.OrificeNodeConfig
+
+// OrificePlateNodeConfig is the configuration for orifice plate symbols.
 type OrificePlateNodeConfig = v14.OrificePlateNodeConfig
+
+// StrainerNodeConfig is the configuration for strainer symbols.
 type StrainerNodeConfig = v14.StrainerNodeConfig
+
+// StrainerConeNodeConfig is the configuration for strainer cone symbols.
 type StrainerConeNodeConfig = v14.StrainerConeNodeConfig
+
+// ThrusterNodeConfig is the configuration for thruster symbols.
 type ThrusterNodeConfig = v14.ThrusterNodeConfig
+
+// VentNodeConfig is the configuration for vent symbols.
 type VentNodeConfig = v14.VentNodeConfig
+
+// FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralNodeConfig = v14.FlowmeterGeneralNodeConfig
+
+// FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+// symbols.
 type FlowmeterElectromagneticNodeConfig = v14.FlowmeterElectromagneticNodeConfig
+
+// FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaNodeConfig = v14.FlowmeterVariableAreaNodeConfig
+
+// FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisNodeConfig = v14.FlowmeterCoriolisNodeConfig
+
+// FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleNodeConfig = v14.FlowmeterNozzleNodeConfig
+
+// FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiNodeConfig = v14.FlowmeterVenturiNodeConfig
+
+// FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
 type FlowmeterRingPistonNodeConfig = v14.FlowmeterRingPistonNodeConfig
+
+// FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementNodeConfig = v14.FlowmeterPositiveDisplacementNodeConfig
+
+// FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineNodeConfig = v14.FlowmeterTurbineNodeConfig
+
+// FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseNodeConfig = v14.FlowmeterPulseNodeConfig
+
+// FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorNodeConfig = v14.FlowmeterFloatSensorNodeConfig
+
+// FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeNodeConfig = v14.FlowmeterOrificeNodeConfig
 
 // BoxNodeConfig is the configuration for box annotation symbols.
@@ -449,6 +526,8 @@ type StateIndicatorNodeConfig = v14.StateIndicatorNodeConfig
 
 // StringDisplayNodeConfig is the configuration for live string display symbols.
 type StringDisplayNodeConfig = v14.StringDisplayNodeConfig
+
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig = v14.SwitchNodeConfig
 
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
@@ -456,29 +535,82 @@ type TextBoxNodeConfig = v14.TextBoxNodeConfig
 
 // ValueNodeConfig is the configuration for live telemetry value symbols.
 type ValueNodeConfig = v14.ValueNodeConfig
+
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig = v14.AgitatorNodeConfig
+
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig = v14.CrossBeamAgitatorNodeConfig
+
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig = v14.FlatBladeAgitatorNodeConfig
+
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig = v14.HeatExchangerGeneralNodeConfig
+
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig = v14.HeatExchangerMNodeConfig
+
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig = v14.HeatExchangerStraightTubeNodeConfig
+
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig = v14.HelicalAgitatorNodeConfig
+
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig = v14.PaddleAgitatorNodeConfig
+
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig = v14.PropellerAgitatorNodeConfig
+
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig = v14.RotaryMixerNodeConfig
+
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig = v14.StaticMixerNodeConfig
+
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig = v14.CavityPumpNodeConfig
+
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig = v14.CentrifugalCompressorNodeConfig
+
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig = v14.CompressorNodeConfig
+
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig = v14.DiaphragmPumpNodeConfig
+
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig = v14.EjectionPumpNodeConfig
+
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig = v14.EjectorCompressorNodeConfig
+
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig = v14.LiquidRingCompressorNodeConfig
+
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig = v14.PistonPumpNodeConfig
+
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig = v14.PumpNodeConfig
+
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig = v14.RollerVaneCompressorNodeConfig
+
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig = v14.ScrewPumpNodeConfig
+
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig = v14.TurboCompressorNodeConfig
+
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig = v14.VacuumPumpNodeConfig
 type BurstDiscNodeConfig = v14.BurstDiscNodeConfig
 type FlameArrestorNodeConfig = v14.FlameArrestorNodeConfig
