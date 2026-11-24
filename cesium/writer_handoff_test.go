@@ -854,7 +854,7 @@ var _ = Describe("Handoff on the pointer log", func() {
 			db.Handoff(ctx, w, config(clock, data), p, cesium.NewRun),
 		)
 		Expect(back.Write(ctx, both(12), nil)).Error().
-			To(MatchError(ContainSubstring("stamp 1970-01-01T00:00:12Z must be after")))
+			To(MatchError(ContainSubstring("timestamp 1970-01-01T00:00:12Z at sample 0 must be after")))
 		Expect(back.Close()).To(MatchError(ContainSubstring("must be after")))
 	})
 
