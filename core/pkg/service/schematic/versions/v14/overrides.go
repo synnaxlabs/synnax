@@ -25,13 +25,68 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// overrides moves the state overrides of custom nodes to new records in one migration
-// run. The symbols are still v4, since the symbol migration runs after this one.
+// overrides moves the state overrides of custom nodes to new records in one run.
 type overrides struct {
-	tx     gorp.Tx
 	intern symbol.Intern
+	// redraw returns how states redraw the stored symbol with key, or false when the
+	// Core does not hold it.
+	redraw func(
+		ctx context.Context,
+		key symbol.Key,
+		states []symbolv4.State,
+	) (redrawn, bool, error)
 	// copies holds the copy of a symbol for each source symbol and set of overrides.
 	copies map[string]symbol.Key
+}
+
+// redrawn is how overrides redraw a stored symbol: the entries of an enumeration that
+// draws them, or a copy that draws them when an enumeration cannot. It holds neither
+// when the overrides equal the symbol.
+type redrawn struct {
+	// name is the name of the stored symbol.
+	name    string
+	entries []enumeration.Entry
+	// copy creates a copy named name that draws the overrides, and returns its key.
+	copy func(ctx context.Context, name string) (symbol.Key, error)
+}
+
+// upgrade returns the overrides of stored schematics in tx. The symbols are still v4,
+// since the symbol migration runs after this one, and it converts each copy.
+func upgrade(tx gorp.Tx, intern symbol.Intern) *overrides {
+	return &overrides{
+		intern: intern,
+		copies: map[string]symbol.Key{},
+		redraw: func(
+			ctx context.Context,
+			key symbol.Key,
+			states []symbolv4.State,
+		) (redrawn, bool, error) {
+			var src symbolv4.Symbol
+			err := gorp.NewRetrieve[symbolv4.Key, symbolv4.Symbol]().
+				Where(gorp.MatchKeys[symbolv4.Key, symbolv4.Symbol](key)).
+				Entry(&src).
+				Exec(ctx, tx)
+			if err != nil {
+				return redrawn{}, false, errors.Skip(err, query.ErrNotFound)
+			}
+			entries, drawn, err := redraw(ctx, src.Data, states)
+			r := redrawn{name: src.Name, entries: entries}
+			if drawn != nil {
+				r.copy = func(ctx context.Context, name string) (symbol.Key, error) {
+					c := symbolv4.Symbol{
+						Key:   uuid.New(),
+						Name:  name,
+						Data:  *drawn,
+						Group: src.Group,
+					}
+					return c.Key, gorp.NewCreate[symbolv4.Key, symbolv4.Symbol]().
+						Entry(&c).
+						Exec(ctx, tx)
+				}
+			}
+			return r, true, err
+		},
+	}
 }
 
 // apply makes each custom node of old with state overrides a symbol node in s, with the
@@ -49,14 +104,8 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 			return err
 		}
 		if ref, ok := cfg.Spec.Variant.(symbol.CustomRef); ok {
-			src, found, err := o.source(ctx, ref.Key)
-			if err != nil {
-				return err
-			}
-			if found {
-				if cfg, err = o.node(ctx, cfg, src, states, s.Name); err != nil {
-					return errors.Wrapf(err, "node %s", n.Key)
-				}
+			if cfg, err = o.node(ctx, cfg, ref.Key, states, s.Name); err != nil {
+				return errors.Wrapf(err, "node %s", n.Key)
 			}
 		}
 		s.Nodes[i].Config.Variant = cfg
@@ -64,43 +113,56 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 	return nil
 }
 
-// source returns the stored symbol with key, or false when the store does not hold it.
-func (o *overrides) source(
-	ctx context.Context,
-	key symbol.Key,
-) (symbolv4.Symbol, bool, error) {
-	var src symbolv4.Symbol
-	err := gorp.NewRetrieve[symbolv4.Key, symbolv4.Symbol]().
-		Where(gorp.MatchKeys[symbolv4.Key, symbolv4.Symbol](key)).
-		Entry(&src).
-		Exec(ctx, o.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return src, false, nil
-	}
-	return src, err == nil, err
-}
-
-// node returns cfg with the enumeration or the copy of src that draws states.
+// node returns cfg with the enumeration or the copy of the symbol with key that draws
+// states.
 func (o *overrides) node(
 	ctx context.Context,
 	cfg SymbolNodeConfig,
-	src symbolv4.Symbol,
+	key symbol.Key,
 	states []symbolv4.State,
 	schematic string,
 ) (SymbolNodeConfig, error) {
-	entries, drawn, err := redraw(ctx, src.Data, states)
-	if err != nil || (entries == nil && drawn == nil) {
+	r, found, err := o.redraw(ctx, key, states)
+	if err != nil || !found {
 		return cfg, err
 	}
-	if drawn != nil {
-		key, err := o.copy(ctx, src, *drawn, states, schematic)
-		cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: key}}
+	if r.copy != nil {
+		c, err := o.copy(ctx, key, r, states, schematic)
+		cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: c}}
 		return cfg, err
 	}
-	name := src.Name + ": " + labelOr(cfg.Label.Label, schematic)
-	key, err := o.intern(ctx, name, entries)
-	cfg.States[0].Enumeration = &key
+	if r.entries == nil {
+		return cfg, nil
+	}
+	name := r.name + ": " + labelOr(cfg.Label.Label, schematic)
+	e, err := o.intern(ctx, name, r.entries)
+	cfg.States[0].Enumeration = &e
 	return cfg, err
+}
+
+// copy returns the key of the copy that r makes. Nodes share a copy when they have the
+// same source symbol and the same overrides.
+func (o *overrides) copy(
+	ctx context.Context,
+	src symbol.Key,
+	r redrawn,
+	states []symbolv4.State,
+	schematic string,
+) (symbol.Key, error) {
+	b, err := json.Marshal(states)
+	if err != nil {
+		return uuid.Nil(), err
+	}
+	id := src.String() + string(b)
+	if key, ok := o.copies[id]; ok {
+		return key, nil
+	}
+	key, err := r.copy(ctx, r.name+" ("+schematic+")")
+	if err != nil {
+		return uuid.Nil(), err
+	}
+	o.copies[id] = key
+	return key, nil
 }
 
 // redraw returns the entries of an enumeration that draws the overrides states on src,
@@ -132,38 +194,6 @@ func redraw(
 		return nil, nil, nil
 	}
 	return entries, nil, nil
-}
-
-// copy returns the key of a copy of src that draws spec, in the group of src. Nodes
-// share a copy when they have the same source symbol and the same overrides.
-func (o *overrides) copy(
-	ctx context.Context,
-	src symbolv4.Symbol,
-	spec symbolv4.Spec,
-	states []symbolv4.State,
-	schematic string,
-) (symbol.Key, error) {
-	b, err := json.Marshal(states)
-	if err != nil {
-		return uuid.Nil(), err
-	}
-	id := src.Key.String() + string(b)
-	if key, ok := o.copies[id]; ok {
-		return key, nil
-	}
-	c := symbolv4.Symbol{
-		Key:   uuid.New(),
-		Name:  src.Name + " (" + schematic + ")",
-		Data:  spec,
-		Group: src.Group,
-	}
-	if err = gorp.NewCreate[symbolv4.Key, symbolv4.Symbol]().
-		Entry(&c).
-		Exec(ctx, o.tx); err != nil {
-		return uuid.Nil(), err
-	}
-	o.copies[id] = c.Key
-	return c.Key, nil
 }
 
 // withoutOverrides returns cfg with no state overrides, and the overrides it had.

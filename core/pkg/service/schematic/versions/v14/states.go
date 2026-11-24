@@ -42,7 +42,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
-			o := &overrides{tx: tx, intern: intern, copies: map[string]symbol.Key{}}
+			o := upgrade(tx, intern)
 			return migrate.NewInstrumentedEntry(
 				key,
 				func(
