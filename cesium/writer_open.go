@@ -113,7 +113,7 @@ func (db *DB) newWriter(
 		return nil, err
 	}
 	if db.engine != nil {
-		lw, err := db.openLogWriter(cfg)
+		lw, err := db.openLogWriter(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}

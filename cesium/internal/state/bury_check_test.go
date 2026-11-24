@@ -126,7 +126,7 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 			generation := uint64(1)
 			for i := range 6 {
 				start := telem.TimeStamp(1000 * (i + 1))
-				w := MustSucceed(st.OpenWriter(state.WriterConfig{
+				w := MustSucceed(st.OpenWriter(context.Background(), state.WriterConfig{
 					Keys: keys, Clock: 5, Start: start, Bounded: true,
 				}))
 				// A writer takes over the open segment that a closed writer left.
