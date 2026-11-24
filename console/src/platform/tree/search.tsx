@@ -33,12 +33,15 @@ import type { Resource } from "@/platform/tree/types";
 export type SearchLayout = "flat" | "groups";
 
 /** What a search looks for. */
-export interface SearchQuery {
+export interface SearchQuery<F = never> {
+  /** Empty when only a filter narrows the search. */
   term: string;
   /** The tree root. A match outside it does not show. */
   root: resource.ID;
   /** The most matches a source returns. */
   limit: number;
+  /** Narrows the matches. Absent when the search has no filter. */
+  filter?: F;
 }
 
 /** A match and the node that holds it. */
@@ -56,8 +59,8 @@ export type Matches =
  * Returns the matches of each source. The results show the sources in the order
  * given. A null query asks for nothing.
  */
-export interface UseMatches {
-  (query: SearchQuery | null): Matches[];
+export interface UseMatches<F = never> {
+  (query: SearchQuery<F> | null): Matches[];
 }
 
 /** Converts a Flux result into the matches of one source. */
@@ -100,10 +103,10 @@ export interface UsePlacement {
   (query: PlacementQuery | null): PlacementResult;
 }
 
-export interface CreateSearchParams {
+export interface CreateSearchParams<F = never> {
   /** What the search finds, in the plural, such as "channels". */
   noun: string;
-  useMatches: UseMatches;
+  useMatches: UseMatches<F>;
   usePlacement: UsePlacement;
 }
 
@@ -135,9 +138,22 @@ export interface Search {
   treeRef: RefObject<HTMLDivElement | null>;
 }
 
-/** Runs the search of the tree under root. A null root searches nothing. */
-export interface UseSearch {
-  (root: resource.ID | null): Search;
+/**
+ * The term, filter, and layout of a search that its caller holds in place of a search
+ * field. The search stays open, and a filter runs it with an empty term.
+ */
+export interface SearchInput<F> {
+  term: string;
+  filter?: F;
+  layout?: SearchLayout;
+}
+
+/**
+ * Runs the search of the tree under root. A null root searches nothing. With an input,
+ * the search reads its term and filter from the input in place of its own field.
+ */
+export interface UseSearch<F = never> {
+  (root: resource.ID | null, input?: SearchInput<F>): Search;
 }
 
 export interface SearchActionProps {

@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Explorer } from "@/feature/channel/explorer";
+import type { Panel } from "@/platform/panel";
+
 export * from "@/feature/channel/commands";
+export * from "@/feature/channel/explorer";
 export * from "@/feature/channel/link";
 export * from "@/feature/channel/notifications";
 export * from "@/feature/channel/search";
 export * from "@/feature/channel/Toolbar";
 export * from "@/feature/channel/tree";
 export * from "@/platform/channel/external";
+
+export const TABS: Panel.Tabs = Explorer.TABS;

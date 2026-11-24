@@ -35,6 +35,11 @@ const TAB = View.createTab({
     Name: () => <>Status explorer</>,
     Icon: Icon.Status,
   },
+  channel: {
+    Content: () => <>channel explorer</>,
+    Name: () => <>Channel explorer</>,
+    Icon: Icon.Channel,
+  },
 });
 
 const createView = async (type: view.Type = "range"): Promise<view.View> => {

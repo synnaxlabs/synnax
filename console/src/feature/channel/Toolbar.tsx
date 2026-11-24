@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Channel } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { Explorer } from "@/feature/channel/explorer";
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
@@ -44,9 +45,13 @@ const Actions = ({ search }: ActionsProps): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const openExplorer = Explorer.useOpenTab();
   return (
     <Toolbar.Actions>
       <Tree.SearchAction search={search} />
+      <Toolbar.Action tooltip="Open channel explorer" onClick={openExplorer}>
+        <Icon.Explore />
+      </Toolbar.Action>
       {hasCreatePermission && (
         <>
           <Toolbar.CreateAction

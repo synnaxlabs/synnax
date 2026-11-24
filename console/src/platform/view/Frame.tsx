@@ -60,6 +60,7 @@ const ZERO_VARIANTS: {
 } = {
   range: { type: "range", sort: "newest", layout: "tree" },
   status: { type: "status" },
+  channel: { type: "channel", layout: "folders" },
 };
 
 /**
