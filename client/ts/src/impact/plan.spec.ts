@@ -13,8 +13,8 @@ import { describe, expect, it } from "vitest";
 // The channel module loads first, before errors and impact. Decoding the error below
 // must not need impact's schema, which reads the channel module as it loads.
 import { channel } from "@/channel";
-import { PlanChangedError } from "@/errors";
 import { impact } from "@/impact";
+import { PlanChangedError } from "@/index";
 
 describe("planOf", () => {
   it("should parse the plan that a decoded plan-changed error carries", () => {
