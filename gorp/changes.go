@@ -134,8 +134,15 @@ func (l *changeList) isOnBehalf(t Target) bool {
 		slices.Contains(l.moreOnBehalf, t)
 }
 
-// anyOnBehalf reports whether a record was made on the caller's behalf.
-func (l *changeList) anyOnBehalf() bool { return l.onBehalfLen > 0 }
+// onBehalfOf returns the change list of tx when it holds a mark, and nil otherwise, so
+// a delete in a transaction with no mark does no marking work.
+func onBehalfOf(tx Tx) *changeList {
+	state := tx.txIdentity()
+	if state == nil || state.changes.onBehalfLen == 0 {
+		return nil
+	}
+	return &state.changes
+}
 
 type changeEntry struct {
 	record Target
