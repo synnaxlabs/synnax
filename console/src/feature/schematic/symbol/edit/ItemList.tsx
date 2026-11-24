@@ -15,19 +15,14 @@ import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { type deep, strings } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
-import { Spec } from "@/feature/schematic/symbol/spec";
+import type { Spec } from "@/feature/schematic/symbol/spec";
 import { Modals } from "@/platform/modals";
 
 const path = Schematic.Symbol.formPath;
-
-const TYPE_NAMES: Record<schematic.symbol.StateType, string> = {
-  enumeration: "Enumeration",
-  number: "Number",
-};
 
 const describeUses = ({ looks, commands, interactions }: Spec.Removed): string =>
   strings.naturalLanguageJoin(
@@ -42,70 +37,98 @@ const describeUses = ({ looks, commands, interactions }: Spec.Removed): string =
       .map(([noun, keys]) => pluralize(noun, keys.length, true)),
   );
 
-export interface StateListProps {
-  /** onRemove is called with the key of a state after it goes. */
-  onRemove: (key: string) => void;
+interface Item {
+  key: string;
+  name: string;
 }
 
-/** StateList lists the states of the symbol, and adds, renames, and removes them. */
-export const StateList = ({ onRemove }: StateListProps): ReactElement => {
-  const states = Form.useFieldValue(path.data.states);
+export interface ItemListProps<T extends Item> {
+  /** title names the items, such as States. */
+  title: string;
+  /** noun names one item in its tooltips, such as state. */
+  noun: string;
+  items: T[];
+  /** name returns the path of the name of an item. */
+  name: (key: string) => deep.Target<string>;
+  /** detail returns the second line of an item. */
+  detail: (item: T) => string;
+  /** add returns spec with a new item. */
+  add: (spec: schematic.symbol.Spec) => schematic.symbol.Spec;
+  /** remove returns spec without an item, and what goes with it. */
+  remove: (
+    spec: schematic.symbol.Spec,
+    key: string,
+  ) => [schematic.symbol.Spec, Spec.Removed];
+  /** onRemove is called with the key of an item after it goes. */
+  onRemove?: (key: string) => void;
+}
+
+/**
+ * ItemList lists items of the symbol, and adds, renames, and removes them. A remove
+ * that takes other items with it asks the user first.
+ */
+export const ItemList = <T extends Item>({
+  title,
+  noun,
+  items,
+  name,
+  detail,
+  add,
+  remove,
+  onRemove,
+}: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
-  const handleRemove = async ({ key, name }: schematic.symbol.State) => {
-    const [next, removed] = Spec.removeState(get(path.data).value, key);
+  const handleRemove = async (item: T) => {
+    const [next, removed] = remove(get(path.data).value, item.key);
     const uses = describeUses(removed);
     if (
       uses.length > 0 &&
       (await confirm({
-        message: `Remove ${name}?`,
+        message: `Remove ${item.name}?`,
         description: `Its uses go with it: ${uses}.`,
         confirm: { label: "Remove", variant: "error" },
       })) !== true
     )
       return;
     set(path.data, next);
-    onRemove(key);
+    onRemove?.(item.key);
   };
   return (
     <Flex.Box y gap={1}>
       <Header.Header level="p" bordered={false}>
         <Header.Title level="p" weight={500}>
-          States
+          {title}
         </Header.Title>
         <Header.Actions>
           <Button.Button
-            onClick={() => set(path.data, Spec.addState(get(path.data).value))}
+            onClick={() => set(path.data, add(get(path.data).value))}
             size="small"
             variant="text"
-            tooltip="Add state"
+            tooltip={`Add ${noun}`}
           >
             <Icon.Add />
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      {states.map((s) => (
-        <Flex.Box key={s.key} x justify="between" align="center">
+      {items.map((item) => (
+        <Flex.Box key={item.key} x justify="between" align="center">
           <Flex.Box y gap={0}>
-            <Form.Field
-              path={path.data.states[s.key].name}
-              showLabel={false}
-              padHelpText={false}
-            >
+            <Form.Field path={name(item.key)} showLabel={false} padHelpText={false}>
               {({ onChange, value }) => (
                 <Text.MaybeEditable level="small" value={value} onChange={onChange} />
               )}
             </Form.Field>
             <Text.Text level="small" color={9}>
-              {TYPE_NAMES[s.type]}
+              {detail(item)}
             </Text.Text>
           </Flex.Box>
           <Button.Button
-            onClick={() => void handleRemove(s)}
+            onClick={() => void handleRemove(item)}
             size="small"
             variant="text"
-            tooltip={`Remove ${s.name}`}
-            aria-label={`Remove ${s.name}`}
+            tooltip={`Remove ${item.name}`}
+            aria-label={`Remove ${item.name}`}
             reveal
           >
             <Icon.Close />

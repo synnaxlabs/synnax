@@ -28,9 +28,9 @@ import { type ReactElement, useRef, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
+import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
-import { StateList } from "@/feature/schematic/symbol/edit/StateList";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -55,6 +55,11 @@ export interface ModalParams {
 }
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
+
+const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
+  enumeration: "Enumeration",
+  number: "Number",
+};
 
 interface ValueBarProps {
   value: Spec.At;
@@ -222,6 +227,7 @@ const Editor = ({
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };
+  const states = Form.useFieldValue(path.data.states, { ctx: form });
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -273,7 +279,14 @@ const Editor = ({
                 </Flex.Box>
                 <Divider.Divider x />
                 {FLAGS.symbolNodes ? (
-                  <StateList
+                  <ItemList
+                    title="States"
+                    noun="state"
+                    items={states}
+                    name={(key) => path.data.states[key].name}
+                    detail={(s) => STATE_TYPES[s.type]}
+                    add={Spec.addState}
+                    remove={Spec.removeState}
                     onRemove={(key) => {
                       if (key === preview.state)
                         setPreview({ state: Spec.STATE, value: 0 });
