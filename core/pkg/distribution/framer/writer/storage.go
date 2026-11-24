@@ -48,7 +48,7 @@ func (s *Service) newStorage(
 	if err != nil {
 		return nil, err
 	}
-	ws, err := s.clockWriters(cfg, channels)
+	ws, err := s.clockWriters(ctx, cfg, channels)
 	if err != nil {
 		release()
 		return nil, err
@@ -97,9 +97,11 @@ func join(ctx context.Context, ts *cesium.DB, ws []*clockWriter) error {
 // clockWriters returns the handle of the session of cfg on each clock of channels,
 // which are the stored channels of cfg. A session that persists and streams, and that
 // writes a clock, shares the clock's writer with the other sessions on it. The other
-// handles hold their own writer, which openOwn opens, and a handle whose session holds
-// a gate on the clock follows the clock's entry.
+// handles hold their own writer, which openOwn opens. A session that persists and
+// streams the data of a clock and not the clock also joins the clock's entry, which
+// keeps one live claim per key between its writers.
 func (s *Service) clockWriters(
+	ctx context.Context,
 	cfg Config,
 	channels []cesium.Channel,
 ) ([]*clockWriter, error) {
@@ -120,6 +122,7 @@ func (s *Service) clockWriters(
 	}
 	for _, clock := range clocks {
 		c := &clockWriter{
+			ts:    s.cfg.TS,
 			clock: clock,
 			member: &clockMember{
 				subject: cfg.ControlSubject.Key,
@@ -128,12 +131,23 @@ func (s *Service) clockWriters(
 				end:     cfg.Start,
 			},
 		}
-		if ch, writesClock := byKey[clock]; writesClock && cfg.Mode != ModePersistOnly {
+		ch, writesClock := byKey[clock]
+		switch {
+		case writesClock && cfg.Mode != ModePersistOnly:
 			entry, err := s.controls.clockEntry(ch)
 			if err != nil {
 				return nil, err
 			}
 			c.entry, c.shares = entry, sharing
+		case !writesClock && sharing:
+			clockCh, err := s.cfg.TS.RetrieveChannel(ctx, clock)
+			if err != nil {
+				return nil, err
+			}
+			if c.entry, err = s.controls.clockEntry(clockCh); err != nil {
+				return nil, err
+			}
+			c.claims = true
 		}
 		ws = append(ws, c)
 	}
@@ -141,14 +155,23 @@ func (s *Service) clockWriters(
 }
 
 // openOwn opens the writer of each handle of ws that does not share its clock's writer.
-// A failed open returns its error, and the caller closes the writers that opened.
+// A handle in a clock's entry claims only the keys that no writer of the entry claims,
+// and opens no writer when another writer claims all of them. A failed open returns its
+// error, and the caller closes the writers that opened. The caller holds the entries'
+// locks.
 func (s *Service) openOwn(ctx context.Context, cfg Config, ws []*clockWriter) error {
 	for _, c := range ws {
 		if c.shares {
 			continue
 		}
+		keys := c.member.keys
+		if c.claims {
+			if keys = c.entry.unclaimed(keys); len(keys) == 0 {
+				continue
+			}
+		}
 		w, err := s.cfg.TS.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: c.member.keys,
+			Channels: keys,
 			Clock:    c.clock,
 			Start:    cfg.Start,
 			Bounded:  cfg.Mode == ModePersistOnly,
@@ -158,6 +181,9 @@ func (s *Service) openOwn(ctx context.Context, cfg Config, ws []*clockWriter) er
 			return err
 		}
 		c.own = w
+		if c.claims {
+			c.claim(keys, keys)
+		}
 	}
 	return nil
 }
@@ -168,10 +194,12 @@ func closeClocks(ctx context.Context, ws []*clockWriter) error {
 	var err error
 	for _, c := range ws {
 		switch {
-		case c.own != nil:
-			err = errors.Join(err, c.own.Close())
 		case c.shares:
 			err = errors.Join(err, c.entry.leave(ctx, c.member))
+		case c.claims:
+			err = errors.Join(err, c.leave())
+		case c.own != nil:
+			err = errors.Join(err, c.own.Close())
 		}
 	}
 	return err

@@ -43,6 +43,12 @@ type clockEntry struct {
 	// last holder while no session leads the clock.
 	owner *clockMember
 	w     *cesium.Writer
+	// keys are the keys that w claims: the owner's keys, less the keys that the own
+	// writer of another session claims.
+	keys []cesium.ChannelKey
+	// owns holds, for each key that the own writer of a persist and stream session
+	// claims, that session's handle. A key holds one live claim: w's or one in owns.
+	owns map[cesium.ChannelKey]*clockWriter
 	// end is the end of the last commit of a writer of the entry, as of the last
 	// transfer, which folds it in from the old holder.
 	end telem.TimeStamp
@@ -64,12 +70,96 @@ type clockMember struct {
 	// pending is true when the session wrote samples since its last commit, and dropped
 	// is true when a handoff took them. The next commit then reports a refusal.
 	pending, dropped bool
-	// parked holds the uncommitted samples of the session's other channels that a
-	// handoff took out of the clock's writer.
-	parked *cesium.Pending
+	// parked holds the uncommitted samples that a handoff of the clock or a move of a
+	// key took out of a writer of the session.
+	parked []parkedRun
 	// err is the error of the writer that the entry opened or closed for the member,
 	// which its next call returns.
 	err error
+}
+
+// parkedRun is the uncommitted samples of keys that a handoff or a move took out of a
+// writer of a session.
+type parkedRun struct {
+	pending *cesium.Pending
+	keys    []cesium.ChannelKey
+}
+
+// park adds the samples of p, which are of keys, to m.
+func (m *clockMember) park(p *cesium.Pending, keys []cesium.ChannelKey) {
+	if p != nil {
+		m.parked = append(m.parked, parkedRun{pending: p, keys: keys})
+	}
+}
+
+// adopt removes and returns the first run parked on m whose keys all lie in keys, or
+// nil.
+func (m *clockMember) adopt(keys []cesium.ChannelKey) *cesium.Pending {
+	for i, r := range m.parked {
+		if subset(r.keys, keys) {
+			m.parked = slices.Delete(m.parked, i, i+1)
+			return r.pending
+		}
+	}
+	return nil
+}
+
+// dropParked drops the samples parked on m.
+func (m *clockMember) dropParked() error {
+	var err error
+	for _, r := range m.parked {
+		err = errors.Join(err, r.pending.Close())
+	}
+	m.parked = nil
+	return err
+}
+
+// subset reports whether each of a lies in b.
+func subset(a, b []cesium.ChannelKey) bool {
+	for _, k := range a {
+		if !slices.Contains(b, k) {
+			return false
+		}
+	}
+	return true
+}
+
+// without returns keys without k.
+func without(keys []cesium.ChannelKey, k cesium.ChannelKey) []cesium.ChannelKey {
+	return slices.DeleteFunc(slices.Clone(keys), func(o cesium.ChannelKey) bool {
+		return o == k
+	})
+}
+
+// unclaimed returns the keys of keys that no writer of e claims. The caller holds e.mu.
+func (e *clockEntry) unclaimed(keys []cesium.ChannelKey) []cesium.ChannelKey {
+	return slices.DeleteFunc(e.free(keys), func(k cesium.ChannelKey) bool {
+		return slices.Contains(e.keys, k)
+	})
+}
+
+// leave closes the own writer of c, which releases its claims, and drops the samples
+// parked on its session. The caller holds the entry's lock to write.
+func (c *clockWriter) leave() error {
+	for _, k := range c.claimed {
+		if c.entry.owns[k] == c {
+			delete(c.entry.owns, k)
+		}
+	}
+	err := c.member.dropParked()
+	if c.own != nil {
+		err = errors.Join(err, c.own.Close())
+	}
+	c.own, c.claimed = nil, nil
+	return err
+}
+
+// free returns the keys of keys that the own writer of no session claims.
+func (e *clockEntry) free(keys []cesium.ChannelKey) []cesium.ChannelKey {
+	return slices.DeleteFunc(slices.Clone(keys), func(k cesium.ChannelKey) bool {
+		_, owned := e.owns[k]
+		return owned
+	})
 }
 
 // follow moves the writer of e to the session that leads the clock's control, when it
@@ -92,7 +182,7 @@ func (e *clockEntry) follow(ctx context.Context, ts *cesium.DB) {
 	if leader == nil {
 		if e.w != nil && !e.member(e.owner) {
 			e.warn(e.w.Close(), "failed to close the writer of a clock with no leader")
-			e.w, e.owner = nil, nil
+			e.w, e.owner, e.keys = nil, nil, nil
 		}
 		return
 	}
@@ -107,13 +197,30 @@ func (e *clockEntry) follow(ctx context.Context, ts *cesium.DB) {
 	if handoff {
 		start = max(e.end, start)
 	}
-	cfg := cesium.WriterConfig{Channels: leader.keys, Clock: e.clock, Start: start}
+	cfg := cesium.WriterConfig{
+		Channels: e.free(leader.keys),
+		Clock:    e.clock,
+		Start:    start,
+	}
 	if e.w != nil {
 		e.handTo(ctx, ts, leader, cfg)
 		return
 	}
+	e.open(ctx, ts, leader, cfg)
+}
+
+// open opens the writer of e for leader with cfg. The caller holds e.mu.
+func (e *clockEntry) open(
+	ctx context.Context,
+	ts *cesium.DB,
+	leader *clockMember,
+	cfg cesium.WriterConfig,
+) {
 	e.w, leader.err = ts.OpenWriter(ctx, cfg)
-	e.owner = leader
+	e.owner, e.keys = leader, nil
+	if leader.err == nil {
+		e.keys = cfg.Channels
+	}
 }
 
 // handTo hands the writer of e to leader through a writer of cfg, with the samples that
@@ -125,9 +232,9 @@ func (e *clockEntry) handTo(
 	leader *clockMember,
 	cfg cesium.WriterConfig,
 ) {
-	owner, adopt := e.owner, leader.parked
+	owner, adopt, before := e.owner, leader.adopt(cfg.Channels), e.keys
 	w, parked, err := ts.Handoff(ctx, e.w, cfg, adopt)
-	e.w, e.owner, leader.parked = w, leader, nil
+	e.w, e.owner, e.keys = w, leader, cfg.Channels
 	if err != nil {
 		owner.dropped, owner.pending = owner.pending, false
 		leader.dropped = leader.dropped || adopt != nil
@@ -136,14 +243,19 @@ func (e *clockEntry) handTo(
 			zap.Uint32("clock", e.clock),
 			zap.Error(err),
 		)
-		e.w, leader.err = ts.OpenWriter(ctx, cfg)
+		e.open(ctx, ts, leader, cfg)
 		return
 	}
 	if parked == nil {
 		return
 	}
 	if e.member(owner) {
-		owner.parked = parked
+		owner.park(
+			parked,
+			slices.DeleteFunc(slices.Clone(before), func(k cesium.ChannelKey) bool {
+				return slices.Contains(cfg.Channels, k)
+			}),
+		)
 		return
 	}
 	e.warn(parked.Close(), "failed to drop the samples of a session that closed")
@@ -166,10 +278,7 @@ func (e *clockEntry) warn(err error, msg string) {
 // to the next holder. The caller holds e.mu.
 func (e *clockEntry) leave(ctx context.Context, m *clockMember) error {
 	delete(e.members, m.subject)
-	var err error
-	if m.parked != nil {
-		err, m.parked = m.parked.Close(), nil
-	}
+	err := m.dropParked()
 	if e.holder != m {
 		return err
 	}
@@ -186,12 +295,18 @@ func (e *clockEntry) leave(ctx context.Context, m *clockMember) error {
 // session that holds a gate on the clock and keeps its own writer still follows the
 // entry, since its transfers move the shared writer.
 type clockWriter struct {
+	ts     *cesium.DB
 	clock  cesium.ChannelKey
 	own    *cesium.Writer
 	entry  *clockEntry
 	member *clockMember
 	// shares is true when the session writes through the entry's writer.
 	shares bool
+	// claims is true for a persist and stream session that writes the clock's data and
+	// not the clock: its own writer takes part in the entry's one live claim per key,
+	// and claimed are the keys that it claims.
+	claims  bool
+	claimed []cesium.ChannelKey
 }
 
 // held returns the writer that the session may use, or nil when another session holds
@@ -209,29 +324,52 @@ func (c *clockWriter) held() (*cesium.Writer, error) {
 	return c.entry.w, nil
 }
 
-// lock locks the entry of a shared writer to read. A session changes only its own
-// member under it, and only the holder writes through the entry's writer.
+// lock locks the entry of the clock to read. A session changes only its own member and
+// writer under it, and only the holder writes through the entry's writer. A move of a
+// key takes the lock to write.
 func (c *clockWriter) lock() {
-	if c.shares {
+	if c.shares || c.claims {
 		c.entry.mu.RLock()
 	}
 }
 
 func (c *clockWriter) unlock() {
-	if c.shares {
+	if c.shares || c.claims {
 		c.entry.mu.RUnlock()
 	}
 }
 
 // Write writes fr through the writer of the clock, and leaves out the keys of the clock
-// when the session does not hold it.
+// when the session does not hold it. It first moves into the writer the live claim of
+// each key that the session controls and writes in fr, and that another writer holds.
 func (c *clockWriter) Write(
 	ctx context.Context,
 	fr cesium.Frame,
 	skip func(cesium.ChannelKey) bool,
 ) (cesium.Frame, bool, error) {
 	c.lock()
+	if missing := c.unclaimed(fr, skip); len(missing) > 0 {
+		c.unlock()
+		c.entry.mu.Lock()
+		defer c.entry.mu.Unlock()
+		if missing = c.unclaimed(fr, skip); len(missing) > 0 {
+			if err := c.take(ctx, missing); err != nil {
+				return fr, false, err
+			}
+		}
+		return c.write(ctx, fr, skip)
+	}
 	defer c.unlock()
+	return c.write(ctx, fr, skip)
+}
+
+// write writes fr through the writer that the session may use. The caller holds the
+// entry's lock.
+func (c *clockWriter) write(
+	ctx context.Context,
+	fr cesium.Frame,
+	skip func(cesium.ChannelKey) bool,
+) (cesium.Frame, bool, error) {
 	w, err := c.held()
 	if err != nil {
 		return fr, false, err
@@ -244,6 +382,167 @@ func (c *clockWriter) Write(
 		c.member.pending = true
 	}
 	return written, skipped, err
+}
+
+// unclaimed returns the keys of the session in fr that it controls and whose live claim
+// the writer it uses lacks. A session that shares the clock's writer and does not hold
+// it writes nothing, so it moves no key. The caller holds the entry's lock.
+func (c *clockWriter) unclaimed(
+	fr cesium.Frame,
+	skip func(cesium.ChannelKey) bool,
+) []cesium.ChannelKey {
+	e := c.entry
+	if (!c.shares && !c.claims) || c.member.err != nil {
+		return nil
+	}
+	claimed := c.claimed
+	if c.shares {
+		if e.holder != c.member || e.w == nil {
+			return nil
+		}
+		claimed = e.keys
+	}
+	var missing []cesium.ChannelKey
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) || !slices.Contains(c.member.keys, k) ||
+			slices.Contains(claimed, k) || slices.Contains(missing, k) ||
+			(skip != nil && skip(k)) {
+			continue
+		}
+		missing = append(missing, k)
+	}
+	return missing
+}
+
+// take moves the live claim of each of keys into the writer of c, with the samples that
+// an earlier move parked on the session for them. The caller holds the entry's lock to
+// write.
+func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error {
+	e := c.entry
+	for _, k := range keys {
+		if err := e.release(ctx, c.ts, k); err != nil {
+			return err
+		}
+	}
+	if c.shares {
+		next := append(slices.Clone(e.keys), keys...)
+		start, err := e.start(ctx, c.ts, next)
+		if err != nil {
+			return err
+		}
+		cfg := cesium.WriterConfig{Channels: next, Clock: e.clock, Start: start}
+		w, parked, err := c.ts.Handoff(ctx, e.w, cfg, c.member.adopt(next))
+		e.w, e.keys = w, next
+		c.member.park(parked, nil)
+		return err
+	}
+	// A writer of data against stored stamps keeps its start, since its samples go on
+	// the stored stamps from there.
+	next := append(slices.Clone(c.claimed), keys...)
+	cfg := cesium.WriterConfig{Channels: next, Clock: c.clock, Start: c.member.start}
+	adopt := c.member.adopt(next)
+	var err error
+	if c.own == nil {
+		if c.own, err = c.ts.OpenWriter(ctx, cfg); err != nil {
+			c.member.park(adopt, nil)
+			return err
+		}
+		if adopt == nil {
+			c.claim(keys, next)
+			return nil
+		}
+	}
+	var parked *cesium.Pending
+	c.own, parked, err = c.ts.Handoff(ctx, c.own, cfg, adopt)
+	c.member.park(parked, nil)
+	if err != nil {
+		return err
+	}
+	c.claim(keys, next)
+	return nil
+}
+
+// claim records that the own writer of c claims next, which adds keys. The caller holds
+// the entry's lock to write.
+func (c *clockWriter) claim(keys, next []cesium.ChannelKey) {
+	c.claimed = next
+	for _, k := range keys {
+		c.entry.owns[k] = c
+	}
+}
+
+// release takes the live claim of k out of the writer that holds it, and parks the
+// uncommitted samples of k on that writer's session. The caller holds e.mu to write.
+func (e *clockEntry) release(
+	ctx context.Context,
+	ts *cesium.DB,
+	k cesium.ChannelKey,
+) error {
+	if x, ok := e.owns[k]; ok {
+		delete(e.owns, k)
+		rest := without(x.claimed, k)
+		cfg := cesium.WriterConfig{
+			Channels: rest,
+			Clock:    e.clock,
+			Start:    x.member.start,
+		}
+		w, parked, err := ts.Handoff(ctx, x.own, cfg, nil)
+		x.own, x.claimed = w, rest
+		x.member.park(parked, []cesium.ChannelKey{k})
+		return err
+	}
+	if e.w == nil || !slices.Contains(e.keys, k) {
+		return nil
+	}
+	rest := without(e.keys, k)
+	start, err := e.start(ctx, ts, rest)
+	if err != nil {
+		return err
+	}
+	cfg := cesium.WriterConfig{Channels: rest, Clock: e.clock, Start: start}
+	w, parked, err := ts.Handoff(ctx, e.w, cfg, nil)
+	e.w, e.keys = w, rest
+	e.owner.park(parked, []cesium.ChannelKey{k})
+	return err
+}
+
+// start returns the start of a writer of the entry over keys: the later of the end of
+// the owner's last commit and the end of the samples that keys have stored. The caller
+// holds e.mu.
+func (e *clockEntry) start(
+	ctx context.Context,
+	ts *cesium.DB,
+	keys []cesium.ChannelKey,
+) (telem.TimeStamp, error) {
+	start := e.end
+	if e.owner != nil {
+		start = max(start, e.owner.end, e.owner.last)
+	}
+	stored, err := committedEnd(ctx, ts, keys)
+	return max(start, stored), err
+}
+
+// committedEnd returns the end of the samples that keys have stored, or zero when they
+// hold none.
+func committedEnd(
+	ctx context.Context,
+	ts *cesium.DB,
+	keys []cesium.ChannelKey,
+) (telem.TimeStamp, error) {
+	it, err := ts.OpenIterator(cesium.IteratorConfig{
+		Channels: keys,
+		Bounds:   telem.TimeRangeMax,
+	})
+	if err != nil {
+		return 0, err
+	}
+	var end telem.TimeStamp
+	if it.SeekLast() {
+		for _, s := range it.Value().RawSeries() {
+			end = max(end, s.TimeRange.End)
+		}
+	}
+	return end, errors.Join(it.Error(), it.Close())
 }
 
 // holds reports whether fr holds a series of one of keys.
@@ -289,42 +588,81 @@ func (c *clockWriter) Commit(
 		c.member.end, c.member.last = end, end
 		c.member.pending, c.member.dropped = false, false
 	}
+	// The commit stored the stamps of the samples parked on the session, so they commit
+	// after it.
+	if err == nil && len(c.member.parked) > 0 {
+		dropped, _, runErr := c.commitRuns(ctx, skip)
+		if runErr != nil {
+			return 0, false, runErr
+		}
+		skipped = skipped || dropped
+	}
 	return end, skipped, err
 }
 
-// commitParked commits the samples that a handoff parked on the session, once the clock
-// holds their stamps, and drops them when the session lacks one of their channels. It
-// returns true when the session has samples that it cannot commit. The caller holds the
-// entry's lock.
+// commitParked commits the samples that a handoff or a move parked on the session, once
+// the clock holds their stamps, and drops them when the session lacks one of their
+// channels. It returns true when the session has samples that it cannot commit. The
+// caller holds the entry's lock.
 func (c *clockWriter) commitParked(
 	ctx context.Context,
 	skip func(cesium.ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
 	m := c.member
-	if m.parked == nil {
+	if len(m.parked) == 0 {
 		if m.pending {
 			return 0, true, nil
 		}
 		return m.end, false, nil
 	}
-	for _, k := range m.keys {
-		if k != c.clock && skip != nil && skip(k) {
-			err := m.parked.Close()
-			m.parked = nil
-			return 0, true, err
-		}
-	}
-	end, held, err := m.parked.Commit(ctx)
+	dropped, waiting, err := c.commitRuns(ctx, skip)
 	if err != nil {
-		err = errors.Join(err, m.parked.Close())
-		m.parked = nil
 		return 0, false, err
 	}
-	if !held {
+	if dropped || waiting {
 		return 0, true, nil
 	}
-	m.parked, m.end, m.pending = nil, end, false
-	return end, false, nil
+	m.pending = false
+	return m.end, false, nil
+}
+
+// commitRuns commits each run parked on the session once the clock holds its stamps,
+// and
+// drops each run of a channel that the session lacks. It returns whether it dropped a
+// run, and whether a run still waits for its stamps. The caller holds the entry's lock.
+func (c *clockWriter) commitRuns(
+	ctx context.Context,
+	skip func(cesium.ChannelKey) bool,
+) (dropped, waiting bool, err error) {
+	m := c.member
+	kept := m.parked[:0]
+	for _, r := range m.parked {
+		if c.lacksAny(r.keys, skip) {
+			err, dropped = errors.Join(err, r.pending.Close()), true
+			continue
+		}
+		end, held, commitErr := r.pending.Commit(ctx)
+		switch {
+		case commitErr != nil:
+			err = errors.Join(err, commitErr, r.pending.Close())
+		case !held:
+			kept, waiting = append(kept, r), true
+		default:
+			m.end = max(m.end, end)
+		}
+	}
+	m.parked = kept
+	return dropped, waiting, err
+}
+
+// lacksAny reports whether skip refuses one of keys other than the clock.
+func (c *clockWriter) lacksAny(
+	keys []cesium.ChannelKey,
+	skip func(cesium.ChannelKey) bool,
+) bool {
+	return skip != nil && slices.ContainsFunc(keys, func(k cesium.ChannelKey) bool {
+		return k != c.clock && skip(k)
+	})
 }
 
 // writesClock reports whether the session writes the clock of c.

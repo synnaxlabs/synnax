@@ -124,8 +124,13 @@ func (s *session) run(ctx context.Context) error {
 // and on their control. It returns the first error of the session or of the closes, and
 // otherwise cause.
 func (s *session) close(cause error) error {
+	syncErr := s.syncBeforeClose()
 	unlock := lockEntries(s.ws)
-	err := errors.Join(s.err, closeClocks(context.Background(), s.ws))
+	closeErr := closeClocks(context.Background(), s.ws)
+	err := errors.Join(s.err, closeErr)
+	if closeErr == nil {
+		err = errors.Join(err, syncErr)
+	}
 	s.controls.notify(s.gates.release())
 	followAll(context.Background(), s.ts, s.ws)
 	unlock()
@@ -281,6 +286,22 @@ func (s *session) fail(err error) error {
 	return named
 }
 
+// syncBeforeClose syncs the writers of a session that syncs its auto commits once per
+// persistInterval, for at most persistInterval. A writer of data against stored stamps
+// takes back at its close the samples whose stamps are not durable, so the sync gives
+// the clocks' writers that long to make them durable.
+func (s *session) syncBeforeClose() error {
+	if !s.autoCommit || s.persistInterval <= 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		s.persistInterval.Duration(),
+	)
+	defer cancel()
+	return s.syncWriters(ctx)
+}
+
 // maybeSync syncs the Cesium writers on every commit when the session does not auto
 // commit, and otherwise once persistInterval has passed since the last sync.
 func (s *session) maybeSync(ctx context.Context) error {
@@ -291,8 +312,13 @@ func (s *session) maybeSync(ctx context.Context) error {
 		}
 		s.lastSync = now
 	}
-	// The Sync of a writer of data against stored stamps waits for its clock's stamps,
-	// so the writers of their clocks sync first.
+	return s.syncWriters(ctx)
+}
+
+// syncWriters syncs the Cesium writers of the session. The Sync of a writer of data
+// against stored stamps waits for its clock's stamps, so the writers of their clocks
+// sync first.
+func (s *session) syncWriters(ctx context.Context) error {
 	for _, clocks := range []bool{true, false} {
 		for _, w := range s.ws {
 			if w.writesClock() != clocks {

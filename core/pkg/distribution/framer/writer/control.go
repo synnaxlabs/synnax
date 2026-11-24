@@ -74,6 +74,7 @@ func (cs *controls) clockEntry(ch cesium.Channel) (*clockEntry, error) {
 			clock:   ch.Key,
 			ctl:     ctl,
 			members: make(map[string]*clockMember),
+			owns:    make(map[cesium.ChannelKey]*clockWriter),
 			ins:     cs.ins,
 		}
 	}
