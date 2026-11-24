@@ -10,7 +10,6 @@
 package calculation_test
 
 import (
-	"context"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,14 +59,6 @@ var _ = Describe("Writer", func() {
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
-			AnnounceLinked: func(
-				ctx context.Context,
-				tx gorp.Tx,
-				w channel.Writer,
-				keys ...channel.Key,
-			) error {
-				return svc.AnnounceOutputs(ctx, tx, w, keys...)
-			},
 		}))
 		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })
 		svc = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{

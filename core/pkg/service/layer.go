@@ -473,16 +473,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
-		// The calculation service opens after this one, so an announce reads it as it
-		// runs.
-		AnnounceLinked: func(
-			ctx context.Context,
-			tx gorp.Tx,
-			w channel.Writer,
-			keys ...channel.Key,
-		) error {
-			return l.Calculation.AnnounceOutputs(ctx, tx, w, keys...)
-		},
 		Computes: func(u channel.Use) bool {
 			return u.Holder.Table == string(resource.TypeCalculation) &&
 				u.Direction == channel.DirectionWrite
@@ -554,10 +544,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err = l.Signals.PublishActions(
 		ctx,
 		signals.ActionConfig[channel.Key, channel.Action]{
-			Name:        "sy_channel_action_set",
-			Actions:     l.Channel.Actions(),
-			Resource:    channel.ResourceID,
-			BatchChecks: l.Calculation.ChannelBatchChecks,
+			Name:     "sy_channel_action_set",
+			Actions:  l.Channel.Actions(),
+			Resource: channel.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err

@@ -69,9 +69,6 @@ type Service struct {
 	channels *channel.Service
 	// checks holds the check of each action batch that a transaction attaches.
 	checks *gorp.Attachment[batchCheck[Key]]
-	// outputChecks holds the check of each channel action batch that announces the
-	// calculation fields of an output.
-	outputChecks *gorp.Attachment[batchCheck[channel.Key]]
 }
 
 // batchCheck checks one action batch by the calculation as the batch leaves it.
@@ -105,11 +102,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		indexes:      newIndexes(),
-		state:        actions.NewState[Key, Action](cfg.DB),
-		channels:     cfg.Channel,
-		checks:       gorp.NewAttachment[batchCheck[Key]](),
-		outputChecks: gorp.NewAttachment[batchCheck[channel.Key]](),
+		indexes:  newIndexes(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+		channels: cfg.Channel,
+		checks:   gorp.NewAttachment[batchCheck[Key]](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()

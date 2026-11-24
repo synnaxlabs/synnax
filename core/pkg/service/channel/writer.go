@@ -424,13 +424,7 @@ func (w Writer) create(
 		}
 	}
 	*_channels = channels
-	if err = w.attachCreates(ctx, lo.Uniq(written)); err != nil {
-		return err
-	}
-	if len(linked) == 0 || w.svc.cfg.AnnounceLinked == nil {
-		return nil
-	}
-	return w.svc.cfg.AnnounceLinked(ctx, w.tx, w, linked...)
+	return w.attachCreates(ctx, lo.Uniq(written))
 }
 
 // validateCreate validates each channel, its group, and the names of channels.

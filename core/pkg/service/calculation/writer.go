@@ -47,13 +47,6 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Announce attaches a set of the expression and the operations of c for its output to
-// the transaction of w on the channel stream, as one batch that goes only to a subject
-// who reads c.
-func (w Writer) Announce(c Calculation) {
-	w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, true)...)
-}
-
 func (w Writer) channelWriter() channel.Writer {
 	return w.channels.NewWriter(w.tx).WithDispatchKey(w.dispatchKey)
 }
@@ -88,7 +81,6 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 		return err
 	}
 	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
-	w.Announce(*c)
 	return nil
 }
 
@@ -414,25 +406,9 @@ func (w Writer) SetReads(
 // Delete deletes the calculations with the given keys. A key with no calculation is not
 // an error. The output of each one stays as a channel with no producer.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	var deleted []Calculation
-	if err := w.table.NewRetrieve().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Calculation](keys...)).
-		SkipMissingKeys().
-		Entries(&deleted).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Calculation](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	// Who read a calculation before the delete learns that it no longer writes its
-	// output.
-	for _, c := range deleted {
-		w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, false)...)
-	}
-	return nil
+		Exec(ctx, w.tx)
 }
 
 // sameKeys reports whether a and b hold the same keys, in any order and with any

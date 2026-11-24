@@ -73,12 +73,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
-	// AnnounceLinked announces through w, in tx, the fields of each stored channel
-	// among keys that a create links to a new index and that its create action does not
-	// hold.
-	//
-	// [OPTIONAL] - Defaults to announcing nothing.
-	AnnounceLinked func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
 	// Computes reports whether the holder of a use computes the channel, as a
 	// calculation computes the channel it writes. Declare never adopts a computed
 	// channel as a built-in.
@@ -118,7 +112,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
-	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	c.Outputs = override.Nil(c.Outputs, other.Outputs)
 	return c

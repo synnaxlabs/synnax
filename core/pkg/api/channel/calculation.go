@@ -263,7 +263,7 @@ func (s *Service) applyCalculation(
 	w := s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey)
 	// The reads that ApplyTo adds belong to the calculation, which the old API does not
 	// show.
-	next, _, err := w.ApplyTo(
+	if _, _, err = w.ApplyTo(
 		ctx,
 		c,
 		calculation.NewSetAction(calculation.SetPayload{
@@ -274,13 +274,9 @@ func (s *Service) applyCalculation(
 			Path:  []string{"operations"},
 			Value: ops,
 		}),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
-	// A subject whom the edit lets read the calculation holds none of its fields yet,
-	// so the announce carries all of them.
-	w.Announce(next)
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
 		return nil, err
