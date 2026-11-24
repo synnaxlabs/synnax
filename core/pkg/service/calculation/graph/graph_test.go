@@ -192,7 +192,11 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return channelSvc.NewWriter(tx).DeleteManyByNames(ctx, []string{depName})
+		keys, err := channelSvc.KeysByNames(ctx, tx, []string{depName})
+		if err != nil {
+			return err
+		}
+		return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)
 	})).To(Succeed())
 }
 

@@ -12,15 +12,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import {
-  AI_PORT_TYPE,
-  type Model,
-  negativeChannelOf,
-  PORTS,
-  T4_MODEL,
-  T7_MODEL,
-  T8_MODEL,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
@@ -75,18 +67,20 @@ interface SelectCJCSourceFieldProps extends Omit<
   Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
-  model: Model;
+  model: Device.Model;
 }
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: record.KeyedNamed[] = PORTS[model][AI_PORT_TYPE];
+  const ports: record.KeyedNamed[] = Device.PORTS[model][Device.AI_PORT_TYPE];
   return (
     <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
       {/* On a T8, the device source reads the sensor at the channel's own terminal. */}
       <Select.Item itemKey={DEVICE_CJC_SOURCE}>
-        {model === T8_MODEL ? "Terminal" : "Device"}
+        {model === Device.T8_MODEL ? "Terminal" : "Device"}
       </Select.Item>
-      {model !== T8_MODEL && <Select.Item itemKey={AIR_CJC_SOURCE}>Air</Select.Item>}
+      {model !== Device.T8_MODEL && (
+        <Select.Item itemKey={AIR_CJC_SOURCE}>Air</Select.Item>
+      )}
       {ports.map(({ key, name }) => (
         <Select.Item key={key} itemKey={key}>
           {name}
@@ -98,7 +92,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
 
 interface FormProps {
   path: deep.Path<ReadChannel>;
-  deviceModel: Model;
+  deviceModel: Device.Model;
 }
 
 interface NegativeChannelFieldProps {
@@ -119,7 +113,7 @@ const inputOf = (value: number | undefined, pair: number | null): NegativeInput 
  * shows as its own option until the user picks one of the two.
  */
 const NegativeChannelField = ({ port, negChan }: NegativeChannelFieldProps) => {
-  const pair = negativeChannelOf(PForm.useFieldValue(port));
+  const pair = Device.negativeChannelOf(PForm.useFieldValue(port));
   return (
     <PForm.Field<number | undefined> path={negChan} label="Negative channel">
       {({ value, onChange, preview }) => {
@@ -154,7 +148,7 @@ const AnalogForm = ({ path, deviceModel }: FormProps) => {
   return (
     <>
       <MaxVoltageField path={channel.range} />
-      {deviceModel === T7_MODEL && (
+      {deviceModel === Device.T7_MODEL && (
         <NegativeChannelField port={channel.port} negChan={channel.negChan} />
       )}
     </>
@@ -167,7 +161,7 @@ const ThermocoupleForm = ({ path, deviceModel }: FormProps) => {
     <>
       <ThermocoupleTypeField path={channel.thermocoupleType} />
       <TemperatureUnitsField path={channel.units} />
-      {deviceModel === T7_MODEL && (
+      {deviceModel === Device.T7_MODEL && (
         <NegativeChannelField port={channel.port} negChan={channel.negChan} />
       )}
       <PForm.Field path={channel.cjcSource} label="CJC source">
@@ -196,8 +190,11 @@ const SIGNAL_FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
  * The signal fields for each model and channel type, or null for a type that has none.
  * The T4 has fixed input ranges and no thermocouple inputs.
  */
-export const FORMS: Record<Model, Record<ReadChannelType, FC<FormProps> | null>> = {
-  [T4_MODEL]: { analog: null, digital: null, thermocouple: null },
-  [T7_MODEL]: SIGNAL_FORMS,
-  [T8_MODEL]: SIGNAL_FORMS,
+export const FORMS: Record<
+  Device.Model,
+  Record<ReadChannelType, FC<FormProps> | null>
+> = {
+  [Device.T4_MODEL]: { analog: null, digital: null, thermocouple: null },
+  [Device.T7_MODEL]: SIGNAL_FORMS,
+  [Device.T8_MODEL]: SIGNAL_FORMS,
 };

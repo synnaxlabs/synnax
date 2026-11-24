@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
@@ -56,7 +56,6 @@ describe("button symbol", () => {
   it("should paint the preview with a named color from the library", async () => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const named = await client.colors.create({ name: "Fuel", light: "#00ff00" });
     const { container } = render(
       <Preview

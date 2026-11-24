@@ -102,8 +102,9 @@ describe("Resource Queries", () => {
       const callback = vi.fn();
       const release = result.current.subscribe(callback, key);
       await waitFor(() => expect(result.current.getItem(key)?.name).toEqual(g.name));
-      await client.groups.rename(g.key, "renamed");
-      await waitFor(() => expect(result.current.getItem(key)?.name).toEqual("renamed"));
+      const renamed = `renamed_${id.create()}`;
+      await client.groups.rename(g.key, renamed);
+      await waitFor(() => expect(result.current.getItem(key)?.name).toEqual(renamed));
       expect(callback).toHaveBeenCalled();
       release();
     });

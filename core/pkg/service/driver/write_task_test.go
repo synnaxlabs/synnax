@@ -11,8 +11,10 @@ package driver_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +33,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// recordingSink is a driver.Sink whose Writer records the values it receives.
+// recordingSink is a driver.Sink whose Writer records the values it receives. It drops
+// a negative value as a bad command.
 type recordingSink struct {
 	openErr error
 	// writeErr is returned by Write in place of recording the frame.
@@ -40,15 +43,22 @@ type recordingSink struct {
 	health chan error
 	mu     sync.Mutex
 	values []float32
+	skips  *driver.Skips
 	opens  atomic.Int32
 	closes atomic.Int32
 }
 
-func (s *recordingSink) Open(context.Context) (driver.Writer, error) {
+func (s *recordingSink) Open(
+	_ context.Context,
+	skips *driver.Skips,
+) (driver.Writer, error) {
 	s.opens.Add(1)
 	if s.openErr != nil {
 		return nil, s.openErr
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.skips = skips
 	return s, nil
 }
 
@@ -59,7 +69,14 @@ func (s *recordingSink) Write(_ context.Context, fr framer.Frame) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for series := range fr.Series() {
-		s.values = append(s.values, series.Unmarshal[float32]()...)
+		for _, v := range series.Unmarshal[float32]() {
+			s.skips.Read()
+			if v < 0 {
+				s.skips.Skip(time.Now(), fmt.Sprintf("command %v is negative", v))
+				continue
+			}
+			s.values = append(s.values, v)
+		}
 	}
 	return nil
 }
@@ -105,15 +122,15 @@ var _ = Describe("WriteTask", func() {
 		})).To(Succeed())
 	})
 
-	open := func() *driver.WriteTask {
+	open := func(cfgs ...driver.WriteTaskConfig) *driver.WriteTask {
 		GinkgoHelper()
-		wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
+		wt := MustSucceed(driver.NewWriteTask(append([]driver.WriteTaskConfig{{
 			Sink: sink,
 			DB:   db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{cmdCh.Key()},
 			Task:     t,
-		}))
+		}}, cfgs...)...))
 		DeferCleanup(func() { Expect(wt.Stop(false)).To(Succeed()) })
 		return wt
 	}
@@ -145,6 +162,18 @@ var _ = Describe("WriteTask", func() {
 				Channels: channel.Keys{cmdCh.Key()},
 				Task:     t,
 			})).Error().To(MatchError(ContainSubstring("sink: must be non-nil")))
+		})
+
+		It("Should reject a skip hold that is not positive", func() {
+			Expect(driver.NewWriteTask(driver.WriteTaskConfig{
+				Sink:     sink,
+				DB:       db,
+				Status:   statusSvc,
+				Framer:   framerSvc,
+				Channels: channel.Keys{cmdCh.Key()},
+				Task:     t,
+				SkipHold: -time.Second,
+			})).Error().To(MatchError(ContainSubstring("skip_hold: must be positive")))
 		})
 	})
 
@@ -216,6 +245,59 @@ var _ = Describe("WriteTask", func() {
 		It("Should reject a command it does not support", func(ctx SpecContext) {
 			Expect(open().Exec(ctx, task.Command{Type: "tare"})).
 				To(MatchError(driver.ErrUnsupportedCommand))
+		})
+	})
+
+	Describe("Skipped commands", func() {
+		It("Should clear the skip warning when the hold passes with no command",
+			func(ctx SpecContext) {
+				wt := open(driver.WriteTaskConfig{SkipHold: 200 * time.Millisecond})
+				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
+				command(ctx, -1, func(g Gomega) {
+					stat := retrieve(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Skipped 1 of 1 command"))
+					g.Expect(stat.Description).To(Equal("command -1 is negative"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				})
+				Eventually(func() status.Variant { return retrieve(ctx).Variant }).
+					Should(Equal(status.VariantSuccess))
+				Expect(sink.received()).To(BeEmpty())
+			},
+		)
+
+		It("Should keep a write error when the skip hold passes",
+			func(ctx SpecContext) {
+				hold := 200 * time.Millisecond
+				wt := open(driver.WriteTaskConfig{SkipHold: hold})
+				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
+				command(ctx, -1, func(g Gomega) {
+					g.Expect(retrieve(ctx).Message).To(Equal("Skipped 1 of 1 command"))
+				})
+				timeout := errors.Mark(
+					errors.New("publish timed out"), driver.ErrTemporary,
+				)
+				sink.writeErr.Store(&timeout)
+				command(ctx, 1, func(g Gomega) {
+					g.Expect(retrieve(ctx).Description).To(Equal("publish timed out"))
+				})
+				Consistently(func() string { return retrieve(ctx).Description }).
+					WithTimeout(3 * hold).
+					Should(Equal("publish timed out"))
+			},
+		)
+
+		It("Should show a sink error over the skip warning", func(ctx SpecContext) {
+			wt := open()
+			Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
+			command(ctx, -1, func(g Gomega) {
+				g.Expect(retrieve(ctx).Message).To(Equal("Skipped 1 of 1 command"))
+			})
+			sink.health <- errors.Mark(
+				errors.New("broker connection lost"), driver.ErrTemporary,
+			)
+			Eventually(func() string { return retrieve(ctx).Description }).
+				Should(Equal("broker connection lost"))
 		})
 	})
 

@@ -105,6 +105,118 @@ export const UUID_DEFAULT_SCHEMAS: {
   random: randomUUIDDefaultZ,
 };
 
+/** FloatWriteValue is a fixed float. */
+export const floatWriteValueZ = z.object({
+  type: z.literal("float"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.floatZ,
+});
+export interface FloatWriteValue extends z.infer<typeof floatWriteValueZ> {}
+
+/** IntegerWriteValue is a fixed signed integer. */
+export const integerWriteValueZ = z.object({
+  type: z.literal("integer"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.integerZ,
+});
+export interface IntegerWriteValue extends z.infer<typeof integerWriteValueZ> {}
+
+/** UnsignedWriteValue is a fixed unsigned integer. */
+export const unsignedWriteValueZ = z.object({
+  type: z.literal("unsigned"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.unsignedZ,
+});
+export interface UnsignedWriteValue extends z.infer<typeof unsignedWriteValueZ> {}
+
+/** StringWriteValue is a fixed string. */
+export const stringWriteValueZ = z.object({
+  type: z.literal("string"),
+  /** value is the string. */
+  value: z.string(),
+});
+export interface StringWriteValue extends z.infer<typeof stringWriteValueZ> {}
+
+/** BooleanWriteValue is a fixed boolean. */
+export const booleanWriteValueZ = z.object({
+  type: z.literal("boolean"),
+  /** value is the boolean. */
+  value: z.boolean(),
+});
+export interface BooleanWriteValue extends z.infer<typeof booleanWriteValueZ> {}
+
+/** TimestampWriteValue is a fixed timestamp. */
+export const timestampWriteValueZ = z.object({
+  type: z.literal("timestamp"),
+  /** value is the timestamp. */
+  value: telem.timeStampZ,
+});
+export interface TimestampWriteValue extends z.infer<typeof timestampWriteValueZ> {}
+
+/** JSONWriteValue is a fixed JSON value. */
+export const jsonWriteValueZ = z.object({
+  type: z.literal("json"),
+  /** value is the JSON text of the value. */
+  value: z.string(),
+});
+export interface JSONWriteValue extends z.infer<typeof jsonWriteValueZ> {}
+
+/** UuidWriteValue is a fixed UUID. */
+export const uuidWriteValueZ = z.object({
+  type: z.literal("uuid"),
+  /** value is the UUID. */
+  value: z.uuid(),
+});
+export interface UuidWriteValue extends z.infer<typeof uuidWriteValueZ> {}
+
+/** BytesWriteValue is fixed bytes. */
+export const bytesWriteValueZ = z.object({
+  type: z.literal("bytes"),
+  /** value is the base64 text of the value. */
+  value: z.string(),
+});
+export interface BytesWriteValue extends z.infer<typeof bytesWriteValueZ> {}
+
+/**
+ * WriteValue is a fixed value that a write binding sends as its field. Its type is the
+ * kind of the field.
+ */
+export const writeValueZ = z.discriminatedUnion("type", [
+  floatWriteValueZ,
+  integerWriteValueZ,
+  unsignedWriteValueZ,
+  stringWriteValueZ,
+  booleanWriteValueZ,
+  timestampWriteValueZ,
+  jsonWriteValueZ,
+  uuidWriteValueZ,
+  bytesWriteValueZ,
+]);
+export type WriteValue =
+  | FloatWriteValue
+  | IntegerWriteValue
+  | UnsignedWriteValue
+  | StringWriteValue
+  | BooleanWriteValue
+  | TimestampWriteValue
+  | JSONWriteValue
+  | UuidWriteValue
+  | BytesWriteValue;
+
+export const WRITE_VALUE_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<WriteValue, { type: K }>>;
+} = {
+  float: floatWriteValueZ,
+  integer: integerWriteValueZ,
+  unsigned: unsignedWriteValueZ,
+  string: stringWriteValueZ,
+  boolean: booleanWriteValueZ,
+  timestamp: timestampWriteValueZ,
+  json: jsonWriteValueZ,
+  uuid: uuidWriteValueZ,
+  bytes: bytesWriteValueZ,
+};
+
 /** FloatJSONMatch matches a JSON number equal to a float. */
 export const floatJSONMatchZ = jsonBaseMatchZ.extend({
   type: z.literal("float"),
@@ -263,6 +375,13 @@ export const readBindingZ = z.object({
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
 
+/** WriteBaseBinding carries the parts every write binding shares. */
+export const writeBaseBindingZ = z.object({
+  /** field is the key of the message field to fill. */
+  field: fieldKeyZ,
+});
+export interface WriteBaseBinding extends z.infer<typeof writeBaseBindingZ> {}
+
 /** CanIdentifier matches a CAN frame by arbitration identifier. */
 export const canIdentifierZ = z.object({
   type: z.literal("can"),
@@ -358,6 +477,49 @@ export const readMessageZ = z.object({
   bindings: readBindingZ.array().default(() => []),
 });
 export interface ReadMessage extends z.infer<typeof readMessageZ> {}
+
+/** ChannelWriteBinding fills a field with the values of a command channel. */
+export const channelWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("channel"),
+  /**
+   * channel is the command channel whose values the field sends. 0 means that a client
+   * creates the channel on configure.
+   */
+  channel: channel.keyZ.default(0),
+  /**
+   * dataType is the data type of the command channel that a client creates for the
+   * field. Absent takes float64 for a scaled field and the default of the field's kind
+   * for any other. The Core ignores it once the channel exists.
+   */
+  dataType: z.string().optional(),
+});
+export interface ChannelWriteBinding extends z.infer<typeof channelWriteBindingZ> {}
+
+/** ValueWriteBinding fills a field with a fixed value. */
+export const valueWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("value"),
+  /** value is the fixed value that the field sends. */
+  value: writeValueZ,
+});
+export interface ValueWriteBinding extends z.infer<typeof valueWriteBindingZ> {}
+
+export const WRITE_BINDING_TYPES = ["channel", "value"] as const;
+export const writeBindingTypeZ = z.enum(WRITE_BINDING_TYPES);
+export type WriteBindingType = z.infer<typeof writeBindingTypeZ>;
+
+/** WriteBinding fills one message field with a command channel or a fixed value. */
+export const writeBindingZ = z.discriminatedUnion("type", [
+  channelWriteBindingZ,
+  valueWriteBindingZ,
+]);
+export type WriteBinding = ChannelWriteBinding | ValueWriteBinding;
+
+export const WRITE_BINDING_SCHEMAS: {
+  [K in WriteBindingType]: z.ZodType<Extract<WriteBinding, { type: K }>>;
+} = {
+  channel: channelWriteBindingZ,
+  value: valueWriteBindingZ,
+};
 
 /** DelimitedTextField is a field read from one item of a delimited text line. */
 export const delimitedTextFieldZ = textBaseFieldZ.extend({
@@ -591,6 +753,18 @@ export const BINARY_FIELD_SCHEMAS: {
   integer: integerBinaryFieldZ,
   unsigned: unsignedBinaryFieldZ,
 };
+
+/** WriteMessage sends one message of an ICD. */
+export const writeMessageZ = z.object({
+  /** message is the key of the ICD message to send. */
+  message: messageKeyZ,
+  /**
+   * bindings are the fields that command channels or fixed values fill. Each other
+   * field sends its default.
+   */
+  bindings: writeBindingZ.array().default(() => []),
+});
+export interface WriteMessage extends z.infer<typeof writeMessageZ> {}
 
 /** BinaryPayload is a payload of raw bytes. */
 export const binaryPayloadZ = z.object({

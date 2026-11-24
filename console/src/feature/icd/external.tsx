@@ -20,7 +20,7 @@ export * from "@/feature/icd/Toolbar";
 export * from "@/feature/icd/useCreate";
 export * from "@/feature/icd/useImport";
 
-const TAB: Panel.Tab = {
+const TAB = {
   Content: Panel.lazyComponent(() => import("@/feature/icd/editor/Editor"), "Editor"),
   Icon: Icon.Library,
   iconKey: "library",
@@ -40,6 +40,6 @@ const TAB: Panel.Tab = {
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: ICD.useTombstone }),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = { [icd.TYPE_RESOURCE_ID.type]: TAB };
+export const TABS = { [icd.TYPE_RESOURCE_ID.type]: TAB } satisfies Panel.Tabs;

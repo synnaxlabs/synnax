@@ -14,11 +14,10 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, errors, primitive, unique } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { useByKeys } from "@/feature/ni/device/queries";
-import { type Device, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
+import { Channel } from "@/feature/ni/task/channel";
 import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
-import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import { COUNTER_INPUT, holdState } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
@@ -110,11 +109,11 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const deviceOf = (c: CIChannel) => c.device;
 
-const hasPortList = (devices: Device[]): boolean =>
+const hasPortList = (devices: Device.Device[]): boolean =>
   devices.some(({ properties }) => properties.hardware != null);
 
 const Form: FC = () => {
-  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  const devices = Device.useByKeys(Task.useChannelDeviceKeys(root.config.channels));
   PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
@@ -130,7 +129,7 @@ const Form: FC = () => {
             devices={devices}
             deviceOf={deviceOf}
             create={(channels, device, port) =>
-              createNextCIChannel(channels, { device, port }, devices)
+              Channel.createNextCI(channels, { device, port }, devices)
             }
             rack={devices[0].rack}
           />
@@ -143,7 +142,7 @@ const Form: FC = () => {
       details={channelDetails}
       detailsTitle={detailsTitle}
       createChannel={(channels, copy) =>
-        createNextCIChannel(channels, { copy }, devices)
+        Channel.createNextCI(channels, { copy }, devices)
       }
       tareable
       contextMenuItems={Task.readChannelContextMenuItem}
@@ -160,7 +159,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   const allDevices = await client.devices.retrieve({
     key: devices,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
@@ -227,7 +226,8 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+      if (devModified)
+        await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
     }
   }
 
