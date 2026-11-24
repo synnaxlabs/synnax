@@ -684,6 +684,39 @@ describe("range/Toolbar", () => {
     });
   });
 
+  describe("unfavorite all", () => {
+    it("should unfavorite every range on click and keep them on the Core", async () => {
+      const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
+      const first = await createRange(uniqueName("unfavorite"), span);
+      const second = await createRange(uniqueName("unfavorite"), span);
+      const { store } = await renderToolbar({ favorites: [first, second] });
+      fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
+      await waitFor(() =>
+        expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
+      );
+      expect((await reader.ranges.retrieve(first.key)).name).toBe(first.name);
+    });
+
+    it("should clear the favorites of deleted ranges too", async () => {
+      const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
+      const kept = await createRange(uniqueName("unfavorite"), span);
+      const deleted = await createRange(uniqueName("unfavorite"), span);
+      await client.ranges.delete(deleted.key);
+      const { store } = await renderToolbar({ favorites: [kept, deleted] });
+      await findLine("Favorites", kept.name);
+      fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+      await waitFor(() =>
+        expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
+      );
+    });
+
+    it("should hide the action when no range is favorited", async () => {
+      await renderToolbar();
+      await screen.findByText("Star a range to add it here");
+      expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
+    });
+  });
+
   describe("drag", () => {
     it("should picture a dragged line as its range", async () => {
       const rng = await createRange(

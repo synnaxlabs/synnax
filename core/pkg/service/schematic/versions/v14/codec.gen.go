@@ -3756,7 +3756,7 @@ func (sb *StateBinding) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv spatial.Bounds
+			var hv spatial.ClosedBounds
 			if hv.Lower, err = r.Float64(); err != nil {
 				return err
 			}

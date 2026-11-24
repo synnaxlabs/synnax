@@ -107,6 +107,9 @@ type streamIterator struct {
 	// each index lookup once. It is reset before each command and each chunk, because
 	// writes can change the index between them.
 	cache *index.Cache
+	// views holds the view of each clock of a read on the pointer log, which each step
+	// loads again with the reset of cache.
+	views []*logView
 	// limited is true when the read has a limit reduction. A limited read is never
 	// chunked, because a chunk edge would cut its groups.
 	limited   bool
@@ -159,6 +162,15 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+// reset starts a step of the read: it resets the cache and makes each view load again
+// at its next seek, since writes can change the state between steps.
+func (s *streamIterator) reset() {
+	s.cache.Reset()
+	for _, v := range s.views {
+		v.stale()
+	}
+}
+
 func (s *streamIterator) exec(
 	ctx context.Context,
 	req IteratorRequest,
@@ -166,7 +178,7 @@ func (s *streamIterator) exec(
 	if err := s.validateCommand(req.Command); err != nil {
 		return false, err
 	}
-	s.cache.Reset()
+	s.reset()
 	switch req.Command {
 	case IteratorCommandNext:
 		if s.limited || req.Span == AutoSpan {
@@ -260,7 +272,7 @@ func (s *streamIterator) readInChunks(
 		last = max(last, tr.End)
 	}
 	for {
-		s.cache.Reset()
+		s.reset()
 		end := last
 		probed := make(set.Set[channel.Key], len(s.internal))
 		for j, i := range s.internal {

@@ -144,7 +144,7 @@ func Repair(
 	if err = openFS(o); err != nil {
 		return Report{}, err
 	}
-	r := &recovery{fs: o.fs, readOnly: true}
+	r := &recovery{fs: o.fs, readOnly: true, logSize: o.logFileSize}
 	old, err := r.list()
 	if err != nil {
 		return Report{}, err

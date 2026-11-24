@@ -60,7 +60,7 @@ func writeSamples(
 	for i := 1; i < len(keys); i++ {
 		series[i] = telem.NewSeriesV(1.0, 2.0, 3.0)
 	}
-	Expect(db.Write(ctx, start*telem.SecondTS, telem.MultiFrame(keys, series))).
+	Expect(write(ctx, db, start*telem.SecondTS, telem.MultiFrame(keys, series))).
 		To(Succeed())
 }
 

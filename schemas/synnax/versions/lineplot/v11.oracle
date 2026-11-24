@@ -47,8 +47,15 @@ TimeMode enum {
 }
 
 Axis struct extends v5.Axis {
+    bounds    spatial.ClosedBounds? {
+        @doc value """
+            is the value-space window of the axis. Absent while both edges are auto. An
+            edge whose matching entry in manual_bounds is false is overwritten locally
+            on every render; a manual edge is the user-set bound.
+        """
+    }
     type
-    time_mode TimeMode? {
+    time_mode TimeMode?             {
         @doc value "selects where an x axis draws the ranges. Null is absolute."
     }
 }

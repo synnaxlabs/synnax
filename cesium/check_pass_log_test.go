@@ -227,7 +227,7 @@ func writeStamps(ctx context.Context, key cesium.ChannelKey, n int) *fault.FS {
 	for i := range stamps {
 		stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
 	}
-	Expect(db.Write(ctx, stamps[0], telem.MultiFrame(
+	Expect(write(ctx, db, stamps[0], telem.MultiFrame(
 		[]cesium.ChannelKey{key},
 		[]telem.Series{telem.NewSeries(stamps)},
 	))).To(Succeed())

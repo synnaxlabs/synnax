@@ -22,13 +22,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // holdFS holds the write of a log frame that holds marker, until unhold.
@@ -38,6 +44,28 @@ type holdFS struct {
 	marker  []byte
 	waiting chan struct{}
 	release chan struct{}
+	// removeDir and removeErr fail each removal of a segment file under removeDir.
+	removeDir string
+	removeErr error
+}
+
+// failRemoves makes each later removal of a segment file under dir fail with err, or
+// lets removals through when err is nil.
+func (f *holdFS) failRemoves(dir string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removeDir, f.removeErr = dir, err
+}
+
+func (f *holdFS) Remove(name string) error {
+	f.mu.Lock()
+	dir, err := f.removeDir, f.removeErr
+	f.mu.Unlock()
+	if err != nil && strings.HasPrefix(name, dir+"/") &&
+		strings.HasSuffix(name, ".seg") {
+		return err
+	}
+	return f.FS.Remove(name)
 }
 
 func (f *holdFS) Sub(name string) (xfs.FS, error) {
@@ -143,6 +171,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, frame(seconds...), nil))
@@ -170,6 +199,92 @@ var _ = Describe("Delete on the pointer log", func() {
 	span := func(start, end telem.TimeStamp) telem.TimeRange {
 		return (start * telem.SecondTS).Range(end * telem.SecondTS)
 	}
+
+	Describe("Reads of the keys on one clock", func() {
+		var (
+			more cesium.ChannelKey
+			all  []cesium.ChannelKey
+			iter interface {
+				SeekFirst() bool
+				SeekGE(stamp telem.TimeStamp) bool
+				Next(span telem.TimeSpan) bool
+				Value() cesium.Frame
+				Close() error
+			}
+		)
+		// writeAll writes the stamps from second from, ten of them, to idx, and the
+		// seconds as values to data and more.
+		writeAll := func(ctx context.Context, from int) {
+			GinkgoHelper()
+			seconds := make([]telem.TimeStamp, 10)
+			ints := make([]int64, 10)
+			for i := range seconds {
+				seconds[i], ints[i] = telem.TimeStamp(from+i), int64(from+i)
+			}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: all,
+				Clock:    idx,
+				Start:    telem.TimeStamp(from) * telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(all, []telem.Series{
+				telem.NewSeriesSecondsTSV(seconds...),
+				telem.NewSeries(ints),
+				telem.NewSeries(ints),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		BeforeEach(func(ctx SpecContext) {
+			more = GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: more, Name: "more", Index: idx, DataType: telem.Int64T,
+			})).To(Succeed())
+			all = []cesium.ChannelKey{idx, data, more}
+			writeAll(ctx, 10)
+			iter = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data, more},
+			}))
+			DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
+		})
+		// step returns the values of each key in the next span. Each value is the
+		// second of its stamp, so a key whose samples and stamps came from two states
+		// returns values outside the span.
+		step := func(span telem.TimeSpan) map[cesium.ChannelKey][]int64 {
+			GinkgoHelper()
+			Expect(iter.Next(span)).To(BeTrue())
+			out := make(map[cesium.ChannelKey][]int64)
+			for _, key := range []cesium.ChannelKey{data, more} {
+				for _, se := range iter.Value().Get(key).Series {
+					for i := range int(se.Len()) {
+						out[key] = append(out[key], se.ValueAt[int64](i))
+					}
+				}
+			}
+			return out
+		}
+		both := func(values ...int64) map[cesium.ChannelKey][]int64 {
+			return map[cesium.ChannelKey][]int64{data: values, more: values}
+		}
+
+		It("Should read each key from the state of its last step when a delete takes "+
+			"stamps of the clock between two steps", func() {
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(step(3 * telem.Second)).To(Equal(both(10, 11, 12)))
+			Expect(db.DeleteTimeRange(context.Background(), all, span(13, 16))).
+				To(Succeed())
+			Expect(step(7 * telem.Second)).To(Equal(both(13, 14, 15, 16, 17, 18, 19)))
+		})
+
+		It("Should read the samples that a write adds between two steps at a seek of "+
+			"the second", func(ctx SpecContext) {
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(step(3 * telem.Second)).To(Equal(both(10, 11, 12)))
+			writeAll(ctx, 20)
+			Expect(iter.SeekGE(20 * telem.SecondTS)).To(BeTrue())
+			Expect(step(5 * telem.Second)).To(Equal(both(20, 21, 22, 23, 24)))
+		})
+	})
 
 	It("Should delete a range from the middle of the data of a key", func(
 		ctx SpecContext,
@@ -229,6 +344,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    10 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -244,8 +360,8 @@ var _ = Describe("Delete on the pointer log", func() {
 			To(Succeed())
 		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, text)).Get(text).Series
 		Expect(series).To(HaveLen(2))
-		Expect(series[0]).To(telem.MatchSeriesDataV("a"))
-		Expect(series[1]).To(telem.MatchSeriesDataV("dddd"))
+		Expect(series[0]).To(MatchSeriesDataV("a"))
+		Expect(series[1]).To(MatchSeriesDataV("dddd"))
 	})
 
 	DescribeTable(
@@ -295,6 +411,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -353,6 +470,63 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
 		})
 
+	It(
+		"Should log a failed removal at the last unpin of a dropped key, keep its "+
+			"error out of every read, and leave the file to the next open",
+		func(ctx SpecContext) {
+			write(ctx, 10, 11)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			core, logs := observer.New(zapcore.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			db = MustOpen(cesium.Open(
+				ctx,
+				"",
+				cesium.WithFS(fs),
+				cesium.WithPointerLog(),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+				cesium.WithIdentity(id),
+				cesium.WithInstrumentation(
+					alamos.New("test", alamos.WithLogger(logger)),
+				),
+			))
+			stop = StartRun(db.Run)
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			dir := strconv.FormatUint(uint64(data), 10)
+			fs.failRemoves(dir, xerrors.New("remove failed"))
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
+			// A seek loads the view again, which unpins the segments of the dropped
+			// key.
+			iter.SeekFirst()
+			Expect(iter.Error()).ToNot(HaveOccurred())
+			Expect(iter.Close()).To(Succeed())
+			const message = "Failed to remove the file of a dead segment"
+			entries := logs.FilterMessage(message).All()
+			Expect(entries).ToNot(BeEmpty())
+			fields := entries[0].ContextMap()
+			Expect(fields).To(HaveKeyWithValue("key", data))
+			Expect(fields["file"]).To(HavePrefix(dir + "/"))
+			Expect(fields["error"]).To(ContainSubstring("remove failed"))
+			Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx).Len()).
+				To(Equal(int64(2)))
+			Expect(MustSucceed(fs.List(dir))).ToNot(BeEmpty())
+			fs.failRemoves("", nil)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			open(ctx)
+			Eventually(func() (int, error) {
+				infos, err := fs.List(dir)
+				return len(infos), err
+			}).Should(BeZero())
+		},
+	)
+
 	It("Should finish a read that pinned the segments of a key across its Drop",
 		func(ctx SpecContext) {
 			write(ctx, 10, 11)
@@ -362,9 +536,7 @@ var _ = Describe("Delete on the pointer log", func() {
 				Channels: []cesium.ChannelKey{data},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
-			Expect(
-				db.Drop(context.Background(), []cesium.ChannelKey{data}),
-			).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			var got []int64
 			for iter.Next(cesium.AutoSpan) {
 				for _, s := range iter.Value().Get(data).Series {
@@ -387,6 +559,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12, 13)
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    30 * telem.SecondTS,
 			}))
 			tr := span(12, 15)

@@ -63,7 +63,7 @@ func (e *engine) write(
 	c, err := checkpoint.New(checkpoint.Config{
 		FS:       e.fs,
 		DB:       r.db,
-		LogSize:  log.FileSize,
+		LogSize:  r.logSize,
 		Prepared: func(uint64, error) {},
 		Executor: o.executor,
 		Parts:    r.parts,

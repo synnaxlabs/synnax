@@ -33,7 +33,8 @@ const (
 	FrameHeaderSize = 32
 	// MaxFrame is the largest frame, its header included.
 	MaxFrame = 16 << 20
-	// DeleteReserve is the space at the end of a log file that only deletes may use.
+	// DeleteReserve is the space at the end of a log file that only deletes, Restarts,
+	// and Seals may use.
 	DeleteReserve = 1 << 20
 
 	headerVersion uint16 = 1

@@ -1,0 +1,444 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+
+import type { channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
+import type { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
+import { insertion } from "@/framer/cache/insertion";
+
+/** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
+export const RAW_LEVEL = 16;
+
+/** A cached part of one channel's samples. */
+export interface Block {
+  readonly channel: channel.Key;
+  /** The span of the block's samples. */
+  readonly range: TimeRange;
+  /** When the oldest fetch the block answers reads with landed. */
+  readonly fetchedAt: TimeStamp;
+  /** The bytes of the block's samples. */
+  readonly bytes: number;
+  /** True while the block must stay cached, as when a subscription serves it. */
+  readonly held: boolean;
+  /**
+   * True when the fetch saw the channel's samples reach the block's coverage end.
+   * Appends land after the channel's newest sample, so none lands in a sealed block.
+   */
+  readonly sealed: boolean;
+  /** The number of subscriptions that serve the block's series. */
+  pins: number;
+}
+
+/** @returns the tile of the raw block that holds the timestamp. */
+export const rawTile = (ts: TimeStamp): number => grid.tileAt(ts, RAW_LEVEL);
+
+/** @returns the store key of the channel's raw block at the tile. */
+export const rawKey = (ch: channel.Key, tile: number): string => `${ch}/raw/${tile}`;
+
+const OFFSET_MASK = (1n << 32n) - 1n;
+
+/** @returns the alignment of the sample at the offset of the domain. */
+export const alignmentOf = (domain: number | bigint, offset: number): bigint =>
+  (BigInt(domain) << 32n) | BigInt(offset);
+
+/** @returns the domain of the alignment: a Core domain, or a raw block tile. */
+export const domainOf = (alignment: bigint): bigint => alignment >> 32n;
+
+/** @returns the sample offset of the alignment in its domain. */
+export const offsetOf = (alignment: bigint): number => Number(alignment & OFFSET_MASK);
+
+const derive = (
+  s: Series,
+  {
+    alignment = s.alignment,
+    timeRange = s.timeRange,
+  }: { alignment?: bigint; timeRange?: TimeRange },
+): Series =>
+  new Series({
+    data: s.data,
+    dataType: s.dataType,
+    timeRange,
+    sampleOffset: s.sampleOffset,
+    alignment,
+    alignmentMultiple: s.alignmentMultiple,
+    clock: s.clock,
+  });
+
+// A run of index samples with consecutive Core alignments.
+interface Segment {
+  start: bigint;
+  end: bigint;
+  offset: number;
+}
+
+/**
+ * Sets block alignment on a fetch's series of one channel in one block. Block alignment
+ * is (tile << 32) | offset, where offset counts index samples from the block start.
+ * @param tile - The raw block the series are in.
+ * @param base - The index samples in the block before the fetch's start.
+ * @param timestamps - The fetch's series of the channel's index in the block, in time
+ * order.
+ * @param series - The fetch's series of the channel in the block.
+ * @returns the non-empty series, with block alignment.
+ * @throws {UnexpectedError} if a series has no index samples with its Core alignment.
+ */
+export const align = (
+  tile: number,
+  base: number,
+  timestamps: Series[],
+  series: Series[],
+): Series[] => {
+  const segments: Segment[] = [];
+  let offset = base;
+  for (const s of timestamps) {
+    const last = segments.at(-1);
+    const end = s.alignment + BigInt(s.length);
+    if (last?.end === s.alignment) last.end = end;
+    else segments.push({ start: s.alignment, end, offset });
+    offset += s.length;
+  }
+  return series
+    .filter((s) => s.length > 0)
+    .map((s) => {
+      const { lower, upper } = s.alignmentBounds;
+      const seg = segments.find((g) => g.start <= lower && upper <= g.end);
+      if (seg == null)
+        throw new UnexpectedError(
+          `no index samples share alignment ${lower} in raw block ${tile}`,
+        );
+      return derive(s, {
+        alignment: alignmentOf(tile, seg.offset + Number(lower - seg.start)),
+      });
+    });
+};
+
+/**
+ * @returns the position of the first sample of the timestamp series at or after t,
+ * searching from lo.
+ */
+export const search = (s: Series, t: bigint, lo = 0): number =>
+  lo + array.partitionPoint(s.length - lo, (i) => BigInt(s.data[lo + i]) >= t);
+
+/** @returns the number of samples of the timestamp series stamped before ts. */
+export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>
+  timestamps.reduce((count, s) => count + search(s, ts.valueOf()), 0);
+
+/** The index samples and samples of one channel that a fetch read in one block. */
+export interface Part {
+  timestamps: Series[];
+  series: Series[];
+}
+
+const cut = (s: Series, tr: TimeRange): Series =>
+  derive(s, {
+    timeRange: new TimeRange(
+      TimeStamp.max(s.timeRange.start, tr.start),
+      TimeStamp.min(s.timeRange.end, tr.end),
+    ),
+  });
+
+/**
+ * Splits a fetch's series of one channel at raw block edges, and cuts the time range of
+ * each part to its block. A series cut in two copies its samples, so a block never
+ * holds the buffer of samples another block holds. Samples with no index sample of the
+ * same Core alignment stay out, as when the Core commits a channel before its index.
+ * @param timestamps - The fetch's series of the channel's index, in time order.
+ * @param series - The fetch's series of the channel, in time order.
+ * @returns the part of each raw block that holds index samples, by block tile, in
+ * block order.
+ */
+export const split = (timestamps: Series[], series: Series[]): Map<number, Part> => {
+  const parts = new Map<number, Part>();
+  // edges holds the Core alignment bounds of the index samples of each part, in order.
+  const edges: Array<{ part: Part; range: TimeRange; lower: bigint; upper: bigint }> =
+    [];
+  for (const ts of timestamps)
+    for (let lo = 0; lo < ts.length;) {
+      const tile = rawTile(new TimeStamp(ts.data[lo]));
+      const range = grid.tileRange({ level: RAW_LEVEL, tile });
+      const hi = search(ts, range.end.valueOf(), lo);
+      const part = map.getOrInsert(parts, tile, () => ({
+        timestamps: [],
+        series: [],
+      }));
+      part.timestamps.push(cut(ts.slice(lo, hi), range));
+      const lower = ts.alignment + BigInt(lo);
+      edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
+      lo = hi;
+    }
+  let e = 0;
+  for (const s of series) {
+    const { lower, upper } = s.alignmentBounds;
+    while (e < edges.length && edges[e].upper <= lower) e++;
+    for (let i = e; i < edges.length && edges[i].lower < upper; i++) {
+      const { part, range } = edges[i];
+      const from = edges[i].lower > lower ? edges[i].lower : lower;
+      const to = edges[i].upper < upper ? edges[i].upper : upper;
+      part.series.push(cut(s.slice(Number(from - lower), Number(to - lower)), range));
+    }
+  }
+  return parts;
+};
+
+const sumBytes = (series: Series[]): number =>
+  math.sum(series.map((s) => s.byteCapacity.valueOf()));
+
+/**
+ * One channel's raw samples over one level 16 tile of the grid, in block alignment.
+ * Fetched series cover the block from its start. While a join writes the stream into
+ * the block, the stream's buffer holds the samples after them.
+ */
+export class Raw implements Block {
+  readonly range: TimeRange;
+  fetchedAt = TimeStamp.ZERO;
+  sealed = false;
+  pins = 0;
+  /** Fetched samples cover [coveredStart, coveredEnd). */
+  coveredStart: TimeStamp;
+  coveredEnd: TimeStamp;
+  /** The index samples in [range.start, coveredEnd). */
+  coveredCount = 0;
+  private _fetched: Series[] = [];
+  /** The channel's live buffer while a stream writes into the block. */
+  buffer: dynamic.Dynamic | null = null;
+  /** Settles when the fetch that fills the block lands. */
+  pending: Promise<void> | null = null;
+
+  constructor(
+    readonly channel: channel.Key,
+    readonly tile: number,
+    private readonly now: () => TimeStamp = () => TimeStamp.now(),
+  ) {
+    this.range = grid.tileRange({ level: RAW_LEVEL, tile });
+    this.coveredStart = this.range.start;
+    this.coveredEnd = this.range.start;
+  }
+
+  /** Fetched series in alignment order, with no overlap. */
+  get fetched(): readonly Series[] {
+    return this._fetched;
+  }
+
+  get bytes(): number {
+    const live = this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0;
+    return sumBytes(this._fetched) + live;
+  }
+
+  /** True while a join writes the stream's samples into the block. */
+  get joined(): boolean {
+    return this.buffer != null;
+  }
+
+  get held(): boolean {
+    return this.pins > 0 || this.buffer != null || this.pending != null;
+  }
+
+  /**
+   * @returns true when fetched samples cover the part of tr inside the block. A joined
+   * block covers every span from coveredStart, since the stream delivers its samples.
+   */
+  covers(tr: TimeRange): boolean {
+    if (TimeStamp.max(tr.start, this.range.start).before(this.coveredStart))
+      return false;
+    return (
+      this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd)
+    );
+  }
+
+  /**
+   * Drops the fetched series that end at or before the alignment, and moves
+   * coveredStart to start. Alignments and coveredCount stay the same.
+   * @param alignment - The block alignment of the first sample to keep.
+   * @param start - The time of the sample at the alignment.
+   */
+  trim(alignment: bigint, start: TimeStamp): void {
+    this._fetched = this._fetched.filter((s) => s.alignmentBounds.upper > alignment);
+    this.coveredStart = TimeStamp.max(this.coveredStart, start);
+  }
+
+  /**
+   * Splits the fetched series that holds the alignment in two views of its samples, so
+   * that the second starts at the alignment.
+   * @param alignment - The block alignment of the first sample of the second view.
+   * @param at - The time of the sample at the alignment.
+   */
+  split(alignment: bigint, at: TimeStamp): void {
+    const i = this._fetched.findIndex(
+      (s) => s.alignment < alignment && alignment < s.alignmentBounds.upper,
+    );
+    if (i === -1) return;
+    const s = this._fetched[i];
+    const k = Number(alignment - s.alignment);
+    const { start, end } = s.timeRange;
+    this._fetched.splice(
+      i,
+      1,
+      derive(s.sub(0, k), { timeRange: new TimeRange(start, at) }),
+      derive(s.sub(k), { timeRange: new TimeRange(at, end) }),
+    );
+  }
+
+  /**
+   * Moves the coverage to at least end, sets the count of index samples it holds, and
+   * seals the block. Call it only when the channel's samples reach end.
+   */
+  extend(end: TimeStamp, count: number): void {
+    if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
+    this.coveredEnd = TimeStamp.max(this.coveredEnd, end);
+    this.coveredCount = count;
+    this.sealed = true;
+  }
+
+  /**
+   * Drops the fetched samples, so reads fetch the block again.
+   * @returns true if the block held fetched samples or coverage.
+   */
+  expire(): boolean {
+    if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
+      return false;
+    this._fetched = [];
+    this.coveredStart = this.range.start;
+    this.coveredEnd = this.range.start;
+    this.coveredCount = 0;
+    this.sealed = false;
+    return true;
+  }
+
+  /**
+   * Drops the samples from the alignment on, and moves the coverage end back to at, so
+   * reads fetch the block again from there.
+   * @param alignment - The block alignment of the first sample to drop.
+   * @param at - The time of the sample at the alignment. Kept samples are before it.
+   */
+  truncate(alignment: bigint, at: TimeStamp): void {
+    this.split(alignment, at);
+    this._fetched = this._fetched.filter((s) => s.alignment < alignment);
+    const newest = this._fetched.at(-1);
+    if (newest?.timeRange.end.after(at) === true)
+      this._fetched[this._fetched.length - 1] = derive(newest, {
+        timeRange: new TimeRange(newest.timeRange.start, at),
+      });
+    this.coveredEnd = at;
+    this.coveredCount = offsetOf(alignment);
+    this.sealed = false;
+  }
+
+  /**
+   * @returns the block offset of the first index sample stamped at or after t, or null
+   * when the block's samples cannot tell it. Call it only on a block of an index
+   * channel.
+   */
+  indexOffset(t: TimeStamp): number | null {
+    if (!t.after(this.coveredStart)) return null;
+    if (!this.joined && this.coveredEnd.before(t)) return null;
+    const live = this.buffer?.leadingBuffer;
+    const series = (live == null ? this._fetched : [...this._fetched, live]).filter(
+      (s) => s.length > 0,
+    );
+    const v = t.valueOf();
+    const after = series.find((s) => BigInt(s.data[s.length - 1]) >= v);
+    if (after != null) return offsetOf(after.alignment) + search(after, v);
+    const last = series.at(-1);
+    return last == null ? null : offsetOf(last.alignment) + last.length;
+  }
+
+  /**
+   * Adds the series of a fetch from coveredEnd. Samples the block already holds win.
+   * @param series - The fetch's series in block alignment.
+   * @param coveredEnd - The end of the span the fetch answers for.
+   * @param coveredCount - The index samples in the block before coveredEnd.
+   */
+  fill(series: Series[], coveredEnd: TimeStamp, coveredCount: number): void {
+    if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
+    series.forEach((s) => this.insert(s));
+    this.coveredEnd = coveredEnd;
+    this.coveredCount = coveredCount;
+  }
+
+  /**
+   * @returns the series whose samples overlap tr in time order, the stream's buffer
+   * last. The buffer's span ends at its last stamped write, not at its open end.
+   * @param index - The block of the channel's index with the same tile. When given,
+   * the series end at the end of tr.
+   */
+  seriesIn(tr: TimeRange, index?: Raw): Series[] {
+    const spans = this._fetched.map((s) => ({ s, span: s.timeRange }));
+    const live = this.buffer?.leadingBuffer;
+    const range = this.buffer?.dataTimeRange;
+    if (live != null && range != null && live.length > 0)
+      spans.push({ s: live, span: range });
+    let end: bigint | null = null;
+    return spans
+      .filter(({ span }) => span.overlapsWith(tr))
+      .flatMap(({ s, span }) => {
+        if (index == null || !span.end.after(tr.end)) return [s];
+        end ??= alignmentOf(this.tile, index.offsetAt(tr.end.valueOf()));
+        const count = Math.min(Number(end - s.alignment), s.length);
+        if (count <= 0) return [];
+        const { start } = s.timeRange;
+        return [derive(s.sub(0, count), { timeRange: new TimeRange(start, tr.end) })];
+      });
+  }
+
+  /** @returns the block offset of the first index sample stamped at or after t. */
+  offsetAt(t: bigint): number {
+    const live = this.buffer?.leadingBuffer;
+    const series = live == null ? this._fetched : [...this._fetched, live];
+    return series.reduce(
+      (offset, s) =>
+        s.length > 0 && BigInt(s.data[0]) <= t
+          ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
+          : offset,
+      0,
+    );
+  }
+
+  /**
+   * @returns the piece, starting where the block's newest fetched series ends, or at
+   * the block's start, as a read starts a run's samples.
+   */
+  continued(p: Series): Series {
+    const start = this._fetched.at(-1)?.timeRange.end ?? this.range.start;
+    return derive(p, { timeRange: new TimeRange(start, p.timeRange.end) });
+  }
+
+  /** Ends the newest fetched series at the block's end, as a read cuts a run. */
+  cutNewest(): void {
+    const newest = this._fetched.at(-1);
+    if (newest != null) newest.timeRange.end = this.range.end;
+  }
+
+  private insert(series: Series): void {
+    const plan = insertion.buildPlan(
+      this._fetched.map((s) => s.alignmentBounds),
+      series.alignmentBounds,
+    );
+    if (plan == null) return;
+    const { removeBefore, removeAfter, insertInto, deleteInBetween } = plan;
+    let s = series.slice(removeBefore, series.length - removeAfter);
+    if (s.length === 0) return;
+    // A slice keeps the untrimmed time range, which overlaps the neighbors it was
+    // trimmed against.
+    if (removeBefore > 0 || removeAfter > 0) {
+      const { start, end } = s.timeRange;
+      s = derive(s, {
+        timeRange: new TimeRange(
+          removeBefore > 0 ? this._fetched[insertInto - 1].timeRange.end : start,
+          removeAfter > 0
+            ? this._fetched[insertInto + deleteInBetween].timeRange.start
+            : end,
+        ),
+      });
+    }
+    this._fetched.splice(insertInto, deleteInBetween, s);
+  }
+}

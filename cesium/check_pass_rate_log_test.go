@@ -148,6 +148,7 @@ var _ = Describe("Check pass rate on the pointer log", func() {
 		)
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    1,
 		}))
 		held := func() bool {

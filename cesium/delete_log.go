@@ -246,9 +246,9 @@ type stampReader struct {
 // from the records of its parts that reach the time range of p, both read from one
 // Channel. The caller closes it.
 func (e *engine) openStamps(clock ChannelKey, p state.Pointer) (*stampReader, error) {
-	ch, h, err, unlinkErr := e.load(clock, held{})
+	ch, h, err := e.load(clock, held{})
 	r := &stampReader{e: e, clock: clock, samples: int(p.Samples), span: -1, held: h}
-	if err = errors.Join(err, unlinkErr); err != nil {
+	if err != nil {
 		return nil, errors.Join(err, r.close())
 	}
 	if ch == nil {
@@ -392,7 +392,9 @@ func (r *stampReader) load(s int, off int64) error {
 // close closes the handle of the segment that r reads and unpins what the load of
 // the clock pinned. It is called once.
 func (r *stampReader) close() error {
-	return errors.Join(r.closeHandle(), r.e.unpin(r.held))
+	err := r.closeHandle()
+	r.e.unpin(r.held)
+	return err
 }
 
 // closeHandle closes the handle of the segment that r reads.
