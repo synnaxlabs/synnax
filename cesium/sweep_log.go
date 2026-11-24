@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"os"
 	"path"
 	"slices"
@@ -37,40 +38,14 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 }
 
 // dropLog drops keys on the pointer log layout, as Drop does: one durable Drop record
-// per key, then the removal of its files and its metadata. It keeps a clock that a key
-// outside keys uses, and logs the Drop of each clock after the Drops of the keys it
-// times. The caller holds db.mu.
-func (db *DB) dropLog(keys []ChannelKey) error {
-	keys = lo.Uniq(keys)
-	dropping := set.New(keys...)
-	snapshot, err := db.engine.state.Snapshot()
+// per key, then, once the log covers it, the removal of its files and its metadata. It
+// keeps a clock that a key outside keys uses, and logs the Drop of each clock after the
+// Drops of the keys it times. The caller holds db.mu.
+func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
+	dropped, err := db.dropOrder(lo.Uniq(keys))
 	if err != nil {
 		return err
 	}
-	var dropped, clocks []ChannelKey
-	for _, k := range keys {
-		ch, live := db.mu.channels[k]
-		if !live {
-			ch, live = db.mu.hiddenChannels[k]
-		}
-		stored := db.engine.state.Channel(k)
-		if !live && stored == nil {
-			continue
-		}
-		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
-		if err != nil {
-			return err
-		}
-		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
-			dropped = append(dropped, k)
-			continue
-		}
-		if !db.indexUsedOutside(k, dropping) &&
-			!clockStoredOutside(snapshot, own.Users, k, dropping) {
-			clocks = append(clocks, k)
-		}
-	}
-	dropped = append(dropped, clocks...)
 	if len(dropped) == 0 {
 		return nil
 	}
@@ -91,24 +66,66 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	for _, k := range dropped {
 		entry.Add(&log.Drop{Key: k})
 	}
-	if _, err = db.engine.log.Append(&entry).Wait(); err != nil {
+	sequence, err := db.engine.log.Append(&entry).Wait()
+	if err != nil {
+		return err
+	}
+	for _, k := range dropped {
+		delete(db.mu.channels, k)
+		delete(db.mu.hiddenChannels, k)
+	}
+	if err = db.engine.waitCovered(ctx, sequence); err != nil {
 		return err
 	}
 	err = db.engine.reap()
 	for _, k := range dropped {
-		delete(db.mu.channels, k)
-		delete(db.mu.hiddenChannels, k)
 		err = errors.Join(err, db.removeLogDir(k))
 	}
 	return err
 }
 
-// removeLogDir removes the files in the directory of a dropped key that no reader may
-// still read, and the directory once it is empty. The Drop gave the segments of the key
-// that the state holds to the engine, which unlinks each file once no reader pins it.
-// While a load of the key pins parts, its segment files stay: the next open's orphan
-// pass removes the version 1 ones, and the old files of version 0 segments stay. A
-// directory that a reader keeps goes at a later Sweep, as the directory of a torn key.
+// dropOrder returns the keys of keys that the DB holds, in the order that their Drops
+// log: each key that is no clock, then each clock that no key outside keys uses. The
+// caller holds db.mu.
+func (db *DB) dropOrder(keys []ChannelKey) ([]ChannelKey, error) {
+	dropping := set.New(keys...)
+	snapshot, err := db.engine.state.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	var dropped, clocks []ChannelKey
+	for _, k := range keys {
+		ch, live := db.mu.channels[k]
+		if !live {
+			ch, live = db.mu.hiddenChannels[k]
+		}
+		stored := db.engine.state.Channel(k)
+		if !live && stored == nil {
+			continue
+		}
+		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
+		if err != nil {
+			return nil, err
+		}
+		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
+			dropped = append(dropped, k)
+			continue
+		}
+		if !db.indexUsedOutside(k, dropping) &&
+			!clockStoredOutside(snapshot, own.Users, k, dropping) {
+			clocks = append(clocks, k)
+		}
+	}
+	return append(dropped, clocks...), nil
+}
+
+// removeLogDir removes the files in the directory of a dropped key that no reader pins,
+// and the directory once it is empty. The Drop gave the segments of the key to the
+// engine, which unlinks each pinned file once the log covers the Drop and no reader
+// pins it. While a load of the key pins parts, its segment files stay: the next open's
+// orphan pass removes the version 1 ones, and the old files of version 0 segments stay.
+// A directory that a reader keeps goes at a later Sweep, as the directory of a torn
+// key.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
 	infos, err := db.fs.List(dir)
@@ -190,7 +207,10 @@ func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) b
 // decideLog decides the fate of each key of the pointer log layout against records, as
 // decide does on the old layout, and returns the keys it keeps. It removes the
 // directory of each torn key outside records. The caller holds db.mu.
-func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error) {
+func (db *DB) decideLog(
+	ctx context.Context,
+	records set.Set[ChannelKey],
+) (set.Set[ChannelKey], error) {
 	if err := db.removeTorn(records); err != nil {
 		return nil, err
 	}
@@ -241,7 +261,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	if err = db.engine.intend(drop, false); err != nil {
 		return nil, err
 	}
-	return kept, db.dropLog(drop)
+	return kept, db.dropLog(ctx, drop)
 }
 
 // clearIntents clears the intent of each key in both intents and records. The caller

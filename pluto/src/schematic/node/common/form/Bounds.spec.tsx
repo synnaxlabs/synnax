@@ -47,6 +47,7 @@ interface Fields {
   lower: HTMLInputElement;
   upper: HTMLInputElement;
   get: () => bounds.Bounds;
+  error: () => string | null;
 }
 
 const setup = (initial: bounds.Bounds): Fields => {
@@ -65,6 +66,8 @@ const setup = (initial: bounds.Bounds): Fields => {
       assert(ref.current != null);
       return ref.current.get();
     },
+    error: () =>
+      c.queryByText("Min value must be less than max value")?.textContent ?? null,
   };
 };
 
@@ -80,16 +83,28 @@ describe("Form.BoundsFields", () => {
     expect(upper.value).toBe("100");
   });
 
-  it("should cap the minimum at the current maximum", () => {
+  it("should refuse a minimum at or above the maximum and keep the range", () => {
     const f = setup({ lower: 0, upper: 100 });
-    commit(f.lower, "150");
-    expect(f.get().lower).toBe(100);
+    commit(f.lower, "100");
+    expect(f.get()).toEqual({ lower: 0, upper: 100 });
+    expect(f.lower.value).toBe("0");
+    expect(f.error()).toBe("Min value must be less than max value");
   });
 
-  it("should cap the maximum at the current minimum", () => {
+  it("should refuse a maximum at or below the minimum and keep the range", () => {
     const f = setup({ lower: 20, upper: 100 });
     commit(f.upper, "-50");
-    expect(f.get().upper).toBe(20);
+    expect(f.get()).toEqual({ lower: 20, upper: 100 });
+    expect(f.upper.value).toBe("100");
+    expect(f.error()).toBe("Min value must be less than max value");
+  });
+
+  it("should clear the error after a valid edit", () => {
+    const f = setup({ lower: 0, upper: 100 });
+    commit(f.lower, "150");
+    commit(f.lower, "40");
+    expect(f.get().lower).toBe(40);
+    expect(f.error()).toBeNull();
   });
 
   it("should accept a minimum below the maximum untouched", () => {
@@ -103,7 +118,7 @@ describe("Form.BoundsFields", () => {
     commit(f.upper, "50");
     expect(f.get().upper).toBe(50);
     commit(f.lower, "80");
-    expect(f.get().lower).toBe(50);
+    expect(f.get().lower).toBe(0);
   });
 
   it("should allow negative bounds", () => {

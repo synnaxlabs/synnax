@@ -124,11 +124,13 @@ func (e *engine) records(
 	for _, p := range h.parts {
 		r, err := e.cache.Records(p, key)
 		if err != nil {
-			return pre, errors.Join(err, e.unpin(h))
+			e.unpin(h)
+			return pre, err
 		}
 		addLive(&pre, kp, p, r, first, last)
 	}
-	return pre, e.unpin(h)
+	e.unpin(h)
+	return pre, nil
 }
 
 // cached adds to pre the live records of key in reach, parts of kp, that reach [first,
@@ -219,7 +221,8 @@ func (e *engine) clockUsers(
 	for _, p := range h.parts {
 		timed, err := e.cache.Timed(p, clock)
 		if err != nil {
-			return nil, errors.Join(err, e.unpin(h))
+			e.unpin(h)
+			return nil, err
 		}
 		for _, t := range timed {
 			kp, ok := e.keyParts(t.Key)
@@ -236,7 +239,8 @@ func (e *engine) clockUsers(
 			users = append(users, state.User{Key: t.Key, Segment: seg})
 		}
 	}
-	return users, e.unpin(h)
+	e.unpin(h)
+	return users, nil
 }
 
 // pinReaching returns the parts of key and pins those of their range whose stamps
@@ -256,7 +260,10 @@ func (e *engine) pinReaching(
 	if err != nil {
 		return kp, held{}, err
 	}
-	h := held{key: key, parts: reaching(parts, first, last, buf)}
+	h := held{parts: reaching(parts, first, last, buf)}
+	if len(h.parts) > 0 {
+		h.keys = []ChannelKey{key}
+	}
 	e.pins.pin(h)
 	return kp, h, nil
 }
