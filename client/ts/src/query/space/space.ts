@@ -792,10 +792,16 @@ export class Space<
     } catch (reason) {
       if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
       if (query.generation !== generation) return;
+      const error = errors.fromUnknown(reason);
+      // A NotFound is the Core's answer that nothing matches, not a failure.
+      if (NotFoundError.matches(error)) {
+        query.state = { variant: "error", error };
+        return this.touch(query);
+      }
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
       if (query.state.variant === "ready") return this.markStale(query);
-      query.state = { variant: "error", error: errors.fromUnknown(reason) };
+      query.state = { variant: "error", error };
       return;
     }
     if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
