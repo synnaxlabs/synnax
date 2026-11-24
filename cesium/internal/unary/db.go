@@ -106,8 +106,8 @@ func (db *DB) Size() telem.Size { return db.domain.Size() }
 
 // Close closes the unary database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete
-// operations being executed on the database, or writers opening on it. Close is idempotent, and will return nil
-// if the database is already closed.
+// operations being executed on the database, or writers opening on it. Close is
+// idempotent, and will return nil if the database is already closed.
 //
 // If close fails for a reason other than unclosed writers/readers, the database will
 // still be marked closed and no read/write operations are allowed on it to protect data
