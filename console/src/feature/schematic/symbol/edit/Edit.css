@@ -217,8 +217,21 @@
         max-height: 300px;
     }
 
-    .console-schematic-state-list-item {
-        min-width: 80px;
+    .console-schematic__canvas {
+        position: relative;
+        min-width: 0;
+    }
+
+    .console-schematic__value-bar {
+        position: absolute;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+    }
+
+    .console-schematic-inspector {
+        padding: 2rem;
     }
 }
 
