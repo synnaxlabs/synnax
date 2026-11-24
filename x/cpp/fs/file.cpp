@@ -51,6 +51,10 @@ create_new(const std::filesystem::path &path, const std::string_view data) {
     if (!err) err = rename_new(tmp, path);
     if (err) {
         std::error_code ec;
+        // A concurrent create of path removes the temp files of the others.
+        if (!err.matches(EXISTS) && !std::filesystem::exists(tmp, ec) &&
+            std::filesystem::exists(path, ec))
+            return x::errors::Error(EXISTS, path.string());
         std::filesystem::remove(tmp, ec);
         return err;
     }

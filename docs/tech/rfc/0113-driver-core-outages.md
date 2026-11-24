@@ -100,13 +100,15 @@ as `pb::Frame` records (`x/cpp/telem/frame.h:185`). The forwarder spools
 channels (`core/pkg/service/channel/writer.go:407-408`).
 
 The spool and the outbox (§3.4) share one file format, `journal` (NEW). A file starts
-with a magic for its kind, a format version, flags, a random salt, and a CRC-32C of the
-start. A reader refuses a file with an unknown flag in the high byte. Each record has a
-length, a CRC-32C seeded with the salt, a type, and a protobuf payload that the Driver
-owns, and a writer syncs to disk each second or each megabyte. After a crash, a record
-that is cut off or fails its CRC ends the file when it starts in the last megabyte plus
-one record, which a crash can leave unsynced, and the writer cuts the rest and reports
-how much it cut. Damage before that fails the open as corrupt.
+with a magic for its kind, a format version, flags, a random salt, the sync size and
+largest payload of its writer, and a CRC-32C of the start. A reader refuses a file with
+an unknown flag in the high byte. Each record has a length, a CRC-32C seeded with the
+salt, a type, and a protobuf payload that the Driver owns. A writer syncs to disk each
+second or each sync size (1 MB by default), and refuses a payload over its largest
+payload (4 MiB by default); both are settings. After a crash, a record that is cut off
+or fails its CRC ends the file when it starts in the last sync size plus one largest
+record of the file start, which a crash can leave unsynced, and the writer cuts the rest
+and reports how much it cut. Damage before that fails the open as corrupt.
 
 The spool's own drainer thread sends segments whenever the Core is reachable, so a
 segment survives its task stopping, a config change, a second outage, and a restart. For

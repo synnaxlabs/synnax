@@ -178,8 +178,10 @@ rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
         return errno_error("failed to create " + to.string());
     }
     auto err = x::errors::NIL;
+    // A writer that found the empty file holds its lock, and now owns it.
     if (flock(fd, LOCK_EX | LOCK_NB) != 0)
-        err = errno_error("failed to lock " + to.string());
+        err = errno == EWOULDBLOCK ? x::errors::Error(EXISTS, to.string())
+                                   : errno_error("failed to lock " + to.string());
     else if (std::rename(from.c_str(), to.c_str()) != 0)
         err = errno_error("failed to rename " + from.string());
     close(fd);

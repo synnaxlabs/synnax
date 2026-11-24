@@ -90,17 +90,19 @@ x::errors::Error create(const std::filesystem::path &path, std::string_view data
 /// @brief renames from to to when no file is at to. On a volume with no exclusive
 /// rename, such as FAT, it first creates an empty file at to and holds its lock, and
 /// a crash can leave that empty file.
-/// @returns EXISTS when a file is at to, and then both files are unchanged.
+/// @returns EXISTS when a file is at to, and then both files are unchanged, or when
+/// another holder locked that empty file first.
 x::errors::Error
 rename_new(const std::filesystem::path &from, const std::filesystem::path &to);
 
 /// @brief writes a file at path with data when no file is at path. A crash leaves no
 /// file or the whole file, or the empty file of rename_new, and can leave a temp file
 /// named `<path>.tmp.<n>`. Returns after the new file is on the disk.
-/// @returns EXISTS when a file is at path, and then that file is unchanged.
+/// @returns EXISTS when a file is at path, and then that file is unchanged. Also
+/// EXISTS when a remove_temps(path) after a concurrent create took the temp file.
 x::errors::Error create_new(const std::filesystem::path &path, std::string_view data);
 
-/// @brief removes the temp files that a crash during create(path) left. Call it only
-/// while no create(path) runs.
+/// @brief removes the temp files that a crash during create(path) or create_new(path)
+/// left. Call it only while no create(path) runs.
 x::errors::Error remove_temps(const std::filesystem::path &path);
 }

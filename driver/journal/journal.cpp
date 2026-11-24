@@ -36,8 +36,14 @@ T get(const char *data) {
     ));
 }
 
+/// @brief the byte position of the flags in the header.
+constexpr std::size_t FLAGS_OFFSET = 10;
 /// @brief the byte position of the salt in the header.
 constexpr std::size_t SALT_OFFSET = 12;
+/// @brief the byte position of the sync_bytes in the header.
+constexpr std::size_t SYNC_BYTES_OFFSET = 16;
+/// @brief the byte position of the max_payload in the header.
+constexpr std::size_t MAX_PAYLOAD_OFFSET = 24;
 /// @brief the byte size of the header before its checksum.
 constexpr std::size_t HEADER_SUM_OFFSET = HEADER_SIZE - sizeof(std::uint32_t);
 
@@ -52,11 +58,13 @@ std::uint32_t checksum(
     return static_cast<std::uint32_t>(absl::ExtendCrc32c(crc, payload));
 }
 
-std::string encode_header(const Magic &magic, const std::uint16_t flags) {
+std::string encode_header(const Magic &magic, const Header &header) {
     std::string buf(magic.data(), magic.size());
-    put(buf, VERSION);
-    put(buf, flags);
-    put(buf, static_cast<std::uint32_t>(std::random_device()()));
+    put(buf, header.version);
+    put(buf, header.flags);
+    put(buf, header.salt);
+    put(buf, header.sync_bytes);
+    put(buf, header.max_payload);
     put(buf, static_cast<std::uint32_t>(absl::ComputeCrc32c(buf)));
     return buf;
 }
@@ -72,9 +80,12 @@ void encode_record(std::string &buf, const std::uint32_t salt, const Record &rec
 /// @brief the byte size of the buffer a reader reads small records through.
 constexpr std::size_t READ_BUFFER_SIZE = std::size_t{64} * 1024;
 
+bool zeros(const std::span<const char> data) {
+    return std::ranges::all_of(data, [](const char c) { return c == 0; });
+}
+
 x::errors::Error validate(const Magic &magic) {
-    if (std::ranges::all_of(magic, [](const char c) { return c == 0; }))
-        return x::errors::Error(BASE_ERROR, "magic is all zeros");
+    if (zeros(magic)) return x::errors::Error(BASE_ERROR, "magic is all zeros");
     return x::errors::NIL;
 }
 }
@@ -98,6 +109,20 @@ Writer::~Writer() {
 
 std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig cfg) {
     if (auto err = validate(cfg.magic)) return {nullptr, err};
+    if (cfg.max_payload > MAX_PAYLOAD)
+        return {
+            nullptr,
+            x::errors::Error(
+                BASE_ERROR,
+                "max_payload is more than " + std::to_string(MAX_PAYLOAD)
+            )
+        };
+    Header header{
+        .flags = cfg.flags,
+        .salt = static_cast<std::uint32_t>(std::random_device()()),
+        .sync_bytes = cfg.sync_bytes,
+        .max_payload = cfg.max_payload,
+    };
     bool created = false;
     std::error_code ec;
     if (!std::filesystem::exists(cfg.path, ec)) {
@@ -109,7 +134,7 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
                     "failed to stat " + cfg.path.string() + ": " + ec.message()
                 )
             };
-        const auto err = create_new(cfg.path, encode_header(cfg.magic, cfg.flags));
+        const auto err = create_new(cfg.path, encode_header(cfg.magic, header));
         if (err && !err.matches(EXISTS)) return {nullptr, err};
         created = !err;
     }
@@ -126,58 +151,64 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     auto err = x::errors::NIL;
     // A crash during a create can leave its temp file.
     if (err = remove_temps(cfg.path); err) return {nullptr, err};
-    auto [start, size_err] = file->size();
-    if (size_err) return {nullptr, size_err};
-    // A crash during create_new on a volume with no exclusive rename leaves an empty
-    // file.
-    if (start < HEADER_SIZE) {
+    auto [reader, r_err] = Reader::open(
+        {.path = cfg.path, .magic = cfg.magic, .flags = cfg.flags}
+    );
+    if (r_err) return {nullptr, r_err};
+    std::uint64_t size = HEADER_SIZE;
+    std::uint64_t cut = 0;
+    // A crash during create_new on a volume with no exclusive rename, or during the
+    // write below, leaves a file with no start.
+    if (reader->pos() == 0) {
+        cut = reader->cut();
+        reader.reset();
         if (err = file->truncate(0); err) return {nullptr, err};
-        if (err = file->write(encode_header(cfg.magic, cfg.flags)); err)
+        if (err = file->write(encode_header(cfg.magic, header)); err)
             return {nullptr, err};
         if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
         const auto dir = cfg.path.parent_path();
         if (err = sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
-        created = true;
+    } else {
+        header = reader->header;
+        if (header.version < VERSION)
+            return {
+                nullptr,
+                x::errors::Error(OLD_VERSION, "cannot append to " + cfg.path.string())
+            };
+        while (true) {
+            auto [record, n_err] = reader->next_record();
+            if (n_err) return {nullptr, n_err};
+            if (!record) break;
+        }
+        size = reader->pos();
+        cut = reader->cut();
+        reader.reset();
+        if (cut > 0)
+            if (err = file->truncate(size); err) return {nullptr, err};
+        // An earlier process can leave its writes only in the OS cache.
+        if (!created || cut > 0)
+            if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
     }
-    const auto start_cut = start < HEADER_SIZE ? start : 0;
-    auto [reader, r_err] = Reader::open(
-        {.path = cfg.path,
-         .magic = cfg.magic,
-         .flags = cfg.flags,
-         .sync_bytes = cfg.sync_bytes}
-    );
-    if (r_err) return {nullptr, r_err};
-    if (reader->header.version < VERSION)
-        return {
-            nullptr,
-            x::errors::Error(OLD_VERSION, "cannot append to " + cfg.path.string())
-        };
-    while (true) {
-        auto [record, n_err] = reader->next_record();
-        if (n_err) return {nullptr, n_err};
-        if (!record) break;
-    }
-    const auto size = reader->pos();
-    const auto cut = reader->cut();
-    const auto salt = reader->header.salt;
-    reader.reset();
-    if (cut > 0)
-        if (auto err = file->truncate(size); err) return {nullptr, err};
-    // An earlier process can leave its writes only in the OS cache.
-    if (!created || cut > 0)
-        if (auto err = cfg.on_sync(file->sync()); err) return {nullptr, err};
+    // A crash leaves no more unsynced bytes than the file start allows.
+    cfg.sync_bytes = std::min(cfg.sync_bytes, header.sync_bytes);
+    cfg.max_payload = std::min(cfg.max_payload, header.max_payload);
     auto writer = std::unique_ptr<Writer>(
-        new Writer(std::move(cfg), std::move(file), size, salt)
+        new Writer(std::move(cfg), std::move(file), size, header.salt)
     );
-    writer->cut_bytes = start_cut + cut;
+    writer->cut_bytes = cut;
     return {std::move(writer), x::errors::NIL};
 }
 
 x::errors::Error Writer::write(const Record &record) {
     if ((record.type & ~SKIPPABLE) == 0)
         return x::errors::Error(BASE_ERROR, "record type has no value");
-    if (record.payload.size() > MAX_PAYLOAD)
-        return x::errors::Error(BASE_ERROR, "record payload is too large");
+    if (record.payload.size() > this->cfg.max_payload)
+        return x::errors::Error(
+            TOO_LARGE,
+            "the payload has " + std::to_string(record.payload.size()) +
+                " bytes, and the file takes at most " +
+                std::to_string(this->cfg.max_payload)
+        );
     std::string buf;
     encode_record(buf, this->salt, record);
     {
@@ -246,7 +277,6 @@ std::uint64_t Writer::synced_pos() const {
 }
 
 std::uint64_t Writer::cut() const {
-
     return this->cut_bytes;
 }
 
@@ -267,13 +297,15 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
             return {nullptr, x::errors::Error(CORRUPT, "end is outside " + path)};
         reader->size = *end;
     }
-    if (reader->size < HEADER_SIZE) {
+    std::array<char, HEADER_SIZE> buf{};
+    if (reader->size >= HEADER_SIZE)
+        if (err = reader->read(0, buf.data(), buf.size()); err) return {nullptr, err};
+    // A crash while a writer writes the start in place can leave zeros.
+    if (reader->size < HEADER_SIZE || (reader->size == HEADER_SIZE && zeros(buf))) {
         reader->cfg.pos = 0;
         reader->cut_bytes = reader->size;
         return {std::move(reader), x::errors::NIL};
     }
-    std::array<char, HEADER_SIZE> buf{};
-    if (err = reader->read(0, buf.data(), buf.size()); err) return {nullptr, err};
     const auto &magic = reader->cfg.magic;
     if (!std::equal(magic.begin(), magic.end(), buf.begin()))
         return {nullptr, x::errors::Error(UNKNOWN_MAGIC, path)};
@@ -291,8 +323,10 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
             absl::ComputeCrc32c({buf.data(), HEADER_SUM_OFFSET})
         ) != get<std::uint32_t>(buf.data() + HEADER_SUM_OFFSET))
         return {nullptr, x::errors::Error(CORRUPT, path + " has a damaged start")};
-    reader->header.flags = get<std::uint16_t>(buf.data() + magic.size() + 2);
+    reader->header.flags = get<std::uint16_t>(buf.data() + FLAGS_OFFSET);
     reader->header.salt = get<std::uint32_t>(buf.data() + SALT_OFFSET);
+    reader->header.sync_bytes = get<std::uint64_t>(buf.data() + SYNC_BYTES_OFFSET);
+    reader->header.max_payload = get<std::uint32_t>(buf.data() + MAX_PAYLOAD_OFFSET);
     if (reader->header.version == 0)
         return {nullptr, x::errors::Error(CORRUPT, path + " has version 0")};
     if (const auto unknown = reader->header.flags & REQUIRED_FLAGS & ~reader->cfg.flags;
@@ -355,7 +389,7 @@ std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
         return {std::nullopt, err};
     const auto len = get<std::uint32_t>(prefix.data());
     const auto end = pos + RECORD_PREFIX_SIZE + len;
-    if (len > MAX_PAYLOAD) return this->damaged();
+    if (len > this->header.max_payload) return this->damaged();
     if (end > this->size) return this->damaged();
     Record record{.type = static_cast<std::uint8_t>(prefix[8])};
     x::errors::Error err;
@@ -376,10 +410,13 @@ std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
 std::pair<std::optional<Record>, x::errors::Error> Reader::damaged() {
     const auto pos = this->cfg.pos;
     // A writer syncs once sync_bytes are unsynced, after the write of one record.
-    const auto unsynced = this->cfg.sync_bytes + std::min<std::uint64_t>(
-                                                     RECORD_PREFIX_SIZE + MAX_PAYLOAD,
-                                                     UINT64_MAX - this->cfg.sync_bytes
-                                                 );
+    std::uint64_t unsynced = 0;
+    if (!this->cfg.end.has_value())
+        unsynced = this->header.sync_bytes +
+                   std::min<std::uint64_t>(
+                       RECORD_PREFIX_SIZE + this->header.max_payload,
+                       UINT64_MAX - this->header.sync_bytes
+                   );
     if (this->size - pos > unsynced)
         return {
             std::nullopt,
