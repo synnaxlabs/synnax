@@ -246,6 +246,23 @@ describe("Kafka Write form", () => {
     });
   });
 
+  it("should show the fields of a topic as a preview, picked by the topic", async () => {
+    const { dev, draft } = await renderWrite();
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: { data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/speed")) },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/speed");
+    expect(dialog.queryByRole("checkbox", { name: "Record /speed" })).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([{ topic: TOPIC }]),
+    );
+  });
+
   it("should add a target with an empty message for a topic that holds no records", async () => {
     const { dev, draft } = await renderWrite();
     const { answered } = await answerScan(dev, "browse", {
@@ -331,6 +348,21 @@ describe("Kafka Write form", () => {
     expect(dialog.queryByText("Read no records")).toBeNull();
   });
 
+  it("should count a topic of the task that the cluster does not list", async () => {
+    const held = "plant.commands";
+    const { target } = await createTarget([], { topic: held });
+    const { dev } = await renderWrite([target]);
+    const missing = { topic: held, records: [], shapes: [], error: "" };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: { data: { topics: [missing], truncated: false } },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("Topic does not exist yet");
+    dialog.getByText("2 topics");
+  });
+
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
@@ -370,6 +402,28 @@ describe("Kafka Write form", () => {
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue("plant.pumps")).toBeTruthy();
     expect(screen.getByDisplayValue("pump-1")).toBeTruthy();
+  });
+
+  it("should start every topic on one edge and truncate the record key first", async () => {
+    const fields = [createField("speed", "float")];
+    const { target: short } = await createTarget(fields);
+    const { target: long } = await createTarget(fields, {
+      key: "t2",
+      topic: "plant.commands",
+      recordKey: "pump_speed_setpoint_of_the_north_pump_house",
+    });
+    await renderWrite([short, long]);
+    const item = async (topic: RegExp) =>
+      within(await screen.findByRole("option", { name: topic }));
+    const pumps = (await item(/plant\.pumps/)).getByText("plant.pumps");
+    const keyed = await item(/plant\.commands/);
+    const commands = keyed.getByText("plant.commands");
+    const key = keyed.getByText("pump_speed_setpoint_of_the_north_pump_house");
+    expect(commands.getBoundingClientRect().left).toBe(
+      pumps.getBoundingClientRect().left,
+    );
+    expect(key.scrollWidth).toBeGreaterThan(key.clientWidth);
+    expect(commands.scrollWidth).toBe(commands.clientWidth);
   });
 
   it("should name a new command channel after the device, topic, record key, and field", async () => {

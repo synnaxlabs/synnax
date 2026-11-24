@@ -84,6 +84,19 @@ describe("ICD.Write.suit", () => {
   });
 });
 
+describe("ICD.Write.commandName", () => {
+  it("should name the command channel of a field after the prefix and the field", () => {
+    const field = icd.jsonFieldZ.parse({
+      name: "pump speed",
+      pointer: "/speed",
+      type: "float",
+    });
+    expect(ICD.Write.commandName("plant_pumps", field)).toBe(
+      "plant_pumps_pump_speed_cmd",
+    );
+  });
+});
+
 describe("ICD.Write.unbind", () => {
   it("should clear the channel of each channel binding and keep fixed values", () => {
     const setpoint = createField("setpoint", "float");

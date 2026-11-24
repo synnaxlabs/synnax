@@ -83,3 +83,9 @@
     gap: 1rem;
     min-width: 0;
 }
+
+/* The record key gives way before the topic. */
+.console-kafka-target-label__key {
+    flex-shrink: 1000;
+    min-width: 0;
+}
