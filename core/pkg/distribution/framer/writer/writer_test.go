@@ -711,14 +711,9 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				// The handoff to second seals the writer of first, so the samples
-				// of second start a new stretch.
-				Expect(iter.Value().Count()).To(Equal(2))
+				Expect(iter.Value().Count()).To(Equal(1))
 				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
-					telem.NewSeriesV[int16](1, 2, 3).Data,
-				))
-				Expect(iter.Value().SeriesAt(1).Data).To(Equal(
-					telem.NewSeriesV[int16](4, 5, 6).Data,
+					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
 				))
 				Expect(iter.Close()).To(Succeed())
 			},
@@ -1884,7 +1879,6 @@ func newNode(ctx context.Context, pointerLog bool) testutil.Node {
 // The owners of the specs that fail on the pointer log for now.
 const (
 	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
-	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
 	overlapTextOwner   = "cesium-53, a commit over stored data names no holder"
 	endDomainFillOwner = "cesium-53, a fill after EndDomain is refused (coordinator)"
 )

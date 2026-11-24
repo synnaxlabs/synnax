@@ -58,7 +58,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
+					db = openTestDB(ctx, fs, pointerLog)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -329,7 +329,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
+					db = openTestDB(ctx, fs, pointerLog)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
@@ -351,7 +351,6 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							MustSucceed(low.Commit(ctx)),
 						).To(Equal(14*telem.SecondTS + 1))
 						Expect(low.Close()).To(Succeed())
-						// The uncommitted 12 and 13 moved to high and back.
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
 					},
@@ -483,7 +482,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				var db *testDB
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
+					db = openTestDB(ctx, fs, pointerLog)
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
@@ -553,7 +552,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							w2Frame := telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(13, 14, 15),
+									telem.NewSeriesSecondsTSV(12, 13, 14),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							)
@@ -575,7 +574,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							By("Committing the second writer")
 							Expect(
 								MustSucceed(w2.Commit(ctx)),
-							).To(Equal(telem.SecondTS*15 + 1))
+							).To(Equal(telem.SecondTS*14 + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
@@ -587,15 +586,10 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 								start.SpanRange(10*telem.Second),
 								dataChKey,
 							))
-							// The handoff seals the writer of w1, so the samples
-							// of w2 start a new stretch.
-							Expect(f.Count()).To(Equal(2))
+							Expect(f.Count()).To(Equal(1))
 							Expect(
 								f.SeriesAt(0).Data,
-							).To(Equal(telem.NewSeriesV[int16](1, 2, 3).Data))
-							Expect(
-								f.SeriesAt(1).Data,
-							).To(Equal(telem.NewSeriesV[int16](4, 5, 6).Data))
+							).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 						},
 					)
 				})

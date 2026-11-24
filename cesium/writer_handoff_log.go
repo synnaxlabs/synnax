@@ -74,18 +74,12 @@ func (db *DB) handoffLog(
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
 }
 
-// checkAdopt refuses an adopt of a Pending of the old layout, an adopt by a writer that
-// stores no samples, and an adopt of a key that cfg lacks.
+// checkAdopt refuses an adopt by a writer that stores no samples, and an adopt of a key
+// that cfg lacks.
 func (w *logWriter) checkAdopt(cfg WriterConfig, adopt *Pending) error {
 	switch {
 	case adopt == nil:
 		return nil
-	case adopt.log == nil:
-		return errors.Wrap(
-			validate.ErrValidation,
-			"a handoff on the pointer log layout adopts no pending samples of the "+
-				"old layout",
-		)
 	case w.unstored:
 		return errors.Wrap(
 			validate.ErrValidation,

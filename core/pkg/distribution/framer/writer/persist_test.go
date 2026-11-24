@@ -59,9 +59,10 @@ var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 		)).To(Succeed())
 		clock = timetestutil.NewClock(time.Unix(0, 0))
 		svc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			TS:     db,
-			Writes: confluence.NewStream[relay.Response](100),
-			Clock:  clock,
+			TS:                db,
+			Writes:            confluence.NewStream[relay.Response](100),
+			Clock:             clock,
+			PointerLogEnabled: new(pointerLog),
 		}))
 	})
 	open := func(

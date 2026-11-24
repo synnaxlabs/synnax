@@ -27,7 +27,7 @@ import (
 var _ = DescribeTableSubtree("Delete claim", func(pointerLog bool) {
 	It("Should refuse a delete of a virtual channel that a writer holds, and keep "+
 		"the writer's control", func(ctx SpecContext) {
-		db := mustOpenDBOnFS(ctx, fs.NewMem(), layout(pointerLog)...)
+		db := openTestDB(ctx, fs.NewMem(), pointerLog)
 		key := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, virtualChannel(key, "cmd"))).To(Succeed())
 		keys := channel.Keys{channel.Key(key)}

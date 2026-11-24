@@ -52,6 +52,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL]
@@ -71,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.PointerLogEnabled = override.Nil(c.PointerLogEnabled, other.PointerLogEnabled)
 	return c
 }
 
@@ -106,9 +111,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
-		Instrumentation: cfg.Child("writer"),
-		TS:              cfg.TS,
-		Writes:          writes,
+		Instrumentation:   cfg.Child("writer"),
+		TS:                cfg.TS,
+		PointerLogEnabled: cfg.PointerLogEnabled,
+		Writes:            writes,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -197,13 +203,14 @@ func (s *Service) OnControlUpdate(
 	return s.writer.OnControlUpdate(handler)
 }
 
-// DeleteTimeRange deletes a time range in the specified channels.
+// DeleteTimeRange deletes a time range in the specified channels. It fails with
+// control.ErrUnauthorized, naming the writer, when a writer holds part of tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
-	return s.deleter.DeleteTimeRange(ctx, keys, tr)
+	return s.writer.NameHolder(s.deleter.DeleteTimeRange(ctx, keys, tr))
 }
 
 // Close closes the Service.

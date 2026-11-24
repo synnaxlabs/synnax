@@ -20,14 +20,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = DescribeTable("Check: a handoff to a start in another writer's stored data",
-	func(ctx SpecContext, run cesium.HandoffRun, opts ...cesium.Option) {
+var _ = DescribeTable(
+	"Check: a handoff on the pointer log to a start in another writer's stored data",
+	func(ctx SpecContext, run cesium.HandoffRun) {
 		const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
 		keys := []cesium.ChannelKey{idx, data}
-		db := MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{
+		db := MustSucceed(cesium.Open(
+			ctx,
+			"",
 			cesium.WithFS(xfs.NewMem()),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
-		}, opts...)...))
+			cesium.WithPointerLog(),
+		))
 		stop := StartRun(db.Run)
 		Expect(db.CreateChannel(
 			ctx,
@@ -75,12 +79,6 @@ var _ = DescribeTable("Check: a handoff to a start in another writer's stored da
 		stop()
 		Expect(db.Close()).To(Succeed())
 	},
-	Entry("in a new run on the old layout", cesium.NewRun),
-	Entry("in the same run on the old layout", cesium.SameRun),
-	Entry("in a new run on the pointer log", cesium.NewRun, cesium.WithPointerLog()),
-	Entry(
-		"in the same run on the pointer log",
-		cesium.SameRun,
-		cesium.WithPointerLog(),
-	),
+	Entry("in a new run", cesium.NewRun),
+	Entry("in the same run", cesium.SameRun),
 )

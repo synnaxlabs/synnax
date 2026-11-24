@@ -71,9 +71,10 @@ var _ = DescribeTableSubtree("Persist with partial control", func(pointerLog boo
 			},
 		)).To(Succeed())
 		svc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			TS:     db,
-			Writes: confluence.NewStream[relay.Response](100),
-			Clock:  timetestutil.NewClock(time.Unix(0, 0)),
+			TS:                db,
+			Writes:            confluence.NewStream[relay.Response](100),
+			Clock:             timetestutil.NewClock(time.Unix(0, 0)),
+			PointerLogEnabled: new(pointerLog),
 		}))
 	})
 	durable := func(ctx SpecContext, key channel.Key) int64 {
