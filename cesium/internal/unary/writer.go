@@ -228,6 +228,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	transfer control.Transfer,
 	err error,
 ) {
+	db.opening.Add(1)
+	defer db.opening.Add(-1)
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}

@@ -34,9 +34,12 @@ type DB struct {
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
-	idx              *index.Domain
-	wrapError        func(error) error
-	closed           *atomic.Bool
+	idx       *index.Domain
+	wrapError func(error) error
+	closed    *atomic.Bool
+	// opening counts the calls to OpenWriter in progress. MarkClosed refuses while it
+	// is above zero, because those calls open with no lock on the DB.
+	opening          *atomic.Int32
 	leadingAlignment *alignment.Counter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
@@ -125,11 +128,21 @@ func (db *DB) Close() error {
 
 // MarkClosed marks the database closed, so that it refuses new writers and iterators.
 // It returns an error wrapping resource.ErrOpen and leaves the database open if a
-// writer, iterator, or delete is open, or ErrDBClosed if the database is already
-// closed. After a nil error, call Release or UnmarkClosed.
+// writer, iterator, or delete is open or a writer is opening, or ErrDBClosed if the
+// database is already closed. After a nil error, call Release or UnmarkClosed.
 func (db *DB) MarkClosed() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return db.wrapError(ErrDBClosed)
+	}
+	// OpenWriter counts itself before it checks closed, so one of the two sees the
+	// other.
+	if count := db.opening.Load(); count > 0 {
+		db.closed.Store(false)
+		return db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"there are %d writers opening on it",
+			count,
+		))
 	}
 	if err := db.domain.MarkClosed(); err != nil {
 		db.closed.Store(false)
