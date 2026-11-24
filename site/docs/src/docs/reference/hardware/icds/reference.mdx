@@ -241,8 +241,8 @@ no value at the pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
-A float default can be NaN, so that a read writes NaN for a missing value. A write
-cannot send a NaN default. A float default cannot be infinite.
+A float default can be NaN, so that a read writes NaN for a missing value. A write of a
+JSON message cannot send a NaN default. A float default cannot be infinite.
 
 A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
 timestamp default is now, the time of each read or write, or a constant time. In Python,
