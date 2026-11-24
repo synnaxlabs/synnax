@@ -40,6 +40,7 @@ export {
   DisconnectedError,
   ExpiredLicenseError,
   ExpiredTokenError,
+  InternalError,
   InvalidCredentialsError,
   InvalidLicenseError,
   InvalidTokenError,
