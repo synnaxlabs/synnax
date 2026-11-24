@@ -81,9 +81,26 @@ func MigrateWriteEndpoint(
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of
 // the config with key through ins.
 func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+	return noteLift(ins, "changed an HTTP read field to v5", key)
+}
+
+// NoteWriteLift returns the note for ResolveWriteConfig that logs each change to a
+// field of the config with key through ins.
+func NoteWriteLift(
+	ins alamos.Instrumentation,
+	key uuid.UUID,
+) func(path, change string) {
+	return noteLift(ins, "changed an HTTP write field to v5", key)
+}
+
+func noteLift(
+	ins alamos.Instrumentation,
+	message string,
+	key uuid.UUID,
+) func(path, change string) {
 	return func(path, change string) {
 		ins.L.Warn(
-			"changed an HTTP read field to v5",
+			message,
 			zap.Stringer("config", key),
 			zap.String("field", path),
 			zap.String("change", change),

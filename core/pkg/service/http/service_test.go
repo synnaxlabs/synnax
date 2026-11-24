@@ -249,6 +249,59 @@ var _ = Describe("Service", func() {
 				}}))
 			},
 		)
+
+		It("Should move the channel and fields of a v4 write config into an ICD",
+			func(ctx SpecContext) {
+				idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+				cmd := createChannel(ctx, telem.Float64T, idx)
+				data := MustSucceed(svc.Write.Normalize(ctx, db, 4, msgpack.EncodedJSON{
+					"endpoints": []any{map[string]any{
+						"key":    "sp",
+						"method": "PUT",
+						"path":   "/setpoint",
+						"channel": map[string]any{
+							"pointer":   "/value",
+							"channel":   cmd.Key(),
+							"data_type": "float64",
+						},
+						"fields": []any{map[string]any{
+							"type":      "static",
+							"key":       "u",
+							"pointer":   "/unit",
+							"json_type": "string",
+							"value":     "psi",
+						}},
+					}},
+				}))
+				key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+				stored := MustSucceed(svc.Write.Read(ctx, db, key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				var cfg http.WriteConfig
+				Expect(stored.Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg.Endpoints).To(HaveLen(1))
+				ep := cfg.Endpoints[0]
+				var ic icd.ICD
+				Expect(icdSvc.NewRetrieve().
+					Where(icd.MatchKeys(*ep.ICD)).
+					Entry(&ic).
+					Exec(ctx, db)).To(Succeed())
+				Expect(ic.Name).To(Equal("http_write"))
+				Expect(ic.Messages).To(HaveLen(1))
+				m := ic.Messages[0]
+				Expect(m.Name).To(Equal("PUT /setpoint"))
+				fields := as[icd.JSONPayload](m.Payload.Variant).Fields
+				Expect(fields).To(HaveLen(2))
+				Expect(ep.Message).To(Equal(&icd.WriteMessage{
+					Message: m.Key,
+					Bindings: []icd.WriteBinding{{Variant: icd.ChannelWriteBinding{
+						WriteBaseBinding: icd.WriteBaseBinding{
+							Field: fields[0].Base().Key,
+						},
+						Channel: cmd.Key(),
+					}}},
+				}))
+			},
+		)
 	})
 
 	DescribeTable("Should reject a scan config whose rate is not positive",

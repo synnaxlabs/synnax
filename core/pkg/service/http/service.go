@@ -70,6 +70,7 @@ type Service struct {
 	// Scan stores http_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
 	resolver readResolver
+	writes   writeResolver
 	closer   xio.MultiCloser
 }
 
@@ -86,6 +87,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		icds:     cfg.ICD,
 		channels: channels,
 		reads:    read.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}, writes: writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -124,6 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
+			ResolveEntry:    s.writes.resolve,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
