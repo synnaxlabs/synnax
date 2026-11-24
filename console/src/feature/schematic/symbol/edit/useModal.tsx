@@ -293,7 +293,7 @@ const Editor = ({
                       add={Spec.addState}
                       remove={Spec.removeState}
                       onRemove={() => {
-                        // The preview moves to the first state left when its own goes.
+                        // The preview moves to the first state left if its state goes.
                         const left = form
                           .get(path.data.states)
                           .value.filter(

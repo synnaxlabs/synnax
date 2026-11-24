@@ -1009,11 +1009,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("adds a command that sends 0", async () => {
-      await openPainted({ variant: "actuator", states: [createState()] });
+    it("adds a command that sends 0 and opens its name for edit", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
       fireEvent.click(getEditSectionHeaderButton("Commands"));
-      expect(await screen.findByText("Command 1")).toBeDefined();
-      expect(screen.getByText("Sends 0")).toBeDefined();
+      expect(await screen.findByText("Sends 0")).toBeDefined();
+      commitTextEdit(await awaitTextEditing("symbol-command-command-1"), "Open");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          { key: "command-1", name: "Open", value: { type: "fixed", value: 0 } },
+        ]),
+      );
     });
 
     it("removes a command and its click after a confirm", async () => {
