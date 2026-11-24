@@ -374,6 +374,60 @@ var _ = Describe("Calculation announcements", func() {
 		SpecTimeout(60*time.Second),
 	)
 
+	It(
+		"Should send the calculated flag of a new calculated channel to a reader with "+
+			"no calculation access",
+		func(ctx SpecContext) {
+			input := createChannel(ctx, telem.Float32T)
+			witness := createChannel(ctx, telem.Float32T)
+			open(ctx, reader(ctx, resource.ID{Type: resource.TypeChannel}))
+			out := createOld(ctx, apichannel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: times(input, 2),
+			})
+			rename(ctx, witness)
+			received := until(witness)
+			Expect(expressions(received)).To(BeEmpty())
+			Expect(calculatedSets(received)[out.Key]).To(Equal([]any{true}))
+		},
+		SpecTimeout(60*time.Second),
+	)
+
+	It(
+		"Should send a reader with no calculation access that a calculation starts "+
+			"and then stops writing a channel",
+		func(ctx SpecContext) {
+			input := createChannel(ctx, telem.Float32T)
+			output := createChannel(ctx, telem.Float32T)
+			witness := createChannel(ctx, telem.Float32T)
+			open(ctx, reader(
+				ctx,
+				channel.ResourceID(input.Key()),
+				channel.ResourceID(output.Key()),
+				channel.ResourceID(witness.Key()),
+			))
+			c := calculation.Calculation{
+				Output:     output.Key(),
+				Expression: times(input, 2),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Calculation.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Calculation.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			rename(ctx, witness)
+			received := until(witness)
+			Expect(expressions(received)).To(BeEmpty())
+			Expect(calculatedSets(received)).To(Equal(map[channel.Key][]any{
+				output.Key(): {true, false},
+			}))
+		},
+		SpecTimeout(60*time.Second),
+	)
+
 	Describe("A create that retypes an existing output", func() {
 		// framesOf returns the batches of key in each frame that the stream receives
 		// before the batch of witness.

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
+import { DataType, id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
@@ -15,6 +15,7 @@ import { framer } from "@/framer";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
 import { vectors } from "@/testutil/vectors";
@@ -121,7 +122,7 @@ describe("Where", () => {
 describe("Where with a Core", () => {
   const admin = createTestClient();
 
-  it("should agree with the Core that a hidden calculation's output is not virtual", async () => {
+  it("should keep a hidden calculation's output out of a live virtual list with no refetch", async () => {
     const input = await admin.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,
@@ -142,6 +143,7 @@ describe("Where with a Core", () => {
     const close = list.onChange(() => {});
     try {
       await list.retrieve();
+      const send = spyOnSend(reader);
       const [plain, output] = await admin.channels.create([
         {
           name: `where_hidden_${input.key}_plain`,
@@ -158,6 +160,15 @@ describe("Where with a Core", () => {
       const keys = () => list.getCached()?.records.map(({ key }) => key);
       await expect.poll(keys).toContain(plain.key);
       expect(keys()).not.toContain(output.key);
+      // Past the debounce of a refetch that the create could start.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(keys()).not.toContain(output.key);
+      const listFetches = send.mock.calls.filter(
+        ([target, req]) =>
+          target === "/channel/retrieve" &&
+          (req as { where?: { virtual?: unknown } }).where?.virtual != null,
+      );
+      expect(listFetches).toHaveLength(0);
       const fromCore = (await reader.channels.retrieve({ where })).map(
         ({ key }) => key,
       );
