@@ -428,6 +428,9 @@ func (s *Service) deleteChannels(
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
 	}
+	if targets := r.onBehalf(); targets != nil {
+		gorp.MarkOnBehalf(tx, targets...)
+	}
 	if len(r.records) > 0 {
 		if err = s.cfg.Delete(ctx, tx, r.records); err != nil {
 			return Plan{}, err
@@ -480,8 +483,28 @@ type resolution struct {
 	last planned
 	// records are the records other than channels that picks delete.
 	records []resource.ID
+	// added are the channels that picks add to the delete, with the free indexes that
+	// they bring.
+	added []channel.Key
 	// cancel is the error of the first entry that takes cancel, or nil.
 	cancel *gorp.RestrictError
+}
+
+// onBehalf returns the targets that the delete of r changes on its caller's behalf: the
+// records and the channels that picks add, and not the caller's own channels.
+func (r resolution) onBehalf() []gorp.Target {
+	if len(r.records) == 0 && len(r.added) == 0 {
+		return nil
+	}
+	targets := make([]gorp.Target, 0, len(r.records)+len(r.added))
+	for _, id := range r.records {
+		targets = append(targets, gorp.Target{Table: string(id.Type), Key: id.Key})
+	}
+	for _, k := range r.added {
+		id := channel.ResourceID(k)
+		targets = append(targets, gorp.Target{Table: string(id.Type), Key: id.Key})
+	}
+	return targets
 }
 
 // resolve plans the delete of the channels with keys in snap with chosen, then plans
@@ -499,11 +522,15 @@ func (s *Service) resolve(
 		all     = keys
 		earlier []Entry
 		deleted = set.New[resource.ID]()
+		own     set.Set[channel.Key]
 	)
 	for {
 		p, err := s.planDelete(ctx, snap, all)
 		if err != nil {
 			return resolution{}, err
+		}
+		if own == nil {
+			own = set.New(p.keys...)
 		}
 		more, picked, cancel, err := choose(p, chosen)
 		if err != nil {
@@ -524,6 +551,11 @@ func (s *Service) resolve(
 		}
 		earlier = append(earlier, p.Entries...)
 		all = append(slices.Clip(all), more...)
+	}
+	for _, k := range r.last.keys {
+		if !own.Contains(k) {
+			r.added = append(r.added, k)
+		}
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {
