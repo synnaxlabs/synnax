@@ -427,68 +427,6 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 					},
 				)
 
-				It(
-					"Should fail a writer that takes its clock over stored data",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(db.CreateChannel(ctx, cesium.Channel{
-							Key:      key,
-							Name:     "Nansen",
-							IsIndex:  true,
-							DataType: telem.TimestampT,
-						})).To(Succeed())
-						w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
-							Channels:    []cesium.ChannelKey{key},
-							Start:       10 * telem.SecondTS,
-							Authorities: []control.Authority{control.AuthorityAbsolute},
-						}))
-						w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
-							Channels: []cesium.ChannelKey{key},
-							Start:    20 * telem.SecondTS,
-							Authorities: []control.Authority{
-								control.AuthorityAbsolute - 1,
-							},
-						}))
-						// w2 waits for the clock, so it claims no time there.
-						backfillConfig := cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{key},
-							Clock:    key,
-							Start:    19 * telem.SecondTS,
-						}
-						if pointerLog {
-							// The live claim of w1 holds the key from 10 s, so no
-							// writer can store data under it.
-							Expect(db.DB.OpenWriter(ctx, backfillConfig)).Error().To(
-								MatchError(ContainSubstring(
-									"reaches the claim of another writer from 10000000000",
-								)),
-							)
-							Expect(w1.Close()).To(Succeed())
-							Expect(w2.Close()).To(Succeed())
-							return
-						}
-						backfill := MustSucceed(
-							db.DB.OpenWriter(ctx, backfillConfig),
-						)
-						MustSucceed2(backfill.Write(ctx, telem.UnaryFrame(
-							key,
-							telem.NewSeriesSecondsTSV(19, 20, 21),
-						), nil))
-						MustSucceed2(backfill.Commit(ctx, nil))
-						Expect(backfill.Close()).To(Succeed())
-						Expect(w1.Close()).To(Succeed())
-						overlap := ContainSubstring(
-							"cannot open writer because there is already data in the " +
-								"writer's time range",
-						)
-						Expect(w2.Write(ctx, telem.UnaryFrame(
-							key,
-							telem.NewSeriesSecondsTSV(22),
-						))).Error().To(MatchError(overlap))
-						Expect(w2.Close()).To(MatchError(overlap))
-					},
-				)
-
 				It("Should finish writes while control moves between writers", func(
 					ctx SpecContext,
 				) {
@@ -874,7 +812,13 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 						MustSucceed(live.Write(ctx, frames(20)))
 						MustSucceed(live.Commit(ctx))
 						Expect(live.Close()).To(Succeed())
-						Expect(read(ctx, idx).Series).To(HaveLen(1))
+						stretches := 1
+						if pointerLog {
+							// Each handoff of idx seals its writer, so idx gets a
+							// new stretch.
+							stretches = 2
+						}
+						Expect(read(ctx, idx).Series).To(HaveLen(stretches))
 						Expect(read(ctx, idx2).Series).To(HaveLen(2))
 						Expect(read(ctx, idx3).Series).To(HaveLen(2))
 					},
@@ -896,6 +840,15 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 						MustSucceed(low.Commit(ctx))
 						Expect(low.Close()).To(Succeed())
 						series := read(ctx, data).Series
+						if pointerLog {
+							// Each handoff of idx seals its writer and starts a
+							// new stretch.
+							Expect(series).To(HaveLen(3))
+							Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+							Expect(series[1]).To(telem.MatchSeriesDataV[int64](12))
+							Expect(series[2]).To(telem.MatchSeriesDataV[int64](20, 21))
+							return
+						}
 						Expect(series).To(HaveLen(2))
 						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
 						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
@@ -907,6 +860,38 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 }, Entry("old layout", false), Entry("pointer log", true))
 
 var _ = Describe("Writer control on the pointer log", func() {
+	It(
+		"Should refuse a backfill in the live claim of a writer that holds the clock",
+		func(ctx SpecContext) {
+			db := mustOpenLogDBOnFS(ctx, fs.NewMem())
+			key := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     "Nansen",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+				Channels:    []cesium.ChannelKey{key},
+				Start:       10 * telem.SecondTS,
+				Authorities: []control.Authority{control.AuthorityAbsolute},
+			}))
+			w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+				Channels:    []cesium.ChannelKey{key},
+				Start:       20 * telem.SecondTS,
+				Authorities: []control.Authority{control.AuthorityAbsolute - 1},
+			}))
+			Expect(db.DB.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{key},
+				Clock:    key,
+				Start:    19 * telem.SecondTS,
+			})).Error().To(MatchError(ContainSubstring(
+				"reaches the claim of another writer from 10000000000",
+			)))
+			Expect(w1.Close()).To(Succeed())
+			Expect(w2.Close()).To(Succeed())
+		},
+	)
 	It(
 		"Should fail a writer that takes its clock over stored data",
 		func(ctx SpecContext) {

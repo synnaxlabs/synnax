@@ -22,14 +22,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
+// The old layout keeps a writer per session, so no claim moves there.
+var _ = Describe("Claim move on the pointer log", func() {
 	var (
 		host      testutil.Node
 		idx, data channel.Key
 		keys      channel.Keys
 	)
 	BeforeEach(func(ctx SpecContext) {
-		host = newNode(ctx, pointerLog)
+		host = newNode(ctx, true)
 		idxCh := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 			Name:     "move_time",
 			IsIndex:  true,
@@ -216,4 +217,4 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 			expectOneRun(ctx)
 		},
 	)
-}, Entry("old layout", false), Entry("pointer log", true))
+})

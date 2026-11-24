@@ -549,10 +549,21 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							MustSucceed(w1.Commit(ctx))
 
 							By("Failing to write to the second writer")
+							// On the pointer log, the handoff seals the writer of w1,
+							// so the samples of w2 start a new stretch after its
+							// stamps.
+							w2First := telem.TimeStamp(12)
+							if pointerLog {
+								w2First = 13
+							}
 							w2Frame := telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(12, 13, 14),
+									telem.NewSeriesSecondsTSV(
+										w2First,
+										w2First+1,
+										w2First+2,
+									),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							)
@@ -574,7 +585,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							By("Committing the second writer")
 							Expect(
 								MustSucceed(w2.Commit(ctx)),
-							).To(Equal(telem.SecondTS*14 + 1))
+							).To(Equal(telem.SecondTS*(w2First+2) + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
@@ -586,6 +597,16 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 								start.SpanRange(10*telem.Second),
 								dataChKey,
 							))
+							if pointerLog {
+								Expect(f.Count()).To(Equal(2))
+								Expect(
+									f.SeriesAt(0).Data,
+								).To(Equal(telem.NewSeriesV[int16](1, 2, 3).Data))
+								Expect(
+									f.SeriesAt(1).Data,
+								).To(Equal(telem.NewSeriesV[int16](4, 5, 6).Data))
+								return
+							}
 							Expect(f.Count()).To(Equal(1))
 							Expect(
 								f.SeriesAt(0).Data,

@@ -69,19 +69,15 @@ func GenerateChannelKey() cesium.ChannelKey {
 	return uint32(channel.NewKey(1, channel.LocalKey(60_000+testKeys.Add(1))))
 }
 
-// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it. The DB closes
-// when the spec or container that opens it ends.
-func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
-	GinkgoHelper()
-	return openTestDB(ctx, fsys, false)
-}
-
-// mustOpenLogDBOnFS opens a test DB on the pointer log layout, as mustOpenDBOnFS does.
+// mustOpenLogDBOnFS opens a test DB on the pointer log layout, as openTestDB does.
 func mustOpenLogDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 	GinkgoHelper()
 	return openTestDB(ctx, fsys, true)
 }
 
+// openTestDB opens a Cesium DB on fsys, on the pointer log when pointerLog is true,
+// with a writer service of the same layout over it. The DB closes when the spec or
+// container that opens it ends.
 func openTestDB(ctx context.Context, fsys fs.FS, pointerLog bool) *testDB {
 	GinkgoHelper()
 	opts := []cesium.Option{cesium.WithFS(fsys)}

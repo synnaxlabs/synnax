@@ -711,10 +711,22 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				Expect(iter.Value().Count()).To(Equal(1))
-				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
-					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
-				))
+				if pointerLog {
+					// The handoff to second seals the writer of first, so the
+					// samples of second start a new stretch.
+					Expect(iter.Value().Count()).To(Equal(2))
+					Expect(iter.Value().SeriesAt(0).Data).To(Equal(
+						telem.NewSeriesV[int16](1, 2, 3).Data,
+					))
+					Expect(iter.Value().SeriesAt(1).Data).To(Equal(
+						telem.NewSeriesV[int16](4, 5, 6).Data,
+					))
+				} else {
+					Expect(iter.Value().Count()).To(Equal(1))
+					Expect(iter.Value().SeriesAt(0).Data).To(Equal(
+						telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
+					))
+				}
 				Expect(iter.Close()).To(Succeed())
 			},
 		)
