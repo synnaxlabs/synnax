@@ -1211,7 +1211,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record value: field vals/01: no value at " +
+					"Record value: field vals_01: no value at " +
 						"/vals/01: validation error (topic " + topic + ", partition 0, " +
 						"offset 0).",
 				))

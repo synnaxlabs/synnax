@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	channels := icd.ReadChannels(cfg.Channel)
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
+		channels: channels,
 		create:   createICD(cfg.ICD),
 		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
