@@ -14,7 +14,7 @@ import { Session } from "@/session";
 
 /**
  * Sets the username the selected Core logs in with, after the logged-in user renames
- * their own password. On desktop the saved session moves with it, so the user stays
+ * their own username. On desktop the saved session moves with it, so the user stays
  * logged in. A Core that logs in with OpenID Connect keeps its record. When the
  * keychain fails, the record stays as it was and the error goes to the status handler.
  */
