@@ -34,11 +34,19 @@ class TestLog:
             Logger(noop=True, base=base).info("test")
         assert caplog.records == []
 
+    def test_logs_by_default(
+        self, base: logging.Logger, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should emit records when noop is not given."""
+        with caplog.at_level(logging.DEBUG):
+            Logger(base=base).info("test")
+        assert [r.getMessage() for r in caplog.records] == ["test"]
+
     def test_levels(
         self, base: logging.Logger, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Should emit each message at the matching level."""
-        logger = Logger(noop=False, base=base)
+        logger = Logger(base=base)
         with caplog.at_level(logging.DEBUG):
             logger.debug("debug")
             logger.info("info")
@@ -55,7 +63,7 @@ class TestLog:
         self, base: logging.Logger, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Should accept None as the extra fields at every level."""
-        logger = Logger(noop=False, base=base)
+        logger = Logger(base=base)
         with caplog.at_level(logging.DEBUG):
             logger.debug("debug", extra=None)
             logger.info("info", extra=None)
@@ -66,7 +74,7 @@ class TestLog:
     def test_args(self, base: logging.Logger, caplog: pytest.LogCaptureFixture) -> None:
         """Should format the message with the given arguments."""
         with caplog.at_level(logging.INFO):
-            Logger(noop=False, base=base).info("value %d", 1)
+            Logger(base=base).info("value %d", 1)
         (record,) = caplog.records
         assert record.getMessage() == "value 1"
 
@@ -86,7 +94,7 @@ class TestInstrumentationLogger:
         self, base: logging.Logger, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Should add the instrumentation key and path to each record."""
-        ins = Instrumentation(key="root", logger=Logger(noop=False, base=base))
+        ins = Instrumentation(key="root", logger=Logger(base=base))
         with caplog.at_level(logging.INFO):
             ins.L.info("root")
             ins.child("a").child("b").L.info("child", extra={"user": "x"})
@@ -100,7 +108,7 @@ class TestInstrumentationLogger:
         handler = Records()
         base = logging.Logger("app")
         base.addHandler(handler)
-        ins = Instrumentation(key="root", logger=Logger(noop=False, base=base))
+        ins = Instrumentation(key="root", logger=Logger(base=base))
         ins.child("a").L.warn("child")
         (record,) = handler.records
         assert record.name == "app"
@@ -108,8 +116,6 @@ class TestInstrumentationLogger:
 
     def test_meta(self, base: logging.Logger) -> None:
         """Should set the instrumentation meta on the logger."""
-        child = Instrumentation(key="root", logger=Logger(noop=False, base=base)).child(
-            "a"
-        )
+        child = Instrumentation(key="root", logger=Logger(base=base)).child("a")
         assert child.L.meta.key == "a"
         assert child.L.meta.path == "root.a"
