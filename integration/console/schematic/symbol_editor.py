@@ -106,25 +106,27 @@ class SymbolEditor:
         )
         self.wait_for_form_visible()
 
-    def _region_rows(self) -> Locator:
-        """Locate the rows of the region list."""
-        return self.modal.locator(".console-schematic-region-list-item")
+    def _part_rows(self) -> Locator:
+        """Locate the items of the part list, without the item of the whole drawing."""
+        return self.modal.locator(".console-schematic-part-list-item").filter(
+            has_not_text="Whole drawing"
+        )
 
-    def region_count(self) -> int:
-        """Return the number of detected regions."""
-        return self._region_rows().count()
+    def part_count(self) -> int:
+        """Return the number of parts."""
+        return self._part_rows().count()
 
-    def region_rows_fit(self) -> bool:
-        """Return whether every region row fits its width without overflowing."""
+    def part_rows_fit(self) -> bool:
+        """Return whether every part item fits its width without overflowing."""
         return bool(
-            self._region_rows().evaluate_all(
+            self._part_rows().evaluate_all(
                 "(rows) => rows.every((row) => row.scrollWidth <= row.clientWidth)"
             )
         )
 
-    def _paint(self, label: str, region_index: int) -> Locator:
-        """Locate the paint button of a region, "Fill" or "Stroke"."""
-        return self._region_rows().nth(region_index).get_by_label(label, exact=True)
+    def _paint(self, label: str, part_index: int) -> Locator:
+        """Locate the paint button of a part, "Fill" or "Stroke"."""
+        return self._part_rows().nth(part_index).get_by_label(label, exact=True)
 
     def _pick_paint_kind(self, paint: Locator, kind: str) -> Locator:
         """Open the dialog of a paint button, pick a kind, and return the dialog."""
@@ -145,37 +147,37 @@ class SymbolEditor:
         color.enter(self.page, picker, hex_color=hex_color)
         self._close_paint(dialog)
 
-    def set_region_stroke_color(self, hex_color: str, *, region_index: int = 0) -> None:
-        """Set the stroke color for a region.
+    def set_part_stroke_color(self, hex_color: str, *, part_index: int = 0) -> None:
+        """Set the stroke color for a part.
 
         :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
-        :param region_index: Index of the region (0-based).
+        :param part_index: Index of the part (0-based).
         """
-        self._set_paint_color(self._paint("Stroke", region_index), hex_color)
+        self._set_paint_color(self._paint("Stroke", part_index), hex_color)
 
-    def set_region_fill_color(self, hex_color: str, *, region_index: int = 0) -> None:
-        """Set the fill color for a region.
+    def set_part_fill_color(self, hex_color: str, *, part_index: int = 0) -> None:
+        """Set the fill color for a part.
 
         :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
-        :param region_index: Index of the region (0-based).
+        :param part_index: Index of the part (0-based).
         """
-        self._set_paint_color(self._paint("Fill", region_index), hex_color)
+        self._set_paint_color(self._paint("Fill", part_index), hex_color)
 
-    def clear_region_fill_color(self, *, region_index: int = 0) -> None:
-        """Set the fill of a region back to Drawing, so the SVG's own fill paints.
+    def clear_part_fill_color(self, *, part_index: int = 0) -> None:
+        """Set the fill of a part back to Drawing, so the SVG's own fill paints.
 
-        :param region_index: Index of the region (0-based).
+        :param part_index: Index of the part (0-based).
         """
         self._close_paint(
-            self._pick_paint_kind(self._paint("Fill", region_index), "Drawing")
+            self._pick_paint_kind(self._paint("Fill", part_index), "Drawing")
         )
 
-    def get_region_fill_swatch_color(self, *, region_index: int = 0) -> str:
-        """Return the color a region's fill button shows, e.g. "#ff0000".
+    def get_part_fill_button_color(self, *, part_index: int = 0) -> str:
+        """Return the color a part's fill button shows, e.g. "#ff0000".
 
-        :param region_index: Index of the region (0-based).
+        :param part_index: Index of the part (0-based).
         """
-        paint = self._paint("Fill", region_index)
+        paint = self._paint("Fill", part_index)
         return str(paint.evaluate("(el) => el.style.getPropertyValue('--pluto-bg')"))
 
     def get_preview_fill(self, selector: str) -> str:
