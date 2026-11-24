@@ -23,7 +23,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -2904,7 +2904,16 @@ describe("Read channel usage", () => {
         group.TYPE_RESOURCE_ID,
       ],
     });
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The denied slave query logs its error. Any other output still fails the test.
+    const denied = /cannot retrieve device/;
+    const record = console.error;
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        if (!(args[0] instanceof Error && denied.test(args[0].message)))
+          record(...args);
+      });
+    onTestFinished(() => errorSpy.mockRestore());
     const { container } = await renderTaskFormTab(
       EtherCAT.Task.FORMS[EtherCAT.Task.READ_TYPE],
       { client, as, taskKey: draft.key },
@@ -2912,7 +2921,7 @@ describe("Read channel usage", () => {
     await waitFor(() =>
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringMatching(/cannot retrieve device/),
+          message: expect.stringMatching(denied),
         }),
       ),
     );
