@@ -69,6 +69,35 @@
     padding: 1rem;
 }
 
+/* The cap grows by the status's height, so the status never shrinks the list: a virtual
+   list that resizes at its end asks for the next page again. */
+.lyra-select__dialog {
+    --pluto-select-status-max-height: 10rem;
+
+    & .lyra-select__status {
+        max-height: var(--pluto-select-status-max-height);
+        overflow-y: auto;
+    }
+
+    &.lyra--visible:has(.lyra-select__status) {
+        &:not(.lyra--modal) {
+            max-height: min(
+                calc(
+                    var(--pluto-dialog-max-height, 360px) +
+                        var(--pluto-select-status-max-height)
+                ),
+                var(--pluto-dialog-available-height, 100vh)
+            );
+        }
+
+        &.lyra--modal {
+            max-height: calc(
+                var(--pluto-dialog-max-height) + var(--pluto-select-status-max-height)
+            );
+        }
+    }
+}
+
 /* On a menu surface, the list and its footer sit in the panel's padding with no box of
    their own, and an empty list takes the height of one item. */
 .lyra-dialog__dialog.lyra-menu-dialog {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import {
   afterEach,
@@ -924,6 +924,60 @@ describe("Select", () => {
       expect(
         frame.bottom - description.getBoundingClientRect().bottom,
       ).toBeGreaterThanOrEqual(inset);
+    });
+
+    it("should read a failed page once at the dialog's height cap", async () => {
+      const keys = Array.from({ length: 50 }, (_, i) => `key-${i}`);
+      const reads = vi.fn();
+      // Fails each read after a load that outlasts the scroll, as an unreachable Core
+      // does, and starts no read while one runs, as a Flux list does.
+      const Paged = (): ReactElement => {
+        const [status, setStatus] = useState<Status.Status>();
+        const [loading, setLoading] = useState(false);
+        const fetchMore = (): void => {
+          if (loading) return;
+          reads();
+          setLoading(true);
+          setStatus(Status.create({ variant: "loading", message: "Loading" }));
+          setTimeout(() => {
+            setLoading(false);
+            setStatus(
+              Status.create({
+                variant: "error",
+                message: "Failed to load channels",
+                description: "Cannot reach the Core",
+              }),
+            );
+          }, 500);
+        };
+        return (
+          <Select.Single<string, undefined>
+            resourceName="channel"
+            value={undefined}
+            onChange={() => {}}
+            data={keys}
+            initialVisible
+            allowNone
+            status={status}
+            onFetchMore={fetchMore}
+          >
+            {({ key, ...rest }) => (
+              <Select.Item key={key} {...rest} textValue={rest.itemKey}>
+                {rest.itemKey}
+              </Select.Item>
+            )}
+          </Select.Single>
+        );
+      };
+      const { getByRole } = await renderThemed(<Paged />);
+      await expect.element(page.getByText("Failed to load channels")).toBeVisible();
+      const scroll = getByRole("listbox").element();
+      const before = reads.mock.calls.length;
+      scroll.scrollTop = scroll.scrollHeight;
+      await expect.poll(() => reads.mock.calls.length).toBe(before + 1);
+      await expect.element(page.getByText("Failed to load channels")).toBeVisible();
+      await sleep.sleep(TimeSpan.seconds(2));
+      expect(reads).toHaveBeenCalledTimes(before + 1);
     });
   });
 
