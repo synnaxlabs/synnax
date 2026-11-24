@@ -205,9 +205,11 @@ public:
     );
 
     /// @brief sets the channels that the streamer streams, on the open streamer and
-    /// on each later open. Safe to call from any thread. An open streamer that rejects
-    /// them fails, and the pipeline opens it again with them.
-    void set_channels(const std::vector<synnax::channel::Key> &channels);
+    /// on each later open. Safe to call from any thread.
+    /// @returns the error of an open streamer that rejects the channels. The pipeline
+    /// then keeps the channels it had.
+    [[nodiscard]] x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels);
 
     void run() override;
 

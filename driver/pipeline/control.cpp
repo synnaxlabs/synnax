@@ -12,8 +12,6 @@
 
 #include "absl/log/log.h"
 
-#include "absl/log/log.h"
-
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
@@ -64,12 +62,13 @@ void Control::stopped_with_err(const x::errors::Error &err) {
     this->sink->stopped_with_err(err);
 }
 
-void Control::set_channels(const std::vector<synnax::channel::Key> &channels) {
+x::errors::Error
+Control::set_channels(const std::vector<synnax::channel::Key> &channels) {
     std::lock_guard lock{this->streamer_mu};
+    if (this->streamer != nullptr)
+        if (const auto err = this->streamer->set_channels(channels)) return err;
     this->config.channels = channels;
-    if (this->streamer == nullptr) return;
-    if (const auto err = this->streamer->set_channels(channels))
-        LOG(WARNING) << "[control] failed to set streamer channels: " << err;
+    return x::errors::NIL;
 }
 
 bool Control::run_once() {
@@ -82,10 +81,10 @@ bool Control::run_once() {
     {
         std::lock_guard lock{this->streamer_mu};
         this->streamer = std::move(s);
-        // A set_channels that ran during the open missed this streamer.
+        // A set_channels that ran during the open missed this streamer. A streamer
+        // that rejects the channels fails its next read, which ends this run.
         if (this->streamer != nullptr && this->config.channels != config.channels)
-            if (const auto err = this->streamer->set_channels(this->config.channels))
-                LOG(WARNING) << "[control] failed to set streamer channels: " << err;
+            static_cast<void>(this->streamer->set_channels(this->config.channels));
     }
     if (open_err) {
         if (this->wait_for_core(open_err)) return true;
