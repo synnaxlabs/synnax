@@ -70,8 +70,8 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (v7.Schematic, error)
 		); err != nil {
 			return v7.Schematic{}, err
 		}
-		doc, err := env.Decode[legacy.Export]()
-		if err != nil {
+		var doc legacy.Export
+		if doc, err = env.Decode[legacy.Export](); err != nil {
 			return v7.Schematic{}, err
 		}
 		return v7.SchematicFromConsole(doc), nil

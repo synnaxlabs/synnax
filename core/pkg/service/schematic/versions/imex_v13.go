@@ -30,20 +30,14 @@ func DecodeV13(ctx context.Context, env imex.Envelope) (v13.Schematic, bool, err
 		return v13.Schematic{}, false, nil
 	}
 	var (
-		from12 = v13.MigrateSchematic
-		from11 = then(v12.MigrateSchematic, from12)
-		from10 = then(v11.MigrateSchematic, from11)
-		from9  = then(v10.MigrateSchematic, from10)
-		from8  = then(v9.MigrateSchematic, from9)
-		from7  = then(v8.MigrateSchematic, from8)
-		s      v13.Schematic
-		err    error
+		s   v13.Schematic
+		err error
 	)
 	switch env.Version {
 	case v13.Version:
 		s, err = env.Decode[v13.Schematic]()
 	case v12.Version:
-		s, err = lift(ctx, env, from12)
+		s, err = lift(ctx, env, v13.MigrateSchematic)
 	case v11.Version:
 		s, err = lift(ctx, env, from11)
 	case v10.Version:
@@ -66,24 +60,51 @@ func DecodeV13(ctx context.Context, env imex.Envelope) (v13.Schematic, bool, err
 	return s, true, nil
 }
 
-type to13[T any] = func(context.Context, T) (v13.Schematic, error)
-
-// then returns the lift to v13 that runs step and then rest.
-func then[A, B any](step func(context.Context, A) (B, error), rest to13[B]) to13[A] {
-	return func(ctx context.Context, a A) (v13.Schematic, error) {
-		b, err := step(ctx, a)
-		if err != nil {
-			return v13.Schematic{}, err
-		}
-		return rest(ctx, b)
+func from11(ctx context.Context, s v11.Schematic) (v13.Schematic, error) {
+	s12, err := v12.MigrateSchematic(ctx, s)
+	if err != nil {
+		return v13.Schematic{}, err
 	}
+	return v13.MigrateSchematic(ctx, s12)
 }
 
-// lift decodes env as T and lifts it to v13.
+func from10(ctx context.Context, s v10.Schematic) (v13.Schematic, error) {
+	s11, err := v11.MigrateSchematic(ctx, s)
+	if err != nil {
+		return v13.Schematic{}, err
+	}
+	return from11(ctx, s11)
+}
+
+func from9(ctx context.Context, s v9.Schematic) (v13.Schematic, error) {
+	s10, err := v10.MigrateSchematic(ctx, s)
+	if err != nil {
+		return v13.Schematic{}, err
+	}
+	return from10(ctx, s10)
+}
+
+func from8(ctx context.Context, s v8.Schematic) (v13.Schematic, error) {
+	s9, err := v9.MigrateSchematic(ctx, s)
+	if err != nil {
+		return v13.Schematic{}, err
+	}
+	return from9(ctx, s9)
+}
+
+func from7(ctx context.Context, s v7.Schematic) (v13.Schematic, error) {
+	s8, err := v8.MigrateSchematic(ctx, s)
+	if err != nil {
+		return v13.Schematic{}, err
+	}
+	return from8(ctx, s8)
+}
+
+// lift decodes env as T and lifts it to v13 with up.
 func lift[T any](
 	ctx context.Context,
 	env imex.Envelope,
-	up to13[T],
+	up func(context.Context, T) (v13.Schematic, error),
 ) (v13.Schematic, error) {
 	t, err := env.Decode[T]()
 	if err != nil {
