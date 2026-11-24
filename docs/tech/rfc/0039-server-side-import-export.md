@@ -687,7 +687,8 @@ Import should not fail for a problem the user can fix after the fact.
 _(Superseded by RFC 0119 §4.6: an exported file names each channel by its full path.
 Import resolves each path to a key once and fails, with every path that matches nothing,
 unless the file makes that channel. A link that is a number is a raw key, as every file
-of `core/v0.62.0` and older holds, and imports with the behavior above.)_
+of `core/v0.62.0` and older holds: it binds when this Core issued the key, and it drops
+when this Core never did.)_
 
 ### 6.4 Authentication and authorization inherited from writer path
 

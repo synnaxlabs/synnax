@@ -179,9 +179,9 @@ config snapshot, which duplicates Driver-held state. A hash is one string, kept 
 module fails the compile of each importer. Rewriting importers on a rename needs a
 rename engine in the Core and a merge into open editors
 ([SY-5173](https://linear.app/synnax/issue/SY-5173)). _(Amended by RFC 0119 §4.5: an Arc
-now follows a rename or move of a channel, and of a folder above a channel. The Arc
-service observes the change and rewrites the names in its own text after the rename
-commits. This decision stands for module renames.)_
+now follows a rename or move of a channel, and of a folder above a channel. The rename's
+impact plan edits the Arc text, in the rename's transaction. This decision stands for
+module renames.)_
 
 **5.7 Standard module names are reserved at depth 1.** A user `time` there would share
 the path of the standard `time`. If a later release adds a standard module that a user
