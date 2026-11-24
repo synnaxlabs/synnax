@@ -29,12 +29,13 @@ func StatusFromError(key Key, name string, err error) *Status {
 	}
 }
 
-// primaryChangedStatus builds the status that the primary of the calculation with key,
-// whose output is named name, moved from the channel named from to the one named to. It
-// has no owner, so the graph's status of the calculation stays.
-func primaryChangedStatus(key Key, name, from, to string) *Status {
+// PrimaryChangedStatus builds the status that the primary of the calculation with key,
+// whose output is named name, moved from the channel named from, which its expression
+// no longer reads, to the one named to. It has no owner, so the calculation's own
+// status stays.
+func PrimaryChangedStatus(key Key, name, from, to string) *Status {
 	return &Status{
-		Key:     primaryStatusKey(key),
+		Key:     PrimaryStatusKey(key),
 		Name:    name,
 		Variant: status.VariantInfo,
 		Message: "Changed the primary input",

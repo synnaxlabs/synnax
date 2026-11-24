@@ -27,9 +27,9 @@ import (
 // same number that sets its hold limit in the join.
 const intervalWindow = 16
 
-// primaryStatusKey returns the key of the status that tells why the primary of the
+// PrimaryStatusKey returns the key of the status that tells why the primary of the
 // calculation with key moved. A later move replaces it.
-func primaryStatusKey(key Key) status.Key {
+func PrimaryStatusKey(key Key) status.Key {
 	return "calculation_primary_" + key.String()
 }
 
@@ -58,37 +58,6 @@ func (w Writer) settlePrimary(
 		return held, nil
 	}
 	return w.pickPrimary(ctx, reads)
-}
-
-// announceDrop posts the status that the primary of c moved, when its expression no
-// longer reads held.
-func (w Writer) announceDrop(
-	ctx context.Context,
-	c Calculation,
-	held *channel.Key,
-) error {
-	if held == nil || c.Primary == nil || slices.Contains(c.Reads, *held) {
-		return nil
-	}
-	var channels []channel.Channel
-	if err := w.channels.NewRetrieve().
-		Where(channel.MatchKeys(c.Output, *held, *c.Primary)).
-		SkipMissingKeys().
-		Entries(&channels).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	// A deleted channel has no name, so the status names it by key.
-	name := func(k channel.Key) string {
-		if ch, ok := lo.Find(channels, func(ch channel.Channel) bool {
-			return ch.Key() == k
-		}); ok {
-			return ch.Name
-		}
-		return k.String()
-	}
-	st := primaryChangedStatus(c.Key, name(c.Output), name(*held), name(*c.Primary))
-	return w.svc.statuses.NewWriter(w.tx).Set(ctx, st)
 }
 
 // setsPrimary reports whether acts change the primary.

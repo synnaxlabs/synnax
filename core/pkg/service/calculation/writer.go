@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -217,9 +216,9 @@ func outputError(format string, ch channel.Channel) error {
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
 // no calculation has the key. It fails as compile does, and sets the data type of the
 // output to the type of the expression. A primary that acts set must be a read. When
-// the new expression no longer reads the stored primary, Apply picks another and posts
-// a status that says so. It returns the actions it adds to acts, such as a set of the
-// reads that the new expression changed or of the primary that it picked.
+// the new expression no longer reads the stored primary, Apply picks another. It
+// returns the actions it adds to acts, such as a set of the reads that the new
+// expression changed or of the primary that it picked.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var c Calculation
 	if err := w.table.NewRetrieve().
@@ -283,11 +282,6 @@ func (w Writer) ApplyTo(
 		computed = append(computed, primaryAction(next.Primary))
 	}
 	w.attach(next, slices.Concat(acts, computed)...)
-	if !set {
-		if err = w.announceDrop(ctx, next, c.Primary); err != nil {
-			return Calculation{}, nil, err
-		}
-	}
 	return next, computed, nil
 }
 
@@ -409,9 +403,8 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
 
 // SetReads stores reads, in order and each once, as the reads of c. It keeps the
-// primary of c when the reads hold it, and otherwise picks one and posts a status when
-// c had another. It broadcasts a set of each field it changes, and writes nothing when
-// it changes no field.
+// primary of c when the reads hold it, and otherwise picks one. It broadcasts a set of
+// each field it changes, and writes nothing when it changes no field.
 func (w Writer) SetReads(
 	ctx context.Context,
 	c Calculation,
@@ -448,7 +441,7 @@ func (w Writer) SetReads(
 		acts = append(acts, primaryAction(primary))
 	}
 	w.attach(next, acts...)
-	return w.announceDrop(ctx, next, c.Primary)
+	return nil
 }
 
 // primaryAction returns the action that sets the primary of a calculation to primary,
@@ -486,10 +479,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, c := range deleted {
 		w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, false)...)
 	}
-	return w.svc.statuses.NewWriter(w.tx).Delete(ctx, lo.Map(
-		keys,
-		func(k Key, _ int) status.Key { return primaryStatusKey(k) },
-	)...)
+	return nil
 }
 
 // sameKeys reports whether a and b hold the same keys, in any order and with any

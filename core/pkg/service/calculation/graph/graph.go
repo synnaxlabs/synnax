@@ -398,10 +398,67 @@ func (g *Graph) renameStatus(
 	c calculation.Calculation,
 	name string,
 ) {
-	err := g.status.NewWriter(tx).RenameOwned(ctx, calculation.ResourceID(c.Key), name)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
+	w := g.status.NewWriter(tx)
+	// A calculation whose primary never moved has no primary status.
+	for _, err := range []error{
+		w.RenameOwned(ctx, calculation.ResourceID(c.Key), name),
+		w.Rename(ctx, calculation.PrimaryStatusKey(c.Key), name),
+	} {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
+			g.L.Warn(
+				"failed to rename status for calculation",
+				zap.Stringer("channel", c.Output),
+				zap.Error(err),
+			)
+		}
+	}
+}
+
+// announcePrimary sets the status that the primary of c moved, when its expression no
+// longer reads the primary of held.
+func (g *Graph) announcePrimary(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	held, c calculation.Calculation,
+) {
+	if held.Primary == nil || c.Primary == nil || *held.Primary == *c.Primary ||
+		slices.Contains(c.Reads, *held.Primary) {
+		return
+	}
+	// A deleted channel has no name, so the status names it by key.
+	nameOf := func(key channel.Key) string {
+		ch, found, err := g.fetchChannel(ctx, tx, key)
+		if err != nil {
+			g.L.Warn(
+				"failed to retrieve primary",
+				zap.Stringer("channel", key),
+				zap.Error(err),
+			)
+		}
+		if !found {
+			return key.String()
+		}
+		return ch.Name
+	}
+	g.setNodeStatus(ctx, tx, calculation.PrimaryChangedStatus(
+		c.Key,
+		name,
+		nameOf(*held.Primary),
+		nameOf(*c.Primary),
+	))
+}
+
+// deletePrimaryStatus deletes the status that the primary of c moved, when c goes.
+func (g *Graph) deletePrimaryStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	c calculation.Calculation,
+) {
+	err := g.status.NewWriter(tx).Delete(ctx, calculation.PrimaryStatusKey(c.Key))
+	if err != nil {
 		g.L.Warn(
-			"failed to rename status for calculation",
+			"failed to delete the primary status of a calculation",
 			zap.Stringer("channel", c.Output),
 			zap.Error(err),
 		)
@@ -548,6 +605,19 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 			return err
 		}
 	}
+	// A later change compares against the primary that the start pass stored.
+	stored, err := g.calculations.Outputs(
+		ctx,
+		tx,
+		slices.Collect(maps.Keys(nextNodes))...,
+	)
+	if err != nil {
+		return err
+	}
+	for key, nd := range nextNodes {
+		nd.calculation = stored[key]
+		nextNodes[key] = nd
+	}
 	g.mu.Lock()
 	g.mu.nodes = nextNodes
 	g.mu.dependents = nextDependents
@@ -618,6 +688,9 @@ func (g *Graph) handleChanges(
 					"channel deleted, removing node and re-inspecting dependents",
 					zap.Stringer("channel", chg.Key),
 				)
+				if prev, tracked := g.mu.nodes[chg.Key]; tracked {
+					g.deletePrimaryStatus(ctx, tx, prev.calculation)
+				}
 				g.removeNode(chg.Key)
 				delete(g.mu.reported, chg.Key)
 				if chg.Value.Name != "" {
@@ -638,6 +711,7 @@ func (g *Graph) handleChanges(
 			if !calculated {
 				delete(g.mu.reported, chg.Key)
 				if tracked {
+					g.deletePrimaryStatus(ctx, tx, prev.calculation)
 					g.removeNode(chg.Key)
 					g.mu.rejected.Remove(chg.Key)
 				}
@@ -671,6 +745,9 @@ func (g *Graph) handleChanges(
 				}
 				if (tracked && prev.invalid) || g.stale(chg.Key, heldExpression, c) {
 					g.clearNodeStatus(ctx, tx, c)
+				}
+				if tracked {
+					g.announcePrimary(ctx, tx, ch.Name, prev.calculation, c)
 				}
 			}
 			if !nd.invalid && nd.DataType != ch.DataType {
