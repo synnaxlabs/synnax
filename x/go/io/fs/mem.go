@@ -119,7 +119,7 @@ func (y *MemFS) Sub(name string) (FS, error) {
 			return &os.PathError{
 				Op:   "open",
 				Path: name,
-				Err:  errors.New("not a directory"),
+				Err:  syscall.ENOTDIR,
 			}
 		}
 		return nil
@@ -143,6 +143,9 @@ func (y *MemFS) Exists(name string) (bool, error) {
 
 // Remove implements FS.Remove.
 func (y *MemFS) Remove(fullName string) error {
+	if lastDot(fullName) {
+		return &os.PathError{Op: "remove", Path: fullName, Err: syscall.EINVAL}
+	}
 	if err := y.walk(fullName, func(dir *memNode, frag string, final bool) error {
 		if !final {
 			return nil
@@ -166,6 +169,14 @@ func (y *MemFS) Remove(fullName string) error {
 
 // Rename implements FS.Rename.
 func (y *MemFS) Rename(oldName, newName string) error {
+	if lastDot(oldName) {
+		return &os.LinkError{
+			Op:  "rename",
+			Old: oldName,
+			New: newName,
+			Err: syscall.EINVAL,
+		}
+	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
 	var (
@@ -385,6 +396,12 @@ func (y *MemFS) walkLocked(
 		dir, fullname = child, remaining
 	}
 	return nil
+}
+
+// lastDot reports whether the last element of name is ".". A disk refuses to remove or
+// rename such a name.
+func lastDot(name string) bool {
+	return name == "." || strings.HasSuffix(name, sep+".")
 }
 
 // dropDots removes each "." element from name. Such an element names the directory that

@@ -52,6 +52,15 @@ var _ = Describe("FS", func() {
 		var fs xfs.FS
 		Context("FS: "+fsName, Ordered, func() {
 			BeforeEach(func() { fs = openFS() })
+			Describe("Sub", func() {
+				It("Should fail with ENOTDIR on a file", func() {
+					file := MustSucceed(fs.Open("sub_file.txt", os.O_CREATE))
+					Expect(file.Close()).To(Succeed())
+					Expect(fs.Sub("sub_file.txt")).Error().
+						To(MatchError(syscall.ENOTDIR))
+					Expect(fs.Remove("sub_file.txt")).To(Succeed())
+				})
+			})
 			Describe("Stat", func() {
 				It("Should return the correct file info", func() {
 					file := MustSucceed(fs.Open("test_file.txt", os.O_CREATE|os.O_RDWR))
