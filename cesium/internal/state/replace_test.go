@@ -184,7 +184,9 @@ var _ = Describe("Rewrites", func() {
 					pointer(1, 2, 30, 30, 4, 4, 1),
 				},
 			}}))
-			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6}}))
+			// The Replace of each caller is entry 11.
+			Expect(s.TakeDead()).
+				To(Equal([]state.Dead{{Segment: 3, Key: 6, Sequence: 11}}))
 			Expect(candidates(s)).To(BeEmpty())
 		}
 
