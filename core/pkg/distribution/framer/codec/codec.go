@@ -159,6 +159,9 @@ type Codec struct {
 		// applied yet, oldest first. pendingMu guards it.
 		pending   []*state
 		pendingMu sync.Mutex
+		// staged holds the states that Stage resolved and Apply has not taken, oldest
+		// first. pendingMu guards it.
+		staged []*state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
@@ -263,20 +266,59 @@ func newCodec(opts []Option) *Codec {
 // types through the codec's ChannelResolver. It returns an error if the channel
 // resolver does not return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
+	s, err := c.resolve(ctx, keys)
 	if err != nil {
 		return err
 	}
+	c.update(s)
+	return nil
+}
+
+// Stage resolves the state of keys as Update does, and holds it until Apply takes it,
+// so a stream can swap its state when its relay applies the request. States apply in
+// the order of their stages.
+func (c *Codec) Stage(ctx context.Context, keys []channel.Key) error {
+	s, err := c.resolve(ctx, keys)
+	if err != nil {
+		return err
+	}
+	c.mu.pendingMu.Lock()
+	c.mu.staged = append(c.mu.staged, s)
+	c.mu.pendingMu.Unlock()
+	return nil
+}
+
+// Apply makes the oldest state that Stage holds the state of the next Encode. It
+// returns an error when Stage holds none.
+func (c *Codec) Apply() error {
+	c.mu.pendingMu.Lock()
+	if len(c.mu.staged) == 0 {
+		c.mu.pendingMu.Unlock()
+		return errors.New("framer codec: a request applied that no stage holds")
+	}
+	s := c.mu.staged[0]
+	c.mu.staged = c.mu.staged[1:]
+	c.mu.pendingMu.Unlock()
+	c.update(s)
+	return nil
+}
+
+// resolve returns the state of keys, with their data types from the channel resolver.
+// It returns an error if the resolver does not return exactly one data type per key.
+func (c *Codec) resolve(ctx context.Context, keys []channel.Key) (*state, error) {
+	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
 	if len(dataTypes) != len(keys) {
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			query.ErrNotFound,
 			"channel resolver returned %d data types for %d channel keys",
 			len(dataTypes),
 			len(keys),
 		)
 	}
-	c.update(newState(keys, dataTypes))
-	return nil
+	return newState(keys, dataTypes), nil
 }
 
 // Initialized returns true if the codec was initialized using NewStatic or Update

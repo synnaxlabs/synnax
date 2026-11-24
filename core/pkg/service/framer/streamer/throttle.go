@@ -23,6 +23,8 @@ type throttle struct {
 	confluence.LinearTransform[Response, Response]
 	fr   frame.Frame
 	rate telem.Rate
+	// applied is the sum of Applied over the responses that fr buffers.
+	applied int
 }
 
 func newThrottle(cfg Config) responseSegment {
@@ -57,7 +59,8 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// flush sends the buffered frame, if it holds any samples, and starts a new buffer.
+// flush sends the buffered frame, if it holds any samples, with the Applied of the
+// responses it buffers, and starts a new buffer.
 func (t *throttle) flush(sCtx signal.Context) error {
 	if t.fr.Len() == 0 {
 		return nil
@@ -65,11 +68,11 @@ func (t *throttle) flush(sCtx signal.Context) error {
 	if err := signal.SendUnderContext(
 		sCtx,
 		t.Out.Inlet(),
-		Response{Frame: t.fr},
+		Response{Frame: t.fr, Applied: t.applied},
 	); err != nil {
 		return err
 	}
-	t.fr = frame.Alloc(t.fr.Count())
+	t.fr, t.applied = frame.Alloc(t.fr.Count()), 0
 	return nil
 }
 
@@ -101,5 +104,6 @@ func (t *throttle) handle(
 		return false, nil
 	}
 	t.fr = t.fr.Extend(res.Frame)
+	t.applied += res.Applied
 	return true, nil
 }

@@ -49,6 +49,10 @@ type Response struct {
 	// reports to the time range of those samples. A channel whose dropped samples carry
 	// no time range, such as a virtual channel, maps to the zero range.
 	MissedRanges map[channel.Key]telem.TimeRange `json:"missed_ranges,omitempty" msgpack:"missed_ranges,omitempty"`
+	// Applied is the number of requests that list keys and that the streamer applied
+	// since its last response. The frames from this response on pass the keys of the
+	// last of them. It never leaves the Core.
+	Applied int `json:"-" msgpack:"-"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {
