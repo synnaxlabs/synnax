@@ -38,6 +38,8 @@ const NODE_SPECS = [
   "src/framer/cache/streamer/streamer.spec.ts",
   // Read the filter vectors from the file system.
   "src/**/where.spec.ts",
+  // Reads the orphan vectors from the file system.
+  "src/schematic/orphans.spec.ts",
   // Checks the error for a Core that no project provides.
   "src/testutil/address.spec.ts",
 ];
