@@ -325,6 +325,17 @@ var _ = Describe("Record", func() {
 		Expect(decodeAll(e.Bytes())).To(Equal([]any{log.Drop{Key: 3}}))
 	})
 
+	It("Should take the records of another entry after its own", func() {
+		var e, o log.Entry
+		e.Add(&log.Drop{Key: 1})
+		o.Add(&log.Drop{Key: 2})
+		o.Add(&log.Restart{})
+		e.Take(&o)
+		Expect(o.Len()).To(BeZero())
+		Expect(decodeAll(e.Bytes())).
+			To(Equal([]any{log.Drop{Key: 1}, log.Drop{Key: 2}, log.Restart{}}))
+	})
+
 	It("Should skip a record of an unknown type that an older binary may skip", func() {
 		b := rawEntry(
 			raw{1<<15 | 40, []byte{1, 2, 3, 4, 5, 6, 7, 8}},
