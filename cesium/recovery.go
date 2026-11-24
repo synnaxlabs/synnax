@@ -604,8 +604,10 @@ func (r *recovery) restart() (
 		if err != nil {
 			return 0, nil, false, err
 		}
-		if whole || end > r.size {
-			if frame.PrevCRC, err = r.next(whole); err != nil {
+		// The writer keeps the last two blocks of a log for marks, so a Restart always
+		// fits in it when no whole next log stands.
+		if whole {
+			if frame.PrevCRC, err = r.next(); err != nil {
 				return 0, nil, false, err
 			}
 			start, switched = log.FramesStart, true
@@ -649,17 +651,11 @@ func (r *recovery) nextWhole() (bool, error) {
 	return info.Size() == r.logSize, nil
 }
 
-// next makes the next log live: its file, synced in the root when it is whole and else
-// prepared, then both header copies, synced. It returns the crc field of the copy at 0.
-func (r *recovery) next(whole bool) (uint32, error) {
+// next makes the whole next log live: its entry in the root, synced, then both header
+// copies, synced. It returns the crc field of the copy at 0.
+func (r *recovery) next() (uint32, error) {
 	gen := r.gen + 1
-	var err error
-	if whole {
-		err = r.fs.SyncDir("")
-	} else {
-		err = log.Prepare(r.fs, gen, r.logSize)
-	}
-	if err != nil {
+	if err := r.fs.SyncDir(""); err != nil {
 		return 0, err
 	}
 	h := log.Header{
