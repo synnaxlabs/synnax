@@ -91,7 +91,7 @@ export const retrieveKeyIDs = async (client: Client): Promise<string[]> =>
 /** Creates a client of the test Core that logs in with an API key, as a script does. */
 export const createScriptClient = (apiKey: string): Client => {
   const { host, port } = testClientParams();
-  const script = new Client({ host, port: Number(port), apiKey });
+  const script = new Client({ host, port: Number(port), apiKey, secure: false });
   onTestFinished(() => script.close());
   return script;
 };

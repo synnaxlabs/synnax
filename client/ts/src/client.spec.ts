@@ -256,6 +256,18 @@ describe("constructor with caCert", () => {
     ).toThrow("caCert requires secure; leave secure out or set it to true");
   });
 
+  it("should use TLS when nothing gives secure", async () => {
+    const client = new Synnax({ host: "localhost", port: 9090 });
+    expect(client.params.secure).toBe(true);
+    await client.close();
+  });
+
+  it("should not use TLS with secure false", async () => {
+    const client = new Synnax({ host: "localhost", port: 9090, secure: false });
+    expect(client.params.secure).toBe(false);
+    await client.close();
+  });
+
   it("should reject an OpenID Connect code given with an API key", () => {
     expect(
       () => new Synnax({ host: "localhost", port: 9090, apiKey: "syk", oidc: CODE }),
@@ -282,6 +294,7 @@ describe("constructor with caCert", () => {
     const client = new Synnax({
       host: "127.0.0.1",
       port: address.port,
+      secure: false,
       oidc: CODE,
       retry: FAST_RETRY,
       onRetry: () => {},

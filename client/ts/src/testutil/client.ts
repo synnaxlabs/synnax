@@ -25,6 +25,8 @@ export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
 export const testClientParams = (): SynnaxParams => ({
   ...testCoreAddress(),
   ...TEST_CREDENTIALS,
+  // The test Core runs with --insecure.
+  secure: false,
   retry: {
     maxRetries: 4,
     baseInterval: TimeSpan.seconds(1),

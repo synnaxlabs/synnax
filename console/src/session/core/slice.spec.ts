@@ -230,6 +230,18 @@ describe("coreZ", () => {
     expect(parsed.port).toBe(9090);
   });
 
+  it("should read a stored record with no secure as insecure", () => {
+    const parsed = Core.coreZ.parse({
+      key: "k",
+      name: "Alpha",
+      host: "localhost",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+    });
+    expect(parsed.secure).toBe(false);
+  });
+
   // The client's params carry behavioral fields; only the address may reach the disk.
   it("should store no field beyond the address and its cluster", () => {
     expect(Object.keys(Core.coreZ.shape).sort()).toEqual([

@@ -283,7 +283,7 @@ password.
 | `SYNNAX_HOST`    | The host of the Core.                                       |
 | `SYNNAX_API_KEY` | An API key.                                                 |
 | `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                |
-| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.           |
+| `SYNNAX_SECURE`  | `false` or `0` to not use TLS. The default is `true`.       |
 | `SYNNAX_CA_CERT` | The path to the PEM file of the CA certificate of the Core. |
 
 Each client takes each option from the first source that sets it: the argument, then its
@@ -294,7 +294,7 @@ variable, then its default.
 | `host`    | `host`     | `SYNNAX_HOST`    | None    |
 | `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
 | `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
-| `secure`  | `secure`   | `SYNNAX_SECURE`  | False   |
+| `secure`  | `secure`   | `SYNNAX_SECURE`  | True    |
 | `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None    |
 
 <Client.Tabs exclude={["console"]}>
@@ -386,8 +386,9 @@ cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment va
 
 ## Connect with TLS
 
-When the Core serves TLS, set `secure` to true. For how to give the Core a certificate,
-see [Set up TLS](/reference/enterprise/tls).
+The clients connect with TLS by default. For how to give the Core a certificate, see
+[Set up TLS](/reference/enterprise/tls). A Core that runs with `--insecure` does not
+serve TLS. To connect to it, set `secure` to false.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -436,6 +437,18 @@ const client = new Synnax({
   username: "operator",
   password: "secret",
   secure: true,
+});
+```
+
+For a Core that runs with `--insecure`:
+
+```typescript
+const client = new Synnax({
+  host: "localhost",
+  port: 9090,
+  username: "synnax",
+  password: "seldon",
+  secure: false,
 });
 ```
 
@@ -639,8 +652,8 @@ A Node.js script does not exit until you close the client.
   The password to log in with.
 </Field.Item>
 
-<Field.Item name="secure" id="python-secure" type="bool" default="False">
-  Connect with TLS.
+<Field.Item name="secure" id="python-secure" type="bool" default="True">
+  Connect with TLS. Set it to `False` for a Core that runs with `--insecure`.
 </Field.Item>
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
@@ -753,10 +766,11 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean">
-  Connect with TLS. With [`caCert`](#typescript-ca-cert), the default is `true`, and the
-  client does not read `SYNNAX_SECURE` or Synnax Desktop. Without it, the default is
-  `SYNNAX_SECURE` (`true` with `SYNNAX_CA_CERT`), then the value of Synnax Desktop when
-  it gives the host, then `false`.
+  Connect with TLS. Set it to `false` for a Core that runs with `--insecure`. With
+  [`caCert`](#typescript-ca-cert), the default is `true`, and the client does not read
+  `SYNNAX_SECURE` or Synnax Desktop. Without it, the default is `SYNNAX_SECURE` (`true`
+  with `SYNNAX_CA_CERT`), then the value of Synnax Desktop when it gives the host, then
+  `true`.
 </Field.Item>
 
 <Field.Item name="caCert" id="typescript-ca-cert" type="string">

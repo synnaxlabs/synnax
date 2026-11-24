@@ -72,13 +72,13 @@ describe("resolveParams", () => {
       "the defaults fill last",
       {},
       { SYNNAX_HOST: "core.env" },
-      { host: "core.env", port: 9090, apiKey: undefined, secure: false },
+      { host: "core.env", port: 9090, apiKey: undefined, secure: true },
     ],
     [
       "an empty host is unset",
       { host: "" },
       { SYNNAX_HOST: "core.env" },
-      { host: "core.env", port: 9090, apiKey: undefined, secure: false },
+      { host: "core.env", port: 9090, apiKey: undefined, secure: true },
     ],
     [
       "values are trimmed, and an empty value is unset",
@@ -89,7 +89,7 @@ describe("resolveParams", () => {
         SYNNAX_API_KEY: "syk_env\n",
         SYNNAX_SECURE: " ",
       },
-      { host: "core.env", port: 9090, apiKey: "syk_env", secure: false },
+      { host: "core.env", port: 9090, apiKey: "syk_env", secure: true },
     ],
     [
       "credentials in the params keep SYNNAX_API_KEY out",
@@ -120,7 +120,7 @@ describe("resolveParams", () => {
       "a variable that Deno cannot read is unset",
       { host: "rig" },
       throwing(notCapable()),
-      { host: "rig", port: 9090, apiKey: undefined, secure: false },
+      { host: "rig", port: 9090, apiKey: undefined, secure: true },
     ],
   ])("should resolve when %s", (_, params, vars, expected) => {
     expect(env.resolveParams(params, vars)).toEqual(expected);
