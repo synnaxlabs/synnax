@@ -208,8 +208,8 @@ var _ = Describe("Compaction on the pointer log", func() {
 	}
 	end := telem.NewSeries([]int64{-1})
 	// n samples of int64 fill 3 blocks, and a delete of the samples from 2 to cut
-	// leaves one block live, so its rewrite frees two of them.
-	const n, cut = 3 << 13, 2 + 2<<13
+	// leaves less than one block live, so its rewrite pads to one block and frees two.
+	const n, cut = 3 << 13, 2 + 2<<13 + 100
 	// kept returns the integers from 0 to n that no range of dead holds, then -1.
 	kept := func(dead ...[2]int) []int64 {
 		var out []int64

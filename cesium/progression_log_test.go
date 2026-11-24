@@ -212,6 +212,15 @@ var _ = Describe("Progressions on the pointer log", func() {
 			reopen(ctx)
 			_, v, _ = read(ctx, stamps[20_000].Range(stamps[20_100]))
 			Expect(v).To(Equal(want))
+			// A delete of stamps leaves dead positions inside the version 2 segment,
+			// and a read that starts among them searches the pointer after them.
+			dead := stamps[25_000].Range(stamps[26_000])
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data, idx}, dead)).
+				To(Succeed())
+			s, v, _ = read(ctx, stamps[25_500].Range(stamps[27_000]))
+			Expect(s).To(Equal(stamps[26_000:27_000]))
+			Expect(v[0]).To(BeEquivalentTo(26_000))
+			Expect(v).To(HaveLen(1_000))
 		})
 
 		It("Should encode a clock with a dead middle range, and read it as before",
@@ -250,9 +259,32 @@ var _ = Describe("Progressions on the pointer log", func() {
 		}).Should(Equal(1))
 		before := files(idx)()
 		Expect(before).To(ConsistOf(int64(320_016), int64(8)), "the try left no file")
-		reopen(ctx)
 		fs.reads.Store(0)
+		reopen(ctx)
 		Consistently(fs.reads.Load).Should(BeZero())
+		Expect(logs.FilterMessage("clock segment kept at version 1").Len()).To(BeZero())
 		Expect(files(idx)()).To(Equal(before))
 	})
+
+	It("Should keep a clock whose progressions take more than half of its bytes",
+		func(ctx SpecContext) {
+			r := rand.New(rand.NewPCG(5, 6))
+			stamps := make([]telem.TimeStamp, 0, 50_000)
+			x := telem.SecondTS
+			for len(stamps) < 50_000 {
+				for range 60 {
+					x += telem.TimeStamp(1 + r.Int64N(1_000_000))
+					stamps = append(stamps, x)
+				}
+				for range 40 {
+					x += 2_000_000
+					stamps = append(stamps, x)
+				}
+			}
+			write(ctx, stamps, 1_000)
+			Eventually(func() int {
+				return logs.FilterMessage("clock segment kept at version 1").Len()
+			}).Should(Equal(1))
+			Expect(files(idx)()).To(ConsistOf(int64(400_024), int64(8)))
+		})
 })
