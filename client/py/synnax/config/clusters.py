@@ -123,7 +123,7 @@ class Clusters:
     def _set(self, c: Cluster, key: str) -> None:
         prev = self.internal.get(f"clusters.{key}.options")
         p = c.model_dump(exclude={"options": {"username", "password"}})
-        # Synnax 0.62 reads only secure.
+        # For readers of Synnax 0.62, which read only secure. Drop it with 0.62 support.
         p["options"]["secure"] = not c.options.insecure
         entry = _api_key_entry(key, c.options.host, c.options.port)
         prev_api_key = self.keyring.get_password(_API_KEY_SERVICE, entry)

@@ -859,8 +859,22 @@ class TestLoadOptions:
             ({"secure": False}, True),
             ({"insecure": False}, False),
             ({"insecure": True}, True),
+            ({"insecure": True, "secure": False}, True),
+            ({"insecure": False, "secure": True}, False),
+            ({"insecure": True, "secure": True}, True),
+            ({"insecure": False, "secure": False}, False),
         ],
-        ids=["neither", "secure", "not-secure", "not-insecure", "insecure"],
+        ids=[
+            "neither",
+            "secure",
+            "not-secure",
+            "not-insecure",
+            "insecure",
+            "both-cleartext",
+            "both-tls",
+            "disagree-insecure-wins",
+            "disagree-insecure-false-wins",
+        ],
     )
     def test_stored_tls_field(
         self,
@@ -871,7 +885,8 @@ class TestLoadOptions:
         insecure: bool,
     ) -> None:
         """Should read insecure, or the secure field of Synnax 0.62, from a saved Core.
-        A Core saved with neither field connects without TLS.
+        insecure wins when both are saved, and a Core saved with neither field connects
+        without TLS.
         """
         address = {"host": "h", "port": 1, **stored}
         if source == "desktop":
