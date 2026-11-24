@@ -15,6 +15,3 @@ var _ gorp.Entry[Key] = Grant{}
 
 // GorpKey implements gorp.Entry.
 func (g Grant) GorpKey() Key { return g.Key }
-
-// SetOptions implements gorp.Entry.
-func (Grant) SetOptions() []any { return nil }
