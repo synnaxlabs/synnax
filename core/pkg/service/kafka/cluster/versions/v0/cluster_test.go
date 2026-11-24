@@ -334,7 +334,7 @@ var _ = Describe("msgpack", func() {
 			Auth:      v0.Auth{Variant: v0.ScramSha256Auth{Credentials: credentials}},
 			Reads: []v0.Read{{
 				Topic:     "plant",
-				RecordKey: "pump",
+				RecordKey: new("pump"),
 				Message:   uuid.New(),
 				Pointer:   "/temp",
 				Index:     1,
