@@ -116,7 +116,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 owners.push_back(i);
             }
         if (batch.empty()) break;
-        auto results = processor->execute(batch);
+        auto results = this->processor->execute(batch);
         bool made_progress = false;
         for (std::size_t j = 0; j < results.size(); j++) {
             auto &queue = queues[owners[j]];

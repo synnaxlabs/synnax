@@ -80,8 +80,8 @@ WriteEndpoint endpoint(
     return ep;
 }
 
-/// @brief helper to build a WriteTaskSink for the enabled endpoints of cfg, which
-/// endpoint returns, and a mock server URL.
+/// @brief builds a WriteTaskSink that sends the enabled endpoints of cfg, each made by
+/// endpoint, to the server at base_url.
 std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>>
 make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
     auto conn_json = x::json::json{
@@ -100,17 +100,16 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
         auto req_cfg = request_config(ep);
         req_cfg.request_content_type = "application/json";
         requests.push_back(device::build_request(conn, req_cfg));
-        const auto ch = std::get<synnax::icd::ChannelWriteBinding>(
-                            ep.message->bindings[0]
-        )
+        const auto &wm = ep.message.value();
+        const auto ch = std::get<synnax::icd::ChannelWriteBinding>(wm.bindings[0])
                             .channel;
         cmd_keys.push_back(ch);
         std::map<synnax::channel::Key, synnax::channel::Channel> channels{
             {ch, synnax::channel::Channel{.key = ch, .data_type = x::telem::FLOAT64_T}},
         };
-        writers.push_back(ASSERT_NIL_P(
-            driver::icd::Writer::create(*ep.message, command_icd(), channels)
-        ));
+        writers.push_back(
+            ASSERT_NIL_P(driver::icd::Writer::create(wm, command_icd(), channels))
+        );
     }
 
     auto processor = std::make_shared<Processor>();
@@ -1058,6 +1057,56 @@ TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
     EXPECT_EQ(count_requests_for_path(reqs, "/api/flaky"), 2);
+}
+
+/// @brief it should resend a command that failed for a moment before the next command
+/// of its endpoint.
+TEST(HTTPWriteTask, ResendsFailedCommandBeforeNextOne) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/good",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/flaky",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                    .remaining_failures = 1,
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.endpoints = {
+        endpoint("POST", "/api/good", 1),
+        endpoint("POST", "/api/flaky", 2),
+    };
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector{1.0, 2.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{3.0, 4.0}));
+    ASSERT_NIL(sink->write(frame));
+
+    std::vector<std::string> flaky;
+    for (const auto &r: server.received_requests())
+        if (r.path == "/api/flaky") flaky.push_back(r.body);
+    EXPECT_EQ(
+        flaky,
+        (std::vector<std::string>{
+            R"({"value":3})",
+            R"({"value":3})",
+            R"({"value":4})",
+        })
+    );
 }
 
 /// @brief when all endpoints fail with temporary errors and no progress is made, retry

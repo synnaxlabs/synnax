@@ -66,7 +66,8 @@ public:
 /// @param ctx the task context providing access to the Synnax client.
 /// @param task the Synnax task definition containing the configuration JSON.
 /// @param processor the shared HTTP processor for executing requests.
-/// @returns the configured result paired with an error.
+/// @returns the configured result paired with an error, which is the error of
+/// build_writers when an endpoint cannot send its message.
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
