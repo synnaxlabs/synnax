@@ -133,6 +133,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:       tx,
 		status:   s.cfg.Status.NewWriter(tx),
 		statuses: s.cfg.Status,
+		certs:    s.cfg.Certificate,
 		racks:    s.cfg.Rack,
 		table:    s.table,
 	}

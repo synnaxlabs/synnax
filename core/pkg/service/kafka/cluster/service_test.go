@@ -130,18 +130,29 @@ var _ = Describe("Service", func() {
 			Credentials: cluster.Credentials{Username: "admin", Password: password},
 		}}
 	}
-	createFileCertificate := func(ctx context.Context, r rack.Key) certificate.Key {
+	createFileCertificate := func(
+		ctx context.Context,
+		r rack.Key,
+		privateKey bool,
+	) certificate.Key {
 		GinkgoHelper()
-		c := certificate.Certificate{Variant: certificate.FileCertificate{
+		f := certificate.FileCertificate{
 			Name:            "Cluster CA",
 			CertificatePath: "/certs/ca.pem",
 			Rack:            r,
-		}}
+		}
+		if privateKey {
+			f.PrivateKeyFile = new("client.pem")
+		}
+		c := certificate.Certificate{Variant: f}
 		Expect(certs.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
 		return c.Base().Key
 	}
-	tls := func(ca *certificate.Key) cluster.Transport {
-		return cluster.Transport{Variant: cluster.TlsTransport{CaCertificate: ca}}
+	tls := func(ca, client *certificate.Key) cluster.Transport {
+		return cluster.Transport{Variant: cluster.TlsTransport{
+			CaCertificate:     ca,
+			ClientCertificate: client,
+		}}
 	}
 	create := func(ctx context.Context) cluster.Cluster {
 		GinkgoHelper()
@@ -352,24 +363,74 @@ var _ = Describe("Service", func() {
 	Describe("Certificates", func() {
 		It("Should store TLS with no CA", func(ctx SpecContext) {
 			c := newCluster()
-			c.Transport = tls(nil)
+			c.Transport = tls(nil, nil)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			Expect(retrieve(ctx, c.Key).Transport).To(Equal(c.Transport))
 		})
 
 		It("Should store a CA of the rack", func(ctx SpecContext) {
-			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey)
+			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
 			c := newCluster()
-			c.Transport = tls(&ca)
+			c.Transport = tls(&ca, nil)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			Expect(retrieve(ctx, c.Key).Transport).To(Equal(c.Transport))
 		})
 
+		It("Should store a CA and a client certificate of the rack", func(
+			ctx SpecContext,
+		) {
+			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
+			client := createFileCertificate(ctx, rackSvc.EmbeddedKey, true)
+			c := newCluster()
+			c.Transport = tls(&ca, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			Expect(retrieve(ctx, c.Key).Transport).To(Equal(c.Transport))
+		})
+
+		It("Should reject a client certificate with no private key", func(
+			ctx SpecContext,
+		) {
+			client := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
+			c := newCluster()
+			c.Transport = tls(nil, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("holds no private key")),
+			))
+		})
+
+		It("Should reject a client certificate of another rack", func(ctx SpecContext) {
+			other := createRack(ctx, cluster.Integration)
+			client := createFileCertificate(ctx, other, true)
+			c := newCluster()
+			c.Transport = tls(nil, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"is a file of rack %d, not of rack %d",
+					other,
+					c.Rack,
+				)),
+			))
+		})
+
+		It("Should refuse to delete a client certificate that a cluster uses", func(
+			ctx SpecContext,
+		) {
+			client := createFileCertificate(ctx, rackSvc.EmbeddedKey, true)
+			c := newCluster()
+			c.Transport = tls(nil, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			Expect(certs.NewWriter(tx).Delete(ctx, client)).To(MatchError(
+				ContainSubstring("because kafka_cluster %s references it", c.Key),
+			))
+		})
+
 		It("Should reject a file certificate of another rack", func(ctx SpecContext) {
 			other := createRack(ctx, cluster.Integration)
-			ca := createFileCertificate(ctx, other)
+			ca := createFileCertificate(ctx, other, false)
 			c := newCluster()
-			c.Transport = tls(&ca)
+			c.Transport = tls(&ca, nil)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
@@ -383,9 +444,9 @@ var _ = Describe("Service", func() {
 		It("Should refuse to delete a certificate that a cluster uses", func(
 			ctx SpecContext,
 		) {
-			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey)
+			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
 			c := newCluster()
-			c.Transport = tls(&ca)
+			c.Transport = tls(&ca, nil)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			Expect(certs.NewWriter(tx).Delete(ctx, ca)).To(MatchError(
 				ContainSubstring("because kafka_cluster %s references it", c.Key),
@@ -530,9 +591,9 @@ var _ = Describe("Service", func() {
 		It("Should reject a move to a rack of which a certificate is not a file", func(
 			ctx SpecContext,
 		) {
-			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey)
+			ca := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
 			c := newCluster()
-			c.Transport = tls(&ca)
+			c.Transport = tls(&ca, nil)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			update := identity(c)
 			update.Rack = createRack(ctx, cluster.Integration)

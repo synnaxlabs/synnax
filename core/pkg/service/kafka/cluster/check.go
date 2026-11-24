@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
@@ -98,6 +99,36 @@ func (w Writer) checkRack(ctx context.Context, c Cluster) error {
 			"rack: %s does not run the %s integration",
 			r.Name,
 			Integration,
+		)
+	}
+	return nil
+}
+
+// checkClientCertificate refuses a client certificate that holds no private key.
+func (w Writer) checkClientCertificate(ctx context.Context, c Cluster) error {
+	t, ok := c.Transport.Variant.(TlsTransport)
+	if !ok || t.ClientCertificate == nil {
+		return nil
+	}
+	var cert certificate.Certificate
+	if err := w.certs.NewRetrieve().
+		Where(certificate.MatchKeys(*t.ClientCertificate)).
+		Entry(&cert).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	var hasKey bool
+	switch v := cert.Variant.(type) {
+	case certificate.StoredCertificate:
+		hasKey = v.PrivateKey != nil
+	case certificate.FileCertificate:
+		hasKey = v.PrivateKeyFile != nil
+	}
+	if !hasKey {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"transport.client_certificate: certificate %q holds no private key",
+			cert.Base().Name,
 		)
 	}
 	return nil

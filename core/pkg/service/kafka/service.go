@@ -65,7 +65,7 @@ type ServiceConfig struct {
 	// Secret holds the password of each cluster.
 	// [REQUIRED]
 	Secret *secret.Service
-	// Certificate holds the CA certificate of each cluster.
+	// Certificate holds the TLS certificates of each cluster.
 	// [REQUIRED]
 	Certificate *certificate.Service
 	// Rack holds the racks that connect to clusters.

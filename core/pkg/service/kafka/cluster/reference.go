@@ -47,13 +47,20 @@ func passwordReference(secrets *secret.Service) gorp.Reference[Key, Cluster] {
 
 func certificateReference(certs *certificate.Service) gorp.Reference[Key, Cluster] {
 	return certificate.NewReference(certs, certificate.ReferenceConfig[Key, Cluster]{
-		Name: "transport.ca_certificate",
+		Name: "transport.certificates",
 		Targets: func(c *Cluster) []certificate.Key {
 			t, ok := c.Transport.Variant.(TlsTransport)
-			if !ok || t.CaCertificate == nil {
+			if !ok {
 				return nil
 			}
-			return []certificate.Key{*t.CaCertificate}
+			var keys []certificate.Key
+			if t.CaCertificate != nil {
+				keys = append(keys, *t.CaCertificate)
+			}
+			if t.ClientCertificate != nil {
+				keys = append(keys, *t.ClientCertificate)
+			}
+			return keys
 		},
 		Rack: clusterRack,
 	})

@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -27,16 +28,21 @@ type Writer struct {
 	tx       gorp.Tx
 	status   status.Writer
 	statuses *status.Service
+	certs    *certificate.Service
 	racks    *rack.Service
 	table    *gorp.Table[Key, Cluster]
 }
 
-// prepare validates c and refuses a rack that does not run Kafka.
+// prepare validates c and refuses a rack that does not run Kafka and a client
+// certificate with no private key.
 func (w Writer) prepare(ctx context.Context, c Cluster) error {
 	if err := validateFields(&c); err != nil {
 		return err
 	}
-	return w.checkRack(ctx, c)
+	if err := w.checkRack(ctx, c); err != nil {
+		return err
+	}
+	return w.checkClientCertificate(ctx, c)
 }
 
 func (w Writer) setStatus(ctx context.Context, c Cluster) error {
@@ -64,8 +70,8 @@ func (w Writer) setStatus(ctx context.Context, c Cluster) error {
 // Create stores c and writes an unknown status when it has none. An existing status
 // takes the name and rack of c. A cluster with a nil key gets a new one. It returns a
 // validation error when c is invalid, has no brokers, holds a duplicate broker or
-// read, or names a rack that does not run Kafka or a file certificate or secret of
-// another rack.
+// read, or names a rack that does not run Kafka, a client certificate with no private
+// key, or a file certificate or secret of another rack.
 func (w Writer) Create(ctx context.Context, c *Cluster) error {
 	if c.Key == uuid.Nil() {
 		c.Key = uuid.New()
