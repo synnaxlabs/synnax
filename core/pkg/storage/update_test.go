@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -79,6 +80,22 @@ var _ = Describe("Update", func() {
 		))
 		Expect(l.Update).To(BeNil())
 		Expect(l.Close()).To(Succeed())
+	})
+
+	It("Should name the Core that a failed update put the data back at in the refusal "+
+		"of a command", func(ctx SpecContext) {
+		l := startUpdate(ctx, dir, "0.60.0")
+		Expect(l.Close()).To(Succeed())
+		Expect(l.Update.Undo(ctx, errors.New("log 1 holds a bad frame"))).
+			To(beRefused())
+		Expect(storage.CheckOpenedLast(
+			alamos.Instrumentation{},
+			dir,
+			"0.60.0",
+			"the repair",
+		)).To(MatchError("The update to Core 0.60.0 failed, and the data is back at " +
+			"Core 0.59.0. Run the repair of Core 0.59.0 on the data, then start Core " +
+			"0.60.0."))
 	})
 
 	It("Should put the data back when the Core fails", func(ctx SpecContext) {

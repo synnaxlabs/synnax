@@ -90,8 +90,9 @@ func readHeldIdentity(cfg LayerConfig, fs vfs.FS) (id uint64, err error) {
 }
 
 // CheckOpenedLast refuses the data in dirname when a Core other than version vsn
-// opened it last, so that a command on the data starts no update. A dev build checks
-// nothing. command names the command, such as "the purge", in the refusal.
+// opened it last, so that a command on the data starts no update. After a failed
+// update to vsn, the refusal names the version that the data is back at. A dev build
+// checks nothing. command names the command, such as "the purge", in the refusal.
 func CheckOpenedLast(ins alamos.Instrumentation, dirname, vsn, command string) error {
 	if version.IsDev(vsn) {
 		return nil
@@ -104,7 +105,28 @@ func CheckOpenedLast(ins alamos.Instrumentation, dirname, vsn, command string) e
 	if err != nil {
 		return err
 	}
-	if state != UpdateCommitted {
+	switch state {
+	case UpdateCommitted:
+		return nil
+	case UpdateUndone:
+		back, err := backups.readVersion()
+		if err != nil {
+			return err
+		}
+		at := "Core " + back
+		if back == UnknownVersion {
+			at = "the Core before it"
+		}
+		return errors.Newf(
+			"The update to Core %s failed, and the data is back at %s. Run %s of %s on "+
+				"the data, then start Core %s.",
+			vsn,
+			at,
+			command,
+			at,
+			vsn,
+		)
+	case UpdateNotStarted, UpdatePending:
 		return errors.Newf(
 			"Core %s did not open the data last. Start Core %s on the data, stop it, "+
 				"and run %s again.",
@@ -113,5 +135,5 @@ func CheckOpenedLast(ins alamos.Instrumentation, dirname, vsn, command string) e
 			command,
 		)
 	}
-	return nil
+	return errors.Newf("unknown update state %d", state)
 }
