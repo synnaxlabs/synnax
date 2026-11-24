@@ -158,7 +158,7 @@ func (f passGateFS) Remove(name string) error {
 	if name != g.dir || !g.rmdir.armed.Load() {
 		return f.FS.Remove(name)
 	}
-	infos, err := f.FS.List(name)
+	infos, err := f.List(name)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (f passGateFS) Remove(name string) error {
 		}
 	}
 	g.rmdir.wait()
-	if infos, err = f.FS.List(name); err != nil {
+	if infos, err = f.List(name); err != nil {
 		return err
 	}
 	if len(infos) > 0 {
@@ -336,18 +336,26 @@ var _ = Describe("Drop during the check pass", func() {
 	})
 
 	It("Should not make the directory of a dropped key again when the check pass "+
-		"logs a check of it after the Drop", func(ctx SpecContext) {
-		g.openLog.armed.Store(true)
+		"syncs it after the Drop", func(ctx SpecContext) {
+		g.syncLog.armed.Store(true)
 		db, closeDB := open(ctx)
 		DeferCleanup(func() {
-			g.openLog.free()
+			g.syncLog.free()
 			Expect(closeDB()).To(Succeed())
 		})
-		Eventually(g.openLog.held).WithTimeout(10*time.Second).Should(
+		Eventually(g.syncLog.held).WithTimeout(10*time.Second).Should(
 			BeClosed(),
-			"the check pass begins the check log of a segment of i32",
+			"the check pass writes the check file of a segment of i32",
 		)
-		Expect(dropAround(ctx, db, g.openLog)).To(Succeed())
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{i32}) }()
+		var err error
+		Eventually(dropped).WithTimeout(10*time.Second).Should(
+			Receive(&err),
+			"the Drop does not wait for the sync of a check file",
+		)
+		Expect(err).To(Succeed())
+		g.syncLog.free()
 		Expect(closeDB()).To(Succeed())
 		Expect(disk.Exists(g.dir)).To(BeFalse())
 		Expect(warnings()).To(BeEmpty())
