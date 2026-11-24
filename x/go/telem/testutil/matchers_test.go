@@ -120,13 +120,11 @@ Clock:
 	Actual: 7`,
 			),
 		)
-		It("Should ignore the clock when excluded", func() {
+		It("Should ignore the clock of a written series", func() {
 			expected := telem.NewSeriesV[uint8](1, 2, 3)
 			actual := expected
 			actual.Clock = 7
-			Expect(actual).To(
-				telem.MatchSeries(expected, telem.ExcludeSeriesFields("Clock")),
-			)
+			Expect(actual).To(MatchWrittenSeries(expected))
 		})
 	})
 	Describe("MatchSeriesData", func() {
@@ -245,8 +243,8 @@ Clock:
 			s1 := telem.NewSeriesV[int64](1, 2, 3)
 			s2 := telem.NewSeriesV[int64](1, 2, 3)
 			s2.Clock = 9
-			Expect(s2).To(telem.MatchWrittenSeries(s1))
-			Expect(s2).To(telem.MatchSeriesData(s1))
+			Expect(s2).To(MatchWrittenSeries(s1))
+			Expect(s2).To(MatchSeriesData(s1))
 		})
 		It("Should still check DataType and Data", func() {
 			s1 := telem.NewSeriesV[int64](1, 2, 3)
@@ -262,7 +260,7 @@ Clock:
 			written := s
 			written.Clock = 9
 			Expect(telem.UnaryFrame[uint32](1, written)).To(
-				telem.MatchWrittenFrame(telem.UnaryFrame[uint32](1, s)),
+				MatchWrittenFrame(telem.UnaryFrame[uint32](1, s)),
 			)
 		})
 	})

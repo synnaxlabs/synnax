@@ -22,7 +22,7 @@
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::opcua::server {
 

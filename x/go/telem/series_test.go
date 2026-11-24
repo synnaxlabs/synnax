@@ -1478,7 +1478,7 @@ var _ = Describe("Series", func() {
 					MustSucceed(codec.Encode(s)),
 					&decoded,
 				)).To(Succeed())
-				Expect(decoded).To(telem.MatchSeries(s))
+				Expect(decoded).To(MatchSeries(s))
 			},
 			Entry("JSON", json.Codec),
 			Entry("msgpack", msgpack.Codec),
